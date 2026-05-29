@@ -1,0 +1,10 @@
+{
+  "name": "dreamy-workspace",
+  "private": true,
+  "scripts": {
+    "prototype:dev": "pnpm -C hhspec/prototype dev",
+    "prototype:build": "pnpm -C hhspec/prototype build",
+    "prototype:serve": "bash scripts/serve-static.sh",
+    "prototype:preview": "pnpm -C hhspec/prototype preview"
+  }
+}

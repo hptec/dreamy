@@ -1,0 +1,13 @@
+tech_stack:
+  frontend: pnpm-vue3-headless
+  backend:
+    - java-gradle
+  prototype: pnpm-vue3-headless
+
+mirrors:
+  npm: https://registry.npmmirror.com
+  maven: https://maven.aliyun.com/repository/public
+  gradle_plugins: https://maven.aliyun.com/repository/gradle-plugin
+
+initialized_at: 2026-05-28T20:04:00+08:00
+updated_at: 2026-05-28T20:04:00+08:00

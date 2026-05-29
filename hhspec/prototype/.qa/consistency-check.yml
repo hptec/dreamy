@@ -1,0 +1,45 @@
+# 原型一致性 / 质量自检报告 — Maison Eden
+checked_at: "2026-05-29"
+tech_stack: pnpm-vue3-headless
+design_style: ferrari
+
+build:
+  production_build: PASS        # pnpm build 成功，30 视图全部编译为独立 chunk，零错误
+  dev_server: RUNNING           # http://localhost:5173
+
+route_render_check:
+  total_routes: 22
+  clean: 22                     # Playwright 加载，无 console error / pageerror
+  note: 早期 home 的 vue-i18n "@maisoneden" 链接语法报错已修复（用 {'@'} 转义）
+
+i18n_currency:
+  language_switch: PASS         # 导航 EN→FR 实测：Wedding→Mariée / Bridesmaids→Demoiselles d'Honneur
+  locales: [en, es, fr, de]
+  currency_conversion: PASS     # PDP $689 → 634€ → £537 → C$930（固定汇率实时换算）
+  currencies: [USD, EUR, GBP, CAD, AUD]
+
+requirement_coverage:
+  must_have_features: covered   # feature-map Must Have 全部有页面承载
+  pdp_8_essentials: covered     # 画廊/色卡/尺码+定制/工期/双CTA/买家秀/关联推荐/配送 全覆盖
+  shopping_loop: covered        # 浏览→PDP→购物车→3步结算→订单确认 闭环打通
+  account_loop: covered         # 登录→Dashboard→订单/心愿单/地址/设置 闭环打通
+
+media_audit:
+  hero_images: FIXED            # 原宽幅 banner 含竞品烤印文字(含"AZAZIE")，已改为干净模特图派生
+  category_tiles: FIXED         # 原 tile 含 "SAVE 10%"/汽车/图标，已改为干净产品图 + CLEAN_TILES 子集
+  product_shots: clean          # 88 张竖版模特图，均为干净礼服上身图
+
+dom_audit:                       # 抽样 + 团队自审（Q1~Q8 pnpm 规则）
+  script_setup: PASS
+  routerlink_nav: PASS          # 全站 RouterLink/router.push，无原生 <a href> 跨页
+  vfor_keys: PASS               # :key 用稳定 id，未用 index
+  vmodel_forms: PASS
+  no_dom_api: PASS              # 无 document.querySelector（StyleGallery/Shipping 用 ref+IntersectionObserver）
+  tailwind_tokens: PASS         # ink-*/champagne-* 调色板，无任意值 hex
+  headless_ui: PASS             # Dialog/Menu/Listbox/Tab/Disclosure/Switch/RadioGroup 按需引入
+  responsive: PASS              # sm:/md:/lg: 断点
+
+known_limitations:
+  - 长文案正文（About/Atelier/FAQ 答案等）仅 EN；导航/按钮/产品/购物/账号等界面文案 4 语种齐全
+  - 支付/物流/搜索/库存均为前端 mock（按反目标，不接真实 SDK/API）
+  - .research/ 约 140MB（竞品原始 HTML+媒体），可按需精简

@@ -1,0 +1,279 @@
+# Maison Eden — prototype ⇄ code sync status
+tech_stack: pnpm-vue3-headless
+last_prototype_update: "2026-05-29T01:56:46+08:00"
+prototype_mode: standard
+design_style: ferrari
+portals: single
+i18n: { locales: [en, es, fr, de], currencies: [USD, EUR, GBP, CAD, AUD] }
+global_components: [AppHeader, AppFooter, MegaMenu, CartDrawer, SearchOverlay, QuickViewModal, RegionModal, NewsletterModal, CookieBanner, LiveChatBubble, ToastHost]  # carry F-001..F-010, F-091..F-096, F-101..F-104
+pages:
+  - name: Home
+    file: Home.vue
+    component: src/views/Home.vue
+    route: "/"
+    features: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008, F-009, F-010, F-011, F-012, F-013, F-014, F-015, F-016, F-017, F-018, F-019, F-020]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:0f85326ba57fbc7704565b797901e2e81d2fe9e3560b2b710c11661c613eb72b
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Wedding Dresses
+    file: WeddingDresses.vue
+    component: src/views/WeddingDresses.vue
+    route: "/wedding-dresses"
+    features: [F-021, F-028, F-029, F-030, F-031, F-032, F-033, F-034, F-035, F-038, F-099]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:54a3a2f1fa7a5b5b97e2cd66c659d7bb4bd033ebc0cf17e112a963d05c43c1a2
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Evening & Cocktail
+    file: EveningDresses.vue
+    component: src/views/EveningDresses.vue
+    route: "/evening-dresses"
+    features: [F-022, F-028, F-029, F-031, F-032, F-038]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:b29b21fa239adcbba28d47d3b3bc95626a40be92c2b8a138d9cd1eff1482fed5
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Bridesmaids
+    file: BridesmaidDresses.vue
+    component: src/views/BridesmaidDresses.vue
+    route: "/bridesmaid-dresses"
+    features: [F-023, F-028, F-029, F-031, F-032, F-038]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:2d86e4f27e100bf15fc3111f4b2d426e7f2bfbdd526ed7c8cf5b9a4b085385cf
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Special Occasions
+    file: SpecialOccasions.vue
+    component: src/views/SpecialOccasions.vue
+    route: "/special-occasions"
+    features: [F-024, F-025, F-026, F-029, F-031, F-032]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:0763ccec1ddc8f9c72e3afddf2a2e787a841521361b37e47c232fcf8d6290243
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Accessories
+    file: Accessories.vue
+    component: src/views/Accessories.vue
+    route: "/accessories"
+    features: [F-027, F-029, F-031, F-032]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:511ff0a5dfec427a8d5708d57dd13aee0195783e036acaa247e6ac2b2e10db02
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Search Results
+    file: SearchResults.vue
+    component: src/views/SearchResults.vue
+    route: "/search"
+    features: [F-036, F-037, F-098]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:998a4d272834b95f785c16182313bccd522ad5d120ab3025afb0324ebf0a69be
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Product Detail (PDP)
+    file: ProductDetail.vue
+    component: src/views/ProductDetail.vue
+    route: "/products/:slug"
+    features: [F-039, F-040, F-041, F-042, F-043, F-044, F-045, F-046, F-047, F-048, F-049, F-050, F-051, F-052, F-053, F-054, F-055, F-056, F-057, F-058]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:73b17d23d35d32546e9ad32bb57e7d5b8722f11a61e432cefedc8fc1643952f7
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Cart
+    file: Cart.vue
+    component: src/views/Cart.vue
+    route: "/cart"
+    features: [F-059, F-060, F-061, F-062, F-063, F-064]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:accc98425d6d09910b287b1baeb52ed5260f429621a5411d66fa8fb3b38b97a5
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Checkout · Address
+    file: CheckoutAddress.vue
+    component: src/views/CheckoutAddress.vue
+    route: "/checkout/address"
+    features: [F-065, F-068, F-070]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:7896ec58c8437254c3cdebc2807156c3b983944810220d7462c89183d6472416
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Checkout · Shipping & Payment
+    file: CheckoutPayment.vue
+    component: src/views/CheckoutPayment.vue
+    route: "/checkout/payment"
+    features: [F-066, F-068]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:7e90cc1c158db75058c989e39cfcbfaa9dc360e9433ae5497693b80be04190d2
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Checkout · Review
+    file: CheckoutReview.vue
+    component: src/views/CheckoutReview.vue
+    route: "/checkout/review"
+    features: [F-067, F-068]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:7fa88db801f96fce759d839540145d1a5e21a90591feec84a2e17821cfd4867f
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Order Confirmation
+    file: OrderConfirmation.vue
+    component: src/views/OrderConfirmation.vue
+    route: "/checkout/success"
+    features: [F-069]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:d0526d946e214b0a41dddd678e0bde1837e389510c262a921368a661164566d3
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Sign In / Sign Up
+    file: Auth.vue
+    component: src/views/Auth.vue
+    route: "/account/auth"
+    features: [F-071, F-072, F-073]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:4576cfb10f26a4190fb69dcf7db7acf4c0f3ffa37abce918bee298e9fb5addd1
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Account Dashboard
+    file: AccountDashboard.vue
+    component: src/views/AccountDashboard.vue
+    route: "/account"
+    features: [F-074]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:4ba3b8e374329f00a8ae3f1be062e22e7b4c60f7903c503527b4e65c695866c9
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Account · Profile
+    file: AccountProfile.vue
+    component: src/views/AccountProfile.vue
+    route: "/account/profile"
+    features: [F-075]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:2eb6cbdf7a61312fc3a56524f417967da3808f47e2206b5f64547e5fe57d51dd
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Account · Orders
+    file: AccountOrders.vue
+    component: src/views/AccountOrders.vue
+    route: "/account/orders"
+    features: [F-076]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:3e03623dada490f4fd3db788d7b5f686eed3d38c623a4b384d14308f52234b2f
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Order Detail
+    file: OrderDetail.vue
+    component: src/views/OrderDetail.vue
+    route: "/account/orders/:id"
+    features: [F-077]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:1d2f35401eff16e359e2a72827fd8a415d8d73ee752a0e37ef4e60c9858ddcc7
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Wishlist
+    file: Wishlist.vue
+    component: src/views/Wishlist.vue
+    route: "/account/wishlist"
+    features: [F-078, F-100]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:69830632d0b6b43b269248815390adcd970a243d157d10092c404481b6fd5de7
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Address Book
+    file: Addresses.vue
+    component: src/views/Addresses.vue
+    route: "/account/addresses"
+    features: [F-079]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:b15277f03f3c031b66aa7125e0a39ca80f5e80c2b0ea801af2a6d3a50f04056f
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Account · Settings
+    file: AccountSettings.vue
+    component: src/views/AccountSettings.vue
+    route: "/account/settings"
+    features: [F-080, F-081, F-082]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:f840bacf7cd696ca9eff881cb82ebb4fc85e1b0b5340c782a88a0d269e5456c7
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: About / Our Story
+    file: About.vue
+    component: src/views/About.vue
+    route: "/about"
+    features: [F-083]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:09bc2b62a21186bb37becf957b510d49a3eb87e63df9393603f8551f7667f11b
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: The Atelier
+    file: Atelier.vue
+    component: src/views/Atelier.vue
+    route: "/atelier"
+    features: [F-084]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:4dfe5a8bc4c9df0da9c944f8ee897d5fcba253a370bf98c191ce8b76bb2e1713
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Size Guide
+    file: SizeGuide.vue
+    component: src/views/SizeGuide.vue
+    route: "/size-guide"
+    features: [F-085]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:295e7a0e64d48756d632c2aa96e35c1af09bf7fde7dc4bb00e9996d0a4f46c4f
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Shipping & Returns
+    file: ShippingReturns.vue
+    component: src/views/ShippingReturns.vue
+    route: "/shipping-returns"
+    features: [F-086]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:8d04c788da592b74689168b25012162c7acd7fa197f5d1def479c0bc0e35c2db
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: FAQ
+    file: Faq.vue
+    component: src/views/Faq.vue
+    route: "/faq"
+    features: [F-087]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:e3793762d4530dd0c8652fae777a86d32d012ed085cd88de5c8ebab381002d77
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Contact Us
+    file: Contact.vue
+    component: src/views/Contact.vue
+    route: "/contact"
+    features: [F-088]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:1b0d11defe7118e1af4f32c9c75a09ab1fafd7b3bc8f4f16de96897e8cbc7530
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Style Gallery (IRL)
+    file: StyleGallery.vue
+    component: src/views/StyleGallery.vue
+    route: "/style-gallery"
+    features: [F-089]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:49a9e24e6a40abf6cb72ebb0d9123eeb1dbd40d78684bbdc552fdf48c0e7beee
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: Lookbook
+    file: Lookbook.vue
+    component: src/views/Lookbook.vue
+    route: "/lookbook/:slug"
+    features: [F-090]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:244b6ad1e1c620d154d74d054c225e90fcf89fe08ccb7f28f6d428f2034d21f6
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
+  - name: 404 Not Found
+    file: NotFound.vue
+    component: src/views/NotFound.vue
+    route: "/:catchall"
+    features: [F-097]
+    code_files: []
+    drift: prototype_ahead
+    content_hash: sha256:886a064c4ec5b765cd99b14e75b045828f62e9bf413a36a53781f2b22ee9dc69
+    hash_updated_at: "2026-05-29T01:56:46+08:00"
