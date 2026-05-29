@@ -1,86 +1,99 @@
-# Maison Eden — 产品原型
+# Dreamy — 婚纱礼服跨境外贸电商原型
 
-> 面向美国市场的高端婚纱 + 小礼服外贸 DTC 站。基于对 JJ's House 与 Azazie 的深度竞品分析构建，吸收两家之长，视觉对标并上探至高定时装屋水准。
+面向美国 + 全球的高端婚纱、小礼服、配饰跨境电商网站原型。调性高端大气、明亮明媚，主打户外婚礼场景。
 
 ## 概述
 
-Maison Eden 是一个完整的、可直接运行的高保真电商原型：定制 + 现货结合的经营模式，覆盖婚纱、晚礼/鸡尾酒小礼服、伴娘服、妈妈装、宾客礼服、花童与配饰，支持 **4 语言（EN/ES/FR/DE）× 5 币种（USD/EUR/GBP/CAD/AUD）实际切换**，含从浏览、商品详情、购物车、多步结算到账号中心的完整购物闭环。
+单门户消费者商城（高保真可交互原型）。基于 birdygrey / davidsbridal / kissprom 三个竞品的深度结构分析与真实商品媒体素材构建。
+
+> 注：原计划含平台管理后台，已按用户要求移除，本次仅消费者前台。
 
 ## 预览
 
-**开发模式**（热更新，干净 URL）：
-
-1. `./scripts/prototype.sh`（推荐，一键启动，自动装依赖）
-2. `pnpm run prototype:dev`
-3. `cd hhspec/prototype && pnpm dev`
-
-访问：**http://localhost:5173**（修改 `.vue` 自动热更新）
-
-**静态发布版**（编译为单文件，可双击打开）：
-
 ```bash
-pnpm run prototype:build      # 产物输出到 hhspec/prototype/dist/
+# 一键启动（推荐）
+./scripts/prototype.sh
+
+# 或从项目根
+pnpm run prototype:dev
+
+# 或手动
+cd hhspec/prototype && pnpm dev
 ```
 
-产出 `dist/index.html`（JS+CSS+字体全内联，约 2.6MB）+ `dist/img/`（媒体）。
-**直接双击 `dist/index.html` 即可在浏览器打开**（采用 hash 路由 + 单文件内联，无需任何服务器）。也可部署到任意静态托管（Vercel / Netlify / GitHub Pages / nginx / 对象存储）。
+访问：**http://localhost:5173**
+
+修改任意 `.tsx` 文件后浏览器自动热更新。
 
 ## 技术栈
 
-- **原型实现**：pnpm + Vue 3 + Vite + Tailwind CSS + Headless UI + Pinia + vue-i18n + vue-router
-- **设计风格**：Ferrari 编辑式（黑白明暗对比 · 极致留白 · 2px 锐利圆角 · 香槟金克制点缀）
-- **字体**：Cormorant Garamond（高定衬线）+ Inter（功能无衬线），经 npmmirror 自托管
-- **目标生产框架**：pnpm-vue3-headless（与 `hhspec/project.yml` 一致），组件可直接迁移为生产代码
-- **数据**：前端 mock（`src/data/catalog.js`），34 件礼服 + 8 件配饰，含评价/问答/系列
-- **媒体**：128 张竞品参考素材（`public/img/`，仅原型参考用）
+- **框架**：Next.js 15（App Router，SSR/SSG，对 SEO 友好）
+- **语言**：TypeScript
+- **样式**：Tailwind CSS + shadcn 风格组件（lucide-react 图标）
+- **状态**：React Context + localStorage（购物车 / 收藏 / 币种 / 浏览历史）
+- **字体**：Cormorant Garamond（衬线标题）+ Jost（无衬线正文），经 Google Fonts CDN 加载
+- **UI 风格**：editorial-luxe-coastal（暖米白 + 沙金 + 鼠尾草绿 + 玫瑰金 + 大留白）
 
-## 功能范围（feature-map 共 104 项 F-编号）
+## 功能范围（26 个页面）
 
-### Must Have（核心，已全部实现）
-- 全局框架：sticky 头部 + mega menu + 全屏搜索 + 币种/语言切换 + Mini Cart 抽屉 + 多列页脚
-- 首页：全屏摄影 Hero + 精选系列 + 品类宫格 + 工艺价值 + 配色系统 + 买家秀 + Atelier 故事
-- 列表页：多维筛选（颜色/面料/轮廓/领型/价格/现货）+ 排序 + 筛选 chip + 商品卡颜色切换 + Quick View + 加载更多
-- PDP：多图画廊 + 灯箱 + 颜色色卡 + 长度/尺码 + 量体定制弹层 + 尺码指南 + 定制工期(标准/加急/急速) + 双 CTA + 评价(评分分布·按尺码筛选·买家图·商家回复) + 问答 + Often Bought With + You May Also Like + Recently Viewed
-- 购物车 + 促销码 + 运费估算；3 步结算（地址→配送支付→复核）+ 订单确认
-- 账号：登录/注册 + Dashboard + 资料 + 订单列表 + 订单详情(物流时间线) + 心愿单 + 地址簿 + 设置
-- 内容：品牌故事 / Atelier 工艺 / 尺码指南 / 配送退换 / FAQ / 联系 / 真实买家墙 / Lookbook
-- 国际化：语言切换（含 URL 行为）+ 币种按固定汇率实时换算 + 区域引导弹层
-- 状态/辅助：404 / 空状态 / 邮件弹层 / Cookie 条 / Toast / 客服悬浮入口
+### 商品浏览
+- 首页（编辑式 Hero / Shop by Color 调色板 / 户外主题 / 推荐位 / Lookbook / Real Weddings / 价值主张）
+- 婚纱 / 小礼服 / 配饰 三大品类列表（多维 Filter + 排序 + Quick View + 子类 Tab）
+- Outdoor Weddings 主题页（Beach/Garden/Boho/Forest/Vineyard 子主题）
+- 搜索结果页（实时搜索 + 空状态）
 
-## 页面清单（30 个独立视图）
+### 商品详情（PDP，3 个示例：婚纱 / 伴娘 / 面纱）
+- 多角度图廊 + Hover Zoom + 走秀视频占位 + Lifestyle 场景图
+- 色板切换 + 尺码选择（US/UK/AU 尺码表）+ 数量
+- Add to Bag / Wishlist / Order Swatch / AR（占位）
+- 信任承诺条 + 描述手风琴 + Complete the Look + Reviews + Q&A + 相关推荐
 
-| 区 | 视图 | 路由 |
-|---|---|---|
-| 浏览 | Home | `/` |
-| 浏览 | WeddingDresses / EveningDresses / BridesmaidDresses / SpecialOccasions / Accessories | `/wedding-dresses` 等 |
-| 浏览 | SearchResults | `/search` |
-| 详情 | ProductDetail | `/products/:slug` |
-| 购物 | Cart / CheckoutAddress / CheckoutPayment / CheckoutReview / OrderConfirmation | `/cart`、`/checkout/*` |
-| 账号 | Auth / Dashboard / Profile / Orders / OrderDetail / Wishlist / Addresses / Settings | `/account/*` |
-| 内容 | About / Atelier / SizeGuide / ShippingReturns / Faq / Contact / StyleGallery / Lookbook | `/about` 等 |
-| 状态 | NotFound | `/:catchall` |
+### 交易
+- Cart Drawer（加购抽屉）+ 购物车页（改数量 / 优惠码 / 摘要）
+- 4 步结算（地址 → 物流 → 支付 → 复核）+ 6 种支付（Stripe/PayPal/Apple/Google Pay/Klarna/Afterpay）
+- 多币种切换（USD/CAD/AUD/GBP）+ 多语言切换器（EN/ES）
+- 下单成功页
 
-## 竞品分析
+### 账户中心
+- 登录 / 注册、Dashboard、订单列表、订单详情（物流时间轴）
+- 地址簿、Wishlist + Recently Viewed、设置（资料/改密/我的评价/邮件偏好）
 
-完整竞品分析见 [.research/competitor-analysis.md](.research/competitor-analysis.md)，原始抓取数据（结构 JSON / 截图 / 媒体）在 `.research/{azazie,jjshouse}/`。
+### 内容栏目
+- Wedding Inspiration 灵感馆、Real Weddings（列表 + 详情 Shop the Look）
+- Blog（列表 + 详情）、Wedding Planning Guides（筹备时间轴）
 
-## 设计决策
+### 全局
+- Newsletter 首访弹窗、Cookie Notice、Mega Menu 导航、搜索抽屉、页脚订阅
 
-| 决策 | 选择 | 理由 |
-|------|------|------|
-| 视觉风格 | Ferrari 黑白编辑 + 香槟金 | 对标高定时装屋，原 Ferrari 赛车红替换为契合婚纱的香槟金 |
-| 经营模式 | 定制 + 现货结合 | 高定心智 + 缓解定制等待焦虑 |
-| 价格带 | US$99–2000+ 宽带 | 覆盖配饰到高级婚纱多层级客群 |
-| 国际化 | 4 语言 5 币种实际切换 | 外贸站核心，币种按固定汇率真实换算 |
-| 品牌名 | Maison Eden | 法式高定 + 伊甸园浪漫意象 |
+## 目录结构
+
+```
+hhspec/prototype/
+├── app/                    # Next.js App Router 页面
+│   ├── (各路由)/page.tsx
+│   ├── layout.tsx          # 根布局（Header/Footer/弹窗/状态）
+│   ├── globals.css         # 全局样式与设计 token
+│   └── not-found.tsx       # 404
+├── components/             # 共享组件（layout/product/cart/marketing/account/ui）
+├── data/                   # 商品/内容/导航/账户 mock 数据（引用真实竞品图）
+├── lib/utils.ts            # 工具（cn / 价格换算 / 分期）
+├── public/competitor-refs/ # 52 张真实竞品商品图（内部 demo 用途）
+├── tailwind.config.ts      # 设计系统配置
+├── feature-map*.md         # 功能地图
+├── requirements-brief.md   # 需求摘要
+├── sync-status.yml         # 双向同步状态
+└── .qa/                    # 视觉验证截图 + 一致性报告
+```
+
+## 质量验证
+
+- ✅ `pnpm build` 成功，0 TypeScript 错误，28 路由编译（含 16 PDP / 3 blog / 3 real-wedding / 3 order SSG 预渲染）
+- ✅ Playwright 全站验证：29 页 × 桌面/移动双视口，0 JS 错误，0 图片 404
+- ✅ 设计一致性：统一字体 / 配色 token / 共享组件，lucide SVG 图标（无 emoji）
+- 视觉验证截图见 `.qa/`
 
 ## 下一步
 
-- 继续细化原型 → 再次运行 `/pd:prototype`
-- 转为需求文档 → 运行 `/pd:explore`
-- 查看功能详情 → 阅读 [feature-map.md](feature-map.md)
-- 替换媒体素材 → 将 `public/img/` 占位图替换为自有拍摄/已授权素材（上线前必做，见下方版权提示）
-
-## ⚠️ 版权提示
-
-`public/img/` 与 `.research/` 中的图片为竞品站抓取的参考素材，**仅适用于内部原型演示**。正式上线前必须替换为自有拍摄或已获授权的素材。
+- 继续迭代原型 → 再次运行 `/pd:prototype`
+- 接入真实后端 API → 替换 `data/` 下的 mock 数据
+- 商品图替换 → `public/competitor-refs/` 当前为竞品 demo 图，正式上线需替换为自有版权素材

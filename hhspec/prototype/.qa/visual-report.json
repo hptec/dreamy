@@ -1,0 +1,434 @@
+[
+  {
+    "url": "/404.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "404.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/about.html",
+    "title": "About Dreamy · Dreamy",
+    "screenshot": "about.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/accessories.html",
+    "title": "Bridal Accessories · Dreamy",
+    "screenshot": "accessories.png",
+    "links": 19,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/addresses.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_addresses.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/login.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_login.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/orders/1001.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_orders_1001.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/orders/1002.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_orders_1002.png",
+    "links": 19,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/orders/1003.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_orders_1003.png",
+    "links": 19,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/orders.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_orders.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/settings.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_settings.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account/wishlist.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "account_wishlist.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/account.html",
+    "title": "My Account · Dreamy",
+    "screenshot": "account.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/blog/bridesmaid-color-palettes.html",
+    "title": "8 Outdoor Bridesmaid Color Palettes for 2026 · Dreamy",
+    "screenshot": "blog_bridesmaid-color-palettes.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/blog/fabric-guide.html",
+    "title": "A Bride’s Guide to Wedding Dress Fabrics · Dreamy",
+    "screenshot": "blog_fabric-guide.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/blog/outdoor-wedding-guide.html",
+    "title": "How to Choose the Perfect Outdoor Wedding Dress · Dreamy",
+    "screenshot": "blog_outdoor-wedding-guide.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/blog.html",
+    "title": "Wedding Blog · Dreamy",
+    "screenshot": "blog.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/cart.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "cart.png",
+    "links": 19,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/checkout.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "checkout.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/contact.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "contact.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/faq.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "faq.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/index.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "index.png",
+    "links": 23,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/inspiration.html",
+    "title": "Wedding Inspiration & Lookbook · Dreamy",
+    "screenshot": "inspiration.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/order-success.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "order-success.png",
+    "links": 19,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/outdoor-weddings.html",
+    "title": "Outdoor Weddings · Dreamy",
+    "screenshot": "outdoor-weddings.png",
+    "links": 26,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/aria-prom-dress.html",
+    "title": "Aria One-Shoulder Prom Gown · Dreamy",
+    "screenshot": "product_aria-prom-dress.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/aurelia-gown.html",
+    "title": "Aurelia A-Line Tulle Gown · Dreamy",
+    "screenshot": "product_aurelia-gown.png",
+    "links": 22,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/bloom-cocktail-dress.html",
+    "title": "Bloom Floral Cocktail Dress · Dreamy",
+    "screenshot": "product_bloom-cocktail-dress.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/cathedral-veil.html",
+    "title": "Aurelle Cathedral Veil · Dreamy",
+    "screenshot": "product_cathedral-veil.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/celeste-lace-gown.html",
+    "title": "Celeste V-Neck Lace Gown · Dreamy",
+    "screenshot": "product_celeste-lace-gown.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/coraline-beach-gown.html",
+    "title": "Coraline Short Beach Gown · Dreamy",
+    "screenshot": "product_coraline-beach-gown.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/drop-earrings.html",
+    "title": "Estelle Crystal Drop Earrings · Dreamy",
+    "screenshot": "product_drop-earrings.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/hair-vine.html",
+    "title": "Fleur Gold Hair Vine · Dreamy",
+    "screenshot": "product_hair-vine.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/juliet-lace-gown.html",
+    "title": "Juliet Lace Evening Gown · Dreamy",
+    "screenshot": "product_juliet-lace-gown.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/luna-homecoming-dress.html",
+    "title": "Luna Sequin Homecoming Dress · Dreamy",
+    "screenshot": "product_luna-homecoming-dress.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/marina-mermaid-gown.html",
+    "title": "Marina Mermaid Chiffon Gown · Dreamy",
+    "screenshot": "product_marina-mermaid-gown.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/meadow-bridesmaid.html",
+    "title": "Meadow Sage Bridesmaid Dress · Dreamy",
+    "screenshot": "product_meadow-bridesmaid.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/pearl-heels.html",
+    "title": "Margaux Pearl Block Heels · Dreamy",
+    "screenshot": "product_pearl-heels.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/petal-bridesmaid.html",
+    "title": "Petal Coral Bridesmaid Dress · Dreamy",
+    "screenshot": "product_petal-bridesmaid.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/seabreeze-bridesmaid.html",
+    "title": "Seabreeze One-Shoulder Bridesmaid Dress · Dreamy",
+    "screenshot": "product_seabreeze-bridesmaid.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/product/willow-longsleeve-gown.html",
+    "title": "Willow Long-Sleeve Chiffon Gown · Dreamy",
+    "screenshot": "product_willow-longsleeve-gown.png",
+    "links": 21,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/real-weddings/coastal-emma-james.html",
+    "title": "Emma & James · Real Wedding · Dreamy",
+    "screenshot": "real-weddings_coastal-emma-james.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/real-weddings/forest-ava-noah.html",
+    "title": "Ava & Noah · Real Wedding · Dreamy",
+    "screenshot": "real-weddings_forest-ava-noah.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/real-weddings/garden-sofia-marco.html",
+    "title": "Sofia & Marco · Real Wedding · Dreamy",
+    "screenshot": "real-weddings_garden-sofia-marco.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/real-weddings.html",
+    "title": "Real Weddings · Dreamy",
+    "screenshot": "real-weddings.png",
+    "links": 18,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/search.html",
+    "title": "Dreamy — Outdoor Wedding Atelier",
+    "screenshot": "search.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/special-occasion.html",
+    "title": "Special Occasion Dresses · Dreamy",
+    "screenshot": "special-occasion.png",
+    "links": 22,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/wedding-dresses.html",
+    "title": "Wedding Dresses · Dreamy",
+    "screenshot": "wedding-dresses.png",
+    "links": 20,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  },
+  {
+    "url": "/wedding-guides.html",
+    "title": "Wedding Planning Guides · Dreamy",
+    "screenshot": "wedding-guides.png",
+    "links": 15,
+    "broken": [],
+    "status": "OK",
+    "error": ""
+  }
+]

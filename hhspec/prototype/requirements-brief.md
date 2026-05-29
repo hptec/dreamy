@@ -1,82 +1,139 @@
-# 需求探索摘要 — Maison Eden
+# 需求摘要 — Dreamy（婚纱礼服跨境外贸电商）
 
-> 经 Socratic 提问澄清后的需求理解。后续 feature-map 与页面生成均基于此。
-> 探索日期：2026-05-29
+> 本文档汇总 Step 3 需求探索的全部澄清结果，作为下游 feature-map / 页面规划 / 原型生成的输入依据。
+> 创建日期：2026-05-29
 
----
+## 产品定位
 
-## 一句话定位
-
-**Maison Eden** — 面向美国市场的**高端婚纱与小礼服外贸 DTC 品牌**，以"定制 + 现货结合"模式提供从婚纱、伴娘、晚礼、宾客礼服到妈妈装与配饰的完整礼服购物体验，对标并意在超越 Azazie 的视觉与体验高度。
+面向美国 + 全球（CAD/AUD/GBP 覆盖）的高端婚纱、礼服、配饰跨境外贸电商站。
+调性高端大气、明亮明媚（highlight），强调户外婚礼场景（草坪 / 海滩 / 森林 / 庄园 / 葡萄园），目标客户 25-35 岁中高购买力准新娘群体。
 
 ## 目标用户
 
-- **主用户**：美国 25–45 岁、计划结婚或参加正式场合的女性
-- **核心场景**：选购婚纱、伴娘团统一搭配、晚宴/鸡尾酒会礼服、婚礼亲属着装
-- **次用户**：新娘伴娘团群体（混搭伴娘服）、伴娘的妈妈、花童家长
-- **价格敏感度**：中到高，愿意为定制工艺和高质感支付 US$200–2000+
+| 优先级 | 角色 | 核心场景 |
+|--------|------|---------|
+| P0 | 美国准新娘 | 户外婚礼挑选婚纱；同步购买配饰 |
+| P1 | 伴娘 / 母亲 / 花童 | 与新娘联动购买配套礼服 |
+| P1 | Prom / 晚宴客户 | 毕业舞会、晚宴、鸡尾酒会场景的礼服 |
+| P2 | 全球客户（CA/AU/UK） | 多币种 + 全球物流支持 |
 
-## 核心模块
+## 竞品参考
 
-1. **商品浏览与发现**：高端摄影驱动的首页 + 多维筛选（轮廓/颜色/面料/长度/袖型/场合/价格）+ 商品列表
-2. **商品详情与决策**：多角度大图画廊 + 颜色色卡切换 + 标准码+量体定制 + 工期（标准/加急）+ 双 CTA（加购+立即购）+ 买家秀评价 + 关联推荐
-3. **购物闭环**：购物车 + 多步结算（地址/配送/支付）+ 订单确认 + 订单追踪
-4. **账号与个性化**：注册登录 + 账号中心 + 我的订单 + 心愿单 + 收货地址
-5. **品牌内容**：品牌故事 / 工艺定制说明 / 尺码指南 / 配送退换政策 / FAQ / 联系
-6. **国际化能力**：4 语言（EN/ES/FR/DE）+ 5 币种（USD/EUR/GBP/CAD/AUD）实际切换
+| 竞品 | 借鉴侧重 |
+|------|---------|
+| birdygrey.com | 伴娘色板 Color Palette、Try-at-Home、订阅式品牌叙事、明亮淡雅调性 |
+| davidsbridal.com | 完整电商功能矩阵、多用户角色、综合 SKU 管理、CMS Lookbook 与 Real Weddings |
+| kissprom.com | 礼服 Filter 维度、移动端体验、SKU 视觉表达密度 |
+
+**竞品资源使用方式**：抓取三家网站的商品图、Lookbook、文案、Filter 字段作内部 demo 用途（不公开 / 不商用 / 仅原型演示）。本地存放路径：`hhspec/prototype/assets/competitor-refs/{birdygrey, davidsbridal, kissprom}/`。
+
+## 门户架构
+
+双门户，互不链接、安全隔离：
+
+| 门户 ID | 用途 | 目标用户 |
+|---------|------|---------|
+| `portal-store` | 消费者商城 | 准新娘 / 伴娘 / 晚宴客户 / 全球 C 端 |
+| `portal-admin` | 平台运营管理后台 | 商品 / 订单 / 用户 / 营销 / 数据 / CMS / 物流 / 退款运营 |
+
+## 核心功能（Must Have）
+
+### portal-store 消费者商城
+
+1. **商品域**
+   - 三大品类：Wedding Dresses（婚纱）/ Special Occasion Dresses（小礼服：伴娘 / 母亲 / 晚礼 / Prom / 鸡尾酒会）/ Accessories（配饰：鞋 / 头饰 / 面纱 / 首饰）
+   - Outdoor Weddings 独立主题页，含子主题：Beach、Garden、Boho、Forest、Vineyard
+2. **商品详情页（PDP）**
+   - 多角度静态图 + Hover Zoom 放大
+   - Lifestyle 户外场景图
+   - 模特走秀 / Walking 视频
+   - 尺码表（含 US/UK/AU 三套尺码对照）
+   - SKU 颜色 / 面料 swatch 切换
+   - Color Palette 模块（婚纱页推荐对应伴娘色）
+3. **完整跨境电商交易**
+   - Cart Drawer + 全屏购物车页 + 多步结算（地址 → 物流 → 支付 → 确认）
+   - 支付方式：Stripe Credit Card、PayPal、Apple Pay、Google Pay、Klarna / Afterpay 分期付款
+   - 多币种切换器：USD / CAD / AUD / GBP
+   - 多语言切换器：EN / ES（仅切换器结构与英文内容，ES 文本占位）
+   - 全球物流：FedEx / UPS / DHL Express 国际选项
+4. **账户中心（My Account）**
+   - 订单列表 + 订单详情 + Order Tracking 物流跟踪
+   - 收货地址簿
+   - Wishlist
+   - Recently Viewed 浏览历史
+   - My Reviews
+   - 账户设置 / 修改密码
+5. **转化辅助**
+   - 商品评价 Reviews + Q&A
+   - Wishlist 加入与同步
+   - Recently Viewed
+   - Related Products 相关推荐
+   - Outfit Builder 搭配推荐（婚纱+配饰）
+   - Lookbook 主题画册
+   - Real Wedding Gallery 真实婚礼故事
+   - Bridesmaid Color Palette 伴娘色板
+   - Wedding Vibes 主题选择（户外婚礼引导）
+6. **内容栏目（CMS）**
+   - Wedding Inspiration 灵感馆
+   - Real Weddings 真实婚礼
+   - Blog 婚礼策划文章
+   - Wedding Planning Guides 婚礼准备流程指南（按筹备时间轴）
+7. **营销触达**
+   - 首次访问 Newsletter 弹窗
+   - Exit Intent 退出意图弹窗
+   - Add to Cart Drawer
+   - 页脚 Newsletter 订阅
+   - Cookie Notice
+
+### portal-admin 平台管理后台
+
+8. **PIM 商品管理**：商品列表 / 商品编辑（基础信息 / 媒体 / SKU 矩阵 / 尺码表 / 价格 / 库存 / SEO）/ 品类与主题管理
+9. **OMS 订单管理**：订单列表 / 订单详情 / 发货操作 / 退款审批
+10. **用户管理**：用户列表 / 用户详情 / 角色权限
+11. **营销活动**：优惠券 / 促销规则 / Flash Sale / 首页 Banner 配置 / 邮件营销列表
+12. **数据看板**：销售 GMV / 流量来源 / 转化漏斗 / 商品热度 / 用户画像
+13. **CMS 内容编辑**：Blog / Lookbook / Real Wedding / Wedding Guide / Landing Page
+14. **物流配置**：承运方 / 邮费表 / 国际运送规则
+15. **退款管理**：退款工单 / 处理日志
+16. **系统**：管理员账号 / 角色权限 / 操作日志
 
 ## 优先级
 
-- **第一优先级**：婚纱（Wedding）+ 小礼服（Evening/Cocktail）两条主线，含完整 PDP 与购物闭环
-- **第二优先级**：伴娘服（Bridesmaid）+ 配饰（Accessories）品类延伸
-- **第三优先级**：妈妈装、宾客礼服、花童作为分类入口（页面可与主品类共用模板）
-
-## 经营模式
-
-**定制 + 现货结合**：
-- 主推 Made-to-Order 定制（量体尺寸 + 标准 3-4 周或 Rush 加急 4-8 天）→ 体现高定心智
-- 部分爆款标注 **Ready-to-Ship** 现货标签 → 即下即发，缓解定制等待焦虑
-- PDP 同时展示两种交付模式选项
-
-## 价格定位
-
-**宽价格带 US$200–2000+**，多层级覆盖：
-- 入门 US$200–500（小礼服、配饰、宾客礼服）
-- 主力 US$500–1200（婚纱、晚礼）
-- 高定 US$1200–2000+（高级婚纱、特殊面料）
+- **第一优先级（必须本次完成）**：消费端完整购物链路 + Outdoor Weddings 主题入口 + 后台 PIM / OMS / 用户 / 营销 / 数据 / CMS 模块
+- **第二优先级**：账户中心完整模块、CMS Blog 与 Guides、后台物流 / 退款 / 系统
+- **第三优先级**：弹窗 / Drawer / 邮件订阅等营销触达组件
 
 ## 设计参考
 
-- **视觉风格**：Ferrari 风格 — 黑白编辑、极致留白、明暗对比、法拉利红/品牌强调色克制点缀、Helvetica/Inter 等无衬线粗体 + 衬线标题
-- **气质参照**：Vera Wang、Monique Lhuillier 等高端婚纱品牌官网；摄影驱动、克制动效
-- **竞品功能参考**：JJ's House（评价/问答/多国）+ Azazie（多色 swatch/工期/IRL 买家墙/家试穿心智）
+- 调性：高端大气 + 明亮明媚 highlight + 户外婚礼自然光
+- 视觉风格候选：Modern Editorial（杂志感 + 大图 + 细衬线 + 米白底）/ Coastal Boho（自然手感 + 米白原木 + 柔和金光） — 具体在 Step 6.1 选定
+- 色板倾向：浅米白 / 沙金 / 浅鼠尾草绿 / 玫瑰金 / 大留白
+- 排版倾向：编辑级杂志风 + 大图 Hero + 留白 + 衬线主标题 + 无衬线正文
 
-## 不包含（明确反目标）
+## 明确不包含（反目标）
 
-- ❌ 真实支付集成（Stripe/PayPal 仅做 UI 与流程演示，不接 SDK）
-- ❌ 真实物流追踪 API（订单追踪页用静态时间线展示）
-- ❌ 真实搜索引擎（用前端 mock 数据筛选）
-- ❌ Home Try-On 家试穿物流闭环（仅作内容/营销页提及）
-- ❌ Live Chat 在线客服（仅做悬浮入口占位，不做对话窗口）
-- ❌ 后台/管理端 / 卖家工具
-- ❌ 邮件/短信/营销自动化（仅有订阅入口表单）
+| 反目标 | 原因 |
+|--------|------|
+| 社交登录（Facebook / Google / Apple） | 本次仅做邮箱 + 密码注册登录，简化原型 |
+| 礼品卡 Gift Card | 边缘功能，与婚纱主流程关联弱 |
+| Wedding Registry 婚礼礼物注册表 | 美国本地化深度太重，本次不纳入 |
+| AR 虚拟试穿（交互） | 媒体资源不具备，仅保留入口开关 |
+| 推荐返利 Referral / Affiliate | 营销高阶功能，下一迭代 |
+| 直播购物 Live Shopping | 复杂度高，本次不纳入 |
+| Bridesmaid Group 团组邀请 | 高级账户功能，本次不纳入 |
+| Loyalty 会员积分体系 | 复杂度高，下一迭代 |
+| 试穿 / 退换货独立模块 | 用户明确暂不做 |
+| Live Chat 实时聊天 | 本次仅做营销弹窗与 Newsletter |
 
-## 门户划分
+## 规模与生成策略
 
-**单门户**：消费者端 C 端站点
+- 总页面数估测：**消费端 ≈ 25-28 页 + 后台 ≈ 12-15 页 = 总计 ≈ 37-43 页**
+- 用户决策：**一次性生成全部页面**，质量与完整性优先于交付速度
+- 实现策略：分批生成，每批 4-6 页，逐批通过 DOM 审计后写入 sync-status.yml；门户间 pnpm workspace 并行存放
 
-## 待定事项（功能扩展阶段细化）
+## 待定事项
 
-- 评价模块是否含图文上传 UI（仅展示 vs 含上传表单）
-- 多步结算具体步骤数（建议 3 步：Address → Shipping/Payment → Review）
-- 心愿单是否支持分享链接（社交分享心愿单）
-- 是否做"配色配对工具"（伴娘服多色搭配，Azazie 特色）
-
-## 页面规模
-
-**完整 18–22 页**，含主购物闭环 + 内容/品牌页 + 状态页。
-
-## 技术栈
-
-- 原型：pnpm + Vue 3 + Vite + Tailwind CSS + Headless UI（来自 `hhspec/project.yml`）
-- 镜像源：npmmirror（来自 `hhspec/project.yml`）
+- 设计风格 ID 在 Step 6.1 选定（带 SAFE/RISK 标注）
+- 商品 demo 数据量：每品类 12-20 个 SKU
+- 部分页面流转细节在 Step 5 确认
+- 后台用户角色权限矩阵（在 Step 4 feature-map 生成时细化）

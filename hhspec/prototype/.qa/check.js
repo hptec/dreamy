@@ -1,0 +1,11 @@
+const { chromium } = require('playwright')
+;(async () => {
+  const b = await chromium.launch()
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } })
+  const pg = await ctx.newPage()
+  await pg.goto('http://localhost:5173/real-weddings', { waitUntil: 'networkidle', timeout: 20000 })
+  await pg.waitForTimeout(600)
+  await pg.screenshot({ path: '.qa/rw-check.png' })
+  await b.close()
+  console.log('done')
+})()
