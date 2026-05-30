@@ -1,7 +1,19 @@
 # Feature Map — portal-admin 运营管理后台
 
 > Dreamy 平台后台完整功能表。门户 ID：`portal-admin` | 端口：5174
-> 与 portal-store 完全隔离，独立鉴权（RBAC）。来源：requirements-brief.md
+> 技术栈：**pnpm + Vue3 + Vite + Tailwind + Headless UI**（与前台 Next.js 有意割裂，设计 token 同源）
+> 与 portal-store 完全隔离，独立鉴权（RBAC）。来源：requirements-brief.md + mall-admin 参考
+>
+> **定位**：传统电商后台（mall-admin 参考）+ 全站内容可配置（CMS）+ 静态站点发布器（SSG）三合一。
+> 已于 2026-05-30 全量实现 22 个页面，运行验证 0 错误。
+
+## 设计创新：相比标准 mall-admin 的差异化
+
+| 模块 | mall-admin 原范式 | Dreamy 增强 |
+|------|------------------|------------|
+| 站点装修 | 仅「广告列表」 | **首页装修**（可视化区块编排 + 实时预览）+ **导航/页脚/公告配置** |
+| 发布机制 | 后台直连数据库实时生效 | **发布中心**：改动 diff → 模拟 next build → 列出受影响 HTML 页面 → 发布历史 + 回滚 |
+| 内容范围 | 商品/订单为主 | **全站内容可配**：Hero/推荐位/Mega Menu/Footer/Banner/Blog/RealWedding/Lookbook/Guide |
 
 ## 功能表
 
@@ -89,6 +101,14 @@
 | 编号 | 功能名 | 优先级 | 关键交互 |
 |------|--------|--------|---------|
 | A-040 | 系统设置 | Should | 管理员账号 + 角色权限矩阵 + 操作日志 |
+
+### AM10 站点装修与发布（Dreamy 新增 · 核心诉求）
+
+| 编号 | 功能名 | 优先级 | 关键交互 |
+|------|--------|--------|---------|
+| CFG-HOME | 首页装修 | Must | 区块列表（拖拽排序 + 显示开关）+ 中央实时预览 + 右侧属性编辑（Hero 文案/图、公告、推荐位来源、各区块标题） |
+| CFG-NAV | 导航与页脚配置 | Must | 主导航 + Mega Menu 列编辑 + 页脚四栏 + 顶部公告条，Tab 切换 |
+| SSG-PUBLISH | 发布中心 | Must | 待发布改动 diff（勾选纳入）+ 模拟 next build 构建日志（进度条 + 6 步）+ 受影响页面清单 + 发布历史时间线 + 一键回滚 |
 
 ## 角色权限矩阵（预留）
 

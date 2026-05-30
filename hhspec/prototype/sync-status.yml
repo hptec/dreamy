@@ -1,21 +1,71 @@
 # Dreamy 原型 — 双向同步状态
-# 注意：本原型采用 Next.js (App Router) + TypeScript + Tailwind + shadcn 风格，
-# 非 pd:prototype 默认的 pnpm-vue 工程（用户明确要求 React/Next.js）。
+# 双门户（有意技术割裂）：
+#   - portal-store（消费端）：Next.js 15 App Router + TS + Tailwind（根目录 app/）
+#   - portal-admin（管理后台）：pnpm + Vue3 + Vite + Tailwind + Headless UI（portal-admin/）
+# 用户 2026-05-29 明确要求割裂：消费端 next.js，管理后台 vue3。
 
-tech_stack: nextjs15-app-router-ts-tailwind
+tech_stack: nextjs15-app-router-ts-tailwind   # 指消费端 portal-store
 prototype_mode: standard
-portal_mode: single
-last_prototype_update: 2026-05-29T12:30:00+08:00
+portal_mode: multi
+last_prototype_update: 2026-05-30T16:00:00+08:00
 design_style: editorial-luxe-coastal
-dev_command: pnpm dev   # http://localhost:5173
+dev_command: pnpm dev   # 消费端 http://localhost:5173
 build_command: pnpm build
 status: ok
+
+portals:
+  - id: portal-store
+    name: Dreamy 消费者商城
+    tech_stack: nextjs15-app-router-ts-tailwind
+    dir: .                 # 根目录即消费端工程
+    dev_command: pnpm dev  # http://localhost:5173
+  - id: portal-admin
+    name: Dreamy 运营管理后台
+    tech_stack: pnpm-vue3-headless
+    dir: portal-admin
+    dev_command: pnpm -C portal-admin dev  # http://localhost:5174
+    pages_count: 22
+    design_doc: portal-admin/PROTOTYPE-README.md
 
 design_tokens:
   fonts: { display: Cormorant Garamond, sans: Jost }
   colors: { canvas: '#FAF7F2', ink: '#2B2925', gold: '#C19A6B', sage: '#8B9D83', blush: '#D8A7A0' }
+  note: 后台与前台同源 token，品牌视觉一致
 
-# 注：原计划的 portal-admin（后台）已按用户 2026-05-29 要求移除，本次仅消费者前台。
+# portal-admin 页面（A-001~A-040，Vue3 SFC，详见 feature-map-portal-admin.md）
+admin_pages:
+  - { name: 后台登录, file: portal-admin/src/views/Login.vue, route: /login, type: form, features: [鉴权,登录守卫,登出,会话持久化], drift: prototype_ahead }
+  - { name: 工作台, file: portal-admin/src/views/Dashboard.vue, route: /, type: dashboard, features: [A-001,A-002,A-003], drift: prototype_ahead }
+  - { name: 商品列表, file: portal-admin/src/views/Products.vue, route: /products, type: list, features: [A-004], drift: prototype_ahead }
+  - { name: 商品编辑, file: portal-admin/src/views/ProductEdit.vue, route: /products/:id/edit, type: form, features: [A-005,A-006,A-007,A-008,A-009,A-010], drift: prototype_ahead }
+  - { name: 品类与主题, file: portal-admin/src/views/Categories.vue, route: /categories, type: list, features: [A-011,A-012], drift: prototype_ahead }
+  - { name: 订单列表, file: portal-admin/src/views/Orders.vue, route: /orders, type: list, features: [A-013,A-019], drift: prototype_ahead }
+  - { name: 订单详情, file: portal-admin/src/views/OrderDetail.vue, route: /orders/:id, type: detail, features: [A-014,A-015,A-016,A-017,A-018], drift: prototype_ahead }
+  - { name: 退款工单, file: portal-admin/src/views/Refunds.vue, route: /refunds, type: list, features: [A-039], drift: prototype_ahead }
+  - { name: 用户列表, file: portal-admin/src/views/Customers.vue, route: /customers, type: list, features: [A-020], drift: prototype_ahead }
+  - { name: 用户详情, file: portal-admin/src/views/CustomerDetail.vue, route: /customers/:id, type: detail, features: [A-021,A-022,A-023], drift: prototype_ahead }
+  - { name: 首页装修, file: portal-admin/src/views/HomeBuilder.vue, route: /site/home, type: builder, features: [A-027,CFG-HOME], drift: prototype_ahead }
+  - { name: 导航与页脚, file: portal-admin/src/views/NavigationConfig.vue, route: /site/navigation, type: builder, features: [CFG-NAV], drift: prototype_ahead }
+  - { name: Banner管理, file: portal-admin/src/views/Banners.vue, route: /site/banners, type: list, features: [A-027], drift: prototype_ahead }
+  - { name: 优惠券与促销, file: portal-admin/src/views/Promotions.vue, route: /marketing/promotions, type: list, features: [A-024,A-025,A-026], drift: prototype_ahead }
+  - { name: 邮件营销, file: portal-admin/src/views/EmailMarketing.vue, route: /marketing/email, type: list, features: [A-028], drift: prototype_ahead }
+  - { name: Blog文章, file: portal-admin/src/views/ContentBlog.vue, route: /content/blog, type: list, features: [A-034], drift: prototype_ahead }
+  - { name: RealWeddings, file: portal-admin/src/views/ContentWeddings.vue, route: /content/weddings, type: list, features: [A-036], drift: prototype_ahead }
+  - { name: Lookbook与指南, file: portal-admin/src/views/ContentLookbook.vue, route: /content/lookbook, type: list, features: [A-035,A-037], drift: prototype_ahead }
+  - { name: 数据看板, file: portal-admin/src/views/Analytics.vue, route: /analytics, type: dashboard, features: [A-030,A-031,A-032,A-033], drift: prototype_ahead }
+  - { name: 发布中心, file: portal-admin/src/views/Publish.vue, route: /publish, type: builder, features: [SSG-PUBLISH], drift: prototype_ahead }
+  - { name: 物流配置, file: portal-admin/src/views/Shipping.vue, route: /shipping, type: settings, features: [A-038], drift: prototype_ahead }
+  - { name: 系统设置, file: portal-admin/src/views/Settings.vue, route: /settings, type: settings, features: [A-040], drift: prototype_ahead }
+
+admin_global_components:
+  - portal-admin/src/composables/useAuth.js   # 鉴权状态（localStorage 持久化 / login / logout）
+  - portal-admin/src/components/AdminShell.vue   # 深色侧边栏 + 顶栏（面包屑/搜索/发布按钮/通知/用户菜单含登出）
+  - portal-admin/src/components/PageHeader.vue
+  - portal-admin/src/components/StatusBadge.vue
+  - portal-admin/src/components/Toggle.vue        # Headless UI Switch
+  - portal-admin/src/components/Pagination.vue
+  - portal-admin/src/components/EmptyState.vue
+  - portal-admin/src/components/SparkArea.vue      # SVG 面积图
 
 pages:
   - { name: 首页, file: app/page.tsx, route: /, type: home, features: [F-001,F-002,F-003,F-004,F-005,F-006,F-007,F-008], drift: prototype_ahead }
