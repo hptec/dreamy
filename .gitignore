@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+dist/
+.env
+.env.local
+*.log
+.claude/
+
+# 原型 QA 一次性产物（截图 / 竞品探索脚本），不纳入版本控制
+hhspec/prototype/.qa/admin-shots/
+hhspec/prototype/.qa/mall-admin/
+hhspec/prototype/.qa/mall-admin-deep.js
+hhspec/prototype/.qa/mall-admin-explore.js
+hhspec/prototype/.qa/competitor-register.js

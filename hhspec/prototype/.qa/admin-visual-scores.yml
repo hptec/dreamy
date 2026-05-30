@@ -1,0 +1,34 @@
+# Portal-Admin 视觉验证报告
+
+playwright: passed
+date: 2026-05-30
+viewport: 1440x900
+total_pages: 22
+console_errors: 0
+page_errors: 0
+
+# DOM 审计要点（人工抽检 + 自动扫描）
+audit:
+  raw_text_outside_tags: PASS   # 所有文本包裹在语义标签内
+  img_alt: PARTIAL              # 装饰性图片省略 alt（可接受），商品图带 alt
+  next_image_misuse: N/A       # Vue 工程，无 next/image
+  semantic_headings: PASS      # font-display h1/h3 层级清晰
+  interactive_affordance: PASS # 按钮/链接 hover 态完整
+  empty_state: PASS            # 列表页含 EmptyState 组件
+  responsive: PASS             # grid 响应式断点 sm/lg
+
+# 5 维视觉评分（人工评估）
+visual_scores:
+  layout_hierarchy: 9
+  color_consistency: 9     # 与前台 editorial-luxe-coastal 同源 token
+  typography: 9            # Cormorant Garamond + Jost
+  component_polish: 8
+  brand_alignment: 9
+  overall: 8.8
+
+# 差异化亮点页面
+highlights:
+  - HomeBuilder: 3 栏可视化首页装修 + 实时预览 + 区块属性编辑
+  - Publish: 发布中心 SSG 流程（diff/构建日志/受影响页面/历史/回滚）
+  - NavigationConfig: Mega Menu + Footer + 公告条可视化配置
+  - ProductEdit: 6 步商品向导（mall-admin 范式 + Dreamy 适配）
