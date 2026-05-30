@@ -7,7 +7,7 @@
 tech_stack: nextjs15-app-router-ts-tailwind   # 指消费端 portal-store
 prototype_mode: standard
 portal_mode: multi
-last_prototype_update: 2026-05-30T16:00:00+08:00
+last_prototype_update: 2026-05-30T23:55:00+08:00
 design_style: editorial-luxe-coastal
 dev_command: pnpm dev   # 消费端 http://localhost:5173
 build_command: pnpm build
@@ -24,8 +24,9 @@ portals:
     tech_stack: pnpm-vue3-headless
     dir: portal-admin
     dev_command: pnpm -C portal-admin dev  # http://localhost:5174
-    pages_count: 22
+    pages_count: 24
     design_doc: portal-admin/PROTOTYPE-README.md
+    note: 迭代2新增系统管理分组(管理员管理/角色权限/操作日志)，菜单级RBAC权限体系
 
 design_tokens:
   fonts: { display: Cormorant Garamond, sans: Jost }
@@ -55,7 +56,10 @@ admin_pages:
   - { name: 数据看板, file: portal-admin/src/views/Analytics.vue, route: /analytics, type: dashboard, features: [A-030,A-031,A-032,A-033], drift: prototype_ahead }
   - { name: 发布中心, file: portal-admin/src/views/Publish.vue, route: /publish, type: builder, features: [SSG-PUBLISH], drift: prototype_ahead }
   - { name: 物流配置, file: portal-admin/src/views/Shipping.vue, route: /shipping, type: settings, features: [A-038], drift: prototype_ahead }
-  - { name: 系统设置, file: portal-admin/src/views/Settings.vue, route: /settings, type: settings, features: [A-040], drift: prototype_ahead }
+  - { name: 管理员管理, file: portal-admin/src/views/AdminList.vue, route: /system/admins, type: list, features: [A-041,A-042,A-043,A-044,A-045], drift: prototype_ahead }
+  - { name: 角色权限, file: portal-admin/src/views/RoleManagement.vue, route: /system/roles, type: management, features: [A-046,A-047,A-048], drift: prototype_ahead }
+  - { name: 操作日志, file: portal-admin/src/views/OperationLogs.vue, route: /system/logs, type: list, features: [A-052,A-053], drift: prototype_ahead }
+  - { name: 系统设置 (废弃), file: portal-admin/src/views/Settings.vue, route: /settings, type: settings, features: [A-040], drift: prototype_ahead, status: deprecated }
 
 admin_global_components:
   - portal-admin/src/composables/useAuth.js   # 鉴权状态（localStorage 持久化 / login / logout）

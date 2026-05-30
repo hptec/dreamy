@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { roles } from '@/data/mock'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { bare: true } },
@@ -20,7 +21,7 @@ const routes = [
   { path: '/customers', name: 'customers', component: () => import('@/views/Customers.vue'), meta: { title: '用户列表', group: '用户管理' } },
   { path: '/customers/:id', name: 'customer-detail', component: () => import('@/views/CustomerDetail.vue'), meta: { title: '用户详情', group: '用户管理', hidden: true } },
 
-  // 站点装修（CMS 配置层 —— 差异化亮点）
+  // 站点装修
   { path: '/site/home', name: 'home-builder', component: () => import('@/views/HomeBuilder.vue'), meta: { title: '首页装修', group: '站点装修' } },
   { path: '/site/navigation', name: 'navigation-config', component: () => import('@/views/NavigationConfig.vue'), meta: { title: '导航与页脚', group: '站点装修' } },
   { path: '/site/banners', name: 'banners', component: () => import('@/views/Banners.vue'), meta: { title: 'Banner 管理', group: '站点装修' } },
@@ -37,10 +38,17 @@ const routes = [
   // 数据
   { path: '/analytics', name: 'analytics', component: () => import('@/views/Analytics.vue'), meta: { title: '数据看板', group: '数据分析' } },
 
-  // 发布 + 系统
+  // 发布
   { path: '/publish', name: 'publish', component: () => import('@/views/Publish.vue'), meta: { title: '发布中心', group: '发布与系统' } },
   { path: '/shipping', name: 'shipping', component: () => import('@/views/Shipping.vue'), meta: { title: '物流配置', group: '发布与系统' } },
-  { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '系统设置', group: '发布与系统' } },
+
+  // 系统管理（迭代 2 新增）
+  { path: '/system/admins', name: 'system-admins', component: () => import('@/views/AdminList.vue'), meta: { title: '管理员管理', group: '系统管理' } },
+  { path: '/system/roles', name: 'system-roles', component: () => import('@/views/RoleManagement.vue'), meta: { title: '角色权限', group: '系统管理' } },
+  { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理' } },
+
+  // 废弃路由重定向
+  { path: '/settings', redirect: '/system/admins' },
 
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
@@ -51,16 +59,38 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
-// 鉴权守卫：未登录访问需鉴权页 -> /login；已登录访问 /login -> 工作台
+function getUserPermissions() {
+  const { user } = useAuth()
+  if (!user.value) return []
+  // 超管拥有全部权限
+  if (user.value.role === '超级管理员') {
+    const r = roles.find(r => r.id === 'r-super')
+    return r ? r.permissions : []
+  }
+  const role = roles.find(r => r.name === user.value.role)
+  return role ? role.permissions : []
+}
+
+// 鉴权守卫：未登录 → /login；无权限 → 重定向到 / 并 toast
 router.beforeEach((to) => {
   const { isAuthenticated } = useAuth()
+
+  // 白名单路由直接放行
   if (to.meta?.bare) {
     if (to.name === 'login' && isAuthenticated.value) return { path: '/' }
     return true
   }
+
   if (!isAuthenticated.value) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
+
+  // 权限校验：检查目标路由是否在用户角色的权限列表中
+  const permissions = getUserPermissions()
+  if (permissions.length > 0 && !permissions.includes(to.path)) {
+    return { path: '/' }
+  }
+
   return true
 })
 

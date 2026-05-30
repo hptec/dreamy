@@ -3,11 +3,11 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
 import { menuGroups } from '@/data/menu'
-import { pendingChanges } from '@/data/mock'
+import { pendingChanges, roles } from '@/data/mock'
 import { useAuth } from '@/composables/useAuth'
 import {
   Bars3Icon, MagnifyingGlassIcon, BellIcon, RocketLaunchIcon, ChevronDownIcon,
-  Cog6ToothIcon, ArrowRightOnRectangleIcon
+  ShieldCheckIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline'
 
 const route = useRoute()
@@ -15,6 +15,22 @@ const router = useRouter()
 const { user, logout } = useAuth()
 const collapsed = ref(false)
 const pendingCount = computed(() => pendingChanges.length)
+
+// 根据当前角色权限过滤菜单
+const filteredMenuGroups = computed(() => {
+  const roleName = user.value?.role
+  if (!roleName) return []
+  // 超管看全部
+  if (roleName === '超级管理员') return menuGroups
+  const role = roles.find(r => r.name === roleName)
+  if (!role) return []
+  // 始终显示工作台
+  const perms = new Set(role.permissions)
+  return menuGroups.map(g => ({
+    ...g,
+    items: g.items.filter(item => perms.has(item.to))
+  })).filter(g => g.items.length > 0)
+})
 
 function handleLogout() {
   logout()
@@ -54,7 +70,7 @@ function groupActive(group) {
 
       <!-- 菜单 -->
       <nav class="flex-1 overflow-y-auto px-3 py-4">
-        <div v-for="group in menuGroups" :key="group.label" class="mb-1">
+        <div v-for="group in filteredMenuGroups" :key="group.label" class="mb-1">
           <!-- 单项分组 -->
           <template v-if="group.items.length === 1">
             <RouterLink
@@ -153,11 +169,11 @@ function groupActive(group) {
                 </div>
                 <MenuItem v-slot="{ active }">
                   <RouterLink
-                    to="/settings"
+                    to="/system/admins"
                     class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ink-soft"
                     :class="active ? 'bg-canvas-warm text-ink' : ''"
                   >
-                    <Cog6ToothIcon class="h-4 w-4" /> 系统设置
+                    <ShieldCheckIcon class="h-4 w-4" /> 系统管理
                   </RouterLink>
                 </MenuItem>
                 <MenuItem v-slot="{ active }">

@@ -275,31 +275,161 @@ export const shippingRates = [
   { zone: '澳洲 / 新西兰', under: '$32.00', over: '免邮', threshold: '$400' }
 ]
 
-// ===== 系统：角色权限矩阵 + 管理员 + 操作日志 =====
-export const adminUsers = [
-  { id: 'a-1', name: 'Super Admin', email: 'admin@dreamy.com', role: '超级管理员', lastLogin: '2026-05-29 09:12', status: 'active' },
-  { id: 'a-2', name: 'Grace PIM', email: 'grace@dreamy.com', role: '商品运营', lastLogin: '2026-05-29 08:40', status: 'active' },
-  { id: 'a-3', name: 'Leo Orders', email: 'leo@dreamy.com', role: '订单客服', lastLogin: '2026-05-28 18:22', status: 'active' },
-  { id: 'a-4', name: 'Nina Editorial', email: 'nina@dreamy.com', role: '内容编辑', lastLogin: '2026-05-28 14:05', status: 'active' },
-  { id: 'a-5', name: 'Sam Data', email: 'sam@dreamy.com', role: '数据分析', lastLogin: '2026-05-27 11:30', status: 'disabled' }
+// ===== 系统：菜单级权限 + 管理员 + 角色 + 操作日志 =====
+
+// 菜单权限点 —— 与侧边栏 menuGroups 结构对齐，每个菜单项 = 一个权限点
+export const menuPermissionKeys = [
+  // 工作台
+  { key: '/', group: '工作台', label: '工作台' },
+  // 站点装修
+  { key: '/site/home', group: '站点装修', label: '首页装修' },
+  { key: '/site/navigation', group: '站点装修', label: '导航与页脚' },
+  { key: '/site/banners', group: '站点装修', label: 'Banner 管理' },
+  // 商品管理
+  { key: '/products', group: '商品管理', label: '商品列表' },
+  { key: '/categories', group: '商品管理', label: '品类与主题' },
+  // 订单管理
+  { key: '/orders', group: '订单管理', label: '订单列表' },
+  { key: '/refunds', group: '订单管理', label: '退款工单' },
+  // 用户管理
+  { key: '/customers', group: '用户管理', label: '用户列表' },
+  // 营销活动
+  { key: '/marketing/promotions', group: '营销活动', label: '优惠券与促销' },
+  { key: '/marketing/email', group: '营销活动', label: '邮件营销' },
+  // 内容管理
+  { key: '/content/blog', group: '内容管理', label: 'Blog 文章' },
+  { key: '/content/weddings', group: '内容管理', label: 'Real Weddings' },
+  { key: '/content/lookbook', group: '内容管理', label: 'Lookbook 与指南' },
+  // 数据分析
+  { key: '/analytics', group: '数据分析', label: '数据看板' },
+  // 发布与系统
+  { key: '/publish', group: '发布与系统', label: '发布中心' },
+  { key: '/shipping', group: '发布与系统', label: '物流配置' },
+  // 系统管理
+  { key: '/system/admins', group: '系统管理', label: '管理员管理' },
+  { key: '/system/roles', group: '系统管理', label: '角色权限' },
+  { key: '/system/logs', group: '系统管理', label: '操作日志' }
 ]
+
+export const adminUsers = [
+  { id: 'a-1', name: 'Super Admin', email: 'admin@dreamy.com', role: '超级管理员', lastLogin: '2026-05-30 09:12', status: 'active', createdAt: '2025-06-01' },
+  { id: 'a-2', name: 'Grace PIM', email: 'grace@dreamy.com', role: '商品运营', lastLogin: '2026-05-30 08:40', status: 'active', createdAt: '2025-08-15' },
+  { id: 'a-3', name: 'Leo Orders', email: 'leo@dreamy.com', role: '订单客服', lastLogin: '2026-05-29 18:22', status: 'active', createdAt: '2025-09-01' },
+  { id: 'a-4', name: 'Nina Editorial', email: 'nina@dreamy.com', role: '内容编辑', lastLogin: '2026-05-29 14:05', status: 'active', createdAt: '2025-10-10' },
+  { id: 'a-5', name: 'Sam Data', email: 'sam@dreamy.com', role: '数据分析', lastLogin: '2026-05-28 11:30', status: 'disabled', createdAt: '2025-11-20' }
+]
+
+// 角色定义 —— 菜单级二元权限模型（有/无）
+export const roles = [
+  {
+    id: 'r-super',
+    name: '超级管理员',
+    type: 'preset',
+    isLocked: true,
+    adminCount: 1,
+    permissions: menuPermissionKeys.map(p => p.key) // 全部权限
+  },
+  {
+    id: 'r-pim',
+    name: '商品运营',
+    type: 'preset',
+    isLocked: false,
+    adminCount: 1,
+    permissions: [
+      '/', '/products', '/categories',
+      '/site/home', '/site/navigation', '/site/banners',
+      '/orders', '/refunds', '/analytics', '/publish', '/shipping'
+    ]
+  },
+  {
+    id: 'r-oms',
+    name: '订单客服',
+    type: 'preset',
+    isLocked: false,
+    adminCount: 1,
+    permissions: [
+      '/', '/orders', '/refunds', '/customers', '/shipping'
+    ]
+  },
+  {
+    id: 'r-editor',
+    name: '内容编辑',
+    type: 'preset',
+    isLocked: false,
+    adminCount: 1,
+    permissions: [
+      '/', '/site/home', '/site/navigation', '/site/banners',
+      '/marketing/promotions', '/marketing/email',
+      '/content/blog', '/content/weddings', '/content/lookbook',
+      '/publish'
+    ]
+  },
+  {
+    id: 'r-data',
+    name: '数据分析',
+    type: 'preset',
+    isLocked: false,
+    adminCount: 1,
+    permissions: [
+      '/', '/analytics', '/orders', '/refunds', '/customers', '/products'
+    ]
+  }
+]
+
+// 兼容旧代码：roleMatrix 保留用于过渡
 export const roleMatrix = {
   modules: ['商品', '订单', '用户', '营销', '数据', '内容', '系统'],
   roles: [
-    { role: '超级管理员', perms: ['full','full','full','full','full','full','full'] },
-    { role: '商品运营', perms: ['full','read','none','read','read','none','none'] },
-    { role: '订单客服', perms: ['read','full','read','none','none','none','none'] },
-    { role: '内容编辑', perms: ['read','none','none','read','none','full','none'] },
-    { role: '数据分析', perms: ['read','read','read','read','full','none','none'] }
+    { role: '超级管理员', perms: ['full', 'full', 'full', 'full', 'full', 'full', 'full'] },
+    { role: '商品运营', perms: ['full', 'read', 'none', 'read', 'read', 'none', 'none'] },
+    { role: '订单客服', perms: ['read', 'full', 'read', 'none', 'none', 'none', 'none'] },
+    { role: '内容编辑', perms: ['read', 'none', 'none', 'read', 'none', 'full', 'none'] },
+    { role: '数据分析', perms: ['read', 'read', 'read', 'read', 'full', 'none', 'none'] }
   ]
 }
+
 export const auditLogs = [
-  { time: '2026-05-29 09:15', user: 'Super Admin', action: '发布站点', target: '23 个页面重新生成', ip: '203.0.113.7' },
-  { time: '2026-05-29 08:52', user: 'Grace PIM', action: '编辑商品', target: 'Aurelia A-Line Tulle Gown', ip: '198.51.100.4' },
-  { time: '2026-05-29 08:41', user: 'Grace PIM', action: '上架商品', target: 'Petal Bridesmaid Dress', ip: '198.51.100.4' },
-  { time: '2026-05-28 18:25', user: 'Leo Orders', action: '订单发货', target: 'DRM-20260529-1038', ip: '198.51.100.9' },
-  { time: '2026-05-28 14:08', user: 'Nina Editorial', action: '发布文章', target: 'Vineyard Wedding Styling Tips', ip: '198.51.100.12' }
+  { id: 'log-1', time: '2026-05-30 09:15:32', user: 'Super Admin', action: '登录', target: 'Super Admin 登录后台', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: null },
+  { id: 'log-2', time: '2026-05-30 09:20:18', user: 'Super Admin', action: '创建管理员', target: '新增管理员 Grace PIM', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: '姓名', before: '—', after: 'Grace PIM' },
+    { field: '邮箱', before: '—', after: 'grace@dreamy.com' },
+    { field: '角色', before: '—', after: '商品运营' }
+  ]},
+  { id: 'log-3', time: '2026-05-30 08:52:05', user: 'Grace PIM', action: '编辑商品', target: 'Aurelia A-Line Tulle Gown', ip: '198.51.100.4', ua: 'Chrome 125 / Windows', changes: [
+    { field: '价格', before: '$1,480', after: '$1,280' },
+    { field: '库存', before: '12', after: '24' }
+  ]},
+  { id: 'log-4', time: '2026-05-30 08:41:50', user: 'Grace PIM', action: '上架商品', target: 'Petal Bridesmaid Dress', ip: '198.51.100.4', ua: 'Chrome 125 / Windows', changes: [
+    { field: '状态', before: '草稿', after: '已上架' }
+  ]},
+  { id: 'log-5', time: '2026-05-29 18:25:14', user: 'Leo Orders', action: '订单发货', target: 'DRM-20260529-1038', ip: '198.51.100.9', ua: 'Firefox 126 / macOS', changes: [
+    { field: '物流状态', before: '待发货', after: '已发货' },
+    { field: '承运方', before: '—', after: 'FedEx International Priority' },
+    { field: '运单号', before: '—', after: 'FX-8821-4492-3107' }
+  ]},
+  { id: 'log-6', time: '2026-05-29 14:08:41', user: 'Nina Editorial', action: '发布文章', target: 'Vineyard Wedding Styling Tips', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '状态', before: '草稿', after: '已发布' }
+  ]},
+  { id: 'log-7', time: '2026-05-29 10:30:07', user: 'Super Admin', action: '权限变更', target: '商品运营角色权限调整', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: '营销活动权限', before: '只读', after: '完全权限' },
+    { field: '数据分析权限', before: '无', after: '只读' }
+  ]},
+  { id: 'log-8', time: '2026-05-29 09:02:23', user: 'Super Admin', action: '禁用管理员', target: 'Sam Data 账号已禁用', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: '状态', before: '正常', after: '已禁用' }
+  ]},
+  { id: 'log-9', time: '2026-05-28 16:40:55', user: 'Super Admin', action: '发布站点', target: '23 个页面全量生成', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: '受影响页面', before: '—', after: '23' },
+    { field: '构建耗时', before: '—', after: '34s' }
+  ]},
+  { id: 'log-10', time: '2026-05-28 11:20:31', user: 'Grace PIM', action: '重置密码', target: 'Leo Orders 密码已重置', ip: '198.51.100.4', ua: 'Chrome 125 / Windows', changes: null },
+  { id: 'log-11', time: '2026-05-27 15:05:19', user: 'Leo Orders', action: '删除管理员', target: '临时账号 temp-ops 已删除', ip: '198.51.100.9', ua: 'Firefox 126 / macOS', changes: [
+    { field: '姓名', before: 'Temp Ops', after: '—（已删除）' }
+  ]},
+  { id: 'log-12', time: '2026-05-27 09:00:04', user: 'Super Admin', action: '登录', target: 'Super Admin 登录后台', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: null }
 ]
+
+// 操作类型枚举（供日志筛选下拉）
+export const logActionTypes = ['登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点']
 
 // ===== 发布中心：待发布改动 + 历史 =====
 export const pendingChanges = [

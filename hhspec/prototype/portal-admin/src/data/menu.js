@@ -1,6 +1,7 @@
 import {
   Squares2X2Icon, ShoppingBagIcon, ClipboardDocumentListIcon, UsersIcon,
-  SwatchIcon, MegaphoneIcon, DocumentTextIcon, ChartBarIcon, RocketLaunchIcon
+  SwatchIcon, MegaphoneIcon, DocumentTextIcon, ChartBarIcon, RocketLaunchIcon,
+  ShieldCheckIcon
 } from '@heroicons/vue/24/outline'
 
 // 左侧导航分组 —— 融合 mall-admin 菜单结构 + Dreamy 站点装修/发布中心
@@ -68,8 +69,16 @@ export const menuGroups = [
     icon: RocketLaunchIcon,
     items: [
       { title: '发布中心', to: '/publish' },
-      { title: '物流配置', to: '/shipping' },
-      { title: '系统设置', to: '/settings' }
+      { title: '物流配置', to: '/shipping' }
+    ]
+  },
+  {
+    label: '系统管理',
+    icon: ShieldCheckIcon,
+    items: [
+      { title: '管理员管理', to: '/system/admins' },
+      { title: '角色权限', to: '/system/roles' },
+      { title: '操作日志', to: '/system/logs' }
     ]
   }
 ]
