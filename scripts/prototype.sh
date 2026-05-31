@@ -6,7 +6,7 @@ cd "$(git rev-parse --show-toplevel)"
 if [[ ! -d "$PROTOTYPE_DIR" ]]; then
   echo "错误：原型目录 $PROTOTYPE_DIR 不存在" >&2; exit 1
 fi
-command -v pnpm &>/dev/null || { echo "错误：pnpm 未安装，请先执行 npm install -g pnpm" >&2; exit 1; }
+command -v pnpm &>/dev/null || { echo "错误：pnpm 未安装，请先全局安装 pnpm（corepack enable pnpm）" >&2; exit 1; }
 if [[ ! -d "$PROTOTYPE_DIR/node_modules" ]]; then
   echo "首次启动，正在安装依赖..."
   (cd "$PROTOTYPE_DIR" && pnpm install --prefer-offline) || {
