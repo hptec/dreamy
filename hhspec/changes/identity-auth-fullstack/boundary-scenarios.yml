@@ -1,0 +1,2298 @@
+scenarios:
+- id: bs-001
+  cat: "null"
+  entity: user
+  field: id
+  ctx: user 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-002
+  cat: "null"
+  entity: user
+  field: email
+  ctx: user 创建或更新时缺少必填字段 email
+  act: 提交 email=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email
+  source: er
+- id: bs-003
+  cat: "null"
+  entity: user
+  field: email_verified
+  ctx: user 创建或更新时缺少必填字段 email_verified
+  act: 提交 email_verified=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email_verified
+  source: er
+- id: bs-004
+  cat: "null"
+  entity: user
+  field: name
+  ctx: user 的可选字段 name 未提供
+  act: 提交 name=null 的请求
+  expect: 系统正常处理并保持 name 为空，不报错
+  source: er
+- id: bs-005
+  cat: "null"
+  entity: user
+  field: phone
+  ctx: user 的可选字段 phone 未提供
+  act: 提交 phone=null 的请求
+  expect: 系统正常处理并保持 phone 为空，不报错
+  source: er
+- id: bs-006
+  cat: "null"
+  entity: user
+  field: tier
+  ctx: user 创建或更新时缺少必填字段 tier
+  act: 提交 tier=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 tier
+  source: er
+- id: bs-007
+  cat: "null"
+  entity: user
+  field: status
+  ctx: user 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-008
+  cat: "null"
+  entity: user
+  field: avatar
+  ctx: user 的可选字段 avatar 未提供
+  act: 提交 avatar=null 的请求
+  expect: 系统正常处理并保持 avatar 为空，不报错
+  source: er
+- id: bs-009
+  cat: "null"
+  entity: user
+  field: joined_at
+  ctx: user 的可选字段 joined_at 未提供
+  act: 提交 joined_at=null 的请求
+  expect: 系统正常处理并保持 joined_at 为空，不报错
+  source: er
+- id: bs-010
+  cat: "null"
+  entity: user
+  field: deleted_at
+  ctx: user 的可选字段 deleted_at 未提供
+  act: 提交 deleted_at=null 的请求
+  expect: 系统正常处理并保持 deleted_at 为空，不报错
+  source: er
+- id: bs-011
+  cat: "null"
+  entity: user
+  field: anonymized
+  ctx: user 的可选字段 anonymized 未提供
+  act: 提交 anonymized=null 的请求
+  expect: 系统正常处理并保持 anonymized 为空，不报错
+  source: er
+- id: bs-012
+  cat: "null"
+  entity: user
+  field: anonymized_at
+  ctx: user 的可选字段 anonymized_at 未提供
+  act: 提交 anonymized_at=null 的请求
+  expect: 系统正常处理并保持 anonymized_at 为空，不报错
+  source: er
+- id: bs-013
+  cat: "null"
+  entity: user
+  field: created_at
+  ctx: user 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-014
+  cat: "null"
+  entity: user
+  field: updated_at
+  ctx: user 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-015
+  cat: "null"
+  entity: user_identity
+  field: id
+  ctx: user_identity 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-016
+  cat: "null"
+  entity: user_identity
+  field: user_id
+  ctx: user_identity 创建或更新时缺少必填字段 user_id
+  act: 提交 user_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 user_id
+  source: er
+- id: bs-017
+  cat: "null"
+  entity: user_identity
+  field: provider
+  ctx: user_identity 创建或更新时缺少必填字段 provider
+  act: 提交 provider=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 provider
+  source: er
+- id: bs-018
+  cat: "null"
+  entity: user_identity
+  field: provider_uid
+  ctx: user_identity 创建或更新时缺少必填字段 provider_uid
+  act: 提交 provider_uid=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 provider_uid
+  source: er
+- id: bs-019
+  cat: "null"
+  entity: user_identity
+  field: identifier
+  ctx: user_identity 的可选字段 identifier 未提供
+  act: 提交 identifier=null 的请求
+  expect: 系统正常处理并保持 identifier 为空，不报错
+  source: er
+- id: bs-020
+  cat: "null"
+  entity: user_identity
+  field: is_primary
+  ctx: user_identity 创建或更新时缺少必填字段 is_primary
+  act: 提交 is_primary=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 is_primary
+  source: er
+- id: bs-021
+  cat: "null"
+  entity: user_identity
+  field: verified
+  ctx: user_identity 创建或更新时缺少必填字段 verified
+  act: 提交 verified=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 verified
+  source: er
+- id: bs-022
+  cat: "null"
+  entity: user_identity
+  field: connected
+  ctx: user_identity 创建或更新时缺少必填字段 connected
+  act: 提交 connected=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 connected
+  source: er
+- id: bs-023
+  cat: "null"
+  entity: user_identity
+  field: hidden_email
+  ctx: user_identity 的可选字段 hidden_email 未提供
+  act: 提交 hidden_email=null 的请求
+  expect: 系统正常处理并保持 hidden_email 为空，不报错
+  source: er
+- id: bs-024
+  cat: "null"
+  entity: user_identity
+  field: relay_email
+  ctx: user_identity 的可选字段 relay_email 未提供
+  act: 提交 relay_email=null 的请求
+  expect: 系统正常处理并保持 relay_email 为空，不报错
+  source: er
+- id: bs-025
+  cat: "null"
+  entity: user_identity
+  field: bound_at
+  ctx: user_identity 的可选字段 bound_at 未提供
+  act: 提交 bound_at=null 的请求
+  expect: 系统正常处理并保持 bound_at 为空，不报错
+  source: er
+- id: bs-026
+  cat: "null"
+  entity: user_identity
+  field: last_login_at
+  ctx: user_identity 的可选字段 last_login_at 未提供
+  act: 提交 last_login_at=null 的请求
+  expect: 系统正常处理并保持 last_login_at 为空，不报错
+  source: er
+- id: bs-027
+  cat: "null"
+  entity: otp_code
+  field: id
+  ctx: otp_code 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-028
+  cat: "null"
+  entity: otp_code
+  field: email
+  ctx: otp_code 创建或更新时缺少必填字段 email
+  act: 提交 email=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email
+  source: er
+- id: bs-029
+  cat: "null"
+  entity: otp_code
+  field: code_hash
+  ctx: otp_code 创建或更新时缺少必填字段 code_hash
+  act: 提交 code_hash=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 code_hash
+  source: er
+- id: bs-030
+  cat: "null"
+  entity: otp_code
+  field: length
+  ctx: otp_code 创建或更新时缺少必填字段 length
+  act: 提交 length=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 length
+  source: er
+- id: bs-031
+  cat: "null"
+  entity: otp_code
+  field: expires_at
+  ctx: otp_code 创建或更新时缺少必填字段 expires_at
+  act: 提交 expires_at=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 expires_at
+  source: er
+- id: bs-032
+  cat: "null"
+  entity: otp_code
+  field: attempts
+  ctx: otp_code 创建或更新时缺少必填字段 attempts
+  act: 提交 attempts=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 attempts
+  source: er
+- id: bs-033
+  cat: "null"
+  entity: otp_code
+  field: max_attempts
+  ctx: otp_code 创建或更新时缺少必填字段 max_attempts
+  act: 提交 max_attempts=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 max_attempts
+  source: er
+- id: bs-034
+  cat: "null"
+  entity: otp_code
+  field: status
+  ctx: otp_code 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-035
+  cat: "null"
+  entity: otp_code
+  field: last_sent_at
+  ctx: otp_code 的可选字段 last_sent_at 未提供
+  act: 提交 last_sent_at=null 的请求
+  expect: 系统正常处理并保持 last_sent_at 为空，不报错
+  source: er
+- id: bs-036
+  cat: "null"
+  entity: otp_code
+  field: created_at
+  ctx: otp_code 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-037
+  cat: "null"
+  entity: user_session
+  field: id
+  ctx: user_session 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-038
+  cat: "null"
+  entity: user_session
+  field: user_id
+  ctx: user_session 创建或更新时缺少必填字段 user_id
+  act: 提交 user_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 user_id
+  source: er
+- id: bs-039
+  cat: "null"
+  entity: user_session
+  field: token_id
+  ctx: user_session 创建或更新时缺少必填字段 token_id
+  act: 提交 token_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 token_id
+  source: er
+- id: bs-040
+  cat: "null"
+  entity: user_session
+  field: refresh_token_id
+  ctx: user_session 的可选字段 refresh_token_id 未提供
+  act: 提交 refresh_token_id=null 的请求
+  expect: 系统正常处理并保持 refresh_token_id 为空，不报错
+  source: er
+- id: bs-041
+  cat: "null"
+  entity: user_session
+  field: access_expires_at
+  ctx: user_session 的可选字段 access_expires_at 未提供
+  act: 提交 access_expires_at=null 的请求
+  expect: 系统正常处理并保持 access_expires_at 为空，不报错
+  source: er
+- id: bs-042
+  cat: "null"
+  entity: user_session
+  field: refresh_expires_at
+  ctx: user_session 的可选字段 refresh_expires_at 未提供
+  act: 提交 refresh_expires_at=null 的请求
+  expect: 系统正常处理并保持 refresh_expires_at 为空，不报错
+  source: er
+- id: bs-043
+  cat: "null"
+  entity: user_session
+  field: device
+  ctx: user_session 的可选字段 device 未提供
+  act: 提交 device=null 的请求
+  expect: 系统正常处理并保持 device 为空，不报错
+  source: er
+- id: bs-044
+  cat: "null"
+  entity: user_session
+  field: browser
+  ctx: user_session 的可选字段 browser 未提供
+  act: 提交 browser=null 的请求
+  expect: 系统正常处理并保持 browser 为空，不报错
+  source: er
+- id: bs-045
+  cat: "null"
+  entity: user_session
+  field: ip
+  ctx: user_session 的可选字段 ip 未提供
+  act: 提交 ip=null 的请求
+  expect: 系统正常处理并保持 ip 为空，不报错
+  source: er
+- id: bs-046
+  cat: "null"
+  entity: user_session
+  field: location
+  ctx: user_session 的可选字段 location 未提供
+  act: 提交 location=null 的请求
+  expect: 系统正常处理并保持 location 为空，不报错
+  source: er
+- id: bs-047
+  cat: "null"
+  entity: user_session
+  field: is_new_device
+  ctx: user_session 的可选字段 is_new_device 未提供
+  act: 提交 is_new_device=null 的请求
+  expect: 系统正常处理并保持 is_new_device 为空，不报错
+  source: er
+- id: bs-048
+  cat: "null"
+  entity: user_session
+  field: method
+  ctx: user_session 创建或更新时缺少必填字段 method
+  act: 提交 method=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 method
+  source: er
+- id: bs-049
+  cat: "null"
+  entity: user_session
+  field: status
+  ctx: user_session 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-050
+  cat: "null"
+  entity: user_session
+  field: last_active_at
+  ctx: user_session 的可选字段 last_active_at 未提供
+  act: 提交 last_active_at=null 的请求
+  expect: 系统正常处理并保持 last_active_at 为空，不报错
+  source: er
+- id: bs-051
+  cat: "null"
+  entity: user_session
+  field: created_at
+  ctx: user_session 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-052
+  cat: "null"
+  entity: login_history
+  field: id
+  ctx: login_history 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-053
+  cat: "null"
+  entity: login_history
+  field: user_id
+  ctx: login_history 的可选字段 user_id 未提供
+  act: 提交 user_id=null 的请求
+  expect: 系统正常处理并保持 user_id 为空，不报错
+  source: er
+- id: bs-054
+  cat: "null"
+  entity: login_history
+  field: email
+  ctx: login_history 的可选字段 email 未提供
+  act: 提交 email=null 的请求
+  expect: 系统正常处理并保持 email 为空，不报错
+  source: er
+- id: bs-055
+  cat: "null"
+  entity: login_history
+  field: method
+  ctx: login_history 创建或更新时缺少必填字段 method
+  act: 提交 method=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 method
+  source: er
+- id: bs-056
+  cat: "null"
+  entity: login_history
+  field: ip
+  ctx: login_history 的可选字段 ip 未提供
+  act: 提交 ip=null 的请求
+  expect: 系统正常处理并保持 ip 为空，不报错
+  source: er
+- id: bs-057
+  cat: "null"
+  entity: login_history
+  field: device
+  ctx: login_history 的可选字段 device 未提供
+  act: 提交 device=null 的请求
+  expect: 系统正常处理并保持 device 为空，不报错
+  source: er
+- id: bs-058
+  cat: "null"
+  entity: login_history
+  field: location
+  ctx: login_history 的可选字段 location 未提供
+  act: 提交 location=null 的请求
+  expect: 系统正常处理并保持 location 为空，不报错
+  source: er
+- id: bs-059
+  cat: "null"
+  entity: login_history
+  field: result
+  ctx: login_history 创建或更新时缺少必填字段 result
+  act: 提交 result=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 result
+  source: er
+- id: bs-060
+  cat: "null"
+  entity: login_history
+  field: is_new_device
+  ctx: login_history 的可选字段 is_new_device 未提供
+  act: 提交 is_new_device=null 的请求
+  expect: 系统正常处理并保持 is_new_device 为空，不报错
+  source: er
+- id: bs-061
+  cat: "null"
+  entity: login_history
+  field: notified
+  ctx: login_history 的可选字段 notified 未提供
+  act: 提交 notified=null 的请求
+  expect: 系统正常处理并保持 notified 为空，不报错
+  source: er
+- id: bs-062
+  cat: "null"
+  entity: login_history
+  field: created_at
+  ctx: login_history 创建或更新时缺少必填字段 created_at
+  act: 提交 created_at=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 created_at
+  source: er
+- id: bs-063
+  cat: "null"
+  entity: admin_user
+  field: id
+  ctx: admin_user 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-064
+  cat: "null"
+  entity: admin_user
+  field: name
+  ctx: admin_user 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-065
+  cat: "null"
+  entity: admin_user
+  field: email
+  ctx: admin_user 创建或更新时缺少必填字段 email
+  act: 提交 email=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email
+  source: er
+- id: bs-066
+  cat: "null"
+  entity: admin_user
+  field: password_hash
+  ctx: admin_user 创建或更新时缺少必填字段 password_hash
+  act: 提交 password_hash=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 password_hash
+  source: er
+- id: bs-067
+  cat: "null"
+  entity: admin_user
+  field: role_id
+  ctx: admin_user 创建或更新时缺少必填字段 role_id
+  act: 提交 role_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 role_id
+  source: er
+- id: bs-068
+  cat: "null"
+  entity: admin_user
+  field: status
+  ctx: admin_user 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-069
+  cat: "null"
+  entity: admin_user
+  field: last_login_at
+  ctx: admin_user 的可选字段 last_login_at 未提供
+  act: 提交 last_login_at=null 的请求
+  expect: 系统正常处理并保持 last_login_at 为空，不报错
+  source: er
+- id: bs-070
+  cat: "null"
+  entity: admin_user
+  field: created_at
+  ctx: admin_user 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-071
+  cat: "null"
+  entity: role
+  field: id
+  ctx: role 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-072
+  cat: "null"
+  entity: role
+  field: name
+  ctx: role 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-073
+  cat: "null"
+  entity: role
+  field: type
+  ctx: role 创建或更新时缺少必填字段 type
+  act: 提交 type=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 type
+  source: er
+- id: bs-074
+  cat: "null"
+  entity: role
+  field: is_locked
+  ctx: role 创建或更新时缺少必填字段 is_locked
+  act: 提交 is_locked=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 is_locked
+  source: er
+- id: bs-075
+  cat: "null"
+  entity: role
+  field: created_at
+  ctx: role 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-076
+  cat: "null"
+  entity: permission
+  field: key
+  ctx: permission 的可选字段 key 未提供
+  act: 提交 key=null 的请求
+  expect: 系统正常处理并保持 key 为空，不报错
+  source: er
+- id: bs-077
+  cat: "null"
+  entity: permission
+  field: group
+  ctx: permission 创建或更新时缺少必填字段 group
+  act: 提交 group=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 group
+  source: er
+- id: bs-078
+  cat: "null"
+  entity: permission
+  field: label
+  ctx: permission 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-079
+  cat: "null"
+  entity: role_permission
+  field: role_id
+  ctx: role_permission 创建或更新时缺少必填字段 role_id
+  act: 提交 role_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 role_id
+  source: er
+- id: bs-080
+  cat: "null"
+  entity: role_permission
+  field: permission_key
+  ctx: role_permission 创建或更新时缺少必填字段 permission_key
+  act: 提交 permission_key=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 permission_key
+  source: er
+- id: bs-081
+  cat: "null"
+  entity: admin_session
+  field: id
+  ctx: admin_session 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-082
+  cat: "null"
+  entity: admin_session
+  field: admin_id
+  ctx: admin_session 创建或更新时缺少必填字段 admin_id
+  act: 提交 admin_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 admin_id
+  source: er
+- id: bs-083
+  cat: "null"
+  entity: admin_session
+  field: token_id
+  ctx: admin_session 创建或更新时缺少必填字段 token_id
+  act: 提交 token_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 token_id
+  source: er
+- id: bs-084
+  cat: "null"
+  entity: admin_session
+  field: ip
+  ctx: admin_session 的可选字段 ip 未提供
+  act: 提交 ip=null 的请求
+  expect: 系统正常处理并保持 ip 为空，不报错
+  source: er
+- id: bs-085
+  cat: "null"
+  entity: admin_session
+  field: device
+  ctx: admin_session 的可选字段 device 未提供
+  act: 提交 device=null 的请求
+  expect: 系统正常处理并保持 device 为空，不报错
+  source: er
+- id: bs-086
+  cat: "null"
+  entity: admin_session
+  field: status
+  ctx: admin_session 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-087
+  cat: "null"
+  entity: admin_session
+  field: last_active_at
+  ctx: admin_session 的可选字段 last_active_at 未提供
+  act: 提交 last_active_at=null 的请求
+  expect: 系统正常处理并保持 last_active_at 为空，不报错
+  source: er
+- id: bs-088
+  cat: "null"
+  entity: admin_session
+  field: created_at
+  ctx: admin_session 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-089
+  cat: "null"
+  entity: operation_log
+  field: id
+  ctx: operation_log 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-090
+  cat: "null"
+  entity: operation_log
+  field: operator_id
+  ctx: operation_log 的可选字段 operator_id 未提供
+  act: 提交 operator_id=null 的请求
+  expect: 系统正常处理并保持 operator_id 为空，不报错
+  source: er
+- id: bs-091
+  cat: "null"
+  entity: operation_log
+  field: operator_name
+  ctx: operation_log 创建或更新时缺少必填字段 operator_name
+  act: 提交 operator_name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 operator_name
+  source: er
+- id: bs-092
+  cat: "null"
+  entity: operation_log
+  field: action
+  ctx: operation_log 创建或更新时缺少必填字段 action
+  act: 提交 action=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 action
+  source: er
+- id: bs-093
+  cat: "null"
+  entity: operation_log
+  field: target
+  ctx: operation_log 的可选字段 target 未提供
+  act: 提交 target=null 的请求
+  expect: 系统正常处理并保持 target 为空，不报错
+  source: er
+- id: bs-094
+  cat: "null"
+  entity: operation_log
+  field: ip
+  ctx: operation_log 的可选字段 ip 未提供
+  act: 提交 ip=null 的请求
+  expect: 系统正常处理并保持 ip 为空，不报错
+  source: er
+- id: bs-095
+  cat: "null"
+  entity: operation_log
+  field: user_agent
+  ctx: operation_log 的可选字段 user_agent 未提供
+  act: 提交 user_agent=null 的请求
+  expect: 系统正常处理并保持 user_agent 为空，不报错
+  source: er
+- id: bs-096
+  cat: "null"
+  entity: operation_log
+  field: changes
+  ctx: operation_log 的可选字段 changes 未提供
+  act: 提交 changes=null 的请求
+  expect: 系统正常处理并保持 changes 为空，不报错
+  source: er
+- id: bs-097
+  cat: "null"
+  entity: operation_log
+  field: created_at
+  ctx: operation_log 创建或更新时缺少必填字段 created_at
+  act: 提交 created_at=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 created_at
+  source: er
+- id: bs-098
+  cat: "null"
+  entity: auth_config
+  field: id
+  ctx: auth_config 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-099
+  cat: "null"
+  entity: auth_config
+  field: email_enabled
+  ctx: auth_config 创建或更新时缺少必填字段 email_enabled
+  act: 提交 email_enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email_enabled
+  source: er
+- id: bs-100
+  cat: "null"
+  entity: auth_config
+  field: google_enabled
+  ctx: auth_config 创建或更新时缺少必填字段 google_enabled
+  act: 提交 google_enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 google_enabled
+  source: er
+- id: bs-101
+  cat: "null"
+  entity: auth_config
+  field: apple_enabled
+  ctx: auth_config 创建或更新时缺少必填字段 apple_enabled
+  act: 提交 apple_enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 apple_enabled
+  source: er
+- id: bs-102
+  cat: "null"
+  entity: auth_config
+  field: otp_length
+  ctx: auth_config 创建或更新时缺少必填字段 otp_length
+  act: 提交 otp_length=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 otp_length
+  source: er
+- id: bs-103
+  cat: "null"
+  entity: auth_config
+  field: otp_ttl_minutes
+  ctx: auth_config 创建或更新时缺少必填字段 otp_ttl_minutes
+  act: 提交 otp_ttl_minutes=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 otp_ttl_minutes
+  source: er
+- id: bs-104
+  cat: "null"
+  entity: auth_config
+  field: otp_resend_seconds
+  ctx: auth_config 创建或更新时缺少必填字段 otp_resend_seconds
+  act: 提交 otp_resend_seconds=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 otp_resend_seconds
+  source: er
+- id: bs-105
+  cat: "null"
+  entity: auth_config
+  field: otp_max_attempts
+  ctx: auth_config 创建或更新时缺少必填字段 otp_max_attempts
+  act: 提交 otp_max_attempts=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 otp_max_attempts
+  source: er
+- id: bs-106
+  cat: "null"
+  entity: auth_config
+  field: min_methods
+  ctx: auth_config 创建或更新时缺少必填字段 min_methods
+  act: 提交 min_methods=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 min_methods
+  source: er
+- id: bs-107
+  cat: "null"
+  entity: auth_config
+  field: google_client_id
+  ctx: auth_config 的可选字段 google_client_id 未提供
+  act: 提交 google_client_id=null 的请求
+  expect: 系统正常处理并保持 google_client_id 为空，不报错
+  source: er
+- id: bs-108
+  cat: "null"
+  entity: auth_config
+  field: apple_service_id
+  ctx: auth_config 的可选字段 apple_service_id 未提供
+  act: 提交 apple_service_id=null 的请求
+  expect: 系统正常处理并保持 apple_service_id 为空，不报错
+  source: er
+- id: bs-109
+  cat: "null"
+  entity: auth_config
+  field: updated_at
+  ctx: auth_config 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-110
+  cat: "null"
+  entity: email_template
+  field: id
+  ctx: email_template 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-111
+  cat: "null"
+  entity: email_template
+  field: code
+  ctx: email_template 创建或更新时缺少必填字段 code
+  act: 提交 code=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 code
+  source: er
+- id: bs-112
+  cat: "null"
+  entity: email_template
+  field: locale
+  ctx: email_template 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-113
+  cat: "null"
+  entity: email_template
+  field: subject
+  ctx: email_template 创建或更新时缺少必填字段 subject
+  act: 提交 subject=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 subject
+  source: er
+- id: bs-114
+  cat: "null"
+  entity: email_template
+  field: body
+  ctx: email_template 创建或更新时缺少必填字段 body
+  act: 提交 body=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 body
+  source: er
+- id: bs-115
+  cat: "null"
+  entity: email_template
+  field: updated_at
+  ctx: email_template 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-116
+  cat: extreme
+  entity: user
+  field: name
+  ctx: name 的最大长度为 80
+  act: 提交长度为 81 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-117
+  cat: extreme
+  entity: user
+  field: phone
+  ctx: phone 的最大长度为 32
+  act: 提交长度为 33 的 phone
+  expect: 系统拒绝超长输入，返回 phone 长度超限错误
+  source: er
+- id: bs-118
+  cat: extreme
+  entity: user
+  field: tier
+  ctx: "tier 的合法枚举为 ['vip', 'regular']"
+  act: 提交枚举外的 tier=__invalid__
+  expect: 系统拒绝非法枚举值，返回 tier 枚举错误
+  source: er
+- id: bs-119
+  cat: extreme
+  entity: user
+  field: status
+  ctx: "status 的合法枚举为 ['active', 'disabled', 'deleted']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-120
+  cat: extreme
+  entity: user_identity
+  field: provider
+  ctx: "provider 的合法枚举为 ['email', 'google', 'apple']"
+  act: 提交枚举外的 provider=__invalid__
+  expect: 系统拒绝非法枚举值，返回 provider 枚举错误
+  source: er
+- id: bs-121
+  cat: extreme
+  entity: otp_code
+  field: length
+  ctx: "length 的合法枚举为 [4, 6, 8]"
+  act: 提交枚举外的 length=__invalid__
+  expect: 系统拒绝非法枚举值，返回 length 枚举错误
+  source: er
+- id: bs-122
+  cat: extreme
+  entity: otp_code
+  field: attempts
+  ctx: attempts 的最小值约束为 0
+  act: 提交 attempts=-1
+  expect: 系统拒绝低于最小值的输入，返回 attempts 边界错误
+  source: er
+- id: bs-123
+  cat: extreme
+  entity: otp_code
+  field: max_attempts
+  ctx: max_attempts 的最小值约束为 3
+  act: 提交 max_attempts=2
+  expect: 系统拒绝低于最小值的输入，返回 max_attempts 边界错误
+  source: er
+- id: bs-124
+  cat: extreme
+  entity: otp_code
+  field: max_attempts
+  ctx: max_attempts 的最大值约束为 10
+  act: 提交 max_attempts=11
+  expect: 系统拒绝超过最大值的输入，返回 max_attempts 边界错误
+  source: er
+- id: bs-125
+  cat: extreme
+  entity: otp_code
+  field: status
+  ctx: "status 的合法枚举为 ['pending', 'consumed', 'expired', 'locked']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-126
+  cat: extreme
+  entity: user_session
+  field: method
+  ctx: "method 的合法枚举为 ['email', 'google', 'apple']"
+  act: 提交枚举外的 method=__invalid__
+  expect: 系统拒绝非法枚举值，返回 method 枚举错误
+  source: er
+- id: bs-127
+  cat: extreme
+  entity: user_session
+  field: status
+  ctx: "status 的合法枚举为 ['active', 'revoked']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-128
+  cat: extreme
+  entity: login_history
+  field: method
+  ctx: "method 的合法枚举为 ['email', 'google', 'apple']"
+  act: 提交枚举外的 method=__invalid__
+  expect: 系统拒绝非法枚举值，返回 method 枚举错误
+  source: er
+- id: bs-129
+  cat: extreme
+  entity: login_history
+  field: result
+  ctx: "result 的合法枚举为 ['success', 'failed']"
+  act: 提交枚举外的 result=__invalid__
+  expect: 系统拒绝非法枚举值，返回 result 枚举错误
+  source: er
+- id: bs-130
+  cat: extreme
+  entity: admin_user
+  field: name
+  ctx: name 的最大长度为 80
+  act: 提交长度为 81 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-131
+  cat: extreme
+  entity: admin_user
+  field: status
+  ctx: "status 的合法枚举为 ['active', 'disabled']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-132
+  cat: extreme
+  entity: role
+  field: name
+  ctx: name 的最大长度为 40
+  act: 提交长度为 41 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-133
+  cat: extreme
+  entity: role
+  field: type
+  ctx: "type 的合法枚举为 ['preset', 'custom']"
+  act: 提交枚举外的 type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 type 枚举错误
+  source: er
+- id: bs-134
+  cat: extreme
+  entity: admin_session
+  field: status
+  ctx: "status 的合法枚举为 ['active', 'revoked']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-135
+  cat: extreme
+  entity: operation_log
+  field: action
+  ctx: "action 的合法枚举为 ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员',\
+    \ '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更']"
+  act: 提交枚举外的 action=__invalid__
+  expect: 系统拒绝非法枚举值，返回 action 枚举错误
+  source: er
+- id: bs-136
+  cat: extreme
+  entity: auth_config
+  field: otp_length
+  ctx: "otp_length 的合法枚举为 [4, 6, 8]"
+  act: 提交枚举外的 otp_length=__invalid__
+  expect: 系统拒绝非法枚举值，返回 otp_length 枚举错误
+  source: er
+- id: bs-137
+  cat: extreme
+  entity: auth_config
+  field: otp_ttl_minutes
+  ctx: otp_ttl_minutes 的最小值约束为 1
+  act: 提交 otp_ttl_minutes=0
+  expect: 系统拒绝低于最小值的输入，返回 otp_ttl_minutes 边界错误
+  source: er
+- id: bs-138
+  cat: extreme
+  entity: auth_config
+  field: otp_ttl_minutes
+  ctx: otp_ttl_minutes 的最大值约束为 30
+  act: 提交 otp_ttl_minutes=31
+  expect: 系统拒绝超过最大值的输入，返回 otp_ttl_minutes 边界错误
+  source: er
+- id: bs-139
+  cat: extreme
+  entity: auth_config
+  field: otp_resend_seconds
+  ctx: otp_resend_seconds 的最小值约束为 10
+  act: 提交 otp_resend_seconds=9
+  expect: 系统拒绝低于最小值的输入，返回 otp_resend_seconds 边界错误
+  source: er
+- id: bs-140
+  cat: extreme
+  entity: auth_config
+  field: otp_resend_seconds
+  ctx: otp_resend_seconds 的最大值约束为 120
+  act: 提交 otp_resend_seconds=121
+  expect: 系统拒绝超过最大值的输入，返回 otp_resend_seconds 边界错误
+  source: er
+- id: bs-141
+  cat: extreme
+  entity: auth_config
+  field: otp_max_attempts
+  ctx: otp_max_attempts 的最小值约束为 3
+  act: 提交 otp_max_attempts=2
+  expect: 系统拒绝低于最小值的输入，返回 otp_max_attempts 边界错误
+  source: er
+- id: bs-142
+  cat: extreme
+  entity: auth_config
+  field: otp_max_attempts
+  ctx: otp_max_attempts 的最大值约束为 10
+  act: 提交 otp_max_attempts=11
+  expect: 系统拒绝超过最大值的输入，返回 otp_max_attempts 边界错误
+  source: er
+- id: bs-143
+  cat: extreme
+  entity: auth_config
+  field: min_methods
+  ctx: min_methods 的最小值约束为 1
+  act: 提交 min_methods=0
+  expect: 系统拒绝低于最小值的输入，返回 min_methods 边界错误
+  source: er
+- id: bs-144
+  cat: extreme
+  entity: auth_config
+  field: min_methods
+  ctx: min_methods 的最大值约束为 3
+  act: 提交 min_methods=4
+  expect: 系统拒绝超过最大值的输入，返回 min_methods 边界错误
+  source: er
+- id: bs-145
+  cat: extreme
+  entity: email_template
+  field: code
+  ctx: "code 的合法枚举为 ['otp', 'new_device', 'change_primary', 'account_deleted']"
+  act: 提交枚举外的 code=__invalid__
+  expect: 系统拒绝非法枚举值，返回 code 枚举错误
+  source: er
+- id: bs-146
+  cat: extreme
+  entity: email_template
+  field: locale
+  ctx: "locale 的合法枚举为 ['en', 'es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-147
+  cat: concurrent
+  entity: otp_code
+  field: state
+  ctx: otp_code 当前处于 pending，两个互斥转换同时触发
+  act: 并发提交 verify_ok 与 verify_fail
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-148
+  cat: concurrent
+  entity: user
+  field: state
+  ctx: user 当前处于 active，两个互斥转换同时触发
+  act: 并发提交 admin_disable 与 user_delete_account
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-149
+  cat: concurrent
+  entity: user
+  field: state
+  ctx: user 当前处于 disabled，两个互斥转换同时触发
+  act: 并发提交 admin_enable 与 user_delete_account
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-150
+  cat: concurrent
+  entity: user
+  field: state
+  ctx: user 当前处于 deleted，同一转换被重复提交
+  act: 并发提交两个 retention_anonymize 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-151
+  cat: concurrent
+  entity: user_identity
+  field: state
+  ctx: user_identity 当前处于 not_connected，同一转换被重复提交
+  act: 并发提交两个 bind 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-152
+  cat: concurrent
+  entity: user_identity
+  field: state
+  ctx: user_identity 当前处于 connected，两个互斥转换同时触发
+  act: 并发提交 unbind 与 change_primary
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-153
+  cat: concurrent
+  entity: user_session
+  field: state
+  ctx: user_session 当前处于 active，两个互斥转换同时触发
+  act: 并发提交 user_signout 与 user_signout_others
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-154
+  cat: concurrent
+  entity: admin_user
+  field: state
+  ctx: admin_user 当前处于 active，同一转换被重复提交
+  act: 并发提交两个 toggle_disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-155
+  cat: concurrent
+  entity: admin_user
+  field: state
+  ctx: admin_user 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 toggle_enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-156
+  cat: concurrent
+  entity: admin_session
+  field: state
+  ctx: admin_session 当前处于 active，两个互斥转换同时触发
+  act: 并发提交 admin_logout 与 admin_account_disabled
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-157
+  cat: auth
+  entity: otp_code
+  ctx: 用户角色为 viewer，无权执行流程 消费端邮箱验证码登录
+  act: 触发 消费端邮箱验证码登录 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-158
+  cat: auth
+  entity: otp_code
+  ctx: 用户已开始执行流程 消费端邮箱验证码登录，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-159
+  cat: auth
+  entity: otp_code
+  ctx: 用户属于 tenant-A，尝试访问 otp_code 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-160
+  cat: auth
+  entity: user_identity
+  ctx: 用户角色为 viewer，无权执行流程 消费端 Google/Apple 第三方登录
+  act: 触发 消费端 Google/Apple 第三方登录 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-161
+  cat: auth
+  entity: user_identity
+  ctx: 用户已开始执行流程 消费端 Google/Apple 第三方登录，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-162
+  cat: auth
+  entity: user_identity
+  ctx: 用户属于 tenant-A，尝试访问 user_identity 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-163
+  cat: auth
+  entity: user_identity
+  ctx: 用户角色为 viewer，无权执行流程 消费端登录方式绑定解绑
+  act: 触发 消费端登录方式绑定解绑 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-164
+  cat: auth
+  entity: user_identity
+  ctx: 用户已开始执行流程 消费端登录方式绑定解绑，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-165
+  cat: auth
+  entity: user_session
+  ctx: 用户角色为 viewer，无权执行流程 消费端会话与设备管理
+  act: 触发 消费端会话与设备管理 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-166
+  cat: auth
+  entity: user_session
+  ctx: 用户已开始执行流程 消费端会话与设备管理，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-167
+  cat: auth
+  entity: user_session
+  ctx: 用户属于 tenant-A，尝试访问 user_session 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-168
+  cat: auth
+  entity: admin_user
+  ctx: 用户角色为 viewer，无权执行流程 后台管理员登录
+  act: 触发 后台管理员登录 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-169
+  cat: auth
+  entity: admin_user
+  ctx: 用户已开始执行流程 后台管理员登录，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-170
+  cat: auth
+  entity: admin_user
+  ctx: 用户属于 tenant-A，尝试访问 admin_user 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-171
+  cat: auth
+  entity: admin_user
+  ctx: 用户角色为 viewer，无权执行流程 后台管理员 CRUD
+  act: 触发 后台管理员 CRUD 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-172
+  cat: auth
+  entity: admin_user
+  ctx: 用户已开始执行流程 后台管理员 CRUD，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-173
+  cat: auth
+  entity: role
+  ctx: 用户角色为 viewer，无权执行流程 后台角色与权限矩阵
+  act: 触发 后台角色与权限矩阵 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-174
+  cat: auth
+  entity: role
+  ctx: 用户已开始执行流程 后台角色与权限矩阵，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-175
+  cat: auth
+  entity: role
+  ctx: 用户属于 tenant-A，尝试访问 role 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-176
+  cat: auth
+  entity: login_history
+  ctx: 用户角色为 viewer，无权执行流程 后台用户身份运营
+  act: 触发 后台用户身份运营 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-177
+  cat: auth
+  entity: login_history
+  ctx: 用户已开始执行流程 后台用户身份运营，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-178
+  cat: auth
+  entity: login_history
+  ctx: 用户属于 tenant-A，尝试访问 login_history 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-179
+  cat: auth
+  entity: auth_config
+  ctx: 用户角色为 viewer，无权执行流程 后台登录与认证配置
+  act: 触发 后台登录与认证配置 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-180
+  cat: auth
+  entity: auth_config
+  ctx: 用户已开始执行流程 后台登录与认证配置，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-181
+  cat: auth
+  entity: auth_config
+  ctx: 用户属于 tenant-A，尝试访问 auth_config 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-182
+  cat: auth
+  entity: otp_code
+  ctx: 用户角色为 viewer，无权执行流程 消费端更换主邮箱
+  act: 触发 消费端更换主邮箱 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-183
+  cat: auth
+  entity: otp_code
+  ctx: 用户已开始执行流程 消费端更换主邮箱，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-184
+  cat: auth
+  entity: user
+  ctx: 用户角色为 viewer，无权执行流程 消费端账户注销/删除
+  act: 触发 消费端账户注销/删除 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-185
+  cat: auth
+  entity: user
+  ctx: 用户已开始执行流程 消费端账户注销/删除，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-186
+  cat: auth
+  entity: user
+  ctx: 用户属于 tenant-A，尝试访问 user 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-187
+  cat: auth
+  entity: login_history
+  ctx: 用户角色为 viewer，无权执行流程 新设备登录通知
+  act: 触发 新设备登录通知 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-188
+  cat: auth
+  entity: login_history
+  ctx: 用户已开始执行流程 新设备登录通知，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-189
+  cat: auth
+  entity: user_identity
+  ctx: 用户角色为 viewer，无权执行流程 未验证邮箱冲突处理
+  act: 触发 未验证邮箱冲突处理 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-190
+  cat: auth
+  entity: user_identity
+  ctx: 用户已开始执行流程 未验证邮箱冲突处理，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-191
+  cat: auth
+  entity: user_identity
+  ctx: 用户角色为 viewer，无权执行流程 Apple relay 邮箱失效处理
+  act: 触发 Apple relay 邮箱失效处理 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-192
+  cat: auth
+  entity: user_identity
+  ctx: 用户已开始执行流程 Apple relay 邮箱失效处理，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-193
+  cat: auth
+  entity: otp_code
+  ctx: 用户角色为 viewer，无权执行流程 数据保留与清理（合规定时任务）
+  act: 触发 数据保留与清理（合规定时任务） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-194
+  cat: auth
+  entity: otp_code
+  ctx: 用户已开始执行流程 数据保留与清理（合规定时任务），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-195
+  cat: auth
+  entity: user_identity
+  ctx: 用户角色为 viewer，无权执行流程 系统自动账户归并
+  act: 触发 系统自动账户归并 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-196
+  cat: auth
+  entity: user_identity
+  ctx: 用户已开始执行流程 系统自动账户归并，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-197
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端邮箱验证码登录 依赖的外部系统 email_service 不可用
+  act: 触发需要访问 email_service 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-198
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端邮箱验证码登录 调用 email_service 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-199
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端邮箱验证码登录 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-200
+  cat: network
+  entity: user_identity
+  ctx: 流程 消费端 Google/Apple 第三方登录 依赖的外部系统 google_oidc 不可用
+  act: 触发需要访问 google_oidc 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-201
+  cat: network
+  entity: user_identity
+  ctx: 流程 消费端 Google/Apple 第三方登录 调用 google_oidc 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-202
+  cat: network
+  entity: user_identity
+  ctx: 流程 消费端 Google/Apple 第三方登录 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-203
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端更换主邮箱 依赖的外部系统 email_service 不可用
+  act: 触发需要访问 email_service 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-204
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端更换主邮箱 调用 email_service 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-205
+  cat: network
+  entity: otp_code
+  ctx: 流程 消费端更换主邮箱 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-206
+  cat: network
+  entity: user
+  ctx: 流程 消费端账户注销/删除 依赖的外部系统 email_service 不可用
+  act: 触发需要访问 email_service 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-207
+  cat: network
+  entity: user
+  ctx: 流程 消费端账户注销/删除 调用 email_service 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-208
+  cat: network
+  entity: user
+  ctx: 流程 消费端账户注销/删除 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-209
+  cat: network
+  entity: login_history
+  ctx: 流程 新设备登录通知 依赖的外部系统 email_service 不可用
+  act: 触发需要访问 email_service 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-210
+  cat: network
+  entity: login_history
+  ctx: 流程 新设备登录通知 调用 email_service 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-211
+  cat: network
+  entity: login_history
+  ctx: 流程 新设备登录通知 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-212
+  cat: network
+  entity: user_identity
+  ctx: 流程 未验证邮箱冲突处理 依赖的外部系统 google_oidc 不可用
+  act: 触发需要访问 google_oidc 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-213
+  cat: network
+  entity: user_identity
+  ctx: 流程 未验证邮箱冲突处理 调用 google_oidc 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-214
+  cat: network
+  entity: user_identity
+  ctx: 流程 未验证邮箱冲突处理 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-215
+  cat: network
+  entity: user_identity
+  ctx: 流程 Apple relay 邮箱失效处理 依赖的外部系统 apple_oidc 不可用
+  act: 触发需要访问 apple_oidc 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-216
+  cat: network
+  entity: user_identity
+  ctx: 流程 Apple relay 邮箱失效处理 调用 apple_oidc 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-217
+  cat: network
+  entity: user_identity
+  ctx: 流程 Apple relay 邮箱失效处理 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-218
+  cat: integrity
+  entity: user
+  ctx: user 关联的 login_history 记录不存在
+  act: 提交引用不存在 login_history 的写请求
+  expect: 系统返回关联实体 login_history 不存在错误，拒绝写入
+  source: er
+- id: bs-219
+  cat: integrity
+  entity: user
+  ctx: user 关联的 user_identity 记录不存在
+  act: 提交引用不存在 user_identity 的写请求
+  expect: 系统返回关联实体 user_identity 不存在错误，拒绝写入
+  source: er
+- id: bs-220
+  cat: integrity
+  entity: user
+  ctx: user 关联的 user_session 记录不存在
+  act: 提交引用不存在 user_session 的写请求
+  expect: 系统返回关联实体 user_session 不存在错误，拒绝写入
+  source: er
+- id: bs-221
+  cat: integrity
+  entity: user_identity
+  field: user_id
+  ctx: user_identity 关联的 user 记录不存在
+  act: 提交引用不存在 user 的写请求
+  expect: 系统返回关联实体 user 不存在错误，拒绝写入
+  source: er
+- id: bs-222
+  cat: integrity
+  entity: user_session
+  field: user_id
+  ctx: user_session 关联的 user 记录不存在
+  act: 提交引用不存在 user 的写请求
+  expect: 系统返回关联实体 user 不存在错误，拒绝写入
+  source: er
+- id: bs-223
+  cat: integrity
+  entity: login_history
+  field: user_id
+  ctx: login_history 关联的 user 记录不存在
+  act: 提交引用不存在 user 的写请求
+  expect: 系统返回关联实体 user 不存在错误，拒绝写入
+  source: er
+- id: bs-224
+  cat: integrity
+  entity: admin_user
+  ctx: admin_user 关联的 admin_session 记录不存在
+  act: 提交引用不存在 admin_session 的写请求
+  expect: 系统返回关联实体 admin_session 不存在错误，拒绝写入
+  source: er
+- id: bs-225
+  cat: integrity
+  entity: admin_user
+  ctx: admin_user 关联的 operation_log 记录不存在
+  act: 提交引用不存在 operation_log 的写请求
+  expect: 系统返回关联实体 operation_log 不存在错误，拒绝写入
+  source: er
+- id: bs-226
+  cat: integrity
+  entity: admin_user
+  field: role_id
+  ctx: admin_user 关联的 role 记录不存在
+  act: 提交引用不存在 role 的写请求
+  expect: 系统返回关联实体 role 不存在错误，拒绝写入
+  source: er
+- id: bs-227
+  cat: integrity
+  entity: role
+  ctx: role 关联的 admin_user 记录不存在
+  act: 提交引用不存在 admin_user 的写请求
+  expect: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+  source: er
+- id: bs-228
+  cat: integrity
+  entity: role
+  ctx: role 关联的 permission 记录不存在
+  act: 提交引用不存在 permission 的写请求
+  expect: 系统返回关联实体 permission 不存在错误，拒绝写入
+  source: er
+- id: bs-229
+  cat: integrity
+  entity: role_permission
+  field: permission_key
+  ctx: role_permission 关联的 permission 记录不存在
+  act: 提交引用不存在 permission 的写请求
+  expect: 系统返回关联实体 permission 不存在错误，拒绝写入
+  source: er
+- id: bs-230
+  cat: integrity
+  entity: role_permission
+  field: role_id
+  ctx: role_permission 关联的 role 记录不存在
+  act: 提交引用不存在 role 的写请求
+  expect: 系统返回关联实体 role 不存在错误，拒绝写入
+  source: er
+- id: bs-231
+  cat: integrity
+  entity: admin_session
+  field: admin_id
+  ctx: admin_session 关联的 admin_user 记录不存在
+  act: 提交引用不存在 admin_user 的写请求
+  expect: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+  source: er
+- id: bs-232
+  cat: integrity
+  entity: operation_log
+  field: operator_id
+  ctx: operation_log 关联的 admin_user 记录不存在
+  act: 提交引用不存在 admin_user 的写请求
+  expect: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+  source: er
+- id: bs-233
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: "otp_code 当前处于 pending，但 guard 条件不满足: code 正确且 now<=expires_at 且 attempts<max_attempts"
+  act: 触发事件 verify_ok，尝试从 pending 转到 consumed
+  expect: 系统拒绝状态转换，otp_code 保持在 pending
+  source: sm
+- id: bs-234
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: "otp_code 当前处于 pending，但 guard 条件不满足: code 错误且 attempts+1<max_attempts"
+  act: 触发事件 verify_fail，尝试从 pending 转到 pending
+  expect: 系统拒绝状态转换，otp_code 保持在 pending
+  source: sm
+- id: bs-235
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: "otp_code 当前处于 pending，但 guard 条件不满足: attempts+1>=max_attempts"
+  act: 触发事件 verify_fail_max，尝试从 pending 转到 locked
+  expect: 系统拒绝状态转换，otp_code 保持在 pending
+  source: sm
+- id: bs-236
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: "otp_code 当前处于 pending，但 guard 条件不满足: now>expires_at"
+  act: 触发事件 ttl_timeout，尝试从 pending 转到 expired
+  expect: 系统拒绝状态转换，otp_code 保持在 pending
+  source: sm
+- id: bs-237
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: "otp_code 当前处于 pending，但 guard 条件不满足: now-last_sent_at>=otp_resend_seconds"
+  act: 触发事件 resend，尝试从 pending 转到 pending
+  expect: 系统拒绝状态转换，otp_code 保持在 pending
+  source: sm
+- id: bs-238
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: otp_code 当前处于 pending
+  act: 触发该状态下不允许的操作 verify_ok_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-239
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: otp_code 当前处于 consumed
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-240
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: otp_code 当前处于 expired
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-241
+  cat: state
+  entity: otp_code
+  field: state
+  ctx: otp_code 当前处于 locked
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-242
+  cat: state
+  entity: user
+  field: state
+  ctx: "user 当前处于 active，但 guard 条件不满足: 操作管理员含 /customers 权限"
+  act: 触发事件 admin_disable，尝试从 active 转到 disabled
+  expect: 系统拒绝状态转换，user 保持在 active
+  source: sm
+- id: bs-243
+  cat: state
+  entity: user
+  field: state
+  ctx: "user 当前处于 disabled，但 guard 条件不满足: 操作管理员含 /customers 权限"
+  act: 触发事件 admin_enable，尝试从 disabled 转到 active
+  expect: 系统拒绝状态转换，user 保持在 disabled
+  source: sm
+- id: bs-244
+  cat: state
+  entity: user
+  field: state
+  ctx: "user 当前处于 active，但 guard 条件不满足: 本人发起并二次确认"
+  act: 触发事件 user_delete_account，尝试从 active 转到 deleted
+  expect: 系统拒绝状态转换，user 保持在 active
+  source: sm
+- id: bs-245
+  cat: state
+  entity: user
+  field: state
+  ctx: "user 当前处于 disabled，但 guard 条件不满足: 本人发起并二次确认"
+  act: 触发事件 user_delete_account，尝试从 disabled 转到 deleted
+  expect: 系统拒绝状态转换，user 保持在 disabled
+  source: sm
+- id: bs-246
+  cat: state
+  entity: user
+  field: state
+  ctx: "user 当前处于 deleted，但 guard 条件不满足: deleted_at 距今超过 30 天宽限期（定时任务）"
+  act: 触发事件 retention_anonymize，尝试从 deleted 转到 anonymized
+  expect: 系统拒绝状态转换，user 保持在 deleted
+  source: sm
+- id: bs-247
+  cat: state
+  entity: user
+  field: state
+  ctx: user 当前处于 active
+  act: 触发该状态下不允许的操作 admin_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-248
+  cat: state
+  entity: user
+  field: state
+  ctx: user 当前处于 disabled
+  act: 触发该状态下不允许的操作 admin_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-249
+  cat: state
+  entity: user
+  field: state
+  ctx: user 当前处于 deleted
+  act: 触发该状态下不允许的操作 retention_anonymize_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-250
+  cat: state
+  entity: user
+  field: state
+  ctx: user 当前处于 anonymized
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-251
+  cat: state
+  entity: user_identity
+  field: state
+  ctx: "user_identity 当前处于 not_connected，但 guard 条件不满足: OIDC sub 校验通过或邮箱已验证且 provider_uid\
+    \ 未被他人占用"
+  act: 触发事件 bind，尝试从 not_connected 转到 connected
+  expect: 系统拒绝状态转换，user_identity 保持在 not_connected
+  source: sm
+- id: bs-252
+  cat: state
+  entity: user_identity
+  field: state
+  ctx: "user_identity 当前处于 connected，但 guard 条件不满足: 非 is_primary 且解绑后剩余 connected>=min_methods"
+  act: 触发事件 unbind，尝试从 connected 转到 not_connected
+  expect: 系统拒绝状态转换，user_identity 保持在 connected
+  source: sm
+- id: bs-253
+  cat: state
+  entity: user_identity
+  field: state
+  ctx: "user_identity 当前处于 connected，但 guard 条件不满足: 新邮箱 OTP 验证通过且未被他人占用，迁移 is_primary\
+    \ 到新邮箱凭证"
+  act: 触发事件 change_primary，尝试从 connected 转到 connected
+  expect: 系统拒绝状态转换，user_identity 保持在 connected
+  source: sm
+- id: bs-254
+  cat: state
+  entity: user_identity
+  field: state
+  ctx: user_identity 当前处于 not_connected
+  act: 触发该状态下不允许的操作 bind_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-255
+  cat: state
+  entity: user_identity
+  field: state
+  ctx: user_identity 当前处于 connected
+  act: 触发该状态下不允许的操作 unbind_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-256
+  cat: state
+  entity: user_session
+  field: state
+  ctx: "user_session 当前处于 active，但 guard 条件不满足: 非当前会话"
+  act: 触发事件 user_signout_others，尝试从 active 转到 revoked
+  expect: 系统拒绝状态转换，user_session 保持在 active
+  source: sm
+- id: bs-257
+  cat: state
+  entity: user_session
+  field: state
+  ctx: "user_session 当前处于 active，但 guard 条件不满足: 操作管理员含 /customers 权限"
+  act: 触发事件 admin_force_logout，尝试从 active 转到 revoked
+  expect: 系统拒绝状态转换，user_session 保持在 active
+  source: sm
+- id: bs-258
+  cat: state
+  entity: user_session
+  field: state
+  ctx: user_session 当前处于 active
+  act: 触发该状态下不允许的操作 user_signout_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-259
+  cat: state
+  entity: user_session
+  field: state
+  ctx: user_session 当前处于 revoked
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-260
+  cat: state
+  entity: admin_user
+  field: state
+  ctx: "admin_user 当前处于 active，但 guard 条件不满足: 目标非超级管理员"
+  act: 触发事件 toggle_disable，尝试从 active 转到 disabled
+  expect: 系统拒绝状态转换，admin_user 保持在 active
+  source: sm
+- id: bs-261
+  cat: state
+  entity: admin_user
+  field: state
+  ctx: "admin_user 当前处于 disabled，但 guard 条件不满足: 目标非超级管理员"
+  act: 触发事件 toggle_enable，尝试从 disabled 转到 active
+  expect: 系统拒绝状态转换，admin_user 保持在 disabled
+  source: sm
+- id: bs-262
+  cat: state
+  entity: admin_user
+  field: state
+  ctx: admin_user 当前处于 active
+  act: 触发该状态下不允许的操作 toggle_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-263
+  cat: state
+  entity: admin_user
+  field: state
+  ctx: admin_user 当前处于 disabled
+  act: 触发该状态下不允许的操作 toggle_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-264
+  cat: state
+  entity: admin_session
+  field: state
+  ctx: admin_session 当前处于 active
+  act: 触发该状态下不允许的操作 admin_logout_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-265
+  cat: state
+  entity: admin_session
+  field: state
+  ctx: admin_session 当前处于 revoked
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-266
+  cat: callsite-compat
+  entity: user
+  field: tier
+  ctx: "user.tier 枚举值集合 ['vip', 'regular']，调用方依赖当前值"
+  act: 为 tier 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-267
+  cat: callsite-compat
+  entity: user
+  field: status
+  ctx: "user.status 枚举值集合 ['active', 'disabled', 'deleted']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-268
+  cat: callsite-compat
+  entity: user
+  ctx: login_history 实体结构变更，user 通过 外键 引用
+  act: 修改 login_history 的字段定义（添加/删除/修改类型）
+  expect: user 能正常读取 login_history 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-269
+  cat: callsite-compat
+  entity: user
+  ctx: user_identity 实体结构变更，user 通过 外键 引用
+  act: 修改 user_identity 的字段定义（添加/删除/修改类型）
+  expect: user 能正常读取 user_identity 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-270
+  cat: callsite-compat
+  entity: user
+  ctx: user_session 实体结构变更，user 通过 外键 引用
+  act: 修改 user_session 的字段定义（添加/删除/修改类型）
+  expect: user 能正常读取 user_session 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-271
+  cat: callsite-compat
+  entity: user_identity
+  field: provider
+  ctx: "user_identity.provider 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值"
+  act: 为 provider 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-272
+  cat: callsite-compat
+  entity: user_identity
+  field: user_id
+  ctx: user 实体结构变更，user_identity 通过 user_id 引用
+  act: 修改 user 的字段定义（添加/删除/修改类型）
+  expect: user_identity 能正常读取 user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-273
+  cat: callsite-compat
+  entity: otp_code
+  field: length
+  ctx: "otp_code.length 枚举值集合 [4, 6, 8]，调用方依赖当前值"
+  act: 为 length 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-274
+  cat: callsite-compat
+  entity: otp_code
+  field: status
+  ctx: "otp_code.status 枚举值集合 ['pending', 'consumed', 'expired', 'locked']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-275
+  cat: callsite-compat
+  entity: user_session
+  field: method
+  ctx: "user_session.method 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值"
+  act: 为 method 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-276
+  cat: callsite-compat
+  entity: user_session
+  field: status
+  ctx: "user_session.status 枚举值集合 ['active', 'revoked']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-277
+  cat: callsite-compat
+  entity: user_session
+  field: user_id
+  ctx: user 实体结构变更，user_session 通过 user_id 引用
+  act: 修改 user 的字段定义（添加/删除/修改类型）
+  expect: user_session 能正常读取 user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-278
+  cat: callsite-compat
+  entity: login_history
+  field: method
+  ctx: "login_history.method 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值"
+  act: 为 method 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-279
+  cat: callsite-compat
+  entity: login_history
+  field: result
+  ctx: "login_history.result 枚举值集合 ['success', 'failed']，调用方依赖当前值"
+  act: 为 result 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-280
+  cat: callsite-compat
+  entity: login_history
+  field: user_id
+  ctx: user 实体结构变更，login_history 通过 user_id 引用
+  act: 修改 user 的字段定义（添加/删除/修改类型）
+  expect: login_history 能正常读取 user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-281
+  cat: callsite-compat
+  entity: admin_user
+  field: status
+  ctx: "admin_user.status 枚举值集合 ['active', 'disabled']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-282
+  cat: callsite-compat
+  entity: admin_user
+  ctx: admin_session 实体结构变更，admin_user 通过 外键 引用
+  act: 修改 admin_session 的字段定义（添加/删除/修改类型）
+  expect: admin_user 能正常读取 admin_session 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-283
+  cat: callsite-compat
+  entity: admin_user
+  ctx: operation_log 实体结构变更，admin_user 通过 外键 引用
+  act: 修改 operation_log 的字段定义（添加/删除/修改类型）
+  expect: admin_user 能正常读取 operation_log 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-284
+  cat: callsite-compat
+  entity: admin_user
+  field: role_id
+  ctx: role 实体结构变更，admin_user 通过 role_id 引用
+  act: 修改 role 的字段定义（添加/删除/修改类型）
+  expect: admin_user 能正常读取 role 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-285
+  cat: callsite-compat
+  entity: role
+  field: type
+  ctx: "role.type 枚举值集合 ['preset', 'custom']，调用方依赖当前值"
+  act: 为 type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-286
+  cat: callsite-compat
+  entity: role
+  ctx: admin_user 实体结构变更，role 通过 外键 引用
+  act: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect: role 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-287
+  cat: callsite-compat
+  entity: role
+  ctx: permission 实体结构变更，role 通过 外键 引用
+  act: 修改 permission 的字段定义（添加/删除/修改类型）
+  expect: role 能正常读取 permission 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-288
+  cat: callsite-compat
+  entity: role_permission
+  field: permission_key
+  ctx: permission 实体结构变更，role_permission 通过 permission_key 引用
+  act: 修改 permission 的字段定义（添加/删除/修改类型）
+  expect: role_permission 能正常读取 permission 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-289
+  cat: callsite-compat
+  entity: role_permission
+  field: role_id
+  ctx: role 实体结构变更，role_permission 通过 role_id 引用
+  act: 修改 role 的字段定义（添加/删除/修改类型）
+  expect: role_permission 能正常读取 role 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-290
+  cat: callsite-compat
+  entity: admin_session
+  field: status
+  ctx: "admin_session.status 枚举值集合 ['active', 'revoked']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-291
+  cat: callsite-compat
+  entity: admin_session
+  field: admin_id
+  ctx: admin_user 实体结构变更，admin_session 通过 admin_id 引用
+  act: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect: admin_session 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-292
+  cat: callsite-compat
+  entity: operation_log
+  field: action
+  ctx: "operation_log.action 枚举值集合 ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员',\
+    \ '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更']，调用方依赖当前值"
+  act: 为 action 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-293
+  cat: callsite-compat
+  entity: operation_log
+  field: operator_id
+  ctx: admin_user 实体结构变更，operation_log 通过 operator_id 引用
+  act: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect: operation_log 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-294
+  cat: callsite-compat
+  entity: auth_config
+  field: otp_length
+  ctx: "auth_config.otp_length 枚举值集合 [4, 6, 8]，调用方依赖当前值"
+  act: 为 otp_length 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-295
+  cat: callsite-compat
+  entity: email_template
+  field: code
+  ctx: "email_template.code 枚举值集合 ['otp', 'new_device', 'change_primary', 'account_deleted']，调用方依赖当前值"
+  act: 为 code 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-296
+  cat: callsite-compat
+  entity: email_template
+  field: locale
+  ctx: "email_template.locale 枚举值集合 ['en', 'es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er

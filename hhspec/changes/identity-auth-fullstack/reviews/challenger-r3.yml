@@ -1,0 +1,34 @@
+change_name: identity-auth-fullstack
+review_round: 3
+reviewer: pd-l0-semantic-challenger
+generated_at: "2026-05-31T10:10:00Z"
+verdict: PASS
+overall_score: 8.6
+scope_note: 第 3 轮针对错误码体系/国际化、集成运维、数据保留合规增量审查。
+dimensions:
+  completeness:
+    score: 8.5
+    notes: |
+      增量覆盖：统一错误码 {code,message,details}（数字码）+HTTP语义化；消费端 EN/ES/FR 错误与邮件；
+      SMTP 邮件发送、邮件模板多语言、OIDC 凭据管理；数据保留清理定时任务。
+      er-diagram 增 email_template 实体 + user.anonymized/anonymized_at；state-machine user 增
+      anonymized 状态 + retention_anonymize 转换；business-flow 增 data_retention_cleanup（共16流程）。
+      boundary 296 / acceptance 343 func ctx 完整。
+  consistency:
+    score: 8.5
+    notes: |
+      data_retention_cleanup 的 user deleted→anonymized state_change 有对应 state-machine transition；
+      REQ-007/008 与 decision 13-16 一致；决策 16 显式修正决策 12 的"永久软删"表述为 GDPR 合规匿名化。
+  acceptability:
+    score: 9
+    notes: |
+      新增 FUNC-032~034 / EDGE-024~026 断言具体；保留策略有明确期限与合规依据（GDPR Art.17/Art.6(1)(f)）。
+blocking_issues: []
+advisory:
+  - 匿名化 PII 的具体字段清单与不可逆算法（hash/tokenize/置空）建议 L1 明确。
+  - 审计日志 1–3 年的具体值建议依据 Dreamy 实际合规义务确定。
+compliance_basis:
+  - "GDPR Art.17 右被遗忘：注销后不可逆匿名化 PII，非永久软删"
+  - "GDPR Art.6(1)(f) 正当利益：安全/审计日志可时间受限保留"
+  - "CCPA/CPRA、PIPEDA、澳洲隐私法：仅保留必要时长、安全销毁"
+scope_split_suggestion: none

@@ -1,0 +1,167 @@
+entities:
+  - id: user
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: email, t: str, req: true}
+      - {n: email_verified, t: bool, req: true}
+      - {n: name, t: str, maxlen: 80}
+      - {n: phone, t: str, maxlen: 32}
+      - {n: tier, t: enum, vals: [vip, regular], req: true}
+      - {n: status, t: enum, vals: [active, disabled, deleted], req: true}
+      - {n: avatar, t: str}
+      - {n: joined_at, t: datetime}
+      - {n: deleted_at, t: datetime}
+      - {n: anonymized, t: bool}
+      - {n: anonymized_at, t: datetime}
+      - {n: created_at, t: datetime}
+      - {n: updated_at, t: datetime}
+    relations:
+      - {to: user_identity, type: 1n}
+      - {to: user_session, type: 1n}
+      - {to: login_history, type: 1n}
+  - id: user_identity
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: user_id, t: ref, to: user, req: true}
+      - {n: provider, t: enum, vals: [email, google, apple], req: true}
+      - {n: provider_uid, t: str, req: true}
+      - {n: identifier, t: str}
+      - {n: is_primary, t: bool, req: true}
+      - {n: verified, t: bool, req: true}
+      - {n: connected, t: bool, req: true}
+      - {n: hidden_email, t: bool}
+      - {n: relay_email, t: str}
+      - {n: bound_at, t: datetime}
+      - {n: last_login_at, t: datetime}
+    relations:
+      - {to: user, type: n1}
+  - id: otp_code
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: email, t: str, req: true}
+      - {n: code_hash, t: str, req: true}
+      - {n: length, t: int, vals: [4, 6, 8], req: true}
+      - {n: expires_at, t: datetime, req: true}
+      - {n: attempts, t: int, req: true, min: 0}
+      - {n: max_attempts, t: int, req: true, min: 3, max: 10}
+      - {n: status, t: enum, vals: [pending, consumed, expired, locked], req: true}
+      - {n: last_sent_at, t: datetime}
+      - {n: created_at, t: datetime}
+  - id: user_session
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: user_id, t: ref, to: user, req: true}
+      - {n: token_id, t: str, req: true}
+      - {n: refresh_token_id, t: str}
+      - {n: access_expires_at, t: datetime}
+      - {n: refresh_expires_at, t: datetime}
+      - {n: device, t: str}
+      - {n: browser, t: str}
+      - {n: ip, t: str}
+      - {n: location, t: str}
+      - {n: is_new_device, t: bool}
+      - {n: method, t: enum, vals: [email, google, apple], req: true}
+      - {n: status, t: enum, vals: [active, revoked], req: true}
+      - {n: last_active_at, t: datetime}
+      - {n: created_at, t: datetime}
+    relations:
+      - {to: user, type: n1}
+  - id: login_history
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: user_id, t: ref, to: user}
+      - {n: email, t: str}
+      - {n: method, t: enum, vals: [email, google, apple], req: true}
+      - {n: ip, t: str}
+      - {n: device, t: str}
+      - {n: location, t: str}
+      - {n: result, t: enum, vals: [success, failed], req: true}
+      - {n: is_new_device, t: bool}
+      - {n: notified, t: bool}
+      - {n: created_at, t: datetime, req: true}
+    relations:
+      - {to: user, type: n1}
+  - id: admin_user
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: name, t: str, req: true, maxlen: 80}
+      - {n: email, t: str, req: true}
+      - {n: password_hash, t: str, req: true}
+      - {n: role_id, t: ref, to: role, req: true}
+      - {n: status, t: enum, vals: [active, disabled], req: true}
+      - {n: last_login_at, t: datetime}
+      - {n: created_at, t: datetime}
+    relations:
+      - {to: role, type: n1}
+      - {to: admin_session, type: 1n}
+      - {to: operation_log, type: 1n}
+  - id: role
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: name, t: str, req: true, maxlen: 40}
+      - {n: type, t: enum, vals: [preset, custom], req: true}
+      - {n: is_locked, t: bool, req: true}
+      - {n: created_at, t: datetime}
+    relations:
+      - {to: admin_user, type: 1n}
+      - {to: permission, type: nm}
+  - id: permission
+    fields:
+      - {n: key, t: str, pk: true}
+      - {n: group, t: str, req: true}
+      - {n: label, t: str, req: true}
+  - id: role_permission
+    fields:
+      - {n: role_id, t: ref, to: role, req: true}
+      - {n: permission_key, t: ref, to: permission, req: true}
+    relations:
+      - {to: role, type: n1}
+      - {to: permission, type: n1}
+  - id: admin_session
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: admin_id, t: ref, to: admin_user, req: true}
+      - {n: token_id, t: str, req: true}
+      - {n: ip, t: str}
+      - {n: device, t: str}
+      - {n: status, t: enum, vals: [active, revoked], req: true}
+      - {n: last_active_at, t: datetime}
+      - {n: created_at, t: datetime}
+    relations:
+      - {to: admin_user, type: n1}
+  - id: operation_log
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: operator_id, t: ref, to: admin_user}
+      - {n: operator_name, t: str, req: true}
+      - {n: action, t: enum, vals: [登录, "Google 登录", "Apple 登录", 创建管理员, 编辑管理员, 删除管理员, 禁用管理员, 重置密码, 创建角色, 编辑角色, 删除角色, 权限变更, 账户合并, 强制下线, 认证配置变更], req: true}
+      - {n: target, t: str}
+      - {n: ip, t: str}
+      - {n: user_agent, t: str}
+      - {n: changes, t: json}
+      - {n: created_at, t: datetime, req: true}
+    relations:
+      - {to: admin_user, type: n1}
+  - id: auth_config
+    fields:
+      - {n: id, t: int, pk: true}
+      - {n: email_enabled, t: bool, req: true}
+      - {n: google_enabled, t: bool, req: true}
+      - {n: apple_enabled, t: bool, req: true}
+      - {n: otp_length, t: enum, vals: [4, 6, 8], req: true}
+      - {n: otp_ttl_minutes, t: int, req: true, min: 1, max: 30}
+      - {n: otp_resend_seconds, t: int, req: true, min: 10, max: 120}
+      - {n: otp_max_attempts, t: int, req: true, min: 3, max: 10}
+      - {n: min_methods, t: int, req: true, min: 1, max: 3}
+      - {n: google_client_id, t: str}
+      - {n: apple_service_id, t: str}
+      - {n: updated_at, t: datetime}
+  - id: email_template
+    fields:
+      - {n: id, t: uuid, pk: true}
+      - {n: code, t: enum, vals: [otp, new_device, change_primary, account_deleted], req: true}
+      - {n: locale, t: enum, vals: [en, es, fr], req: true}
+      - {n: subject, t: str, req: true}
+      - {n: body, t: str, req: true}
+      - {n: updated_at, t: datetime}
+meta: {mode: bootstrap}

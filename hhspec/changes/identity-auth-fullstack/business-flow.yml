@@ -1,0 +1,328 @@
+flows:
+  - id: store_passwordless_otp_login
+    name: 消费端邮箱验证码登录
+    trigger: 用户在登录页输入邮箱并请求验证码
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 进入登录页}
+      - {id: n2, type: action, actor: 消费者, label: 输入邮箱点击发送验证码, entity: otp_code}
+      - {id: n3, type: decision, label: 邮箱格式合法且未触发限流}
+      - {id: n4, type: integration, label: 通过邮件服务发送 OTP, entity: otp_code}
+      - {id: n5, type: action, actor: 消费者, label: 输入6位验证码提交, entity: otp_code}
+      - {id: n6, type: decision, label: 验证码正确且未过期未超次}
+      - {id: n7, type: state_change, entity: otp_code, from: pending, to: consumed}
+      - {id: n8, type: action, label: 按邮箱归并或新建 user 并签发 store JWT, entity: user}
+      - {id: n9, type: state_change, entity: user_session, from: "-", to: active}
+      - {id: n10, type: end, label: 进入账户中心}
+      - {id: n11, type: error, label: 校验失败计数或锁定, entity: otp_code}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n11, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+      - {from: n6, to: n7, cond: "yes"}
+      - {from: n6, to: n11, cond: "no"}
+      - {from: n7, to: n8}
+      - {from: n8, to: n9}
+      - {from: n9, to: n10}
+    external_systems: [email_service]
+  - id: store_oidc_login
+    name: 消费端 Google/Apple 第三方登录
+    trigger: 用户点击 Continue with Google / Apple
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 点击第三方登录}
+      - {id: n2, type: integration, label: 跳转 OIDC 授权并回调, entity: user_identity}
+      - {id: n3, type: decision, label: OIDC sub 校验通过}
+      - {id: n4, type: decision, label: provider_uid 已存在 identity}
+      - {id: n5, type: action, label: 命中则定位 user, entity: user}
+      - {id: n6, type: decision, label: 未命中时 email_verified 且邮箱已存在}
+      - {id: n7, type: action, label: 自动归并到既有 user 并新建 identity, entity: user_identity}
+      - {id: n8, type: action, label: 否则新建 user 与 identity, entity: user}
+      - {id: n9, type: action, label: 签发 store JWT 创建会话, entity: user_session}
+      - {id: n10, type: end, label: 进入账户中心}
+      - {id: n11, type: error, label: 邮箱冲突未验证提示用原方式登录后绑定}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n11, cond: "no"}
+      - {from: n4, to: n5, cond: "yes"}
+      - {from: n4, to: n6, cond: "no"}
+      - {from: n6, to: n7, cond: "yes"}
+      - {from: n6, to: n8, cond: "no"}
+      - {from: n5, to: n9}
+      - {from: n7, to: n9}
+      - {from: n8, to: n9}
+      - {from: n9, to: n10}
+    external_systems: [google_oidc, apple_oidc]
+  - id: store_manage_login_methods
+    name: 消费端登录方式绑定解绑
+    trigger: 用户在登录与安全页操作登录方式
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 打开登录与安全页}
+      - {id: n2, type: action, actor: 消费者, label: 点击绑定或解绑, entity: user_identity}
+      - {id: n3, type: decision, label: 解绑且为主邮箱或剩余方式<min_methods}
+      - {id: n4, type: error, label: 拒绝保留至少一种方式}
+      - {id: n5, type: state_change, entity: user_identity, from: connected, to: not_connected}
+      - {id: n6, type: state_change, entity: user_identity, from: not_connected, to: connected}
+      - {id: n7, type: end, label: 更新登录方式}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3, cond: "解绑"}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n5, cond: "no"}
+      - {from: n2, to: n6, cond: "绑定"}
+      - {from: n5, to: n7}
+      - {from: n6, to: n7}
+  - id: store_session_management
+    name: 消费端会话与设备管理
+    trigger: 用户在登录与安全页管理设备
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 查看活跃会话列表}
+      - {id: n2, type: action, actor: 消费者, label: 登出某设备或登出其他全部, entity: user_session}
+      - {id: n3, type: state_change, entity: user_session, from: active, to: revoked}
+      - {id: n4, type: end, label: 会话列表刷新}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4}
+  - id: admin_login
+    name: 后台管理员登录
+    trigger: 管理员在后台登录页提交邮箱密码
+    actors: [管理员]
+    nodes:
+      - {id: n1, type: start, label: 进入后台登录页}
+      - {id: n2, type: action, actor: 管理员, label: 输入邮箱密码提交, entity: admin_user}
+      - {id: n3, type: decision, label: 凭据正确且状态 active}
+      - {id: n4, type: action, label: 签发 admin JWT 创建会话, entity: admin_session}
+      - {id: n5, type: action, label: 按角色权限加载可见菜单, entity: role_permission}
+      - {id: n6, type: notification, label: 写入登录操作日志, entity: operation_log}
+      - {id: n7, type: end, label: 进入工作台}
+      - {id: n8, type: error, label: 凭据错误或账户禁用拒绝登录}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n8, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+      - {from: n6, to: n7}
+  - id: admin_manage_admins
+    name: 后台管理员 CRUD
+    trigger: 超管在管理员管理页操作账号
+    actors: [超级管理员]
+    nodes:
+      - {id: n1, type: start, label: 打开管理员管理}
+      - {id: n2, type: action, actor: 超级管理员, label: 新增编辑删除或禁用启用重置密码, entity: admin_user}
+      - {id: n3, type: decision, label: 操作合法（不删自己/不禁用超管/邮箱唯一）}
+      - {id: n4, type: action, label: 持久化变更, entity: admin_user}
+      - {id: n5, type: notification, label: 写操作日志含变更前后, entity: operation_log}
+      - {id: n6, type: end, label: 列表刷新}
+      - {id: n7, type: error, label: 拒绝并提示原因}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n7, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+  - id: admin_manage_roles
+    name: 后台角色与权限矩阵
+    trigger: 超管在角色权限页编辑权限
+    actors: [超级管理员]
+    nodes:
+      - {id: n1, type: start, label: 打开角色权限}
+      - {id: n2, type: action, actor: 超级管理员, label: 增删角色或勾选菜单权限, entity: role}
+      - {id: n3, type: decision, label: 角色非 is_locked 且删除前无关联管理员}
+      - {id: n4, type: action, label: 保存 role_permission, entity: role_permission}
+      - {id: n5, type: notification, label: 写权限变更日志, entity: operation_log}
+      - {id: n6, type: end, label: 权限即时生效（路由守卫+菜单渲染）}
+      - {id: n7, type: error, label: 拒绝（锁定/有关联管理员）}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n7, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+  - id: admin_customer_identity_ops
+    name: 后台用户身份运营
+    trigger: 管理员在用户详情查看登录方式/记录并强制下线
+    actors: [管理员]
+    nodes:
+      - {id: n1, type: start, label: 打开用户详情}
+      - {id: n2, type: action, actor: 管理员, label: 查看登录方式卡与登录记录, entity: login_history}
+      - {id: n3, type: action, actor: 管理员, label: 强制下线单会话或全部, entity: user_session}
+      - {id: n4, type: state_change, entity: user_session, from: active, to: revoked}
+      - {id: n5, type: action, actor: 管理员, label: 禁用账户, entity: user}
+      - {id: n6, type: state_change, entity: user, from: active, to: disabled}
+      - {id: n7, type: notification, label: 写操作日志, entity: operation_log}
+      - {id: n8, type: end, label: 完成}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4}
+      - {from: n4, to: n7}
+      - {from: n2, to: n5}
+      - {from: n5, to: n6}
+      - {from: n6, to: n7}
+      - {from: n7, to: n8}
+  - id: admin_auth_config
+    name: 后台登录与认证配置
+    trigger: 超管在登录与认证页保存配置
+    actors: [超级管理员]
+    nodes:
+      - {id: n1, type: start, label: 打开登录与认证}
+      - {id: n2, type: action, actor: 超级管理员, label: 调整登录方式开关/OTP策略/minMethods, entity: auth_config}
+      - {id: n3, type: decision, label: email 主登录保持开启且数值在合法区间}
+      - {id: n4, type: action, label: 保存配置, entity: auth_config}
+      - {id: n5, type: notification, label: 写认证配置变更日志, entity: operation_log}
+      - {id: n6, type: end, label: 配置生效（消费端登录读取）}
+      - {id: n7, type: error, label: 拒绝非法配置}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n7, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+  - id: store_change_primary_email
+    name: 消费端更换主邮箱
+    trigger: 用户在登录与安全页发起更换主邮箱
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 发起更换主邮箱}
+      - {id: n2, type: action, actor: 消费者, label: 输入新邮箱并请求 OTP, entity: otp_code}
+      - {id: n3, type: decision, label: 新邮箱未被他人占用且 OTP 验证通过}
+      - {id: n4, type: state_change, entity: user_identity, from: connected, to: connected}
+      - {id: n5, type: notification, label: 通知旧邮箱主邮箱已变更}
+      - {id: n6, type: end, label: 新邮箱成为 is_primary}
+      - {id: n7, type: error, label: 邮箱被占用或验证失败拒绝}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n7, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+    external_systems: [email_service]
+  - id: store_delete_account
+    name: 消费端账户注销/删除
+    trigger: 用户在账户设置发起注销
+    actors: [消费者]
+    nodes:
+      - {id: n1, type: start, label: 发起注销}
+      - {id: n2, type: decision, label: 二次确认}
+      - {id: n3, type: state_change, entity: user, from: active, to: deleted}
+      - {id: n4, type: action, label: 撤销全部会话并清缓存, entity: user_session}
+      - {id: n5, type: notification, label: 发送注销确认邮件}
+      - {id: n6, type: end, label: 软删除完成（数据保留按策略）}
+      - {id: n7, type: end, label: 取消}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3, cond: "确认"}
+      - {from: n2, to: n7, cond: "取消"}
+      - {from: n3, to: n4}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+    external_systems: [email_service]
+  - id: store_new_device_notification
+    name: 新设备登录通知
+    trigger: 登录成功且为新设备/新位置首次登录
+    actors: [系统]
+    nodes:
+      - {id: n1, type: start, label: 登录成功}
+      - {id: n2, type: decision, label: is_new_device 为真}
+      - {id: n3, type: notification, label: 发送新设备登录提醒邮件含一键登出, entity: login_history}
+      - {id: n4, type: end, label: 完成}
+      - {id: n5, type: end, label: 熟悉设备不发送}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3, cond: "yes"}
+      - {from: n2, to: n5, cond: "no"}
+      - {from: n3, to: n4}
+    external_systems: [email_service]
+  - id: store_unverified_email_conflict
+    name: 未验证邮箱冲突处理
+    trigger: 第三方登录邮箱与既有账户冲突但未验证
+    actors: [消费者, 系统]
+    nodes:
+      - {id: n1, type: start, label: OIDC 回调邮箱命中既有账户}
+      - {id: n2, type: decision, label: email_verified 为真}
+      - {id: n3, type: action, label: 自动归并, entity: user_identity}
+      - {id: n4, type: error, label: 不静默合并，提示用原方式登录后在安全页绑定}
+      - {id: n5, type: action, actor: 消费者, label: 用原方式登录后手动绑定该第三方, entity: user_identity}
+      - {id: n6, type: state_change, entity: user_identity, from: not_connected, to: connected}
+      - {id: n7, type: end, label: 绑定完成}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3, cond: "yes"}
+      - {from: n2, to: n4, cond: "no"}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6}
+      - {from: n6, to: n7}
+    external_systems: [google_oidc, apple_oidc]
+  - id: store_apple_relay_invalidation
+    name: Apple relay 邮箱失效处理
+    trigger: Apple relay 邮件退信或用户关闭转发
+    actors: [系统]
+    nodes:
+      - {id: n1, type: start, label: 检测到 relay 邮件不可达}
+      - {id: n2, type: action, label: 标记该 identity relay 失效, entity: user_identity}
+      - {id: n3, type: decision, label: 用户是否还有其他可达登录方式}
+      - {id: n4, type: notification, label: 通过其他方式提醒用户更新联系邮箱}
+      - {id: n5, type: error, label: 无其他可达方式则保留 Apple sub 登录能力不阻断}
+      - {id: n6, type: end, label: 完成}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4, cond: "yes"}
+      - {from: n3, to: n5, cond: "no"}
+      - {from: n4, to: n6}
+      - {from: n5, to: n6}
+    external_systems: [apple_oidc, email_service]
+  - id: data_retention_cleanup
+    name: 数据保留与清理（合规定时任务）
+    trigger: 定时调度（每日）
+    actors: [系统]
+    nodes:
+      - {id: n1, type: start, label: 定时任务触发}
+      - {id: n2, type: action, label: 清除已用/过期 OTP（24h 内）, entity: otp_code}
+      - {id: n3, type: action, label: 清除 revoked 超 30 天的会话, entity: user_session}
+      - {id: n4, type: action, label: 清除超 1 年的 login_history, entity: login_history}
+      - {id: n5, type: decision, label: 存在 deleted 超 30 天宽限的用户}
+      - {id: n6, type: state_change, entity: user, from: deleted, to: anonymized}
+      - {id: n7, type: action, label: 匿名化 PII（email/name/phone/identity）不可逆, entity: user}
+      - {id: n8, type: end, label: 清理完成}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3}
+      - {from: n3, to: n4}
+      - {from: n4, to: n5}
+      - {from: n5, to: n6, cond: "yes"}
+      - {from: n5, to: n8, cond: "no"}
+      - {from: n6, to: n7}
+      - {from: n7, to: n8}
+  - id: account_auto_merge
+    name: 系统自动账户归并
+    trigger: 登录/注册时检测到已验证邮箱一致的不同 identity
+    actors: [系统]
+    nodes:
+      - {id: n1, type: start, label: 登录或注册命中归并条件}
+      - {id: n2, type: decision, label: email_verified=true 且邮箱与既有账户一致}
+      - {id: n3, type: action, label: 将新 identity 挂到既有 user, entity: user_identity}
+      - {id: n4, type: notification, label: 写账户合并日志（系统自动）, entity: operation_log}
+      - {id: n5, type: end, label: 归并完成}
+      - {id: n6, type: error, label: 邮箱未验证或冲突不静默合并提示绑定}
+    edges:
+      - {from: n1, to: n2}
+      - {from: n2, to: n3, cond: "yes"}
+      - {from: n2, to: n6, cond: "no"}
+      - {from: n3, to: n4}
+      - {from: n4, to: n5}
+meta: {mode: bootstrap}

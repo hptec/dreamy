@@ -1,0 +1,28 @@
+stateDiagram-v2
+  [*] --> pending
+  pending --> consumed : verify_ok
+  pending --> pending : verify_fail
+  pending --> locked : verify_fail_max
+  pending --> expired : ttl_timeout
+  pending --> pending : resend
+  [*] --> active
+  active --> disabled : admin_disable
+  disabled --> active : admin_enable
+  active --> deleted : user_delete_account
+  disabled --> deleted : user_delete_account
+  deleted --> anonymized : retention_anonymize
+  [*] --> not_connected
+  not_connected --> connected : bind
+  connected --> not_connected : unbind
+  connected --> connected : change_primary
+  [*] --> active
+  active --> revoked : user_signout
+  active --> revoked : user_signout_others
+  active --> revoked : admin_force_logout
+  active --> revoked : account_disabled
+  [*] --> active
+  active --> disabled : toggle_disable
+  disabled --> active : toggle_enable
+  [*] --> active
+  active --> revoked : admin_logout
+  active --> revoked : admin_account_disabled

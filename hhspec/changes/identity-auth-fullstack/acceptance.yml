@@ -1,0 +1,5399 @@
+scenarios:
+- id: s-001
+  title: otp_code 状态从 pending 流转到 consumed
+  source: sm
+  source_id: otp_code.pending→consumed
+  ctx:
+    entity: otp_code
+    state: pending
+  act:
+    op: verify_ok
+  expect:
+    state: consumed
+    http_status: 200
+- id: s-002
+  title: otp_code 在 pending 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: otp_code.pending→consumed.guard_fail
+  ctx:
+    entity: otp_code
+    state: pending
+    guard_satisfied: false
+  act:
+    op: verify_ok
+  expect:
+    state: pending
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-003
+  title: otp_code 状态从 pending 流转到 pending
+  source: sm
+  source_id: otp_code.pending→pending
+  ctx:
+    entity: otp_code
+    state: pending
+  act:
+    op: resend
+  expect:
+    state: pending
+    http_status: 200
+- id: s-004
+  title: otp_code 在 pending 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: otp_code.pending→pending.guard_fail
+  ctx:
+    entity: otp_code
+    state: pending
+    guard_satisfied: false
+  act:
+    op: resend
+  expect:
+    state: pending
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-005
+  title: otp_code 状态从 pending 流转到 locked
+  source: sm
+  source_id: otp_code.pending→locked
+  ctx:
+    entity: otp_code
+    state: pending
+  act:
+    op: verify_fail_max
+  expect:
+    state: locked
+    http_status: 200
+- id: s-006
+  title: otp_code 在 pending 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: otp_code.pending→locked.guard_fail
+  ctx:
+    entity: otp_code
+    state: pending
+    guard_satisfied: false
+  act:
+    op: verify_fail_max
+  expect:
+    state: pending
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-007
+  title: otp_code 状态从 pending 流转到 expired
+  source: sm
+  source_id: otp_code.pending→expired
+  ctx:
+    entity: otp_code
+    state: pending
+  act:
+    op: ttl_timeout
+  expect:
+    state: expired
+    http_status: 200
+- id: s-008
+  title: otp_code 在 pending 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: otp_code.pending→expired.guard_fail
+  ctx:
+    entity: otp_code
+    state: pending
+    guard_satisfied: false
+  act:
+    op: ttl_timeout
+  expect:
+    state: pending
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-009
+  title: user 状态从 active 流转到 disabled
+  source: sm
+  source_id: user.active→disabled
+  ctx:
+    entity: user
+    state: active
+  act:
+    op: admin_disable
+  expect:
+    state: disabled
+    http_status: 200
+- id: s-010
+  title: user 在 active 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user.active→disabled.guard_fail
+  ctx:
+    entity: user
+    state: active
+    guard_satisfied: false
+  act:
+    op: admin_disable
+  expect:
+    state: active
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-011
+  title: user 状态从 disabled 流转到 active
+  source: sm
+  source_id: user.disabled→active
+  ctx:
+    entity: user
+    state: disabled
+  act:
+    op: admin_enable
+  expect:
+    state: active
+    http_status: 200
+- id: s-012
+  title: user 在 disabled 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user.disabled→active.guard_fail
+  ctx:
+    entity: user
+    state: disabled
+    guard_satisfied: false
+  act:
+    op: admin_enable
+  expect:
+    state: disabled
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-013
+  title: user_identity 状态从 not_connected 流转到 connected
+  source: sm
+  source_id: user_identity.not_connected→connected
+  ctx:
+    entity: user_identity
+    state: not_connected
+  act:
+    op: bind
+  expect:
+    state: connected
+    http_status: 200
+- id: s-014
+  title: user_identity 在 not_connected 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user_identity.not_connected→connected.guard_fail
+  ctx:
+    entity: user_identity
+    state: not_connected
+    guard_satisfied: false
+  act:
+    op: bind
+  expect:
+    state: not_connected
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-015
+  title: user_identity 状态从 connected 流转到 not_connected
+  source: sm
+  source_id: user_identity.connected→not_connected
+  ctx:
+    entity: user_identity
+    state: connected
+  act:
+    op: unbind
+  expect:
+    state: not_connected
+    http_status: 200
+- id: s-016
+  title: user_identity 在 connected 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user_identity.connected→not_connected.guard_fail
+  ctx:
+    entity: user_identity
+    state: connected
+    guard_satisfied: false
+  act:
+    op: unbind
+  expect:
+    state: connected
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-017
+  title: user_session 状态从 active 流转到 revoked
+  source: sm
+  source_id: user_session.active→revoked
+  ctx:
+    entity: user_session
+    state: active
+  act:
+    op: account_disabled
+  expect:
+    state: revoked
+    http_status: 200
+- id: s-018
+  title: user_session 在 active 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user_session.active→revoked.guard_fail
+  ctx:
+    entity: user_session
+    state: active
+    guard_satisfied: false
+  act:
+    op: admin_force_logout
+  expect:
+    state: active
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-019
+  title: admin_user 状态从 active 流转到 disabled
+  source: sm
+  source_id: admin_user.active→disabled
+  ctx:
+    entity: admin_user
+    state: active
+  act:
+    op: toggle_disable
+  expect:
+    state: disabled
+    http_status: 200
+- id: s-020
+  title: admin_user 在 active 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: admin_user.active→disabled.guard_fail
+  ctx:
+    entity: admin_user
+    state: active
+    guard_satisfied: false
+  act:
+    op: toggle_disable
+  expect:
+    state: active
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-021
+  title: admin_user 状态从 disabled 流转到 active
+  source: sm
+  source_id: admin_user.disabled→active
+  ctx:
+    entity: admin_user
+    state: disabled
+  act:
+    op: toggle_enable
+  expect:
+    state: active
+    http_status: 200
+- id: s-022
+  title: admin_user 在 disabled 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: admin_user.disabled→active.guard_fail
+  ctx:
+    entity: admin_user
+    state: disabled
+    guard_satisfied: false
+  act:
+    op: toggle_enable
+  expect:
+    state: disabled
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-023
+  title: admin_session 状态从 active 流转到 revoked
+  source: sm
+  source_id: admin_session.active→revoked
+  ctx:
+    entity: admin_session
+    state: active
+  act:
+    op: admin_account_disabled
+  expect:
+    state: revoked
+    http_status: 200
+- id: s-024
+  title: null 类边界场景 bs-001
+  source: bs
+  source_id: bs-001
+  ctx:
+    entity: user
+    field: id
+    description: user 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-025
+  title: null 类边界场景 bs-002
+  source: bs
+  source_id: bs-002
+  ctx:
+    entity: user
+    field: email
+    description: user 创建或更新时缺少必填字段 email
+  act:
+    op: trigger_boundary_case
+    field: email
+    detail: 提交 email=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 email
+    field: email
+- id: s-026
+  title: null 类边界场景 bs-003
+  source: bs
+  source_id: bs-003
+  ctx:
+    entity: user
+    field: email_verified
+    description: user 创建或更新时缺少必填字段 email_verified
+  act:
+    op: trigger_boundary_case
+    field: email_verified
+    detail: 提交 email_verified=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 email_verified
+    field: email_verified
+- id: s-027
+  title: null 类边界场景 bs-004
+  source: bs
+  source_id: bs-004
+  ctx:
+    entity: user
+    field: name
+    description: user 的可选字段 name 未提供
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交 name=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 name 为空，不报错
+    field: name
+- id: s-028
+  title: null 类边界场景 bs-005
+  source: bs
+  source_id: bs-005
+  ctx:
+    entity: user
+    field: phone
+    description: user 的可选字段 phone 未提供
+  act:
+    op: trigger_boundary_case
+    field: phone
+    detail: 提交 phone=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 phone 为空，不报错
+    field: phone
+- id: s-029
+  title: null 类边界场景 bs-006
+  source: bs
+  source_id: bs-006
+  ctx:
+    entity: user
+    field: tier
+    description: user 创建或更新时缺少必填字段 tier
+  act:
+    op: trigger_boundary_case
+    field: tier
+    detail: 提交 tier=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 tier
+    field: tier
+- id: s-030
+  title: null 类边界场景 bs-007
+  source: bs
+  source_id: bs-007
+  ctx:
+    entity: user
+    field: status
+    description: user 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-031
+  title: null 类边界场景 bs-008
+  source: bs
+  source_id: bs-008
+  ctx:
+    entity: user
+    field: avatar
+    description: user 的可选字段 avatar 未提供
+  act:
+    op: trigger_boundary_case
+    field: avatar
+    detail: 提交 avatar=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 avatar 为空，不报错
+    field: avatar
+- id: s-032
+  title: null 类边界场景 bs-009
+  source: bs
+  source_id: bs-009
+  ctx:
+    entity: user
+    field: joined_at
+    description: user 的可选字段 joined_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: joined_at
+    detail: 提交 joined_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 joined_at 为空，不报错
+    field: joined_at
+- id: s-033
+  title: null 类边界场景 bs-010
+  source: bs
+  source_id: bs-010
+  ctx:
+    entity: user
+    field: deleted_at
+    description: user 的可选字段 deleted_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: deleted_at
+    detail: 提交 deleted_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 deleted_at 为空，不报错
+    field: deleted_at
+- id: s-034
+  title: null 类边界场景 bs-011
+  source: bs
+  source_id: bs-011
+  ctx:
+    entity: user
+    field: anonymized
+    description: user 的可选字段 anonymized 未提供
+  act:
+    op: trigger_boundary_case
+    field: anonymized
+    detail: 提交 anonymized=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 anonymized 为空，不报错
+    field: anonymized
+- id: s-035
+  title: null 类边界场景 bs-012
+  source: bs
+  source_id: bs-012
+  ctx:
+    entity: user
+    field: anonymized_at
+    description: user 的可选字段 anonymized_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: anonymized_at
+    detail: 提交 anonymized_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 anonymized_at 为空，不报错
+    field: anonymized_at
+- id: s-036
+  title: null 类边界场景 bs-013
+  source: bs
+  source_id: bs-013
+  ctx:
+    entity: user
+    field: created_at
+    description: user 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-037
+  title: null 类边界场景 bs-014
+  source: bs
+  source_id: bs-014
+  ctx:
+    entity: user
+    field: updated_at
+    description: user 的可选字段 updated_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: updated_at
+    detail: 提交 updated_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 updated_at 为空，不报错
+    field: updated_at
+- id: s-038
+  title: null 类边界场景 bs-015
+  source: bs
+  source_id: bs-015
+  ctx:
+    entity: user_identity
+    field: id
+    description: user_identity 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-039
+  title: null 类边界场景 bs-016
+  source: bs
+  source_id: bs-016
+  ctx:
+    entity: user_identity
+    field: user_id
+    description: user_identity 创建或更新时缺少必填字段 user_id
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交 user_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 user_id
+    field: user_id
+- id: s-040
+  title: null 类边界场景 bs-017
+  source: bs
+  source_id: bs-017
+  ctx:
+    entity: user_identity
+    field: provider
+    description: user_identity 创建或更新时缺少必填字段 provider
+  act:
+    op: trigger_boundary_case
+    field: provider
+    detail: 提交 provider=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 provider
+    field: provider
+- id: s-041
+  title: null 类边界场景 bs-018
+  source: bs
+  source_id: bs-018
+  ctx:
+    entity: user_identity
+    field: provider_uid
+    description: user_identity 创建或更新时缺少必填字段 provider_uid
+  act:
+    op: trigger_boundary_case
+    field: provider_uid
+    detail: 提交 provider_uid=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 provider_uid
+    field: provider_uid
+- id: s-042
+  title: null 类边界场景 bs-019
+  source: bs
+  source_id: bs-019
+  ctx:
+    entity: user_identity
+    field: identifier
+    description: user_identity 的可选字段 identifier 未提供
+  act:
+    op: trigger_boundary_case
+    field: identifier
+    detail: 提交 identifier=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 identifier 为空，不报错
+    field: identifier
+- id: s-043
+  title: null 类边界场景 bs-020
+  source: bs
+  source_id: bs-020
+  ctx:
+    entity: user_identity
+    field: is_primary
+    description: user_identity 创建或更新时缺少必填字段 is_primary
+  act:
+    op: trigger_boundary_case
+    field: is_primary
+    detail: 提交 is_primary=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 is_primary
+    field: is_primary
+- id: s-044
+  title: null 类边界场景 bs-021
+  source: bs
+  source_id: bs-021
+  ctx:
+    entity: user_identity
+    field: verified
+    description: user_identity 创建或更新时缺少必填字段 verified
+  act:
+    op: trigger_boundary_case
+    field: verified
+    detail: 提交 verified=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 verified
+    field: verified
+- id: s-045
+  title: null 类边界场景 bs-022
+  source: bs
+  source_id: bs-022
+  ctx:
+    entity: user_identity
+    field: connected
+    description: user_identity 创建或更新时缺少必填字段 connected
+  act:
+    op: trigger_boundary_case
+    field: connected
+    detail: 提交 connected=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 connected
+    field: connected
+- id: s-046
+  title: null 类边界场景 bs-023
+  source: bs
+  source_id: bs-023
+  ctx:
+    entity: user_identity
+    field: hidden_email
+    description: user_identity 的可选字段 hidden_email 未提供
+  act:
+    op: trigger_boundary_case
+    field: hidden_email
+    detail: 提交 hidden_email=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 hidden_email 为空，不报错
+    field: hidden_email
+- id: s-047
+  title: null 类边界场景 bs-024
+  source: bs
+  source_id: bs-024
+  ctx:
+    entity: user_identity
+    field: relay_email
+    description: user_identity 的可选字段 relay_email 未提供
+  act:
+    op: trigger_boundary_case
+    field: relay_email
+    detail: 提交 relay_email=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 relay_email 为空，不报错
+    field: relay_email
+- id: s-048
+  title: null 类边界场景 bs-025
+  source: bs
+  source_id: bs-025
+  ctx:
+    entity: user_identity
+    field: bound_at
+    description: user_identity 的可选字段 bound_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: bound_at
+    detail: 提交 bound_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 bound_at 为空，不报错
+    field: bound_at
+- id: s-049
+  title: null 类边界场景 bs-026
+  source: bs
+  source_id: bs-026
+  ctx:
+    entity: user_identity
+    field: last_login_at
+    description: user_identity 的可选字段 last_login_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: last_login_at
+    detail: 提交 last_login_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 last_login_at 为空，不报错
+    field: last_login_at
+- id: s-050
+  title: null 类边界场景 bs-027
+  source: bs
+  source_id: bs-027
+  ctx:
+    entity: otp_code
+    field: id
+    description: otp_code 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-051
+  title: null 类边界场景 bs-028
+  source: bs
+  source_id: bs-028
+  ctx:
+    entity: otp_code
+    field: email
+    description: otp_code 创建或更新时缺少必填字段 email
+  act:
+    op: trigger_boundary_case
+    field: email
+    detail: 提交 email=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 email
+    field: email
+- id: s-052
+  title: null 类边界场景 bs-029
+  source: bs
+  source_id: bs-029
+  ctx:
+    entity: otp_code
+    field: code_hash
+    description: otp_code 创建或更新时缺少必填字段 code_hash
+  act:
+    op: trigger_boundary_case
+    field: code_hash
+    detail: 提交 code_hash=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 code_hash
+    field: code_hash
+- id: s-053
+  title: null 类边界场景 bs-030
+  source: bs
+  source_id: bs-030
+  ctx:
+    entity: otp_code
+    field: length
+    description: otp_code 创建或更新时缺少必填字段 length
+  act:
+    op: trigger_boundary_case
+    field: length
+    detail: 提交 length=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 length
+    field: length
+- id: s-054
+  title: null 类边界场景 bs-031
+  source: bs
+  source_id: bs-031
+  ctx:
+    entity: otp_code
+    field: expires_at
+    description: otp_code 创建或更新时缺少必填字段 expires_at
+  act:
+    op: trigger_boundary_case
+    field: expires_at
+    detail: 提交 expires_at=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 expires_at
+    field: expires_at
+- id: s-055
+  title: null 类边界场景 bs-032
+  source: bs
+  source_id: bs-032
+  ctx:
+    entity: otp_code
+    field: attempts
+    description: otp_code 创建或更新时缺少必填字段 attempts
+  act:
+    op: trigger_boundary_case
+    field: attempts
+    detail: 提交 attempts=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 attempts
+    field: attempts
+- id: s-056
+  title: null 类边界场景 bs-033
+  source: bs
+  source_id: bs-033
+  ctx:
+    entity: otp_code
+    field: max_attempts
+    description: otp_code 创建或更新时缺少必填字段 max_attempts
+  act:
+    op: trigger_boundary_case
+    field: max_attempts
+    detail: 提交 max_attempts=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 max_attempts
+    field: max_attempts
+- id: s-057
+  title: null 类边界场景 bs-034
+  source: bs
+  source_id: bs-034
+  ctx:
+    entity: otp_code
+    field: status
+    description: otp_code 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-058
+  title: null 类边界场景 bs-035
+  source: bs
+  source_id: bs-035
+  ctx:
+    entity: otp_code
+    field: last_sent_at
+    description: otp_code 的可选字段 last_sent_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: last_sent_at
+    detail: 提交 last_sent_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 last_sent_at 为空，不报错
+    field: last_sent_at
+- id: s-059
+  title: null 类边界场景 bs-036
+  source: bs
+  source_id: bs-036
+  ctx:
+    entity: otp_code
+    field: created_at
+    description: otp_code 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-060
+  title: null 类边界场景 bs-037
+  source: bs
+  source_id: bs-037
+  ctx:
+    entity: user_session
+    field: id
+    description: user_session 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-061
+  title: null 类边界场景 bs-038
+  source: bs
+  source_id: bs-038
+  ctx:
+    entity: user_session
+    field: user_id
+    description: user_session 创建或更新时缺少必填字段 user_id
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交 user_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 user_id
+    field: user_id
+- id: s-062
+  title: null 类边界场景 bs-039
+  source: bs
+  source_id: bs-039
+  ctx:
+    entity: user_session
+    field: token_id
+    description: user_session 创建或更新时缺少必填字段 token_id
+  act:
+    op: trigger_boundary_case
+    field: token_id
+    detail: 提交 token_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 token_id
+    field: token_id
+- id: s-063
+  title: null 类边界场景 bs-040
+  source: bs
+  source_id: bs-040
+  ctx:
+    entity: user_session
+    field: refresh_token_id
+    description: user_session 的可选字段 refresh_token_id 未提供
+  act:
+    op: trigger_boundary_case
+    field: refresh_token_id
+    detail: 提交 refresh_token_id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 refresh_token_id 为空，不报错
+    field: refresh_token_id
+- id: s-064
+  title: null 类边界场景 bs-041
+  source: bs
+  source_id: bs-041
+  ctx:
+    entity: user_session
+    field: access_expires_at
+    description: user_session 的可选字段 access_expires_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: access_expires_at
+    detail: 提交 access_expires_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 access_expires_at 为空，不报错
+    field: access_expires_at
+- id: s-065
+  title: null 类边界场景 bs-042
+  source: bs
+  source_id: bs-042
+  ctx:
+    entity: user_session
+    field: refresh_expires_at
+    description: user_session 的可选字段 refresh_expires_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: refresh_expires_at
+    detail: 提交 refresh_expires_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 refresh_expires_at 为空，不报错
+    field: refresh_expires_at
+- id: s-066
+  title: null 类边界场景 bs-043
+  source: bs
+  source_id: bs-043
+  ctx:
+    entity: user_session
+    field: device
+    description: user_session 的可选字段 device 未提供
+  act:
+    op: trigger_boundary_case
+    field: device
+    detail: 提交 device=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 device 为空，不报错
+    field: device
+- id: s-067
+  title: null 类边界场景 bs-044
+  source: bs
+  source_id: bs-044
+  ctx:
+    entity: user_session
+    field: browser
+    description: user_session 的可选字段 browser 未提供
+  act:
+    op: trigger_boundary_case
+    field: browser
+    detail: 提交 browser=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 browser 为空，不报错
+    field: browser
+- id: s-068
+  title: null 类边界场景 bs-045
+  source: bs
+  source_id: bs-045
+  ctx:
+    entity: user_session
+    field: ip
+    description: user_session 的可选字段 ip 未提供
+  act:
+    op: trigger_boundary_case
+    field: ip
+    detail: 提交 ip=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 ip 为空，不报错
+    field: ip
+- id: s-069
+  title: null 类边界场景 bs-046
+  source: bs
+  source_id: bs-046
+  ctx:
+    entity: user_session
+    field: location
+    description: user_session 的可选字段 location 未提供
+  act:
+    op: trigger_boundary_case
+    field: location
+    detail: 提交 location=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 location 为空，不报错
+    field: location
+- id: s-070
+  title: null 类边界场景 bs-047
+  source: bs
+  source_id: bs-047
+  ctx:
+    entity: user_session
+    field: is_new_device
+    description: user_session 的可选字段 is_new_device 未提供
+  act:
+    op: trigger_boundary_case
+    field: is_new_device
+    detail: 提交 is_new_device=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 is_new_device 为空，不报错
+    field: is_new_device
+- id: s-071
+  title: null 类边界场景 bs-048
+  source: bs
+  source_id: bs-048
+  ctx:
+    entity: user_session
+    field: method
+    description: user_session 创建或更新时缺少必填字段 method
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 提交 method=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 method
+    field: method
+- id: s-072
+  title: null 类边界场景 bs-049
+  source: bs
+  source_id: bs-049
+  ctx:
+    entity: user_session
+    field: status
+    description: user_session 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-073
+  title: null 类边界场景 bs-050
+  source: bs
+  source_id: bs-050
+  ctx:
+    entity: user_session
+    field: last_active_at
+    description: user_session 的可选字段 last_active_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: last_active_at
+    detail: 提交 last_active_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 last_active_at 为空，不报错
+    field: last_active_at
+- id: s-074
+  title: null 类边界场景 bs-051
+  source: bs
+  source_id: bs-051
+  ctx:
+    entity: user_session
+    field: created_at
+    description: user_session 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-075
+  title: null 类边界场景 bs-052
+  source: bs
+  source_id: bs-052
+  ctx:
+    entity: login_history
+    field: id
+    description: login_history 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-076
+  title: null 类边界场景 bs-053
+  source: bs
+  source_id: bs-053
+  ctx:
+    entity: login_history
+    field: user_id
+    description: login_history 的可选字段 user_id 未提供
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交 user_id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 user_id 为空，不报错
+    field: user_id
+- id: s-077
+  title: null 类边界场景 bs-054
+  source: bs
+  source_id: bs-054
+  ctx:
+    entity: login_history
+    field: email
+    description: login_history 的可选字段 email 未提供
+  act:
+    op: trigger_boundary_case
+    field: email
+    detail: 提交 email=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 email 为空，不报错
+    field: email
+- id: s-078
+  title: null 类边界场景 bs-055
+  source: bs
+  source_id: bs-055
+  ctx:
+    entity: login_history
+    field: method
+    description: login_history 创建或更新时缺少必填字段 method
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 提交 method=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 method
+    field: method
+- id: s-079
+  title: null 类边界场景 bs-056
+  source: bs
+  source_id: bs-056
+  ctx:
+    entity: login_history
+    field: ip
+    description: login_history 的可选字段 ip 未提供
+  act:
+    op: trigger_boundary_case
+    field: ip
+    detail: 提交 ip=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 ip 为空，不报错
+    field: ip
+- id: s-080
+  title: null 类边界场景 bs-057
+  source: bs
+  source_id: bs-057
+  ctx:
+    entity: login_history
+    field: device
+    description: login_history 的可选字段 device 未提供
+  act:
+    op: trigger_boundary_case
+    field: device
+    detail: 提交 device=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 device 为空，不报错
+    field: device
+- id: s-081
+  title: null 类边界场景 bs-058
+  source: bs
+  source_id: bs-058
+  ctx:
+    entity: login_history
+    field: location
+    description: login_history 的可选字段 location 未提供
+  act:
+    op: trigger_boundary_case
+    field: location
+    detail: 提交 location=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 location 为空，不报错
+    field: location
+- id: s-082
+  title: null 类边界场景 bs-059
+  source: bs
+  source_id: bs-059
+  ctx:
+    entity: login_history
+    field: result
+    description: login_history 创建或更新时缺少必填字段 result
+  act:
+    op: trigger_boundary_case
+    field: result
+    detail: 提交 result=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 result
+    field: result
+- id: s-083
+  title: null 类边界场景 bs-060
+  source: bs
+  source_id: bs-060
+  ctx:
+    entity: login_history
+    field: is_new_device
+    description: login_history 的可选字段 is_new_device 未提供
+  act:
+    op: trigger_boundary_case
+    field: is_new_device
+    detail: 提交 is_new_device=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 is_new_device 为空，不报错
+    field: is_new_device
+- id: s-084
+  title: null 类边界场景 bs-061
+  source: bs
+  source_id: bs-061
+  ctx:
+    entity: login_history
+    field: notified
+    description: login_history 的可选字段 notified 未提供
+  act:
+    op: trigger_boundary_case
+    field: notified
+    detail: 提交 notified=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 notified 为空，不报错
+    field: notified
+- id: s-085
+  title: null 类边界场景 bs-062
+  source: bs
+  source_id: bs-062
+  ctx:
+    entity: login_history
+    field: created_at
+    description: login_history 创建或更新时缺少必填字段 created_at
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 created_at
+    field: created_at
+- id: s-086
+  title: null 类边界场景 bs-063
+  source: bs
+  source_id: bs-063
+  ctx:
+    entity: admin_user
+    field: id
+    description: admin_user 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-087
+  title: null 类边界场景 bs-064
+  source: bs
+  source_id: bs-064
+  ctx:
+    entity: admin_user
+    field: name
+    description: admin_user 创建或更新时缺少必填字段 name
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交 name=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 name
+    field: name
+- id: s-088
+  title: null 类边界场景 bs-065
+  source: bs
+  source_id: bs-065
+  ctx:
+    entity: admin_user
+    field: email
+    description: admin_user 创建或更新时缺少必填字段 email
+  act:
+    op: trigger_boundary_case
+    field: email
+    detail: 提交 email=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 email
+    field: email
+- id: s-089
+  title: null 类边界场景 bs-066
+  source: bs
+  source_id: bs-066
+  ctx:
+    entity: admin_user
+    field: password_hash
+    description: admin_user 创建或更新时缺少必填字段 password_hash
+  act:
+    op: trigger_boundary_case
+    field: password_hash
+    detail: 提交 password_hash=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 password_hash
+    field: password_hash
+- id: s-090
+  title: null 类边界场景 bs-067
+  source: bs
+  source_id: bs-067
+  ctx:
+    entity: admin_user
+    field: role_id
+    description: admin_user 创建或更新时缺少必填字段 role_id
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 提交 role_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 role_id
+    field: role_id
+- id: s-091
+  title: null 类边界场景 bs-068
+  source: bs
+  source_id: bs-068
+  ctx:
+    entity: admin_user
+    field: status
+    description: admin_user 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-092
+  title: null 类边界场景 bs-069
+  source: bs
+  source_id: bs-069
+  ctx:
+    entity: admin_user
+    field: last_login_at
+    description: admin_user 的可选字段 last_login_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: last_login_at
+    detail: 提交 last_login_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 last_login_at 为空，不报错
+    field: last_login_at
+- id: s-093
+  title: null 类边界场景 bs-070
+  source: bs
+  source_id: bs-070
+  ctx:
+    entity: admin_user
+    field: created_at
+    description: admin_user 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-094
+  title: null 类边界场景 bs-071
+  source: bs
+  source_id: bs-071
+  ctx:
+    entity: role
+    field: id
+    description: role 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-095
+  title: null 类边界场景 bs-072
+  source: bs
+  source_id: bs-072
+  ctx:
+    entity: role
+    field: name
+    description: role 创建或更新时缺少必填字段 name
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交 name=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 name
+    field: name
+- id: s-096
+  title: null 类边界场景 bs-073
+  source: bs
+  source_id: bs-073
+  ctx:
+    entity: role
+    field: type
+    description: role 创建或更新时缺少必填字段 type
+  act:
+    op: trigger_boundary_case
+    field: type
+    detail: 提交 type=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 type
+    field: type
+- id: s-097
+  title: null 类边界场景 bs-074
+  source: bs
+  source_id: bs-074
+  ctx:
+    entity: role
+    field: is_locked
+    description: role 创建或更新时缺少必填字段 is_locked
+  act:
+    op: trigger_boundary_case
+    field: is_locked
+    detail: 提交 is_locked=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 is_locked
+    field: is_locked
+- id: s-098
+  title: null 类边界场景 bs-075
+  source: bs
+  source_id: bs-075
+  ctx:
+    entity: role
+    field: created_at
+    description: role 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-099
+  title: null 类边界场景 bs-076
+  source: bs
+  source_id: bs-076
+  ctx:
+    entity: permission
+    field: key
+    description: permission 的可选字段 key 未提供
+  act:
+    op: trigger_boundary_case
+    field: key
+    detail: 提交 key=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 key 为空，不报错
+    field: key
+- id: s-100
+  title: null 类边界场景 bs-077
+  source: bs
+  source_id: bs-077
+  ctx:
+    entity: permission
+    field: group
+    description: permission 创建或更新时缺少必填字段 group
+  act:
+    op: trigger_boundary_case
+    field: group
+    detail: 提交 group=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 group
+    field: group
+- id: s-101
+  title: null 类边界场景 bs-078
+  source: bs
+  source_id: bs-078
+  ctx:
+    entity: permission
+    field: label
+    description: permission 创建或更新时缺少必填字段 label
+  act:
+    op: trigger_boundary_case
+    field: label
+    detail: 提交 label=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 label
+    field: label
+- id: s-102
+  title: null 类边界场景 bs-079
+  source: bs
+  source_id: bs-079
+  ctx:
+    entity: role_permission
+    field: role_id
+    description: role_permission 创建或更新时缺少必填字段 role_id
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 提交 role_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 role_id
+    field: role_id
+- id: s-103
+  title: null 类边界场景 bs-080
+  source: bs
+  source_id: bs-080
+  ctx:
+    entity: role_permission
+    field: permission_key
+    description: role_permission 创建或更新时缺少必填字段 permission_key
+  act:
+    op: trigger_boundary_case
+    field: permission_key
+    detail: 提交 permission_key=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 permission_key
+    field: permission_key
+- id: s-104
+  title: null 类边界场景 bs-081
+  source: bs
+  source_id: bs-081
+  ctx:
+    entity: admin_session
+    field: id
+    description: admin_session 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-105
+  title: null 类边界场景 bs-082
+  source: bs
+  source_id: bs-082
+  ctx:
+    entity: admin_session
+    field: admin_id
+    description: admin_session 创建或更新时缺少必填字段 admin_id
+  act:
+    op: trigger_boundary_case
+    field: admin_id
+    detail: 提交 admin_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 admin_id
+    field: admin_id
+- id: s-106
+  title: null 类边界场景 bs-083
+  source: bs
+  source_id: bs-083
+  ctx:
+    entity: admin_session
+    field: token_id
+    description: admin_session 创建或更新时缺少必填字段 token_id
+  act:
+    op: trigger_boundary_case
+    field: token_id
+    detail: 提交 token_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 token_id
+    field: token_id
+- id: s-107
+  title: null 类边界场景 bs-084
+  source: bs
+  source_id: bs-084
+  ctx:
+    entity: admin_session
+    field: ip
+    description: admin_session 的可选字段 ip 未提供
+  act:
+    op: trigger_boundary_case
+    field: ip
+    detail: 提交 ip=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 ip 为空，不报错
+    field: ip
+- id: s-108
+  title: null 类边界场景 bs-085
+  source: bs
+  source_id: bs-085
+  ctx:
+    entity: admin_session
+    field: device
+    description: admin_session 的可选字段 device 未提供
+  act:
+    op: trigger_boundary_case
+    field: device
+    detail: 提交 device=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 device 为空，不报错
+    field: device
+- id: s-109
+  title: null 类边界场景 bs-086
+  source: bs
+  source_id: bs-086
+  ctx:
+    entity: admin_session
+    field: status
+    description: admin_session 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-110
+  title: null 类边界场景 bs-087
+  source: bs
+  source_id: bs-087
+  ctx:
+    entity: admin_session
+    field: last_active_at
+    description: admin_session 的可选字段 last_active_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: last_active_at
+    detail: 提交 last_active_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 last_active_at 为空，不报错
+    field: last_active_at
+- id: s-111
+  title: null 类边界场景 bs-088
+  source: bs
+  source_id: bs-088
+  ctx:
+    entity: admin_session
+    field: created_at
+    description: admin_session 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-112
+  title: null 类边界场景 bs-089
+  source: bs
+  source_id: bs-089
+  ctx:
+    entity: operation_log
+    field: id
+    description: operation_log 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-113
+  title: null 类边界场景 bs-090
+  source: bs
+  source_id: bs-090
+  ctx:
+    entity: operation_log
+    field: operator_id
+    description: operation_log 的可选字段 operator_id 未提供
+  act:
+    op: trigger_boundary_case
+    field: operator_id
+    detail: 提交 operator_id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 operator_id 为空，不报错
+    field: operator_id
+- id: s-114
+  title: null 类边界场景 bs-091
+  source: bs
+  source_id: bs-091
+  ctx:
+    entity: operation_log
+    field: operator_name
+    description: operation_log 创建或更新时缺少必填字段 operator_name
+  act:
+    op: trigger_boundary_case
+    field: operator_name
+    detail: 提交 operator_name=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 operator_name
+    field: operator_name
+- id: s-115
+  title: null 类边界场景 bs-092
+  source: bs
+  source_id: bs-092
+  ctx:
+    entity: operation_log
+    field: action
+    description: operation_log 创建或更新时缺少必填字段 action
+  act:
+    op: trigger_boundary_case
+    field: action
+    detail: 提交 action=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 action
+    field: action
+- id: s-116
+  title: null 类边界场景 bs-093
+  source: bs
+  source_id: bs-093
+  ctx:
+    entity: operation_log
+    field: target
+    description: operation_log 的可选字段 target 未提供
+  act:
+    op: trigger_boundary_case
+    field: target
+    detail: 提交 target=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 target 为空，不报错
+    field: target
+- id: s-117
+  title: null 类边界场景 bs-094
+  source: bs
+  source_id: bs-094
+  ctx:
+    entity: operation_log
+    field: ip
+    description: operation_log 的可选字段 ip 未提供
+  act:
+    op: trigger_boundary_case
+    field: ip
+    detail: 提交 ip=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 ip 为空，不报错
+    field: ip
+- id: s-118
+  title: null 类边界场景 bs-095
+  source: bs
+  source_id: bs-095
+  ctx:
+    entity: operation_log
+    field: user_agent
+    description: operation_log 的可选字段 user_agent 未提供
+  act:
+    op: trigger_boundary_case
+    field: user_agent
+    detail: 提交 user_agent=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 user_agent 为空，不报错
+    field: user_agent
+- id: s-119
+  title: null 类边界场景 bs-096
+  source: bs
+  source_id: bs-096
+  ctx:
+    entity: operation_log
+    field: changes
+    description: operation_log 的可选字段 changes 未提供
+  act:
+    op: trigger_boundary_case
+    field: changes
+    detail: 提交 changes=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 changes 为空，不报错
+    field: changes
+- id: s-120
+  title: null 类边界场景 bs-097
+  source: bs
+  source_id: bs-097
+  ctx:
+    entity: operation_log
+    field: created_at
+    description: operation_log 创建或更新时缺少必填字段 created_at
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 created_at
+    field: created_at
+- id: s-121
+  title: null 类边界场景 bs-098
+  source: bs
+  source_id: bs-098
+  ctx:
+    entity: auth_config
+    field: id
+    description: auth_config 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-122
+  title: null 类边界场景 bs-099
+  source: bs
+  source_id: bs-099
+  ctx:
+    entity: auth_config
+    field: email_enabled
+    description: auth_config 创建或更新时缺少必填字段 email_enabled
+  act:
+    op: trigger_boundary_case
+    field: email_enabled
+    detail: 提交 email_enabled=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 email_enabled
+    field: email_enabled
+- id: s-123
+  title: null 类边界场景 bs-100
+  source: bs
+  source_id: bs-100
+  ctx:
+    entity: auth_config
+    field: google_enabled
+    description: auth_config 创建或更新时缺少必填字段 google_enabled
+  act:
+    op: trigger_boundary_case
+    field: google_enabled
+    detail: 提交 google_enabled=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 google_enabled
+    field: google_enabled
+- id: s-124
+  title: null 类边界场景 bs-101
+  source: bs
+  source_id: bs-101
+  ctx:
+    entity: auth_config
+    field: apple_enabled
+    description: auth_config 创建或更新时缺少必填字段 apple_enabled
+  act:
+    op: trigger_boundary_case
+    field: apple_enabled
+    detail: 提交 apple_enabled=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 apple_enabled
+    field: apple_enabled
+- id: s-125
+  title: null 类边界场景 bs-102
+  source: bs
+  source_id: bs-102
+  ctx:
+    entity: auth_config
+    field: otp_length
+    description: auth_config 创建或更新时缺少必填字段 otp_length
+  act:
+    op: trigger_boundary_case
+    field: otp_length
+    detail: 提交 otp_length=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 otp_length
+    field: otp_length
+- id: s-126
+  title: null 类边界场景 bs-103
+  source: bs
+  source_id: bs-103
+  ctx:
+    entity: auth_config
+    field: otp_ttl_minutes
+    description: auth_config 创建或更新时缺少必填字段 otp_ttl_minutes
+  act:
+    op: trigger_boundary_case
+    field: otp_ttl_minutes
+    detail: 提交 otp_ttl_minutes=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 otp_ttl_minutes
+    field: otp_ttl_minutes
+- id: s-127
+  title: null 类边界场景 bs-104
+  source: bs
+  source_id: bs-104
+  ctx:
+    entity: auth_config
+    field: otp_resend_seconds
+    description: auth_config 创建或更新时缺少必填字段 otp_resend_seconds
+  act:
+    op: trigger_boundary_case
+    field: otp_resend_seconds
+    detail: 提交 otp_resend_seconds=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 otp_resend_seconds
+    field: otp_resend_seconds
+- id: s-128
+  title: null 类边界场景 bs-105
+  source: bs
+  source_id: bs-105
+  ctx:
+    entity: auth_config
+    field: otp_max_attempts
+    description: auth_config 创建或更新时缺少必填字段 otp_max_attempts
+  act:
+    op: trigger_boundary_case
+    field: otp_max_attempts
+    detail: 提交 otp_max_attempts=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 otp_max_attempts
+    field: otp_max_attempts
+- id: s-129
+  title: null 类边界场景 bs-106
+  source: bs
+  source_id: bs-106
+  ctx:
+    entity: auth_config
+    field: min_methods
+    description: auth_config 创建或更新时缺少必填字段 min_methods
+  act:
+    op: trigger_boundary_case
+    field: min_methods
+    detail: 提交 min_methods=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 min_methods
+    field: min_methods
+- id: s-130
+  title: null 类边界场景 bs-107
+  source: bs
+  source_id: bs-107
+  ctx:
+    entity: auth_config
+    field: google_client_id
+    description: auth_config 的可选字段 google_client_id 未提供
+  act:
+    op: trigger_boundary_case
+    field: google_client_id
+    detail: 提交 google_client_id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 google_client_id 为空，不报错
+    field: google_client_id
+- id: s-131
+  title: null 类边界场景 bs-108
+  source: bs
+  source_id: bs-108
+  ctx:
+    entity: auth_config
+    field: apple_service_id
+    description: auth_config 的可选字段 apple_service_id 未提供
+  act:
+    op: trigger_boundary_case
+    field: apple_service_id
+    detail: 提交 apple_service_id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 apple_service_id 为空，不报错
+    field: apple_service_id
+- id: s-132
+  title: null 类边界场景 bs-109
+  source: bs
+  source_id: bs-109
+  ctx:
+    entity: auth_config
+    field: updated_at
+    description: auth_config 的可选字段 updated_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: updated_at
+    detail: 提交 updated_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 updated_at 为空，不报错
+    field: updated_at
+- id: s-133
+  title: null 类边界场景 bs-110
+  source: bs
+  source_id: bs-110
+  ctx:
+    entity: email_template
+    field: id
+    description: email_template 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-134
+  title: null 类边界场景 bs-111
+  source: bs
+  source_id: bs-111
+  ctx:
+    entity: email_template
+    field: code
+    description: email_template 创建或更新时缺少必填字段 code
+  act:
+    op: trigger_boundary_case
+    field: code
+    detail: 提交 code=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 code
+    field: code
+- id: s-135
+  title: null 类边界场景 bs-112
+  source: bs
+  source_id: bs-112
+  ctx:
+    entity: email_template
+    field: locale
+    description: email_template 创建或更新时缺少必填字段 locale
+  act:
+    op: trigger_boundary_case
+    field: locale
+    detail: 提交 locale=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 locale
+    field: locale
+- id: s-136
+  title: null 类边界场景 bs-113
+  source: bs
+  source_id: bs-113
+  ctx:
+    entity: email_template
+    field: subject
+    description: email_template 创建或更新时缺少必填字段 subject
+  act:
+    op: trigger_boundary_case
+    field: subject
+    detail: 提交 subject=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 subject
+    field: subject
+- id: s-137
+  title: null 类边界场景 bs-114
+  source: bs
+  source_id: bs-114
+  ctx:
+    entity: email_template
+    field: body
+    description: email_template 创建或更新时缺少必填字段 body
+  act:
+    op: trigger_boundary_case
+    field: body
+    detail: 提交 body=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 body
+    field: body
+- id: s-138
+  title: null 类边界场景 bs-115
+  source: bs
+  source_id: bs-115
+  ctx:
+    entity: email_template
+    field: updated_at
+    description: email_template 的可选字段 updated_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: updated_at
+    detail: 提交 updated_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 updated_at 为空，不报错
+    field: updated_at
+- id: s-139
+  title: extreme 类边界场景 bs-116
+  source: bs
+  source_id: bs-116
+  ctx:
+    entity: user
+    field: name
+    description: name 的最大长度为 80
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交长度为 81 的 name
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 name 长度超限错误
+    field: name
+- id: s-140
+  title: extreme 类边界场景 bs-117
+  source: bs
+  source_id: bs-117
+  ctx:
+    entity: user
+    field: phone
+    description: phone 的最大长度为 32
+  act:
+    op: trigger_boundary_case
+    field: phone
+    detail: 提交长度为 33 的 phone
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 phone 长度超限错误
+    field: phone
+- id: s-141
+  title: extreme 类边界场景 bs-118
+  source: bs
+  source_id: bs-118
+  ctx:
+    entity: user
+    field: tier
+    description: tier 的合法枚举为 ['vip', 'regular']
+  act:
+    op: trigger_boundary_case
+    field: tier
+    detail: 提交枚举外的 tier=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 tier 枚举错误
+    field: tier
+- id: s-142
+  title: extreme 类边界场景 bs-119
+  source: bs
+  source_id: bs-119
+  ctx:
+    entity: user
+    field: status
+    description: status 的合法枚举为 ['active', 'disabled', 'deleted']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-143
+  title: extreme 类边界场景 bs-120
+  source: bs
+  source_id: bs-120
+  ctx:
+    entity: user_identity
+    field: provider
+    description: provider 的合法枚举为 ['email', 'google', 'apple']
+  act:
+    op: trigger_boundary_case
+    field: provider
+    detail: 提交枚举外的 provider=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 provider 枚举错误
+    field: provider
+- id: s-144
+  title: extreme 类边界场景 bs-121
+  source: bs
+  source_id: bs-121
+  ctx:
+    entity: otp_code
+    field: length
+    description: length 的合法枚举为 [4, 6, 8]
+  act:
+    op: trigger_boundary_case
+    field: length
+    detail: 提交枚举外的 length=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 length 枚举错误
+    field: length
+- id: s-145
+  title: extreme 类边界场景 bs-122
+  source: bs
+  source_id: bs-122
+  ctx:
+    entity: otp_code
+    field: attempts
+    description: attempts 的最小值约束为 0
+  act:
+    op: trigger_boundary_case
+    field: attempts
+    detail: 提交 attempts=-1
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 attempts 边界错误
+    field: attempts
+- id: s-146
+  title: extreme 类边界场景 bs-123
+  source: bs
+  source_id: bs-123
+  ctx:
+    entity: otp_code
+    field: max_attempts
+    description: max_attempts 的最小值约束为 3
+  act:
+    op: trigger_boundary_case
+    field: max_attempts
+    detail: 提交 max_attempts=2
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 max_attempts 边界错误
+    field: max_attempts
+- id: s-147
+  title: extreme 类边界场景 bs-124
+  source: bs
+  source_id: bs-124
+  ctx:
+    entity: otp_code
+    field: max_attempts
+    description: max_attempts 的最大值约束为 10
+  act:
+    op: trigger_boundary_case
+    field: max_attempts
+    detail: 提交 max_attempts=11
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 max_attempts 边界错误
+    field: max_attempts
+- id: s-148
+  title: extreme 类边界场景 bs-125
+  source: bs
+  source_id: bs-125
+  ctx:
+    entity: otp_code
+    field: status
+    description: status 的合法枚举为 ['pending', 'consumed', 'expired', 'locked']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-149
+  title: extreme 类边界场景 bs-126
+  source: bs
+  source_id: bs-126
+  ctx:
+    entity: user_session
+    field: method
+    description: method 的合法枚举为 ['email', 'google', 'apple']
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 提交枚举外的 method=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 method 枚举错误
+    field: method
+- id: s-150
+  title: extreme 类边界场景 bs-127
+  source: bs
+  source_id: bs-127
+  ctx:
+    entity: user_session
+    field: status
+    description: status 的合法枚举为 ['active', 'revoked']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-151
+  title: extreme 类边界场景 bs-128
+  source: bs
+  source_id: bs-128
+  ctx:
+    entity: login_history
+    field: method
+    description: method 的合法枚举为 ['email', 'google', 'apple']
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 提交枚举外的 method=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 method 枚举错误
+    field: method
+- id: s-152
+  title: extreme 类边界场景 bs-129
+  source: bs
+  source_id: bs-129
+  ctx:
+    entity: login_history
+    field: result
+    description: result 的合法枚举为 ['success', 'failed']
+  act:
+    op: trigger_boundary_case
+    field: result
+    detail: 提交枚举外的 result=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 result 枚举错误
+    field: result
+- id: s-153
+  title: extreme 类边界场景 bs-130
+  source: bs
+  source_id: bs-130
+  ctx:
+    entity: admin_user
+    field: name
+    description: name 的最大长度为 80
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交长度为 81 的 name
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 name 长度超限错误
+    field: name
+- id: s-154
+  title: extreme 类边界场景 bs-131
+  source: bs
+  source_id: bs-131
+  ctx:
+    entity: admin_user
+    field: status
+    description: status 的合法枚举为 ['active', 'disabled']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-155
+  title: extreme 类边界场景 bs-132
+  source: bs
+  source_id: bs-132
+  ctx:
+    entity: role
+    field: name
+    description: name 的最大长度为 40
+  act:
+    op: trigger_boundary_case
+    field: name
+    detail: 提交长度为 41 的 name
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 name 长度超限错误
+    field: name
+- id: s-156
+  title: extreme 类边界场景 bs-133
+  source: bs
+  source_id: bs-133
+  ctx:
+    entity: role
+    field: type
+    description: type 的合法枚举为 ['preset', 'custom']
+  act:
+    op: trigger_boundary_case
+    field: type
+    detail: 提交枚举外的 type=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 type 枚举错误
+    field: type
+- id: s-157
+  title: extreme 类边界场景 bs-134
+  source: bs
+  source_id: bs-134
+  ctx:
+    entity: admin_session
+    field: status
+    description: status 的合法枚举为 ['active', 'revoked']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-158
+  title: extreme 类边界场景 bs-135
+  source: bs
+  source_id: bs-135
+  ctx:
+    entity: operation_log
+    field: action
+    description: action 的合法枚举为 ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更']
+  act:
+    op: trigger_boundary_case
+    field: action
+    detail: 提交枚举外的 action=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 action 枚举错误
+    field: action
+- id: s-159
+  title: extreme 类边界场景 bs-136
+  source: bs
+  source_id: bs-136
+  ctx:
+    entity: auth_config
+    field: otp_length
+    description: otp_length 的合法枚举为 [4, 6, 8]
+  act:
+    op: trigger_boundary_case
+    field: otp_length
+    detail: 提交枚举外的 otp_length=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 otp_length 枚举错误
+    field: otp_length
+- id: s-160
+  title: extreme 类边界场景 bs-137
+  source: bs
+  source_id: bs-137
+  ctx:
+    entity: auth_config
+    field: otp_ttl_minutes
+    description: otp_ttl_minutes 的最小值约束为 1
+  act:
+    op: trigger_boundary_case
+    field: otp_ttl_minutes
+    detail: 提交 otp_ttl_minutes=0
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 otp_ttl_minutes 边界错误
+    field: otp_ttl_minutes
+- id: s-161
+  title: extreme 类边界场景 bs-138
+  source: bs
+  source_id: bs-138
+  ctx:
+    entity: auth_config
+    field: otp_ttl_minutes
+    description: otp_ttl_minutes 的最大值约束为 30
+  act:
+    op: trigger_boundary_case
+    field: otp_ttl_minutes
+    detail: 提交 otp_ttl_minutes=31
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 otp_ttl_minutes 边界错误
+    field: otp_ttl_minutes
+- id: s-162
+  title: extreme 类边界场景 bs-139
+  source: bs
+  source_id: bs-139
+  ctx:
+    entity: auth_config
+    field: otp_resend_seconds
+    description: otp_resend_seconds 的最小值约束为 10
+  act:
+    op: trigger_boundary_case
+    field: otp_resend_seconds
+    detail: 提交 otp_resend_seconds=9
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 otp_resend_seconds 边界错误
+    field: otp_resend_seconds
+- id: s-163
+  title: extreme 类边界场景 bs-140
+  source: bs
+  source_id: bs-140
+  ctx:
+    entity: auth_config
+    field: otp_resend_seconds
+    description: otp_resend_seconds 的最大值约束为 120
+  act:
+    op: trigger_boundary_case
+    field: otp_resend_seconds
+    detail: 提交 otp_resend_seconds=121
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 otp_resend_seconds 边界错误
+    field: otp_resend_seconds
+- id: s-164
+  title: extreme 类边界场景 bs-141
+  source: bs
+  source_id: bs-141
+  ctx:
+    entity: auth_config
+    field: otp_max_attempts
+    description: otp_max_attempts 的最小值约束为 3
+  act:
+    op: trigger_boundary_case
+    field: otp_max_attempts
+    detail: 提交 otp_max_attempts=2
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 otp_max_attempts 边界错误
+    field: otp_max_attempts
+- id: s-165
+  title: extreme 类边界场景 bs-142
+  source: bs
+  source_id: bs-142
+  ctx:
+    entity: auth_config
+    field: otp_max_attempts
+    description: otp_max_attempts 的最大值约束为 10
+  act:
+    op: trigger_boundary_case
+    field: otp_max_attempts
+    detail: 提交 otp_max_attempts=11
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 otp_max_attempts 边界错误
+    field: otp_max_attempts
+- id: s-166
+  title: extreme 类边界场景 bs-143
+  source: bs
+  source_id: bs-143
+  ctx:
+    entity: auth_config
+    field: min_methods
+    description: min_methods 的最小值约束为 1
+  act:
+    op: trigger_boundary_case
+    field: min_methods
+    detail: 提交 min_methods=0
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 min_methods 边界错误
+    field: min_methods
+- id: s-167
+  title: extreme 类边界场景 bs-144
+  source: bs
+  source_id: bs-144
+  ctx:
+    entity: auth_config
+    field: min_methods
+    description: min_methods 的最大值约束为 3
+  act:
+    op: trigger_boundary_case
+    field: min_methods
+    detail: 提交 min_methods=4
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 min_methods 边界错误
+    field: min_methods
+- id: s-168
+  title: extreme 类边界场景 bs-145
+  source: bs
+  source_id: bs-145
+  ctx:
+    entity: email_template
+    field: code
+    description: code 的合法枚举为 ['otp', 'new_device', 'change_primary', 'account_deleted']
+  act:
+    op: trigger_boundary_case
+    field: code
+    detail: 提交枚举外的 code=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 code 枚举错误
+    field: code
+- id: s-169
+  title: extreme 类边界场景 bs-146
+  source: bs
+  source_id: bs-146
+  ctx:
+    entity: email_template
+    field: locale
+    description: locale 的合法枚举为 ['en', 'es', 'fr']
+  act:
+    op: trigger_boundary_case
+    field: locale
+    detail: 提交枚举外的 locale=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 locale 枚举错误
+    field: locale
+- id: s-170
+  title: concurrent 类边界场景 bs-147
+  source: bs
+  source_id: bs-147
+  ctx:
+    entity: otp_code
+    field: state
+    description: otp_code 当前处于 pending，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 verify_ok 与 verify_fail
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-171
+  title: concurrent 类边界场景 bs-148
+  source: bs
+  source_id: bs-148
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 active，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 admin_disable 与 user_delete_account
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-172
+  title: concurrent 类边界场景 bs-149
+  source: bs
+  source_id: bs-149
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 disabled，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 admin_enable 与 user_delete_account
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-173
+  title: concurrent 类边界场景 bs-150
+  source: bs
+  source_id: bs-150
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 deleted，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 retention_anonymize 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-174
+  title: concurrent 类边界场景 bs-151
+  source: bs
+  source_id: bs-151
+  ctx:
+    entity: user_identity
+    field: state
+    description: user_identity 当前处于 not_connected，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 bind 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-175
+  title: concurrent 类边界场景 bs-152
+  source: bs
+  source_id: bs-152
+  ctx:
+    entity: user_identity
+    field: state
+    description: user_identity 当前处于 connected，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 unbind 与 change_primary
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-176
+  title: concurrent 类边界场景 bs-153
+  source: bs
+  source_id: bs-153
+  ctx:
+    entity: user_session
+    field: state
+    description: user_session 当前处于 active，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 user_signout 与 user_signout_others
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-177
+  title: concurrent 类边界场景 bs-154
+  source: bs
+  source_id: bs-154
+  ctx:
+    entity: admin_user
+    field: state
+    description: admin_user 当前处于 active，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 toggle_disable 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-178
+  title: concurrent 类边界场景 bs-155
+  source: bs
+  source_id: bs-155
+  ctx:
+    entity: admin_user
+    field: state
+    description: admin_user 当前处于 disabled，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 toggle_enable 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-179
+  title: concurrent 类边界场景 bs-156
+  source: bs
+  source_id: bs-156
+  ctx:
+    entity: admin_session
+    field: state
+    description: admin_session 当前处于 active，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 admin_logout 与 admin_account_disabled
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-180
+  title: auth 类边界场景 bs-157
+  source: bs
+  source_id: bs-157
+  ctx:
+    entity: otp_code
+    description: 用户角色为 viewer，无权执行流程 消费端邮箱验证码登录
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端邮箱验证码登录 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-181
+  title: auth 类边界场景 bs-158
+  source: bs
+  source_id: bs-158
+  ctx:
+    entity: otp_code
+    description: 用户已开始执行流程 消费端邮箱验证码登录，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-182
+  title: auth 类边界场景 bs-159
+  source: bs
+  source_id: bs-159
+  ctx:
+    entity: otp_code
+    description: 用户属于 tenant-A，尝试访问 otp_code 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-183
+  title: auth 类边界场景 bs-160
+  source: bs
+  source_id: bs-160
+  ctx:
+    entity: user_identity
+    description: 用户角色为 viewer，无权执行流程 消费端 Google/Apple 第三方登录
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端 Google/Apple 第三方登录 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-184
+  title: auth 类边界场景 bs-161
+  source: bs
+  source_id: bs-161
+  ctx:
+    entity: user_identity
+    description: 用户已开始执行流程 消费端 Google/Apple 第三方登录，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-185
+  title: auth 类边界场景 bs-162
+  source: bs
+  source_id: bs-162
+  ctx:
+    entity: user_identity
+    description: 用户属于 tenant-A，尝试访问 user_identity 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-186
+  title: auth 类边界场景 bs-163
+  source: bs
+  source_id: bs-163
+  ctx:
+    entity: user_identity
+    description: 用户角色为 viewer，无权执行流程 消费端登录方式绑定解绑
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端登录方式绑定解绑 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-187
+  title: auth 类边界场景 bs-164
+  source: bs
+  source_id: bs-164
+  ctx:
+    entity: user_identity
+    description: 用户已开始执行流程 消费端登录方式绑定解绑，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-188
+  title: auth 类边界场景 bs-165
+  source: bs
+  source_id: bs-165
+  ctx:
+    entity: user_session
+    description: 用户角色为 viewer，无权执行流程 消费端会话与设备管理
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端会话与设备管理 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-189
+  title: auth 类边界场景 bs-166
+  source: bs
+  source_id: bs-166
+  ctx:
+    entity: user_session
+    description: 用户已开始执行流程 消费端会话与设备管理，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-190
+  title: auth 类边界场景 bs-167
+  source: bs
+  source_id: bs-167
+  ctx:
+    entity: user_session
+    description: 用户属于 tenant-A，尝试访问 user_session 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-191
+  title: auth 类边界场景 bs-168
+  source: bs
+  source_id: bs-168
+  ctx:
+    entity: admin_user
+    description: 用户角色为 viewer，无权执行流程 后台管理员登录
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台管理员登录 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-192
+  title: auth 类边界场景 bs-169
+  source: bs
+  source_id: bs-169
+  ctx:
+    entity: admin_user
+    description: 用户已开始执行流程 后台管理员登录，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-193
+  title: auth 类边界场景 bs-170
+  source: bs
+  source_id: bs-170
+  ctx:
+    entity: admin_user
+    description: 用户属于 tenant-A，尝试访问 admin_user 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-194
+  title: auth 类边界场景 bs-171
+  source: bs
+  source_id: bs-171
+  ctx:
+    entity: admin_user
+    description: 用户角色为 viewer，无权执行流程 后台管理员 CRUD
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台管理员 CRUD 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-195
+  title: auth 类边界场景 bs-172
+  source: bs
+  source_id: bs-172
+  ctx:
+    entity: admin_user
+    description: 用户已开始执行流程 后台管理员 CRUD，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-196
+  title: auth 类边界场景 bs-173
+  source: bs
+  source_id: bs-173
+  ctx:
+    entity: role
+    description: 用户角色为 viewer，无权执行流程 后台角色与权限矩阵
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台角色与权限矩阵 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-197
+  title: auth 类边界场景 bs-174
+  source: bs
+  source_id: bs-174
+  ctx:
+    entity: role
+    description: 用户已开始执行流程 后台角色与权限矩阵，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-198
+  title: auth 类边界场景 bs-175
+  source: bs
+  source_id: bs-175
+  ctx:
+    entity: role
+    description: 用户属于 tenant-A，尝试访问 role 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-199
+  title: auth 类边界场景 bs-176
+  source: bs
+  source_id: bs-176
+  ctx:
+    entity: login_history
+    description: 用户角色为 viewer，无权执行流程 后台用户身份运营
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台用户身份运营 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-200
+  title: auth 类边界场景 bs-177
+  source: bs
+  source_id: bs-177
+  ctx:
+    entity: login_history
+    description: 用户已开始执行流程 后台用户身份运营，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-201
+  title: auth 类边界场景 bs-178
+  source: bs
+  source_id: bs-178
+  ctx:
+    entity: login_history
+    description: 用户属于 tenant-A，尝试访问 login_history 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-202
+  title: auth 类边界场景 bs-179
+  source: bs
+  source_id: bs-179
+  ctx:
+    entity: auth_config
+    description: 用户角色为 viewer，无权执行流程 后台登录与认证配置
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台登录与认证配置 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-203
+  title: auth 类边界场景 bs-180
+  source: bs
+  source_id: bs-180
+  ctx:
+    entity: auth_config
+    description: 用户已开始执行流程 后台登录与认证配置，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-204
+  title: auth 类边界场景 bs-181
+  source: bs
+  source_id: bs-181
+  ctx:
+    entity: auth_config
+    description: 用户属于 tenant-A，尝试访问 auth_config 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-205
+  title: auth 类边界场景 bs-182
+  source: bs
+  source_id: bs-182
+  ctx:
+    entity: otp_code
+    description: 用户角色为 viewer，无权执行流程 消费端更换主邮箱
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端更换主邮箱 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-206
+  title: auth 类边界场景 bs-183
+  source: bs
+  source_id: bs-183
+  ctx:
+    entity: otp_code
+    description: 用户已开始执行流程 消费端更换主邮箱，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-207
+  title: auth 类边界场景 bs-184
+  source: bs
+  source_id: bs-184
+  ctx:
+    entity: user
+    description: 用户角色为 viewer，无权执行流程 消费端账户注销/删除
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端账户注销/删除 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-208
+  title: auth 类边界场景 bs-185
+  source: bs
+  source_id: bs-185
+  ctx:
+    entity: user
+    description: 用户已开始执行流程 消费端账户注销/删除，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-209
+  title: auth 类边界场景 bs-186
+  source: bs
+  source_id: bs-186
+  ctx:
+    entity: user
+    description: 用户属于 tenant-A，尝试访问 user 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-210
+  title: auth 类边界场景 bs-187
+  source: bs
+  source_id: bs-187
+  ctx:
+    entity: login_history
+    description: 用户角色为 viewer，无权执行流程 新设备登录通知
+  act:
+    op: trigger_boundary_case
+    detail: 触发 新设备登录通知 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-211
+  title: auth 类边界场景 bs-188
+  source: bs
+  source_id: bs-188
+  ctx:
+    entity: login_history
+    description: 用户已开始执行流程 新设备登录通知，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-212
+  title: auth 类边界场景 bs-189
+  source: bs
+  source_id: bs-189
+  ctx:
+    entity: user_identity
+    description: 用户角色为 viewer，无权执行流程 未验证邮箱冲突处理
+  act:
+    op: trigger_boundary_case
+    detail: 触发 未验证邮箱冲突处理 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-213
+  title: auth 类边界场景 bs-190
+  source: bs
+  source_id: bs-190
+  ctx:
+    entity: user_identity
+    description: 用户已开始执行流程 未验证邮箱冲突处理，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-214
+  title: auth 类边界场景 bs-191
+  source: bs
+  source_id: bs-191
+  ctx:
+    entity: user_identity
+    description: 用户角色为 viewer，无权执行流程 Apple relay 邮箱失效处理
+  act:
+    op: trigger_boundary_case
+    detail: 触发 Apple relay 邮箱失效处理 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-215
+  title: auth 类边界场景 bs-192
+  source: bs
+  source_id: bs-192
+  ctx:
+    entity: user_identity
+    description: 用户已开始执行流程 Apple relay 邮箱失效处理，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-216
+  title: auth 类边界场景 bs-193
+  source: bs
+  source_id: bs-193
+  ctx:
+    entity: otp_code
+    description: 用户角色为 viewer，无权执行流程 数据保留与清理（合规定时任务）
+  act:
+    op: trigger_boundary_case
+    detail: 触发 数据保留与清理（合规定时任务） 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-217
+  title: auth 类边界场景 bs-194
+  source: bs
+  source_id: bs-194
+  ctx:
+    entity: otp_code
+    description: 用户已开始执行流程 数据保留与清理（合规定时任务），管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-218
+  title: auth 类边界场景 bs-195
+  source: bs
+  source_id: bs-195
+  ctx:
+    entity: user_identity
+    description: 用户角色为 viewer，无权执行流程 系统自动账户归并
+  act:
+    op: trigger_boundary_case
+    detail: 触发 系统自动账户归并 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-219
+  title: auth 类边界场景 bs-196
+  source: bs
+  source_id: bs-196
+  ctx:
+    entity: user_identity
+    description: 用户已开始执行流程 系统自动账户归并，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-220
+  title: network 类边界场景 bs-197
+  source: bs
+  source_id: bs-197
+  ctx:
+    entity: otp_code
+    description: 流程 消费端邮箱验证码登录 依赖的外部系统 email_service 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 email_service 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-221
+  title: network 类边界场景 bs-198
+  source: bs
+  source_id: bs-198
+  ctx:
+    entity: otp_code
+    description: 流程 消费端邮箱验证码登录 调用 email_service 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-222
+  title: network 类边界场景 bs-199
+  source: bs
+  source_id: bs-199
+  ctx:
+    entity: otp_code
+    description: 流程 消费端邮箱验证码登录 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-223
+  title: network 类边界场景 bs-200
+  source: bs
+  source_id: bs-200
+  ctx:
+    entity: user_identity
+    description: 流程 消费端 Google/Apple 第三方登录 依赖的外部系统 google_oidc 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 google_oidc 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-224
+  title: network 类边界场景 bs-201
+  source: bs
+  source_id: bs-201
+  ctx:
+    entity: user_identity
+    description: 流程 消费端 Google/Apple 第三方登录 调用 google_oidc 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-225
+  title: network 类边界场景 bs-202
+  source: bs
+  source_id: bs-202
+  ctx:
+    entity: user_identity
+    description: 流程 消费端 Google/Apple 第三方登录 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-226
+  title: network 类边界场景 bs-203
+  source: bs
+  source_id: bs-203
+  ctx:
+    entity: otp_code
+    description: 流程 消费端更换主邮箱 依赖的外部系统 email_service 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 email_service 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-227
+  title: network 类边界场景 bs-204
+  source: bs
+  source_id: bs-204
+  ctx:
+    entity: otp_code
+    description: 流程 消费端更换主邮箱 调用 email_service 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-228
+  title: network 类边界场景 bs-205
+  source: bs
+  source_id: bs-205
+  ctx:
+    entity: otp_code
+    description: 流程 消费端更换主邮箱 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-229
+  title: network 类边界场景 bs-206
+  source: bs
+  source_id: bs-206
+  ctx:
+    entity: user
+    description: 流程 消费端账户注销/删除 依赖的外部系统 email_service 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 email_service 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-230
+  title: network 类边界场景 bs-207
+  source: bs
+  source_id: bs-207
+  ctx:
+    entity: user
+    description: 流程 消费端账户注销/删除 调用 email_service 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-231
+  title: network 类边界场景 bs-208
+  source: bs
+  source_id: bs-208
+  ctx:
+    entity: user
+    description: 流程 消费端账户注销/删除 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-232
+  title: network 类边界场景 bs-209
+  source: bs
+  source_id: bs-209
+  ctx:
+    entity: login_history
+    description: 流程 新设备登录通知 依赖的外部系统 email_service 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 email_service 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-233
+  title: network 类边界场景 bs-210
+  source: bs
+  source_id: bs-210
+  ctx:
+    entity: login_history
+    description: 流程 新设备登录通知 调用 email_service 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-234
+  title: network 类边界场景 bs-211
+  source: bs
+  source_id: bs-211
+  ctx:
+    entity: login_history
+    description: 流程 新设备登录通知 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-235
+  title: network 类边界场景 bs-212
+  source: bs
+  source_id: bs-212
+  ctx:
+    entity: user_identity
+    description: 流程 未验证邮箱冲突处理 依赖的外部系统 google_oidc 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 google_oidc 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-236
+  title: network 类边界场景 bs-213
+  source: bs
+  source_id: bs-213
+  ctx:
+    entity: user_identity
+    description: 流程 未验证邮箱冲突处理 调用 google_oidc 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-237
+  title: network 类边界场景 bs-214
+  source: bs
+  source_id: bs-214
+  ctx:
+    entity: user_identity
+    description: 流程 未验证邮箱冲突处理 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-238
+  title: network 类边界场景 bs-215
+  source: bs
+  source_id: bs-215
+  ctx:
+    entity: user_identity
+    description: 流程 Apple relay 邮箱失效处理 依赖的外部系统 apple_oidc 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 apple_oidc 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-239
+  title: network 类边界场景 bs-216
+  source: bs
+  source_id: bs-216
+  ctx:
+    entity: user_identity
+    description: 流程 Apple relay 邮箱失效处理 调用 apple_oidc 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-240
+  title: network 类边界场景 bs-217
+  source: bs
+  source_id: bs-217
+  ctx:
+    entity: user_identity
+    description: 流程 Apple relay 邮箱失效处理 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-241
+  title: integrity 类边界场景 bs-218
+  source: bs
+  source_id: bs-218
+  ctx:
+    entity: user
+    description: user 关联的 login_history 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 login_history 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 login_history 不存在错误，拒绝写入
+- id: s-242
+  title: integrity 类边界场景 bs-219
+  source: bs
+  source_id: bs-219
+  ctx:
+    entity: user
+    description: user 关联的 user_identity 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 user_identity 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 user_identity 不存在错误，拒绝写入
+- id: s-243
+  title: integrity 类边界场景 bs-220
+  source: bs
+  source_id: bs-220
+  ctx:
+    entity: user
+    description: user 关联的 user_session 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 user_session 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 user_session 不存在错误，拒绝写入
+- id: s-244
+  title: integrity 类边界场景 bs-221
+  source: bs
+  source_id: bs-221
+  ctx:
+    entity: user_identity
+    field: user_id
+    description: user_identity 关联的 user 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交引用不存在 user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 user 不存在错误，拒绝写入
+    field: user_id
+- id: s-245
+  title: integrity 类边界场景 bs-222
+  source: bs
+  source_id: bs-222
+  ctx:
+    entity: user_session
+    field: user_id
+    description: user_session 关联的 user 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交引用不存在 user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 user 不存在错误，拒绝写入
+    field: user_id
+- id: s-246
+  title: integrity 类边界场景 bs-223
+  source: bs
+  source_id: bs-223
+  ctx:
+    entity: login_history
+    field: user_id
+    description: login_history 关联的 user 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 提交引用不存在 user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 user 不存在错误，拒绝写入
+    field: user_id
+- id: s-247
+  title: integrity 类边界场景 bs-224
+  source: bs
+  source_id: bs-224
+  ctx:
+    entity: admin_user
+    description: admin_user 关联的 admin_session 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 admin_session 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 admin_session 不存在错误，拒绝写入
+- id: s-248
+  title: integrity 类边界场景 bs-225
+  source: bs
+  source_id: bs-225
+  ctx:
+    entity: admin_user
+    description: admin_user 关联的 operation_log 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 operation_log 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 operation_log 不存在错误，拒绝写入
+- id: s-249
+  title: integrity 类边界场景 bs-226
+  source: bs
+  source_id: bs-226
+  ctx:
+    entity: admin_user
+    field: role_id
+    description: admin_user 关联的 role 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 提交引用不存在 role 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 role 不存在错误，拒绝写入
+    field: role_id
+- id: s-250
+  title: integrity 类边界场景 bs-227
+  source: bs
+  source_id: bs-227
+  ctx:
+    entity: role
+    description: role 关联的 admin_user 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 admin_user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+- id: s-251
+  title: integrity 类边界场景 bs-228
+  source: bs
+  source_id: bs-228
+  ctx:
+    entity: role
+    description: role 关联的 permission 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 permission 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 permission 不存在错误，拒绝写入
+- id: s-252
+  title: integrity 类边界场景 bs-229
+  source: bs
+  source_id: bs-229
+  ctx:
+    entity: role_permission
+    field: permission_key
+    description: role_permission 关联的 permission 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: permission_key
+    detail: 提交引用不存在 permission 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 permission 不存在错误，拒绝写入
+    field: permission_key
+- id: s-253
+  title: integrity 类边界场景 bs-230
+  source: bs
+  source_id: bs-230
+  ctx:
+    entity: role_permission
+    field: role_id
+    description: role_permission 关联的 role 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 提交引用不存在 role 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 role 不存在错误，拒绝写入
+    field: role_id
+- id: s-254
+  title: integrity 类边界场景 bs-231
+  source: bs
+  source_id: bs-231
+  ctx:
+    entity: admin_session
+    field: admin_id
+    description: admin_session 关联的 admin_user 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: admin_id
+    detail: 提交引用不存在 admin_user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+    field: admin_id
+- id: s-255
+  title: integrity 类边界场景 bs-232
+  source: bs
+  source_id: bs-232
+  ctx:
+    entity: operation_log
+    field: operator_id
+    description: operation_log 关联的 admin_user 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: operator_id
+    detail: 提交引用不存在 admin_user 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 admin_user 不存在错误，拒绝写入
+    field: operator_id
+- id: s-256
+  title: state 类边界场景 bs-233
+  source: bs
+  source_id: bs-233
+  ctx:
+    entity: otp_code
+    field: state
+    description: 'otp_code 当前处于 pending，但 guard 条件不满足: code 正确且 now<=expires_at 且 attempts<max_attempts'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 verify_ok，尝试从 pending 转到 consumed
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，otp_code 保持在 pending
+- id: s-257
+  title: state 类边界场景 bs-234
+  source: bs
+  source_id: bs-234
+  ctx:
+    entity: otp_code
+    field: state
+    description: 'otp_code 当前处于 pending，但 guard 条件不满足: code 错误且 attempts+1<max_attempts'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 verify_fail，尝试从 pending 转到 pending
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，otp_code 保持在 pending
+- id: s-258
+  title: state 类边界场景 bs-235
+  source: bs
+  source_id: bs-235
+  ctx:
+    entity: otp_code
+    field: state
+    description: 'otp_code 当前处于 pending，但 guard 条件不满足: attempts+1>=max_attempts'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 verify_fail_max，尝试从 pending 转到 locked
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，otp_code 保持在 pending
+- id: s-259
+  title: state 类边界场景 bs-236
+  source: bs
+  source_id: bs-236
+  ctx:
+    entity: otp_code
+    field: state
+    description: 'otp_code 当前处于 pending，但 guard 条件不满足: now>expires_at'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 ttl_timeout，尝试从 pending 转到 expired
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，otp_code 保持在 pending
+- id: s-260
+  title: state 类边界场景 bs-237
+  source: bs
+  source_id: bs-237
+  ctx:
+    entity: otp_code
+    field: state
+    description: 'otp_code 当前处于 pending，但 guard 条件不满足: now-last_sent_at>=otp_resend_seconds'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 resend，尝试从 pending 转到 pending
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，otp_code 保持在 pending
+- id: s-261
+  title: state 类边界场景 bs-238
+  source: bs
+  source_id: bs-238
+  ctx:
+    entity: otp_code
+    field: state
+    description: otp_code 当前处于 pending
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 verify_ok_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-262
+  title: state 类边界场景 bs-239
+  source: bs
+  source_id: bs-239
+  ctx:
+    entity: otp_code
+    field: state
+    description: otp_code 当前处于 consumed
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-263
+  title: state 类边界场景 bs-240
+  source: bs
+  source_id: bs-240
+  ctx:
+    entity: otp_code
+    field: state
+    description: otp_code 当前处于 expired
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-264
+  title: state 类边界场景 bs-241
+  source: bs
+  source_id: bs-241
+  ctx:
+    entity: otp_code
+    field: state
+    description: otp_code 当前处于 locked
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-265
+  title: state 类边界场景 bs-242
+  source: bs
+  source_id: bs-242
+  ctx:
+    entity: user
+    field: state
+    description: 'user 当前处于 active，但 guard 条件不满足: 操作管理员含 /customers 权限'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 admin_disable，尝试从 active 转到 disabled
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user 保持在 active
+- id: s-266
+  title: store_passwordless_otp_login
+  source: func
+  source_id: store_passwordless_otp_login
+  ctx:
+    entity: otp_code
+    state: pending
+    portal: portal-store
+  act:
+    op: verify_otp
+    params:
+      email: jane@email.com
+      code: valid-6-digit
+  expect:
+    state: consumed
+    http_status: 200
+    effect: 签发 store JWT 并创建 active UserSession
+- id: s-267
+  title: store_oidc_login
+  source: func
+  source_id: store_oidc_login
+  ctx:
+    entity: user_identity
+    portal: portal-store
+    provider: google
+  act:
+    op: oidc_callback
+    params:
+      provider: google
+      sub: valid-sub
+      email_verified: true
+  expect:
+    http_status: 200
+    effect: 按 (provider,sub) 归并或新建 user 并签发 store JWT
+- id: s-268
+  title: store_manage_login_methods
+  source: func
+  source_id: store_manage_login_methods
+  ctx:
+    entity: user_identity
+    portal: portal-store
+    connected_count: 3
+    min_methods: 1
+  act:
+    op: unbind_identity
+    params:
+      provider: google
+  expect:
+    http_status: 200
+    effect: UserIdentity(google).connected=false
+- id: s-269
+  title: store_session_management
+  source: func
+  source_id: store_session_management
+  ctx:
+    entity: user_session
+    portal: portal-store
+    active_sessions: 3
+  act:
+    op: signout_other_sessions
+    params: {}
+  expect:
+    http_status: 200
+    effect: 非当前会话 revoked，当前保留
+- id: s-270
+  title: admin_login
+  source: func
+  source_id: admin_login
+  ctx:
+    entity: admin_user
+    portal: portal-admin
+    status: active
+  act:
+    op: admin_login
+    params:
+      email: admin@dreamy.com
+      password: valid
+  expect:
+    http_status: 200
+    effect: 签发 admin JWT 并写 登录 OperationLog
+- id: s-271
+  title: admin_manage_admins
+  source: func
+  source_id: admin_manage_admins
+  ctx:
+    entity: admin_user
+    portal: portal-admin
+    actor_role: 超级管理员
+  act:
+    op: create_admin
+    params:
+      name: New Ops
+      email: newops@dreamy.com
+      password: secret1
+      role: 订单客服
+  expect:
+    http_status: 200
+    effect: 新增 admin_user 并写 创建管理员 日志
+- id: s-272
+  title: admin_manage_roles
+  source: func
+  source_id: admin_manage_roles
+  ctx:
+    entity: role
+    portal: portal-admin
+    actor_role: 超级管理员
+    role: 商品运营
+  act:
+    op: save_role_permissions
+    params:
+      role: 商品运营
+      add:
+      - /analytics
+  expect:
+    http_status: 200
+    effect: RolePermission 更新并写 权限变更 日志
+- id: s-273
+  title: admin_customer_identity_ops
+  source: func
+  source_id: admin_customer_identity_ops
+  ctx:
+    entity: user_session
+    portal: portal-admin
+    actor_perm: /customers
+    target_user: u-1001
+  act:
+    op: force_logout_all
+    params:
+      user_id: u-1001
+  expect:
+    http_status: 200
+    effect: 目标用户全部会话 revoked 并写 强制下线 日志
+- id: s-274
+  title: admin_auth_config
+  source: func
+  source_id: admin_auth_config
+  ctx:
+    entity: auth_config
+    portal: portal-admin
+    actor_role: 超级管理员
+  act:
+    op: save_auth_config
+    params:
+      apple_enabled: true
+      otp_ttl_minutes: 10
+  expect:
+    http_status: 200
+    effect: AuthConfig 更新并写 认证配置变更 日志
+- id: s-275
+  title: account_auto_merge
+  source: func
+  source_id: account_auto_merge
+  ctx:
+    entity: user_identity
+    actor: 系统
+    trigger: 已验证邮箱一致
+  act:
+    op: auto_merge
+    params:
+      email_verified: true
+      email: emma.j@example.com
+  expect:
+    http_status: 200
+    effect: 新 identity 挂到既有 user 并写 账户合并(系统自动) 日志
+- id: s-276
+  title: user 状态从 active 流转到 deleted
+  source: sm
+  source_id: user.active→deleted
+  ctx:
+    entity: user
+    state: active
+  act:
+    op: user_delete_account
+  expect:
+    state: deleted
+    http_status: 200
+- id: s-277
+  title: user 在 active 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user.active→deleted.guard_fail
+  ctx:
+    entity: user
+    state: active
+    guard_satisfied: false
+  act:
+    op: user_delete_account
+  expect:
+    state: active
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-278
+  title: user 状态从 disabled 流转到 deleted
+  source: sm
+  source_id: user.disabled→deleted
+  ctx:
+    entity: user
+    state: disabled
+  act:
+    op: user_delete_account
+  expect:
+    state: deleted
+    http_status: 200
+- id: s-279
+  title: user 在 disabled 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user.disabled→deleted.guard_fail
+  ctx:
+    entity: user
+    state: disabled
+    guard_satisfied: false
+  act:
+    op: user_delete_account
+  expect:
+    state: disabled
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-280
+  title: user_identity 状态从 connected 流转到 connected
+  source: sm
+  source_id: user_identity.connected→connected
+  ctx:
+    entity: user_identity
+    state: connected
+  act:
+    op: change_primary
+  expect:
+    state: connected
+    http_status: 200
+- id: s-281
+  title: user_identity 在 connected 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user_identity.connected→connected.guard_fail
+  ctx:
+    entity: user_identity
+    state: connected
+    guard_satisfied: false
+  act:
+    op: change_primary
+  expect:
+    state: connected
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-282
+  title: state 类边界场景 bs-243
+  source: bs
+  source_id: bs-243
+  ctx:
+    entity: user
+    field: state
+    description: 'user 当前处于 disabled，但 guard 条件不满足: 操作管理员含 /customers 权限'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 admin_enable，尝试从 disabled 转到 active
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user 保持在 disabled
+- id: s-283
+  title: state 类边界场景 bs-244
+  source: bs
+  source_id: bs-244
+  ctx:
+    entity: user
+    field: state
+    description: 'user 当前处于 active，但 guard 条件不满足: 本人发起并二次确认'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 user_delete_account，尝试从 active 转到 deleted
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user 保持在 active
+- id: s-284
+  title: state 类边界场景 bs-245
+  source: bs
+  source_id: bs-245
+  ctx:
+    entity: user
+    field: state
+    description: 'user 当前处于 disabled，但 guard 条件不满足: 本人发起并二次确认'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 user_delete_account，尝试从 disabled 转到 deleted
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user 保持在 disabled
+- id: s-285
+  title: state 类边界场景 bs-246
+  source: bs
+  source_id: bs-246
+  ctx:
+    entity: user
+    field: state
+    description: 'user 当前处于 deleted，但 guard 条件不满足: deleted_at 距今超过 30 天宽限期（定时任务）'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 retention_anonymize，尝试从 deleted 转到 anonymized
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user 保持在 deleted
+- id: s-286
+  title: state 类边界场景 bs-247
+  source: bs
+  source_id: bs-247
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 active
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 admin_disable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-287
+  title: state 类边界场景 bs-248
+  source: bs
+  source_id: bs-248
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 disabled
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 admin_enable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-288
+  title: state 类边界场景 bs-249
+  source: bs
+  source_id: bs-249
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 deleted
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 retention_anonymize_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-289
+  title: state 类边界场景 bs-250
+  source: bs
+  source_id: bs-250
+  ctx:
+    entity: user
+    field: state
+    description: user 当前处于 anonymized
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-290
+  title: state 类边界场景 bs-251
+  source: bs
+  source_id: bs-251
+  ctx:
+    entity: user_identity
+    field: state
+    description: 'user_identity 当前处于 not_connected，但 guard 条件不满足: OIDC sub 校验通过或邮箱已验证且 provider_uid 未被他人占用'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 bind，尝试从 not_connected 转到 connected
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user_identity 保持在 not_connected
+- id: s-291
+  title: state 类边界场景 bs-252
+  source: bs
+  source_id: bs-252
+  ctx:
+    entity: user_identity
+    field: state
+    description: 'user_identity 当前处于 connected，但 guard 条件不满足: 非 is_primary 且解绑后剩余 connected>=min_methods'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 unbind，尝试从 connected 转到 not_connected
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user_identity 保持在 connected
+- id: s-292
+  title: state 类边界场景 bs-253
+  source: bs
+  source_id: bs-253
+  ctx:
+    entity: user_identity
+    field: state
+    description: 'user_identity 当前处于 connected，但 guard 条件不满足: 新邮箱 OTP 验证通过且未被他人占用，迁移 is_primary 到新邮箱凭证'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 change_primary，尝试从 connected 转到 connected
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user_identity 保持在 connected
+- id: s-293
+  title: state 类边界场景 bs-254
+  source: bs
+  source_id: bs-254
+  ctx:
+    entity: user_identity
+    field: state
+    description: user_identity 当前处于 not_connected
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 bind_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-294
+  title: state 类边界场景 bs-255
+  source: bs
+  source_id: bs-255
+  ctx:
+    entity: user_identity
+    field: state
+    description: user_identity 当前处于 connected
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 unbind_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-295
+  title: state 类边界场景 bs-256
+  source: bs
+  source_id: bs-256
+  ctx:
+    entity: user_session
+    field: state
+    description: 'user_session 当前处于 active，但 guard 条件不满足: 非当前会话'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 user_signout_others，尝试从 active 转到 revoked
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user_session 保持在 active
+- id: s-296
+  title: state 类边界场景 bs-257
+  source: bs
+  source_id: bs-257
+  ctx:
+    entity: user_session
+    field: state
+    description: 'user_session 当前处于 active，但 guard 条件不满足: 操作管理员含 /customers 权限'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 admin_force_logout，尝试从 active 转到 revoked
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，user_session 保持在 active
+- id: s-297
+  title: state 类边界场景 bs-258
+  source: bs
+  source_id: bs-258
+  ctx:
+    entity: user_session
+    field: state
+    description: user_session 当前处于 active
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 user_signout_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-298
+  title: state 类边界场景 bs-259
+  source: bs
+  source_id: bs-259
+  ctx:
+    entity: user_session
+    field: state
+    description: user_session 当前处于 revoked
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-299
+  title: state 类边界场景 bs-260
+  source: bs
+  source_id: bs-260
+  ctx:
+    entity: admin_user
+    field: state
+    description: 'admin_user 当前处于 active，但 guard 条件不满足: 目标非超级管理员'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 toggle_disable，尝试从 active 转到 disabled
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，admin_user 保持在 active
+- id: s-300
+  title: state 类边界场景 bs-261
+  source: bs
+  source_id: bs-261
+  ctx:
+    entity: admin_user
+    field: state
+    description: 'admin_user 当前处于 disabled，但 guard 条件不满足: 目标非超级管理员'
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发事件 toggle_enable，尝试从 disabled 转到 active
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统拒绝状态转换，admin_user 保持在 disabled
+- id: s-301
+  title: state 类边界场景 bs-262
+  source: bs
+  source_id: bs-262
+  ctx:
+    entity: admin_user
+    field: state
+    description: admin_user 当前处于 active
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 toggle_disable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-302
+  title: state 类边界场景 bs-263
+  source: bs
+  source_id: bs-263
+  ctx:
+    entity: admin_user
+    field: state
+    description: admin_user 当前处于 disabled
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 toggle_enable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-303
+  title: state 类边界场景 bs-264
+  source: bs
+  source_id: bs-264
+  ctx:
+    entity: admin_session
+    field: state
+    description: admin_session 当前处于 active
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 admin_logout_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-304
+  title: state 类边界场景 bs-265
+  source: bs
+  source_id: bs-265
+  ctx:
+    entity: admin_session
+    field: state
+    description: admin_session 当前处于 revoked
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-305
+  title: callsite-compat 类边界场景 bs-266
+  source: bs
+  source_id: bs-266
+  ctx:
+    entity: user
+    field: tier
+    description: user.tier 枚举值集合 ['vip', 'regular']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: tier
+    detail: 为 tier 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-306
+  title: callsite-compat 类边界场景 bs-267
+  source: bs
+  source_id: bs-267
+  ctx:
+    entity: user
+    field: status
+    description: user.status 枚举值集合 ['active', 'disabled', 'deleted']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-307
+  title: callsite-compat 类边界场景 bs-268
+  source: bs
+  source_id: bs-268
+  ctx:
+    entity: user
+    description: login_history 实体结构变更，user 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 login_history 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: user 能正常读取 login_history 变更后的数据，不因字段增删而崩溃
+- id: s-308
+  title: callsite-compat 类边界场景 bs-269
+  source: bs
+  source_id: bs-269
+  ctx:
+    entity: user
+    description: user_identity 实体结构变更，user 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 user_identity 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: user 能正常读取 user_identity 变更后的数据，不因字段增删而崩溃
+- id: s-309
+  title: callsite-compat 类边界场景 bs-270
+  source: bs
+  source_id: bs-270
+  ctx:
+    entity: user
+    description: user_session 实体结构变更，user 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 user_session 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: user 能正常读取 user_session 变更后的数据，不因字段增删而崩溃
+- id: s-310
+  title: callsite-compat 类边界场景 bs-271
+  source: bs
+  source_id: bs-271
+  ctx:
+    entity: user_identity
+    field: provider
+    description: user_identity.provider 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: provider
+    detail: 为 provider 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-311
+  title: callsite-compat 类边界场景 bs-272
+  source: bs
+  source_id: bs-272
+  ctx:
+    entity: user_identity
+    field: user_id
+    description: user 实体结构变更，user_identity 通过 user_id 引用
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 修改 user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: user_identity 能正常读取 user 变更后的数据，不因字段增删而崩溃
+- id: s-312
+  title: callsite-compat 类边界场景 bs-273
+  source: bs
+  source_id: bs-273
+  ctx:
+    entity: otp_code
+    field: length
+    description: otp_code.length 枚举值集合 [4, 6, 8]，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: length
+    detail: 为 length 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-313
+  title: callsite-compat 类边界场景 bs-274
+  source: bs
+  source_id: bs-274
+  ctx:
+    entity: otp_code
+    field: status
+    description: otp_code.status 枚举值集合 ['pending', 'consumed', 'expired', 'locked']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-314
+  title: callsite-compat 类边界场景 bs-275
+  source: bs
+  source_id: bs-275
+  ctx:
+    entity: user_session
+    field: method
+    description: user_session.method 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 为 method 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-315
+  title: callsite-compat 类边界场景 bs-276
+  source: bs
+  source_id: bs-276
+  ctx:
+    entity: user_session
+    field: status
+    description: user_session.status 枚举值集合 ['active', 'revoked']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-316
+  title: callsite-compat 类边界场景 bs-277
+  source: bs
+  source_id: bs-277
+  ctx:
+    entity: user_session
+    field: user_id
+    description: user 实体结构变更，user_session 通过 user_id 引用
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 修改 user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: user_session 能正常读取 user 变更后的数据，不因字段增删而崩溃
+- id: s-317
+  title: callsite-compat 类边界场景 bs-278
+  source: bs
+  source_id: bs-278
+  ctx:
+    entity: login_history
+    field: method
+    description: login_history.method 枚举值集合 ['email', 'google', 'apple']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: method
+    detail: 为 method 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-318
+  title: callsite-compat 类边界场景 bs-279
+  source: bs
+  source_id: bs-279
+  ctx:
+    entity: login_history
+    field: result
+    description: login_history.result 枚举值集合 ['success', 'failed']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: result
+    detail: 为 result 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-319
+  title: store_change_primary_email
+  source: func
+  source_id: store_change_primary_email
+  ctx:
+    entity: user_identity
+    portal: portal-store
+  act:
+    op: change_primary_email
+    params:
+      new_email: new@email.com
+      otp: valid
+  expect:
+    http_status: 200
+    effect: 新邮箱成为 is_primary，通知旧邮箱
+- id: s-320
+  title: store_delete_account
+  source: func
+  source_id: store_delete_account
+  ctx:
+    entity: user
+    portal: portal-store
+    state: active
+  act:
+    op: delete_account
+    params:
+      confirm: true
+  expect:
+    state: deleted
+    http_status: 200
+    effect: 软删除(30天宽限)，撤销全部会话并清缓存，发确认邮件
+- id: s-321
+  title: store_new_device_notification
+  source: func
+  source_id: store_new_device_notification
+  ctx:
+    entity: login_history
+    portal: portal-store
+    is_new_device: true
+  act:
+    op: login_success
+    params:
+      is_new_device: true
+  expect:
+    http_status: 200
+    effect: 发送新设备登录提醒邮件，notified=true
+- id: s-322
+  title: store_unverified_email_conflict
+  source: func
+  source_id: store_unverified_email_conflict
+  ctx:
+    entity: user_identity
+    portal: portal-store
+    email_verified: false
+  act:
+    op: oidc_callback
+    params:
+      provider: google
+      email_verified: false
+      email_exists: true
+  expect:
+    http_status: 409
+    error_code: 40902
+    effect: 不静默合并，提示原方式登录后绑定
+- id: s-323
+  title: store_apple_relay_invalidation
+  source: func
+  source_id: store_apple_relay_invalidation
+  ctx:
+    entity: user_identity
+    provider: apple
+    actor: 系统
+  act:
+    op: relay_bounce
+    params: {}
+  expect:
+    http_status: 200
+    effect: 标记 relay 失效，保留 Apple sub 登录能力
+- id: s-324
+  title: user 状态从 deleted 流转到 anonymized
+  source: sm
+  source_id: user.deleted→anonymized
+  ctx:
+    entity: user
+    state: deleted
+  act:
+    op: retention_anonymize
+  expect:
+    state: anonymized
+    http_status: 200
+- id: s-325
+  title: user 在 deleted 状态因 guard 条件不满足拒绝转换
+  source: sm
+  source_id: user.deleted→anonymized.guard_fail
+  ctx:
+    entity: user
+    state: deleted
+    guard_satisfied: false
+  act:
+    op: retention_anonymize
+  expect:
+    state: deleted
+    http_status: 422
+    error_code: GUARD_NOT_SATISFIED
+- id: s-326
+  title: callsite-compat 类边界场景 bs-280
+  source: bs
+  source_id: bs-280
+  ctx:
+    entity: login_history
+    field: user_id
+    description: user 实体结构变更，login_history 通过 user_id 引用
+  act:
+    op: trigger_boundary_case
+    field: user_id
+    detail: 修改 user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: login_history 能正常读取 user 变更后的数据，不因字段增删而崩溃
+- id: s-327
+  title: callsite-compat 类边界场景 bs-281
+  source: bs
+  source_id: bs-281
+  ctx:
+    entity: admin_user
+    field: status
+    description: admin_user.status 枚举值集合 ['active', 'disabled']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-328
+  title: callsite-compat 类边界场景 bs-282
+  source: bs
+  source_id: bs-282
+  ctx:
+    entity: admin_user
+    description: admin_session 实体结构变更，admin_user 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 admin_session 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: admin_user 能正常读取 admin_session 变更后的数据，不因字段增删而崩溃
+- id: s-329
+  title: callsite-compat 类边界场景 bs-283
+  source: bs
+  source_id: bs-283
+  ctx:
+    entity: admin_user
+    description: operation_log 实体结构变更，admin_user 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 operation_log 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: admin_user 能正常读取 operation_log 变更后的数据，不因字段增删而崩溃
+- id: s-330
+  title: callsite-compat 类边界场景 bs-284
+  source: bs
+  source_id: bs-284
+  ctx:
+    entity: admin_user
+    field: role_id
+    description: role 实体结构变更，admin_user 通过 role_id 引用
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 修改 role 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: admin_user 能正常读取 role 变更后的数据，不因字段增删而崩溃
+- id: s-331
+  title: callsite-compat 类边界场景 bs-285
+  source: bs
+  source_id: bs-285
+  ctx:
+    entity: role
+    field: type
+    description: role.type 枚举值集合 ['preset', 'custom']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: type
+    detail: 为 type 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-332
+  title: callsite-compat 类边界场景 bs-286
+  source: bs
+  source_id: bs-286
+  ctx:
+    entity: role
+    description: admin_user 实体结构变更，role 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: role 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+- id: s-333
+  title: callsite-compat 类边界场景 bs-287
+  source: bs
+  source_id: bs-287
+  ctx:
+    entity: role
+    description: permission 实体结构变更，role 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 permission 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: role 能正常读取 permission 变更后的数据，不因字段增删而崩溃
+- id: s-334
+  title: callsite-compat 类边界场景 bs-288
+  source: bs
+  source_id: bs-288
+  ctx:
+    entity: role_permission
+    field: permission_key
+    description: permission 实体结构变更，role_permission 通过 permission_key 引用
+  act:
+    op: trigger_boundary_case
+    field: permission_key
+    detail: 修改 permission 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: role_permission 能正常读取 permission 变更后的数据，不因字段增删而崩溃
+- id: s-335
+  title: callsite-compat 类边界场景 bs-289
+  source: bs
+  source_id: bs-289
+  ctx:
+    entity: role_permission
+    field: role_id
+    description: role 实体结构变更，role_permission 通过 role_id 引用
+  act:
+    op: trigger_boundary_case
+    field: role_id
+    detail: 修改 role 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: role_permission 能正常读取 role 变更后的数据，不因字段增删而崩溃
+- id: s-336
+  title: callsite-compat 类边界场景 bs-290
+  source: bs
+  source_id: bs-290
+  ctx:
+    entity: admin_session
+    field: status
+    description: admin_session.status 枚举值集合 ['active', 'revoked']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-337
+  title: callsite-compat 类边界场景 bs-291
+  source: bs
+  source_id: bs-291
+  ctx:
+    entity: admin_session
+    field: admin_id
+    description: admin_user 实体结构变更，admin_session 通过 admin_id 引用
+  act:
+    op: trigger_boundary_case
+    field: admin_id
+    detail: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: admin_session 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+- id: s-338
+  title: callsite-compat 类边界场景 bs-292
+  source: bs
+  source_id: bs-292
+  ctx:
+    entity: operation_log
+    field: action
+    description: operation_log.action 枚举值集合 ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: action
+    detail: 为 action 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-339
+  title: callsite-compat 类边界场景 bs-293
+  source: bs
+  source_id: bs-293
+  ctx:
+    entity: operation_log
+    field: operator_id
+    description: admin_user 实体结构变更，operation_log 通过 operator_id 引用
+  act:
+    op: trigger_boundary_case
+    field: operator_id
+    detail: 修改 admin_user 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: operation_log 能正常读取 admin_user 变更后的数据，不因字段增删而崩溃
+- id: s-340
+  title: callsite-compat 类边界场景 bs-294
+  source: bs
+  source_id: bs-294
+  ctx:
+    entity: auth_config
+    field: otp_length
+    description: auth_config.otp_length 枚举值集合 [4, 6, 8]，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: otp_length
+    detail: 为 otp_length 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-341
+  title: callsite-compat 类边界场景 bs-295
+  source: bs
+  source_id: bs-295
+  ctx:
+    entity: email_template
+    field: code
+    description: email_template.code 枚举值集合 ['otp', 'new_device', 'change_primary', 'account_deleted']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: code
+    detail: 为 code 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-342
+  title: callsite-compat 类边界场景 bs-296
+  source: bs
+  source_id: bs-296
+  ctx:
+    entity: email_template
+    field: locale
+    description: email_template.locale 枚举值集合 ['en', 'es', 'fr']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: locale
+    detail: 为 locale 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-343
+  title: data_retention_cleanup
+  source: func
+  source_id: data_retention_cleanup
+  ctx:
+    entity: user
+    actor: 系统
+    trigger: 每日定时任务
+  act:
+    op: retention_cleanup
+    params: {}
+  expect:
+    http_status: 200
+    effect: 清 OTP/过期会话/旧登录记录；deleted 超30天 user 匿名化 PII 不可逆(GDPR Art.17)

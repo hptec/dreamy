@@ -1,0 +1,29 @@
+change_name: identity-auth-fullstack
+domain_code: identity
+multi_portal: true
+portals:
+  - portal_id: portal-store
+    tech: nextjs15-app-router-ts-tailwind
+    proto_dir: hhspec/prototype/app
+    impl_dir: frontend/portal-store
+    pages:
+      - {page_id: portal-store/account/login, proto: hhspec/prototype/app/account/login/page.tsx, route: /account/login}
+      - {page_id: portal-store/account, proto: hhspec/prototype/app/account/page.tsx, route: /account}
+      - {page_id: portal-store/account/settings, proto: hhspec/prototype/app/account/settings/page.tsx, route: /account/settings}
+      - {page_id: portal-store/account/security, proto: hhspec/prototype/app/account/security/page.tsx, route: /account/security}
+  - portal_id: portal-admin
+    tech: pnpm-vue3-vite-headless-ts-tailwind
+    proto_dir: hhspec/prototype/portal-admin
+    impl_dir: frontend/portal-admin
+    pages:
+      - {page_id: portal-admin/Login, proto: hhspec/prototype/portal-admin/src/views/Login.vue, route: /login}
+      - {page_id: portal-admin/Customers, proto: hhspec/prototype/portal-admin/src/views/Customers.vue, route: /customers}
+      - {page_id: portal-admin/CustomerDetail, proto: hhspec/prototype/portal-admin/src/views/CustomerDetail.vue, route: "/customers/:id"}
+      - {page_id: portal-admin/AdminList, proto: hhspec/prototype/portal-admin/src/views/AdminList.vue, route: /system/admins}
+      - {page_id: portal-admin/RoleManagement, proto: hhspec/prototype/portal-admin/src/views/RoleManagement.vue, route: /system/roles}
+      - {page_id: portal-admin/AuthSettings, proto: hhspec/prototype/portal-admin/src/views/AuthSettings.vue, route: /system/auth}
+      - {page_id: portal-admin/OperationLogs, proto: hhspec/prototype/portal-admin/src/views/OperationLogs.vue, route: /system/logs}
+backend:
+  has_api: true
+  dir: backend
+  api_prefixes: [/api/store, /api/admin]

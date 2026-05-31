@@ -1,0 +1,15 @@
+change_name: identity-auth-fullstack
+generated_at: '2026-05-31T10:10:29Z'
+verdict: pass
+semantic_status: complete
+pass_items:
+- er-diagram.yml exists
+- state-machine.yml exists
+- business-flow.yml exists
+- boundary-scenarios.yml exists
+- acceptance.yml exists
+- 'er-diagram has 13 live entities (field-inventory: 37 fields across 0 pages)'
+- state-machine has 6 machine(s), 16 live states total
+- acceptance.yml has 343 live scenarios
+- boundary-scenarios covers all 7 categories
+issues: []

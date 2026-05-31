@@ -1,0 +1,30 @@
+change_name: identity-auth-fullstack
+review_round: 2
+reviewer: pd-l0-semantic-challenger
+generated_at: "2026-05-31T09:20:00Z"
+verdict: PASS
+overall_score: 8.4
+scope_note: 第 2 轮针对细化增量（安全阈值/限流、JetCache 策略、认证边缘场景）增量审查。
+dimensions:
+  completeness:
+    score: 8.5
+    notes: |
+      增量覆盖：JWT access/refresh 策略、OTP 多维频控、新设备通知、JetCache 分级TTL+pub/sub、
+      换主邮箱/账户注销(软删除)/未验证邮箱冲突/Apple relay 失效。er-diagram 增 user.deleted +
+      deleted_at、session refresh 字段、login_history is_new_device/notified；state-machine 增
+      user.deleted 转换 + identity change_primary；business-flow 增 5 条流程（共15）。
+  consistency:
+    score: 8
+    notes: |
+      新流程 state_change 节点（user active→deleted、identity connected change_primary）均有
+      对应 state-machine transition；acceptance 290 条 func ctx 已补全；REQ-005/006 与 decision
+      决策 8-12 一致。
+  acceptability:
+    score: 8.5
+    notes: |
+      新增 EDGE-020~023 与 FUNC-026~031 断言具体（429/409/软删除/集群一致性）。
+blocking_issues: []
+advisory:
+  - 注销软删除的数据保留时长（GDPR/合规）建议 L1 明确具体期限与匿名化策略。
+  - is_new_device 判定口径（设备指纹 vs IP+UA 组合）建议 L1 统一。
+scope_split_suggestion: none

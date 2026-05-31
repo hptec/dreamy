@@ -1,0 +1,33 @@
+change_name: identity-auth-fullstack
+review_round: 1
+reviewer: pd-l0-semantic-challenger
+generated_at: "2026-05-31T08:50:00Z"
+verdict: PASS
+overall_score: 8.2
+dimensions:
+  completeness:
+    score: 8
+    notes: |
+      实体覆盖 12 个（user/identity/otp/session/login_history/admin/role/permission/
+      role_permission/admin_session/operation_log/auth_config），与原型 11 页字段对齐。
+      状态机 6 台覆盖 otp/user/identity/session/admin_user/admin_session。
+      业务流 10 条覆盖两端登录、绑定解绑、会话管理、管理员/角色 CRUD、认证配置、自动归并。
+      acceptance 275 条，boundary 242 条 7 类全覆盖。
+  consistency:
+    score: 8
+    notes: |
+      business-flow 的 state_change 节点（otp pending→consumed、session active→revoked、
+      user active→disabled、identity connected 切换）均在 state-machine 中有对应 transition。
+      acceptance func 场景 ctx/act/expect 已补全并指向流程。两端 JWT 隔离、归并策略与
+      原型 AuthSettings/CustomerDetail 文案一致（系统自动归并、relay 按 sub）。
+  acceptability:
+    score: 8.5
+    notes: |
+      验收断言具体（错误码/HTTP/状态/副作用），可执行。FUNC/EDGE 覆盖主流程与
+      关键异常（过期/锁定/重发限流/禁用/邮箱冲突/权限越界/解绑下限）。
+blocking_issues: []
+advisory:
+  - OTP 防暴力：除 resend 间隔外，建议 L1 明确单 email/IP 的发码频控与校验失败全局上限（boundary 已含 concurrent/auth 类，L1 落地具体阈值）。
+  - JetCache 一致性：会话/凭证类缓存须短 TTL 且写即失效，账户禁用须清缓存+撤销会话（decision 决策6 已声明，L1 落地 key/TTL）。
+  - JDK 25 + Spring Boot：需在 apply 前确认 Spring Boot 最新版对 JDK 25 的支持矩阵（构建期校验）。
+scope_split_suggestion: none

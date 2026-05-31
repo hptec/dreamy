@@ -1,0 +1,736 @@
+{
+  "pages": [
+    {
+      "page_id": "admin-list",
+      "portal_id": "portal-admin",
+      "file": "src/views/AdminList.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "analytics",
+      "portal_id": "portal-admin",
+      "file": "src/views/Analytics.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "auth-settings",
+      "portal_id": "portal-admin",
+      "file": "src/views/AuthSettings.vue",
+      "text_nodes": [
+        {
+          "type": "text_content",
+          "tag": "button",
+          "value": "保存配置"
+        }
+      ],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "banners",
+      "portal_id": "portal-admin",
+      "file": "src/views/Banners.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "categories",
+      "portal_id": "portal-admin",
+      "file": "src/views/Categories.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "content-blog",
+      "portal_id": "portal-admin",
+      "file": "src/views/ContentBlog.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "content-lookbook",
+      "portal_id": "portal-admin",
+      "file": "src/views/ContentLookbook.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "content-weddings",
+      "portal_id": "portal-admin",
+      "file": "src/views/ContentWeddings.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "customer-detail",
+      "portal_id": "portal-admin",
+      "file": "src/views/CustomerDetail.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "customers",
+      "portal_id": "portal-admin",
+      "file": "src/views/Customers.vue",
+      "text_nodes": [
+        {
+          "type": "placeholder",
+          "value": "搜索姓名 / 邮箱…"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "用户"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "注册时间"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "订单数"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "累计消费"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "等级"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "状态"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "操作"
+        }
+      ],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "dashboard",
+      "portal_id": "portal-admin",
+      "file": "src/views/Dashboard.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "email-marketing",
+      "portal_id": "portal-admin",
+      "file": "src/views/EmailMarketing.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "home-builder",
+      "portal_id": "portal-admin",
+      "file": "src/views/HomeBuilder.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "login",
+      "portal_id": "portal-admin",
+      "file": "src/views/Login.vue",
+      "text_nodes": [
+        {
+          "type": "placeholder",
+          "value": "admin@dreamy.com"
+        },
+        {
+          "type": "placeholder",
+          "value": "请输入密码"
+        },
+        {
+          "type": "text_content",
+          "tag": "label",
+          "value": "邮箱"
+        },
+        {
+          "type": "text_content",
+          "tag": "label",
+          "value": "密码"
+        },
+        {
+          "type": "text_content",
+          "tag": "h1",
+          "value": "欢迎回来"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "Dreamy Admin Console"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "配置首页、管理商品订单、一键发布静态站点。"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "Dreamy"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "Admin Console"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "登录以管理您的 Dreamy 站点"
+        },
+        {
+          "type": "text_content",
+          "tag": "p",
+          "value": "原型演示 · 邮箱 + 任意密码即可进入 · 与消费端完全隔离"
+        },
+        {
+          "type": "text_content",
+          "tag": "a",
+          "value": "忘记密码？"
+        }
+      ],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "navigation-config",
+      "portal_id": "portal-admin",
+      "file": "src/views/NavigationConfig.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "operation-logs",
+      "portal_id": "portal-admin",
+      "file": "src/views/OperationLogs.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "order-detail",
+      "portal_id": "portal-admin",
+      "file": "src/views/OrderDetail.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "orders",
+      "portal_id": "portal-admin",
+      "file": "src/views/Orders.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "product-edit",
+      "portal_id": "portal-admin",
+      "file": "src/views/ProductEdit.vue",
+      "text_nodes": [
+        {
+          "type": "text_content",
+          "tag": "button",
+          "value": "保存草稿"
+        }
+      ],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "products",
+      "portal_id": "portal-admin",
+      "file": "src/views/Products.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "promotions",
+      "portal_id": "portal-admin",
+      "file": "src/views/Promotions.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "publish",
+      "portal_id": "portal-admin",
+      "file": "src/views/Publish.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "refunds",
+      "portal_id": "portal-admin",
+      "file": "src/views/Refunds.vue",
+      "text_nodes": [
+        {
+          "type": "text_content",
+          "tag": "span",
+          "value": "已处理"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "工单号"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "关联订单"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "客户"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "退款金额"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "退款原因"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "申请时间"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "状态"
+        },
+        {
+          "type": "text_content",
+          "tag": "th",
+          "value": "操作"
+        }
+      ],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "role-management",
+      "portal_id": "portal-admin",
+      "file": "src/views/RoleManagement.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "settings",
+      "portal_id": "portal-admin",
+      "file": "src/views/Settings.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
+      "page_id": "shipping",
+      "portal_id": "portal-admin",
+      "file": "src/views/Shipping.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    }
+  ],
+  "enum_values": [
+    {
+      "name": "stats",
+      "values": [
+        "订单数",
+        "累计消费",
+        "$",
+        "收藏",
+        "评价"
+      ],
+      "source": "src/views/CustomerDetail.vue"
+    },
+    {
+      "name": "quickActions",
+      "values": [
+        "新增商品",
+        "/products/new",
+        "编辑首页",
+        "/site/home",
+        "新建优惠券",
+        "/marketing/promotions",
+        "写一篇文章",
+        "/content/blog",
+        "发布站点",
+        "/publish"
+      ],
+      "source": "src/views/Dashboard.vue"
+    },
+    {
+      "name": "headers",
+      "values": [
+        "时间",
+        "操作人",
+        "操作类型",
+        "操作对象",
+        "IP"
+      ],
+      "source": "src/views/OperationLogs.vue"
+    },
+    {
+      "name": "csv",
+      "values": [
+        ",",
+        "${c}"
+      ],
+      "source": "src/views/OperationLogs.vue"
+    },
+    {
+      "name": "tabs",
+      "values": [
+        "all",
+        "全部",
+        "pending",
+        "待付款",
+        "paid",
+        "待发货",
+        "shipped",
+        "已发货",
+        "completed",
+        "已完成",
+        "refunding",
+        "退款中"
+      ],
+      "source": "src/views/Orders.vue"
+    },
+    {
+      "name": "steps",
+      "values": [
+        "basic",
+        "基础信息",
+        "media",
+        "媒体素材",
+        "sku",
+        "SKU 矩阵",
+        "size",
+        "尺码表",
+        "price",
+        "定价库存",
+        "seo",
+        "SEO"
+      ],
+      "source": "src/views/ProductEdit.vue"
+    },
+    {
+      "name": "themes",
+      "values": [
+        "Beach",
+        "Garden",
+        "Boho",
+        "Forest",
+        "Vineyard"
+      ],
+      "source": "src/views/ProductEdit.vue"
+    },
+    {
+      "name": "cats",
+      "values": [
+        "all",
+        "Wedding Dresses",
+        "Special Occasion",
+        "Accessories"
+      ],
+      "source": "src/views/Products.vue"
+    },
+    {
+      "name": "seq",
+      "values": [
+        "收集待发布改动",
+        "校验内容完整性",
+        "next build · 编译页面",
+        "生成静态 HTML（output: export）",
+        "写出 out/ 目录并优化资源",
+        "部署到 CDN"
+      ],
+      "source": "src/views/Publish.vue"
+    }
+  ],
+  "component_map": {
+    "src/views/AdminList.vue": [
+      "ArrowPathIcon",
+      "EyeIcon",
+      "EyeSlashIcon",
+      "MagnifyingGlassIcon",
+      "Teleport",
+      "XMarkIcon",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "TrashIcon"
+    ],
+    "src/views/Analytics.vue": [
+      "SparkArea",
+      "PageHeader",
+      "ArrowDownTrayIcon"
+    ],
+    "src/views/AuthSettings.vue": [
+      "CheckBadgeIcon",
+      "Teleport",
+      "KeyIcon",
+      "LockClosedIcon",
+      "InformationCircleIcon",
+      "PageHeader",
+      "LinkIcon"
+    ],
+    "src/views/Banners.vue": [
+      "Toggle",
+      "RocketLaunchIcon",
+      "CursorArrowRaysIcon",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "TrashIcon"
+    ],
+    "src/views/Categories.vue": [
+      "Toggle",
+      "ChevronRightIcon",
+      "RocketLaunchIcon",
+      "PencilSquareIcon",
+      "PlusIcon",
+      "PageHeader",
+      "Bars3Icon",
+      "TrashIcon"
+    ],
+    "src/views/ContentBlog.vue": [
+      "EyeIcon",
+      "RocketLaunchIcon",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "StatusBadge",
+      "TrashIcon"
+    ],
+    "src/views/ContentLookbook.vue": [
+      "PlusIcon",
+      "PhotoIcon",
+      "PageHeader",
+      "PencilSquareIcon",
+      "StatusBadge",
+      "TrashIcon"
+    ],
+    "src/views/ContentWeddings.vue": [
+      "ShoppingBagIcon",
+      "PlusIcon",
+      "MapPinIcon",
+      "PageHeader",
+      "PencilSquareIcon",
+      "StatusBadge",
+      "TrashIcon"
+    ],
+    "src/views/CustomerDetail.vue": [
+      "ShieldCheckIcon",
+      "CheckBadgeIcon",
+      "Teleport",
+      "ArrowRightOnRectangleIcon",
+      "KeyIcon",
+      "ComputerDesktopIcon",
+      "ArrowLeftIcon",
+      "MapPinIcon",
+      "PageHeader",
+      "StatusBadge",
+      "TagIcon"
+    ],
+    "src/views/Customers.vue": [
+      "EyeIcon",
+      "MagnifyingGlassIcon",
+      "RouterLink",
+      "PageHeader",
+      "Pagination",
+      "StatusBadge"
+    ],
+    "src/views/Dashboard.vue": [
+      "SparkArea",
+      "RocketLaunchIcon",
+      "RouterLink",
+      "PlusIcon",
+      "PageHeader",
+      "StatusBadge"
+    ],
+    "src/views/EmailMarketing.vue": [
+      "EnvelopeIcon",
+      "PlusIcon",
+      "PaperAirplaneIcon",
+      "PageHeader",
+      "StatusBadge"
+    ],
+    "src/views/HomeBuilder.vue": [
+      "EyeIcon",
+      "Toggle",
+      "RocketLaunchIcon",
+      "ArrowUpTrayIcon",
+      "ComputerDesktopIcon",
+      "DevicePhoneMobileIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "ChevronUpIcon",
+      "Bars3Icon",
+      "ChevronDownIcon"
+    ],
+    "src/views/Login.vue": [
+      "LockClosedIcon",
+      "ExclamationCircleIcon",
+      "EnvelopeIcon"
+    ],
+    "src/views/NavigationConfig.vue": [
+      "EyeIcon",
+      "ChevronRightIcon",
+      "RocketLaunchIcon",
+      "PlusIcon",
+      "PageHeader",
+      "Bars3Icon",
+      "TrashIcon"
+    ],
+    "src/views/OperationLogs.vue": [
+      "ComboboxInput",
+      "ComboboxOption",
+      "Popover",
+      "CheckIcon",
+      "Combobox",
+      "MagnifyingGlassIcon",
+      "ComboboxButton",
+      "Teleport",
+      "ArrowDownTrayIcon",
+      "XMarkIcon",
+      "PopoverPanel",
+      "PageHeader",
+      "PopoverButton",
+      "ComboboxOptions",
+      "ChevronUpDownIcon"
+    ],
+    "src/views/OrderDetail.vue": [
+      "TruckIcon",
+      "CheckIcon",
+      "CreditCardIcon",
+      "ArrowLeftIcon",
+      "MapPinIcon",
+      "PageHeader",
+      "ArrowUturnLeftIcon",
+      "StatusBadge"
+    ],
+    "src/views/Orders.vue": [
+      "EyeIcon",
+      "EmptyState",
+      "MagnifyingGlassIcon",
+      "ArrowDownTrayIcon",
+      "RouterLink",
+      "PageHeader",
+      "Pagination",
+      "StatusBadge"
+    ],
+    "src/views/ProductEdit.vue": [
+      "Toggle",
+      "CheckIcon",
+      "RocketLaunchIcon",
+      "XMarkIcon",
+      "ArrowUpTrayIcon",
+      "ArrowLeftIcon",
+      "PlusIcon",
+      "PhotoIcon",
+      "Bars3BottomLeftIcon",
+      "PageHeader"
+    ],
+    "src/views/Products.vue": [
+      "Toggle",
+      "EmptyState",
+      "MagnifyingGlassIcon",
+      "DocumentDuplicateIcon",
+      "ArrowDownTrayIcon",
+      "RouterLink",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "Pagination",
+      "StatusBadge",
+      "TrashIcon",
+      "FunnelIcon"
+    ],
+    "src/views/Promotions.vue": [
+      "ClockIcon",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "StatusBadge",
+      "TrashIcon"
+    ],
+    "src/views/Publish.vue": [
+      "ArrowPathIcon",
+      "RocketLaunchIcon",
+      "PageHeader",
+      "ArrowUturnLeftIcon",
+      "CheckCircleIcon",
+      "StatusBadge",
+      "ClockIcon",
+      "CodeBracketIcon",
+      "GlobeAltIcon"
+    ],
+    "src/views/Refunds.vue": [
+      "CheckIcon",
+      "XMarkIcon",
+      "StatusBadge",
+      "PageHeader",
+      "EmptyState"
+    ],
+    "src/views/RoleManagement.vue": [
+      "Teleport",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "TrashIcon"
+    ],
+    "src/views/Settings.vue": [
+      "EyeIcon",
+      "CheckIcon",
+      "XMarkIcon",
+      "PlusIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "StatusBadge"
+    ],
+    "src/views/Shipping.vue": [
+      "Toggle",
+      "TruckIcon",
+      "RocketLaunchIcon",
+      "PlusIcon",
+      "PageHeader"
+    ]
+  },
+  "tailwind_colors": {}
+}

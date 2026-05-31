@@ -1,0 +1,27 @@
+skipped: false
+analyzed_at: "2026-05-31T10:10:28Z"
+er_diagram_hash: "52bb134ed0c0047b34ba92af46a3288a5dd93e1668d179863c87b6a53b500937"
+
+entities_analyzed:
+  - id: user
+  - id: user_identity
+  - id: otp_code
+  - id: user_session
+  - id: login_history
+  - id: admin_user
+  - id: role
+  - id: permission
+  - id: role_permission
+  - id: admin_session
+  - id: operation_log
+  - id: auth_config
+  - id: email_template
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []

@@ -1,0 +1,157 @@
+erDiagram
+  user {
+    uuid id
+    str email
+    bool email_verified
+    str name
+    str phone
+    enum tier
+    enum status
+    str avatar
+    datetime joined_at
+    datetime deleted_at
+    bool anonymized
+    datetime anonymized_at
+    datetime created_at
+    datetime updated_at
+  }
+  user ||--|| user_identity : "rel"
+  user ||--|| user_session : "rel"
+  user ||--|| login_history : "rel"
+  user_identity {
+    uuid id
+    ref user_id
+    enum provider
+    str provider_uid
+    str identifier
+    bool is_primary
+    bool verified
+    bool connected
+    bool hidden_email
+    str relay_email
+    datetime bound_at
+    datetime last_login_at
+  }
+  user_identity ||--|| user : "rel"
+  otp_code {
+    uuid id
+    str email
+    str code_hash
+    int length
+    datetime expires_at
+    int attempts
+    int max_attempts
+    enum status
+    datetime last_sent_at
+    datetime created_at
+  }
+  user_session {
+    uuid id
+    ref user_id
+    str token_id
+    str refresh_token_id
+    datetime access_expires_at
+    datetime refresh_expires_at
+    str device
+    str browser
+    str ip
+    str location
+    bool is_new_device
+    enum method
+    enum status
+    datetime last_active_at
+    datetime created_at
+  }
+  user_session ||--|| user : "rel"
+  login_history {
+    uuid id
+    ref user_id
+    str email
+    enum method
+    str ip
+    str device
+    str location
+    enum result
+    bool is_new_device
+    bool notified
+    datetime created_at
+  }
+  login_history ||--|| user : "rel"
+  admin_user {
+    uuid id
+    str name
+    str email
+    str password_hash
+    ref role_id
+    enum status
+    datetime last_login_at
+    datetime created_at
+  }
+  admin_user ||--|| role : "rel"
+  admin_user ||--|| admin_session : "rel"
+  admin_user ||--|| operation_log : "rel"
+  role {
+    uuid id
+    str name
+    enum type
+    bool is_locked
+    datetime created_at
+  }
+  role ||--|| admin_user : "rel"
+  role ||--|| permission : "rel"
+  permission {
+    str key
+    str group
+    str label
+  }
+  role_permission {
+    ref role_id
+    ref permission_key
+  }
+  role_permission ||--|| role : "rel"
+  role_permission ||--|| permission : "rel"
+  admin_session {
+    uuid id
+    ref admin_id
+    str token_id
+    str ip
+    str device
+    enum status
+    datetime last_active_at
+    datetime created_at
+  }
+  admin_session ||--|| admin_user : "rel"
+  operation_log {
+    uuid id
+    ref operator_id
+    str operator_name
+    enum action
+    str target
+    str ip
+    str user_agent
+    json changes
+    datetime created_at
+  }
+  operation_log ||--|| admin_user : "rel"
+  auth_config {
+    int id
+    bool email_enabled
+    bool google_enabled
+    bool apple_enabled
+    enum otp_length
+    int otp_ttl_minutes
+    int otp_resend_seconds
+    int otp_max_attempts
+    int min_methods
+    str google_client_id
+    str apple_service_id
+    datetime updated_at
+  }
+  email_template {
+    uuid id
+    enum code
+    enum locale
+    str subject
+    str body
+    datetime updated_at
+  }

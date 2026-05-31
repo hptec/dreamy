@@ -1,0 +1,75 @@
+meta:
+  change_name: "identity-auth-fullstack"
+  generated_at: "2026-05-31T08:25:28Z"
+  field_inventory_ref: "hhspec/changes/identity-auth-fullstack/field-inventory.yml"
+  state_machine_skipped: true
+  domain_code: "__legacy__"
+  global_dict_ref: ""
+  consistency_issue_count: 0
+test_cases:
+  - field_id: "FLD-CUSTOMERS-001"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "all"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-001"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "VIP"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-001"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "常规"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-001"
+    field_name: "tier"
+    test_type: invalid_input
+    constraint_source: "industry_default"
+    input: "__INVALID__"
+    expected_result: fail
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-010"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "all"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-010"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "VIP"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-010"
+    field_name: "tier"
+    test_type: valid_input
+    constraint_source: "industry_default"
+    input: "常规"
+    expected_result: pass
+    related_req: REQ-PD-014-004
+    boundary_note: null
+  - field_id: "FLD-CUSTOMERS-010"
+    field_name: "tier"
+    test_type: invalid_input
+    constraint_source: "industry_default"
+    input: "__INVALID__"
+    expected_result: fail
+    related_req: REQ-PD-014-004
+    boundary_note: null
+consistency_issues:
+  []

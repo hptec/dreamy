@@ -1,0 +1,53 @@
+machines:
+  - id: otp_code
+    entity: otp_code
+    states: [pending, consumed, expired, locked]
+    initial: pending
+    transitions:
+      - {from: pending, event: verify_ok, to: consumed, guard: "code 正确且 now<=expires_at 且 attempts<max_attempts"}
+      - {from: pending, event: verify_fail, to: pending, guard: "code 错误且 attempts+1<max_attempts"}
+      - {from: pending, event: verify_fail_max, to: locked, guard: "attempts+1>=max_attempts"}
+      - {from: pending, event: ttl_timeout, to: expired, guard: "now>expires_at"}
+      - {from: pending, event: resend, to: pending, guard: "now-last_sent_at>=otp_resend_seconds"}
+  - id: user
+    entity: user
+    states: [active, disabled, deleted, anonymized]
+    initial: active
+    transitions:
+      - {from: active, event: admin_disable, to: disabled, guard: "操作管理员含 /customers 权限"}
+      - {from: disabled, event: admin_enable, to: active, guard: "操作管理员含 /customers 权限"}
+      - {from: active, event: user_delete_account, to: deleted, guard: "本人发起并二次确认"}
+      - {from: disabled, event: user_delete_account, to: deleted, guard: "本人发起并二次确认"}
+      - {from: deleted, event: retention_anonymize, to: anonymized, guard: "deleted_at 距今超过 30 天宽限期（定时任务）"}
+  - id: user_identity
+    entity: user_identity
+    states: [not_connected, connected]
+    initial: not_connected
+    transitions:
+      - {from: not_connected, event: bind, to: connected, guard: "OIDC sub 校验通过或邮箱已验证且 provider_uid 未被他人占用"}
+      - {from: connected, event: unbind, to: not_connected, guard: "非 is_primary 且解绑后剩余 connected>=min_methods"}
+      - {from: connected, event: change_primary, to: connected, guard: "新邮箱 OTP 验证通过且未被他人占用，迁移 is_primary 到新邮箱凭证"}
+  - id: user_session
+    entity: user_session
+    states: [active, revoked]
+    initial: active
+    transitions:
+      - {from: active, event: user_signout, to: revoked}
+      - {from: active, event: user_signout_others, to: revoked, guard: "非当前会话"}
+      - {from: active, event: admin_force_logout, to: revoked, guard: "操作管理员含 /customers 权限"}
+      - {from: active, event: account_disabled, to: revoked}
+  - id: admin_user
+    entity: admin_user
+    states: [active, disabled]
+    initial: active
+    transitions:
+      - {from: active, event: toggle_disable, to: disabled, guard: "目标非超级管理员"}
+      - {from: disabled, event: toggle_enable, to: active, guard: "目标非超级管理员"}
+  - id: admin_session
+    entity: admin_session
+    states: [active, revoked]
+    initial: active
+    transitions:
+      - {from: active, event: admin_logout, to: revoked}
+      - {from: active, event: admin_account_disabled, to: revoked}
+meta: {mode: bootstrap}
