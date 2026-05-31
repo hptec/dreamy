@@ -1,0 +1,8 @@
+# hhspec/domains.yml
+# Dreamy 领域注册表
+domains:
+  - code: identity
+    name: 身份与用户
+    desc: 消费端 passwordless 登录、多渠道认证（邮箱OTP/Google/Apple）、canonical user 与多登录凭证归并、会话与设备管理；后台用户管理、管理员与角色权限、登录与认证配置、操作日志
+    portals: [portal-store, portal-admin]
+    api_prefixes: [/api/store/auth, /api/store/account, /api/admin/customers, /api/admin/system]

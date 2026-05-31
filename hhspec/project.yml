@@ -1,0 +1,53 @@
+# hhspec/project.yml
+# Dreamy 婚纱礼服跨境外贸电商 —— 真实前后端实现技术栈
+# 双门户有意技术割裂：消费端 Next.js / 管理后台 Vue3；后端单工程多模块。
+
+tech_stack:
+  # PD 管线 frontend 枚举不含 Next.js，此处填 PD 原生可识别的后台栈；
+  # 消费端 Next.js 由 frontends[] 显式声明，apply 时走 Next.js 自定义路径。
+  frontend: pnpm-vue3-headless
+  backend:
+    - java-gradle
+  prototype: pnpm-vue3-headless
+
+  # 双前端真实声明（PD 单值 frontend 之外的扩展，下游 apply 消费）
+  frontends:
+    - id: portal-store
+      name: Dreamy 消费者商城
+      stack: nextjs15-app-router-ts-tailwind
+      dir: frontend/portal-store
+      build: independent
+      dev_port: 5173
+      jwt_token_type: store          # 消费者 JWT，独立签名/claims/过期
+    - id: portal-admin
+      name: Dreamy 运营管理后台
+      stack: pnpm-vue3-vite-headless-ts-tailwind
+      dir: frontend/portal-admin
+      build: independent
+      dev_port: 5174
+      jwt_token_type: admin          # 管理态 JWT，独立签名/claims/过期，与 store 互不复用
+
+  # 后端单工程多模块（Spring Boot），消费端只读接口走 JetCache 两级缓存
+  backend_detail:
+    runtime: jdk25
+    framework: spring-boot-3-latest
+    orm: mybatis-plus-latest
+    database: mysql-latest
+    cache: jetcache                  # 本地 Caffeine + 远程 Redis 两级
+    cache_scope: consumer-read-apis  # 消费端所有接口增加缓存配置
+    security: spring-security-jwt
+    dir: backend
+    modules:
+      - common      # 公共：实体/工具/缓存配置/安全配置
+      - store       # /api/store/* 消费端接口
+      - admin       # /api/admin/* 管理后台接口
+    api_prefix:
+      store: /api/store
+      admin: /api/admin
+
+mirrors:
+  npm: https://registry.npmmirror.com
+  maven: https://maven.aliyun.com/repository/public
+  gradle_plugins: https://maven.aliyun.com/repository/gradle-plugin
+
+updated_at: "2026-05-31T07:10:00Z"
