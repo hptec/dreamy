@@ -8,19 +8,18 @@ const routes = [
 
   // PIM 商品
   { path: '/products', name: 'products', component: () => import('@/views/Products.vue'), meta: { title: '商品列表', group: '商品管理' } },
-  { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true } },
-  { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true } },
+  { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true, permKey: '/products' } },
+  { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true, permKey: '/products' } },
   { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与主题', group: '商品管理' } },
 
   // OMS 订单
   { path: '/orders', name: 'orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单列表', group: '订单管理' } },
-  { path: '/orders/:id', name: 'order-detail', component: () => import('@/views/OrderDetail.vue'), meta: { title: '订单详情', group: '订单管理', hidden: true } },
+  { path: '/orders/:id', name: 'order-detail', component: () => import('@/views/OrderDetail.vue'), meta: { title: '订单详情', group: '订单管理', hidden: true, permKey: '/orders' } },
   { path: '/refunds', name: 'refunds', component: () => import('@/views/Refunds.vue'), meta: { title: '退款工单', group: '订单管理' } },
 
   // 用户
   { path: '/customers', name: 'customers', component: () => import('@/views/Customers.vue'), meta: { title: '用户列表', group: '用户管理' } },
-  { path: '/customers/merge', name: 'customer-merge', component: () => import('@/views/CustomerMerge.vue'), meta: { title: '账户合并', group: '用户管理' } },
-  { path: '/customers/:id', name: 'customer-detail', component: () => import('@/views/CustomerDetail.vue'), meta: { title: '用户详情', group: '用户管理', hidden: true } },
+  { path: '/customers/:id', name: 'customer-detail', component: () => import('@/views/CustomerDetail.vue'), meta: { title: '用户详情', group: '用户管理', hidden: true, permKey: '/customers' } },
 
   // 站点装修
   { path: '/site/home', name: 'home-builder', component: () => import('@/views/HomeBuilder.vue'), meta: { title: '首页装修', group: '站点装修' } },
@@ -87,9 +86,10 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
-  // 权限校验：检查目标路由是否在用户角色的权限列表中
+  // 权限校验：动态/子路由通过 meta.permKey 继承父级菜单权限
   const permissions = getUserPermissions()
-  if (permissions.length > 0 && !permissions.includes(to.path)) {
+  const permPath = to.meta?.permKey || to.path
+  if (permissions.length > 0 && !permissions.includes(permPath)) {
     return { path: '/' }
   }
 

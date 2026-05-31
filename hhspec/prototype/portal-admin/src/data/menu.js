@@ -41,8 +41,7 @@ export const menuGroups = [
     label: '用户管理',
     icon: UsersIcon,
     items: [
-      { title: '用户列表', to: '/customers' },
-      { title: '账户合并', to: '/customers/merge' }
+      { title: '用户列表', to: '/customers' }
     ]
   },
   {

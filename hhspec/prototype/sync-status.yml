@@ -7,7 +7,7 @@
 tech_stack: nextjs15-app-router-ts-tailwind   # 指消费端 portal-store
 prototype_mode: standard
 portal_mode: multi
-last_prototype_update: 2026-05-31T11:10:00+08:00
+last_prototype_update: 2026-05-31T15:30:00+08:00
 design_style: editorial-luxe-coastal
 dev_command: pnpm dev   # 消费端 http://localhost:5173
 build_command: pnpm build
@@ -24,9 +24,9 @@ portals:
     tech_stack: pnpm-vue3-headless
     dir: portal-admin
     dev_command: pnpm -C portal-admin dev  # http://localhost:5174
-    pages_count: 26
+    pages_count: 25
     design_doc: portal-admin/PROTOTYPE-README.md
-    note: 迭代3新增身份与认证(AM12)：账户合并/登录与认证配置；客户详情增登录方式卡+登录记录+强制下线
+    note: 迭代3新增身份与认证(AM12)：登录与认证配置；客户详情增登录方式卡+登录记录+强制下线。迭代4：账户合并改为系统自动（已验证邮箱一致即归并），下线后台人工合并页面与开关
 
 design_tokens:
   fonts: { display: Cormorant Garamond, sans: Jost }
@@ -45,7 +45,6 @@ admin_pages:
   - { name: 退款工单, file: portal-admin/src/views/Refunds.vue, route: /refunds, type: list, features: [A-039], drift: prototype_ahead }
   - { name: 用户列表, file: portal-admin/src/views/Customers.vue, route: /customers, type: list, features: [A-020], drift: prototype_ahead }
   - { name: 用户详情, file: portal-admin/src/views/CustomerDetail.vue, route: /customers/:id, type: detail, features: [A-021,A-022,A-023,A-064,A-065], drift: prototype_ahead }
-  - { name: 账户合并, file: portal-admin/src/views/CustomerMerge.vue, route: /customers/merge, type: management, features: [A-066], drift: prototype_ahead }
   - { name: 首页装修, file: portal-admin/src/views/HomeBuilder.vue, route: /site/home, type: builder, features: [A-027,CFG-HOME], drift: prototype_ahead }
   - { name: 导航与页脚, file: portal-admin/src/views/NavigationConfig.vue, route: /site/navigation, type: builder, features: [CFG-NAV], drift: prototype_ahead }
   - { name: Banner管理, file: portal-admin/src/views/Banners.vue, route: /site/banners, type: list, features: [A-027], drift: prototype_ahead }

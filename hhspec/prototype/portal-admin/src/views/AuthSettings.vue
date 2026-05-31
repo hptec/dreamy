@@ -89,28 +89,14 @@ function save() {
       <!-- 账户关联策略 -->
       <div class="panel p-6">
         <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><LinkIcon class="h-4 w-4 text-gold-deep" />账户关联策略</h3>
-        <p class="mb-4 text-[12px] text-ink-faint">控制多登录方式如何归并为同一个人。</p>
+        <p class="mb-4 text-[12px] text-ink-faint">多登录方式归并为同一个人的系统规则。</p>
         <div class="space-y-3">
-          <label class="flex items-start justify-between gap-3 rounded-luxe border border-line p-4">
-            <span class="min-w-0">
-              <span class="text-[13px] font-medium text-ink">按已验证邮箱自动归并</span>
-              <span class="mt-1 block text-[12px] text-ink-soft">仅当 <code class="rounded bg-ink/6 px-1">email_verified=true</code> 时，新登录方式自动挂到同邮箱账户。关闭则一律人工合并。</span>
-            </span>
-            <button class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors" :class="linking.autoMergeVerifiedEmail ? 'bg-ok' : 'bg-ink-faint'" @click="linking.autoMergeVerifiedEmail = !linking.autoMergeVerifiedEmail">
-              <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="linking.autoMergeVerifiedEmail ? 'translate-x-5' : 'translate-x-1'" />
-            </button>
-          </label>
-          <label class="flex items-start justify-between gap-3 rounded-luxe border border-line p-4">
-            <span class="min-w-0">
-              <span class="text-[13px] font-medium text-ink">邮箱冲突时提示而非静默合并</span>
-              <span class="mt-1 block text-[12px] text-ink-soft">第三方邮箱撞到已有账户时，提示用户用原方式登录后再绑定，避免账户被劫持。</span>
-            </span>
-            <button class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors" :class="linking.promptOnConflict ? 'bg-ok' : 'bg-ink-faint'" @click="linking.promptOnConflict = !linking.promptOnConflict">
-              <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="linking.promptOnConflict ? 'translate-x-5' : 'translate-x-1'" />
-            </button>
-          </label>
+          <div class="flex items-start gap-2 rounded-luxe bg-info/8 px-4 py-3 text-[12px] text-ink-soft">
+            <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-info" />
+            <p>账户合并由系统<strong>自动</strong>完成，无需人工干预或开关配置：用户注册 / 登录时，凡 <code class="rounded bg-ink/6 px-1">email_verified=true</code> 且邮箱一致即自动归并到同一人；邮箱未验证或与已有账户冲突时不静默合并，提示用户用原方式登录后再绑定，避免账户被劫持。</p>
+          </div>
           <div class="flex items-center justify-between rounded-luxe border border-line p-4">
-            <span class="text-[13px] font-medium text-ink">用户至少保留的登录方式数</span>
+            <span class="text-[13px] font-medium text-ink">用户解绑时至少保留的登录方式数</span>
             <input v-model.number="linking.minMethods" type="number" min="1" max="3" class="field w-20 text-center" />
           </div>
         </div>

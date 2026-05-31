@@ -188,26 +188,6 @@ export const authProviderMeta = {
   apple: { label: 'Apple', tone: 'ink' }
 }
 
-// 疑似同一人的重复账户（账户合并工具的候选）
-export const duplicateAccounts = [
-  {
-    id: 'dup-1',
-    reason: '相同已验证邮箱',
-    confidence: 'high',
-    note: '两个账户的已验证邮箱一致，疑为先用邮箱注册、后用 Google 登录时未自动归并。',
-    primary: { id: 'u-1001', name: 'Emma Johnson', email: 'emma.j@example.com', avatar: 'EJ', methods: ['email', 'google'], orders: 4, spent: 4820, joined: '2025-11-12' },
-    secondary: { id: 'u-1071', name: 'Emma J.', email: 'emma.j@example.com', avatar: 'EJ', methods: ['google'], orders: 1, spent: 268, joined: '2026-04-18' }
-  },
-  {
-    id: 'dup-2',
-    reason: 'Apple 隐藏邮箱 + 相同手机号',
-    confidence: 'medium',
-    note: 'Apple Hide My Email 生成 relay 邮箱，无法按邮箱匹配；两账户手机号一致，需人工确认后合并（以 Apple sub 为稳定主键）。',
-    primary: { id: 'u-1003', name: 'Ava Chen', email: 'ava.chen@example.com', avatar: 'AC', methods: ['email'], orders: 1, spent: 1560, joined: '2026-02-21' },
-    secondary: { id: 'u-1088', name: 'Ava C.', email: 'ava_8kd@privaterelay.appleid.com', avatar: 'AC', methods: ['apple'], orders: 2, spent: 712, joined: '2026-05-02' }
-  }
-]
-
 // 登录与认证配置（AuthSettings 消费）
 export const authConfig = {
   methods: [
@@ -217,9 +197,8 @@ export const authConfig = {
   ],
   otp: { length: 6, ttlMinutes: 10, resendSeconds: 30, maxAttempts: 5 },
   linking: {
-    autoMergeVerifiedEmail: true,   // 仅在 email_verified=true 时按邮箱自动归并
-    promptOnConflict: true,          // 邮箱撞已有账户时提示而非静默合并
-    minMethods: 1                    // 用户至少保留一种登录方式
+    // 账户合并固定为系统自动行为（已验证邮箱），不提供后台开关
+    minMethods: 1                    // 用户解绑时至少保留一种登录方式
   },
   oauth: {
     google: { clientId: '••••••••••.apps.googleusercontent.com', configured: true },
@@ -356,7 +335,6 @@ export const menuPermissionKeys = [
   { key: '/refunds', group: '订单管理', label: '退款工单' },
   // 用户管理
   { key: '/customers', group: '用户管理', label: '用户列表' },
-  { key: '/customers/merge', group: '用户管理', label: '账户合并' },
   // 营销活动
   { key: '/marketing/promotions', group: '营销活动', label: '优惠券与促销' },
   { key: '/marketing/email', group: '营销活动', label: '邮件营销' },
@@ -454,7 +432,7 @@ export const roleMatrix = {
 }
 
 export const auditLogs = [
-  { id: 'log-0a', time: '2026-05-30 10:02:11', user: 'Super Admin', action: '账户合并', target: '合并 u-1071 → u-1001（Emma Johnson）', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+  { id: 'log-0a', time: '2026-05-30 10:02:11', user: '系统（自动）', action: '账户合并', target: '自动归并 u-1071 → u-1001（Emma Johnson，已验证邮箱一致）', ip: '—', ua: '系统任务', changes: [
     { field: '保留账户', before: '—', after: 'u-1001 Emma Johnson' },
     { field: '合并账户', before: 'u-1071 Emma J.', after: '—（已删除）' },
     { field: '迁移订单', before: '—', after: '1 笔' },
