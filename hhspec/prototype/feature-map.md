@@ -10,8 +10,8 @@
 
 | 门户 ID | 名称 | 目标用户 | 功能数 | 安全隔离 |
 |---------|------|---------|--------|---------|
-| `portal-store` | Dreamy 消费者商城 | 准新娘 / 伴娘 / 晚宴客户 / 全球 C 端 | F-001 ~ F-058 | 与 admin 完全隔离，不互链 |
-| `portal-admin` | Dreamy 运营管理后台 | 平台运营人员 | A-001 ~ A-040 | 与 store 完全隔离，独立鉴权 |
+| `portal-store` | Dreamy 消费者商城 | 准新娘 / 伴娘 / 晚宴客户 / 全球 C 端 | F-001 ~ F-065 | 与 admin 完全隔离，不互链 |
+| `portal-admin` | Dreamy 运营管理后台 | 平台运营人员 | A-001 ~ A-068 | 与 store 完全隔离，独立鉴权 |
 
 ## 架构预留建议
 
@@ -43,6 +43,7 @@
 | M5 账户中心 | F-041 ~ F-049 | 登录注册、订单、跟踪、地址、Wishlist、浏览历史、评价、设置 |
 | M6 内容栏目 | F-050 ~ F-055 | 灵感馆、Real Weddings、Blog、Wedding Guides、Lookbook |
 | M7 营销与全局 | F-056 ~ F-058 | Newsletter 弹窗、Exit Intent、Cookie Notice、搜索、404 |
+| M5+ 登录与安全（迭代3） | F-059 ~ F-065 | Passwordless 验证码 + Google + Apple、登录方式绑定、设备/会话管理 |
 
 ### portal-admin（后台）
 
@@ -57,6 +58,8 @@
 | AM7 CMS 内容 | A-034 ~ A-037 | Blog、Lookbook、Real Wedding、Guide 编辑 |
 | AM8 物流与退款 | A-038 ~ A-039 | 承运配置、退款工单 |
 | AM9 系统 | A-040 | 管理员账号、角色、操作日志 |
+| AM11 系统管理 RBAC（迭代2） | A-041 ~ A-058 | 管理员 CRUD、角色权限矩阵、路由守卫、操作日志 |
+| AM12 身份与认证（迭代3） | A-064 ~ A-068 | 客户登录方式卡、登录记录、账户合并、登录与认证配置 |
 
 ## Must Have / Should Have 分级
 

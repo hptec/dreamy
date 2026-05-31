@@ -7,7 +7,7 @@
 tech_stack: nextjs15-app-router-ts-tailwind   # 指消费端 portal-store
 prototype_mode: standard
 portal_mode: multi
-last_prototype_update: 2026-05-30T23:55:00+08:00
+last_prototype_update: 2026-05-31T11:10:00+08:00
 design_style: editorial-luxe-coastal
 dev_command: pnpm dev   # 消费端 http://localhost:5173
 build_command: pnpm build
@@ -24,9 +24,9 @@ portals:
     tech_stack: pnpm-vue3-headless
     dir: portal-admin
     dev_command: pnpm -C portal-admin dev  # http://localhost:5174
-    pages_count: 24
+    pages_count: 26
     design_doc: portal-admin/PROTOTYPE-README.md
-    note: 迭代2新增系统管理分组(管理员管理/角色权限/操作日志)，菜单级RBAC权限体系
+    note: 迭代3新增身份与认证(AM12)：账户合并/登录与认证配置；客户详情增登录方式卡+登录记录+强制下线
 
 design_tokens:
   fonts: { display: Cormorant Garamond, sans: Jost }
@@ -44,7 +44,8 @@ admin_pages:
   - { name: 订单详情, file: portal-admin/src/views/OrderDetail.vue, route: /orders/:id, type: detail, features: [A-014,A-015,A-016,A-017,A-018], drift: prototype_ahead }
   - { name: 退款工单, file: portal-admin/src/views/Refunds.vue, route: /refunds, type: list, features: [A-039], drift: prototype_ahead }
   - { name: 用户列表, file: portal-admin/src/views/Customers.vue, route: /customers, type: list, features: [A-020], drift: prototype_ahead }
-  - { name: 用户详情, file: portal-admin/src/views/CustomerDetail.vue, route: /customers/:id, type: detail, features: [A-021,A-022,A-023], drift: prototype_ahead }
+  - { name: 用户详情, file: portal-admin/src/views/CustomerDetail.vue, route: /customers/:id, type: detail, features: [A-021,A-022,A-023,A-064,A-065], drift: prototype_ahead }
+  - { name: 账户合并, file: portal-admin/src/views/CustomerMerge.vue, route: /customers/merge, type: management, features: [A-066], drift: prototype_ahead }
   - { name: 首页装修, file: portal-admin/src/views/HomeBuilder.vue, route: /site/home, type: builder, features: [A-027,CFG-HOME], drift: prototype_ahead }
   - { name: 导航与页脚, file: portal-admin/src/views/NavigationConfig.vue, route: /site/navigation, type: builder, features: [CFG-NAV], drift: prototype_ahead }
   - { name: Banner管理, file: portal-admin/src/views/Banners.vue, route: /site/banners, type: list, features: [A-027], drift: prototype_ahead }
@@ -58,7 +59,8 @@ admin_pages:
   - { name: 物流配置, file: portal-admin/src/views/Shipping.vue, route: /shipping, type: settings, features: [A-038], drift: prototype_ahead }
   - { name: 管理员管理, file: portal-admin/src/views/AdminList.vue, route: /system/admins, type: list, features: [A-041,A-042,A-043,A-044,A-045], drift: prototype_ahead }
   - { name: 角色权限, file: portal-admin/src/views/RoleManagement.vue, route: /system/roles, type: management, features: [A-046,A-047,A-048], drift: prototype_ahead }
-  - { name: 操作日志, file: portal-admin/src/views/OperationLogs.vue, route: /system/logs, type: list, features: [A-052,A-053], drift: prototype_ahead }
+  - { name: 登录与认证, file: portal-admin/src/views/AuthSettings.vue, route: /system/auth, type: settings, features: [A-067], drift: prototype_ahead }
+  - { name: 操作日志, file: portal-admin/src/views/OperationLogs.vue, route: /system/logs, type: list, features: [A-052,A-053,A-068], drift: prototype_ahead }
   - { name: 系统设置 (废弃), file: portal-admin/src/views/Settings.vue, route: /settings, type: settings, features: [A-040], drift: prototype_ahead, status: deprecated }
 
 admin_global_components:
@@ -82,13 +84,14 @@ pages:
   - { name: 购物车, file: app/cart/page.tsx, route: /cart, type: list, features: [F-033,F-034], drift: prototype_ahead }
   - { name: 结算, file: app/checkout/page.tsx, route: /checkout, type: form, features: [F-035,F-036,F-037,F-038,F-040], drift: prototype_ahead }
   - { name: 下单成功, file: app/order-success/page.tsx, route: /order-success, type: detail, features: [F-039], drift: prototype_ahead }
-  - { name: 登录注册, file: app/account/login/page.tsx, route: /account/login, type: form, features: [F-041], drift: prototype_ahead }
+  - { name: 登录注册, file: app/account/login/page.tsx, route: /account/login, type: form, features: [F-041,F-059,F-060,F-061], drift: prototype_ahead }
   - { name: 账户总览, file: app/account/page.tsx, route: /account, type: dashboard, features: [F-042], drift: prototype_ahead }
   - { name: 订单列表, file: app/account/orders/page.tsx, route: /account/orders, type: list, features: [F-043], drift: prototype_ahead }
   - { name: 订单详情, file: app/account/orders/[id]/page.tsx, route: /account/orders/:id, type: detail, features: [F-044,F-045], drift: prototype_ahead }
   - { name: 地址簿, file: app/account/addresses/page.tsx, route: /account/addresses, type: list, features: [F-046], drift: prototype_ahead }
   - { name: 收藏夹, file: app/account/wishlist/page.tsx, route: /account/wishlist, type: list, features: [F-047,F-048], drift: prototype_ahead }
-  - { name: 账户设置, file: app/account/settings/page.tsx, route: /account/settings, type: settings, features: [F-049], drift: prototype_ahead }
+  - { name: 账户设置, file: app/account/settings/page.tsx, route: /account/settings, type: settings, features: [F-049,F-064], drift: prototype_ahead }
+  - { name: 登录与安全, file: app/account/security/page.tsx, route: /account/security, type: settings, features: [F-062,F-063], drift: prototype_ahead }
   - { name: 灵感馆, file: app/inspiration/page.tsx, route: /inspiration, type: list, features: [F-050], drift: prototype_ahead }
   - { name: RealWeddings列表, file: app/real-weddings/page.tsx, route: /real-weddings, type: list, features: [F-051], drift: prototype_ahead }
   - { name: RealWedding详情, file: app/real-weddings/[slug]/page.tsx, route: /real-weddings/:slug, type: detail, features: [F-052], drift: prototype_ahead }

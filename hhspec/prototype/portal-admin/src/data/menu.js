@@ -40,7 +40,10 @@ export const menuGroups = [
   {
     label: '用户管理',
     icon: UsersIcon,
-    items: [{ title: '用户列表', to: '/customers' }]
+    items: [
+      { title: '用户列表', to: '/customers' },
+      { title: '账户合并', to: '/customers/merge' }
+    ]
   },
   {
     label: '营销活动',
@@ -78,6 +81,7 @@ export const menuGroups = [
     items: [
       { title: '管理员管理', to: '/system/admins' },
       { title: '角色权限', to: '/system/roles' },
+      { title: '登录与认证', to: '/system/auth' },
       { title: '操作日志', to: '/system/logs' }
     ]
   }

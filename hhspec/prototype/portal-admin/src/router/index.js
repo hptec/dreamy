@@ -19,6 +19,7 @@ const routes = [
 
   // 用户
   { path: '/customers', name: 'customers', component: () => import('@/views/Customers.vue'), meta: { title: '用户列表', group: '用户管理' } },
+  { path: '/customers/merge', name: 'customer-merge', component: () => import('@/views/CustomerMerge.vue'), meta: { title: '账户合并', group: '用户管理' } },
   { path: '/customers/:id', name: 'customer-detail', component: () => import('@/views/CustomerDetail.vue'), meta: { title: '用户详情', group: '用户管理', hidden: true } },
 
   // 站点装修
@@ -45,6 +46,7 @@ const routes = [
   // 系统管理（迭代 2 新增）
   { path: '/system/admins', name: 'system-admins', component: () => import('@/views/AdminList.vue'), meta: { title: '管理员管理', group: '系统管理' } },
   { path: '/system/roles', name: 'system-roles', component: () => import('@/views/RoleManagement.vue'), meta: { title: '角色权限', group: '系统管理' } },
+  { path: '/system/auth', name: 'system-auth', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录与认证', group: '系统管理' } },
   { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理' } },
 
   // 废弃路由重定向

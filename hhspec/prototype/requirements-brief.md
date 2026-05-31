@@ -199,3 +199,22 @@
 
 - 新增自定义角色后是否需要重新登录生效（原型演示假设即时生效）
 - 超管角色是否可被删除/编辑（建议不可删除、不可降权）
+
+## 迭代 3：2026-05-31 — 登录鉴权方案统一（邮箱验证码 + Google + Apple）
+
+> 来源：竞品注册方式调研（hhspec/competitors.md）+ 用户决策。对齐行业当前主流（birdygrey/kissprom 已 passwordless + Google，davidsbridal 叠加 Apple），最低注册摩擦。
+
+### 决策
+- **消费端（portal-store）**：纯 **passwordless** —— 邮箱验证码（OTP）+ Continue with Google + Continue with Apple，**去掉密码**。
+- **管理后台员工登录（portal-admin）**：**保持邮箱 + 密码不变**（内部账号由 RBAC 管控，不引入第三方登录）。
+- **账户身份模型**：一个人（canonical user）对应多条登录凭证（identity）。识别同一人靠 `(provider, provider_uid)` → user_id，不靠 email；Google/Apple 用 OIDC `sub`，邮箱用已验证 email。
+- **安全约束**：仅 `email_verified=true` 才按邮箱自动归并；邮箱冲突提示而非静默合并（防账户劫持）；Apple Hide My Email 用 relay 邮箱、以 `sub` 为稳定主键且首次授权即落库；用户至少保留一种登录方式。
+
+### 范围
+- **消费端新增（F-059~F-065）**：passwordless 登录页、登录方式绑定（Email/Google/Apple 绑定解绑）、登录设备与会话管理（活跃会话 + 一键登出其他设备）；设置页移除改密码。
+- **管理后台新增（AM12 / A-064~A-068）**：客户详情登录方式卡 + 登录记录 + 强制下线；账户合并工具（identity merge）；登录与认证配置页；操作日志扩展。
+
+### 不包含（Future）
+真实 OAuth 回调/后端、MFA、手机号短信登录、admin 员工改 passwordless。
+
+> 注：迭代 1 的反目标「社交登录（Facebook/Google/Apple）」已被本迭代决策推翻——本轮明确采用 Google + Apple（不含 Facebook）。

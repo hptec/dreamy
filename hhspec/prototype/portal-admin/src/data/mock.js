@@ -161,7 +161,70 @@ export const customerDetail = {
     { label: '收藏 Celeste Lace Gown', time: '2026-05-25 09:12' },
     { label: '提交评价 Aurelia A-Line', time: '2026-05-20 14:40' },
     { label: '注册账户', time: '2025-11-12 08:30' }
+  ],
+  // 登录方式（一个人 = 多个登录凭证）。provider_uid 为稳定标识；apple 支持 Hide My Email（relay 邮箱）
+  loginMethods: [
+    { provider: 'email', label: '邮箱', identifier: 'emma.j@example.com', uid: 'emma.j@example.com', connected: true, primary: true, verified: true, boundAt: '2025-11-12', lastLogin: '2026-05-29 14:02' },
+    { provider: 'google', label: 'Google', identifier: 'emma.johnson@gmail.com', uid: 'google-oauth2|108…4471', connected: true, verified: true, boundAt: '2026-01-04', lastLogin: '2026-05-30 09:18' },
+    { provider: 'apple', label: 'Apple', identifier: '隐藏邮箱（私密代理）', uid: '001932.f1c…a7e.0921', connected: true, verified: true, hiddenEmail: true, relay: 'emma_j8x@privaterelay.appleid.com', boundAt: '2026-03-22', lastLogin: '2026-05-25 21:40' }
+  ],
+  loginHistory: [
+    { time: '2026-05-30 09:18', method: 'google', ip: '203.0.113.42', device: 'Chrome 125 / macOS', location: 'Santa Barbara, US', result: 'success' },
+    { time: '2026-05-29 14:02', method: 'email', ip: '203.0.113.42', device: 'Safari / iOS 18', location: 'Santa Barbara, US', result: 'success' },
+    { time: '2026-05-25 21:40', method: 'apple', ip: '198.51.100.7', device: 'Safari / iOS 18', location: 'Sonoma, US', result: 'success' },
+    { time: '2026-05-22 10:05', method: 'email', ip: '45.77.12.9', device: 'Chrome 124 / Windows', location: 'Toronto, CA', result: 'failed' },
+    { time: '2026-05-20 14:38', method: 'email', ip: '203.0.113.42', device: 'Safari / iOS 18', location: 'Santa Barbara, US', result: 'success' }
+  ],
+  activeSessions: [
+    { id: 'cs-1', device: 'MacBook Pro · Chrome 125', method: 'google', ip: '203.0.113.42', location: 'Santa Barbara, US', lastActive: '当前在线' },
+    { id: 'cs-2', device: 'iPhone 15 · Safari', method: 'email', ip: '203.0.113.42', location: 'Santa Barbara, US', lastActive: '2 小时前' }
   ]
+}
+
+// 登录方式展示元数据（图标色 + 名称），供客户详情/合并工具复用
+export const authProviderMeta = {
+  email: { label: '邮箱', tone: 'ink' },
+  google: { label: 'Google', tone: 'info' },
+  apple: { label: 'Apple', tone: 'ink' }
+}
+
+// 疑似同一人的重复账户（账户合并工具的候选）
+export const duplicateAccounts = [
+  {
+    id: 'dup-1',
+    reason: '相同已验证邮箱',
+    confidence: 'high',
+    note: '两个账户的已验证邮箱一致，疑为先用邮箱注册、后用 Google 登录时未自动归并。',
+    primary: { id: 'u-1001', name: 'Emma Johnson', email: 'emma.j@example.com', avatar: 'EJ', methods: ['email', 'google'], orders: 4, spent: 4820, joined: '2025-11-12' },
+    secondary: { id: 'u-1071', name: 'Emma J.', email: 'emma.j@example.com', avatar: 'EJ', methods: ['google'], orders: 1, spent: 268, joined: '2026-04-18' }
+  },
+  {
+    id: 'dup-2',
+    reason: 'Apple 隐藏邮箱 + 相同手机号',
+    confidence: 'medium',
+    note: 'Apple Hide My Email 生成 relay 邮箱，无法按邮箱匹配；两账户手机号一致，需人工确认后合并（以 Apple sub 为稳定主键）。',
+    primary: { id: 'u-1003', name: 'Ava Chen', email: 'ava.chen@example.com', avatar: 'AC', methods: ['email'], orders: 1, spent: 1560, joined: '2026-02-21' },
+    secondary: { id: 'u-1088', name: 'Ava C.', email: 'ava_8kd@privaterelay.appleid.com', avatar: 'AC', methods: ['apple'], orders: 2, spent: 712, joined: '2026-05-02' }
+  }
+]
+
+// 登录与认证配置（AuthSettings 消费）
+export const authConfig = {
+  methods: [
+    { provider: 'email', label: '邮箱验证码（Passwordless）', enabled: true, locked: true, desc: '主登录方式，向用户邮箱发送一次性验证码，无需密码。' },
+    { provider: 'google', label: 'Google 登录', enabled: true, locked: false, desc: 'OAuth 2.0 / OpenID Connect，按 Google sub 标识用户。' },
+    { provider: 'apple', label: 'Apple 登录', enabled: true, locked: false, desc: '支持 Hide My Email，按 Apple sub 标识；首次授权才返回邮箱/姓名。' }
+  ],
+  otp: { length: 6, ttlMinutes: 10, resendSeconds: 30, maxAttempts: 5 },
+  linking: {
+    autoMergeVerifiedEmail: true,   // 仅在 email_verified=true 时按邮箱自动归并
+    promptOnConflict: true,          // 邮箱撞已有账户时提示而非静默合并
+    minMethods: 1                    // 用户至少保留一种登录方式
+  },
+  oauth: {
+    google: { clientId: '••••••••••.apps.googleusercontent.com', configured: true },
+    apple: { serviceId: 'com.dreamy.web.auth', configured: true }
+  }
 }
 
 // ===== 站点装修：首页区块（HomeBuilder 消费） =====
@@ -293,6 +356,7 @@ export const menuPermissionKeys = [
   { key: '/refunds', group: '订单管理', label: '退款工单' },
   // 用户管理
   { key: '/customers', group: '用户管理', label: '用户列表' },
+  { key: '/customers/merge', group: '用户管理', label: '账户合并' },
   // 营销活动
   { key: '/marketing/promotions', group: '营销活动', label: '优惠券与促销' },
   { key: '/marketing/email', group: '营销活动', label: '邮件营销' },
@@ -308,6 +372,7 @@ export const menuPermissionKeys = [
   // 系统管理
   { key: '/system/admins', group: '系统管理', label: '管理员管理' },
   { key: '/system/roles', group: '系统管理', label: '角色权限' },
+  { key: '/system/auth', group: '系统管理', label: '登录与认证' },
   { key: '/system/logs', group: '系统管理', label: '操作日志' }
 ]
 
@@ -389,6 +454,17 @@ export const roleMatrix = {
 }
 
 export const auditLogs = [
+  { id: 'log-0a', time: '2026-05-30 10:02:11', user: 'Super Admin', action: '账户合并', target: '合并 u-1071 → u-1001（Emma Johnson）', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: '保留账户', before: '—', after: 'u-1001 Emma Johnson' },
+    { field: '合并账户', before: 'u-1071 Emma J.', after: '—（已删除）' },
+    { field: '迁移订单', before: '—', after: '1 笔' },
+    { field: '登录方式', before: 'email', after: 'email + google' }
+  ]},
+  { id: 'log-0b', time: '2026-05-30 09:58:40', user: 'Super Admin', action: '认证配置变更', target: '登录与认证设置', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
+    { field: 'Apple 登录', before: '关闭', after: '开启' },
+    { field: '验证码有效期', before: '5 分钟', after: '10 分钟' }
+  ]},
+  { id: 'log-0c', time: '2026-05-30 09:40:05', user: 'Leo Orders', action: '强制下线', target: 'Emma Johnson 的全部会话', ip: '198.51.100.9', ua: 'Firefox 126 / macOS', changes: null },
   { id: 'log-1', time: '2026-05-30 09:15:32', user: 'Super Admin', action: '登录', target: 'Super Admin 登录后台', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: null },
   { id: 'log-2', time: '2026-05-30 09:20:18', user: 'Super Admin', action: '创建管理员', target: '新增管理员 Grace PIM', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
     { field: '姓名', before: '—', after: 'Grace PIM' },
@@ -429,7 +505,7 @@ export const auditLogs = [
 ]
 
 // 操作类型枚举（供日志筛选下拉）
-export const logActionTypes = ['登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点']
+export const logActionTypes = ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点']
 
 // ===== 发布中心：待发布改动 + 历史 =====
 export const pendingChanges = [

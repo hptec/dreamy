@@ -135,3 +135,24 @@
 ## 消费端页面数小结
 
 核心页面约 **26 个**（含 About/Contact/FAQ 合并视为 3 个）。Quick View / Size Guide / Cart Drawer / Newsletter 等为全局组件，不计入独立页。
+
+## 迭代 3：登录与安全（F-059 ~ F-065 · 2026-05-31）
+
+> Passwordless 登录方案，取代 F-041 的邮箱+密码。已有最大编号 F-058，本轮自 F-059 起。技术栈不变（Next.js App Router，`app/account/`）。
+
+| 编号 | 功能名 | 优先级 | 关键交互 | 承载页面 |
+|------|--------|--------|---------|---------|
+| F-059 | Passwordless 邮箱验证码登录 | Must | 两步：输入邮箱 → 6 位验证码（自动跳格/粘贴/重发倒计时）；登录注册合并，新邮箱自动建号 | `app/account/login/page.tsx` |
+| F-060 | Google 登录 | Must | Continue with Google（品牌图标）| 登录页 |
+| F-061 | Apple 登录 | Must | Continue with Apple，标注 Hide My Email 私密代理邮箱仍可登录 | 登录页 |
+| F-062 | 登录方式绑定管理 | Must | Email（已验证·主，不可解绑）/ Google / Apple 连接·断开；至少保留一种；主邮箱锁定 | `app/account/security/page.tsx` |
+| F-063 | 登录设备与会话管理 | Must | 活跃会话列表（设备/浏览器/位置/登录方式/最近活跃）+ 当前设备标识 + 单个登出 + 一键登出其他设备 | `app/account/security/page.tsx` |
+| F-064 | 设置页 passwordless 化 | Must | 移除「修改密码」；邮箱变更提示需重新验证；引导至「登录与安全」 | `app/account/settings/page.tsx` |
+| F-065 | 账户中心导航增项 | Must | 侧边栏新增「Login & Security」入口 | `components/account/account-sidebar.tsx` |
+
+### 关联与约束
+- F-041「登录注册」的邮箱+密码登录被 F-059~F-061 取代（F-041 标记为被替换）。
+- 身份模型：一个人多凭证；解绑保护（≥1 种）；email 已验证才作自动归并锚点；Apple relay 用 sub 主键。
+
+### 不包含（Future）
+真实 OAuth/后端、MFA、手机号短信、社交头像同步。

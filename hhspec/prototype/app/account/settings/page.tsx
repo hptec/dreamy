@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Stars } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
 
@@ -25,13 +26,14 @@ export default function SettingsPage() {
         <form onSubmit={(e) => e.preventDefault()} className="mt-8 max-w-md space-y-4">
           <Field label="Full Name" value="Jane Doe" />
           <Field label="Email" type="email" value="jane@email.com" />
+          <p className="-mt-2 text-xs text-ink-faint">Changing your email requires re-verification with a one-time code.</p>
           <Field label="Phone" value="+1 (805) 555-0142" />
-          <div className="border-t border-line pt-4">
-            <p className="eyebrow mb-3">Change Password</p>
-            <div className="space-y-4">
-              <Field label="Current Password" type="password" />
-              <Field label="New Password" type="password" />
-            </div>
+          <div className="rounded-sm border border-line bg-muted/50 p-4">
+            <p className="text-sm font-medium">Passwordless account</p>
+            <p className="mt-1 text-xs text-ink-soft">
+              You sign in with a one-time email code, Google, or Apple — no password to manage. Manage your login methods and devices in{' '}
+              <Link href="/account/security" className="text-gold-deep underline">Login &amp; Security</Link>.
+            </p>
           </div>
           <button className="btn-primary">Save Changes</button>
         </form>
