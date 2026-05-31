@@ -153,11 +153,11 @@ function doResetPassword() {
         <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
         <input v-model="search" class="field w-full pl-9" placeholder="搜索姓名 / 邮箱…" />
       </div>
-      <select v-model="roleFilter" class="field min-w-[140px]">
+      <select v-model="roleFilter" class="field w-40 shrink-0">
         <option value="">全部角色</option>
         <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.name }}</option>
       </select>
-      <select v-model="statusFilter" class="field min-w-[120px]">
+      <select v-model="statusFilter" class="field w-36 shrink-0">
         <option value="">全部状态</option>
         <option value="active">正常</option>
         <option value="disabled">已禁用</option>
