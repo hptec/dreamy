@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-sans: 'Jost', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv01';
+  }
+
+  ::selection {
+    @apply bg-gold/25 text-ink;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gold/40 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold/60;
+  }
+}
+
+@layer components {
+  .container-luxe {
+    @apply mx-auto w-full max-w-8xl px-5 sm:px-8 lg:px-12;
+  }
+
+  /* 小标签：拉开字距的全大写小字 */
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-luxe text-gold;
+  }
+
+  .heading-display {
+    @apply font-display font-medium leading-[1.05] tracking-tight text-ink;
+  }
+
+  /* 主按钮：近直角，细描边奢华感 */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm bg-ink px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-canvas transition-all duration-300 ease-luxe hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm border border-ink/30 bg-transparent px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-ink transition-all duration-300 ease-luxe hover:border-ink hover:bg-ink hover:text-canvas;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm bg-gold px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-white transition-all duration-300 ease-luxe hover:bg-gold-deep;
+  }
+
+  .link-underline {
+    @apply relative inline-block after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full;
+  }
+
+  .skeleton {
+    @apply bg-gradient-to-r from-muted via-line to-muted bg-[length:200%_100%] animate-shimmer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

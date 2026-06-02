@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-canvas text-ink font-sans text-[14px];
+  }
+  * { scrollbar-width: thin; scrollbar-color: #D4B896 transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { @apply bg-gold-soft/60 rounded-full; }
+}
+
+@layer components {
+  /* 主操作按钮 —— 墨黑实底，奢华克制 */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-luxe bg-ink px-4 py-2 text-[13px] font-medium text-canvas transition-colors hover:bg-ink-soft disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-luxe bg-gold px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-gold-deep;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-luxe border border-line bg-white px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:border-ink hover:bg-canvas-warm;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-luxe px-2.5 py-1.5 text-[13px] text-ink-soft transition-colors hover:bg-canvas-warm hover:text-ink;
+  }
+  .btn-danger-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-luxe px-2.5 py-1.5 text-[13px] text-danger transition-colors hover:bg-danger/10;
+  }
+  /* 卡片面板 */
+  .panel {
+    @apply rounded-luxe border border-line bg-white shadow-panel;
+  }
+  /* 表单输入 */
+  .field {
+    @apply w-full rounded-luxe border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-gold;
+  }
+  .field-label {
+    @apply mb-1.5 block text-[12px] font-medium text-ink-soft;
+  }
+  /* 数据表格 */
+  .data-table { @apply w-full text-left text-[13px]; }
+  .data-table thead th {
+    @apply whitespace-nowrap border-b border-line bg-canvas-warm/50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-faint;
+  }
+  .data-table tbody td {
+    @apply border-b border-line/70 px-4 py-3 align-middle text-ink-soft;
+  }
+  .data-table tbody tr:hover { @apply bg-canvas-warm/40; }
+  /* 状态徽章 */
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium; }
+  /* 区块小标题 */
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-luxe text-gold-deep; }
+}
