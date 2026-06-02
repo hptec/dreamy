@@ -1,0 +1,78 @@
+# L2 复杂度度量报告 — identity-auth-fullstack
+# 由 l2_design_coordinator 基于 L0 需求文档 + L1 架构产出量化生成
+version: "1.0"
+layer: L2
+role: l2_design_coordinator
+change_name: identity-auth-fullstack
+domain_code: identity
+change_type: full-stack
+bootstrap_mode: true
+generated_at: "2026-05-31"
+
+evidence_sources:
+  requirements: "hhspec/specs/requirements/identity/REQ-IDENTITY-001~008.md"
+  domain_model: "hhspec/changes/identity-auth-fullstack/specs/architecture/domain-model.md"
+  api_contract: "hhspec/changes/identity-auth-fullstack/specs/architecture/api-contracts/identity-api.openapi.yml"
+  data_flow: "hhspec/changes/identity-auth-fullstack/specs/architecture/data-flow.md"
+  error_strategy: "hhspec/changes/identity-auth-fullstack/specs/architecture/error-strategy.md"
+  existing_ddl: "hhspec/changes/identity-auth-fullstack/specs/design/data/identity-ddl.sql"
+
+# ===== 量化度量（全部基于实际计数，非主观）=====
+metrics:
+  requirements:
+    top_level_reqs: 8          # REQ-IDENTITY-001~008
+    functional_scenarios: 34   # FUNC-001~034
+    edge_scenarios: 26         # EDGE-001~026
+  api:
+    endpoints: 31              # grep "^  /" identity-api.openapi.yml
+    operations: 36             # grep "operationId:" 计数
+    store_operations: 14       # /api/store/*
+    admin_operations: 22       # /api/admin/*
+  data:
+    entities: 13               # er-diagram.yml 权威；DDL 已产出 13 张表
+    aggregate_roots: 6         # User / AdminUser / Role / OtpCode / AuthConfig + (LoginHistory/OperationLog 追加型)
+    optimistic_lock_tables: 3  # user / otp_code / user_session
+  error:
+    error_codes: 25            # error-strategy.md 码表
+    http_status_classes: 9     # 400/401/403/404/409/410/429/500/502/504
+    i18n_locales_store: 3      # en/es/fr
+    i18n_locale_admin: 1       # zh
+  flows:
+    business_flows: 17         # FLOW-01~17
+    transaction_flows: 5       # FLOW-02/03/08/11/12 含事务边界
+    external_integrations: 3   # SMTP / Google OIDC / Apple OIDC
+  frontend:
+    portals: 2                 # portal-store(Next.js15) + portal-admin(Vue3)
+    prototype_pages: 11        # store(4) + admin(7)
+    store_pages: 4             # account/login, account, account/settings, account/security
+    admin_pages: 7             # Login, Customers, CustomerDetail, AdminList, RoleManagement, AuthSettings, OperationLogs
+  security:
+    jwt_isolation: dual        # store / admin 独立密钥
+    cache_strategies: 2        # remote-only(session/credential) + two-level(profile/config)
+    rate_limit_dimensions: 4   # resend / email-h / email-d / ip-h
+
+# ===== 复杂度评级 =====
+complexity_rating:
+  level: high
+  rationale: >
+    36 API 操作 + 13 实体 + 26 边界场景 + 双前端门户 + 双 JWT 隔离 + 三方 OIDC + 三语 i18n
+    + 数据保留合规(GDPR/CCPA/PIPEDA)。远超简单模式(1-3 接口)阈值，需全量六专家协作。
+  designer_mode: full-expert-parallel  # 非 coordinator-inline 简单模式
+
+# ===== 激活决策（遵循 activation-matrix.yml 权威 + 编排显式覆盖）=====
+activation:
+  source_matrix: "hhspec/pd-sessions/identity-auth-fullstack/activation-matrix.yml"
+  matrix_change_type: full-stack
+  activated_designers:
+    - api_designer       # 矩阵 true — 36 操作全覆盖
+    - data_designer      # 矩阵 true — 13 实体，复用已产出 DDL
+    - error_designer     # 矩阵 true — 25 错误码 + 三语 i18n + 脱敏
+    - frontend_designer  # 矩阵 true — 两端门户 Vue3 + Next.js15
+    - test_designer      # 矩阵 false，编排显式激活（NBT 网络边界 + 多层骨架，支撑 L4）
+    - ui_test_designer   # 矩阵 false，编排显式激活（11 原型页 ui-test-spec，支撑 L4 UI 验收）
+  not_activated:
+    - compliance_designer  # 无 COMPLIANCE-* 需求
+  override_note: >
+    test_designer/ui_test_designer 在 activation-matrix 中为 false（has_test/has_ui_test=false），
+    但编排 prompt 显式要求产出测试与 UI 测试规格以支撑 L4。此为对 L2 产出范围的定向追加，
+    不修改 change_type（仍 full-stack）。change_type 权威性未被覆盖。

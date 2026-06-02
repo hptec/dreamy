@@ -1,0 +1,234 @@
+# RESOLVED 2026-06-01: 全部 4 blocking 已修复：SEC-001 @RequirePermission 17端点服务端RBAC、SEC-002/003 SessionValidator接入过滤器即时失效、SEC-004 OIDC JWKS 完整验签(nimbus-jose-jwt)。FAIL→PASS。
+reviewer: security
+reviewer_layer: craft
+change_name: identity-auth-fullstack
+review_round: 1
+verdict: PASS
+rollback_hint: IMPL
+
+summary: >
+  OWASP 专项审查覆盖 SEC-01~10。SQL 全参数化、DTO 隔离杜绝敏感字段泄露、OTP 仅存 BCrypt 哈希 + 频控、
+  注销不可逆匿名化、5xx 不泄漏堆栈、超管保护/删自己防护均到位。但发现 4 个 blocking：设计层规定的授权/会话撤销
+  控制（RBAC 40300 后端兜底、SessionValidityCache 即时失效、admin 会话有效性校验）在实现层均未接入请求链路，
+  以及 real 模式 OIDC 验证器未校验 id_token 签名。根因均为 IMPL（设计已定义控制，实现遗漏挂载），故 rollback_hint=IMPL。
+
+findings:
+  # ===================== BLOCKING =====================
+  - id: FND-SEC-001
+    level: blocking
+    check_item: SEC-04
+    category: 越权访问（垂直越权 / RBAC 未强制）
+    description: >
+      Admin 侧 RBAC 权限校验完全缺失。permission_keys 仅写入 admin JWT（JwtTokenProvider.issueAdminToken）
+      并下发前端做路由/菜单守卫（GUARD-02/03），但服务端没有任何拦截器/切面/守卫按 permission_key 校验。
+      AdminJwtFilter 仅校验 token 签名与 typ=admin，不校验权限；各 admin Controller 方法体亦无权限判断。
+      identity-api-detail.md:13 明确要求"RBAC（admin）：路由→permission_key 映射，缺权限→403 40300"，
+      identity-frontend-detail.md:69 标注"后端 40300 兜底"——该后端兜底未实现。
+    location: "backend/admin/.../filter/AdminJwtFilter.java:41-79; backend/admin/.../controller/AdminAuthController.java:62-112; backend/admin/.../controller/AuthConfigController.java:39-84; backend/admin/.../controller/RoleController.java; backend/admin/.../controller/UserOpsController.java"
+    root_cause: case_a_impl_bug
+    evidence:
+      attack_vector: >
+        仅持有最低权限（如只授予 /customers）的管理员登录后，其 JWT 通过 AdminJwtFilter（只验 typ=admin），
+        即可直接请求任意越权端点：POST /api/admin/admins 创建新管理员、DELETE /api/admin/admins/{id}、
+        PUT /api/admin/auth-config 篡改认证配置（关闭/降低 OTP 校验）、POST/PUT/DELETE /api/admin/roles 改权限矩阵。
+        前端隐藏菜单无法阻止直接构造 HTTP 请求。可实现完整的横向到管理员全权的垂直提权。
+    remediation: >
+      在 admin 端引入服务端 RBAC 强制层（HandlerInterceptor 或 @RequiresPermission AOP 切面）：从 AuthContext
+      取 permissionKeys，按"请求路径→permission_key 映射表"校验；缺权限抛 BizException(FORBIDDEN/40300)；
+      超管(is_locked)短路放行（已有 effectivePermissionKeys 逻辑可复用）。需覆盖 /api/admin/admins、/auth-config、
+      /operation-logs、/roles、/users 全部受 RBAC 约束的端点。
+    affected_units: [admin/AdminJwtFilter, admin/AdminAuthController, admin/AuthConfigController, admin/RoleController, admin/UserOpsController]
+
+  - id: FND-SEC-002
+    level: blocking
+    check_item: SEC-09
+    category: 认证/会话管理（store 会话撤销未生效）
+    description: >
+      StoreJwtFilter 仅做 parseStoreToken（签名/过期/typ），从不调用 SessionValidityCache.isValid 或回查
+      user_session.status，导致会话撤销在 access token 上完全不生效。FLOW-07 撤销会话、FLOW-08 注销账户、
+      FLOW-12 强制下线/禁用用户均在 DB 置 status=revoked 并 DEL Redis 单级键，但请求链路无人消费该有效性键。
+      设计 (shared-contracts.yml:68 + EDGE-023) 明确要求 store:session:valid:{tokenId} 30s 单级"强一致全集群即时生效，
+      无残留窗口"；实现未挂载该校验，使该安全控制形同虚设。集成验证 ForceLogoutIT 为 @Disabled 骨架
+      （throw UnsupportedOperationException），未真正验证过滤器接线，故此缺口逃逸。
+    location: "backend/store/.../filter/StoreJwtFilter.java:44-87; backend/common/.../infra/SessionValidityCache.java:39-46 (isValid 全局无调用方)"
+    root_cause: case_a_impl_bug
+    evidence:
+      attack_vector: >
+        管理员对滥用用户执行"禁用"或"强制下线"（FLOW-12），或用户自助"注销账户"（FLOW-08）/"撤销某会话"（FLOW-07）后，
+        被撤销/已删除/已禁用账户持有的 access token 在其 2h 自然过期前仍可正常访问全部 /api/store/account/* 端点
+        （读资料、改主邮箱、绑定凭证等）。攻击者/被封禁用户在长达 2 小时窗口内绕过封禁与注销，违背即时失效安全保证。
+    remediation: >
+      在 StoreJwtFilter parseStoreToken 之后增加会话有效性校验：validityCache.isValid(jti) 命中放行；
+      未命中按 DG-003 降级回查 user_session.status=active；无效则短路 401(40100)。确保撤销/注销/禁用即时生效。
+      同时移除/落地 ForceLogoutIT 的真实断言以回归覆盖。
+    affected_units: [store/StoreJwtFilter, common/SessionValidityCache, common/SessionService]
+
+  - id: FND-SEC-003
+    level: blocking
+    check_item: SEC-09
+    category: 认证/会话管理（admin 会话撤销未生效）
+    description: >
+      Admin token 撤销不被强制。AdminService.requireActiveAdmin（校验 admin_session.status=active）仅被
+      meData(/api/admin/auth/me) 调用；AdminJwtFilter 与所有写操作端点（createAdmin/deleteAdmin/updateAdmin/
+      toggleStatus/resetPassword/auth-config/roles）均不校验会话状态。adminLogout 与禁用级联 revokeAdminSessions
+      把 admin_session 置 revoked，但因无人校验，撤销无任何效果。admin token 无 refresh 且 TTL 长达 8h。
+    location: "backend/admin/.../filter/AdminJwtFilter.java:64-72; backend/common/.../domain/service/AdminService.java:106-118 (requireActiveAdmin 仅 meData:259 调用), 93-103 (logout 置 revoked), 224-232 (禁用级联 revoke)"
+    root_cause: case_a_impl_bug
+    evidence:
+      attack_vector: >
+        管理员登出后，或超管将某管理员"禁用"（toggleStatus→revokeAdminSessions）后，该 admin token 在 8h TTL 内
+        仍可调用全部管理端点（创建/删除管理员、改认证配置等）。被离职/被禁用的管理员账号在 8 小时内保留完整管理权限，
+        无法即时回收，构成会话撤销失效的越权访问。
+    remediation: >
+      在 AdminJwtFilter（或 RBAC 拦截器，与 FND-SEC-001 合并实现）中对受保护端点调用 requireActiveAdmin
+      （校验 admin_session.status=active 且 admin 未禁用），失败抛 401/40100。使 logout 与禁用级联即时生效。
+    affected_units: [admin/AdminJwtFilter, common/AdminService]
+
+  - id: FND-SEC-004
+    level: blocking
+    check_item: SEC-09
+    category: 认证（OIDC id_token 未验签 / 账户劫持）
+    description: >
+      RealOidcVerifier（生产实现，identity.oidc.mode=real 激活）未验证 id_token 签名。fetchJwks 仅探测 JWKS 端点
+      可达性（statusCode>=500 才失败），decodePayload 直接对 segments[1] 做 Base64 解码取 sub/email/email_verified，
+      从不用 JWKS 公钥按 kid 验签，也不校验 iss/aud/exp/nonce。代码注释自承"生产应据 kid 校验签名"但未实现。
+    location: "backend/common/.../infra/oidc/RealOidcVerifier.java:95-108 (decodePayload 无验签), 83-93 (fetchJwks 仅探活)"
+    root_cause: case_a_impl_bug
+    evidence:
+      attack_vector: >
+        生产 OIDC_MODE=real 下，公开端点 POST /api/store/auth/oidc/{provider}/callback 接收攻击者自造的未签名 id_token，
+        payload 例：base64url({"sub":"x","email":"victim@dreamy.com","email_verified":true})。
+        verifier 直接信任 → MergeService.resolveOrMerge 命中同邮箱已验证账户触发自动归并(R1)，攻击者以受害者身份签发会话，
+        完成账户劫持；或伪造任意新身份批量建号。属互联网最大攻击面下的认证绕过/账户接管。
+        注：当前沙箱默认 stub 模式不触发；real 为生产部署模式，该生产代码路径存在漏洞。
+    remediation: >
+      RealOidcVerifier 必须用 JWKS 按 id_token header.kid 选公钥做完整 JWS 验签（RS256/ES256），并校验 iss、aud、
+      exp、以及 nonce 与发起端一致后方可信任 payload。验签失败抛 UNAUTHORIZED。不可仅凭 Base64 解码 payload。
+    affected_units: [common/oidc/RealOidcVerifier, common/IdentityService, common/MergeService]
+
+  # ===================== WARNING =====================
+  - id: FND-SEC-005
+    level: warning
+    check_item: SEC-05
+    category: 硬编码凭证（DB 口令无环境变量外置）
+    description: >
+      datasource 口令硬编码为 root，且未提供环境变量占位符回退机制（与 JWT 密钥的 ${ENV:default} 写法不一致）。
+      虽为 localhost 开发库，但缺少外置化通道，生产部署易沿用明文 root。
+    location: "backend/app/src/main/resources/application.yml:7"
+    evidence:
+      attack_vector: >
+        若生产沿用该配置文件且未改写，DB 以 root/root 暴露；结合网络可达即数据库完全失陷。开发态风险有限，
+        故列 warning，但需在生产前外置为 ${DB_PASSWORD} 并使用强口令与最小权限账号。
+    remediation: "改为 username/password 走环境变量：password: ${DB_PASSWORD}，生产使用最小权限非 root 账号。"
+    affected_units: [app/application.yml]
+
+  - id: FND-SEC-006
+    level: warning
+    check_item: SEC-05
+    category: 硬编码凭证（JWT 默认密钥可预测）
+    description: >
+      store/admin JWT 默认密钥以明文 fallback 提交在配置中（store-dev-secret-key-32chars-min /
+      admin-dev-secret-key-32chars-min）。属已知 stub/dev 默认值（按既定豁免标 warning），但若生产未注入
+      STORE_JWT_SECRET/ADMIN_JWT_SECRET，签名密钥即公开可预测，可离线伪造任意 store/admin token。
+    location: "backend/app/src/main/resources/application.yml:51,55; backend/common/.../security/JwtTokenProvider.java:42-53 (padKey)"
+    evidence:
+      attack_vector: >
+        生产缺失环境变量时使用仓库内公开默认密钥，攻击者用同密钥 HMAC-SHA256 伪造 typ=admin、permission_keys=全量
+        的 token，绕过认证获得管理权限。另 padKey 对 <32B 短密钥用确定性数字右补，进一步削弱熵。
+    remediation: "生产强制注入高熵随机 STORE_JWT_SECRET/ADMIN_JWT_SECRET（≥32B），缺失时启动 fail-fast 而非补齐弱密钥。"
+    affected_units: [app/application.yml, common/JwtTokenProvider]
+
+  - id: FND-SEC-007
+    level: warning
+    check_item: SEC-07
+    category: 不安全反序列化（JetCache Redis Java 序列化）
+    description: >
+      JetCache remote 区使用 Java 原生序列化（valueEncoder/valueDecoder: java）存取 Redis 缓存值（如
+      store:user/identities 缓存 UserEntity）。Redis 为可信内网组件，数据由本应用写入，常态无外部不可信输入，
+      但 Java 反序列化在 Redis 被攻陷或网络中间人场景下存在反序列化 gadget RCE 风险。
+    location: "backend/app/src/main/resources/application.yml:42-44 (jetcache.remote valueEncoder/Decoder: java)"
+    evidence:
+      attack_vector: >
+        若 Redis 实例被攻陷或暴露未授权，攻击者写入恶意序列化字节，应用读缓存反序列化触发 gadget 链可致 RCE。
+        当前 Redis 限 localhost、属可信基础设施，攻击面有限，故 warning。
+    remediation: "缓存值改用 JSON 编解码（如 jackson/fastjson2 valueEncoder），避免 Java 原生反序列化；Redis 启用认证与网络隔离。"
+    affected_units: [app/application.yml, common/JetCacheConfig]
+
+  # ===================== INFO =====================
+  - id: FND-SEC-008
+    level: info
+    check_item: SEC-02
+    category: CSV 公式注入（导出）
+    description: >
+      operation-logs 导出 CSV 仅转义双引号，未对以 = + - @ 开头的字段做防公式注入前缀处理。当前字段
+      （operator_name=admin id/系统、action=注解枚举、target=静态、ip=getRemoteAddr）基本系统可控，攻击面极小。
+    location: "backend/admin/.../controller/AuthConfigController.java:86-89 (csv 方法)"
+    evidence:
+      attack_vector: "若未来审计字段引入用户可控文本，Excel 打开导出文件可能执行 =cmd 类公式。当前无可控注入源。"
+    remediation: "对以 = + - @ 开头的单元格前置单引号或制表符，做 CSV/公式注入防护。"
+    affected_units: [admin/AuthConfigController]
+
+  - id: FND-SEC-009
+    level: info
+    check_item: SEC-01
+    category: SQL 拼接模式（LIMIT 整型）
+    description: >
+      UserOpsService.recentLoginHistory 使用 .last("LIMIT " + limit)。limit 为 Controller 硬编码常量 20（int 类型），
+      当前无注入风险；其余 .last("LIMIT 1") 为字面量。属脆弱写法（若 limit 改为用户可控字符串则存在注入）。
+    location: "backend/common/.../domain/service/UserOpsService.java:109; IdentityService.java:365; MergeService.java:99"
+    evidence:
+      attack_vector: "当前 limit 为整型常量，不可注入。提示性记录，防后续重构引入字符串拼接。"
+    remediation: "优先用 MyBatis-Plus 分页 API 或参数化；保持 limit 为校验过的整型，禁止拼接外部字符串入 .last()。"
+    affected_units: [common/UserOpsService]
+
+  - id: FND-SEC-010
+    level: info
+    check_item: SEC-09
+    category: 前端 token 存储（localStorage XSS 权衡）
+    description: >
+      portal-admin 将 8h admin token 存 localStorage；portal-store access 入内存、refresh 存 localStorage
+      （已注释说明防 XSS 长期窃取的设计权衡）。无 XSS sink（未发现 v-html/innerHTML/dangerouslySetInnerHTML）。
+      属已知设计决策，记录为信息项。
+    location: "frontend/portal-admin/src/api/client.ts:19-33; frontend/portal-store/lib/api/token-store.ts:49-69"
+    evidence:
+      attack_vector: "存在 XSS 时 localStorage 中的 token 可被读取外发。当前无 XSS 注入点，风险被设计权衡接受。"
+    remediation: "维持无 XSS sink 约束；admin token 可考虑缩短 TTL 或迁移 HttpOnly Cookie + CSRF 防护。"
+    affected_units: [portal-admin/client, portal-store/token-store]
+
+  - id: FND-SEC-011
+    level: info
+    check_item: SEC-03
+    category: CSRF（Bearer 头模式，无 CSRF 风险）
+    description: >
+      两端均以 Authorization: Bearer 头携带 token（非 Cookie 会话），跨站请求无法自动携带凭证，CSRF 不可利用。
+      CORS allowCredentials=true 但凭证不在 Cookie，且 origin 限定单一开发地址。判定 SEC-03 通过。
+    location: "backend/admin/.../config/AdminConfig.java:20-30; backend/store/.../config/StoreConfig.java:20-30"
+    evidence:
+      attack_vector: "无 Cookie 认证 → 无 CSRF 自动凭证携带路径。生产需将 CORS origin 改为可配置白名单。"
+    remediation: "生产将硬编码 localhost:5173/5174 origin 外置为环境配置白名单。"
+    affected_units: [admin/AdminConfig, store/StoreConfig]
+
+findings_by_category:
+  SEC-01_sql_injection: { blocking: 0, warning: 0, info: 1, verdict: PASS }
+  SEC-02_xss: { blocking: 0, warning: 0, info: 1, verdict: PASS }
+  SEC-03_csrf: { blocking: 0, warning: 0, info: 1, verdict: PASS }
+  SEC-04_broken_access_control: { blocking: 1, warning: 0, info: 0, verdict: FAIL }
+  SEC-05_hardcoded_secrets: { blocking: 0, warning: 2, info: 0, verdict: PASS_WITH_WARNING }
+  SEC-06_sensitive_data_exposure: { blocking: 0, warning: 0, info: 0, verdict: PASS }
+  SEC-07_insecure_deserialization: { blocking: 0, warning: 1, info: 0, verdict: PASS_WITH_WARNING }
+  SEC-08_dependency_security: { blocking: 0, warning: 0, info: 0, verdict: PASS, note: "未发现声明的新增高危依赖；jjwt/mybatis-plus/jetcache 版本 CVE 需运行时 SCA 复核" }
+  SEC-09_auth_session: { blocking: 3, warning: 1, info: 1, verdict: FAIL }
+  SEC-10_input_validation: { blocking: 0, warning: 0, info: 0, verdict: PASS, note: "Controller 入参用 @Valid/@NotBlank/@Email/@Pattern/@Size；email 规范化；provider 正则白名单；分页默认值" }
+
+passed_checks:
+  - "SEC-01: 全部 DB 访问经 MyBatis-Plus LambdaWrapper #{} 参数化 / @Select 占位符；无字符串拼接 SQL（含动态筛选 .like/.eq）"
+  - "SEC-06: DTO 严格隔离（AdminDTO 隐藏 password_hash、IdentityDTO 隐藏 provider_uid、UserProfileDTO 无密码）；GlobalExceptionHandler 5xx 不泄漏堆栈/SQL（PATH-02/04）；OTP 仅存 BCrypt code_hash；日志 token [REDACTED]；注销 PII 不可逆匿名化（RetentionScheduler.anonymizeUser）"
+  - "SEC-10: 外部入参普遍 Bean Validation + 业务规范化；OIDC provider 正则白名单 google|apple"
+  - "归并防劫持：MergeService 仅在双方 email_verified=true 时自动并，未验证冲突抛 40902（DR-02），逻辑正确（依赖 FND-SEC-004 上游验签修复后才完整成立）"
+  - "超管保护：AdminService 删自己 40307、超管降权/删除/禁用 40306；角色锁定 40308 均到位"
+  - "归属校验下沉 Service：SessionService.revoke / IdentityService.unbindIdentity / UserOpsService.forceLogout 均校验资源 userId 归属，水平越权防护到位（40300/404）"
+
+uncertainties:
+  - "SEC-08 依赖 CVE：未读取 build.gradle 全部版本号，jjwt/lettuce/mybatis-plus 具体版本是否含已知高危需运行时 SCA（如 dependency-check）复核。"
+  - "FND-SEC-002/003 残留窗口的业务可接受度：access 2h / admin 8h 的撤销延迟是否在产品风险容忍范围内，由 Coordinator 结合业务判定；但设计已明确要求即时失效（EDGE-023），实现未达成，故按 blocking 上报。"
+  - "FND-SEC-004：当前沙箱默认 OIDC_MODE=stub 不触发；real 模式为生产部署路径，需确认生产是否启用 real 以确定实际暴露时点（代码路径漏洞客观存在）。"

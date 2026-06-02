@@ -1,0 +1,1815 @@
+openapi: 3.0.3
+info:
+  title: Identity API (identity-auth-fullstack)
+  description: |
+    identity 限界上下文统一 API 契约，覆盖消费端（/api/store/*）与后台（/api/admin/*）。
+
+    ## 安全隔离（decision.md 决策 2）
+    - 消费端 store JWT（access 2h + refresh 30d 滑动续期，可撤销）经 `StoreBearerAuth` 校验，仅可访问 `/api/store/*`。
+    - 后台 admin JWT（access 8h 无 refresh，含 role + permission keys）经 `AdminBearerAuth` 校验，仅可访问 `/api/admin/*`。
+    - store token 命中 `/api/admin/*` 必返 401（反之亦然）。
+
+    ## 错误响应（decision.md 决策 13 / REQ-IDENTITY-007）
+    所有错误返回 `{ code, message, details? }`，`code` 为数字码（高 3 位对应 HTTP 状态）。
+    完整码表见 error-strategy.md。消费端按 Accept-Language 返回 EN/ES/FR 文案，后台中文。
+
+    ## 版本历史
+    - v1.0.0 (2026-05-31): 初始版本（Bootstrap）
+  version: 1.0.0
+  contact:
+    name: identity domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: store-auth
+    description: 消费端 passwordless 登录与多渠道认证（FUNC-001~006, 025, 028~031）
+  - name: store-account
+    description: 消费端账户安全：绑定/解绑/会话/换主邮箱/注销/资料（FUNC-007~013, 026, 027）
+  - name: store-config
+    description: 消费端读取认证配置（FUNC-006）
+  - name: admin-auth
+    description: 后台管理员登录（FUNC-014）
+  - name: admin-admins
+    description: 管理员 CRUD（FUNC-015~017）
+  - name: admin-roles
+    description: 角色与权限矩阵（FUNC-018~021）
+  - name: admin-users
+    description: 用户身份运营（FUNC-022）
+  - name: admin-auth-config
+    description: 登录与认证配置（FUNC-023）
+  - name: admin-operation-logs
+    description: 操作日志（FUNC-024）
+
+paths:
+  # ============ STORE AUTH ============
+  /api/store/auth/otp/send:
+    post:
+      summary: 发送邮箱验证码
+      description: FUNC-001。校验邮箱格式后按 AuthConfig 生成 OTP（仅存哈希）并经 SMTP 发送。频控见 error-strategy。
+      operationId: sendOtp
+      tags: [store-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpSendRequest'
+      responses:
+        '200':
+          description: 已发送（进入验证码输入步骤）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpSendResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 40001 INVALID_EMAIL
+        '429':
+          $ref: '#/components/responses/RateLimited'        # 42901 RESEND_TOO_SOON / 42902 RATE_LIMITED
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/auth/otp/verify:
+    post:
+      summary: 校验验证码登录
+      description: FUNC-002。正确且未过期未超次时签发 store JWT，按邮箱归并或新建 User，创建 UserSession。
+      operationId: verifyOtp
+      tags: [store-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 40101 OTP_INVALID（attempts+1）
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 40301 ACCOUNT_DISABLED
+        '409':
+          $ref: '#/components/responses/Conflict'        # 40902 EMAIL_CONFLICT_UNVERIFIED
+        '410':
+          $ref: '#/components/responses/Gone'            # 41001 OTP_EXPIRED / 41002 OTP_LOCKED
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/auth/oidc/{provider}/callback:
+    post:
+      summary: OIDC 登录回调（Google / Apple）
+      description: FUNC-004/005/025/028/029。校验 OIDC sub，按 (provider, sub) 定位/归并/新建 User；Apple 支持 Hide My Email。
+      operationId: oidcCallback
+      tags: [store-auth]
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, apple]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OidcCallbackRequest'
+      responses:
+        '200':
+          description: 登录成功（含首次新建/自动归并）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 40301 ACCOUNT_DISABLED / 40303 PROVIDER_DISABLED
+        '409':
+          $ref: '#/components/responses/Conflict'        # 40902 EMAIL_CONFLICT_UNVERIFIED
+        '502':
+          $ref: '#/components/responses/UpstreamError'   # 50201 OIDC_UNAVAILABLE（引导改用 OTP）
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout' # 50401 OIDC_TIMEOUT
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/auth/refresh:
+    post:
+      summary: refresh 续期 access token
+      description: REQ-005-01 / FUNC-030。携带有效 refresh token 签发新 access 并顺延 refresh；refresh 绑 UserSession，可被撤销。
+      operationId: refreshToken
+      tags: [store-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: 续期成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 40102 REFRESH_INVALID（已撤销/过期）
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE CONFIG ============
+  /api/store/auth/config:
+    get:
+      summary: 读取消费端登录配置
+      description: FUNC-006。登录页读取生效的登录方式开关与 OTP 策略。两级 JetCache（store:authconfig, TTL 10min）。
+      operationId: getStoreAuthConfig
+      tags: [store-config]
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreAuthConfig'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE ACCOUNT ============
+  /api/store/account/profile:
+    get:
+      summary: 读取账户资料
+      description: FUNC-013。账户总览/设置页资料（无修改密码）。两级 JetCache（store:user:{userId}, TTL 5min）。
+      operationId: getProfile
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/identities:
+    get:
+      summary: 查看登录方式
+      description: FUNC-007。展示 email/google/apple 绑定状态、是否主、是否验证、最近使用。两级 JetCache（store:identities:{userId}, TTL 5min）。
+      operationId: listIdentities
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/identities/bind:
+    post:
+      summary: 绑定登录方式
+      description: FUNC-008。OIDC 校验或邮箱 OTP 验证，provider_uid 未被他人占用方可绑定。写失效 store:identities:{userId}。
+      operationId: bindIdentity
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindIdentityRequest'
+      responses:
+        '200':
+          description: 绑定成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'   # 40903 IDENTITY_TAKEN
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/identities/{identityId}:
+    delete:
+      summary: 解绑登录方式
+      description: FUNC-009。主邮箱不可解绑；解绑后剩余 connected 须 ≥ min_methods。写失效 store:identities:{userId}。
+      operationId: unbindIdentity
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - name: identityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 解绑成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40304 PRIMARY_EMAIL_REQUIRED / 40305 MIN_METHODS_REQUIRED
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/email/change-primary:
+    post:
+      summary: 更换主邮箱
+      description: FUNC-026。对新邮箱发 OTP 验证且未被占用 → 迁移 is_primary → 通知旧邮箱。
+      operationId: changePrimaryEmail
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePrimaryEmailRequest'
+      responses:
+        '200':
+          description: 更换成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'   # 40901 EMAIL_EXISTS
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/sessions:
+    get:
+      summary: 查看活跃会话
+      description: FUNC-010。设备/浏览器/位置/方式/最近活跃。仅远程 Redis 单级缓存（store:sessions:{userId}, TTL 30s）。
+      operationId: listSessions
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/sessions/{sessionId}:
+    delete:
+      summary: 登出单个设备
+      description: FUNC-011。撤销指定非当前会话；跨用户撤销返回 403。写失效会话缓存。
+      operationId: revokeSession
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 撤销成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40300 FORBIDDEN（跨用户）
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/sessions/others:
+    delete:
+      summary: 登出其他全部设备
+      description: FUNC-012。保留当前会话，撤销其余全部。写失效会话缓存。亦为新设备通知邮件「一键登出」目标。
+      operationId: revokeOtherSessions
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '204':
+          description: 撤销成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/account/delete:
+    post:
+      summary: 账户注销/删除（软删除）
+      description: FUNC-027。二次确认 → status=deleted（记 deleted_at）→ 撤销全部会话 + 清用户缓存 → 发注销确认邮件。
+      operationId: deleteAccount
+      tags: [store-account]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteAccountRequest'
+      responses:
+        '204':
+          description: 注销成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN AUTH ============
+  /api/admin/auth/login:
+    post:
+      summary: 管理员登录
+      description: FUNC-014。邮箱+密码，status=active 时签发 admin JWT（8h 无 refresh）并写 action=登录 OperationLog。
+      operationId: adminLogin
+      tags: [admin-auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 40103 CREDENTIALS_INVALID
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 40302 ADMIN_DISABLED
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/auth/logout:
+    post:
+      summary: 管理员登出
+      description: 撤销当前 admin 会话。
+      operationId: adminLogout
+      tags: [admin-auth]
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '204':
+          description: 登出成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/admin/auth/me:
+    get:
+      summary: 当前管理员信息与权限集
+      description: FUNC-021。返回管理员资料 + role + permission keys，供前端动态渲染菜单与路由守卫。
+      operationId: adminMe
+      tags: [admin-auth]
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMe'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ ADMIN ADMINS ============
+  /api/admin/admins:
+    get:
+      summary: 管理员列表
+      operationId: listAdmins
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增管理员
+      description: FUNC-015。邮箱唯一（重复 409 EMAIL_EXISTS），新增需密码 ≥6 位。
+      operationId: createAdmin
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'   # 40901 EMAIL_EXISTS
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/admins/{id}:
+    put:
+      summary: 编辑管理员
+      description: FUNC-015。可改 name/role；email 不可改。
+      operationId: updateAdmin
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40306 SUPER_ADMIN_PROTECTED
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除管理员
+      description: FUNC-016。不可删自己（40307 CANNOT_DELETE_SELF）；不可删超管（40306）。
+      operationId: deleteAdmin
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40306 / 40307
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/admins/{id}/status:
+    patch:
+      summary: 禁用/启用管理员
+      description: FUNC-016。行内切换；超管不可禁用（40306）。禁用即撤销其 admin 会话。
+      operationId: toggleAdminStatus
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusToggleRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40306 SUPER_ADMIN_PROTECTED
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/admins/{id}/password:
+    patch:
+      summary: 重置管理员密码
+      description: FUNC-017。新密码 ≥6 位，两次一致。
+      operationId: resetAdminPassword
+      tags: [admin-admins]
+      security:
+        - AdminBearerAuth: [/system/admins]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '204':
+          description: 重置成功
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN ROLES & PERMISSIONS ============
+  /api/admin/roles:
+    get:
+      summary: 角色列表
+      description: FUNC-018。预设/自定义角色含权限集。
+      operationId: listRoles
+      tags: [admin-roles]
+      security:
+        - AdminBearerAuth: [/system/roles]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增自定义角色
+      operationId: createRole
+      tags: [admin-roles]
+      security:
+        - AdminBearerAuth: [/system/roles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/roles/{id}:
+    put:
+      summary: 编辑角色（改名 + 权限矩阵保存）
+      description: FUNC-018/019。预设超管 is_locked 不可编辑权限（40308 ROLE_LOCKED）。保存写 action=权限变更 日志。
+      operationId: updateRole
+      tags: [admin-roles]
+      security:
+        - AdminBearerAuth: [/system/roles]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40308 ROLE_LOCKED
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除自定义角色
+      description: FUNC-020。角色下仍有成员时返回 409 ROLE_IN_USE。
+      operationId: deleteRole
+      tags: [admin-roles]
+      security:
+        - AdminBearerAuth: [/system/roles]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'   # 40308 ROLE_LOCKED（预设）
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'   # 40904 ROLE_IN_USE
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/permissions:
+    get:
+      summary: 权限点字典（22 项菜单 key）
+      description: FUNC-019。供权限矩阵渲染，分组返回。
+      operationId: listPermissions
+      tags: [admin-roles]
+      security:
+        - AdminBearerAuth: [/system/roles]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN USERS (身份运营) ============
+  /api/admin/users:
+    get:
+      summary: 用户列表
+      description: FUNC-022 列表。支持 tier/status 筛选与搜索。
+      operationId: listUsers
+      tags: [admin-users]
+      security:
+        - AdminBearerAuth: [/customers]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: tier
+          in: query
+          schema:
+            type: string
+            enum: [all, vip, regular]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, disabled, deleted, anonymized]
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/users/{id}:
+    get:
+      summary: 用户详情（身份运营）
+      description: FUNC-022。登录方式卡 + 登录记录 + 活跃会话。
+      operationId: getUserDetail
+      tags: [admin-users]
+      security:
+        - AdminBearerAuth: [/customers]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/users/{id}/status:
+    patch:
+      summary: 禁用/启用用户账户
+      description: FUNC-022。禁用即撤销全部会话 + 清用户缓存，写 OperationLog。
+      operationId: toggleUserStatus
+      tags: [admin-users]
+      security:
+        - AdminBearerAuth: [/customers]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusToggleRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/users/{id}/sessions/force-logout:
+    post:
+      summary: 强制下线会话（单个或全部）
+      description: FUNC-022。撤销指定会话或全部；Redis 写失效全集群即时生效；写 action=强制下线 OperationLog。
+      operationId: forceLogoutUserSessions
+      tags: [admin-users]
+      security:
+        - AdminBearerAuth: [/customers]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogoutRequest'
+      responses:
+        '204':
+          description: 已下线
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN AUTH CONFIG ============
+  /api/admin/auth-config:
+    get:
+      summary: 读取认证配置
+      description: FUNC-023。登录方式开关、OTP 策略、min_methods、OAuth 凭据状态（只读展示）。
+      operationId: getAuthConfig
+      tags: [admin-auth-config]
+      security:
+        - AdminBearerAuth: [/system/auth]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 保存认证配置
+      description: FUNC-023。email 主登录恒开不可关；OTP 数值越界保存被拒（EDGE-019）。保存写 action=认证配置变更 日志并失效 store:authconfig 缓存。
+      operationId: updateAuthConfig
+      tags: [admin-auth-config]
+      security:
+        - AdminBearerAuth: [/system/auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthConfigUpdate'
+      responses:
+        '200':
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'   # 40002 CONFIG_OUT_OF_RANGE
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN OPERATION LOGS ============
+  /api/admin/operation-logs:
+    get:
+      summary: 操作日志列表（只读）
+      description: FUNC-024。按操作人/时间范围/操作类型筛选；只读不可删（无 delete 接口，EDGE-018）。
+      operationId: listOperationLogs
+      tags: [admin-operation-logs]
+      security:
+        - AdminBearerAuth: [/system/logs]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: operator_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationLogListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/operation-logs/export:
+    get:
+      summary: 导出操作日志 CSV
+      description: FUNC-024。按当前筛选导出 CSV。
+      operationId: exportOperationLogs
+      tags: [admin-operation-logs]
+      security:
+        - AdminBearerAuth: [/system/logs]
+      parameters:
+        - name: operator_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSV 文件
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    # ---- 通用错误 ----
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，见 error-strategy.md）
+          example: 41001
+        message:
+          type: string
+          description: 当前语言默认文案（store EN/ES/FR；admin 中文）
+        details:
+          type: object
+          description: 可选，字段级错误或剩余次数等
+          additionalProperties: true
+      example:
+        code: 41001
+        message: Verification code expired
+        details:
+          remaining_resend_seconds: 0
+
+    # ---- store auth ----
+    OtpSendRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: 收件邮箱（校验格式，非法返回 40001）
+        locale:
+          type: string
+          enum: [en, es, fr]
+          default: en
+          description: 邮件与文案语言
+    OtpSendResponse:
+      type: object
+      required: [resend_after_seconds, length]
+      properties:
+        resend_after_seconds:
+          type: integer
+          description: 下次可重发的等待秒数（= otp_resend_seconds）
+        length:
+          type: integer
+          enum: [4, 6, 8]
+          description: 验证码位数
+    OtpVerifyRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          pattern: '^[0-9]{4,8}$'
+          description: 验证码（按 length 位数字）
+        locale:
+          type: string
+          enum: [en, es, fr]
+          default: en
+    OidcCallbackRequest:
+      type: object
+      required: [id_token]
+      properties:
+        id_token:
+          type: string
+          description: OIDC id_token（后端校验 sub）
+        code:
+          type: string
+          description: 授权码（如走 code flow）
+        locale:
+          type: string
+          enum: [en, es, fr]
+          default: en
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, access_expires_at, refresh_expires_at]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+        refresh_expires_at:
+          type: string
+          format: date-time
+    AuthSession:
+      type: object
+      required: [tokens, user, is_new_account]
+      properties:
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        is_new_account:
+          type: boolean
+          description: 是否首次新建账户（区别于归并/已有）
+        merged:
+          type: boolean
+          description: 本次是否触发自动归并
+
+    StoreAuthConfig:
+      type: object
+      required: [email_enabled, google_enabled, apple_enabled, otp_length]
+      properties:
+        email_enabled:
+          type: boolean
+        google_enabled:
+          type: boolean
+        apple_enabled:
+          type: boolean
+        otp_length:
+          type: integer
+          enum: [4, 6, 8]
+        otp_resend_seconds:
+          type: integer
+
+    # ---- store account ----
+    UserProfile:
+      type: object
+      required: [id, email, email_verified, tier, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        name:
+          type: string
+          maxLength: 80
+        phone:
+          type: string
+          maxLength: 32
+        avatar:
+          type: string
+        tier:
+          type: string
+          enum: [vip, regular]
+        status:
+          type: string
+          enum: [active, disabled, deleted, anonymized]
+        joined_at:
+          type: string
+          format: date-time
+    Identity:
+      type: object
+      required: [id, provider, is_primary, verified, connected]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [email, google, apple]
+        identifier:
+          type: string
+          description: 展示标识（邮箱掩码或账号）
+        is_primary:
+          type: boolean
+        verified:
+          type: boolean
+        connected:
+          type: boolean
+        hidden_email:
+          type: boolean
+        relay_email:
+          type: string
+        relay_valid:
+          type: boolean
+          description: Apple relay 是否可达（失效不锁死账户）
+        last_login_at:
+          type: string
+          format: date-time
+    IdentityListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Identity'
+    BindIdentityRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          enum: [email, google, apple]
+        id_token:
+          type: string
+          description: OIDC 绑定时提供
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          description: 邮箱绑定时的 OTP
+    ChangePrimaryEmailRequest:
+      type: object
+      required: [new_email, code]
+      properties:
+        new_email:
+          type: string
+          format: email
+        code:
+          type: string
+          description: 新邮箱 OTP 验证码
+    Session:
+      type: object
+      required: [id, status, is_current]
+      properties:
+        id:
+          type: string
+          format: uuid
+        device:
+          type: string
+        browser:
+          type: string
+        ip:
+          type: string
+        location:
+          type: string
+        method:
+          type: string
+          enum: [email, google, apple]
+        is_new_device:
+          type: boolean
+        is_current:
+          type: boolean
+        status:
+          type: string
+          enum: [active, revoked]
+        last_active_at:
+          type: string
+          format: date-time
+    SessionListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+    DeleteAccountRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+          description: 二次确认（必须 true）
+
+    # ---- admin auth ----
+    AdminLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        redirect:
+          type: string
+          description: 登录后跳转目标
+    AdminAuthSession:
+      type: object
+      required: [access_token, access_expires_at, admin]
+      properties:
+        access_token:
+          type: string
+          description: admin JWT（8h，无 refresh）
+        access_expires_at:
+          type: string
+          format: date-time
+        admin:
+          $ref: '#/components/schemas/AdminMe'
+    AdminMe:
+      type: object
+      required: [id, name, email, role, permissions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+        permissions:
+          type: array
+          description: 该管理员可访问的菜单 key 集合（超管为全部）
+          items:
+            type: string
+
+    # ---- admin admins ----
+    Admin:
+      type: object
+      required: [id, name, email, role_id, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 80
+        email:
+          type: string
+          format: email
+        role_id:
+          type: string
+          format: uuid
+        role_name:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled]
+        last_login_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    AdminCreate:
+      type: object
+      required: [name, email, password, role_id]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        role_id:
+          type: string
+          format: uuid
+    AdminUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        role_id:
+          type: string
+          format: uuid
+    AdminListResponse:
+      type: object
+      required: [items, total_count, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Admin'
+        total_count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+    StatusToggleRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, disabled]
+    ResetPasswordRequest:
+      type: object
+      required: [password, password_confirm]
+      properties:
+        password:
+          type: string
+          minLength: 6
+        password_confirm:
+          type: string
+          minLength: 6
+
+    # ---- admin roles ----
+    Role:
+      type: object
+      required: [id, name, type, is_locked, permission_keys]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 40
+        type:
+          type: string
+          enum: [preset, custom]
+        is_locked:
+          type: boolean
+        permission_keys:
+          type: array
+          items:
+            type: string
+        member_count:
+          type: integer
+          description: 关联管理员数量（删除约束判定）
+        created_at:
+          type: string
+          format: date-time
+    RoleCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        permission_keys:
+          type: array
+          items:
+            type: string
+    RoleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        permission_keys:
+          type: array
+          items:
+            type: string
+    RoleListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+    Permission:
+      type: object
+      required: [key, group, label]
+      properties:
+        key:
+          type: string
+          description: 菜单 key（与后台路由一一对应）
+        group:
+          type: string
+        label:
+          type: string
+    PermissionListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+
+    # ---- admin users ----
+    UserListItem:
+      type: object
+      required: [id, email, tier, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        tier:
+          type: string
+          enum: [vip, regular]
+        status:
+          type: string
+          enum: [active, disabled, deleted, anonymized]
+        joined_at:
+          type: string
+          format: date-time
+    UserListResponse:
+      type: object
+      required: [items, total_count, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserListItem'
+        total_count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+    LoginHistoryItem:
+      type: object
+      required: [id, method, result, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          type: string
+          enum: [email, google, apple]
+        ip:
+          type: string
+        device:
+          type: string
+        location:
+          type: string
+        result:
+          type: string
+          enum: [success, failed]
+        is_new_device:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    UserDetail:
+      type: object
+      required: [user, identities, sessions, login_history]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        identities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Identity'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        login_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoginHistoryItem'
+    ForceLogoutRequest:
+      type: object
+      required: [scope]
+      properties:
+        scope:
+          type: string
+          enum: [single, all]
+        session_id:
+          type: string
+          format: uuid
+          description: scope=single 时必填
+
+    # ---- admin auth config ----
+    AuthConfig:
+      type: object
+      required:
+        - email_enabled
+        - google_enabled
+        - apple_enabled
+        - otp_length
+        - otp_ttl_minutes
+        - otp_resend_seconds
+        - otp_max_attempts
+        - min_methods
+      properties:
+        email_enabled:
+          type: boolean
+          description: email 主登录恒开不可关
+        google_enabled:
+          type: boolean
+        apple_enabled:
+          type: boolean
+        otp_length:
+          type: integer
+          enum: [4, 6, 8]
+        otp_ttl_minutes:
+          type: integer
+          minimum: 1
+          maximum: 30
+        otp_resend_seconds:
+          type: integer
+          minimum: 10
+          maximum: 120
+        otp_max_attempts:
+          type: integer
+          minimum: 3
+          maximum: 10
+        min_methods:
+          type: integer
+          minimum: 1
+          maximum: 3
+        google_client_id:
+          type: string
+          description: 只读展示
+        apple_service_id:
+          type: string
+          description: 只读展示
+        updated_at:
+          type: string
+          format: date-time
+    AuthConfigUpdate:
+      type: object
+      required:
+        - google_enabled
+        - apple_enabled
+        - otp_length
+        - otp_ttl_minutes
+        - otp_resend_seconds
+        - otp_max_attempts
+        - min_methods
+      properties:
+        google_enabled:
+          type: boolean
+        apple_enabled:
+          type: boolean
+        otp_length:
+          type: integer
+          enum: [4, 6, 8]
+        otp_ttl_minutes:
+          type: integer
+          minimum: 1
+          maximum: 30
+        otp_resend_seconds:
+          type: integer
+          minimum: 10
+          maximum: 120
+        otp_max_attempts:
+          type: integer
+          minimum: 3
+          maximum: 10
+        min_methods:
+          type: integer
+          minimum: 1
+          maximum: 3
+
+    # ---- admin operation logs ----
+    OperationLog:
+      type: object
+      required: [id, operator_name, action, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        operator_id:
+          type: string
+          format: uuid
+        operator_name:
+          type: string
+          description: 系统自动归并时为"系统"
+        action:
+          type: string
+          enum:
+            - 登录
+            - Google 登录
+            - Apple 登录
+            - 创建管理员
+            - 编辑管理员
+            - 删除管理员
+            - 禁用管理员
+            - 重置密码
+            - 创建角色
+            - 编辑角色
+            - 删除角色
+            - 权限变更
+            - 账户合并
+            - 强制下线
+            - 认证配置变更
+        target:
+          type: string
+        ip:
+          type: string
+        user_agent:
+          type: string
+        changes:
+          type: object
+          description: 变更前后对比 JSON（before/after）
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    OperationLogListResponse:
+      type: object
+      required: [items, total_count, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationLog'
+        total_count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+  responses:
+    ValidationError:
+      description: 参数校验失败（40001 INVALID_EMAIL / 40002 CONFIG_OUT_OF_RANGE 等）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（含跨端 token 误用，40100 系列）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限或业务禁止（40300 系列）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在（40400）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（40900 系列：EMAIL_EXISTS / EMAIL_CONFLICT_UNVERIFIED / IDENTITY_TAKEN / ROLE_IN_USE）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Gone:
+      description: 资源失效（41001 OTP_EXPIRED / 41002 OTP_LOCKED）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: 限流（42901 RESEND_TOO_SOON / 42902 RATE_LIMITED）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamError:
+      description: 外部服务不可用（50201 OIDC_UNAVAILABLE）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamTimeout:
+      description: 外部服务超时（50401 OIDC_TIMEOUT）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（access 2h）。独立签名密钥与 claims（subject=user_id, tier, status, jti→UserSession）。
+        仅可访问 /api/store/*；命中 /api/admin/* 必返 401。
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（access 8h，无 refresh）。独立签名密钥与 claims（subject=admin_id, role, permission keys, jti→AdminSession）。
+        仅可访问 /api/admin/*；命中 /api/store/* 必返 401。
+        security 列表中的字符串数组表示所需菜单权限 key（如 [/system/admins]），由 RBAC 守卫校验。
+
+# 默认无全局 security：各端点显式声明（store 登录类为 security: []，账户类为 StoreBearerAuth，admin 类为 AdminBearerAuth）
+security: []

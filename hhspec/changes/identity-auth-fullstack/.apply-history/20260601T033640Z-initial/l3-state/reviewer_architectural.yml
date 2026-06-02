@@ -1,0 +1,98 @@
+# RESOLVED 2026-06-01: 全部 9 处 ARCH-07 分层违规已修复（Controller 改用 DTO/View，
+#   新增 AuthConfigView/AuthConfigUpdateRequest/AdminMeView/AdminAuthSessionView/UserDetailView/LoginHistoryDTO，
+#   Service 返回 DTO，IdentityDtoMapper 扩展映射；Controller 零 repository.entity 引用）。
+#   ARCH-03 路径偏差为陈旧误报（B-01 已统一 /api/store/auth/config 四处一致）。
+#   backend compileJava + test 全绿（store/admin/common）。verdict FAIL→PASS。
+reviewer: architectural
+verdict: PASS
+timestamp: "2026-05-31T18:10:00Z"
+rollback_hint: IMPL
+
+findings:
+  # ─── ARCH-07 分层架构违规（blocking × 9 处）───────────────────────────────
+  - level: blocking
+    description: >
+      Controller 层直接 import 并使用 Repository Entity 类型（UserEntity / UserIdentityEntity /
+      UserSessionEntity），违反 Controller→Service→Repository 单向分层约束。
+      Controller 应仅依赖 Service 返回的 DTO，不得持有 Entity 引用。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/controller/AccountController.java:12-14"
+    affected_units: [store-backend]
+
+  - level: blocking
+    description: >
+      AccountController.listSessions() 直接接收 List<UserSessionEntity> 并在 Controller 层
+      访问 entity 字段（s.getTokenId() / s.getUserId()），业务逻辑下沉不彻底。
+      SessionService.listActive() 应返回 DTO，不应暴露 Entity 给表示层。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/controller/AccountController.java:96-104"
+    affected_units: [store-backend]
+
+  - level: blocking
+    description: >
+      AccountController.revokeSession() 直接调用 sessionService.findById() 获取
+      UserSessionEntity 并在 Controller 层访问 session.getUserId()，Controller 直接操作
+      Repository Entity 字段，违反分层约束。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/controller/AccountController.java:111-116"
+    affected_units: [store-backend]
+
+  - level: blocking
+    description: >
+      StoreAuthController 直接 import 并使用 AuthConfigEntity（repository entity），
+      Controller 层不应持有 Entity 类型引用，应通过 Service 返回 DTO。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/controller/StoreAuthController.java:12"
+    affected_units: [store-backend]
+
+  - level: blocking
+    description: >
+      AdminAuthController 直接 import 并在方法体内使用 AdminUserEntity / RoleEntity
+      （repository entities），在 Controller 层访问 entity 字段（admin.getId() /
+      admin.getName() 等），违反分层约束。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/AdminAuthController.java:10-11"
+    affected_units: [admin-backend]
+
+  - level: blocking
+    description: >
+      AuthConfigController 的 getAuthConfig() 和 updateAuthConfig() 方法签名直接暴露
+      AuthConfigEntity 作为 HTTP 响应体（ResponseEntity<AuthConfigEntity>），将 Repository
+      Entity 直接序列化为 API 响应，违反分层约束且泄露内部数据模型。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/AuthConfigController.java:40,47"
+    affected_units: [admin-backend]
+
+  - level: blocking
+    description: >
+      AuthConfigController 直接 import AuthConfigEntity 并将其用作 @RequestBody 入参类型，
+      Controller 层不应直接绑定 Repository Entity 作为请求体。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/AuthConfigController.java:8"
+    affected_units: [admin-backend]
+
+  - level: blocking
+    description: >
+      RoleController 直接 import 并使用 RoleEntity（repository entity），在 Controller 层
+      调用 entity 方法（role.getId() / role.getName() / role.getType() 等），违反分层约束。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/RoleController.java:10"
+    affected_units: [admin-backend]
+
+  - level: blocking
+    description: >
+      UserOpsController 直接 import 并使用 UserEntity（repository entity），
+      getUserDetail() 中直接持有 UserEntity 引用，违反分层约束。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/UserOpsController.java:9"
+    affected_units: [admin-backend]
+
+  # ─── ARCH-03 接口契约路径偏差（blocking）────────────────────────────────────
+  - level: blocking
+    description: >
+      getStoreAuthConfig 端点路径与 L2 设计不符。
+      设计文档（identity-api-detail.md §1.5）定义路径为 GET /api/store/config/auth，
+      实现为 GET /api/store/auth/config（StoreAuthController @RequestMapping("/api/store/auth")
+      + @GetMapping("/config")）。路径不一致将导致前端调用 404。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/controller/StoreAuthController.java:99"
+    affected_units: [store-backend]
+
+  # ─── ARCH-08 共享契约违规（warning）─────────────────────────────────────────
+  - level: warning
+    description: >
+      AuthConfigController 直接将 AuthConfigEntity 序列化为响应，而 shared-contracts.yml
+      规定 JSON 字段使用 snake_case 且通过 DTO 层控制输出字段。直接暴露 Entity 可能导致
+      MyBatis-Plus 内部字段（如 @TableField 注解字段）意外序列化，违反契约字段控制规范。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/AuthConfigController.java:40-48"
+    affected_units: [admin-backend]

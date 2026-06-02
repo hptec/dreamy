@@ -1,0 +1,163 @@
+# 跨专家冲突检测报告 — identity-auth-fullstack
+# 由 l2_design_coordinator 在 Phase 5 执行 CFL-01~18（CFL-14~18 仅 UI 需求时，本变更有 UI 全执行）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator
+change_name: identity-auth-fullstack
+domain_code: identity
+strictness_mode: standard
+
+# 裁定原则：契约稳定优先（shared-contracts 为基线）；安全/合规约束不可降级；
+# 数据层 DDL 已产出为权威，API/Error 须对齐；BLOCKING 必裁定指定修改方；GAP 附最低补充要求。
+
+conflicts:
+  - id: CFL-01
+    dimension: 命名一致性（字段/枚举/端点）
+    parties: [api_designer, data_designer, frontend_designer]
+    evidence:
+      api: "JSON 字段 snake_case；enum 取值 provider/status 等"
+      data: "DDL 列名 snake_case；CHECK 取值"
+      frontend: "TS 边界转 camelCase"
+    result: COMPATIBLE
+    resolution: "shared-contracts naming 已锁定：后端 snake_case，前端边界统一转 camelCase；枚举取值三方一致（与 DDL CHECK 对齐）。"
+
+  - id: CFL-02
+    dimension: 类型映射一致性
+    parties: [api_designer, data_designer]
+    evidence: { uuid: "CHAR(36)↔String↔string", datetime: "DATETIME(3) UTC↔OffsetDateTime↔ISO8601" }
+    result: COMPATIBLE
+    resolution: "shared-contracts type_mapping 表统一；datetime 全 UTC 边界转换。"
+
+  - id: CFL-03
+    dimension: 错误码一致性（API↔Error）
+    parties: [api_designer, error_designer]
+    evidence:
+      api: "各端点错误映射引用 40001/40101/.../50401"
+      error: "30 异常类映射 25 码表"
+    result: COMPATIBLE
+    resolution: "API 错误映射全部引用 error-strategy 权威码表，无臆造码。"
+    note: "createRole 重名：api-detail 初稿提及 40904，已统一裁定为新增/复用 VALIDATION_ERROR(40000) 字段级（见 CFL-17 GAP）。"
+
+  - id: CFL-04
+    dimension: 实体/Repository 覆盖（API 所需数据 ↔ Data 提供）
+    parties: [api_designer, data_designer]
+    result: COMPATIBLE
+    resolution: "36 操作所需查询路径均有对应 RM 方法（findByProviderUid/lockPendingByEmail/findByRefreshTokenId 等），13 实体全覆盖。"
+
+  - id: CFL-05
+    dimension: 事务边界一致性
+    parties: [api_designer, data_designer]
+    evidence: "verifyOtp/oidc 归并/changePrimary/updateRole/forceLogout/deleteAccount"
+    result: COMPATIBLE
+    resolution: "API STEP 事务标注与 data TX-001~006 一一对应。"
+
+  - id: CFL-06
+    dimension: 缓存键与失效一致性
+    parties: [api_designer, data_designer]
+    evidence: "store:session:valid/authconfig/user/identities/sessions 键 + 写失效时机"
+    result: COMPATIBLE
+    resolution: "shared-contracts cache 节统一；API 写操作 STEP 标注失效键与 EC-002 兜底一致。"
+
+  - id: CFL-07
+    dimension: 鉴权/JWT 隔离一致性
+    parties: [api_designer, error_designer, frontend_designer]
+    evidence: "store 2h+refresh / admin 8h 无 refresh / 跨端 401"
+    result: COMPATIBLE
+    resolution: "shared-contracts jwt_isolation 锁定双密钥；跨端误用 40100；前端 store(zustand)/admin(Pinia) 分别持久化。"
+
+  - id: CFL-08
+    dimension: 频控/限流阈值一致性
+    parties: [api_designer, error_designer]
+    evidence: "resend/email-h/email-d/ip-h 四维度 + 42901/42902"
+    result: COMPATIBLE
+    resolution: "shared-contracts rate_limit 与 error frequency 表一致，阈值取 AuthConfig。"
+
+  - id: CFL-09
+    dimension: i18n 策略一致性
+    parties: [error_designer, frontend_designer]
+    evidence: "store en/es/fr by code；admin zh"
+    result: COMPATIBLE
+    resolution: "数字 code 稳定锚点；前端按 code 本地化；ES/FR 占位翻译填充计划已列（I18N-PLAN）。"
+
+  - id: CFL-10
+    dimension: 脱敏规则一致性
+    parties: [api_designer, data_designer, error_designer]
+    evidence: "OTP/password/token 全 REDACTED；DTO 隐藏 provider_uid/token_id/password_hash/code_hash"
+    result: COMPATIBLE
+    resolution: "MAP-002/003/004 隐藏敏感字段 ↔ error redaction 一致。"
+
+  - id: CFL-11
+    dimension: 状态机一致性
+    parties: [api_designer, data_designer]
+    evidence: "OtpStatus/SessionStatus/AccountStatus 流转"
+    result: COMPATIBLE
+    resolution: "API STEP 状态变更与 domain 状态机 + DDL CHECK 取值一致。"
+
+  - id: CFL-12
+    dimension: 分页契约一致性
+    parties: [api_designer, frontend_designer]
+    evidence: "page/page_size + {items,total,page,page_size}"
+    result: COMPATIBLE
+    resolution: "shared-contracts pagination 统一；6 个 list 端点遵守。"
+
+  - id: CFL-13
+    dimension: 审计写入一致性
+    parties: [api_designer, error_designer, data_designer]
+    evidence: "FLOW-17 AOP；operation_log 只读；15 action 枚举"
+    result: COMPATIBLE
+    resolution: "API admin 写操作标注审计 action ↔ data RM-100 仅 insert（无 delete EDGE-018）↔ error LOG 一致。"
+
+  # ===== UI 维度 CFL-14~18（本变更有 UI，全执行）=====
+  - id: CFL-14
+    dimension: 前端组件 ↔ API 出入参一致性
+    parties: [frontend_designer, api_designer]
+    result: COMPATIBLE
+    resolution: "COMP/FORM 消费的字段（is_new_device/is_current/permission_keys/relay_valid）均在 API 出参与 DTO 中（MAP-002/003）。"
+
+  - id: CFL-15
+    dimension: 前端状态 ↔ 错误码映射一致性
+    parties: [frontend_designer, error_designer]
+    result: COMPATIBLE
+    resolution: "FORM-S02/S04/A05 等对 40101/40304/40305/40308/40904/40002 的提示与 error 映射表一致。"
+
+  - id: CFL-16
+    dimension: UI 测试期望 ↔ 前端设计一致性
+    parties: [ui_test_designer, frontend_designer]
+    result: COMPATIBLE
+    resolution: "UIS-S01~A07 的交互路径与 COMP/FORM/GUARD 设计对齐；11 页一一对应；headless-ui as prop 约束双方均标注。"
+
+  - id: CFL-17
+    dimension: createRole 重名错误码缺口
+    parties: [api_designer, error_designer]
+    evidence:
+      api: "api-detail createRole 初稿提及 409 复用，未明确码"
+      error: "码表无专用'角色重名'码"
+    result: GAP
+    severity: P2
+    gap_owner: error_designer
+    min_requirement: >
+      L3 实现 createRole/createAdmin 重名/角色重名统一用 VALIDATION_ERROR(40000) 字段级 details
+      或复用 EMAIL_EXISTS(40901) 语义扩展。建议 error-strategy 增补一行说明（非阻断，已在 error-detail i18n/校验段隐含 40000 通用校验）。
+    resolution: "裁定：角色重名用 40000 VALIDATION_ERROR + details.field=name；不新增码（保持码表稳定）。frontend FORM-A02/A03 已做前端重名预校验。"
+
+  - id: CFL-18
+    dimension: Redis 不可用降级策略确认
+    parties: [error_designer, data_designer]
+    evidence: "DG-003/RST-04/QP-003 [INFERRED] 降级查 DB"
+    result: GAP
+    severity: P2
+    gap_owner: data_designer
+    min_requirement: >
+      Redis 不可用时会话有效性是否降级查 DB（牺牲强一致全集群即时生效）需 L3 确认告警与回退策略。
+      标 [INFERRED]，不阻断 L2 交付。
+    resolution: "裁定：保留为待确认项，传递 L3；默认降级查 DB session.status + 记 ERROR 告警，但强制下线即时性在 Redis 恢复前可能有窗口（需运维监控）。"
+
+summary:
+  total_dimensions: 18
+  executed: 18
+  compatible: 16
+  gap: 2          # CFL-17, CFL-18（均 P2，附最低补充要求，不阻断）
+  blocking: 0
+  no_blocking_unresolved: true
+  all_gap_have_min_requirement: true
+  rulings_cite_principle: true

@@ -1,0 +1,59 @@
+# L4 验收合并报告 — identity-auth-fullstack
+# 由主进程合并（l4-consolidate.sh 受 bash 3.2 declare -A 限制，按相同判定逻辑手动合并）
+layer: L4
+change_name: identity-auth-fullstack
+generated_at: "2026-06-01T06:28:00Z"
+
+verdict: CONDITIONAL_PASS
+rollback_level: none
+
+summary: >
+  三维 L4 验收全部 CONDITIONAL_PASS，零 FAIL；TODO 全量扫描零残留。
+  CONDITIONAL 源于本环境无 Docker/MySQL/Redis/SMTP，运行时验证项标 BLOCKED（非缺陷）。
+  代码层面全部实现并通过编译/构建/单元+切片测试（65 后端测试 + 两前端 build）。
+
+agent_results:
+  l4_validator:
+    verdict: CONDITIONAL_PASS
+    total: 60
+    passed: 56
+    blocked: 4   # FUNC-031/032/033/034 需 SMTP/DB/调度运行时
+    failed: 0
+    report: l4-state/l4-validator-report.yml
+  l4_ui_verifier:
+    verdict: CONDITIONAL_PASS
+    pages_total: 11
+    pages_pass: 11
+    must_fix: 0
+    suggest: 3   # 表头列裁剪/打标签按钮（订单域，范围外）
+    report: l4-state/l4-ui-report.yml
+  l4_security_tester:
+    verdict: CONDITIONAL_PASS
+    l3_blockers_reverified: "4/4 FIXED"
+    controls_pass: 6
+    controls_blocked: 3   # 会话撤销/RBAC/OIDC 端到端需运行时
+    blocking: 0
+    report: l4-state/l4-security-report.yml
+  l4_performance_tester:
+    verdict: NOT_ACTIVATED   # 激活矩阵 performance_tester=false
+
+todo_sweep:
+  verdict: PASS
+  total_todos: 0
+  rounds: 1
+  report: l4-state/todo-sweep-report.yml
+
+blocked_items_summary:
+  reason: "本地环境无 Docker/MySQL/Redis/SMTP；后端服务无法运行时启动"
+  runtime_blocked:
+    - FUNC-031 新设备登录通知邮件（需 SMTP）
+    - FUNC-032 数据保留清理定时任务（需 DB+调度）
+    - FUNC-033 注销超宽限期 PII 匿名化（需 DB）
+    - FUNC-034 SMTP 发送重试（需 SMTP）
+    - 会话撤销即时失效 / RBAC 越权拒绝 / OIDC 验签拒伪造（端到端需运行环境，静态已 PASS）
+  note: "上述项代码均完整实现且静态验证通过，仅缺运行时执行环境；建议在具备 MySQL/Redis/SMTP 的 CI 环境解除 @Disabled 集成测试后升级为完全 PASS。"
+
+warnings_carried:
+  - "application.yml DB 口令/JWT 默认密钥需生产前外置（部署 checklist，非代码阻断）"
+  - "OpenAPI 契约漂移 W-01~W-05（admin 响应字段，前后端已对齐，建议后续同步契约）"
+  - "ES/FR 翻译占位 [TRANSLATION_PENDING]，待专业复核（数字错误码稳定，不影响功能）"

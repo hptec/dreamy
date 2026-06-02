@@ -1,0 +1,28 @@
+delivered_at: '2026-06-01T03:40:06Z'
+status: complete
+traceability_maps:
+- traceability-map.md
+total_files: 16
+missing_files_count: 0
+missing_files: []
+uncovered_units_count: 0
+uncovered_units: []
+units:
+- unit_id: unit_backend
+  status: implemented
+  files_total: 10
+  files_ok: 10
+  files_missing: []
+  exists: true
+- unit_id: unit_portal_admin
+  status: implemented
+  files_total: 3
+  files_ok: 3
+  files_missing: []
+  exists: true
+- unit_id: unit_portal_store
+  status: implemented
+  files_total: 3
+  files_ok: 3
+  files_missing: []
+  exists: true

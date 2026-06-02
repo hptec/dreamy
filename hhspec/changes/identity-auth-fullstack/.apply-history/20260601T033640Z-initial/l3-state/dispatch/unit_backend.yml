@@ -1,0 +1,16 @@
+unit_id: unit_backend
+domain: identity
+target: backend
+design_doc: ./hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-design.md
+design_docs:
+- ./hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-api-detail.md
+- ./hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-data-detail.md
+- ./hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-error-detail.md
+- ./hhspec/changes/identity-auth-fullstack/specs/design/data/identity-physical-schema.md
+- ./hhspec/changes/identity-auth-fullstack/specs/design/data/identity-ddl.sql
+- ./hhspec/changes/identity-auth-fullstack/specs/design/data/identity-retention-anonymization.md
+specs_dir: ./hhspec/changes/identity-auth-fullstack/specs
+baseline_specs_dir: ./hhspec/specs
+output_subdir: backend
+status: implemented
+created_at: '2026-05-31T12:39:11Z'

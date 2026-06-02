@@ -1,0 +1,119 @@
+# 任务分配表 — identity-auth-fullstack
+# 由 l2_design_coordinator 分解 L1 产出，分配给六专家（无重叠、无遗漏、无循环依赖）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator
+change_name: identity-auth-fullstack
+domain_code: identity
+
+# 单一限界上下文，按表现层逻辑分组（IDENTITY-COMMON/STORE/ADMIN），不拆多 coordinator
+domain_groups:
+  - id: identity
+    designers_serial_order: [api_designer, data_designer, error_designer, frontend_designer, test_designer, ui_test_designer]
+
+# ===== 专家分配（覆盖全部 36 操作 / 13 实体 / 25 错误码 / 26 场景 / 11 原型页）=====
+allocations:
+  api_designer:
+    artifact: identity-api-detail.md
+    scope: 36 operations（四部分方法论：入参验证 V-NNN / 业务逻辑 STEP-NN / 出参构造 / 错误码映射）
+    store_operations:
+      - sendOtp          # FLOW-01
+      - verifyOtp        # FLOW-02
+      - oidcCallback     # FLOW-03 含归并
+      - refreshToken     # FLOW-04
+      - getStoreAuthConfig
+      - getProfile
+      - listIdentities
+      - bindIdentity     # FLOW-05
+      - unbindIdentity   # FLOW-05
+      - changePrimaryEmail # FLOW-06
+      - listSessions
+      - revokeSession    # FLOW-07
+      - revokeOtherSessions # FLOW-07
+      - deleteAccount    # FLOW-08
+    admin_operations:
+      - adminLogin       # FLOW-09
+      - adminLogout
+      - adminMe
+      - listAdmins
+      - createAdmin      # FLOW-10
+      - updateAdmin
+      - deleteAdmin
+      - toggleAdminStatus
+      - resetAdminPassword
+      - listRoles
+      - createRole       # FLOW-11
+      - updateRole
+      - deleteRole
+      - listPermissions
+      - listUsers
+      - getUserDetail
+      - toggleUserStatus # FLOW-12
+      - forceLogoutUserSessions # FLOW-12
+      - getAuthConfig
+      - updateAuthConfig # FLOW-13
+      - listOperationLogs
+      - exportOperationLogs
+    depends_on: []
+    consumes: [shared-contracts.yml]
+
+  data_designer:
+    artifact: identity-data-detail.md
+    scope: 13 实体伪代码级数据详设（RM/MAP/IDX/TX/CV 编号），与已产出 DDL 表名/字段一致
+    entities: [user, user_identity, otp_code, user_session, login_history, admin_user, role, permission, role_permission, admin_session, operation_log, auth_config, email_template]
+    reuse_existing:
+      - "design/data/identity-ddl.sql"           # 13 表可运行 DDL（权威，勿矛盾）
+      - "design/data/identity-physical-schema.md" # 物理库设计
+      - "design/data/identity-retention-anonymization.md" # 保留匿名化
+    depends_on: []
+    consumes: [shared-contracts.yml]
+
+  error_designer:
+    artifact: identity-error-detail.md
+    scope: 异常分类(EX/PATH) + 接口错误映射(含 MUST_TEST) + 降级重试(RT/CB/DG) + 脱敏 + 三语 i18n 占位翻译填充计划
+    error_codes_count: 25
+    depends_on: [api_designer, data_designer]   # 需 API 入参/Repository 异常类型
+    consumes: [shared-contracts.yml, identity-api-detail.md, identity-data-detail.md]
+
+  frontend_designer:
+    artifact: identity-frontend-detail.md
+    scope: 两端门户组件树(COMP) + 状态管理(STORE) + 路由(PAGE) + 表单(FORM)
+    portals:
+      portal-store:    # Next.js 15 App Router + Pinia? -> Next 用 React，状态用 zustand/context
+        framework: next.js@15-app-router
+        pages: [account/login, account, account/settings, account/security]
+      portal-admin:    # Vue3 + Pinia
+        framework: vue3-pinia
+        pages: [Login, Customers, CustomerDetail, AdminList, RoleManagement, AuthSettings, OperationLogs]
+    depends_on: [api_designer, error_designer]  # 需 API 出入参契约 + code→文案映射
+    consumes: [shared-contracts.yml, identity-api-detail.md, identity-error-detail.md]
+
+  test_designer:
+    artifact: identity-test-detail.md
+    scope: 多层测试骨架（单元/集成/契约/组件/API/韧性/网络边界 NBT）+ 测试数据工厂 + P0-P3 优先级
+    mandatory_layers:
+      - network_boundary  # NBT-01 CORS Preflight / NBT-02 跨域实际请求 / NBT-03 白名单拒绝（前后端分离 5173/5174 ↔ backend）
+      - resilience        # OIDC/SMTP 降级 RT/CB
+      - contract          # OpenAPI 契约测试
+    depends_on: [api_designer, data_designer, error_designer]
+    consumes: [identity-api-detail.md, identity-data-detail.md, identity-error-detail.md]
+
+  ui_test_designer:
+    artifact: identity-ui-test-spec.yml
+    scope: 11 原型页 Playwright 期望（视觉基线/交互路径穷举/字段断言/状态流转/可访问性/性能预算）
+    constraint: 只看原型不看代码
+    prototype_sources:
+      - "hhspec/prototype/app/account/{login,page,settings,security}"
+      - "hhspec/prototype/portal-admin/src/views/{Login,Customers,CustomerDetail,AdminList,RoleManagement,AuthSettings,OperationLogs}.vue"
+    depends_on: []   # 与 test_designer 平行，职责不重叠
+    consumes: [prototype]
+
+# ===== 依赖拓扑（DFS 无环）=====
+dependency_order:
+  wave_1: [api_designer, data_designer, ui_test_designer]  # 无依赖，可并行
+  wave_2: [error_designer]                                  # 依赖 api+data
+  wave_3: [frontend_designer, test_designer]                # 依赖 api+error(+data)
+cycle_check: pass   # api→(none); data→(none); error→{api,data}; frontend→{api,error}; test→{api,data,error}; 无环
+
+no_overlap_check: pass   # 每端点/实体/错误码仅一个主负责专家
+no_gap_check: pass       # 36 操作 + 13 实体 + 25 码 + 26 场景 + 11 页全覆盖

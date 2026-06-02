@@ -1,0 +1,189 @@
+# RESOLVED 2026-06-01: blocking 已修复：PERF-001 操作日志导出改 ResultHandler 流式+92天窗口上限。FAIL→PASS。
+reviewer: performance
+reviewer_layer: craft
+change_name: identity-auth-fullstack
+review_round: 1
+verdict: PASS
+rollback_hint: IMPL
+
+summary:
+  blocking: 1
+  warning: 5
+  info: 2
+  cache_grading_check: PASS   # 注解分级与 decision.md 决策 6/11 一致（见 FND-PERF-002 说明的运行期缺陷）
+  index_cross_check: PASS_WITH_NOTE  # 在线查询字段基本被 DDL 索引覆盖，仅 emailLike 前导通配失效（FND-PERF-006）
+
+findings:
+  - id: FND-PERF-001
+    level: blocking
+    check_item: PERF-03
+    category: 大数据集内存加载
+    description: >-
+      操作日志导出 exportAll 用 operationLogMapper.selectList(filter) 一次性把全部命中行
+      物化进 List<OperationLogEntity> 再交给 Controller 逐行写 CSV，并非真正流式。
+      四个过滤参数 action/operatorId/from/to 全部可选，调用方不传任何条件时
+      buildFilter 不产生 WHERE → 等于 SELECT 全表。operation_log 由 DDL 注释明确为
+      “追加型、1-3 年保留、达百万行/月需改分区”，且每行含 JSON changes(before/after)
+      + user_agent VARCHAR(512)。一次无过滤导出会把千万级、每行约 1KB+ 的结果全部
+      load 进 JVM 堆，直接 OOM 拖垮进程；契约 RM-102 标注的“流式/streamForExport”
+      在实现中未落地。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/AuditService.java:51-55"
+    call_chain: "GET /api/admin/operation-logs/export -> AuthConfigController.exportOperationLogs:69-84 -> AuditService.exportAll:52-55 -> selectList(无 WHERE)"
+    impact: >-
+      数据量级：百万行/月 × 最长 36 月 = 千万级行；按 ~1KB/行（JSON changes + UA）
+      仅 List 即占用 10GB+ 堆（叠加 MyBatis 实体/Jackson 开销更高）→ 单次导出即 OOM，
+      影响整个 admin/store 共享进程。属正常运营负载下可触发的崩溃。
+    root_cause: case_a_impl_bug
+    affected_units: [admin-impl, common-impl]
+    remediation: >-
+      改为真正流式：用 MyBatis 游标 Cursor<OperationLogEntity>（mapper 返回 Cursor +
+      @Options(fetchSize=Integer.MIN_VALUE) 或 ResultHandler）边读边 writer.write 边 flush，
+      读完即 GC；或强制分页循环（按 created_at + LIMIT 滚动）。同时对导出强制
+      时间窗上限（如单次最多 90 天）并校验 from/to 非空，杜绝无过滤全表导出。
+
+  - id: FND-PERF-002
+    level: warning
+    check_item: PERF-07
+    category: 缓存缺失（注解被自调用旁路）
+    description: >-
+      JetCache 分级注解的“分级本身”与 decision 决策 6/11 完全一致：
+      会话/凭证 store:session:valid 仅 Redis 单级 TTL30s（SessionValidityCache）✓；
+      store:authconfig 两级 BOTH 600s ✓；store:user / store:identities 两级 BOTH 300s ✓；
+      写操作均挂 @CacheInvalidate ✓。但运行期存在 AOP 自调用旁路：消费端只读入口
+      getProfileView() 内部直接调本类 getProfile()（@Cached）、listIdentityViews() 内部直接调
+      listIdentities()（@Cached），同类自调用不经代理 → @Cached 不生效。结果 store:user /
+      store:identities 两级缓存从不写入、从不读取，决策 6/11 为消费端只读资料设计的
+      Caffeine+Redis 缓存运行期等于失效，每次 /api/store/account/profile、/identities 都打 DB。
+      同理 changePrimaryEmailViews→changePrimaryEmail、deleteAccount→evictUserCache 的
+      @CacheInvalidate 亦因自调用旁路（因缓存本就没写入，暂无脏读风险，但缓存收益为零）。
+      注：authconfig 在 OIDC 登录热路径是跨 Bean 调用（IdentityService->authConfigService.getConfig），
+      该路径缓存有效；仅 getConfigView 自调用旁路影响低频 admin 读。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/IdentityService.java:67-74,128-146,308,331,371-373"
+    call_chain: "GET /api/store/account/profile -> AccountController:40 -> identityService.getProfileView:67 -> 自调用 getProfile:130（@Cached 旁路）-> 每次走 userMapper.selectById"
+    impact: >-
+      底层查询为 PK selectById / idx_identity_user_id 索引点查（亚毫秒级），正常负载不致
+      崩溃；但消费端 profile/identities 为潜在高频端点，缓存层 100% 失效使决策 6/11
+      的读放大优化未兑现，DB 读量随消费端 QPS 线性上升。
+    root_cause: case_a_impl_bug
+    affected_units: [common-impl, store-impl]
+    remediation: >-
+      消除自调用：把 @Cached/@CacheInvalidate 方法移到独立 Bean，或在 Service 内注入
+      自身代理（@Lazy self / ObjectProvider）后经代理调用，或将 DTO 组装下沉到
+      Controller、由 Controller 跨 Bean 调被缓存方法。修复后须验证 Redis 中确有
+      store:user:* / store:identities:* 键写入与失效。
+
+  - id: FND-PERF-003
+    level: warning
+    check_item: PERF-01
+    category: N+1 查询
+    description: >-
+      listRoleDTOs 对每个角色调用 toRoleDTO，内部 effectivePermissionKeys
+      （非锁定角色 → listKeysByRoleId 1 次查询；锁定角色 → listAllPermissionKeys 1 次全表）
+      + countMembers（adminUserMapper.selectCount 1 次）。N 个角色 → 1 + 2N 次查询。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/RoleService.java:57-67,84-93,96-104"
+    call_chain: "GET /api/admin/roles -> RoleController.listRoles:34 -> roleService.listRoleDTOs:65 -> per role: listKeysByRoleId + countMembers"
+    impact: >-
+      数据量级：角色数通常 5-20，2N+1 ≈ 11-41 次查询；低频 admin 列表，当前量级
+      影响有限，随角色增长线性恶化。
+    root_cause: case_a_impl_bug
+    affected_units: [common-impl]
+    remediation: >-
+      批量化：成员数用单条 GROUP BY（SELECT role_id,COUNT(*) FROM admin_user GROUP BY role_id）；
+      权限键用单条 SELECT role_id,permission_key FROM role_permission WHERE role_id IN(...)；
+      全权限字典查一次复用。N+1 降为 O(1)（3 次查询）。
+
+  - id: FND-PERF-004
+    level: warning
+    check_item: PERF-01
+    category: N+1 查询
+    description: >-
+      pageAdminDTOs 对每行 admin 调用 toAdminDTO，内部 roleMapper.selectById(roleId)
+      逐行查角色名。pageSize=20 → 1 次分页 + 20 次角色点查 = 21 次查询，且角色高度重复。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/AdminService.java:251-255,266-270"
+    call_chain: "GET /api/admin/admins -> AdminAuthController(list) -> adminService.pageAdminDTOs:266 -> per admin toAdminDTO:251 -> roleMapper.selectById"
+    impact: >-
+      数据量级：每页 pageSize 行 → pageSize+1 次查询；角色集合极小且重复，可一次批量
+      取回。低频管理列表，warning。
+    root_cause: case_a_impl_bug
+    affected_units: [common-impl]
+    remediation: >-
+      收集本页 distinct roleId 后 roleMapper.selectBatchIds 一次取回组 Map<id,name>，
+      或对角色加小容量缓存。N+1 降为 2 次查询。
+
+  - id: FND-PERF-005
+    level: warning
+    check_item: PERF-03
+    category: 大数据集内存加载（分页无上限）
+    description: >-
+      listUsers / listAdmins / listOperationLogs 的 pageSize 直接取自请求参数，
+      仅有默认值 20，无 @Max 上限校验，原样传入 MyBatis-Plus Page。调用方传
+      pageSize=1000000 可让 selectPage 一次拉取百万行进堆。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/UserOpsController.java:28-37; AuthConfigController.java:53-65; AdminService.java:131-141 / UserOpsService.java:81-94"
+    impact: >-
+      已认证 admin 端点，需刻意传大值才触发；user/operation_log 量级大时单次大 pageSize
+      可致内存压力甚至 OOM。warning（非默认路径）。
+    root_cause: case_a_impl_bug
+    affected_units: [admin-impl, common-impl]
+    remediation: "对 pageSize 加 @Max(100)（或服务层 Math.min(pageSize, 100)）统一钳制上限。"
+
+  - id: FND-PERF-006
+    level: warning
+    check_item: PERF-08
+    category: 查询效率（索引失效）
+    description: >-
+      pageUsers 的 emailLike 用 qw.like(UserEntity::getEmail, emailLike) 生成
+      email LIKE '%value%' 前导通配，uk_user_email 索引无法命中 → 随 user 表增长退化为全表扫描；
+      同时叠加 status/tier 等价过滤可借 idx_user_status/idx_user_tier 缩小范围，
+      但纯邮箱搜索（仅 emailLike）将全表扫。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/UserOpsService.java:89-93"
+    impact: >-
+      索引已在 DDL 定义（uk_user_email），问题在查询模式（前导通配）使其失效；
+      user 量级达数十万行后客户搜索响应显著变慢。warning。
+    root_cause: case_a_impl_bug
+    affected_units: [common-impl]
+    remediation: >-
+      改前缀匹配 likeRight(email%) 命中索引；或对邮箱搜索引入专用规范化前缀列/全文检索。
+      若产品需中缀搜索，须明确数据量上限并在设计层确认（否则属 case_b_design_gap）。
+
+  - id: FND-PERF-007
+    level: info
+    check_item: PERF-06
+    category: 序列化效率
+    description: >-
+      application.yml jetcache.remote 使用 valueEncoder/Decoder: java（JDK 序列化），
+      较 fastjson2/kryo 体积大、CPU 高。当前 store:user/identities 缓存因 FND-PERF-002
+      运行期未生效、authconfig 仅单例 1 条，影响可忽略；修复 FND-PERF-002 让缓存真正
+      承载流量后此项收益放大。
+    location: "backend/app/src/main/resources/application.yml:39-46"
+    affected_units: [common-impl]
+    remediation: "remote valueEncoder/Decoder 改 kryo 或 fastjson2（与 keyConvertor 一致），降低 Redis IO 与反序列化开销。"
+
+  - id: FND-PERF-008
+    level: info
+    check_item: PERF-01
+    category: 不必要循环（后台批量，可接受）
+    description: >-
+      anonymizeExpiredDeletedUsers 对每个 deleted 用户循环 anonymizeUser，内部再
+      selectList 凭证后逐条 update（provider_uid 需写入唯一的 anon:{id}，无法单条批量 UPDATE）。
+      属每日 03:00 后台定时任务且 BATCH=500 上限，非在线 API，逐行更新由唯一值需求决定，当前可接受。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/RetentionScheduler.java:111-151"
+    impact: "后台批处理，每日一次、单批 ≤500 用户；不与在线 API 同标准评估。info。"
+    affected_units: [common-impl]
+    remediation: "如未来匿名化量级增大，可分批提交事务并控制单事务行数，避免长事务占用连接。"
+
+findings_by_category:
+  PERF-01_n_plus_1: [FND-PERF-003, FND-PERF-004, FND-PERF-008]
+  PERF-02_algorithm_complexity: []
+  PERF-03_large_dataset_memory: [FND-PERF-001, FND-PERF-005]
+  PERF-04_resource_leak: []   # afterCommit 写 Redis、JDBC 连接由 MyBatis/连接池管理，未见手工未关闭资源
+  PERF-05_missing_index: []   # 在线查询字段均有 DDL 索引覆盖；前导通配失效归入 PERF-08(FND-PERF-006)
+  PERF-06_serialization: [FND-PERF-007]
+  PERF-07_cache_missing: [FND-PERF-002]
+  PERF-08_query_efficiency: [FND-PERF-006]
+
+uncertainties:
+  - 缺少 performance-baselines / 明确数据量 SLA 文件，operation_log 与 user 的真实增长曲线
+    依据 DDL 注释“百万行/月”推断；若实际为小规模 demo 数据，FND-PERF-001 可降级，
+    但 selectList 全表物化的结构性风险仍在。
+  - 未实际压测，N+1（FND-PERF-003/004）的查询次数为静态调用链推算，未含 MyBatis 一级缓存
+    在同一 SqlSession 内对重复 selectById 的去重影响（角色重复点查可能部分被一级缓存吸收）。

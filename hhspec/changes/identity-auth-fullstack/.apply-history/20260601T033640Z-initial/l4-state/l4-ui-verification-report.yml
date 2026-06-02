@@ -1,0 +1,314 @@
+---
+ui_verification_report:
+  title: "identity-auth-fullstack L4 UI 验收报告（原型对照）"
+  verifier: "l4-ui-verifier-agent"
+  date: "2026-05-31"
+  round: 1
+  change_name: identity-auth-fullstack
+  platform_type: "web"
+  verification_mode: "static_prototype_conformance"   # 无运行中 dev server，基于源码对照原型 + 构建产物
+  verification_tool: "source-vs-prototype diff（前端源码 ↔ 原型 SFC/TSX）+ 构建产物核验"
+  ui_test_spec_source: "hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-ui-test-spec.yml"
+  app_url: null
+  baseline_dir: "hhspec/prototype/"
+  requirement_source: "hhspec/changes/identity-auth-fullstack/ui-verification-checklist.md, ui-verification-checklist-identity.md"
+
+  environment:
+    dev_server_running: false
+    dev_server_note: "前端 dev server 启动失败，无法执行 Playwright 实时交互；运行时交互项一律标记 BLOCKED（非 FAIL）。"
+    build_artifacts:
+      portal_admin_dist: "frontend/portal-admin/dist/index.html 存在（SPA 构建产物）"
+      portal_store_out: "frontend/portal-store/out/account{,/login,/security,/settings}.html 均存在（SSG 导出产物）"
+    api_client_modules:
+      portal_store: "lib/api/auth-api.ts 存在（sendOtp/verifyOtp/oidcCallback/listIdentities/listSessions/unbindIdentity/revokeSession/revokeOtherSessions）"
+      portal_admin: "src/api/{auth,authConfig,admins,roles,logs,users,client,types}.ts 全部存在"
+
+  metadata:
+    bootstrap_mode: false
+    verification_scope: "11 页（消费端 4 / 后台 7）实现对照原型：结构/布局/文案/核心交互元素保留 + mock 替换为真实后端 API"
+    read_calls_used: 8
+
+  verdict: "CONDITIONAL_PASS"
+
+  pages:
+    # ===== portal-store 消费端（Next.js 15）=====
+    - page_id: "portal-store/account/login"
+      spec_id: UIS-S01
+      status: PASS
+      prototype_conformance: >-
+        结构一致：两栏布局（左视觉图 davidsbridal/wedding-dress-04.jpg + 右表单）、两步式 email→code 流程、
+        OAuth（Google/Apple）按钮、'or' 分隔、Apple relay 提示、Terms/Privacy 链接全部保留。
+        原型单文件骨架已拆为 LoginCard(COMP-S01)+EmailStep+CodeStep+OtpInput+OAuthButtons 组合，
+        mock 跳转替换为真实 sendOtp/verifyOtp/oidcCallback 接口；文案外置 i18n（EN/ES/FR）；
+        OAuth 按钮按 authConfig 开关显隐（原型为硬编码常显）。OIDC fragment 回调由 useEffect 捕获。
+      enhancements:
+        - "新增：邮箱小写归一化、resend 倒计时由后端 resendAfterSeconds 驱动、429 错误显剩余秒禁用重发"
+        - "新增：OTP 长度动态（4/6/8）由 authConfig 决定，原型固定 6 位"
+        - "可访问性补强：email label htmlFor、error role=alert aria-live=assertive、OtpInput ariaLabelPrefix"
+      blocked_runtime_checks:
+        - "邮箱非法时报错 'valid email'（前端预校验 ApiError 40001 本地化）— 需 dev server 实跑确认渲染"
+        - "OTP 自动跳格/退格回跳/粘贴填充 — OtpInput 组件逻辑存在，需运行时验证"
+        - "验证成功跳 /account、重发倒计时 30s — 需运行时"
+        - "Google/Apple 触发 OAuth 流（nonce/id_token）— 需运行时 + OAuth 配置"
+      evidence:
+        - "frontend/portal-store/app/account/login/page.tsx"
+        - "frontend/portal-store/components/account/login-card.tsx"
+        - "对照 hhspec/prototype/app/account/login/page.tsx"
+
+    - page_id: "portal-store/account"
+      spec_id: UIS-S02
+      status: PASS
+      prototype_conformance: >-
+        账户总览展示用户资料（name/email/tier/avatar），经 ProfileView(COMP) 渲染；
+        标题/欢迎语外置 i18n。未登录由 AuthGuard 重定向 /account/login（原型无守卫，为真实化增强）。
+      blocked_runtime_checks:
+        - "未登录重定向 /account/login — AuthGuard 逻辑存在，需运行时验证"
+        - "已登录资料正确填充（authStore hydrate）— 需运行时"
+      evidence:
+        - "frontend/portal-store/app/account/page.tsx"
+        - "frontend/portal-store/components/account/profile-view.tsx"
+        - "对照 hhspec/prototype/app/account/page.tsx"
+
+    - page_id: "portal-store/account/settings"
+      spec_id: UIS-S03
+      status: PASS
+      prototype_conformance: >-
+        账户设置展示只读资料（fullName/email/phone）；明确 passwordless 区块（无修改/设置密码入口，符合检查单要求）；
+        email 再验证说明 + 指向 /account/security 链接。新增 Danger zone 账户注销/删除入口（DeleteAccountDialog，FUNC-027 软删除 30 天），
+        为需求规格新增项，原型 settings 未含。
+      blocked_runtime_checks:
+        - "删除账户二次确认弹窗 confirm → 成功跳首页 — 需运行时"
+      evidence:
+        - "frontend/portal-store/app/account/settings/page.tsx"
+        - "对照 hhspec/prototype/app/account/settings/page.tsx"
+
+    - page_id: "portal-store/account/security"
+      spec_id: UIS-S04
+      status: PASS
+      prototype_conformance: >-
+        结构一致：Login methods（凭证列表，Primary/Verified 徽章、Apple private relay 提示、Connect/Disconnect/Primary 锁定态）
+        + Devices & sessions（当前设备 'This device' 标记、其他设备 Sign out、Sign out other devices）。
+        原型单文件已拆为 SecurityPanel+IdentityList+SessionList+ChangePrimaryDialog 组合；
+        mock seedAccounts/seedSessions 替换为 listIdentities/listSessions 真实接口；
+        解绑/登出走 unbindIdentity/revokeSession/revokeOtherSessions；错误码本地化（40304/40305/40300/40901）。
+        新增换主邮箱入口（ChangePrimaryDialog，FORM-S05）。'仅剩一种方式 Disconnect 禁用' 由后端 40305 兜底 + connectedCount 前端预判。
+      blocked_runtime_checks:
+        - "主邮箱不可解绑 / 仅剩一种方式禁用 Disconnect — 需运行时验证 UI 禁用态"
+        - "登出其他设备二次确认 → 列表只剩 current — Dialog 逻辑存在，需运行时"
+        - "换主邮箱 OTP / 邮箱被占用 409 提示 — 需运行时"
+      evidence:
+        - "frontend/portal-store/app/account/security/page.tsx"
+        - "frontend/portal-store/components/account/security-panel.tsx"
+        - "对照 hhspec/prototype/app/account/security/page.tsx"
+
+    # ===== portal-admin 管理后台（Vue3）=====
+    - page_id: "portal-admin/Login"
+      spec_id: UIS-A01
+      status: PASS
+      prototype_conformance: >-
+        结构/文案完整保留：左品牌区（'Dreamy Admin Console'、'配置首页、管理商品订单、一键发布静态站点。'、
+        'Admin Console'）+ 右表单（h1 '欢迎回来'、'登录以管理您的 Dreamy 站点'、邮箱 placeholder 'admin@dreamy.com'、
+        密码 placeholder '请输入密码'、记住我 checkbox）。mock 替换为 auth.login({email,password}) 真实接口；
+        password input type=password masked、autocomplete 正确。
+      blocked_runtime_checks:
+        - "登录成功按 redirect 跳转 — 需运行时"
+        - "凭据错误显 '邮箱或密码错误'(40103) / 禁用账户 '管理员账户已被禁用'(40302) — 错误码处理存在，需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/Login.vue"
+        - "对照 hhspec/prototype/portal-admin/src/views/Login.vue"
+
+    - page_id: "portal-admin/Customers"
+      spec_id: UIS-A02
+      status: PASS
+      prototype_conformance: >-
+        列表结构保留：搜索（姓名/邮箱）+ 等级筛选（VIP/常规/全部）+ 状态筛选 + 分页 + 详情入口 /customers/:id。
+        mock customers 替换为 listUsers（分页 + status/tier/email 服务端筛选）。空态 '暂无匹配的用户' 保留。
+        筛选下拉宽度固定（项目记忆，已采用）。
+      deviation:
+        finding_ref: FND-001
+        detail: >-
+          实现表头为 5 列（用户/注册时间/等级/状态/操作），原型为 7 列（多 '订单数'/'累计消费'）。
+          属订单域数据，identity 模块后端不提供该聚合字段，故裁剪。为有意识范围裁剪而非结构崩坏，
+          且检查单同列 7 列要求未满足 → 记 SUGGEST（非 FAIL）。
+      blocked_runtime_checks:
+        - "分页/筛选触发列表更新、点击行进入详情 — 需运行时"
+        - "筛选下拉宽度不抖动 — 需运行时视觉验证"
+      evidence:
+        - "frontend/portal-admin/src/views/Customers.vue:75-79"
+        - "对照 hhspec/prototype/portal-admin/src/views/Customers.vue:33"
+
+    - page_id: "portal-admin/CustomerDetail"
+      spec_id: UIS-A03
+      status: PASS
+      prototype_conformance: >-
+        结构保留：资料卡（tier/status）+ 登录方式卡（email/google/apple，verified 徽章、Apple relay 失效提示）
+        + 登录记录表（时间/方式/IP/设备/位置/结果，空态 '暂无登录记录'）+ 活跃会话列表（当前会话标记、单会话下线、强制下线全部）。
+        操作按钮：返回 + 强制下线 + 禁用/启用账户（含二次确认弹窗）。mock 替换为 getUser/loginHistory/sessions 真实接口；
+        强制下线 single/all 二次确认（FORM-A06）。
+      deviation:
+        finding_ref: FND-002
+        detail: >-
+          原型含 '打标签'(TagIcon) 按钮，实现未保留（实现操作区为 返回/强制下线/禁用账户）。
+          打标签为运营辅助功能，identity 模块未实现该后端能力 → 记 SUGGEST（非 FAIL）。
+      blocked_runtime_checks:
+        - "禁用用户二次确认 → 状态变 disabled / 强制下线确认 → 会话刷新 — 需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/CustomerDetail.vue"
+        - "对照 hhspec/prototype/portal-admin/src/views/CustomerDetail.vue:39"
+
+    - page_id: "portal-admin/AdminList"
+      spec_id: UIS-A04
+      status: PASS
+      prototype_conformance: >-
+        管理员 CRUD 结构保留：搜索 + 角色筛选 + 状态筛选；新增/编辑弹窗（姓名/邮箱/密码/角色/状态，编辑时 email 只读）；
+        禁用/启用 toggle（超管不可禁用，title 提示）；重置密码；删除确认弹窗（不可删自己/超管，按钮禁用 + title 提示）。
+        mock 替换为 listAdmins/createAdmin 真实接口；409 40901 EMAIL_EXISTS 字段级回显（FORM-A02）。超管保护 UI 预判 + 后端二次校验。
+      deviation:
+        finding_ref: FND-003
+        detail: >-
+          实现表头为 5 列（管理员/角色/最近登录/状态/操作），原型为 6 列（多 '创建时间'）。'创建时间' 列被省略，
+          数据本身后端有（created_at），仅列展示裁剪 → 记 SUGGEST（非 FAIL）。
+      blocked_runtime_checks:
+        - "创建管理员入列 / 邮箱重复 409 / 编辑 email 只读 / 超管降权按钮禁用 / 删超管删自己禁用 / 重置密码启停生效 — 需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/AdminList.vue:219-223"
+        - "对照 hhspec/prototype/portal-admin/src/views/AdminList.vue:173-177"
+
+    - page_id: "portal-admin/RoleManagement"
+      spec_id: UIS-A05
+      status: PASS
+      prototype_conformance: >-
+        结构保留：左侧角色列表（预设/自定义 + 权限数 + 成员数 + is_locked 🔒 锁标）+ 右侧权限矩阵（按 group 分组复选、
+        分组标题前复选框批量勾选、全选/取消全选、indeterminate 半选态）。is_locked 超管角色矩阵只读、保存/删除禁用（EDGE-019）。
+        新增/改名/删除自定义角色（重名校验 '角色名称已存在'）；删除有成员角色 409 40904 ROLE_IN_USE 提示先迁移。
+        hasUnsavedChanges 未保存切角色 window.confirm 提示；保存 → updateRole → fetchMe 重渲菜单。
+        mock 替换为真实 listRoles/updateRole 接口。
+      blocked_runtime_checks:
+        - "勾选/取消权限 hasUnsavedChanges 提示、保存生效、菜单重渲 — 需运行时"
+        - "删除有成员角色 40904 提示 — 需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/RoleManagement.vue"
+        - "对照 hhspec/prototype/portal-admin/src/views/RoleManagement.vue"
+
+    - page_id: "portal-admin/AuthSettings"
+      spec_id: UIS-A06
+      status: PASS
+      prototype_conformance: >-
+        结构保留：登录方式开关（email 主登录 locked 不可关、google、apple，含说明文案）；
+        OTP 策略（验证码长度 4/6/8 select、有效期 1-30min、重发间隔 10-120s、最大尝试 3-10）含前端区间预校验 + 字段级错误回显；
+        账户关联策略（系统自动归并说明、minMethods 1-3）；OAuth 凭据（Google Client ID / Apple Service ID 只读展示，cursor-not-allowed）；
+        '保存配置' 按钮。422 40002 字段错误回显。mock 替换为真实 authConfig 接口。
+      blocked_runtime_checks:
+        - "email 开关强制 on 不可关 — 逻辑存在(locked)，需运行时验证 UI"
+        - "OTP 越界 422 40002 字段回显 / 保存成功提示 — 需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/AuthSettings.vue"
+        - "对照 hhspec/prototype/portal-admin/src/views/AuthSettings.vue"
+
+    - page_id: "portal-admin/OperationLogs"
+      spec_id: UIS-A07
+      status: PASS
+      prototype_conformance: >-
+        结构保留：表头（时间/操作人/操作/操作对象/IP/详情）；操作人搜索下拉（Headless-UI Combobox）+ 时间范围（开始/结束）
+        + 操作类型多选筛选（Headless-UI Popover）；详情抽屉变更前后对比（changeColor 新增=ok绿/删除=danger红/修改着色）；
+        导出 CSV（exportCSV，'导出中…' 态）；无删除按钮（只读不可删，EDGE-018 — 已确认源码无删除入口）。
+        mock 替换为 listLogs 真实接口。Headless-UI Combobox/Popover 根组件均正确配 as 属性（项目记忆，规避级联崩溃）。
+      blocked_runtime_checks:
+        - "分页/筛选列表更新、展开 changes before/after、导出触发下载 — 需运行时"
+      evidence:
+        - "frontend/portal-admin/src/views/OperationLogs.vue:281-285（表头）, 166-272（Combobox/Popover as 属性）, 159（导出，无删除）"
+        - "对照 hhspec/prototype/portal-admin/src/views/OperationLogs.vue"
+
+  findings:
+    - id: FND-001
+      page: portal-admin/Customers
+      dimension: field_content
+      severity: SUGGEST
+      title: "用户列表少 2 列（订单数 / 累计消费）"
+      evidence: "impl Customers.vue:75-79 表头 5 列；prototype:33 表头 7 列（含 订单数/累计消费）"
+      description: "订单域聚合字段，identity 模块后端不提供，属有意识范围裁剪。结构未崩坏，搜索/筛选/分页/详情入口齐全。"
+      recommendation: "若需求确需展示订单聚合，应跨域取数补列；否则在 L2 ui_test_spec 标注 identity 范围内 Customers 列为 5 列以消除对照差异。"
+      remediation: "回 L2 修订 ui_test_spec 列定义，或后续订单域联调时补 listUsers 聚合字段。"
+      rollback_level: L2
+    - id: FND-002
+      page: portal-admin/CustomerDetail
+      dimension: interaction_paths
+      severity: SUGGEST
+      title: "缺 '打标签' 操作按钮"
+      evidence: "prototype CustomerDetail.vue:39 含 <button>打标签(TagIcon)；impl 操作区为 返回/强制下线/禁用账户"
+      description: "打标签为运营辅助，identity 模块未实现对应后端能力，故省略。核心身份运营（禁用/强制下线/凭证/会话/登录历史）完整。"
+      recommendation: "确认打标签是否属本期 identity 范围；不在范围则于 ui_test_spec 移除该交互项。"
+      remediation: "L2 确认范围；若在范围，回 L0/L1 补客户标签能力。"
+      rollback_level: L2
+    - id: FND-003
+      page: portal-admin/AdminList
+      dimension: field_content
+      severity: SUGGEST
+      title: "管理员列表少 1 列（创建时间）"
+      evidence: "impl AdminList.vue:219-223 表头 5 列；prototype:173-177 表头 6 列（含 创建时间）"
+      description: "created_at 后端数据存在，仅列展示被裁剪。结构未崩坏，CRUD/筛选/超管保护齐全。"
+      recommendation: "补 '创建时间' 列以与原型一致，或在 ui_test_spec 标注省略。改动成本低，建议补列。"
+      remediation: "L3 在 AdminList.vue 表头与行补 created_at 列（数据已具备）。"
+      rollback_level: L3
+
+  blocked_summary:
+    reason: "前端 dev server 启动失败，无法运行 Playwright；所有运行时交互/状态流转/视觉像素对比/axe-core/性能采集项标记 BLOCKED。"
+    blocked_dimensions:
+      - "视觉还原（VIS）：未执行像素级截图对比（无运行时渲染）；已做结构/文案/CSS 类源码对照。"
+      - "交互路径（INT）：表单提交、step 切换、二次确认弹窗、状态流转均未实跑（逻辑在源码中存在）。"
+      - "可访问性（A11Y）：未运行 axe-core；已源码核验 label/aria-live/role=alert/as 属性等关键点。"
+      - "性能（PERF）：未采集 Core Web Vitals。"
+      - "跨浏览器（XBRW）：未执行多引擎验证。"
+    blocked_interaction_count: 11
+    note: "BLOCKED 不计入 FAIL；待 dev server 可用后需补充运行时验证轮次。"
+
+  rollback_recommendation:
+    target_level: null
+    reason: "无 FAIL 级问题：11 页结构/文案/核心交互元素均保留并对接真实后端 API，无页面缺失或结构严重偏离。3 项 SUGGEST 为列裁剪/辅助按钮缺失，不阻断。"
+    action_items:
+      - "ISS-L4U-001（SUGGEST）：FND-001/003 列差异 → L2 对齐 ui_test_spec 列定义 或 L3 补 created_at 列。"
+      - "ISS-L4U-002（SUGGEST）：FND-002 打标签按钮范围确认 → L2。"
+      - "运行时补验：dev server 修复后执行完整 Playwright 六维验收（当前 BLOCKED 项）。"
+
+  specs_update:
+    needed: false
+    note: "本轮无反复出现的系统性 UI 问题，暂不触发 specs 规范库回溯更新。Headless-UI as 属性已被实现正确遵循（项目记忆生效）。"
+    updates: []
+
+  uncertainties:
+    - id: UNC-001
+      question: "Customers '订单数/累计消费' 与 CustomerDetail '打标签' 是否属本期 identity 范围？"
+      impact: "决定 FND-001/002 是补功能（回 L0/L1）还是修订 ui_test_spec（L2）。"
+      suggestion: "由 L2 设计者确认 identity 模块边界；倾向裁剪为 identity 范围内列/操作。"
+    - id: UNC-002
+      question: "所有 BLOCKED 运行时交互（表单提交/状态流转/错误码渲染/OAuth 流）实际行为是否符合 spec？"
+      impact: "运行时行为正确性未经真实浏览器验证，仅源码逻辑层面确认存在。"
+      suggestion: "修复 dev server 后执行 Playwright 实跑补验，确认 verdict 是否可升至 PASS。"
+    - id: UNC-003
+      question: "构建产物（dist/out）是否为当前源码的最新构建？"
+      impact: "若产物滞后于源码，静态产物核验结论可能与实际部署有偏差。"
+      suggestion: "运行时验证前重新构建一次以保证产物与源码一致。"
+
+  network_verification:
+    mode: "static（无运行时拦截）"
+    note: "未通过 page.route() 实拦截。已确认前端 API client 模块齐全且页面调用正确接口名（auth-api.ts / src/api/*.ts），实际 HTTP 状态码与响应字段断言 BLOCKED。"
+    api_client_present: true
+
+  summary:
+    total_pages: 11
+    pass_pages: 11
+    blocked_pages: 0
+    fail_pages: 0
+    pages_with_suggest_deviation: 3
+    total_findings: 3
+    must_fix_count: 0
+    suggest_count: 3
+    blocked_runtime_checks: 11
+    rollback_level: null
+    specs_update_needed: false
+    verdict_rationale: >-
+      CONDITIONAL_PASS：11 页全部保留原型结构/文案/核心交互并对接真实后端 API（mock 已替换），
+      无页面缺失或结构严重偏离（无 FAIL）。3 项 SUGGEST 为列裁剪/辅助按钮（非阻断）。
+      因 dev server 不可用，运行时交互/视觉像素/可访问性/性能/跨浏览器维度整体 BLOCKED，
+      需后续真实浏览器轮次补验后方可升级为完全 PASS。
+---

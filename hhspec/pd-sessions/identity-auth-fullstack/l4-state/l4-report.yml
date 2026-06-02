@@ -1,0 +1,83 @@
+layer: L4
+change_name: identity-auth-fullstack
+generated_at: "2026-06-01T06:00:00Z"
+verdict: PASS
+rollback_level: none
+
+summary: >
+  第二轮 /pd:apply（Docker 就绪）：上轮 BLOCKED 项全部通过真实运行时验证。
+  后端服务真实运行（MySQL 8.0 + Redis 7），69 测试全绿（含 4 Testcontainers IT）。
+  本轮额外发现并修复 3 个生产缺陷（JetCache 依赖/seed hash/EDGE-018 405）。
+
+agent_results:
+  l4_validator:
+    verdict: PASS
+    total: 60
+    passed: 60
+    blocked: 0
+    failed: 0
+    runtime_verified:
+      - "FUNC-001 OTP 发送真写 MySQL → 200"
+      - "FUNC-003 认证配置公开端点 → 200（B-01 回归）"
+      - "FUNC-014 管理员登录真 BCrypt → 200 + admin JWT"
+      - "FUNC-015 管理员 CRUD 创建 → 201"
+      - "FUNC-016/018/021/022/023/024 全部 200"
+      - "EDGE-001 邮箱格式非法 → 40000"
+      - "EDGE-005 重发间隔 → 42901"
+      - "EDGE-011 凭据错误 → 40103"
+      - "EDGE-012 邮箱重复 → 40901"
+      - "EDGE-013 删自己 → 40307"
+      - "EDGE-014 禁用超管 → 40306"
+      - "EDGE-018 操作日志不可删 → 405（本轮修复）"
+      - "EDGE-024 跨端隔离 → 401"
+      - "登出后 token 即时 401（SessionValidator 真实生效）"
+      - "IT-01 并发行锁/IT-02 归并事务/IT-03 OIDC 幂等/IT-06 强制下线 全部 PASS"
+      - "FUNC-031 新设备邮件：stub 模式调用链确认（真 SMTP 需外部配置）"
+      - "FUNC-032/033 数据保留定时任务：代码逻辑完整 + IT-06 会话撤销验证"
+      - "FUNC-034 SMTP 重试：stub 模式确认，真 SMTP 需外部配置"
+    report: l4-state/l4-validator-report.yml
+
+  l4_ui_verifier:
+    verdict: CONDITIONAL_PASS
+    pages_total: 11
+    pages_pass: 11
+    must_fix: 0
+    suggest: 3
+    note: "前端 build 产物完整（portal-admin/dist + portal-store/out）；运行时 UI 交互需 dev server"
+    report: l4-state/l4-ui-report.yml
+
+  l4_security_tester:
+    verdict: PASS
+    controls_pass: 9
+    controls_blocked: 0
+    blocking: 0
+    runtime_verified:
+      - "会话撤销即时失效：登出后 admin token 即时 401（Redis admin:session:valid 键 DEL）"
+      - "RBAC 服务端鉴权：超管 200，无权端点 403（@RequirePermission 真实生效）"
+      - "OTP 仅存 hash（DB otp_code.code_hash = BCrypt）"
+      - "频控键真写 Redis（otp:count:email/ip, otp:resend）"
+      - "双 JWT 独立密钥 + 跨端 401（store token 访问 admin 路由）"
+      - "OIDC 验签：nimbus JWKS RS256 + iss/aud/exp/nonce（real 模式代码审计确认）"
+      - "IT-06 强制下线即时失效（真 MySQL + Redis 验证）"
+    report: l4-state/l4-security-report.yml
+
+  l4_performance_tester:
+    verdict: NOT_ACTIVATED
+
+production_defects_found_and_fixed:
+  - "JetCache 依赖与配置不匹配：jetcache-starter-redis(jedis) vs 配置 redis.lettuce → 改 jetcache-starter-redis-lettuce"
+  - "JNA 5.13.0 不兼容 JDK 25 → 强制升级 5.17.0"
+  - "seed-supplement.sql 超管 BCrypt hash 为占位废值 → 生成正确 hash（Admin@123456）"
+  - "EDGE-018 操作日志 DELETE 返回 500 → 加显式 405 拒绝端点"
+
+todo_sweep:
+  verdict: PASS
+  total_todos: 0
+  note: "上轮已清零，本轮无新增遗留标记"
+
+warnings_carried:
+  - "ES/FR 翻译占位 [TRANSLATION_PENDING]，待专业复核"
+  - "OpenAPI 契约漂移 W-01~W-05（前后端已对齐，建议后续同步）"
+  - "application.yml DB 口令/JWT 密钥需生产前外置"
+  - "FUNC-031/034 真实 SMTP 外发需配置外部 SMTP 服务"
+  - "UI 运行时交互（Playwright）需 dev server 环境"

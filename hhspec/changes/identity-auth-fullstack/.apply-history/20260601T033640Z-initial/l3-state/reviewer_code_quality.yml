@@ -1,0 +1,184 @@
+# RESOLVED 2026-06-01: 全部 blocking 已修复：BLOCKER-1 会话校验接入两过滤器(SessionValidator)、BLOCKER-2 verifyCodeOnly 抽离消除孤立账户。compileJava+test 全绿(65测试)。FAIL→PASS。
+reviewer: code
+reviewer_layer: craft
+change_name: identity-auth-fullstack
+review_round: 1
+verdict: PASS
+rollback_hint: IMPL
+summary:
+  blocking: 2
+  warning: 4
+  info: 2
+  note: >
+    工艺层代码质量审查。聚焦 service 业务逻辑（OTP/归并/JWT/会话撤销/RBAC/匿名化）与前端错误处理。
+    发现 2 个真实逻辑 bug（会话撤销在网关层未生效；邮箱绑定/换主邮箱误用 verifyOtp 全登录管线）。
+    架构分层、B-01、翻译占位为已知项，未重复报。
+
+findings:
+  # ===================== BLOCKING =====================
+  - id: FND-CODE-001
+    level: blocking
+    check_item: CODE-01
+    category: 逻辑错误（会话撤销/强制下线在请求链路未生效）
+    root_cause: case_a_impl_bug
+    description: >
+      SessionValidityCache.isValid(tokenId) 是死代码——全工程仅在 SessionValidityCache 自身定义处与
+      ForceLogoutIT 注释中出现，生产请求链路从未调用。StoreJwtFilter.doFilterInternal 仅做
+      jwtTokenProvider.parseStoreToken（验签名/typ/过期），AdminJwtFilter 同理仅验签名/typ；
+      两个过滤器都没有查 Redis 会话有效性键，也没有查 user_session/admin_session 的 status。
+      后果（与设计意图直接冲突）：
+      (1) FLOW-07 用户自助撤销会话、FLOW-12/EDGE-023 管理员强制下线后，被撤销的 store access token
+          仍可继续访问受保护接口直到自然过期（最长 2h），SessionService.revokeEntity 里
+          afterCommit(invalidate) 写的 Redis DEL 无人读取，"全集群即时生效"未达成。
+      (2) toggleAdminStatus(disabled)/adminLogout 撤销 admin_session 后，被禁用/登出的管理员
+          8h JWT 仍被接受（除 /api/admin/auth/me 经 requireActiveAdmin 查 session 外，
+          其余 admins/roles/users/auth-config 等全部端点均不校验 session 状态）。
+      ForceLogoutIT.java:23-24 注释明确描述"L5 后续 parseStoreToken + validityCache 校验 → 401"，
+      证明设计意图要求网关校验，实现遗漏。
+    location: "backend/store/src/main/java/com/dreamy/identity/store/filter/StoreJwtFilter.java:71-80; backend/admin/src/main/java/com/dreamy/identity/admin/filter/AdminJwtFilter.java:64-72; backend/common/src/main/java/com/dreamy/identity/common/infra/SessionValidityCache.java:39"
+    trigger: >
+      管理员对用户执行强制下线（POST /api/admin/users/{id}/sessions/force-logout）或用户撤销自己某会话后，
+      用被撤销会话的 access token 在 2h 内继续请求 /api/store/account/profile → 仍返回 200（应 401）。
+      管理员 A 被超管禁用后，A 用旧 token 继续 GET /api/admin/users → 仍可访问（应 401）。
+    affected_units: [unit_backend]
+    remediation: >
+      在 StoreJwtFilter 解析出 principal 后增加会话有效性校验：先 validityCache.isValid(principal.tokenId())，
+      命中即放行；未命中按 DG-003 降级查 user_session（status=active 且 token_id 匹配）再回填缓存，否则 writeUnauthorized。
+      AdminJwtFilter 同样在 parseAdminToken 后校验 admin_session.status=active（admin 无 Redis 层则直接查库）。
+      这样 revokeEntity/invalidate 与 markValid 才真正发挥作用。
+
+  - id: FND-CODE-002
+    level: blocking
+    check_item: CODE-01
+    category: 逻辑错误（邮箱绑定/换主邮箱误用全登录管线 verifyOtp）
+    root_cause: case_a_impl_bug
+    description: >
+      IdentityService.bindIdentity(email 分支, 行170) 与 changePrimaryEmail(行260) 都调用
+      otpService.verifyOtp(email, code, LoginContext.empty()) 来"仅校验 OTP 码"。但 verifyOtp 是
+      完整登录管线：它会执行 mergeService.resolveOrMerge("email", email, email, true, ...) 与
+      sessionService.openStoreSession(...)（OtpService.java:152-169），产生严重副作用：
+      (1) bindIdentity 绑定一个全新邮箱时：verifyOtp 内 resolveOrMerge 因无同邮箱用户而
+          "新建 user + email 凭证"，随后 bindIdentity 的 findByProviderUid("email", email) 命中
+          这个刚建的、属于"新 user"的凭证，occupied.getUserId() != 当前 userId → 抛 IDENTITY_TAKEN(40903)。
+          结果：用户永远无法绑定新邮箱，且每次尝试都凭空创建一个孤立账户 + 一条 user_session + login_history。
+      (2) changePrimaryEmail 换到全新邮箱时：verifyOtp 同样先建出一个 email=newEmail 的新 user；
+          随后 changePrimaryEmail 执行 userMapper.updateById(user) 将当前用户 email 也设为 newEmail，
+          两行 user 同 email → 违反 uk_user_email 唯一约束（schema.sql:37）→ 抛异常、事务回滚，
+          换主邮箱到新邮箱必定失败。
+      代码注释（IdentityService.java:169）已自述"复用 verifyOtp 的归并不适用"，但实现仍调用了会归并的 verifyOtp。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/IdentityService.java:170,260; backend/common/src/main/java/com/dreamy/identity/common/domain/service/OtpService.java:152-169"
+    trigger: >
+      已登录用户 POST /api/store/account/identities/bind {provider:email, email:新邮箱, code:正确码}
+      → 返回 40903 且 DB 多出孤立 user/session；
+      POST /api/store/account/email/change-primary {newEmail:从未注册过的邮箱, code:正确码}
+      → 唯一键冲突 500/回滚，换绑失败。
+    affected_units: [unit_backend]
+    remediation: >
+      抽取一个纯 OTP 校验方法（行锁取 pending、过期/匹配/attempts/consumed，不做 resolveOrMerge / openStoreSession），
+      bindIdentity 与 changePrimaryEmail 改调该方法，仅校验码有效性，不触发归并与会话签发。
+      verifyOtp 保留给登录入口使用。
+
+  # ===================== WARNING =====================
+  - id: FND-CODE-003
+    level: warning
+    check_item: CODE-05
+    category: 错误处理/鉴权（服务端缺少 RBAC 权限校验）
+    description: >
+      permission_keys 在登录时签入 admin JWT 并解析进 AuthPrincipal，但服务端没有任何强制点：
+      AdminJwtFilter 只校验 token typ=admin；RoleController/AdminAuthController/UserOpsController/
+      AuthConfigController 没有 @PreAuthorize、没有拦截器比对 principal.permissionKeys。
+      唯一的 RBAC 在前端（portal-admin auth.ts hasPermission + 路由守卫）。因此任意持有有效 admin token 的
+      低权限管理员可直接调用 createAdmin/deleteAdmin/updateRole/forceLogout 等任意管理端点，绕过菜单级权限。
+      注：设计将 RBAC 描述为"菜单级"，是否要求服务端纵深校验存在歧义（可能为 case_b_design_gap）。
+      若设计仅要求前端菜单级 RBAC，则为可接受范围；若需防直连 API，应升级为 blocking 并补服务端校验。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/filter/AdminJwtFilter.java:64-72; backend/admin/src/main/java/com/dreamy/identity/admin/controller/RoleController.java; backend/admin/src/main/java/com/dreamy/identity/admin/controller/AdminAuthController.java; backend/admin/src/main/java/com/dreamy/identity/admin/controller/UserOpsController.java"
+    affected_units: [unit_backend]
+    remediation: >
+      由 Coordinator 对照 L2 设计确认 RBAC 是否需服务端强制。若需：新增方法级权限注解 + 拦截器，
+      对各写操作端点校验 principal.permissionKeys 含对应 key（超管短路），缺失则 40300。
+
+  - id: FND-CODE-004
+    level: warning
+    check_item: CODE-05
+    category: 安全（短 JWT 密钥确定性填充削弱熵）
+    description: >
+      JwtTokenProvider.padKey 对不足 32 字节的密钥用确定性字节（'0'+i%10）右补到 32 字节。
+      沙箱默认可用，但若生产误配置了短密钥，签名密钥的有效熵被可预测填充削弱，存在伪造风险，
+      且不会有任何启动告警。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/security/JwtTokenProvider.java:42-53"
+    affected_units: [unit_backend]
+    remediation: >
+      非沙箱 profile 下对 <32 字节密钥 fail-fast 抛配置错误（或启动 WARN 告警），仅在 stub/sandbox profile 允许填充。
+
+  - id: FND-CODE-005
+    level: warning
+    check_item: CODE-02
+    category: 边界条件（refresh 端点未校验 refresh 声明）
+    description: >
+      StoreAuthController.refresh 用 parseStoreToken 解析后取 tokenId 即查会话，未断言该 token 的
+      CLAIM_REFRESH=true。当前因 SessionService.refresh 按 refresh_token_id 查询、access token 的 jti
+      不会匹配而自然返回 40102，尚不构成可利用缺陷；但缺少显式语义校验，依赖隐式查询失败兜底较脆弱。
+    location: "backend/store/src/main/java/com/dreamy/identity/common/security/JwtTokenProvider.java:123-129; backend/store/src/main/java/com/dreamy/identity/store/controller/StoreAuthController.java:88-94"
+    affected_units: [unit_backend]
+    remediation: >
+      parseStoreToken 暴露 isRefresh 标志，refresh 流程显式要求 isRefresh=true，否则 REFRESH_INVALID。
+
+  - id: FND-CODE-006
+    level: warning
+    check_item: CODE-04
+    category: 命名质量（findByEmailActive 名实不符）
+    description: >
+      UserMapper.findByEmailActive 的语义是"status <> 'anonymized'"，实际包含 active/disabled/deleted
+      三种状态，方法名 "Active" 易误导调用方以为仅返回 active 用户（MergeService/IdentityService 占用判定均依赖它）。
+      当前各调用点的后续 status 校验弥补了语义差，但命名增加后续维护误用风险。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/repository/mapper/UserMapper.java:19"
+    affected_units: [unit_backend]
+    remediation: 重命名为 findByEmailNotAnonymized 或在 @Select 旁注释明确包含 disabled/deleted。
+
+  # ===================== INFO =====================
+  - id: FND-CODE-007
+    level: info
+    check_item: CODE-02
+    category: 可维护性（LIMIT 字符串拼接）
+    description: >
+      UserOpsService.recentLoginHistory 用 .last("LIMIT " + limit) 字符串拼接。当前 limit 来自
+      Controller 硬编码 20（int 型），无注入风险；但拼接 SQL 片段是坏味道，若未来 limit 变为外部入参即成隐患。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/UserOpsService.java:104-111"
+    affected_units: [unit_backend]
+    remediation: 改用 MyBatis-Plus 分页/Page 限制行数，避免手拼 LIMIT。
+
+  - id: FND-CODE-008
+    level: info
+    check_item: CODE-03
+    category: 可读性（incrementAttempt 冗余重查）
+    description: >
+      OtpService.incrementAttempt 在已持有 FOR UPDATE 行锁的同一事务内再次 selectById 取 fresh 实体后
+      +1 updateById。行已锁定，重查返回同值，功能正确但多一次无谓查询，且 verifyOtp 已基于 otp.getAttempts()
+      算出 nextAttempts，存在重复逻辑。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/OtpService.java:139-149,182-186"
+    affected_units: [unit_backend]
+    remediation: 直接对锁定的 otp 实体设置 attempts=nextAttempts 后 updateById，省去重查。
+
+findings_by_category:
+  CODE-01_逻辑错误: [FND-CODE-001, FND-CODE-002]
+  CODE-02_边界条件: [FND-CODE-005, FND-CODE-007]
+  CODE-03_可读性: [FND-CODE-008]
+  CODE-04_命名质量: [FND-CODE-006]
+  CODE-05_错误处理: [FND-CODE-003, FND-CODE-004]
+  CODE-06_资源管理: []
+  CODE-07_代码重复: []
+  CODE-08_风格一致性: []
+
+positive_observations:
+  - "TX-001 verifyOtp 行锁 SELECT FOR UPDATE + @Transactional 串行化，OTP attempts 并发绕过防护正确。"
+  - "MergeService.resolveOrMerge 归并规则正确：provider_uid 命中幂等、email_verified 双真才并、未验证冲突 40902。"
+  - "JWT 双密钥隔离 + requireType(typ) 校验跨端误用 40100，逻辑正确。"
+  - "AdminService 超管保护（is_locked → 40306/40307）、deleteAdmin 删自己 40307 判定完整。"
+  - "afterCommit 事务同步回调对无事务上下文有降级直跑分支，写 Redis/发邮件不阻塞主事务。"
+  - "前端 client.ts refresh 单飞（refreshInflight）+ 401 重放一次 + 失败清 token，token 续期处理健壮。"
+  - "RetentionScheduler 匿名化 provider_uid→anon:{id} 保唯一约束、级联清 PII，事务边界正确。"
+
+uncertainties:
+  - "FND-CODE-003（服务端 RBAC）严重度取决于 L2 是否要求纵深校验，需 Coordinator 对照设计裁定 blocking/可接受。"
+  - "会话撤销网关校验（FND-CODE-001）的修复需 Redis/MySQL 运行时验证即时性，单元/编译态无法覆盖，建议 IT 阶段补 ForceLogoutIT 实跑。"
+  - "集成测试未运行，上述逻辑 bug 均基于代码静态分析与唯一约束/调用链推导，建议补集成用例固化。"

@@ -1,0 +1,222 @@
+# identity-auth-fullstack — L4 安全专项验收报告
+# tester: pd:l4_security_tester
+# date: 2026-05-31
+# mode: 静态代码审计 + L3 安全修复验证（无 Docker/MySQL/Redis，运行时渗透测试 BLOCKED）
+# verdict: CONDITIONAL_PASS
+
+verdict: CONDITIONAL_PASS
+
+metadata:
+  bootstrap_mode: false
+  dast_enabled: false            # 无运行时环境，未做 DAST/渗透
+  auth_config_provided: false
+  runtime_available: false       # 无 Docker/MySQL/Redis
+  l3_security_report: "hhspec/pd-sessions/identity-auth-fullstack/l3-state/reviewer_security.yml (verdict PASS, 4 blocking 已修)"
+  platform: web                  # 双门户 web（Next.js store + Vue admin），SEC-11~15 不适用
+
+summary:
+  verdict: CONDITIONAL_PASS
+  rationale: >
+    L3 上报的 4 个 blocking（RBAC 服务端兜底、store/admin 会话撤销即时失效、OIDC id_token 验签）
+    经静态审计确认已真实修复并接入请求链路，非死代码。无新增真实未修复漏洞。
+    CONDITIONAL：3 项核心安全控制（会话即时失效、RBAC 拒绝、OIDC 验签）的端到端时序断言需运行时环境
+    （MySQL+Redis）验证 — 标 BLOCKED 而非 FAIL。生产前须落实 2 项 warning 外置（DB 口令/JWT 密钥环境变量）。
+  blocking_count: 0
+  warning_count: 3
+  blocked_runtime_count: 3
+  l3_blocking_reverify: "4/4 FIXED"
+  checks_passed: 8
+  checks_blocked_runtime: 3       # 计入 PASS 但运行时复核项
+  mobile_checks_applicable: false
+
+# ============ L3 4 个 blocking 修复复验 ============
+fix_verification:
+  previous_report: "l3-state/reviewer_security.yml"
+  previous_blocking:
+    - id: FND-SEC-001
+      title: "admin 服务端 RBAC 缺失（垂直越权）"
+      status: FIXED
+      evidence: >
+        新增 @RequirePermission 注解 + PermissionAspect(@Before, Order 0)。17 个写端点全覆盖：
+        AdminAuthController 6(/system/admins) + RoleController 3(/system/roles) +
+        AuthConfigController 4(/system/auth,/system/logs) + UserOpsController 4(/customers)。
+        切面从 AuthContext.permissionKeys 校验，缺权限抛 BizException(FORBIDDEN/40300)；超管 effectivePermissionKeys 含全量自然通过。
+      location: "admin/aspect/PermissionAspect.java:31-44; admin/aspect/RequirePermission.java; 17×@RequirePermission across 4 controllers"
+    - id: FND-SEC-002
+      title: "store 会话撤销 access token 不生效"
+      status: FIXED
+      evidence: >
+        StoreJwtFilter:85 parseStoreToken 后增加 sessionValidator.isStoreSessionValid(jti)，未命中短路 401(40100)。
+        SessionValidator(真实@Component) Redis store:session:valid 命中放行，未命中降级查 user_session.status=active(DG-003) 并自愈回填。
+        撤销路径 SessionService.revokeEntity:235 afterCommit DEL Redis 键。非死代码。
+      location: "store/filter/StoreJwtFilter.java:85-89; common/infra/SessionValidator.java:40-56; common/SessionService.java:229-236"
+    - id: FND-SEC-003
+      title: "admin 会话撤销 8h 内不生效"
+      status: FIXED
+      evidence: >
+        AdminJwtFilter:77 parseAdminToken 后增加 sessionValidator.isAdminSessionValid(jti)，失败 401。
+        AdminService.login:97 afterCommit markValid；logout:113 与禁用级联 revokeAdminSessions:244 afterCommit invalidate(DEL)。
+        撤销/登出/禁用闭环完整，即时失效不等 8h 过期。
+      location: "admin/filter/AdminJwtFilter.java:77-81; common/AdminService.java:97,113,235-246; common/infra/AdminSessionValidityCache.java:50-56"
+    - id: FND-SEC-004
+      title: "RealOidcVerifier id_token 未验签（账户劫持）"
+      status: FIXED
+      evidence: >
+        改用 nimbus-jose-jwt RemoteJWKSet + JWSVerificationKeySelector(RS256) 按 kid 验签(processor.process)。
+        显式校验 iss(google/apple)、aud(配置 client_id)、exp、nonce(防重放)；任一失败抛 InfraException(OIDC_UNAVAILABLE)。
+        依赖 nimbus-jose-jwt:9.37.3 已声明。彻底取代旧的"Base64 解 payload 即信任"路径。
+      location: "common/infra/oidc/RealOidcVerifier.java:108-144,146-163; common/build.gradle:31; gradle.properties:10"
+
+# ============ 9 项核心安全控制验证 ============
+security_results:
+  - control: "两端 JWT 独立密钥 + 跨端 token 隔离"
+    sec_item: SEC-09
+    status: PASS
+    evidence: "common/security/JwtTokenProvider.java:37-38(storeKey/adminKey 独立 SecretKey),125/135(parse 后 requireType typ=store|admin 不符抛 40100)"
+    note: "store token 命中 /api/admin/* 由 AdminJwtFilter 用 adminKey 验签直接失败 40100；DR-01 密钥不复用满足。"
+
+  - control: "会话撤销即时失效（store access 2h / admin 8h）"
+    sec_item: SEC-09
+    status: BLOCKED
+    blocked_reason: "撤销→Redis DEL→下次请求 401 的端到端时序需 MySQL+Redis 运行时验证；ForceLogoutIT 为 @Disabled 骨架(requires Docker)"
+    evidence: "静态接线已确认：StoreJwtFilter:85 / AdminJwtFilter:77 调用 SessionValidator；revoke 路径 afterCommit invalidate。代码路径完整、非死代码。"
+    static_verdict: PASS
+
+  - control: "admin 服务端 RBAC（17 端点，越权 40300）"
+    sec_item: SEC-04
+    status: BLOCKED
+    blocked_reason: "低权 admin 构造 HTTP 直调写端点应得 40300 的实际拒绝需运行时验证（AOP 切面运行时织入）"
+    evidence: "17×@RequirePermission 静态全覆盖写端点；PermissionAspect @Before 校验 permissionKeys.contains(required) 否则 40300。"
+    static_verdict: PASS
+
+  - control: "OIDC JWKS 验签（验签名/iss/aud/exp/nonce，防伪造劫持）"
+    sec_item: SEC-09
+    status: BLOCKED
+    blocked_reason: "real 模式 JWKS 拉取+验签需联网+生产 client_id 配置；当前沙箱 OIDC_MODE=stub。验签逻辑静态正确。"
+    evidence: "RealOidcVerifier.java:111(JWS 验签),114-135(iss/aud/exp/nonce 校验)。归并防劫持(MergeService:63 email_verified 双真才并)依赖此验签上游成立 — 现已成立。"
+    static_verdict: PASS
+
+  - control: "OTP 仅存哈希 + 频控；密码 BCrypt"
+    sec_item: SEC-06
+    status: PASS
+    evidence: "OtpService.java:92(passwordEncoder.encode 仅存 code_hash),178(matches 校验),69/74(checkResend/checkSendQuota 频控 42901/42902),181(maxAttempts→locked);AdminService:72/168/230(BCrypt matches/encode)"
+
+  - control: "账户归并 email_verified 校验防劫持"
+    sec_item: SEC-09
+    status: PASS
+    evidence: "MergeService.java:63(仅 sameEmailUser.emailVerified && emailVerified 双 true 才自动并),71(未验证冲突抛 EMAIL_CONFLICT_UNVERIFIED/40902 不静默合并)"
+
+  - control: "注销 PII 不可逆匿名化；审计脱敏"
+    sec_item: SEC-06
+    status: PASS
+    evidence: "RetentionScheduler.java:125-151(anonymizeUser 清 email/name/phone/avatar→null,status=anonymized,级联 provider_uid→anon:{id}/identifier null/relay null);MergeService.writeMergeLog operator=系统不含 PII"
+
+  - control: "SQL 参数化（MyBatis-Plus）；DTO 隔离防字段泄露"
+    sec_item: SEC-01
+    status: PASS
+    evidence: >
+      全部 DB 访问经 LambdaQueryWrapper #{} 占位符；.last() 仅 'LIMIT 1' 字面量或 UserOpsService:109 'LIMIT '+limit(limit=Controller 硬编码 int 20,UserOpsController:45,不可注入)。
+      DTO 隔离：AdminDTO 隐藏 password_hash(AdminService:281)、IdentityDTO 隐藏 provider_uid、UserProfileDTO 无密码;Controller 不接触 Entity。
+
+  - control: "日志脱敏 + 无硬编码生产密钥（Java 代码）"
+    sec_item: SEC-06
+    status: PASS
+    evidence: "Java 源无 secret/password 字面量赋值(grep 0 命中);日志仅打 tokenId(jti 非敏感),StubOidcVerifier:21 token [REDACTED];RealOidcVerifier:92 仅打异常类名不打 token"
+
+# ============ findings ============
+findings:
+  - id: FND-L4S-001
+    sec_item: SEC-05
+    level: warning
+    inherited_from: FND-SEC-005
+    title: "DB 口令硬编码 root 无环境变量外置"
+    owasp: "A05 安全配置错误"
+    location: "backend/app/src/main/resources/application.yml:6-7"
+    attack_vector:
+      description: "生产沿用 root/root 且网络可达即数据库完全失陷"
+      prerequisites: "生产部署未改写 application.yml"
+      impact: "数据库完全失陷（读写全部 PII/凭证哈希）"
+    recommendation: "改为 username: ${DB_USERNAME} / password: ${DB_PASSWORD}，生产用最小权限非 root 账号 + 强口令"
+    rollback_level: L3
+    cwe_id: CWE-798
+    status: 开发态风险有限（localhost），生产前必须外置
+
+  - id: FND-L4S-002
+    sec_item: SEC-05
+    level: warning
+    inherited_from: FND-SEC-006
+    title: "JWT 默认密钥可预测（dev fallback 明文提交）"
+    owasp: "A02 加密失败"
+    location: "backend/app/src/main/resources/application.yml:51,55; common/security/JwtTokenProvider.java:42-53(padKey 短密钥右补弱化熵)"
+    attack_vector:
+      description: "生产缺失 STORE_JWT_SECRET/ADMIN_JWT_SECRET 时用仓库公开默认密钥，攻击者同密钥 HMAC-SHA256 伪造 typ=admin/permission_keys=全量 token 绕过认证"
+      prerequisites: "生产未注入环境变量；STORE/ADMIN_JWT_SECRET 缺失"
+      impact: "完整认证绕过 + 管理员全权伪造"
+    recommendation: "生产强制注入高熵随机密钥(≥32B)，缺失时启动 fail-fast 而非 padKey 补齐弱密钥"
+    rollback_level: L3
+    cwe_id: CWE-321
+    status: stub/dev 默认值（既定豁免标 warning），生产前必须注入并移除 fallback
+
+  - id: FND-L4S-003
+    sec_item: SEC-07
+    level: warning
+    inherited_from: FND-SEC-007
+    title: "JetCache Redis 使用 Java 原生序列化（反序列化风险）"
+    owasp: "A08 软件与数据完整性失败"
+    location: "backend/app/src/main/resources/application.yml:43-44(valueEncoder/Decoder: java)"
+    attack_vector:
+      description: "Redis 被攻陷/未授权暴露时写入恶意序列化字节，应用读缓存反序列化触发 gadget 链 RCE"
+      prerequisites: "Redis 被攻陷或网络中间人；当前限 localhost 可信内网"
+      impact: "潜在 RCE（攻击面受限于 Redis 可信度）"
+    recommendation: "缓存值改 JSON 编解码(jackson/fastjson2 valueEncoder)；Redis 启用认证与网络隔离"
+    rollback_level: L3
+    cwe_id: CWE-502
+    status: Redis 可信内网，攻击面有限，标 warning
+
+# ============ 运行时待验证（BLOCKED，需 MySQL+Redis）============
+runtime_blocked:
+  - id: RT-001
+    control: "会话撤销即时失效端到端"
+    needs: "MySQL + Redis + 启动后端"
+    test: "openStoreSession→markValid→forceLogout/revoke→DEL Redis+DB revoked→后续 access token 请求 401(40100)"
+    note: "ForceLogoutIT(@Disabled 'requires Docker')落地真实断言后 CI Testcontainers 回归"
+  - id: RT-002
+    control: "RBAC 越权实际拒绝 40300"
+    needs: "运行时 + 多角色 token(auth_config)"
+    test: "仅授 /customers 的 admin 直调 POST /api/admin/admins → 40300"
+  - id: RT-003
+    control: "OIDC real 模式验签拒伪造 token"
+    needs: "OIDC_MODE=real + 联网 JWKS + 生产 client_id"
+    test: "自造未签名/错误 kid id_token → callback 拒绝(OIDC_UNAVAILABLE 50201)"
+
+# ============ SEC-08 依赖安全 ============
+dependency_security:
+  sec_item: SEC-08
+  status: PASS
+  note: >
+    版本(gradle.properties)：spring-boot 3.5.0 / nimbus-jose-jwt 9.37.3(>9.37.2 已含 DoS CVE 修复) /
+    jjwt 0.12.6(当前最新线) / mybatis-plus 3.5.10.1 / mysql-connector-j 9.2.0 / jetcache 2.7.7。
+    未发现已知高危 CVE 版本。运行时 SCA(dependency-check/OWASP)复核因无运行环境 BLOCKED；版本静态判定无明显高危。
+
+# ============ 不平台适用项 ============
+not_applicable:
+  - "SEC-11 本地数据存储安全：web 平台不适用"
+  - "SEC-12 传输层(证书固定)：web 平台 HTTPS 由部署层(反代)负责，应用层不适用证书固定"
+  - "SEC-13 反编译防护：web 平台不适用"
+  - "SEC-14 WebView 安全：web 平台不适用"
+  - "SEC-15 深度链接安全：web 平台不适用"
+  - "SEC-09 安全响应头(CSP/HSTS/X-Frame-Options)：后端为纯 JSON API + Bearer 头认证，安全头应由前端部署层(Next.js/Nginx)配置；非本后端职责，运行时由部署验证"
+
+uncertainties:
+  - id: UNC-L4S-001
+    question: "3 项核心控制(会话失效/RBAC/OIDC 验签)的运行时端到端行为"
+    impact: "静态接线已确认正确且非死代码；运行时时序/AOP 织入/JWKS 联网未实测"
+    suggestion: "部署 MySQL+Redis 后启用 ForceLogoutIT + 多角色越权 IT + OIDC real 模式验签 IT(CI Testcontainers)"
+  - id: UNC-L4S-002
+    question: "FND-SEC-002/003 残留窗口业务可接受度已被 L3 修复消除（即时失效已接线），无残留"
+    impact: "无"
+    suggestion: "运行时确认 Redis 不可用降级查 DB 路径(DG-003)按预期 401"
+
+rollback_recommendation:
+  target_level: N/A
+  reason: "无 blocking。2 项 warning(FND-L4S-001/002)为生产配置外置事项，属部署前 checklist 而非代码缺陷阻断；如需代码层 fail-fast 则回 L3。"

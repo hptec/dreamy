@@ -1,0 +1,117 @@
+# 共享契约定义 — identity-auth-fullstack
+# 由 l2_design_coordinator 在专家开工前预定义；各专家只读，frontend designer 跨 domain 只读不写
+# 锁定命名、类型映射、引用规则、跨端隔离契约，作为冲突检测基线
+version: "1.0"
+layer: L2
+role: l2_design_coordinator
+change_name: identity-auth-fullstack
+domain_code: identity
+
+# ===== 1. 命名约定 =====
+naming:
+  api_prefix:
+    store: /api/store
+    admin: /api/admin
+  case:
+    json_field: snake_case        # 契约 JSON 字段统一 snake_case（与 OpenAPI/DDL 一致）
+    db_column: snake_case
+    java_field: camelCase         # MyBatis-Plus 映射
+    ts_interface: camelCase       # 前端 DTO（边界处转换）
+  field_mapping_rule: >
+    后端契约/DB 用 snake_case；TS 前端通过 API 客户端层在边界统一转换为 camelCase；
+    禁止前端直接消费 snake_case 字段名（避免散落转换）。
+  id_field: id                    # 所有实体主键字段名 id（permission 例外：业务主键 key；auth_config: int=1）
+  enum_values:                    # 枚举取值锁定（与 DDL CHECK 一致）
+    provider: [email, google, apple]
+    account_status: [active, disabled, deleted, anonymized]
+    session_status: [active, revoked]
+    otp_status: [pending, consumed, expired, locked]
+    role_type: [preset, custom]
+    tier: [vip, regular]
+    login_result: [success, failed]
+    email_template_code: [otp, new_device, change_primary, account_deleted]
+    locale_store: [en, es, fr]
+    locale_admin: [zh]
+
+# ===== 2. 类型映射表（领域类型 ↔ DB ↔ Java ↔ JSON/TS）=====
+type_mapping:
+  - { domain: uuid,     db: "CHAR(36)",     java: "String",        json: "string(uuid)" }
+  - { domain: string,   db: "VARCHAR(n)",   java: "String",        json: "string" }
+  - { domain: bool,     db: "TINYINT(1)",   java: "Boolean",       json: "boolean" }
+  - { domain: int,      db: "INT/SMALLINT", java: "Integer",       json: "integer" }
+  - { domain: enum,     db: "VARCHAR+CHECK",java: "Java enum",     json: "string(enum)" }
+  - { domain: datetime, db: "DATETIME(3)",  java: "OffsetDateTime",json: "string(date-time, UTC ISO8601)" }
+  - { domain: json,     db: "JSON",         java: "JsonNode/Map",  json: "object" }
+
+# ===== 3. 引用规则 =====
+references:
+  foreign_key_strategy: logical-only   # 无物理 FK，应用层 + 事务维护引用完整性
+  audit_weak_ref: true                 # login_history.user_id / operation_log.operator_id 弱可空，主体匿名化后保留
+  rolepermission_pk: [role_id, permission_key]
+
+# ===== 4. 统一错误响应契约（全专家遵守）=====
+error_envelope:
+  shape:
+    code: integer       # 数字码，高3位对应 HTTP 状态
+    message: string     # store 按 Accept-Language(en/es/fr)；admin 中文
+    details: object?    # 可选：字段级错误 / remaining_attempts / remaining_resend_seconds
+  code_to_http_rule: "高3位映射 HTTP：409xx→409, 410xx→410, 429xx→429, 502xx→502, 504xx→504"
+  authoritative_codes: "见 architecture/error-strategy.md 码表（25 码）"
+
+# ===== 5. 双 JWT 隔离契约（BE-DIM-6，强约束）=====
+jwt_isolation:
+  store:
+    secret: STORE_JWT_SECRET     # 独立密钥
+    access_ttl: 2h
+    refresh_ttl: 30d (sliding, revocable)
+    claims: [sub(user_id), jti(token_id), method, typ=store]
+    session_validity_cache: "redis store:session:valid:{tokenId} TTL 30s 单级（强一致全集群）"
+  admin:
+    secret: ADMIN_JWT_SECRET     # 独立密钥，禁止复用 store
+    access_ttl: 8h
+    refresh: none
+    claims: [sub(admin_id), jti(token_id), role_id, permission_keys, typ=admin]
+  cross_use_rule: "store token 命中 /api/admin/* 或 admin token 命中 /api/store/* → 401 UNAUTHORIZED(40100)（EDGE-024）"
+
+# ===== 6. JetCache 分级契约（BE-DIM-8，写即失效）=====
+cache:
+  remote_only:   # 会话/凭证类，仅 Redis 单级，TTL 30s，强一致
+    keys:
+      - "store:session:valid:{tokenId}"
+  two_level:     # 资料/配置类，Caffeine + Redis
+    keys:
+      - { key: "store:authconfig",          ttl: 600s, invalidate_on: [FLOW-13] }
+      - { key: "store:user:{userId}",       ttl: 300s, invalidate_on: [FLOW-08/12] }
+      - { key: "store:identities:{userId}", ttl: 300s, invalidate_on: [FLOW-05/06] }
+      - { key: "store:sessions:{userId}",   ttl: 300s, invalidate_on: [FLOW-07/12] }
+  write_invalidate_rule: "任何写操作必须在事务提交后失效对应缓存键，禁止脏读"
+
+# ===== 7. 频控契约（Redis 窗口，REQ-005）=====
+rate_limit:
+  - { dimension: resend,   key: "otp:resend:{email}",      threshold: ">= otp_resend_seconds", on_exceed: "429 RESEND_TOO_SOON(42901)" }
+  - { dimension: email_h,  key: "otp:count:email:{email}:h", threshold: "<= 5/h", on_exceed: "429 RATE_LIMITED(42902)" }
+  - { dimension: email_d,  key: "otp:count:email:{email}:d", threshold: "<= 5/d", on_exceed: "429 RATE_LIMITED(42902)" }
+  - { dimension: ip_h,     key: "otp:count:ip:{ip}:h",       threshold: "<= 20/h", on_exceed: "429 RATE_LIMITED(42902)" }
+
+# ===== 8. CORS / 网络边界契约（前后端分离，test_designer NBT 依据）=====
+cors:
+  backend_port_via: "spring-boot backend"
+  frontend_origins:
+    - { portal: portal-store, origin: "http://localhost:5173" }
+    - { portal: portal-admin, origin: "http://localhost:5174" }
+  allowed_methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+  allowed_headers: [Authorization, Content-Type, Accept-Language]
+  credentials: true
+  production_whitelist: true   # 生产环境配置来源白名单（NBT-03 非白名单拒绝）
+
+# ===== 9. 脱敏契约（强制）=====
+redaction:
+  fully_redacted: [otp_plaintext, password, jwt_token, refresh_token]   # 仅记 hash / jti，日志 [REDACTED]
+  masked: [email]   # 错误 message 不暴露邮箱原文；日志可掩码 j***@email.com
+  rule_5xx: "5xx 不暴露 SQL/堆栈，统一 INTERNAL_ERROR(50000)"
+
+# ===== 10. 分页契约 =====
+pagination:
+  query_params: { page: "integer(>=1)", page_size: "integer(default 20, max 100)" }
+  response_shape: { items: array, total: integer, page: integer, page_size: integer }
+  list_endpoints: [listAdmins, listRoles, listUsers, listOperationLogs, listSessions, listIdentities]

@@ -1,0 +1,163 @@
+reviewer: functional
+verdict: CONDITIONAL_PASS
+timestamp: "2026-05-31T18:10:00Z"
+
+summary:
+  total_checks: 9
+  passed: 7
+  conditional: 1
+  failed: 0
+  blocking_findings: 0
+  warning_findings: 2
+  info_findings: 1
+
+findings:
+  - id: FND-FUNC-001
+    level: warning
+    check_item: FUNC-09
+    category: test_correspondence
+    description: >
+      IT-01（OTP 并发行锁）、IT-02/03（OIDC 归并事务原子性）、IT-06（forceLogout Redis 单级失效）
+      四个 P0 集成测试骨架已写入代码但标注 @Disabled，未在本地执行。
+      这四个场景覆盖 TX-001 行锁串行、TX-002 归并单事务、EDGE-023 强制下线全集群即时生效等
+      核心并发/事务约束，无法在当前环境验证运行时正确性。
+    location: >
+      backend/store/src/test/java/com/dreamy/identity/store/it/OtpConcurrencyIT.java,
+      backend/store/src/test/java/com/dreamy/identity/store/it/OidcMergeIT.java,
+      backend/admin/src/test/java/com/dreamy/identity/admin/it/ForceLogoutIT.java
+    affected_units: [unit_backend]
+    evidence: "test-report.yml: integration_intra coverage=0% (4 @Disabled - requires Docker); RISK-01"
+    recommendation: >
+      CI 环境启用 Docker 后移除 @Disabled 注解，确保 IT-01/02/03/06 在流水线中执行通过后升级为 PASS。
+
+  - id: FND-FUNC-002
+    level: warning
+    check_item: FUNC-05
+    category: traceability_l1
+    description: >
+      test-report.yml 记录 W-01~W-05 契约漂移（admin 响应 DTO 偏离 OpenAPI 规范），
+      未在本次实现中修复。虽然 FE↔BE 实际行为已通过 web 切片测试对齐，
+      但 L1 OpenAPI 契约与实现存在已知偏差，后续消费方（如第三方集成、文档生成）可能受影响。
+    location: "backend/admin/src/main/java/com/dreamy/identity/admin/controller/"
+    affected_units: [unit_backend]
+    evidence: "test-report.yml risks[RISK-03]: W-01~W-05 契约漂移（admin 响应 DTO 偏离 OpenAPI）"
+    recommendation: >
+      后续迭代同步修订 OpenAPI 规范，消除 W-01~W-05 漂移。本次不阻断交付。
+
+  - id: FND-FUNC-003
+    level: info
+    check_item: FUNC-01
+    category: gherkin_normal_path
+    description: >
+      portal-store 的 authConfig 端点路径与 L2 设计文档存在偏差
+      （设计: GET /api/store/config/auth，实现: GET /api/store/auth/config）。
+      实现方已在 traceability-map-portal-store.md 第 10 节记录为"证据优先 E-01，以后端实现为准"，
+      前后端已对齐，功能正常。
+    location: "frontend/portal-store/lib/api/auth-api.ts:47-49"
+    affected_units: [unit_portal_store]
+    evidence: "traceability-map-portal-store.md 设计偏差说明第1项"
+    recommendation: >
+      建议后续同步更新 L2 identity-api-detail.md 中的端点路径，消除文档与实现的不一致。
+
+checks:
+  - id: FUNC-01
+    title: L0 Gherkin 正常路径覆盖
+    verdict: PASS
+    evidence: >
+      全部 17 个业务流程（FLOW-01~17）在 traceability-map-backend.md 第 3 节均有 impl_location 映射。
+      代码验证：OtpService.verifyOtp（FLOW-02，行:118-172）、MergeService.resolveOrMerge（FLOW-03，行:50-92）、
+      SessionService.revokeAllExcept（FLOW-07）、IdentityService.deleteAccount（FLOW-08）、
+      AuditAspect（FLOW-17）均已确认代码存在且语义匹配。
+      portal-store 4 个 account 页（PAGE-S01~04）全部接入真实 API，无 mock 占位。
+      portal-admin 7 个页面（PAGE-A01~07）全部实现，build 通过。
+
+  - id: FUNC-02
+    title: L0 Gherkin 异常路径覆盖
+    verdict: PASS
+    evidence: >
+      代码验证：
+      - OtpService.verifyOtp STEP-05（行:160-163）：status=disabled/deleted/anonymized → 40301 ACCOUNT_DISABLED，覆盖 EDGE-006/021。
+      - IdentityService.unbindIdentity（行:196-210）：40304 PRIMARY_EMAIL_REQUIRED + 40305 MIN_METHODS_REQUIRED，覆盖 EDGE-007/008。
+      - MergeService.resolveOrMerge（行:70-71）：email_verified=false → 40902 EMAIL_CONFLICT_UNVERIFIED，覆盖 EDGE-017。
+      - JwtTokenProvider.requireType（行:149-153）：跨端 typ 不匹配 → 40100，覆盖 EDGE-024。
+      - GlobalExceptionHandler：25 错误码 HTTP 状态映射全量校验（TC-UNIT-063 PASSED）。
+      - 全部 25 个错误码在 ErrorCode.java 中有枚举定义，EX-01~30 异常类覆盖完整。
+
+  - id: FUNC-03
+    title: 边界场景全覆盖（EDGE-001~026）
+    verdict: PASS
+    evidence: >
+      traceability-map-backend.md 声明 edge_cases=26/26。代码交叉验证关键边界：
+      - EDGE-007/008：IdentityService.unbindIdentity 行:204/210 明确 throw BizException(40304/40305)。
+      - EDGE-021：OtpService.verifyOtp STEP-05 行:160-163 检查 status=deleted 拒绝登录（不复活）。
+      - EDGE-023：SessionValidityCache.java 注释行:13 + UserOpsService.forceLogout 行:104-112 DEL Redis 单级。
+      - EDGE-024：JwtTokenProvider.requireType 行:149-153 + 测试 TC-UNIT-023/024 PASSED。
+      - EDGE-026：OperationLogMapper 注释"无 update/delete，EDGE-018"；AuditService 仅 insert/query。
+      - EDGE-018：OperationLogMapper.java 注释明确"仅 insert + 查询，无 update/delete"。
+
+  - id: FUNC-04
+    title: Traceability Map L0 覆盖（L0-AC-* 代码交叉验证）
+    verdict: PASS
+    evidence: >
+      requirements-traceability-matrix.yml 覆盖率 100%（68/68，8 REQ + 34 FUNC + 26 EDGE）。
+      代码交叉验证：
+      - FUNC-001~034 全部在 traceability-map-backend.md 第 3 节有 impl_location，指向真实 Controller/Service 文件。
+      - EDGE-001~026 全部有对应 ErrorCode 枚举或代码逻辑（已验证关键项）。
+      - 三个 Traceability Map（backend/portal-store/portal-admin）均声明 status=implemented，
+        build 验证通过（backend: compileJava SUCCESS；portal-store: pnpm build exit 0；portal-admin: vue-tsc+vite build PASS）。
+
+  - id: FUNC-05
+    title: Traceability Map L1 覆盖（L1-API-*）
+    verdict: CONDITIONAL_PASS
+    evidence: >
+      traceability-map-backend.md 第 3 节：36/36 API 操作（store 14 + admin 22）全部 status=implemented，
+      impl_location 指向真实 Controller 文件和行号。
+      条件：test-report.yml RISK-03 记录 W-01~W-05 admin 响应 DTO 与 OpenAPI 存在已知漂移，
+      FE↔BE 实际行为已对齐但 L1 契约文档未同步修订（见 FND-FUNC-002）。
+
+  - id: FUNC-06
+    title: 验收策略达标
+    verdict: PASS
+    evidence: >
+      requirements-traceability-matrix.yml self_check 全部 true，coverage_100=true。
+      identity-design.md 第 9 节：68 项(8 REQ+34 FUNC+26 EDGE) 覆盖率 100%，无未覆盖、无用户批准跳过。
+      测试覆盖：55/55 已执行测试 PASS（100%），4 个 @Disabled IT 骨架已写入待 CI 执行。
+
+  - id: FUNC-07
+    title: 功能逻辑正确性
+    verdict: PASS
+    evidence: >
+      关键业务逻辑语义验证：
+      1. EDGE-021（注销不复活）：OtpService.verifyOtp STEP-05 检查 status=deleted → 40301，
+         findByEmailActive 查询条件 status<>'anonymized' 但 deleted 状态在 STEP-05 被拦截，语义正确。
+      2. EDGE-017（未验证邮箱不合并）：MergeService 行:63 仅当双方 emailVerified=true 才自动归并，否则 40902，与 DR-02 一致。
+      3. TX-001（OTP 行锁）：lockPendingByEmail SELECT FOR UPDATE + @Transactional，防并发绕过 attempts。
+      4. RBAC 超管短路：RoleService.effectivePermissionKeys is_locked → 全 key（RISK-03 应用层方案，与 DR-07 一致）。
+      5. 双 JWT 隔离：独立 STORE_JWT_SECRET/ADMIN_JWT_SECRET，requireType 校验 typ claim（DR-01）。
+
+  - id: FUNC-08
+    title: 测试结果与功能对应
+    verdict: PASS
+    evidence: >
+      test-report.yml: 55/55 PASSED（100%），4 @Disabled IT 骨架（env_issue，skip_rate=6.8%<10%）。
+      关键功能测试覆盖：
+      - TC-UNIT-050~053（unbindIdentity 四路径）PASSED。
+      - TC-UNIT-023/024（EDGE-024 跨端 token）PASSED。
+      - TC-WEB-ADMIN-005（store token → /api/admin/* → 401）PASSED。
+      - TC-WEB-STORE-007/008/009（三语 i18n）PASSED。
+      - TC-UNIT-063（25 错误码 HTTP 映射）PASSED。
+      - NBT-01~05（CORS preflight/白名单/跨端隔离）PASSED。
+
+  - id: FUNC-09
+    title: 测试骨架消费完整性（TC-* 逐个核对）
+    verdict: CONDITIONAL_PASS
+    evidence: >
+      test-report.yml tc_coverage_matrix：
+      - unit: 27/27 (100%)
+      - web_slice: 20/20 (100%)
+      - error_handler: 4/4 (100%)
+      - nbt: 8/8 (100%)
+      - integration_intra: 0/4 (0%，4 @Disabled，env_issue=Docker 不可用)
+      IT-01/02/03/06 骨架已写入代码，@Disabled 原因合理（requires Docker），
+      unblock_condition 明确（CI 环境启用 Docker 移除注解）。
+      条件：IT-01/02/03/06 须在 CI 环境执行通过（见 FND-FUNC-001）。

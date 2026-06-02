@@ -1,0 +1,191 @@
+# identity UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: identity-auth-fullstack ｜ domain: identity
+# 约束：只看原型不看代码；穷举操作路径；与 test_designer 平行（视觉/交互断言，不重叠业务逻辑测试）
+# 原型源：app/account/{login,page,settings,security} + portal-admin/src/views/{Login,Customers,CustomerDetail,AdminList,RoleManagement,AuthSettings,OperationLogs}.vue
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: identity-auth-fullstack
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav]
+
+# ===== portal-store（Next.js 15, EN/ES/FR）=====
+pages:
+  - id: UIS-S01
+    page: /account/login
+    prototype: app/account/login/page.tsx
+    visual_baseline: [login-email-step, login-code-step]
+    interactions:
+      - path: 输入合法邮箱→点击"Email me a code"→进入 code 步骤
+        assert: [step 切换为 code, 6 格 OTP 输入聚焦首格, 重发倒计时启动(30s)]
+      - path: 输入非法邮箱→提交
+        assert: [显示 "valid email" 错误, 不切步骤]
+      - path: OTP 6 格逐位输入
+        assert: [输入数字自动跳下一格, 退格回上一格, 满 6 位触发提交]
+      - path: 点击 Google/Apple 按钮
+        assert: [按 authConfig 开关显隐, 触发 OAuth 流]
+      - path: 重发倒计时未到点重发
+        assert: [重发按钮禁用 + 显剩余秒]
+    field_assertions: [email input type=email, otp 6 个独立输入, 错误提示区]
+    state_transitions: [email→code, code→success(跳/account), code→error(显剩余次数)]
+    accessibility: [email label, otp inputs aria-label, error aria-live]
+
+  - id: UIS-S02
+    page: /account
+    prototype: app/account/page.tsx
+    visual_baseline: [account-overview]
+    interactions:
+      - path: 已登录访问
+        assert: [展示用户资料(name/email/tier/avatar)]
+      - path: 未登录访问
+        assert: [重定向 /account/login]
+    field_assertions: [资料只读展示]
+
+  - id: UIS-S03
+    page: /account/settings
+    prototype: app/account/settings/page.tsx
+    visual_baseline: [account-settings]
+    interactions:
+      - path: 查看资料设置
+        assert: [字段展示正确]
+    accessibility: [form labels]
+
+  - id: UIS-S04
+    page: /account/security
+    prototype: app/account/security/page.tsx
+    visual_baseline: [security-identities, security-sessions, change-primary-dialog, delete-account-dialog]
+    interactions:
+      - path: 查看凭证列表
+        assert: [provider 图标/identifier/is_primary 徽章/relay 失效提示]
+      - path: 点击主邮箱凭证解绑
+        assert: [解绑按钮禁用或拒绝提示(主邮箱不可移除)]
+      - path: 解绑使最后一种方式
+        assert: [提示"至少保留一种登录方式"(40305)]
+      - path: 查看会话列表
+        assert: [device/location/is_new_device 徽章/current 标记]
+      - path: 点击"登出所有其他设备"
+        assert: [二次确认→列表只剩 current]
+      - path: 换主邮箱→输入 new_email→OTP
+        assert: [被占用显 409 提示]
+      - path: 注销账户
+        assert: [危险二次确认弹窗(confirm)→成功跳首页]
+    state_transitions: [identity bound→unbound, session active→revoked, account active→deleted]
+    accessibility: [dialog role, 危险操作 confirm focus-trap]
+
+# ===== portal-admin（Vue3, 中文）=====
+  - id: UIS-A01
+    page: /login
+    prototype: portal-admin/src/views/Login.vue
+    visual_baseline: [admin-login]
+    interactions:
+      - path: 输入 email/password 登录
+        assert: [成功按 redirect 跳转]
+      - path: 凭据错误
+        assert: [显"邮箱或密码错误"(40103)]
+      - path: 禁用账户
+        assert: [显"管理员账户已被禁用"(40302)]
+    accessibility: [password input masked, labels]
+
+  - id: UIS-A02
+    page: /customers
+    prototype: portal-admin/src/views/Customers.vue
+    visual_baseline: [customers-list, customers-filter]
+    interactions:
+      - path: 分页/筛选(status/tier/email)
+        assert: [列表更新, 筛选下拉宽度固定不抖动(项目记忆)]
+      - path: 空结果
+        assert: [空态展示]
+      - path: 点击行进入详情
+        assert: [跳 /customers/:id]
+    field_assertions: [email/name/tier/status 列]
+
+  - id: UIS-A03
+    page: /customers/:id
+    prototype: portal-admin/src/views/CustomerDetail.vue
+    visual_baseline: [customer-detail, force-logout-confirm]
+    interactions:
+      - path: 查看资料/凭证/会话/登录历史 tab
+        assert: [各 tab 数据正确]
+      - path: 禁用用户
+        assert: [二次确认→状态变 disabled]
+      - path: 强制下线(single/all)
+        assert: [确认→会话列表刷新]
+    state_transitions: [user active→disabled, session active→revoked]
+
+  - id: UIS-A04
+    page: /system/admins
+    prototype: portal-admin/src/views/AdminList.vue
+    visual_baseline: [admin-list, admin-form-modal]
+    interactions:
+      - path: 创建管理员(name/email/password/role)
+        assert: [成功入列; 邮箱重复显 409]
+      - path: 编辑管理员
+        assert: [email 不可改; 超管降权按钮禁用]
+      - path: 删除超管/删自己
+        assert: [按钮禁用或拒绝提示(超管保护/不可删自己)]
+      - path: 重置密码/启停
+        assert: [操作生效]
+    field_assertions: [email 创建可填编辑只读]
+
+  - id: UIS-A05
+    page: /system/roles
+    prototype: portal-admin/src/views/RoleManagement.vue
+    visual_baseline: [role-list, permission-matrix]
+    interactions:
+      - path: 选择角色查看权限矩阵
+        assert: [按 group 分组复选框正确反映 permissions]
+      - path: 勾选/取消权限(项级/组级)
+        assert: [hasUnsavedChanges 提示; 保存后生效]
+      - path: 选中 is_locked 超管角色
+        assert: [矩阵只读, 保存/删除禁用]
+      - path: 删除有成员角色
+        assert: [显"角色下仍有成员"(40904)]
+      - path: 创建角色重名
+        assert: [重名校验提示]
+    state_transitions: [role permissions saved→菜单重渲染]
+    accessibility: [checkbox group aria, headless-ui as prop 正确(无级联崩溃)]
+
+  - id: UIS-A06
+    page: /system/auth
+    prototype: portal-admin/src/views/AuthSettings.vue
+    visual_baseline: [auth-settings]
+    interactions:
+      - path: 切换 google/apple 开关
+        assert: [email 开关强制 on 不可关]
+      - path: 修改 OTP 数值越界
+        assert: [前端区间校验 + 422 40002 字段错误回显]
+      - path: 保存配置
+        assert: [成功提示; OAuth 凭据只读展示不可编辑]
+    field_assertions: [otp_length/ttl/resend/max_attempts/min_methods 数值输入]
+
+  - id: UIS-A07
+    page: /system/logs
+    prototype: portal-admin/src/views/OperationLogs.vue
+    visual_baseline: [operation-logs, log-detail-expand]
+    interactions:
+      - path: 分页/筛选(action/operator/时间)
+        assert: [列表更新]
+      - path: 展开 changes 详情
+        assert: [before/after 对比展示]
+      - path: 导出
+        assert: [触发下载]
+      - path: 查找删除入口
+        assert: [无删除按钮(只读不可删 EDGE-018)]
+    field_assertions: [operator_name/action/target/created_at 列]
+
+self_check:
+  pages_covered: 11
+  store_pages: 4
+  admin_pages: 7
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true   # 仅基于原型

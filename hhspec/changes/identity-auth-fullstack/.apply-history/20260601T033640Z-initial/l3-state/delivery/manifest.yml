@@ -1,0 +1,31 @@
+delivered_at: '2026-05-31T22:14:32Z'
+status: complete
+traceability_maps:
+- traceability-map-backend.md
+- traceability-map-portal-store.md
+- traceability-map.md
+- traceability-map-portal-admin.md
+total_files: 25
+missing_files_count: 0
+missing_files: []
+uncovered_units_count: 0
+uncovered_units: []
+units:
+- unit_id: unit_backend
+  status: implemented
+  files_total: 8
+  files_ok: 8
+  files_missing: []
+  exists: true
+- unit_id: unit_portal_admin
+  status: implemented
+  files_total: 10
+  files_ok: 10
+  files_missing: []
+  exists: true
+- unit_id: unit_portal_store
+  status: implemented
+  files_total: 7
+  files_ok: 7
+  files_missing: []
+  exists: true

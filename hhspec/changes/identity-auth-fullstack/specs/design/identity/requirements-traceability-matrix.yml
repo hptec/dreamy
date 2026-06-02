@@ -1,0 +1,154 @@
+# 需求追溯矩阵 — identity-auth-fullstack
+# 由 l2_design_coordinator 在 Phase 1.5 初始化、Phase 5.5 终态固化
+# 覆盖率目标：100%（REQ-IDENTITY-001~008 + FUNC-001~034 + EDGE-001~026）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator
+change_name: identity-auth-fullstack
+domain_code: identity
+
+metadata:
+  total_top_level_reqs: 8
+  total_func: 34
+  total_edge: 26
+  total_requirements: 68      # 8 + 34 + 26
+  covered: 68
+  uncovered: 0
+  user_approved_skips: 0
+  coverage_percent: 100.0
+  generated_at: "2026-05-31"
+  finalized_at: "2026-05-31"
+
+# 设计章节锚点（统一文档 identity-design.md 与各专家独立文件）
+design_artifacts:
+  api: identity-api-detail.md
+  data: identity-data-detail.md
+  error: identity-error-detail.md
+  test: identity-test-detail.md
+  frontend: identity-frontend-detail.md
+  ui_test: identity-ui-test-spec.yml
+  unified: identity-design.md
+
+requirements:
+  # ===== 顶层需求 =====
+  - id: REQ-IDENTITY-001
+    title: 消费端 passwordless 登录（OTP + OIDC）
+    type: functional
+    coverage_status: covered
+    designers: [api_designer, data_designer, error_designer, frontend_designer, test_designer, ui_test_designer]
+    design_refs: ["api:sendOtp/verifyOtp/oidcCallback/refreshToken", "data:otp_code/user/user_identity/user_session", "error:40001/40101/41001/41002/42901/42902/40303/50201/50401", "frontend:portal-store account/login", "flow:FLOW-01/02/03/04"]
+  - id: REQ-IDENTITY-002
+    title: 消费端账户安全（绑定/解绑/会话/换主邮箱/注销）
+    type: functional
+    coverage_status: covered
+    designers: [api_designer, data_designer, error_designer, frontend_designer, test_designer, ui_test_designer]
+    design_refs: ["api:listIdentities/bindIdentity/unbindIdentity/changePrimaryEmail/listSessions/revokeSession/revokeOtherSessions/deleteAccount/getProfile", "data:user_identity/user_session", "error:40304/40305/40300/40901/40903", "frontend:portal-store account/security", "flow:FLOW-05/06/07/08"]
+  - id: REQ-IDENTITY-003
+    title: 后台管理员登录 + 菜单级 RBAC
+    type: functional
+    coverage_status: covered
+    designers: [api_designer, data_designer, error_designer, frontend_designer, test_designer, ui_test_designer]
+    design_refs: ["api:adminLogin/adminLogout/adminMe/listAdmins/createAdmin/updateAdmin/deleteAdmin/toggleAdminStatus/resetAdminPassword/listRoles/createRole/updateRole/deleteRole/listPermissions", "data:admin_user/role/permission/role_permission/admin_session", "error:40103/40302/40306/40307/40308/40901/40904", "frontend:portal-admin Login/AdminList/RoleManagement", "flow:FLOW-09/10/11"]
+  - id: REQ-IDENTITY-004
+    title: 后台用户身份运营 + 认证配置 + 审计
+    type: functional
+    coverage_status: covered
+    designers: [api_designer, data_designer, error_designer, frontend_designer, test_designer, ui_test_designer]
+    design_refs: ["api:listUsers/getUserDetail/toggleUserStatus/forceLogoutUserSessions/getAuthConfig/updateAuthConfig/listOperationLogs/exportOperationLogs", "data:user/operation_log/auth_config", "error:40002/40018", "frontend:portal-admin Customers/CustomerDetail/AuthSettings/OperationLogs", "flow:FLOW-12/13/17"]
+  - id: REQ-IDENTITY-005
+    title: 安全阈值与缓存策略（频控/JetCache 分级）
+    type: non-functional
+    coverage_status: covered
+    designers: [data_designer, error_designer, api_designer, test_designer]
+    design_refs: ["error:42901/42902 频控维度表", "data:JetCache 缓存键/失效设计", "test:NBT 网络边界 + 频控测试", "flow:FLOW-01/05/07/12/13"]
+  - id: REQ-IDENTITY-006
+    title: 认证边界场景（换主邮箱占用/注销复活/未验证冲突/Apple relay）
+    type: functional
+    coverage_status: covered
+    designers: [api_designer, data_designer, error_designer, test_designer]
+    design_refs: ["api:changePrimaryEmail/oidcCallback", "error:40902/40901", "data:user_identity.relay_valid", "flow:FLOW-03/06/08", "edge:EDGE-020/021"]
+  - id: REQ-IDENTITY-007
+    title: 统一错误码体系 + 三语 i18n
+    type: constraint
+    coverage_status: covered
+    designers: [error_designer, api_designer, frontend_designer]
+    design_refs: ["error:全码表 + i18n 策略 + 脱敏", "frontend:code→文案映射"]
+  - id: REQ-IDENTITY-008
+    title: 集成（SMTP/OIDC）+ 运营 + 数据保留合规
+    type: functional
+    coverage_status: covered
+    designers: [data_designer, error_designer, api_designer, test_designer]
+    design_refs: ["error:50002/50201/50401 集成降级", "data:保留清理/匿名化 identity-retention-anonymization.md", "flow:FLOW-14/15/16", "test:韧性测试 RT/CB"]
+
+  # ===== FUNC 场景映射（按所属 REQ 与主负责专家）=====
+  - { id: FUNC-001, title: OTP 发送, coverage_status: covered, primary: api_designer, refs: ["FLOW-01","sendOtp"] }
+  - { id: FUNC-002, title: OTP 校验登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-02","verifyOtp"] }
+  - { id: FUNC-003, title: 登录方式开关展示, coverage_status: covered, primary: frontend_designer, refs: ["getStoreAuthConfig"] }
+  - { id: FUNC-004, title: Google OIDC 登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-03","oidcCallback"] }
+  - { id: FUNC-005, title: Apple OIDC 登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-03","oidcCallback"] }
+  - { id: FUNC-006, title: 关闭的第三方入口拒绝, coverage_status: covered, primary: error_designer, refs: ["40303 PROVIDER_DISABLED"] }
+  - { id: FUNC-007, title: 资料读取, coverage_status: covered, primary: api_designer, refs: ["getProfile"] }
+  - { id: FUNC-008, title: 绑定登录方式, coverage_status: covered, primary: api_designer, refs: ["FLOW-05","bindIdentity","40903"] }
+  - { id: FUNC-009, title: 解绑登录方式, coverage_status: covered, primary: api_designer, refs: ["FLOW-05","unbindIdentity"] }
+  - { id: FUNC-010, title: 凭证列表展示, coverage_status: covered, primary: frontend_designer, refs: ["listIdentities"] }
+  - { id: FUNC-011, title: 会话列表, coverage_status: covered, primary: api_designer, refs: ["listSessions"] }
+  - { id: FUNC-012, title: 登出他设备, coverage_status: covered, primary: api_designer, refs: ["FLOW-07","revokeSession/revokeOtherSessions"] }
+  - { id: FUNC-013, title: 新设备标记展示, coverage_status: covered, primary: frontend_designer, refs: ["listSessions.is_new_device"] }
+  - { id: FUNC-014, title: 管理员登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-09","adminLogin"] }
+  - { id: FUNC-015, title: 创建管理员, coverage_status: covered, primary: api_designer, refs: ["FLOW-10","createAdmin"] }
+  - { id: FUNC-016, title: 编辑管理员, coverage_status: covered, primary: api_designer, refs: ["FLOW-10","updateAdmin"] }
+  - { id: FUNC-017, title: 删除管理员, coverage_status: covered, primary: api_designer, refs: ["FLOW-10","deleteAdmin"] }
+  - { id: FUNC-018, title: 创建/编辑角色, coverage_status: covered, primary: api_designer, refs: ["FLOW-11","createRole/updateRole","40308"] }
+  - { id: FUNC-019, title: 权限矩阵保存, coverage_status: covered, primary: api_designer, refs: ["FLOW-11","updateRole.permission_keys"] }
+  - { id: FUNC-020, title: 删除角色, coverage_status: covered, primary: api_designer, refs: ["FLOW-11","deleteRole","40904"] }
+  - { id: FUNC-021, title: 菜单级路由守卫, coverage_status: covered, primary: frontend_designer, refs: ["adminMe.permission_keys","路由守卫"] }
+  - { id: FUNC-022, title: 强制下线/禁用用户, coverage_status: covered, primary: api_designer, refs: ["FLOW-12","forceLogoutUserSessions/toggleUserStatus"] }
+  - { id: FUNC-023, title: 认证配置保存, coverage_status: covered, primary: api_designer, refs: ["FLOW-13","updateAuthConfig","40002"] }
+  - { id: FUNC-024, title: 操作审计写入, coverage_status: covered, primary: error_designer, refs: ["FLOW-17","operation_log AOP"] }
+  - { id: FUNC-025, title: 自动账户归并, coverage_status: covered, primary: api_designer, refs: ["FLOW-03","归并事务"] }
+  - { id: FUNC-026, title: 换主邮箱, coverage_status: covered, primary: api_designer, refs: ["FLOW-06","changePrimaryEmail"] }
+  - { id: FUNC-027, title: 账户注销, coverage_status: covered, primary: api_designer, refs: ["FLOW-08","deleteAccount"] }
+  - { id: FUNC-028, title: 未验证邮箱冲突拒绝, coverage_status: covered, primary: error_designer, refs: ["40902 EMAIL_CONFLICT_UNVERIFIED"] }
+  - { id: FUNC-029, title: Apple relay 失效不锁账户, coverage_status: covered, primary: data_designer, refs: ["user_identity.relay_valid","FLOW-03"] }
+  - { id: FUNC-030, title: refresh 续期, coverage_status: covered, primary: api_designer, refs: ["FLOW-04","refreshToken"] }
+  - { id: FUNC-031, title: 新设备登录通知, coverage_status: covered, primary: error_designer, refs: ["FLOW-14","email_template new_device"] }
+  - { id: FUNC-032, title: 数据保留清理, coverage_status: covered, primary: data_designer, refs: ["FLOW-16","identity-retention-anonymization.md"] }
+  - { id: FUNC-033, title: 注销后匿名化, coverage_status: covered, primary: data_designer, refs: ["FLOW-08","anonymize"] }
+  - { id: FUNC-034, title: 邮件发送重试降级, coverage_status: covered, primary: error_designer, refs: ["FLOW-15","50002 EMAIL_SEND_FAILED"] }
+
+  # ===== EDGE 场景映射（主负责专家）=====
+  - { id: EDGE-001, title: 邮箱格式非法, coverage_status: covered, primary: error_designer, refs: ["40001"] }
+  - { id: EDGE-002, title: OTP 错误未达上限, coverage_status: covered, primary: error_designer, refs: ["40101 remaining_attempts"] }
+  - { id: EDGE-003, title: OTP 锁定, coverage_status: covered, primary: error_designer, refs: ["41002"] }
+  - { id: EDGE-004, title: OTP 过期, coverage_status: covered, primary: error_designer, refs: ["41001"] }
+  - { id: EDGE-005, title: 重发过频, coverage_status: covered, primary: error_designer, refs: ["42901"] }
+  - { id: EDGE-006, title: 消费端账户禁用, coverage_status: covered, primary: error_designer, refs: ["40301"] }
+  - { id: EDGE-007, title: 主邮箱不可解绑, coverage_status: covered, primary: error_designer, refs: ["40304"] }
+  - { id: EDGE-008, title: 低于 min_methods, coverage_status: covered, primary: error_designer, refs: ["40305"] }
+  - { id: EDGE-009, title: 跨用户撤销会话, coverage_status: covered, primary: error_designer, refs: ["40300"] }
+  - { id: EDGE-010, title: 会话列表分页/空态, coverage_status: covered, primary: frontend_designer, refs: ["listSessions"] }
+  - { id: EDGE-011, title: 后台账户禁用, coverage_status: covered, primary: error_designer, refs: ["40302"] }
+  - { id: EDGE-012, title: 管理员邮箱重复, coverage_status: covered, primary: error_designer, refs: ["40901"] }
+  - { id: EDGE-013, title: 删除自己, coverage_status: covered, primary: error_designer, refs: ["40307"] }
+  - { id: EDGE-014, title: 超管保护, coverage_status: covered, primary: error_designer, refs: ["40306"] }
+  - { id: EDGE-015, title: 删有成员角色, coverage_status: covered, primary: error_designer, refs: ["40904"] }
+  - { id: EDGE-016, title: 后台无权限路由守卫, coverage_status: covered, primary: frontend_designer, refs: ["40300","路由守卫"] }
+  - { id: EDGE-017, title: 未验证邮箱冲突不合并, coverage_status: covered, primary: error_designer, refs: ["40902"] }
+  - { id: EDGE-018, title: 操作日志只读不可删, coverage_status: covered, primary: data_designer, refs: ["operation_log 无 delete 接口"] }
+  - { id: EDGE-019, title: 配置数值越界, coverage_status: covered, primary: error_designer, refs: ["40002"] }
+  - { id: EDGE-020, title: 换主邮箱被占用, coverage_status: covered, primary: error_designer, refs: ["40901"] }
+  - { id: EDGE-021, title: 注销账户再登录不复活, coverage_status: covered, primary: api_designer, refs: ["40902","FLOW-08"] }
+  - { id: EDGE-022, title: 发码超频限流, coverage_status: covered, primary: error_designer, refs: ["42902"] }
+  - { id: EDGE-023, title: 强制下线全集群即时生效, coverage_status: covered, primary: data_designer, refs: ["FLOW-12","Redis 单级"] }
+  - { id: EDGE-024, title: 跨端 token 误用 401, coverage_status: covered, primary: error_designer, refs: ["40100 跨端隔离"] }
+  - { id: EDGE-025, title: OIDC 超时/不可达降级, coverage_status: covered, primary: error_designer, refs: ["50201/50401"] }
+  - { id: EDGE-026, title: 注销不删审计日志, coverage_status: covered, primary: data_designer, refs: ["operation_log 正当利益保留"] }
+
+user_approvals: []   # 覆盖率 100%，无需用户批准跳过
+
+self_check:
+  all_reqs_listed: true
+  all_func_listed: true
+  all_edge_listed: true
+  no_uncovered: true
+  coverage_100: true

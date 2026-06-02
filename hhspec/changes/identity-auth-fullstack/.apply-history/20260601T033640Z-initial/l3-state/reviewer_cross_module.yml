@@ -1,0 +1,78 @@
+reviewer: cross_module
+verdict: PASS
+rollback_hint: IMPL
+date: "2026-05-31"
+scope:
+  affected_units: [backend, portal-admin, portal-store]
+  focus: 端到端 API 路径/方法、snake↔camel 字段边界、错误码闭环、认证流、服务端 RBAC 与前端菜单 key
+covered_by_others:
+  - finding: "B-01 store 认证配置端点路径（四处 /api/store/auth/config 一致）"
+    reviewer: integration
+    note: 已修，本次不重复报
+  - finding: "CODE-07 单元内重复（store OTP nextAttempts 计算）"
+    reviewer: code_quality
+    note: 单元内重复属 Code Reviewer 职责，非跨模块，不重复计入
+  - finding: "W-01~W-05 admin 响应字段偏离 OpenAPI（前后端已对齐）/ ES·FR 翻译占位"
+    reviewer: spec_compliance/functional
+    note: 已记录可接受项，不重复报
+
+# ===== 跨模块一致性核查（REUSE/端到端，逐项均通过）=====
+checks:
+  api_path_method:
+    verdict: PASS
+    evidence:
+      store_auth: "frontend/portal-store/lib/api/auth-api.ts:21-49 ↔ StoreAuthController.java:54-99（otp/send·otp/verify·oidc/{provider}/callback·refresh(client.ts:105)·config 五端点路径+方法全一致）"
+      store_account: "auth-api.ts:56-126 ↔ AccountController.java:39-99（profile·identities·identities/bind·identities/{id}·email/change-primary·sessions·sessions/{id}·sessions/others·delete 九端点全一致）"
+      admin: "portal-admin/src/api/{auth,admins,roles,users,authConfig,logs}.ts ↔ AdminAuthController/RoleController/UserOpsController/AuthConfigController（login·logout·me·admins CRUD·roles CRUD·permissions·users·users/{id}/status·force-logout·auth-config GET/PUT·operation-logs·export 全一致）"
+  field_naming_boundary:
+    verdict: PASS
+    evidence:
+      backend_strategy: "backend/app/src/main/resources/application.yml:14 property-naming-strategy: SNAKE_CASE；admin 视图 AdminAuthSessionView/AdminMeView 显式 @JsonProperty snake；Map.of 手写 snake key（access_token/permission_keys/is_new_account/page_size 等）"
+      store_client: "portal-store/lib/api/client.ts:142,166 deepSnakeize 请求 / deepCamelize 响应，对称转换"
+      admin_client: "portal-admin/src/api/client.ts:110,121 keysToSnake 请求 / keysToCamel 响应，对称转换"
+      dto_match: "SessionDTO(isNewDevice/isCurrent/lastActiveAt/createdAt) ↔ store types.ts Session；UserProfileDTO(emailVerified/joinedAt) ↔ UserProfile；TokenPair(access_token...) ↔ TokenPair；AuthConfigView 10 字段 ↔ admin AuthConfig；写请求 record(newEmail/idToken/newPassword/permissionKeys) ↔ 前端 camel 入参经 snake 化后字段名一致"
+  error_code_closure:
+    verdict: PASS
+    evidence:
+      store_map_subset: "portal-store/lib/i18n/error-messages.ts 引用 23 个码（40000~50401）全部存在于 backend ErrorCode.java:14-57；admin-only 码（40302/40306/40307/40308/40103）正确未纳入 store 映射"
+      admin_direct: "portal-admin/src/api/client.ts:129 直接透传后端中文 message + defaultMessage(status) 兜底，无需逐码映射；视图按 code 精确分支（40901/40002/40308/40904）均存在于后端"
+  auth_flows_e2e:
+    verdict: PASS
+    evidence:
+      otp: "sendOtp→verifyOtp→{tokens,user,is_new_account} 闭环"
+      oidc: "oidcCallback(google|apple) 后端 @Pattern 白名单 ↔ 前端 Extract<'google'|'apple'>"
+      refresh: "client.ts:97-123 单飞续期 + 前置续期(130) + 401 重放(148) ↔ StoreAuthController.refresh:86 REFRESH_INVALID(40102) 一致"
+      sessions: "list/revoke/revoke-others ↔ AccountController sessions* + SessionService.revoke(归属校验 40300)"
+      admin_rbac_menu: "登录返回 permission_keys → auth store 缓存 → menuStore 按 permissionKeys 过滤；isSuper 短路放行 ↔ 后端超管全 22 项自然通过"
+  rbac_key_alignment:
+    verdict: PASS
+    evidence:
+      backend_keys: "@RequirePermission 五值: /system/admins(AdminAuthController) /system/roles(RoleController) /system/auth·/system/logs(AuthConfigController) /customers(UserOpsController)"
+      frontend_menu: "config/menu.ts 对应路由 /system/admins·/system/roles·/system/auth·/system/logs·/customers 全部存在且字面一致；auth store hasPerm 用相同 key 比对"
+      double_guard: "前端菜单守卫(GUARD-03) + Forbidden 兜底(GUARD-02) + 后端 @RequirePermission 双保险，缺权限统一 40300"
+
+findings:
+  - level: info
+    description: >-
+      store 错误文案映射 error-messages.ts 未收录 40400(NOT_FOUND)，而该码可由 store 可达端点抛出
+      （unbindIdentity 经 IdentityService.java:324、revokeSession 路径下资源缺失）。当前 localizeError
+      兜底回落 50000「Something went wrong」，无运行时崩溃，但 404 场景展示的是通用文案而非「资源不存在」类提示，
+      属可接受的 UX 降级。建议后续在 store 三语码表补 40400 文案以提升精确度（非阻塞）。
+    location: "frontend/portal-store/lib/i18n/error-messages.ts:12-36 ↔ backend .../IdentityService.java:324"
+    affected_units: [portal-store, backend]
+  - level: info
+    description: >-
+      admin AuthConfig 类型声明可选字段 updatedAt?（types.ts:147），后端 AuthConfigView 未返回该字段。
+      因前端声明为 optional，反序列化后为 undefined，无运行时影响；属 W-01~W-05 已记录契约漂移范畴，前后端实际渲染不依赖该字段。
+    location: "frontend/portal-admin/src/api/types.ts:147 ↔ backend .../dto/AuthConfigView.java:7-18"
+    affected_units: [portal-admin, backend]
+
+summary:
+  total_findings: 2
+  blocking_count: 0
+  warning_count: 0
+  info_count: 2
+  cross_module_inconsistencies: 0
+  conclusion: >-
+    三模块在 API 路径/方法、字段命名边界(snake↔camel 对称转换)、错误码闭环、认证流(OTP/OIDC/refresh/会话)、
+    服务端 RBAC 与前端菜单权限 key 五个维度端到端一致，无真实跨模块不一致。两条 info 均为非阻塞的精确度/契约漂移观察。

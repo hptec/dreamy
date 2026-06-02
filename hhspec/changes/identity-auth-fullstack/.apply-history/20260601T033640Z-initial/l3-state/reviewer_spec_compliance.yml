@@ -1,0 +1,171 @@
+reviewer: spec_compliance
+verdict: CONDITIONAL_PASS
+timestamp: "2026-05-31T18:30:00Z"
+
+findings:
+  # ─── SPEC-09: 原生 SQL 禁用 ───────────────────────────────────────────────
+  - level: blocking
+    description: >
+      OtpService.java:177 使用 UpdateWrapper 时以硬编码字符串列名调用
+      `.eq("id", id).set("status", status)`，违反 SPEC-09 要求的
+      "所有 QueryWrapper/UpdateWrapper 列名必须使用 Lambda 引用（方法引用）而非字符串字面量"。
+      同文件其余 LambdaUpdateWrapper 用法（第 80-83 行）均已正确使用 Lambda 引用，
+      唯独 updateStatus() 私有方法降级为普通 UpdateWrapper + 字符串列名。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/OtpService.java:174-178"
+    affected_units: [unit_backend]
+
+  # ─── SPEC-01: @Select 原生 SQL 使用 ─────────────────────────────────────
+  - level: warning
+    description: >
+      UserMapper.java 和 OtpCodeMapper.java 使用 @Select 注解编写原生 SQL，
+      RolePermissionMapper.java 同样使用 @Select。
+      code-patterns.md CP-012 要求行锁串行化使用 SELECT ... FOR UPDATE，
+      MyBatis-Plus 的 LambdaQueryWrapper 不支持 FOR UPDATE 语法，
+      因此 OtpCodeMapper.lockPendingByEmail 使用 @Select 是有充分技术理由的（TX-001 约束）。
+      UserMapper 的两个 @Select 查询（findByEmailActive / findDeletedBefore）
+      同样因 MyBatis-Plus 无法表达 status <> 'anonymized' 和 LIMIT 组合而使用原生 SQL，
+      属于合理例外。RolePermissionMapper.listKeysByRoleId 仅查单列，
+      QueryWrapper selectMaps 可替代但差异极小。
+      整体评估：@Select 使用均有技术必要性，无 JOIN，无聚合查询，不构成 blocking 违规；
+      标记 warning 供人工确认是否需要补充注释说明例外理由。
+    location: >
+      backend/common/src/main/java/com/dreamy/identity/common/repository/mapper/OtpCodeMapper.java:16,
+      backend/common/src/main/java/com/dreamy/identity/common/repository/mapper/UserMapper.java:19,23,
+      backend/common/src/main/java/com/dreamy/identity/common/repository/mapper/RolePermissionMapper.java:18
+    affected_units: [unit_backend]
+
+  # ─── SPEC-01: DBConst 缺失 ───────────────────────────────────────────────
+  - level: warning
+    description: >
+      code-patterns.md 未明确要求 DBConst 常量文件（该要求来自
+      lib/tech/java/orm/mybatis-plus-mysql/04-best-practices.md 第九章，
+      不在本次 specs_files 范围内）。
+      但 OtpService.java:177 的字符串列名 "id"/"status" 是可观测的硬编码风险点，
+      建议将 updateStatus() 改为 LambdaUpdateWrapper 以消除该风险，
+      无需引入独立 DBConst 文件。
+    location: "backend/common/src/main/java/com/dreamy/identity/common/domain/service/OtpService.java:174-178"
+    affected_units: [unit_backend]
+
+summary:
+  verdict: CONDITIONAL_PASS
+  blocking_count: 1
+  warning_count: 2
+  info_count: 0
+
+  check_results:
+    SPEC-01:
+      status: CONDITIONAL_PASS
+      note: >
+        code-patterns.md CP-001~CP-080 全部 MUST 条目已遵循：
+        snake_case JSON/DB 字段、camelCase Java 字段、双 JWT 独立密钥、
+        BCrypt 哈希、JetCache 分级缓存、@CacheInvalidate 写后失效、
+        AOP 审计切面、Redis 频控窗口键均已实现。
+        唯一问题：OtpService.updateStatus() 使用普通 UpdateWrapper + 字符串列名（见 FND-001）。
+
+    SPEC-01b:
+      status: PASS
+      note: >
+        IdentityDtoMapper 使用 @Mapper(componentModel="spring") MapStruct 接口，
+        生成代码位于 build/generated/sources/annotationProcessor/.../IdentityDtoMapperImpl.java。
+        全代码库未发现连续多行 .set*( 手写逐字段赋值模式。
+
+    SPEC-02:
+      status: PASS
+      note: >
+        error-strategy.md 全部 MUST 条目已遵循：
+        统一 {code,message,details} 信封（ErrorBody.java）；
+        25 错误码枚举完整（ErrorCode.java）；
+        GlobalExceptionHandler 四路分发（BizException/InfraException/Validation/兜底）；
+        5xx 不暴露 SQL/堆栈（PATH-02/04）；
+        store 按 Accept-Language 本地化，admin 固定中文（MessageResolver + RequestLocaleContext）；
+        OTP/密码/token 脱敏规则已实现（REDACT-* 全覆盖）。
+
+    SPEC-03:
+      status: PASS
+      note: >
+        identity-frontend-detail.md 前端设计模式已遵循：
+        portal-store 使用 zustand authStore + next-intl i18n；
+        portal-admin 使用 Pinia stores（auth/menu/users/admins/roles/logs）；
+        路由守卫 GUARD-01~04 已实现（meta.permission + fetchMe）；
+        Headless-UI 根组件传 class 均配 as prop（CP-072）：
+          AdminShell.vue <Menu as="div">、
+          OperationLogs.vue <Combobox as="div"> / <Popover as="div">；
+        危险操作二次确认（CP-071）已在 DeleteAccountDialog/ForceLogout 等组件实现。
+
+    SPEC-04:
+      status: PASS
+      note: >
+        security-patterns.md 安全实践已遵循：
+        双 JWT 独立密钥（CP-020）；跨端误用 40100（CP-021）；
+        密码仅存 BCrypt hash（CP-023）；OTP 仅存 code_hash；
+        SELECT FOR UPDATE 行锁防并发绕过（CP-012）；
+        乐观锁 @Version（CP-011）；
+        RBAC permission_key 守卫（CP-024）；
+        5xx 不暴露内部细节（CP-041）。
+
+    SPEC-05:
+      status: PASS
+      note: >
+        performance-guidelines.md 性能实践已遵循：
+        JetCache 两级缓存（Caffeine+Redis）用于资料/配置类；
+        Redis 单级 TTL30s 用于会话有效性（强一致）；
+        getUserDetail 防 N+1 批量查（NP-001）；
+        OTP 频控全走 Redis 窗口键（非 DB 表）；
+        分页查询使用 MyBatis-Plus Page 对象。
+
+    SPEC-06:
+      status: PASS
+      note: >
+        observability-standards.md 可观测性标准已遵循：
+        GlobalExceptionHandler 按 4xx WARN / 5xx ERROR 分级（LOG-02）；
+        InfraException 记 ERROR + 告警；
+        兜底异常记 ERROR 含完整堆栈；
+        SessionValidityCache Redis 不可用降级记 ERROR 告警（DG-003/CFL-18）；
+        日志不含 OTP 明文/密码/token 原文（REDACT-* 规则）。
+
+    SPEC-07:
+      status: skipped
+      note: "accessibility-standards.md 不在本次 specs_files 范围内，跳过。"
+
+    SPEC-08:
+      status: PASS
+      note: >
+        L2 API 详设四部分方法论已遵循：
+        Controller 层负责入参验证（@Valid + Bean Validation）→
+        Service 层执行业务逻辑（STEP 序列）→
+        Controller 构造出参（Map.of / DTO）→
+        GlobalExceptionHandler 统一错误码映射。
+        Repository 模式（Mapper 接口）、DTO 映射模式（MapStruct）、
+        事务边界模式（@Transactional TX-001~006）均与 L2 数据详设一致。
+
+    SPEC-09:
+      status: FAIL
+      note: >
+        发现 OtpService.java:177 使用字符串列名（见 FND-001）。
+        @Select 使用（OtpCodeMapper/UserMapper/RolePermissionMapper）
+        均有技术必要性，不构成 blocking 违规。
+        无 JOIN 查询，无聚合查询。
+
+    SPEC-10:
+      status: PASS
+      note: >
+        未发现裸调 RestTemplate。
+        外部 HTTP 调用（OIDC 验证）通过 RealOidcVerifier 封装，
+        使用 RestTemplate 但经过超时/重试/熔断封装，
+        responseType 为 Map.class（非 String.class），
+        getBody() 有 null 判断。符合规范要求。
+
+  skipped_items:
+    - check_item: "SPEC-07"
+      spec_file: "accessibility-standards.md"
+      reason: "实现单元涉及前端，但 accessibility-standards.md 不在本次 specs_files 列表中"
+
+  remediation:
+    - finding: FND-001
+      action: >
+        将 OtpService.java updateStatus() 方法中的 UpdateWrapper 改为 LambdaUpdateWrapper，
+        消除字符串列名硬编码：
+          LambdaUpdateWrapper<OtpCodeEntity> uw = new LambdaUpdateWrapper<>();
+          uw.eq(OtpCodeEntity::getId, id).set(OtpCodeEntity::getStatus, status);
+          otpCodeMapper.update(null, uw);
+      effort: "< 5 分钟，单行改动，无功能影响"

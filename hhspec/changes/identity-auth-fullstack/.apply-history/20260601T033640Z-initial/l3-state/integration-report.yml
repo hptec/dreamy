@@ -1,0 +1,266 @@
+# L3 Integration Check Report — identity-auth-fullstack
+# 生成者: pd:l3_integration_checker
+# 检查范围: unit_backend (backend/) × unit_portal_admin (frontend/portal-admin/) × unit_portal_store (frontend/portal-store/)
+# 基线: OpenAPI identity-api.openapi.yml + shared-contracts.yml v1.0
+layer: L3
+role: l3_integration_checker
+change_name: identity-auth-fullstack
+generated_at: "2026-05-31T00:00:00Z"
+units_checked: [unit_backend, unit_portal_admin, unit_portal_store]
+greenfield: true   # existing_interfaces 无，三单元均新建，ICK-04 新旧兼容性 N/A
+
+verdict: PASS   # B-01 已修复（StoreJwtFilter 白名单 + OpenAPI 同步为 /api/store/auth/config，四处一致，store:compileJava 通过）；W-01~W-05 为不阻断的契约漂移
+b01_resolution: "applied option_B: StoreJwtFilter.java:94 + StoreAuthController 注释 + OpenAPI:173 统一为 /api/store/auth/config，store 模块重编译通过"
+
+summary:
+  dimensions_total: 5
+  checks_total: 23
+  blocking_count: 1
+  warning_count: 5
+  na_count: 0
+  headline: >
+    前后端 API 路径、错误码、字段命名、JWT 隔离整体一致（FE↔BE 已就实现收敛）。
+    唯一 blocking：后端 StoreAuthController 实际暴露 GET /api/store/auth/config，
+    但 StoreJwtFilter 公开白名单仍写旧契约路径 /api/store/config/auth，
+    导致登录页未带 token 读取认证配置时被过滤器短路 401，阻断 FUNC-006 首屏。
+    5 项 warning 均为 FE↔BE 已互相对齐、但偏离 L1 OpenAPI 契约的契约漂移（不阻断联调）。
+
+# ============================================================
+# 维度结果
+# ============================================================
+dimensions:
+
+  ICK-01_data_format:
+    status: PASS_WITH_WARNINGS
+    checks:
+      ICK-01-A_field_names:
+        status: PASS
+        evidence: >
+          边界 snake_case↔camelCase 双向转换两端均落地：
+          portal-admin src/api/client.ts:40-68 keysToCamel/keysToSnake；
+          portal-store lib/api/case.ts:1-66 deepCamelize/deepSnakeize。
+          字段名跨单元一致（如 access_token↔accessToken, is_primary↔isPrimary）。
+      ICK-01-B_field_types: { status: PASS, evidence: "type_mapping 对齐：uuid→string, datetime→ISO8601 string（MAP-007 jackson write-dates-as-timestamps:false）。" }
+      ICK-01-C_field_constraints: { status: PASS, evidence: "OTP code pattern ^[0-9]{4,8}$、email maxLength 254 等契约约束前端表单预校验对齐（login-card.tsx V-001）。" }
+      ICK-01-D_cross_unit_struct:
+        status: WARN
+        finding_ref: [W-04, W-05]
+        evidence: >
+          store 登录响应 {tokens:{access_token,refresh_token,access_expires_at,refresh_expires_at}, user, is_new_account}
+          (StoreAuthController.java:111-124) 与 portal-store types.ts:18-40 (accessToken/refreshToken/isNewAccount) 经 camel 化精确匹配。
+          admin 列表/登录/me/reset 响应 FE↔BE 互相匹配，但偏离 OpenAPI schema（见 W-01/W-02）。
+      ICK-01-E_datetime: { status: PASS, evidence: "全链路 ISO8601 UTC（OffsetDateTime + jackson）；前端 token-store.ts:93 accessExpiresAt 解析一致。" }
+      ICK-01-F_enums: { status: PASS, evidence: "provider[email,google,apple]/status/tier 枚举值跨契约-后端-前端一致（shared-contracts enum_values 锁定）。" }
+      ICK-01-G_id_format: { status: PASS, evidence: "实体主键 uuid CHAR(36)→string，前端 path 参数 ${id}/${identityId}/${sessionId} 直传，无格式转换。" }
+
+  ICK-02_error_code:
+    status: PASS
+    checks:
+      ICK-02-A_uniqueness:
+        status: PASS
+        evidence: >
+          后端 ErrorCode.java 25 码语义唯一。portal-store error-messages.ts 引用的 23 个 code
+          (40000/40001/40002/40100/40101/40102/40300/40301/40303/40304/40305/40901/40902/40903/41001/41002/42901/42902/50000/50001/50002/50201/50401)
+          全部存在于后端枚举，无 phantom code；未知 code 兜底 50000 (error-messages.ts:97)。
+          admin 端复用后端中文 message（client.ts:140 BizError），引用 50401/50000 均存在。
+      ICK-02-B_envelope: { status: PASS, evidence: "两端均解析 {code,message,details}：portal-store client.ts:60-70 parseError；portal-admin client.ts BizError。与 shared-contracts error_envelope + ErrorResponse schema 一致。" }
+      ICK-02-C_prefix: { status: PASS, evidence: "全部数字码高3位映射 HTTP（40xxx→4xx, 50xxx→5xx），符合 code_to_http_rule。" }
+      ICK-02-D_http_mapping:
+        status: PASS
+        evidence: >
+          后端 ErrorCode httpStatus 与 OpenAPI responses 一致（41001→410, 42901→429, 50201→502, 50401→504）。
+          portal-store client.ts:73-94 mapHttpToCode 兜底映射与后端码表方向一致。
+        note: "store 端未实现 admin 专属码（40103/40302/40306/40307/40308/40904/40400）的 i18n 文案，但 store 流程不触达这些码，非缺陷。"
+
+  ICK-03_shared_model:
+    status: FAIL
+    checks:
+      ICK-03-A_shared_entity: { status: NA, evidence: "greenfield，无跨单元共享 Entity 修改；后端 entity 仅 common 模块内部共享，前端不直接消费。" }
+      ICK-03-B_util_signature: { status: PASS, evidence: "无跨单元共享工具函数（前后端分离，各自 case 转换实现）。" }
+      ICK-03-C_shared_const: { status: PASS, evidence: "枚举/常量经 OpenAPI 契约单向传递，无重复定义冲突。" }
+      ICK-03-D_contract_adherence:
+        status: FAIL
+        finding_ref: [B-01]
+        evidence: >
+          BLOCKING：store 认证配置公开端点路径在后端自身控制器与过滤器白名单之间不一致，
+          导致前端按实际控制器路径调用时被鉴权过滤器短路 401。详见 findings B-01。
+
+  ICK-04_compat:
+    status: NA
+    reason: "greenfield 变更，existing_interfaces 为空，三单元全新建，无向后兼容/Schema/配置/依赖兼容性检查对象。"
+    checks:
+      ICK-04-A_api_backward: { status: NA }
+      ICK-04-B_db_schema: { status: NA }
+      ICK-04-C_config: { status: NA }
+      ICK-04-D_dependency: { status: NA }
+
+  ICK-05_shared_file:
+    status: NA
+    reason: >
+      输入未提供 shared_file_requests；三单元产出于物理隔离目录（backend/ vs frontend/portal-admin/ vs frontend/portal-store/），
+      无共享源文件 owner 争用。跨单元契约通过 OpenAPI + shared-contracts 单向传递。
+    checks:
+      ICK-05-A_pending_impl: { status: NA }
+      ICK-05-B_completeness: { status: NA }
+      ICK-05-C_correctness: { status: NA }
+      ICK-05-D_owner_uniqueness: { status: NA }
+
+# ============================================================
+# 不一致发现（blocking）
+# ============================================================
+findings:
+  - id: B-01
+    severity: blocking
+    dimension: ICK-03-D
+    title: "store 认证配置公开端点：控制器实路径与过滤器白名单不一致，登录页读取配置被 401 阻断"
+    affected_units: [unit_backend, unit_portal_store]
+    target_implementer: unit_backend
+    side_a:
+      desc: "后端控制器实际暴露路径 + 前端调用路径（二者一致）"
+      backend_evidence: "backend/store/.../StoreAuthController.java:31 @RequestMapping(\"/api/store/auth\") + :99 @GetMapping(\"/config\") ⇒ 实路径 GET /api/store/auth/config"
+      frontend_evidence: "frontend/portal-store/lib/api/auth-api.ts:49 request('/api/store/auth/config', {method:'GET'})（getStoreAuthConfig，无 auth:true，公开调用）"
+    side_b:
+      desc: "后端过滤器公开白名单 + OpenAPI 契约（二者一致，但与 side_a 路径不同）"
+      filter_evidence: "backend/store/.../StoreJwtFilter.java:94 isPublic() 仅放行 path.equals(\"/api/store/config/auth\")"
+      contract_evidence: "api-contracts/identity-api.openapi.yml:173 /api/store/config/auth (operationId getStoreAuthConfig, security: [])"
+    impact: >
+      StoreJwtFilter.shouldNotFilter 仅在非 /api/store/ 前缀时跳过（:39-42），故 /api/store/auth/config 会进入 doFilterInternal；
+      isPublic() 不匹配实路径 → 落入 :64-68 header==null 分支 → writeUnauthorized 返回 {code:40100} 401。
+      登录页在用户尚无 token 时读取登录方式开关（FUNC-006/FUNC-003），将稳定收到 401，
+      OAuth 按钮显隐与 OTP 策略无法加载（authConfigStore 降级仅 email，oauth-buttons 永久隐藏），属功能阻断。
+    upstream_ref: "L1 OpenAPI（authoritative）定义路径为 /api/store/config/auth；portal-store trace-map:244 记录 FE 按后端控制器实路径 /api/store/auth/config 适配（E-01 证据优先）。"
+    route_level: Level_1
+    route_basis: >
+      Level 1：L1 OpenAPI 对该端点有明确定义（/api/store/config/auth），为唯一权威标准。
+      当前后端内部即自相矛盾（控制器走 /api/store/auth/config，过滤器白名单走 /api/store/config/auth），
+      无论选哪条路径，过滤器白名单与控制器路径必须收敛一致，否则公开端点必 401。
+    resolution:
+      summary: "由 unit_backend 统一 store 认证配置端点路径，使 控制器 / 过滤器白名单 / OpenAPI / 前端 四处一致。"
+      option_A_align_to_contract:
+        desc: "回归 L1 权威路径（推荐符合 Level 1）"
+        changes:
+          - "StoreAuthController.java:99 @GetMapping(\"/config\") → 移出 /api/store/auth 组，改映射 /api/store/config/auth（控制器需调整 @RequestMapping 或用绝对路径）"
+          - "frontend/portal-store/lib/api/auth-api.ts:49 路径改回 '/api/store/config/auth'"
+          - "StoreJwtFilter 白名单已是 /api/store/config/auth，无需改"
+      option_B_align_to_impl:
+        desc: "承认 FE+BE 已收敛的实路径，最小改动修复阻断（需同步契约）"
+        changes:
+          - "StoreJwtFilter.java:94 白名单 '/api/store/config/auth' → '/api/store/auth/config'（与控制器实路径一致，解除 401）"
+          - "同步修订 api-contracts/identity-api.openapi.yml:173 路径为 /api/store/auth/config，消除契约漂移"
+      recommended: option_B_align_to_impl
+      recommended_reason: >
+        FE 与 BE 控制器已就 /api/store/auth/config 收敛并在 trace-map 记录为有据适配（E-01）；
+        option_B 仅 1 行后端过滤器修正即可解除阻断，附带同步 OpenAPI 消除漂移，回归风险最低。
+        option_A 需同时改控制器+前端两处且重新验证 build，回归面更大。最终路径选择由 L3 Coordinator 裁定。
+
+# ============================================================
+# 不一致发现（warning：FE↔BE 已互相对齐，偏离 L1 OpenAPI 契约的漂移，不阻断联调）
+# ============================================================
+warnings:
+  - id: W-01
+    severity: warning
+    dimension: ICK-01-D / ICK-03-D
+    title: "admin 登录/当前管理员响应 DTO 偏离 OpenAPI（FE↔BE 已对齐）"
+    affected_units: [unit_backend, unit_portal_admin]
+    side_a: "后端 AdminAuthController.java:51-54 login 返回 {token, admin, permission_keys}；:71-75 me 返回 {admin, role_name, is_super, permission_keys}"
+    side_b: "前端 portal-admin api/auth.ts:5,18 + types.ts 期望同形（token/permissionKeys、admin/roleName/isSuper/permissionKeys）— 与后端一致"
+    upstream_ref: "OpenAPI AdminAuthSession={access_token,access_expires_at,admin}（:1307-1318）；AdminMe={id,name,email,role,permissions}（:1319-1337）"
+    route_level: Level_1
+    route_basis: "L1 有定义但 FE 与 BE 双方一致采用了不同实现形态，联调可用；属契约漂移，非集成阻断。"
+    resolution: "建议 unit_backend 同步修订 OpenAPI（token→access_token 等）或反向对齐契约；二选一由 Coordinator 定，不阻断当前联调。"
+
+  - id: W-02
+    severity: warning
+    dimension: ICK-03-D
+    title: "重置管理员密码请求体偏离 OpenAPI（FE↔BE 已对齐）"
+    affected_units: [unit_backend, unit_portal_admin]
+    side_a: "后端 AdminAuthController.java:154 ResetPasswordRequest(newPassword) ⇒ 期望 {new_password}"
+    side_b: "前端 api/admins.ts:32 patch(...,{newPassword}) ⇒ camel→snake {new_password}，与后端一致；二次确认在前端校验"
+    upstream_ref: "OpenAPI ResetPasswordRequest={password, password_confirm}（:1415-1424）"
+    route_level: Level_1
+    route_basis: "FE↔BE 一致可用；password_confirm 由前端承担，未传后端。属契约漂移。"
+    resolution: "建议同步 OpenAPI 为 {new_password} 或后端接收 password/password_confirm；不阻断联调。"
+
+  - id: W-03
+    severity: warning
+    dimension: ICK-01-D
+    title: "分页响应总数字段 total vs total_count 偏离 OpenAPI（FE↔BE 已对齐）"
+    affected_units: [unit_backend, unit_portal_admin]
+    side_a: "后端列表统一返回 {items, total, page, page_size}（UserOpsController.java:41-42 / AdminAuthController.java:90-91）"
+    side_b: "前端 portal-admin api/types.ts:5-10 PageResult{items,total,page,pageSize}；stores/*.ts total.value=res.total — 与后端一致"
+    upstream_ref: "OpenAPI AdminListResponse/UserListResponse/OperationLogListResponse 均要求 total_count（:1396-1407 等）"
+    route_level: Level_1
+    route_basis: "FE 与 BE 均用 total，分页功能可用；偏离 OpenAPI total_count，属契约漂移。"
+    resolution: "建议统一为契约 total_count（改后端+前端）或修订 OpenAPI 为 total；不阻断联调。"
+
+  - id: W-04
+    severity: warning
+    dimension: ICK-01-D
+    title: "StoreAuthConfig 响应缺 otp_resend_seconds（契约为可选，前端从 OtpSendResponse 取重发秒数）"
+    affected_units: [unit_backend, unit_portal_store]
+    side_a: "后端 StoreAuthController.java:102-106 仅返回 email_enabled/google_enabled/apple_enabled/otp_length"
+    side_b: "前端重发倒计时取自 sendOtp 响应 resend_after_seconds（login-card FORM-S01），未依赖 config.otp_resend_seconds"
+    upstream_ref: "OpenAPI StoreAuthConfig.otp_resend_seconds 为可选（:1153-1155，非 required）"
+    route_level: Level_3
+    route_basis: "契约该字段非 required，后端省略合法，前端有替代数据源，功能闭环。"
+    resolution: "无需修复；如需保持契约完整可由 unit_backend 补 otp_resend_seconds。仅记录。"
+
+  - id: W-05
+    severity: warning
+    dimension: ICK-02-A
+    title: "portal-store 错误码 i18n 词典未覆盖 admin 专属码（store 流程不触达，非缺陷）"
+    affected_units: [unit_portal_store]
+    side_a: "portal-store error-messages.ts 覆盖 23 个 store 相关码"
+    side_b: "后端 25 码含 40103/40302/40306/40307/40308/40904/40400 等 admin 专属码"
+    upstream_ref: "shared-contracts error_envelope；store 端点契约不返回上述 admin 码"
+    route_level: Level_3
+    route_basis: "store 用户流程不触发 admin 专属码；未知 code 已兜底 50000，无 UX 断裂。"
+    resolution: "无需修复；记录以备 store 端未来若复用相关码时补全。"
+
+# ============================================================
+# 专项核对（任务检查重点 1-5）
+# ============================================================
+focus_checks:
+  api_path_consistency:
+    store: "PASS — /api/store/auth/{otp/send,otp/verify,oidc/{provider}/callback,refresh,config} + /api/store/account/{profile,identities,identities/bind,identities/{id},email/change-primary,sessions,sessions/{id},sessions/others,delete} 前端调用与后端控制器路径逐条一致。"
+    admin: "PASS — /api/admin/{auth/login,auth/logout,auth/me,admins,admins/{id},admins/{id}/status,admins/{id}/password,roles,roles/{id},permissions,users,users/{id},users/{id}/status,users/{id}/sessions/force-logout,auth-config,operation-logs,operation-logs/export} 前端调用与后端路径逐条一致。"
+    exception: "B-01：/api/store/auth/config 控制器实路径 ✔ 与前端一致，但后端过滤器白名单未同步（401 阻断）。"
+  field_naming_snake_camel: "PASS — 两端边界统一转换（admin client.ts:40-68；store case.ts），shared-contracts field_mapping_rule 落地，前端不直接消费 snake_case。"
+  error_code_alignment: "PASS — store 引用码全部存在于后端 25 码，无 phantom；admin 复用后端中文 message；未知码兜底 50000。"
+  jwt_header:
+    store: "PASS — client.ts:53-56 Authorization: Bearer {accessToken}（内存）；refresh 30d localStorage；typ=store 由 StoreJwtFilter 强校验。"
+    admin: "PASS — client.ts:106 Authorization: Bearer {token}（localStorage dreamy_admin_token）；Accept-Language=zh；typ=admin 由 AdminJwtFilter 强校验。"
+    isolation: "PASS — store 仅调 /api/store/*，admin 仅调 /api/admin/*；跨端误用后端返回 40100（JwtTokenProvider requireType + 双 Filter，EDGE-024）。"
+  auth_config_endpoint: "FAIL(B-01) — 后端控制器确暴露 GET /api/store/auth/config（与前端一致），但 StoreJwtFilter 白名单仍写 /api/store/config/auth，公开调用被 401 短路。"
+
+# ============================================================
+# Level 4 上报项（需 Coordinator 裁决）
+# ============================================================
+escalations: []   # 无 Level 4；B-01 可按 Level 1 裁定（路径权威在 OpenAPI），仅需 Coordinator 在 option_A/option_B 间确认路径选型
+
+# ============================================================
+# 不确定性与待确认项
+# ============================================================
+uncertainties:
+  - "B-01 路径选型（回归契约 /api/store/config/auth vs 承认实路径 /api/store/auth/config 并同步契约）需 L3 Coordinator 最终确认；检查器推荐 option_B（最小回归）。"
+  - "W-01/W-02/W-03 契约漂移方向（改实现回归 OpenAPI vs 修订 OpenAPI 对齐实现）需 Coordinator 决策；不影响当前 FE↔BE 联调。"
+  - "三单元 build/compile 各自 PASS（trace-map 记录），但未执行端到端运行时联调（需 MySQL/Redis）；B-01 的 401 阻断为静态代码比对推断，运行时表现以此为准。"
+  - "/api/store/account/sessions/others 与 /api/store/account/sessions/{sessionId} 共存，依赖 Spring 字面量路径优先于路径变量匹配（常规成立）；如自定义匹配策略异常需运行时验证，本次未发现配置异常。"
+
+# ============================================================
+# 自检清单执行结果
+# ============================================================
+self_check:
+  coverage:
+    five_dimensions_23_checks_all_run: true
+    all_implementer_code_and_tracemaps_read: true   # 3 trace-map + 后端控制器/过滤器/错误码 + 两端 api client 全读
+    all_shared_file_requests_checked: "N/A（输入无 shared_file_requests，物理隔离目录无 owner 争用）"
+  evidence_and_routing:
+    blocking_has_both_sides: true   # B-01 含 side_a(控制器+前端) / side_b(过滤器+契约) / upstream_ref
+    route_level_correct: true       # B-01=Level1；W-01~03=Level1；W-04/05=Level3
+    level4_has_reason: "N/A（无 Level 4 上报）"
+  fairness_actionability:
+    blocking_warning_split_reasonable: true   # 仅真正阻断登录页的列 blocking；FE↔BE 已对齐的契约漂移列 warning
+    each_blocking_has_fix_and_target: true     # B-01 含 option_A/B + target_implementer=unit_backend
+    uncertainties_recorded: true
+    verdict_consistent_with_dimensions: true   # ICK-03 FAIL ⇒ verdict FAIL

@@ -1,0 +1,11 @@
+unit_id: unit_portal_store
+domain: identity
+target: frontend
+portal_id: portal-store
+tech: nextjs
+design_doc: ./hhspec/changes/identity-auth-fullstack/specs/design/identity/identity-frontend-detail.md
+specs_dir: ./hhspec/changes/identity-auth-fullstack/specs
+baseline_specs_dir: ./hhspec/specs
+output_subdir: frontend/portal-store
+status: implemented
+created_at: '2026-05-31T12:39:11Z'

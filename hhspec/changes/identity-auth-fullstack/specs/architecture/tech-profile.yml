@@ -1,0 +1,88 @@
+# 技术栈 Profile — identity-auth-fullstack
+# 模式：Bootstrap（无既有代码库），技术栈由 L0 需求 + decision.md 推断
+# detection_evidence: "inferred from L0 requirement + decision.md (no codebase_path)"
+
+meta:
+  change_name: identity-auth-fullstack
+  domain_code: identity
+  mode: bootstrap
+  generated_at: "2026-05-31T00:00:00Z"
+  detection_evidence: "inferred from L0 requirement + decision.md (no codebase_path)"
+
+# 工程拓扑：三个独立可编译工程（decision.md 决策 1）
+topology:
+  type: multi-project
+  projects:
+    - id: backend
+      kind: backend
+      language: java
+      framework: spring-boot
+      build_tool: gradle
+      packaging: single-jar-multi-module
+      modules: [common, store, admin]
+      api_prefix:
+        store: /api/store/*
+        admin: /api/admin/*
+      detection_evidence: "decision.md 决策 1 + 决策 5（真实后端落地）"
+    - id: portal-store
+      kind: frontend
+      language: typescript
+      framework: next.js
+      framework_version: "15"
+      router: app-router
+      styling: tailwind
+      port: 5173
+      i18n: [en, es, fr]
+      rendering: [rsc, ssg]
+      detection_evidence: "decision.md 决策 1 + 决策 14（EN/ES/FR）"
+    - id: portal-admin
+      kind: frontend
+      language: typescript
+      framework: vue3
+      build_tool: vite
+      styling: [tailwind, headless-ui]
+      port: 5174
+      i18n: [zh]
+      detection_evidence: "decision.md 决策 1 + 决策 14（后台中文）"
+
+# 后端技术栈细节（推断）
+backend_stack:
+  language:
+    primary: java
+    build_tool: gradle
+    build_specs_path: "(bootstrap: 推断 Gradle，待 init 落地后校验)"
+  framework: spring-boot
+  data_access:
+    orm: mybatis-plus  # 与 MEMORY.md 全栈落地决策一致（推断）
+    database: mysql
+    cache: jetcache  # decision.md 决策 6/11：本地 Caffeine + 远程 Redis 两级
+    cache_layers:
+      session_credential:  # 会话/凭证类：仅远程 Redis 单级
+        strategy: remote-only
+        store: redis
+        ttl_seconds: 30
+      profile_config:      # 资料/配置类：本地 Caffeine + 远程 Redis 两级
+        strategy: two-level
+        local: caffeine
+        remote: redis
+        ttl:
+          authconfig_seconds: 600
+          user_profile_seconds: 300
+          identities_seconds: 300
+    rate_limit_backend: redis  # decision.md 决策 9：频控走 Redis 窗口
+  security:
+    auth: jwt
+    jwt_isolation: dual  # store / admin 独立密钥（decision.md 决策 2）
+  integrations:
+    email:
+      protocol: smtp
+      stub_switch: true  # 沙箱无网络可切 stub（decision.md 决策 5/15）
+    oidc:
+      providers: [google, apple]
+      stub_switch: true
+
+# 待 init/L3 确认项（Bootstrap 推断不确定项）
+assumptions:
+  - "Gradle 为构建工具（与 MEMORY.md 全栈落地决策一致），待 /pd:init 落地后校验"
+  - "MyBatis-Plus + MySQL + JetCache 为数据访问组合（MEMORY.md 推断），无 codebase 可核实"
+  - "JWT 库与 SMTP 客户端具体实现待 L3 选型"
