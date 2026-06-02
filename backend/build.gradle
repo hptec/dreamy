@@ -1,0 +1,70 @@
+plugins {
+    id 'org.springframework.boot' version "${springBootVersion}" apply false
+    id 'io.spring.dependency-management' version "${springDependencyMgmtVersion}" apply false
+}
+
+allprojects {
+    group = 'com.dreamy.identity'
+    version = '1.0.0'
+
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/spring' }
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    compileJava {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-parameters']
+    }
+    compileTestJava {
+        options.encoding = 'UTF-8'
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        }
+    }
+
+    dependencies {
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+        // MapStruct
+        implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${mapstructLombokBindingVersion}"
+
+        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.mockito:mockito-junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+        // Testcontainers（真 MySQL + Redis 集成测试，严格零 Mock）。
+        // 版本由 spring-boot-dependencies BOM 管理；Redis 用通用 GenericContainer。
+        testImplementation 'org.testcontainers:testcontainers'
+        testImplementation 'org.testcontainers:junit-jupiter'
+        testImplementation 'org.testcontainers:mysql'
+        // IT 跑真 MySQL，需运行期 JDBC 驱动（common 仅 api 暴露 runtimeOnly，test 显式补）
+        testRuntimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}

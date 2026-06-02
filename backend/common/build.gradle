@@ -1,0 +1,41 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    api 'org.springframework.boot:spring-boot-starter-aop'
+    api 'org.springframework.boot:spring-boot-starter-mail'
+
+    // MyBatis-Plus
+    api "com.baomidou:mybatis-plus-spring-boot3-starter:${mybatisPlusVersion}"
+    // 3.5.9+ 分页/乐观锁等 InnerInterceptor 依赖 jsqlparser 适配模块
+    api "com.baomidou:mybatis-plus-jsqlparser:${mybatisPlusVersion}"
+
+    // JetCache (Redis + Caffeine 两级缓存)
+    // 配置 jetcache.remote.default.type=redis.lettuce + uri 连接 → 必须用 lettuce 变体
+    // （redis 变体走 jedis，缺 JetCacheCodec，连真 Redis 启动上下文时 ClassNotFound）
+    api "com.alicp.jetcache:jetcache-starter-redis-lettuce:${jetcacheVersion}"
+
+    // Spring Data Redis（会话有效性单级缓存 + 频控窗口 StringRedisTemplate）
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Jackson JSR-310（OffsetDateTime 序列化）
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // JWT
+    api "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // BLOCKER-3：OIDC id_token JWKS 验签（RS256 公钥 + iss/aud/exp/nonce 校验）
+    api "com.nimbusds:nimbus-jose-jwt:${nimbusJoseJwtVersion}"
+
+    // BCrypt 密码哈希 (spring-security-crypto 无须整套 security)
+    api 'org.springframework.security:spring-security-crypto'
+
+    // 数据库驱动
+    runtimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
+    runtimeOnly "com.h2database:h2:${h2Version}"
+}

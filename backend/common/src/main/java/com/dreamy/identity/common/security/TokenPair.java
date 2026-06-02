@@ -1,0 +1,22 @@
+package com.dreamy.identity.common.security;
+
+import lombok.Data;
+
+import java.time.OffsetDateTime;
+
+/**
+ * 签发的 TokenPair（store 端 access 2h + refresh 30d）。
+ * 约束: shared-contracts jwt_isolation.store；MAP-007 时间 ISO8601 UTC。
+ */
+@Data
+public class TokenPair {
+
+    private String accessToken;
+    private String refreshToken;
+    private OffsetDateTime accessExpiresAt;
+    private OffsetDateTime refreshExpiresAt;
+    /** access JWT jti（token_id） */
+    private String tokenId;
+    /** refresh JWT jti（refresh_token_id） */
+    private String refreshTokenId;
+}
