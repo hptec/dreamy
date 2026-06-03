@@ -1,0 +1,64 @@
+spring:
+  datasource:
+    url: ${TC_MYSQL_URL:jdbc:mysql://localhost:3306/identity}
+    username: ${TC_MYSQL_USER:root}
+    password: ${TC_MYSQL_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${TC_REDIS_HOST:localhost}
+      port: ${TC_REDIS_PORT:6379}
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+  main:
+    allow-bean-definition-overriding: true
+
+huihao:
+  mysql:
+    auto: update
+    scan-packages:
+      - com.dreamy.identity.domain
+  redis:
+    host: ${TC_REDIS_HOST:localhost}
+    port: ${TC_REDIS_PORT:6379}
+    database: 0
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+
+jetcache:
+  statIntervalMinutes: 0
+  areaInCacheName: false
+  local:
+    default:
+      type: caffeine
+      keyConvertor: fastjson2
+      expireAfterWriteInMillis: 300000
+  remote:
+    default:
+      type: redis.lettuce
+      keyConvertor: fastjson2
+      valueEncoder: java
+      valueDecoder: java
+      expireAfterWriteInMillis: 300000
+      uri: redis://${TC_REDIS_HOST:localhost}:${TC_REDIS_PORT:6379}
+
+identity:
+  jwt:
+    store:
+      secret: test-store-secret-key-32chars-min
+      access-ttl-seconds: 7200
+      refresh-ttl-seconds: 2592000
+    admin:
+      secret: test-admin-secret-key-32chars-min
+      access-ttl-seconds: 28800
+  oidc:
+    mode: stub
+  mail:
+    mode: stub
+  retention:
+    cron: "0 0 3 * * *"

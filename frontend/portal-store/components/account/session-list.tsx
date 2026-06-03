@@ -19,7 +19,7 @@ function deviceIcon(device: string | null) {
 
 interface Props {
   sessions: Session[]
-  pendingId: string | null
+  pendingId: number | null
   onRevoke: (session: Session) => void
   onRevokeOthers: () => void
 }

@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: identity-auth
+  # huihao-web 传递引入了 nacos-discovery；本服务为单体认证服务，本地/默认不依赖注册中心，关闭自动注册
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false
+  datasource:
+    url: jdbc:mysql://localhost:3306/identity?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+  main:
+    allow-bean-definition-overriding: true
+
+server:
+  port: 8080
+
+# huihao-mysql：DDL 自动管理（@EnableMysql 覆盖 auto/scan-packages，此处兜底）
+huihao:
+  mysql:
+    auto: update
+    scan-packages:
+      - com.dreamy.identity.domain
+  # huihao-redis：Redisson（分布式锁 IdLockSupport + 健康检查）
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+
+jetcache:
+  statIntervalMinutes: 0
+  areaInCacheName: false
+  local:
+    default:
+      type: caffeine
+      keyConvertor: fastjson2
+      expireAfterWriteInMillis: 300000
+  remote:
+    default:
+      type: redis.lettuce
+      keyConvertor: fastjson2
+      valueEncoder: java
+      valueDecoder: java
+      expireAfterWriteInMillis: 300000
+      uri: redis://localhost:6379
+
+identity:
+  jwt:
+    store:
+      secret: ${STORE_JWT_SECRET:store-dev-secret-key-32chars-min}
+      access-ttl-seconds: 7200
+      refresh-ttl-seconds: 2592000
+    admin:
+      secret: ${ADMIN_JWT_SECRET:admin-dev-secret-key-32chars-min}
+      access-ttl-seconds: 28800
+  oidc:
+    mode: ${OIDC_MODE:stub}
+  mail:
+    mode: ${MAIL_MODE:stub}
+    from: noreply@dreamy.com
+  retention:
+    cron: "0 0 3 * * *"
+
+logging:
+  level:
+    com.dreamy.identity: INFO
+    com.baomidou.mybatisplus: WARN

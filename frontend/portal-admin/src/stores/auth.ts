@@ -24,7 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
     admin.value = result.admin
     roleName.value = result.admin.roleName || ''
     permissionKeys.value = result.permissionKeys || []
-    isSuper.value = roleName.value === '超级管理员'
+    isSuper.value = result.isSuper ?? false
     loaded.value = true
     return result
   }
@@ -43,6 +43,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function ensureLoaded() {
     if (loaded.value) return
     await fetchMe()
+  }
+
+  // 实时刷新权限：每次导航调用，角色权限被改后刷新/跳转即生效（无需重登）。
+  // 超管(is_super)不依赖 permissionKeys（hasPermission 短路），可跳过以省请求。
+  async function refreshPermissions() {
+    if (isSuper.value) return
+    permissionKeys.value = await authApi.adminPermissions()
   }
 
   // GUARD-02/04：是否可访问某权限 key（超管短路放行）
@@ -82,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     fetchMe,
     ensureLoaded,
+    refreshPermissions,
     hasPermission,
     logout,
     reset,

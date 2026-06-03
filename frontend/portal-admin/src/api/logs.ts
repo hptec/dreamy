@@ -6,7 +6,7 @@ export interface OperationLogQuery {
   page?: number
   pageSize?: number
   action?: string
-  operatorId?: string
+  operatorId?: number
   from?: string
   to?: string
 }

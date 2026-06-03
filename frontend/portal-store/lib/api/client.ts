@@ -67,7 +67,7 @@ async function parseError(res: Response): Promise<ApiError> {
   }
   const code = body?.code ?? mapHttpToCode(res.status)
   const message = body?.message ?? 'Request failed'
-  return new ApiError(code, message, res.status, body?.details)
+  return new ApiError(code, message, res.status, body?.data as Record<string, unknown> | null)
 }
 
 function mapHttpToCode(status: number): number {
@@ -111,9 +111,9 @@ export async function refreshTokens(): Promise<TokenPair> {
       clearTokens()
       throw await parseError(res)
     }
-    const json = deepCamelize<{ tokens: TokenPair }>(await res.json())
-    saveTokens(json.tokens)
-    return json.tokens
+    const json = deepCamelize<{ code: number; data: { tokens: TokenPair } }>(await res.json())
+    saveTokens(json.data.tokens)
+    return json.data.tokens
   })()
   try {
     return await refreshInflight
@@ -163,7 +163,8 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   if (!res.ok) throw await parseError(res)
 
   const json = await res.json()
-  return deepCamelize<T>(json)
+  const camelized = deepCamelize<{ code: number; data: T; message?: string }>(json)
+  return camelized.data
 }
 
 export { API_BASE }

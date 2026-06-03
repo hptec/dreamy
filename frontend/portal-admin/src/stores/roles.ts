@@ -17,13 +17,11 @@ export const useRolesStore = defineStore('roles', () => {
   const loading = ref(false)
 
   async function fetchRoles() {
-    const res = await rolesApi.listRoles()
-    roles.value = res.items
+    roles.value = await rolesApi.listRoles()
   }
 
   async function fetchPermissions() {
-    const res = await rolesApi.listPermissions()
-    permissions.value = res.items
+    permissions.value = await rolesApi.listPermissions()
   }
 
   async function fetchAll() {
@@ -52,7 +50,7 @@ export const useRolesStore = defineStore('roles', () => {
   }
 
   // FORM-A03：保存权限矩阵 → 保存后刷新当前管理员权限（菜单重渲）
-  async function update(id: string, payload: { name?: string; permissionKeys?: string[] }) {
+  async function update(id: number, payload: { name?: string; permissionKeys?: string[] }) {
     const updated = await rolesApi.updateRole(id, payload)
     await fetchRoles()
     const auth = useAuthStore()
@@ -60,7 +58,7 @@ export const useRolesStore = defineStore('roles', () => {
     return updated
   }
 
-  async function remove(id: string) {
+  async function remove(id: number) {
     await rolesApi.deleteRole(id)
     await fetchRoles()
   }

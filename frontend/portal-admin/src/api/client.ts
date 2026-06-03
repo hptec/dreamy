@@ -115,10 +115,11 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config
 })
 
-// 响应拦截：snake→camel；401→清 token+跳登录；统一抛 BizError（中文 message）
+// 响应拦截：snake→camel；解包 R<T> 包络；401→清 token+跳登录；统一抛 BizError（中文 message）
 http.interceptors.response.use(
   (response) => {
-    response.data = keysToCamel(response.data)
+    const body = keysToCamel(response.data) as { code: number; data: unknown; message?: string }
+    response.data = body.data   // 透传 T；204/R.ok(null) 时 data=null
     return response
   },
   (error: AxiosError<ApiError>) => {
@@ -127,7 +128,7 @@ http.interceptors.response.use(
       const body = error.response.data
       const code = body?.code ?? status * 100
       const message = body?.message || defaultMessage(status)
-      const details = body?.details
+      const details = body?.data as Record<string, unknown> | undefined
       if (status === 401) {
         clearToken()
         if (onUnauthorized) onUnauthorized()

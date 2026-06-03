@@ -1,0 +1,26 @@
+scan_at: "2026-06-02T13:20:52Z"
+overall_lowest_incomplete_layer: "L2_in_progress"
+layers:
+  - layer_id: "L2"
+    status: "INCOMPLETE"
+    issues:
+      - type: "STRUCTURAL"
+        description: "缺少 identity-api 对应的 api-detail 设计文件"
+  - layer_id: "L3"
+    status: "INCOMPLETE"
+    issues:
+      - type: "SEMANTIC"
+        description: "STAGING specs 目录（pd-sessions/backend-refactor-module-entity/specs）为空，未产出任何 L3 实现文件或实现产物，无可审查的实现代码。"
+      - type: "SEMANTIC"
+        description: "决策2未实现：backend 仍为 common/store/admin/app 四 Gradle 子模块（settings.gradle 仍 include 四模块），未合并为单工程，且不存在 com.dreamy.identity.domain 按 domain 分包结构。"
+      - type: "SEMANTIC"
+        description: "决策3未实现：全部实体均未继承 huihao.mysql.auditable.LongAuditableEntity（grep 零命中），未生成任何 {Entity}DBConst 接口（find 零命中），@Table/@Column 注解改造缺失。"
+      - type: "SEMANTIC"
+        description: "决策3未实现：OffsetDateTime → LocalDateTime 全量替换未执行，代码库仍残留 36 处 OffsetDateTime。"
+      - type: "SEMANTIC"
+        description: "决策4未实现：主键 String → Long 自增迁移未执行，UserEntity/RoleEntity/AdminUserEntity 等 10+ 实体仍使用 String id。"
+      - type: "SEMANTIC"
+        description: "决策5未实现：未引入 huihao-mysql/base/web/redis 依赖（gradle 文件中 huihao 零命中），Nexus 私仓与 @EnableMysql/@EnableHuiHaoRedis 改造缺失。"
+  - layer_id: "L4"
+    status: "MISSING"
+    issues: []

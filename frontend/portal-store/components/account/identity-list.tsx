@@ -16,7 +16,7 @@ import { ProviderMark } from './provider-icons'
 interface Props {
   identities: Identity[]
   connectedCount: number
-  pendingId: string | null
+  pendingId: number | null
   onUnbind: (identity: Identity) => void
 }
 

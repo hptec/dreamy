@@ -19,3 +19,8 @@ export function adminLogout(): Promise<void> {
 export function adminMe(): Promise<AdminMe> {
   return get<AdminMe>('/api/admin/auth/me')
 }
+
+// /api/admin/auth/permissions → string[]（实时权限，刷新即生效，无需重登）
+export function adminPermissions(): Promise<string[]> {
+  return get<string[]>('/api/admin/auth/permissions')
+}

@@ -23,8 +23,8 @@ export const useAdminsStore = defineStore('admins', () => {
         status: filterStatus.value || undefined,
         roleId: filterRoleId.value || undefined,
       })
-      list.value = res.items
-      total.value = res.total
+      list.value = res.data
+      total.value = res.totalElements
     } finally {
       loading.value = false
     }
@@ -46,23 +46,23 @@ export const useAdminsStore = defineStore('admins', () => {
     return created
   }
 
-  async function update(id: string, payload: AdminUpdatePayload) {
+  async function update(id: number, payload: AdminUpdatePayload) {
     const updated = await adminsApi.updateAdmin(id, payload)
     await fetchList()
     return updated
   }
 
-  async function remove(id: string) {
+  async function remove(id: number) {
     await adminsApi.deleteAdmin(id)
     await fetchList()
   }
 
-  async function toggleStatus(id: string, status: string) {
+  async function toggleStatus(id: number, status: string) {
     await adminsApi.toggleAdminStatus(id, status)
     await fetchList()
   }
 
-  async function resetPassword(id: string, newPassword: string) {
+  async function resetPassword(id: number, newPassword: string) {
     await adminsApi.resetAdminPassword(id, newPassword)
   }
 

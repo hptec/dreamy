@@ -2,9 +2,9 @@
 import { get, post, put, del } from './client'
 import type { Permission, Role } from './types'
 
-// listRoles 返回 { items }（无分页）
-export function listRoles(): Promise<{ items: Role[] }> {
-  return get<{ items: Role[] }>('/api/admin/roles')
+// listRoles 返回 R<List<RoleDTO>>，解包后为裸数组
+export function listRoles(): Promise<Role[]> {
+  return get<Role[]>('/api/admin/roles')
 }
 
 export function createRole(name: string): Promise<Role> {
@@ -13,16 +13,16 @@ export function createRole(name: string): Promise<Role> {
 
 // updateRole 后端字段 { name, permissionKeys }（record UpdateRoleRequest(name, permissionKeys)→snake permission_keys）
 export function updateRole(
-  id: string,
+  id: number,
   payload: { name?: string; permissionKeys?: string[] },
 ): Promise<Role> {
   return put<Role>(`/api/admin/roles/${id}`, payload)
 }
 
-export function deleteRole(id: string): Promise<void> {
+export function deleteRole(id: number): Promise<void> {
   return del<void>(`/api/admin/roles/${id}`)
 }
 
-export function listPermissions(): Promise<{ items: Permission[] }> {
-  return get<{ items: Permission[] }>('/api/admin/permissions')
+export function listPermissions(): Promise<Permission[]> {
+  return get<Permission[]>('/api/admin/permissions')
 }

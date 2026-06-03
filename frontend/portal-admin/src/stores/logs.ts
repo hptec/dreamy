@@ -19,7 +19,7 @@ export const useLogsStore = defineStore('logs', () => {
   function query() {
     return {
       action: filterAction.value || undefined,
-      operatorId: filterOperatorId.value || undefined,
+      operatorId: filterOperatorId.value ? Number(filterOperatorId.value) : undefined,
       from: filterFrom.value ? new Date(filterFrom.value).toISOString() : undefined,
       to: filterTo.value ? new Date(filterTo.value).toISOString() : undefined,
     }
@@ -33,8 +33,8 @@ export const useLogsStore = defineStore('logs', () => {
         pageSize: pageSize.value,
         ...query(),
       })
-      list.value = res.items
-      total.value = res.total
+      list.value = res.data
+      total.value = res.totalElements
     } finally {
       loading.value = false
     }

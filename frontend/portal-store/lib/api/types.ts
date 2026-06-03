@@ -6,11 +6,11 @@
 export type Locale = 'en' | 'es' | 'fr'
 export type AuthProvider = 'email' | 'google' | 'apple'
 
-/** 统一错误响应体 {code,message,details}（shared-contracts error_envelope） */
+/** 统一错误响应体 {code,message,data}（huihao R<T>：details 装进 data） */
 export interface ApiErrorBody {
   code: number
   message: string
-  details?: Record<string, unknown> | null
+  data?: Record<string, unknown> | null
 }
 
 /** TokenPair（StoreAuthController.tokenMap） */
@@ -23,7 +23,7 @@ export interface TokenPair {
 
 /** 用户资料（UserProfileDTO / MAP-001） */
 export interface UserProfile {
-  id: string
+  id: number
   email: string | null
   emailVerified: boolean
   name: string | null
@@ -56,7 +56,7 @@ export interface StoreAuthConfig {
 
 /** 凭证（IdentityDTO / MAP-002） */
 export interface Identity {
-  id: string
+  id: number
   provider: AuthProvider
   identifier: string | null
   isPrimary: boolean
@@ -68,7 +68,7 @@ export interface Identity {
 
 /** 会话（SessionDTO / MAP-003） */
 export interface Session {
-  id: string
+  id: number
   device: string | null
   browser: string | null
   ip: string | null

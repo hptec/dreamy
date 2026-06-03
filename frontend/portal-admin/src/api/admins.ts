@@ -15,19 +15,19 @@ export function createAdmin(payload: AdminCreatePayload): Promise<Admin> {
   return post<Admin>('/api/admin/admins', payload)
 }
 
-export function updateAdmin(id: string, payload: AdminUpdatePayload): Promise<Admin> {
+export function updateAdmin(id: number, payload: AdminUpdatePayload): Promise<Admin> {
   return put<Admin>(`/api/admin/admins/${id}`, payload)
 }
 
-export function deleteAdmin(id: string): Promise<void> {
+export function deleteAdmin(id: number): Promise<void> {
   return del<void>(`/api/admin/admins/${id}`)
 }
 
-export function toggleAdminStatus(id: string, status: string): Promise<Admin> {
+export function toggleAdminStatus(id: number, status: string): Promise<Admin> {
   return patch<Admin>(`/api/admin/admins/${id}/status`, { status })
 }
 
 // 后端 ResetPasswordRequest = { new_password }（camel newPassword 经 client 转 snake）
-export function resetAdminPassword(id: string, newPassword: string): Promise<void> {
+export function resetAdminPassword(id: number, newPassword: string): Promise<void> {
   return patch<void>(`/api/admin/admins/${id}/password`, { newPassword })
 }

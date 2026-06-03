@@ -2,26 +2,28 @@
 // 约束: STORE-A01~A04 / PAGE-A01~A07 数据形状来源 = identity-api.openapi.yml + backend/admin DTO
 
 // ===== 通用 =====
+// 对应 huihao.page.Paginated<T>（snake→camel 后）
 export interface PageResult<T> {
-  items: T[]
-  // 后端 admin 列表统一返回 { items, total, page, page_size }（见 UserOpsController/AdminAuthController）
-  total: number
-  page: number
+  data: T[]
+  totalElements: number
+  pageNumber: number
   pageSize: number
+  totalPages: number
+  numberOfElements: number
 }
 
 export interface ApiError {
   code: number
   message: string
-  details?: Record<string, unknown>
+  data?: Record<string, unknown>
 }
 
 // ===== 鉴权（PAGE-A01 / STORE-A01）=====
 export interface AdminProfile {
-  id: string
+  id: number
   name: string
   email: string
-  roleId: string | null
+  roleId: number | null
   roleName: string | null
   status: string
   lastLoginAt: string | null
@@ -31,6 +33,7 @@ export interface AdminLoginResult {
   token: string
   admin: AdminProfile
   permissionKeys: string[]
+  isSuper: boolean
 }
 
 export interface AdminMe {
@@ -42,10 +45,10 @@ export interface AdminMe {
 
 // ===== 管理员 CRUD（PAGE-A04）=====
 export interface Admin {
-  id: string
+  id: number
   name: string
   email: string
-  roleId: string | null
+  roleId: number | null
   roleName: string | null
   status: string
   lastLoginAt: string | null
@@ -55,17 +58,17 @@ export interface AdminCreatePayload {
   name: string
   email: string
   password: string
-  roleId: string
+  roleId: number
 }
 
 export interface AdminUpdatePayload {
   name: string
-  roleId: string
+  roleId: number
 }
 
 // ===== 角色 / 权限（PAGE-A05）=====
 export interface Role {
-  id: string
+  id: number
   name: string
   type: string
   isLocked: boolean
@@ -81,7 +84,7 @@ export interface Permission {
 
 // ===== 用户身份运营（PAGE-A02 / A03）=====
 export interface UserListItem {
-  id: string
+  id: number
   email: string | null
   emailVerified?: boolean
   name: string | null
@@ -92,7 +95,7 @@ export interface UserListItem {
 }
 
 export interface Identity {
-  id: string
+  id: number
   provider: string
   identifier: string | null
   isPrimary: boolean
@@ -103,7 +106,7 @@ export interface Identity {
 }
 
 export interface Session {
-  id: string
+  id: number
   device: string | null
   browser: string | null
   ip: string | null
@@ -115,7 +118,7 @@ export interface Session {
 }
 
 export interface LoginHistoryItem {
-  id: string
+  id: number
   method: string
   ip: string | null
   device: string | null
@@ -159,7 +162,7 @@ export interface AuthConfigUpdatePayload {
 
 // ===== 操作日志（PAGE-A07）=====
 export interface OperationLog {
-  id: string
+  id: number
   operatorName: string | null
   action: string
   target: string | null

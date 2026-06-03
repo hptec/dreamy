@@ -1,4 +1,4 @@
-// identity-auth-fullstack 多模块构建
+// identity-auth 单工程构建（单模块多 domain）
 pluginManagement {
     repositories {
         maven { url 'https://maven.aliyun.com/repository/public' }
@@ -12,14 +12,19 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
+        // huihao-* 私有制品库（Nexus）
+        maven {
+            url 'http://116.62.167.155:8081/repository/maven-public/'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'http://116.62.167.155:8081/repository/maven-snapshots/'
+            allowInsecureProtocol = true
+        }
         maven { url 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://maven.aliyun.com/repository/spring' }
         mavenCentral()
     }
 }
 
-rootProject.name = 'identity-auth-fullstack'
-include 'common'
-include 'store'
-include 'admin'
-include 'app'
+rootProject.name = 'identity-auth'

@@ -32,9 +32,9 @@ echo "[backend] 启动后端服务 (端口: ${PORT})..."
 cd "${PROJECT_ROOT}/backend"
 
 if [ -f "gradlew" ]; then
-  exec ./gradlew :app:bootRun --args="--server.port=${PORT}"
+  exec ./gradlew bootRun --args="--server.port=${PORT}"
 elif command -v gradle &> /dev/null; then
-  exec gradle :app:bootRun --args="--server.port=${PORT}"
+  exec gradle bootRun --args="--server.port=${PORT}"
 else
   echo "[backend] 错误: 未找到 gradlew 或 gradle 命令"
   exit 1

@@ -31,8 +31,8 @@ export function SecurityPanel() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [pendingIdentity, setPendingIdentity] = useState<string | null>(null)
-  const [pendingSession, setPendingSession] = useState<string | null>(null)
+  const [pendingIdentity, setPendingIdentity] = useState<number | null>(null)
+  const [pendingSession, setPendingSession] = useState<number | null>(null)
   const [changeOpen, setChangeOpen] = useState(false)
   const [revokeOthersOpen, setRevokeOthersOpen] = useState(false)
 

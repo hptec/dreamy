@@ -1,70 +1,122 @@
 plugins {
-    id 'org.springframework.boot' version "${springBootVersion}" apply false
-    id 'io.spring.dependency-management' version "${springDependencyMgmtVersion}" apply false
+    id 'org.springframework.boot' version "${springBootVersion}"
+    id 'io.spring.dependency-management' version "${springDependencyMgmtVersion}"
+    id 'java'
+    id 'application'
 }
 
-allprojects {
-    group = 'com.dreamy.identity'
-    version = '1.0.0'
+group = 'com.dreamy.identity'
+version = '1.0.0'
 
-    repositories {
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.aliyun.com/repository/spring' }
-        mavenCentral()
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'io.spring.dependency-management'
-
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(25)
-        }
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
     }
+}
 
-    compileJava {
-        options.encoding = 'UTF-8'
-        options.compilerArgs += ['-parameters']
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
     }
-    compileTestJava {
-        options.encoding = 'UTF-8'
-    }
+}
 
-    dependencyManagement {
-        imports {
-            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
-        }
-    }
+dependencies {
+    // ── Spring Boot ──────────────────────────────────────────────
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 
-    dependencies {
-        compileOnly "org.projectlombok:lombok:${lombokVersion}"
-        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    // ── huihao 内部库（Nexus 私仓）────────────────────────────────
+    implementation "com.huihao:huihao-mysql:${huihaoVersion}"
+    implementation "com.huihao:huihao-base:${huihaoVersion}"
+    implementation "com.huihao:huihao-web:${huihaoVersion}"
+    implementation "com.huihao:huihao-redis:${huihaoVersion}"
 
-        // MapStruct
-        implementation "org.mapstruct:mapstruct:${mapstructVersion}"
-        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
-        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${mapstructLombokBindingVersion}"
+    // ── MyBatis-Plus（huihao-mysql 不自带，需显式引入）──────────────
+    implementation "com.baomidou:mybatis-plus-spring-boot3-starter:${mybatisPlusVersion}"
+    implementation "com.baomidou:mybatis-plus-jsqlparser:${mybatisPlusVersion}"
 
-        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
-        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-        testAnnotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    // ── 缓存：JetCache（两级缓存，消费端只读接口）──────────────────
+    implementation "com.alicp.jetcache:jetcache-starter-redis-lettuce:${jetcacheVersion}"
+    implementation "com.alicp.jetcache:jetcache-anno:${jetcacheVersion}"
 
-        testImplementation 'org.springframework.boot:spring-boot-starter-test'
-        testImplementation 'org.mockito:mockito-junit-jupiter'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // ── Redis：spring-data-redis（OTP 频控/会话有效性缓存）──────────
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
-        // Testcontainers（真 MySQL + Redis 集成测试，严格零 Mock）。
-        // 版本由 spring-boot-dependencies BOM 管理；Redis 用通用 GenericContainer。
-        testImplementation 'org.testcontainers:testcontainers'
-        testImplementation 'org.testcontainers:junit-jupiter'
-        testImplementation 'org.testcontainers:mysql'
-        // IT 跑真 MySQL，需运行期 JDBC 驱动（common 仅 api 暴露 runtimeOnly，test 显式补）
-        testRuntimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
-    }
+    // ── Redisson（huihao-redis 分布式锁 + huihao-mysql DdlAuto 类加载依赖）──
+    implementation "org.redisson:redisson:${redissonVersion}"
 
-    test {
-        useJUnitPlatform()
-    }
+    // ── Hibernate 注解（compile-only，提供 @DynamicInsert/@DynamicUpdate）──
+    compileOnly 'org.hibernate.orm:hibernate-core'
+
+    // ── BCrypt 密码哈希（spring-security-crypto，无需整套 security）──
+    implementation 'org.springframework.security:spring-security-crypto'
+
+    // ── JWT ──────────────────────────────────────────────────────
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // ── OIDC（Google/Apple 校验）─────────────────────────────────
+    implementation "com.nimbusds:nimbus-jose-jwt:${nimbusJoseJwtVersion}"
+
+    // ── Database driver ──────────────────────────────────────────
+    runtimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
+
+    // ── MapStruct（Lombok 必须先于 MapStruct）─────────────────────
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${mapstructLombokBindingVersion}"
+
+    // ── Lombok ───────────────────────────────────────────────────
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    // ── Jackson ──────────────────────────────────────────────────
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // ── Test ─────────────────────────────────────────────────────
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Testcontainers（真 MySQL + Redis 集成测试，严格零 Mock）
+    testImplementation 'org.testcontainers:testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
+    // JNA 5.13（Testcontainers 默认）在 JDK25 上 Unsafe 初始化失败，强制升级
+    testImplementation 'net.java.dev.jna:jna:5.17.0'
+    testImplementation 'net.java.dev.jna:jna-platform:5.17.0'
+    testRuntimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-parameters')
+}
+
+test {
+    useJUnitPlatform()
+    environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
+    systemProperty 'testcontainers.startup.timeout', '300'
+}
+
+application {
+    mainClass = 'com.dreamy.identity.IdentityApplication'
+}
+
+bootJar {
+    enabled = true
+    archiveFileName = 'identity-app.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

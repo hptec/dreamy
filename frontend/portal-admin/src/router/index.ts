@@ -87,6 +87,13 @@ router.beforeEach(async (to) => {
       auth.reset()
       return { name: 'login', query: { redirect: to.fullPath } }
     }
+  } else {
+    // 已登录：每次导航实时刷新权限，角色权限被改后跳转/刷新即生效（无需重登）
+    try {
+      await auth.refreshPermissions()
+    } catch {
+      // 刷新失败不阻断导航（401 由拦截器统一处理跳登录）
+    }
   }
 
   // 403 页无需权限校验

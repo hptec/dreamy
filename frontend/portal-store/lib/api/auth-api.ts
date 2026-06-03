@@ -57,31 +57,29 @@ export function getProfile(): Promise<UserProfile> {
 }
 
 /** listIdentities — GET /api/store/account/identities（FUNC-010） */
-export async function listIdentities(): Promise<Identity[]> {
-  const res = await request<{ items: Identity[] }>('/api/store/account/identities', {
+export function listIdentities(): Promise<Identity[]> {
+  return request<Identity[]>('/api/store/account/identities', {
     method: 'GET',
     auth: true
   })
-  return res.items
 }
 
 /** bindIdentity — POST /api/store/account/identities/bind（FLOW-05 FUNC-008） */
-export async function bindIdentity(input: {
+export function bindIdentity(input: {
   provider: AuthProvider
   idToken?: string
   email?: string
   code?: string
 }): Promise<Identity[]> {
-  const res = await request<{ items: Identity[] }>('/api/store/account/identities/bind', {
+  return request<Identity[]>('/api/store/account/identities/bind', {
     method: 'POST',
     auth: true,
     body: input
   })
-  return res.items
 }
 
 /** unbindIdentity — DELETE /api/store/account/identities/{identityId}（FLOW-05 FUNC-009） */
-export function unbindIdentity(identityId: string): Promise<void> {
+export function unbindIdentity(identityId: number): Promise<void> {
   return request<void>(`/api/store/account/identities/${identityId}`, {
     method: 'DELETE',
     auth: true
@@ -89,26 +87,24 @@ export function unbindIdentity(identityId: string): Promise<void> {
 }
 
 /** changePrimaryEmail — POST /api/store/account/email/change-primary（FLOW-06 FUNC-026） */
-export async function changePrimaryEmail(newEmail: string, code: string): Promise<Identity[]> {
-  const res = await request<{ items: Identity[] }>('/api/store/account/email/change-primary', {
+export function changePrimaryEmail(newEmail: string, code: string): Promise<Identity[]> {
+  return request<Identity[]>('/api/store/account/email/change-primary', {
     method: 'POST',
     auth: true,
     body: { newEmail, code }
   })
-  return res.items
 }
 
 /** listSessions — GET /api/store/account/sessions（FUNC-011/013） */
-export async function listSessions(): Promise<Session[]> {
-  const res = await request<{ items: Session[] }>('/api/store/account/sessions', {
+export function listSessions(): Promise<Session[]> {
+  return request<Session[]>('/api/store/account/sessions', {
     method: 'GET',
     auth: true
   })
-  return res.items
 }
 
 /** revokeSession — DELETE /api/store/account/sessions/{sessionId}（FLOW-07 FUNC-012） */
-export function revokeSession(sessionId: string): Promise<void> {
+export function revokeSession(sessionId: number): Promise<void> {
   return request<void>(`/api/store/account/sessions/${sessionId}`, {
     method: 'DELETE',
     auth: true

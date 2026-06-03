@@ -29,8 +29,8 @@ export const useUsersStore = defineStore('users', () => {
         tier: filterTier.value === 'all' ? undefined : filterTier.value,
         email: filterEmail.value || undefined,
       })
-      list.value = res.items
-      total.value = res.total
+      list.value = res.data
+      total.value = res.totalElements
     } finally {
       loading.value = false
     }
@@ -46,7 +46,7 @@ export const useUsersStore = defineStore('users', () => {
     return fetchList()
   }
 
-  async function fetchDetail(id: string) {
+  async function fetchDetail(id: number) {
     detailLoading.value = true
     try {
       detail.value = await usersApi.getUserDetail(id)
@@ -56,12 +56,12 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function toggleStatus(id: string, status: string) {
+  async function toggleStatus(id: number, status: string) {
     await usersApi.toggleUserStatus(id, status)
     await fetchDetail(id)
   }
 
-  async function forceLogout(id: string, scope: 'single' | 'all', sessionId?: string) {
+  async function forceLogout(id: number, scope: 'single' | 'all', sessionId?: string) {
     await usersApi.forceLogout(id, { scope, sessionId })
     await fetchDetail(id)
   }
