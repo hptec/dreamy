@@ -8,6 +8,7 @@ import huihao.mysql.annotation.Table;
 import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.dreamy.identity.domain.role.consts.PermissionDBConst;
 
 /**
  * 表 permission（菜单权限点字典，22 项）。
@@ -24,15 +25,15 @@ import lombok.EqualsAndHashCode;
 public class PermissionEntity extends LongAuditableEntity {
 
     /** 业务码（原 key，如 /system/admins），改唯一索引 */
-    @Column(name = "perm_code", definition = "varchar(128) NOT NULL COMMENT '权限业务码（原 key）'")
+    @Column(name = PermissionDBConst.PERM_CODE, definition = "varchar(128) NOT NULL COMMENT '权限业务码（原 key）'")
     private String permCode;
 
     /** 列名 group（SQL 保留字）。@Column.name 用裸名（huihao SchemaBuilder 自动加反引号建表）；
      *  @TableField 用反引号（MyBatis-Plus DML 需显式转义）。 */
-    @Column(name = "group", definition = "varchar(64) NOT NULL COMMENT '分组'")
+    @Column(name = PermissionDBConst.GROUP, definition = "varchar(64) NOT NULL COMMENT '分组'")
     @TableField("`group`")
     private String group;
 
-    @Column(name = "label", definition = "varchar(128) NOT NULL COMMENT '展示名'")
+    @Column(name = PermissionDBConst.LABEL, definition = "varchar(128) NOT NULL COMMENT '展示名'")
     private String label;
 }

@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
+import com.dreamy.identity.domain.otp.consts.OtpCodeDBConst;
 
 /**
  * 表 otp_code（一次性验证码，仅存哈希）。对应 identity-ddl.sql 表 3。
@@ -24,36 +25,36 @@ import java.time.LocalDateTime;
 @TableName(value = "otp_code", autoResultMap = true)
 public class OtpCodeEntity extends LongAuditableEntity {
 
-    @Column(name = "email", definition = "varchar(255) NOT NULL COMMENT '邮箱'")
+    @Column(name = OtpCodeDBConst.EMAIL, definition = "varchar(255) NOT NULL COMMENT '邮箱'")
     private String email;
 
     /** OTP 哈希（绝不存明文，redaction.fully_redacted） */
-    @Column(name = "code_hash", definition = "varchar(255) NOT NULL COMMENT 'OTP 哈希（仅哈希）'")
+    @Column(name = OtpCodeDBConst.CODE_HASH, definition = "varchar(255) NOT NULL COMMENT 'OTP 哈希（仅哈希）'")
     private String codeHash;
 
     /** 验证码长度 4/6/8（ck_otp_length） */
-    @Column(name = "length", definition = "int NOT NULL COMMENT '验证码长度 4/6/8'")
+    @Column(name = OtpCodeDBConst.LENGTH, definition = "int NOT NULL COMMENT '验证码长度 4/6/8'")
     private Integer length;
 
-    @Column(name = "expires_at", definition = "datetime NOT NULL COMMENT '过期时间'")
+    @Column(name = OtpCodeDBConst.EXPIRES_AT, definition = "datetime NOT NULL COMMENT '过期时间'")
     private LocalDateTime expiresAt;
 
-    @Column(name = "attempts", definition = "int NOT NULL DEFAULT 0 COMMENT '已尝试次数'")
+    @Column(name = OtpCodeDBConst.ATTEMPTS, definition = "int NOT NULL DEFAULT 0 COMMENT '已尝试次数'")
     private Integer attempts;
 
     /** 最大尝试次数 3..10（ck_otp_max） */
-    @Column(name = "max_attempts", definition = "int NOT NULL COMMENT '最大尝试次数 3..10'")
+    @Column(name = OtpCodeDBConst.MAX_ATTEMPTS, definition = "int NOT NULL COMMENT '最大尝试次数 3..10'")
     private Integer maxAttempts;
 
     /** status: pending/consumed/expired/locked（ck_otp_status） */
-    @Column(name = "status", definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/consumed/expired/locked'")
+    @Column(name = OtpCodeDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/consumed/expired/locked'")
     private String status;
 
-    @Column(name = "last_sent_at", definition = "datetime NULL COMMENT '最近发送时间'")
+    @Column(name = OtpCodeDBConst.LAST_SENT_AT, definition = "datetime NULL COMMENT '最近发送时间'")
     private LocalDateTime lastSentAt;
 
     @Version
-    @Column(name = "version", definition = "int NOT NULL DEFAULT 0 COMMENT '乐观锁版本'")
+    @Column(name = OtpCodeDBConst.VERSION, definition = "int NOT NULL DEFAULT 0 COMMENT '乐观锁版本'")
     @TableField("version")
     private Integer version;
 }

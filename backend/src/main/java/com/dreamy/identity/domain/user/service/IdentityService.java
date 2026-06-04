@@ -251,8 +251,8 @@ public class IdentityService {
     @Transactional
     public List<UserIdentityEntity> changePrimaryEmail(Long userId, String newEmail, String code) {
         String normalized = newEmail == null ? null : newEmail.trim().toLowerCase();
-        // STEP-01 被他人占用
-        UserEntity occupant = userMapper.findByEmailActive(normalized);
+        // STEP-01 被他人占用（RM-002 findByEmailActive，DEC-004/A2 LambdaQueryWrapper 替代 native SQL）
+        UserEntity occupant = mergeService.findByEmailActive(normalized);
         if (occupant != null && !occupant.getId().equals(userId)) {
             throw new BizException(ErrorCode.EMAIL_EXISTS); // 40901
         }

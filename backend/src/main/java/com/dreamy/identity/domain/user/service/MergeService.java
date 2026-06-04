@@ -77,8 +77,8 @@ public class MergeService implements IdLockSupport {
                                           boolean emailVerified, boolean hiddenEmail, String relayEmail) {
         LocalDateTime now = LocalDateTime.now();
 
-        // STEP-03：凭证不存在 → 查同邮箱 User
-        UserEntity sameEmailUser = email == null ? null : userMapper.findByEmailActive(email);
+        // STEP-03：凭证不存在 → 查同邮箱 User（RM-002 findByEmailActive，DEC-004/A2 LambdaQueryWrapper）
+        UserEntity sameEmailUser = findByEmailActive(email);
         if (sameEmailUser != null) {
             if (Boolean.TRUE.equals(sameEmailUser.getEmailVerified()) && emailVerified) {
                 // 自动归并 R1：INSERT identity 挂既有 User + operation_log(账户合并)
@@ -115,6 +115,18 @@ public class MergeService implements IdLockSupport {
                 .eq(UserIdentityEntity::getProviderUid, providerUid)
                 .last("LIMIT 1");
         return identityMapper.selectOne(qw);
+    }
+
+    /** RM-002 findByEmailActive：命中 uk_user_email；status≠anonymized（DEC-004/A2 LambdaQueryWrapper） */
+    public UserEntity findByEmailActive(String email) {
+        if (email == null) {
+            return null;
+        }
+        LambdaQueryWrapper<UserEntity> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserEntity::getEmail, email)
+                .ne(UserEntity::getStatus, "anonymized")
+                .last("LIMIT 1");
+        return userMapper.selectOne(qw);
     }
 
     private void insertIdentity(Long userId, String provider, String providerUid, String identifier,

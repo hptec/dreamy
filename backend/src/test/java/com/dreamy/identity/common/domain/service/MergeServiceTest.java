@@ -65,7 +65,7 @@ class MergeServiceTest {
         when(identityMapper.selectOne(any())).thenReturn(null);
         UserEntity sameEmailUser = activeUser(2L);
         sameEmailUser.setEmailVerified(true);
-        when(userMapper.findByEmailActive("a@b.com")).thenReturn(sameEmailUser);
+        when(userMapper.selectOne(any())).thenReturn(sameEmailUser);
 
         var outcome = mergeService.resolveOrMerge("google", "sub-new", "a@b.com", true, false, null);
 
@@ -81,7 +81,7 @@ class MergeServiceTest {
         when(identityMapper.selectOne(any())).thenReturn(null);
         UserEntity unverified = activeUser(3L);
         unverified.setEmailVerified(false);
-        when(userMapper.findByEmailActive("a@b.com")).thenReturn(unverified);
+        when(userMapper.selectOne(any())).thenReturn(unverified);
 
         assertThatThrownBy(() -> mergeService.resolveOrMerge("google", "sub-x", "a@b.com", true, false, null))
                 .isInstanceOf(BizException.class)
@@ -93,7 +93,7 @@ class MergeServiceTest {
     @DisplayName("TC-UNIT-013: 无同邮箱 User → 新建 user + identity")
     void resolveOrMerge_noExisting_createsNew() {
         when(identityMapper.selectOne(any())).thenReturn(null);
-        when(userMapper.findByEmailActive(any())).thenReturn(null);
+        when(userMapper.selectOne(any())).thenReturn(null);
 
         var outcome = mergeService.resolveOrMerge("email", "new@b.com", "new@b.com", true, false, null);
 

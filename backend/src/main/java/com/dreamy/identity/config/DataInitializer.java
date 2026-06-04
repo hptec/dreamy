@@ -19,8 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 /**
  * 种子数据初始化（幂等）。监听 ApplicationReadyEvent，确保在 huihao-mysql DDLInit（ApplicationRunner，
  * LOWEST_PRECEDENCE）完成建表之后运行。初始化运行所需基线数据：
@@ -111,8 +109,10 @@ public class DataInitializer {
                 {"/system/logs", "系统管理", "操作日志"},
         };
         for (String[] p : perms) {
-            Long existing = permissionMapper.findIdByPermCode(p[0]);
-            if (existing != null) {
+            // A4: LambdaQueryWrapper 替代 @Select findIdByPermCode（仅判存在性，幂等）
+            Long existing = permissionMapper.selectCount(new LambdaQueryWrapper<PermissionEntity>()
+                    .eq(PermissionEntity::getPermCode, p[0]));
+            if (existing != null && existing > 0) {
                 continue;
             }
             PermissionEntity pe = new PermissionEntity();
@@ -138,9 +138,14 @@ public class DataInitializer {
         }
         Long roleId = role.getId();
         // 关联全部权限（幂等：已存在的跳过）
-        List<String> existingPerms = rolePermissionMapper.listKeysByRoleId(roleId);
-        for (PermissionEntity p : permissionMapper.selectList(null)) {
-            if (existingPerms.contains(p.getPermCode())) {
+        // A3: 分步查询替代 listKeysByRoleId JOIN —— 取已关联的 permission_id 集合按 id 判重
+        java.util.Set<Long> existingPermIds = rolePermissionMapper.selectList(
+                        new LambdaQueryWrapper<RolePermissionEntity>().eq(RolePermissionEntity::getRoleId, roleId))
+                .stream().map(RolePermissionEntity::getPermissionId)
+                .collect(java.util.stream.Collectors.toSet());
+        for (PermissionEntity p : permissionMapper.selectList(
+                new LambdaQueryWrapper<PermissionEntity>().isNotNull(PermissionEntity::getId))) {
+            if (existingPermIds.contains(p.getId())) {
                 continue;
             }
             RolePermissionEntity rp = new RolePermissionEntity();

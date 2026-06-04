@@ -7,6 +7,7 @@ import huihao.mysql.annotation.Table;
 import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.dreamy.identity.domain.authconfig.consts.EmailTemplateDBConst;
 
 /**
  * 表 email_template（邮件模板，三语 × 4 类）。对应 identity-ddl.sql 表 13。
@@ -21,16 +22,16 @@ import lombok.EqualsAndHashCode;
 public class EmailTemplateEntity extends LongAuditableEntity {
 
     /** code: otp/new_device/change_primary/account_deleted（ck_tpl_code） */
-    @Column(name = "code", definition = "varchar(32) NOT NULL COMMENT '模板码 otp/new_device/change_primary/account_deleted'")
+    @Column(name = EmailTemplateDBConst.CODE, definition = "varchar(32) NOT NULL COMMENT '模板码 otp/new_device/change_primary/account_deleted'")
     private String code;
 
     /** locale: en/es/fr（ck_tpl_locale） */
-    @Column(name = "locale", definition = "varchar(8) NOT NULL COMMENT '语言 en/es/fr'")
+    @Column(name = EmailTemplateDBConst.LOCALE, definition = "varchar(8) NOT NULL COMMENT '语言 en/es/fr'")
     private String locale;
 
-    @Column(name = "subject", definition = "varchar(255) NOT NULL COMMENT '邮件主题'")
+    @Column(name = EmailTemplateDBConst.SUBJECT, definition = "varchar(255) NOT NULL COMMENT '邮件主题'")
     private String subject;
 
-    @Column(name = "body", definition = "text NOT NULL COMMENT '邮件正文'")
+    @Column(name = EmailTemplateDBConst.BODY, definition = "text NOT NULL COMMENT '邮件正文'")
     private String body;
 }

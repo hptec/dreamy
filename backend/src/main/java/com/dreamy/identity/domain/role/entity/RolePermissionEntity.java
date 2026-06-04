@@ -7,6 +7,7 @@ import huihao.mysql.annotation.Table;
 import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import com.dreamy.identity.domain.role.consts.RolePermissionDBConst;
 
 /**
  * 表 role_permission（角色-权限关联）。
@@ -23,9 +24,9 @@ import lombok.EqualsAndHashCode;
 @TableName(value = "role_permission", autoResultMap = true)
 public class RolePermissionEntity extends LongAuditableEntity {
 
-    @Column(name = "role_id", definition = "bigint NOT NULL COMMENT '角色 id（FK role.id）'")
+    @Column(name = RolePermissionDBConst.ROLE_ID, definition = "bigint NOT NULL COMMENT '角色 id（FK role.id）'")
     private Long roleId;
 
-    @Column(name = "permission_id", definition = "bigint NOT NULL COMMENT '权限 id（FK permission.id，原 permissionKey）'")
+    @Column(name = RolePermissionDBConst.PERMISSION_ID, definition = "bigint NOT NULL COMMENT '权限 id（FK permission.id，原 permissionKey）'")
     private Long permissionId;
 }

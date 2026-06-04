@@ -8,10 +8,10 @@ import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
 import com.dreamy.identity.domain.audit.repository.OperationLogMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -24,6 +24,9 @@ public class AuditService {
 
     /** BLOCKER-5：导出时间窗强制上限（天）。未传 from/to 或跨度超限 → 拒绝，防全表流式拉取 */
     private static final long MAX_EXPORT_WINDOW_DAYS = 92L;
+
+    /** DEC-002：导出分页轮询每页条数，逐页回调后丢弃，堆内常驻仅一页（替代游标流式） */
+    private static final int EXPORT_PAGE_SIZE = 1000;
 
     private final OperationLogMapper operationLogMapper;
 
@@ -52,20 +55,63 @@ public class AuditService {
     }
 
     /**
-     * RM-102 streamForExport（BLOCKER-5）：真流式导出，边查边写 response，绝不全量物化进堆。
-     * 约束: operation_log 百万行/月，原 selectList 全量进 List 必 OOM；改用 MyBatis ResultHandler 游标逐行回调。
-     * 强制时间窗上限（必传 from/to 且跨度≤{@value #MAX_EXPORT_WINDOW_DAYS} 天），否则 422 校验错误，防全表流式扫描。
-     * @Transactional(readOnly) 保证游标拉取期间连接不被提前归还（MySQL streaming ResultSet 需持有连接）。
+     * RM-102 streamForExport（BLOCKER-5）：分页轮询导出，逐页回调写出，绝不全量物化进堆。
+     * 约束: operation_log 百万行/月，原 selectList 全量进 List 必 OOM。
+     *
+     * DEC-002（ORM 合规重构）：由 native {@code @Select(<script>)} + fetchSize=Integer.MIN_VALUE 游标流式
+     * 改为 LambdaQueryWrapper 分页轮询——每页 {@value #EXPORT_PAGE_SIZE} 条、按 id 游标递减（{@code id < lastId}）拉取，
+     * 逐页回调消费后即丢弃，堆内常驻仅一页。强制时间窗上限（必传 from/to 且跨度≤{@value #MAX_EXPORT_WINDOW_DAYS} 天）
+     * 保证轮询次数有界（防无界全表扫描）。不再持有长事务连接：每页查询独立从连接池借还。
      *
      * @param consumer 逐行回调（如 CSV writer.write）；由调用方负责写出，本方法不缓存行
      */
-    @Transactional(readOnly = true)
     public void streamForExport(String action, Long operatorId,
                                 LocalDateTime from, LocalDateTime to,
                                 Consumer<OperationLogEntity> consumer) {
         enforceExportWindow(from, to);
-        operationLogMapper.streamByFilter(action, operatorId, from, to,
-                resultContext -> consumer.accept(resultContext.getResultObject()));
+        Long lastId = null;
+        while (true) {
+            List<OperationLogEntity> pageRows = fetchExportPage(action, operatorId, from, to, lastId);
+            if (pageRows.isEmpty()) {
+                break;
+            }
+            for (OperationLogEntity row : pageRows) {
+                consumer.accept(row);
+            }
+            // 不足一页 → 已到末页，结束轮询
+            if (pageRows.size() < EXPORT_PAGE_SIZE) {
+                break;
+            }
+            // id 游标递减：下一页取 id 严格小于本页末条（id 自增，单调对应创建顺序）
+            lastId = pageRows.get(pageRows.size() - 1).getId();
+        }
+    }
+
+    /**
+     * DEC-002：导出单页查询——LambdaQueryWrapper + id 游标（{@code id < lastId}）+ LIMIT {@value #EXPORT_PAGE_SIZE}。
+     * 按 id 倒序取页，等价原 created_at DESC 导出顺序（id 自增与创建时序单调一致）。
+     */
+    private List<OperationLogEntity> fetchExportPage(String action, Long operatorId,
+                                                     LocalDateTime from, LocalDateTime to, Long lastId) {
+        LambdaQueryWrapper<OperationLogEntity> qw = new LambdaQueryWrapper<>();
+        if (action != null) {
+            qw.eq(OperationLogEntity::getAction, action);
+        }
+        if (operatorId != null) {
+            qw.eq(OperationLogEntity::getOperatorId, operatorId);
+        }
+        if (from != null) {
+            qw.ge(OperationLogEntity::getCreatedAt, from);
+        }
+        if (to != null) {
+            qw.le(OperationLogEntity::getCreatedAt, to);
+        }
+        if (lastId != null) {
+            qw.lt(OperationLogEntity::getId, lastId);
+        }
+        qw.orderByDesc(OperationLogEntity::getId)
+                .last("LIMIT " + EXPORT_PAGE_SIZE);
+        return operationLogMapper.selectList(qw);
     }
 
     /**

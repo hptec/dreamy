@@ -1,13 +1,15 @@
-package com.dreamy.identity.domain.session.repository;
+package com.dreamy.identity.domain.session.consts;
+
+import com.dreamy.identity.domain.consts.CommonDBConst;
 
 /**
- * user_session 表列名常量。供 MyBatis-Plus Wrapper / SQL 引用，避免硬编码列名。
+ * user_session 表列名常量。
+ * L2-REF: identity-physical-schema.md § 4 user_session 表结构
  */
-public interface UserSessionDBConst {
+public interface UserSessionDBConst extends CommonDBConst {
 
     String TABLE = "user_session";
 
-    String ID = "id";
     String USER_ID = "user_id";
     String TOKEN_ID = "token_id";
     String REFRESH_TOKEN_ID = "refresh_token_id";
@@ -22,6 +24,4 @@ public interface UserSessionDBConst {
     String STATUS = "status";
     String LAST_ACTIVE_AT = "last_active_at";
     String VERSION = "version";
-    String CREATED_AT = "created_at";
-    String UPDATED_AT = "updated_at";
 }

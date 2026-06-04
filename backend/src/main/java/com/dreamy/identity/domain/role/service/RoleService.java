@@ -78,9 +78,23 @@ public class RoleService {
         return roleMapper.selectById(roleId);
     }
 
-    /** RM-070 listKeysByRoleId（join permission 返回权限码） */
+    /**
+     * RM-070 listKeysByRoleId（A3: 分步查询 + 内存聚合，禁 JOIN）。
+     * STEP-01: 取 role_permission.permission_id 列表；
+     * STEP-02: 按 id IN 批量查 permission，内存提取 perm_code。
+     */
     public List<String> permissionKeysOfRole(Long roleId) {
-        return rolePermissionMapper.listKeysByRoleId(roleId);
+        LambdaQueryWrapper<RolePermissionEntity> rpQw = new LambdaQueryWrapper<>();
+        rpQw.eq(RolePermissionEntity::getRoleId, roleId);
+        List<Long> permIds = rolePermissionMapper.selectList(rpQw)
+                .stream().map(RolePermissionEntity::getPermissionId).toList();
+        if (permIds.isEmpty()) {
+            return List.of();
+        }
+        LambdaQueryWrapper<PermissionEntity> permQw = new LambdaQueryWrapper<>();
+        permQw.in(PermissionEntity::getId, permIds);
+        return permissionMapper.selectList(permQw)
+                .stream().map(PermissionEntity::getPermCode).toList();
     }
 
     /** RM-052 countByRoleId：角色成员数（member_count + 删除前校验） */
@@ -109,12 +123,12 @@ public class RoleService {
 
     public List<String> listAllPermissionKeys() {
         List<String> keys = new ArrayList<>();
-        for (PermissionEntity p : permissionMapper.selectList(null)) {
+        for (PermissionEntity p : permissionMapper.selectList(
+                new LambdaQueryWrapper<PermissionEntity>().isNotNull(PermissionEntity::getId))) {
             keys.add(p.getPermCode());
         }
         return keys;
     }
-    // CONTINUE_PLACEHOLDER
 
     /** FUNC-018 createRole：DR-06 重名 40000（字段级 details.field=name）；type=custom */
     @Transactional
@@ -162,13 +176,16 @@ public class RoleService {
             del.eq(RolePermissionEntity::getRoleId, roleId);
             rolePermissionMapper.delete(del);
             for (String key : permissionKeys) {
-                Long permissionId = permissionMapper.findIdByPermCode(key);
-                if (permissionId == null) {
+                // A4: LambdaQueryWrapper 替代 @Select
+                LambdaQueryWrapper<PermissionEntity> permQw = new LambdaQueryWrapper<>();
+                permQw.eq(PermissionEntity::getPermCode, key);
+                PermissionEntity perm = permissionMapper.selectOne(permQw);
+                if (perm == null) {
                     throw new BizException(ErrorCode.VALIDATION_ERROR, java.util.Map.of("field", "permission_keys"));
                 }
                 RolePermissionEntity rp = new RolePermissionEntity();
                 rp.setRoleId(roleId);
-                rp.setPermissionId(permissionId);
+                rp.setPermissionId(perm.getId());
                 rolePermissionMapper.insert(rp);
             }
         }

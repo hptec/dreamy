@@ -59,7 +59,7 @@ class GlobalExceptionHandlerTest {
                 Map.of("remaining_attempts", 3));
 
         // ACT
-        ResponseEntity<R<Object>> resp = handler.handleBiz(ex);
+        ResponseEntity<R<Object>> resp = handler.handleBiz(ex, null);
 
         // ASSERT: L1 HTTP 401, L2 code=40101, L3 message 存在, L4 data.remaining_attempts=3
         assertThat(resp.getStatusCode().value()).isEqualTo(401);
@@ -81,7 +81,7 @@ class GlobalExceptionHandlerTest {
         InfraException ex = new InfraException(ErrorCode.DATABASE_ERROR);
 
         // ACT
-        ResponseEntity<R<Object>> resp = handler.handleInfra(ex);
+        ResponseEntity<R<Object>> resp = handler.handleInfra(ex, null);
 
         // ASSERT: L1 HTTP 500, L2 code=50001, L3 data=null（不泄漏）
         assertThat(resp.getStatusCode().value()).isEqualTo(500);
@@ -97,7 +97,7 @@ class GlobalExceptionHandlerTest {
                 .thenReturn("Something went wrong");
 
         // ACT
-        ResponseEntity<R<Object>> resp = handler.handleUnexpected(new RuntimeException("boom"));
+        ResponseEntity<R<Object>> resp = handler.handleUnexpected(new RuntimeException("boom"), null);
 
         // ASSERT: L1 HTTP 500, L2 code=50000, L3 data=null
         assertThat(resp.getStatusCode().value()).isEqualTo(500);

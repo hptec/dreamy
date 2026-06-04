@@ -1,11 +1,15 @@
-package com.dreamy.identity.domain.authconfig.repository;
+package com.dreamy.identity.domain.authconfig.consts;
+
+import com.dreamy.identity.domain.consts.CommonDBConst;
 
 /**
- * auth_config 表列名常量（DB 列 snake_case，单例 id=1）。
+ * auth_config 表列名常量。
+ * L2-REF: identity-physical-schema.md § 12 auth_config 表结构
  */
-public interface AuthConfigDBConst {
+public interface AuthConfigDBConst extends CommonDBConst {
 
-    String ID = "id";
+    String TABLE = "auth_config";
+
     String EMAIL_ENABLED = "email_enabled";
     String GOOGLE_ENABLED = "google_enabled";
     String APPLE_ENABLED = "apple_enabled";
@@ -16,6 +20,4 @@ public interface AuthConfigDBConst {
     String MIN_METHODS = "min_methods";
     String GOOGLE_CLIENT_ID = "google_client_id";
     String APPLE_SERVICE_ID = "apple_service_id";
-    String CREATED_AT = "created_at";
-    String UPDATED_AT = "updated_at";
 }

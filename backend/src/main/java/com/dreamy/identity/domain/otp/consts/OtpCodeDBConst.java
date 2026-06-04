@@ -1,11 +1,15 @@
-package com.dreamy.identity.domain.otp.repository;
+package com.dreamy.identity.domain.otp.consts;
+
+import com.dreamy.identity.domain.consts.CommonDBConst;
 
 /**
- * otp_code 表列名常量（DB 列 snake_case）。
+ * otp_code 表列名常量。
+ * L2-REF: identity-physical-schema.md § 3 otp_code 表结构
  */
-public interface OtpCodeDBConst {
+public interface OtpCodeDBConst extends CommonDBConst {
 
-    String ID = "id";
+    String TABLE = "otp_code";
+
     String EMAIL = "email";
     String CODE_HASH = "code_hash";
     String LENGTH = "length";
@@ -15,6 +19,4 @@ public interface OtpCodeDBConst {
     String STATUS = "status";
     String LAST_SENT_AT = "last_sent_at";
     String VERSION = "version";
-    String CREATED_AT = "created_at";
-    String UPDATED_AT = "updated_at";
 }

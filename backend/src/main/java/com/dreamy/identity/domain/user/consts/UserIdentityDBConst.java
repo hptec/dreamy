@@ -1,16 +1,14 @@
-package com.dreamy.identity.domain.user.repository;
+package com.dreamy.identity.domain.user.consts;
+
+import com.dreamy.identity.domain.consts.CommonDBConst;
 
 /**
- * user_identity 表列名常量（huihao-mysql 规范）。
- * 含 LongAuditableEntity 基类列 id / created_at / updated_at。
+ * user_identity 表列名常量。
+ * L2-REF: identity-physical-schema.md § 2 user_identity 表结构
  */
-public interface UserIdentityDBConst {
+public interface UserIdentityDBConst extends CommonDBConst {
 
     String TABLE = "user_identity";
-
-    String ID = "id";
-    String CREATED_AT = "created_at";
-    String UPDATED_AT = "updated_at";
 
     String USER_ID = "user_id";
     String PROVIDER = "provider";

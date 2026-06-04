@@ -106,11 +106,17 @@ public class RetentionScheduler {
      * RM-005/006/018：注销账户 30d 宽限后不可逆匿名化（FUNC-033 RI-004 级联）。
      * 约束: status=deleted AND deleted_at<now-30d → 清 email/name/phone/avatar，status=anonymized；
      * 级联 user_identity provider_uid→anon:{id}，清 identifier/relay_email，connected=0。
+     * DEC-004/A2：RM-005 findDeletedBefore 迁移为 LambdaQueryWrapper。
      */
     @Transactional
     public void anonymizeExpiredDeletedUsers() {
         LocalDateTime cutoff = now().minusDays(30);
-        List<UserEntity> targets = userMapper.findDeletedBefore(cutoff, BATCH);
+        // RM-005：idx_user_status_deleted_at
+        LambdaQueryWrapper<UserEntity> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserEntity::getStatus, "deleted")
+                .lt(UserEntity::getDeletedAt, cutoff)
+                .last("LIMIT " + BATCH);
+        List<UserEntity> targets = userMapper.selectList(qw);
         for (UserEntity user : targets) {
             anonymizeUser(user.getId());
         }
