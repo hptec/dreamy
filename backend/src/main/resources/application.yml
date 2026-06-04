@@ -80,6 +80,9 @@ identity:
     cron: "0 0 3 * * *"
 
 logging:
+  file:
+    # 应用日志输出到项目根 logs 目录（bootRun 工作目录为 backend/，故 ../logs 指向项目根）
+    name: ../logs/identity.log
   level:
     com.dreamy.identity: INFO
     com.baomidou.mybatisplus: WARN

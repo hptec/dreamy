@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  日志策略：仅输出到文件，不打印控制台。
+  - 文件路径由 application.yml 的 logging.file.name 指定（注入 LOG_FILE）
+  - root 只引用 FILE appender，故标准输出/控制台无任何日志
+  - logging.level.* 仍由 Spring Boot 在此配置之上应用
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+
+    <root level="INFO">
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
