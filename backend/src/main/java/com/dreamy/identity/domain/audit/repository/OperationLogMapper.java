@@ -5,6 +5,7 @@ import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.ResultType;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.session.ResultHandler;
 
@@ -34,6 +35,7 @@ public interface OperationLogMapper extends BaseMapper<OperationLogEntity> {
             ORDER BY created_at DESC
             </script>
             """)
+    @ResultType(OperationLogEntity.class)
     @Options(fetchSize = Integer.MIN_VALUE, resultSetType = org.apache.ibatis.mapping.ResultSetType.FORWARD_ONLY)
     void streamByFilter(@Param("action") String action,
                         @Param("operatorId") Long operatorId,

@@ -34,7 +34,8 @@ export async function exportOperationLogs(
     },
   })
   if (!res.ok) {
-    throw new Error('导出失败，请稍后重试')
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.message || '导出失败，请稍后重试')
   }
   const blob = await res.blob()
   const objectUrl = URL.createObjectURL(blob)

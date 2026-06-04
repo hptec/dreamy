@@ -51,7 +51,17 @@ export const useLogsStore = defineStore('logs', () => {
   }
 
   function exportCsv() {
-    return logsApi.exportOperationLogs(query())
+    const q = query()
+    // 后端导出强制时间窗（必传 from/to，跨度 ≤92 天，防全表流式扫描）。
+    // 未选范围时按「近 90 天」补全，避免 422；只缺一端则按另一端推算。
+    const DAY = 24 * 60 * 60 * 1000
+    let from = q.from ? new Date(q.from).getTime() : NaN
+    let to = q.to ? new Date(q.to).getTime() : NaN
+    if (Number.isNaN(to)) to = Date.now()
+    if (Number.isNaN(from)) from = to - 90 * DAY
+    q.from = new Date(from).toISOString()
+    q.to = new Date(to).toISOString()
+    return logsApi.exportOperationLogs(q)
   }
 
   return {
