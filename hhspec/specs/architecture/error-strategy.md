@@ -294,7 +294,7 @@ error_codes:
 | 重发间隔 | ≥ otp_resend_seconds（默认 30s） | Redis key `otp:resend:{email}` TTL 窗口 | 429 `42901 RESEND_TOO_SOON`（details.remaining_resend_seconds） |
 | 单 email 发码 | ≤ 5/h 且 ≤ 5/d | Redis 滑动窗口 `otp:count:email:{email}:h/:d` | 429 `42902 RATE_LIMITED` |
 | 单 IP 发码 | ≤ 20/h | Redis 窗口 `otp:count:ip:{ip}:h` | 429 `42902 RATE_LIMITED` |
-| 单码校验失败 | 达 otp_max_attempts（默认 5） | OtpCode.attempts（行锁串行，BE-DIM-4） | 410 `41002 OTP_LOCKED` |
+| 单码校验失败 | 达 otp_max_attempts（默认 5） | OtpCode.attempts（Redis 分布式锁串行 + REQUIRES_NEW 独立提交，BE-DIM-4） | 410 `41002 OTP_LOCKED` |
 
 - 计数全部走 Redis 窗口（非 DB 表），窗口到期自动清零（REQ-005-07）。
 - 降级：限流仅作用于 OTP 发码/校验，不影响已签发会话；OIDC 不可用时降级引导 OTP（50201/50401）。

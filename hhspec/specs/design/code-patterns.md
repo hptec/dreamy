@@ -11,9 +11,12 @@
 ## 数据访问
 - CP-010 无物理 FOREIGN KEY，逻辑外键 + 应用层/事务维护引用完整性。
 - CP-011 并发竞争表加 `version` 乐观锁（user/otp_code/user_session）。
-- CP-012 行锁串行化关键校验：`SELECT ... FOR UPDATE`（OTP 校验防并发绕过 attempts）。
+- CP-012 关键校验串行化：Redis 分布式锁 `onIdLock("otp:verify", email)`（DEC-001 起取代 `SELECT ... FOR UPDATE` 行锁以适配高并发；@Version 乐观锁 CAS 兜底）。
 - CP-013 DTO 映射隐藏敏感字段（provider_uid/token_id/refresh_token_id/password_hash/code_hash）。
 - CP-014 时间统一 DATETIME(3) UTC ↔ OffsetDateTime ↔ ISO8601，边界转换。
+- CP-015 实体列名常量接口范式：每个 Entity 配套 `{Entity}DBConst extends CommonDBConst`（置于 `domain/{聚合根}/consts/`），`@Column(name=)` 引用常量消除硬编码列名；SQL 保留字（如 group）常量存裸名，DML 转义由 `@TableField("\`...\`")` 单独负责。
+- CP-016 锁内独立事务写入范式：分布式锁内需立即持久化的写入（如 OTP attempts/locked/consumed）抽到独立 `@Service` 的 `@Transactional(REQUIRES_NEW)` 方法（跨 bean 代理生效），避免外层事务回滚撤销写入；CAS 更新需 `setSql("version = version + 1")` 配合 `eq(version)`（`update(null,wrapper)` 不触发 @Version 插件）。
+- CP-017 大数据集导出范式：禁止全量 `selectList` 进堆（OOM）与 native 游标流式；用 keyset 游标递减分页轮询（`id < lastId` + `orderByDesc(id)` + 固定页大小），强制时间窗上限保证轮询次数有界，每页独立从连接池借还。
 
 ## 安全与鉴权
 - CP-020 双 JWT 独立密钥（STORE_JWT_SECRET / ADMIN_JWT_SECRET），禁止复用。

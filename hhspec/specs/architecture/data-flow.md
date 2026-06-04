@@ -100,8 +100,9 @@ sequenceDiagram
     User->>StoreAPI: POST /api/store/auth/otp/verify {email, code}
     StoreAPI->>Svc: verifyOtp(email, code)
     Note over Svc,DB: BE-DIM-4 事务边界开始（防并发绕过 attempts）
-    Svc->>DB: SELECT OtpCode WHERE email=? AND status=pending FOR UPDATE
-    Note over Svc: 行锁 / 乐观锁版本号串行化同一 email 校验
+    Svc->>Redis: onIdLock("otp:verify", email) 分布式锁（DEC-001）
+    Svc->>DB: SELECT OtpCode WHERE email=? AND status=pending（LambdaQueryWrapper）
+    Note over Svc: Redis 分布式锁串行化同一 email 校验 + @Version 乐观锁 CAS 兜底
     alt now > expires_at
         Svc->>DB: UPDATE status=expired
         Svc-->>StoreAPI: OTP_EXPIRED
