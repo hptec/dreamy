@@ -1,0 +1,106 @@
+# Traceability Map —— unit_identity_identity-design
+# change: backend-orm-compliance-refactor（技术债 ORM 规范合规重构，无独立 L2 设计）
+# 设计来源: hhspec/changes/backend-orm-compliance-refactor/decision.md
+# codebase_path: /Volumes/MAC/workspace/dreamy
+# generated_at: "2026-06-04T16:30:00+08:00"
+
+unit:
+  unit_id: "unit_identity_identity-design"
+  unit_name: "identity 域 ORM 规范合规改造（A3 JOIN 消除 + role 聚合 DBConst 基类列补齐）"
+  design_source: "hhspec/changes/backend-orm-compliance-refactor/decision.md"
+  scope_note: >
+    本单元仅负责 decision.md 决策 4(A3) 与决策 3(role 聚合 3 个 DBConst 补齐基类列)。
+    A4/E2/迁包(repository→consts) 由其他并行单元负责，不在本单元范围。
+
+constraints:
+  # ===== A3: @Select JOIN → 分步查询 + 内存聚合（禁 JOIN）=====
+  - constraint_id: "A3"
+    status: implemented
+    description: >
+      删除 RolePermissionMapper.listKeysByRoleId 的 @Select(JOIN permission)，
+      改为 RoleService.permissionKeysOfRole 分步查询：Step1 按 role_id 查 role_permission
+      取 permission_id 列表；Step2 按 id IN 批量查 permission 内存提取 perm_code。
+      含空列表保护（permIds 为空直接返回 List.of() 不再查询）。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/repository/RolePermissionMapper.java"
+        lines: "1-13"
+        note: "移除 @Select/@Param/@Select 相关 import 及 listKeysByRoleId 方法，仅保留 BaseMapper 继承"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java"
+        lines: "81-98"
+        note: "permissionKeysOfRole 改为分步查询 + 内存聚合（Step1 role_permission，Step2 permission IN）"
+
+  - constraint_id: "A3-callsite-datainit"
+    status: implemented
+    description: >
+      DataInitializer.initSuperRole 原调用 rolePermissionMapper.listKeysByRoleId（已删除）。
+      改为分步查询：按 role_id 查 role_permission 得已关联 permission_id 集合，按 id 判重幂等跳过。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/config/DataInitializer.java"
+        lines: "139-156"
+        note: "existingPermIds 集合替代 existingPerms 权限码列表，按 permission_id 判重"
+
+  # ===== D: role 聚合 3 个 DBConst 补齐基类列（引用 CommonDBConst）=====
+  - constraint_id: "DBCONST-ROLE"
+    status: implemented
+    description: >
+      RoleDBConst 继承 CommonDBConst，补齐 ID/CREATED_AT/UPDATED_AT 基类列常量。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RoleDBConst.java"
+        lines: "1-16"
+        note: "interface RoleDBConst extends CommonDBConst"
+
+  - constraint_id: "DBCONST-PERMISSION"
+    status: implemented
+    description: >
+      PermissionDBConst 继承 CommonDBConst，补齐 ID/CREATED_AT/UPDATED_AT 基类列常量。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/PermissionDBConst.java"
+        lines: "1-16"
+        note: "interface PermissionDBConst extends CommonDBConst"
+
+  - constraint_id: "DBCONST-ROLEPERMISSION"
+    status: implemented
+    description: >
+      RolePermissionDBConst 继承 CommonDBConst，补齐 ID/CREATED_AT/UPDATED_AT 基类列常量。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RolePermissionDBConst.java"
+        lines: "1-14"
+        note: "interface RolePermissionDBConst extends CommonDBConst"
+
+coverage:
+  total_constraints: 5
+  implemented: 5
+  blocked: 0
+  coverage_percentage: 100
+
+verification:
+  compile:
+    command: "./gradlew compileJava -q"
+    exit_code: 0
+    result: PASS
+    note: "仅 Lombok sun.misc.Unsafe 弃用告警（与本改动无关）"
+
+notes:
+  - "CommonDBConst 已由其他单元/前序创建于 domain/consts/CommonDBConst.java，本单元直接引用。"
+  - >
+    A4(PermissionMapper.findIdByPermCode 删除→LambdaQueryWrapper) 与 E2(listAllPermissionKeys
+    显式条件) 在本单元改造期间已由并行单元落地于 RoleService/PermissionMapper/DataInitializer，
+    本单元未重复声明这些约束，仅确保 A3 改动与之共存且整体编译通过。
+
+change_manifest:
+  modified:
+    - file: "backend/src/main/java/com/dreamy/identity/domain/role/repository/RolePermissionMapper.java"
+      constraints: ["A3"]
+    - file: "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java"
+      constraints: ["A3"]
+    - file: "backend/src/main/java/com/dreamy/identity/config/DataInitializer.java"
+      constraints: ["A3-callsite-datainit"]
+    - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RoleDBConst.java"
+      constraints: ["DBCONST-ROLE"]
+    - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/PermissionDBConst.java"
+      constraints: ["DBCONST-PERMISSION"]
+    - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RolePermissionDBConst.java"
+      constraints: ["DBCONST-ROLEPERMISSION"]
+  added: []
+  deleted: []
+  blocked: []

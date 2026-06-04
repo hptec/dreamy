@@ -1,0 +1,191 @@
+# Traceability Map — unit_data_identity-retention-anonymization
+# 角色: l3_implementer ｜ change: backend-orm-compliance-refactor ｜ 变更类型: backend-only (ORM 规范合规重构)
+# 设计来源: hhspec/changes/backend-orm-compliance-refactor/decision.md (技术债重构，无独立 L2 设计)
+#           + 协调者补充约束标签 (A2/A4/A5 native SQL 简单查询消除)
+# codebase_path: /Volumes/MAC/workspace/dreamy
+# 负责约束: DEC-004 native SQL 简单查询消除 — 删除 Mapper @Select，逻辑迁 Service 层 LambdaQueryWrapper
+#
+# 约束标签对齐说明 (协调者 vs decision.md)：
+#   - A2 = PermissionMapper.findIdByPermCode  @Select   (decision 决策4 称 A4)
+#   - A4 = UserMapper.findByEmailActive       @Select   (decision 决策4 称 A2)
+#   - A5 = UserMapper.findDeletedBefore       @Select   (decision 决策4 称 A2 同表)
+#   - A3 = RolePermissionMapper.listKeysByRoleId @Select JOIN → 分步查询 (decision 决策4 A3)
+#   本文件按「改造对象」组织条目，并在每条标注两套标签，确保双向可追溯。
+
+unit_id: "unit_data_identity-retention-anonymization"
+unit_name: "identity ORM 合规重构 — native SQL 简单查询消除 (DEC-004 / A2·A3·A4·A5)"
+generated_at: "2026-06-04T16:35:00+08:00"
+
+coverage:
+  total_constraints: 4
+  implemented: 4
+  blocked: 0
+  coverage_percentage: 100
+
+constraints:
+  # ===== PermissionMapper.findIdByPermCode @Select → Service LambdaQueryWrapper =====
+  - constraint_id: "DEC-004-PermissionMapper.findIdByPermCode"
+    label_coordinator: "A2"
+    label_decision: "A4"
+    source: "decision.md 决策4 / 协调者补充 (A2)"
+    status: "implemented"
+    description: >-
+      删除 PermissionMapper 中 @Select("SELECT id FROM permission WHERE perm_code=#{permCode} LIMIT 1")
+      及其 findIdByPermCode 方法 + @Param/@Select import。调用方 RoleService.updateRole
+      改为 permissionMapper.selectOne(LambdaQueryWrapper.eq(PermissionEntity::getPermCode, key))
+      后取 perm.getId()，等价表达 perm_code → id 映射，无技术障碍。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/repository/PermissionMapper.java"
+        lines: "1-13"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java"
+        lines: "178-189"
+    style_note: >-
+      复用同文件已有 new LambdaQueryWrapper<PermissionEntity>() 点查风格 (listPermissions line 119-121)，
+      import LambdaQueryWrapper 已存在，无新增依赖。
+
+  # ===== UserMapper.findByEmailActive @Select → Service LambdaQueryWrapper =====
+  - constraint_id: "DEC-004-UserMapper.findByEmailActive"
+    label_coordinator: "A4"
+    label_decision: "A2"
+    source: "decision.md 决策4 / 协调者补充 (A4)"
+    status: "implemented"
+    description: >-
+      删除 UserMapper 中 @Select("SELECT * FROM user WHERE email=#{email} AND status<>'anonymized' LIMIT 1")
+      及 findByEmailActive 方法。逻辑迁至 MergeService.findByEmailActive (public)：
+      lambdaQuery().eq(UserEntity::getEmail, email).ne(UserEntity::getStatus,"anonymized").last("LIMIT 1")，
+      email==null 时短路返回 null (保留原 Service 侧空值语义)。两处调用方迁移：
+      MergeService.doResolveOrMerge (RM-002 同邮箱归并) 与 IdentityService.changePrimaryEmail (STEP-01 占用校验)，
+      后者经 mergeService.findByEmailActive 复用，避免重复实现。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/user/repository/UserMapper.java"
+        lines: "1-13"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/user/service/MergeService.java"
+        lines: "120-131"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/user/service/MergeService.java"
+        lines: "80-81"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/user/service/IdentityService.java"
+        lines: "254-255"
+    style_note: >-
+      与同文件 findByProviderUid (line 111-118) 的 LambdaQueryWrapper + .last("LIMIT 1") 风格一致，无新增依赖。
+
+  # ===== UserMapper.findDeletedBefore @Select → Service LambdaQueryWrapper (匿名化核心) =====
+  - constraint_id: "DEC-004-UserMapper.findDeletedBefore"
+    label_coordinator: "A5"
+    label_decision: "A2"
+    source: "decision.md 决策4 / 协调者补充 (A5)"
+    status: "implemented"
+    description: >-
+      删除 UserMapper 中 @Select("SELECT * FROM user WHERE status='deleted' AND deleted_at<#{cutoff} LIMIT #{limit}")
+      及 findDeletedBefore 方法。逻辑迁至 RetentionScheduler.anonymizeExpiredDeletedUsers (FLOW-16 每日匿名化任务)：
+      lambdaQuery().eq(UserEntity::getStatus,"deleted").lt(UserEntity::getDeletedAt, cutoff).last("LIMIT "+BATCH)，
+      命中 idx_user_status_deleted_at 索引语义不变，BATCH=500 分批控制大事务。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/user/repository/UserMapper.java"
+        lines: "1-13"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/audit/service/RetentionScheduler.java"
+        lines: "110-121"
+    style_note: >-
+      与同文件 cleanOtp/cleanRevokedUserSessions (line 71-95) 的 LambdaQueryWrapper 清理风格一致，
+      import LambdaQueryWrapper 已存在，无新增依赖。
+
+  # ===== RolePermissionMapper.listKeysByRoleId @Select JOIN → 分步查询 + 内存聚合 =====
+  - constraint_id: "DEC-004-RolePermissionMapper.listKeysByRoleId"
+    label_coordinator: "A3"
+    label_decision: "A3"
+    source: "decision.md 决策4 (A3: @Select JOIN → 分步查询 + 内存聚合，禁 JOIN 原则)"
+    status: "implemented"
+    description: >-
+      删除 RolePermissionMapper 中 @Select JOIN permission 的 listKeysByRoleId 方法。
+      逻辑迁至 RoleService.permissionKeysOfRole 分两步 + 内存聚合 (禁 JOIN)：
+      STEP-01 lambdaQuery().eq(RolePermissionEntity::getRoleId, roleId) 取 permission_id 列表；
+      STEP-02 lambdaQuery().in(PermissionEntity::getId, permIds) 批量取 perm_code，stream map 提取。
+      空列表短路返回 List.of() 避免空 IN。语义等价原 JOIN (role → perm_code 集合，FLOW-09 登录加载权限)。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/repository/RolePermissionMapper.java"
+        lines: "1-13"
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java"
+        lines: "81-98"
+    style_note: >-
+      复用同文件已有 LambdaQueryWrapper 风格 (countMembers line 100-105)，stream().map().toList() JDK 风格一致，无新增依赖。
+
+# ============================================================
+# 测试同步 (test_sync) — 调用方测试随接口变更修正
+# ============================================================
+test_coverage:
+  - tc_id: "TC-UNIT-011"
+    test_file: "backend/src/test/java/com/dreamy/identity/common/domain/service/MergeServiceTest.java"
+    test_method: "resolveOrMerge_sameEmailVerified_merges"
+    constraint_ids: ["DEC-004-UserMapper.findByEmailActive"]
+    change_note: "mock 由 userMapper.findByEmailActive(...) 改为 userMapper.selectOne(any()) — 方法已下沉为 LambdaQueryWrapper"
+  - tc_id: "TC-UNIT-012"
+    test_file: "backend/src/test/java/com/dreamy/identity/common/domain/service/MergeServiceTest.java"
+    test_method: "resolveOrMerge_sameEmailUnverified_throws40902"
+    constraint_ids: ["DEC-004-UserMapper.findByEmailActive"]
+    change_note: "mock 改 userMapper.selectOne(any())"
+  - tc_id: "TC-UNIT-013"
+    test_file: "backend/src/test/java/com/dreamy/identity/common/domain/service/MergeServiceTest.java"
+    test_method: "resolveOrMerge_noExisting_createsNew"
+    constraint_ids: ["DEC-004-UserMapper.findByEmailActive"]
+    change_note: "mock 改 userMapper.selectOne(any())"
+
+# ============================================================
+# 边界声明 (scope boundary)
+# ============================================================
+scope_boundary:
+  owned_files:
+    - "backend/src/main/java/com/dreamy/identity/domain/role/repository/PermissionMapper.java (删 @Select findIdByPermCode)"
+    - "backend/src/main/java/com/dreamy/identity/domain/user/repository/UserMapper.java (删 @Select findByEmailActive + findDeletedBefore)"
+    - "backend/src/main/java/com/dreamy/identity/domain/role/repository/RolePermissionMapper.java (删 @Select JOIN listKeysByRoleId)"
+    - "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java (permissionKeysOfRole 分步查询 81-98 / updateRole findIdByPermCode 迁移 178-189)"
+    - "backend/src/main/java/com/dreamy/identity/domain/user/service/MergeService.java (新增 findByEmailActive 120-131 + 调用方 80-81)"
+    - "backend/src/main/java/com/dreamy/identity/domain/user/service/IdentityService.java (changePrimaryEmail 调用迁移 254-255，移除重复私有副本)"
+    - "backend/src/main/java/com/dreamy/identity/domain/audit/service/RetentionScheduler.java (findDeletedBefore 迁移 110-121)"
+    - "backend/src/test/java/com/dreamy/identity/common/domain/service/MergeServiceTest.java (mock 同步修正 3 处)"
+  not_touched:
+    - "OtpCodeMapper @Select FOR UPDATE (归属其他单元: DEC-001 OTP Redis 锁)"
+    - "OperationLogMapper @Select(<script>) 流式导出 (归属其他单元: DEC-002 分页轮询)"
+    - "DBConst 迁包 / CommonDBConst 新建 (归属其他单元: DEC-003)"
+    - "B1 UpdateWrapper 硬编码 / E2 selectList(null) (归属兄弟单元: unit_identity_identity-data-detail)"
+
+# ============================================================
+# 验证记录 (verification)
+# ============================================================
+verification:
+  method: "gradlew compileJava (主代码) + 残留调用 grep 扫描"
+  main_compile: "PASS — gradlew compileJava 无 error/fail (主源码全部通过)"
+  residual_native_sql_scan: "PASS — findByEmailActive/findDeletedBefore/findIdByPermCode/listKeysByRoleId 在 4 个 Mapper 中已无 @Select；仅余注释说明"
+  callsite_migration: "PASS — 全部调用方 (MergeService/IdentityService/RetentionScheduler/RoleService/DataInitializer) 已迁 LambdaQueryWrapper"
+  test_compile_note: >-
+    gradlew compileTestJava 当前 FAIL，但 3 处编译错误全部位于
+    src/test/java/com/dreamy/identity/common/error/GlobalExceptionHandlerTest.java
+    (handleBiz/handleInfra/handleUnexpected 旧单参签名 vs 新增 HttpServletRequest 参数)，
+    源自上游提交 cb8b737「异常处理增记请求行」改了 GlobalExceptionHandler 签名但未同步该测试，
+    在本单元编辑前即存在，与本单元 native SQL 改造无关 (git diff 确认本单元未触碰 error/ 包)。
+    本单元改动的 MergeServiceTest 已随接口变更同步修正，不引入任何新编译错误。
+
+# ============================================================
+# 自检清单 (self-check)
+# ============================================================
+self_check:
+  - check: "全部负责约束 (A2/A3/A4/A5 = 4 个 @Select 改造) 有对应代码实现"
+    result: "PASS"
+  - check: "Mapper @Select native SQL 全部删除 (含 JOIN)，逻辑迁 Service 层 LambdaQueryWrapper"
+    result: "PASS"
+  - check: "全部调用方迁移完成，无残留对已删除 Mapper 方法的引用"
+    result: "PASS"
+  - check: "impl_location 指向真实文件路径和行号 (非占位符)"
+    result: "PASS"
+  - check: "命名/方法引用与实体 getter 一致 (IMP-12)，类型映射不变 (IMP-13)"
+    result: "PASS"
+  - check: "无新增依赖 (LambdaQueryWrapper import 均已存在)"
+    result: "PASS"
+  - check: "新代码风格与同文件已有 wrapper 用法一致 (IMP-14)"
+    result: "PASS"
+  - check: "无自由发挥 — 仅改 DEC-004 指定的 native SQL 消除范围 (IMP-15)"
+    result: "PASS"
+  - check: "未触碰其他单元负责的 DEC-001/DEC-002/DEC-003/B1/E2"
+    result: "PASS"
+  - check: "调用方单元测试 (MergeServiceTest) 随接口变更同步修正"
+    result: "PASS"
+  - check: "无 TODO/FIXME/placeholder"
+    result: "PASS"

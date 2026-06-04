@@ -1,0 +1,178 @@
+reviewer: l3_code_reviewer
+reviewer_layer: craft
+change_name: backend-orm-compliance-refactor
+review_round: 2
+generated_at: "2026-06-04T11:20:00Z"
+previous_round_generated_at: "2026-06-04T10:40:00Z"
+
+# ============================================================
+# 审查范围（复核轮）
+# ============================================================
+scope:
+  files_reviewed:
+    - backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpStateWriter.java  # 新增
+    - backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+    - backend/src/main/java/com/dreamy/identity/domain/otp/entity/OtpCodeEntity.java
+    - backend/src/main/java/com/dreamy/identity/domain/session/service/SessionService.java (partial)
+    - backend/src/test/java/com/dreamy/identity/common/domain/service/OtpServiceTest.java
+  reference_read:
+    - hhspec/changes/backend-orm-compliance-refactor/reviews/review-code.yml (round 1)
+    - /Volumes/MAC/workspace/hitales-commons/huihao-redis/src/main/java/huihao/redis/IdLockSupport.java
+
+# ============================================================
+# 上轮 blocking 修复验证
+# ============================================================
+fix_verification:
+  - finding_id: FND-CODE-001
+    status: FIXED
+    verified_at_location: OtpStateWriter.java:32-56 / OtpService.java:54,64,73,204,212,216,223
+    evidence: |
+      OtpStateWriter 为独立 @Service Bean，经构造器注入 OtpService（line 54/64/73），
+      调用形式 otpStateWriter.updateStatus(...) / otpStateWriter.incrementAttempt(...)，
+      走 Spring 代理而非 this 自调用 → REQUIRES_NEW 真实生效（避开自调用陷阱）。
+      两写入方法均标 @Transactional(propagation = REQUIRES_NEW)，挂起外层 verifyOtp 事务并独立提交，
+      随后 consumeValidCode 抛 BizException 仅回滚外层事务，attempts++/locked 已先行落库。
+      V-001 防暴力破解恢复：attempts 持续递增，达 maxAttempts 置 locked 持久生效。
+  - finding_id: FND-CODE-002
+    status: FIXED
+    verified_at_location: OtpStateWriter.java:50-56
+    evidence: |
+      incrementAttempt 改为 update(null, lambdaUpdate().eq(id).setSql("attempts = attempts + 1"))，
+      单条原子 UPDATE，无 select-then-update、无 @Version 读取依赖；
+      叠加 REQUIRES_NEW 子事务独立连接，MyBatis 一级缓存 stale version 路径被彻底规避。
+      原 select-then-update 私有方法已删除（OtpService 中无残留）。
+
+# ============================================================
+# 本轮发现列表（上轮 blocking 已闭环，保留非阻塞项）
+# ============================================================
+findings:
+
+  - id: FND-CODE-001
+    severity: blocking
+    status: resolved
+    resolved_in_round: 2
+    category: 逻辑错误
+    check_item: CODE-01
+    root_cause: case_a_impl_bug
+    title: "[已闭环] OTP attempts/locked 写入被事务回滚——频控失效"
+    file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpStateWriter.java
+    resolution: |
+      新增独立 @Service OtpStateWriter，updateStatus/incrementAttempt 标
+      @Transactional(propagation = REQUIRES_NEW)，经独立 Bean 代理调用（非 this 自调用），
+      子事务独立提交，外层 BizException 回滚不影响频控写入。V-001 防暴力破解恢复。
+
+  - id: FND-CODE-002
+    severity: blocking
+    status: resolved
+    resolved_in_round: 2
+    category: 逻辑错误
+    check_item: CODE-01
+    root_cause: case_a_impl_bug
+    title: "[已闭环] incrementAttempt @Version stale version 风险"
+    file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpStateWriter.java
+    resolution: |
+      incrementAttempt 改为 setSql("attempts = attempts + 1") 单条原子 UPDATE，
+      去除 select-then-update 与 @Version 读依赖；叠加 REQUIRES_NEW 独立连接，
+      MyBatis 一级缓存 stale version 路径彻底规避。
+
+  - id: FND-CODE-003
+    severity: warning
+    status: open
+    category: 边界条件遗漏
+    check_item: CODE-02
+    title: "AuditService.streamForExport 最后一页恰好整页时多发一次空查询（无害可避免）"
+    file: backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+    lines: "73-88"
+    description: >-
+      双保险终止逻辑正确，无死循环；仅数据量为 1000 整倍数时触发一次多余空查询。非阻塞。
+
+  - id: FND-CODE-004
+    severity: warning
+    status: open
+    category: 可读性
+    check_item: CODE-03
+    title: "recordFailedLogin 在分布式锁临界区且仍处外层事务内，回滚时失败登录记录丢失"
+    file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+    lines: "213, 217"
+    description: >-
+      复核确认：sessionService.recordFailedLogin（SessionService.java:118 无独立事务注解）
+      在 verifyOtp 外层 @Transactional 内执行，OTP_INVALID/OTP_LOCKED 抛出回滚时其 login_history
+      insert 一并丢失——与 FND-CODE-001 修复后的 attempts 落库不再一致（attempts 已提交但失败登录记录被回滚）。
+      不影响 V-001 核心频控（attempts 已独立提交），但安全审计记录缺失。建议与 FND-CODE-004 原方案合并处理：
+      将 recordFailedLogin 移至锁外并独立事务（REQUIRES_NEW）或随 OtpStateWriter 一并提交。非阻塞，留待后续。
+    remediation: |
+      将 recordFailedLogin 移到 onIdLock 之外，在 verifyOtp catch(BizException) 分支按错误码补记，
+      或为其加 @Transactional(REQUIRES_NEW)，使失败审计与 attempts 写入语义一致。
+
+  - id: FND-CODE-005
+    severity: warning
+    status: open
+    category: 命名质量
+    check_item: CODE-04
+    title: "RetentionScheduler.BATCH 常量语义不明确"
+    file: backend/src/main/java/com/dreamy/identity/domain/audit/service/RetentionScheduler.java
+    lines: "35, 118"
+    description: >-
+      建议改名 ANONYMIZE_BATCH_LIMIT，与 AuditService.EXPORT_PAGE_SIZE 命名风格对齐。非阻塞。
+
+  - id: FND-CODE-006
+    severity: info
+    status: open
+    category: 风格一致性
+    check_item: CODE-08
+    title: "OtpService.consumeValidCode 单 entry Map 用 new HashMap 而非 Map.of()"
+    file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+    lines: "218-220"
+    description: >-
+      与 RoleService/IdentityService 的 Map.of() 风格不一致。无功能影响。
+
+# ============================================================
+# 检查项通过记录（复核轮）
+# ============================================================
+checks_passed:
+  - check_item: CODE-01
+    summary: >-
+      verifyOtp/verifyCodeOnly/consumeValidCode 控制流复核通过；attempts/locked/consumed 状态写入
+      经 REQUIRES_NEW 独立提交，BizException 回滚不再吞掉频控数据，逻辑闭环。
+  - check_item: CODE-06
+    summary: >-
+      REQUIRES_NEW 子事务由 Spring 代理统一提交/关闭，无连接泄漏；OtpStateWriter 仅做 Mapper.update，无额外资源。
+  - check_item: 自调用陷阱(REQUIRES_NEW)
+    summary: >-
+      OtpStateWriter 为独立注入 Bean（OtpService.java:54/64/73），调用经代理生效，非 this 自调用，REQUIRES_NEW 有效。
+  - check_item: 测试一致性
+    summary: >-
+      OtpServiceTest 补 @Mock OtpStateWriter（line 53）并经 @InjectMocks 注入；验证点改为
+      verify(otpStateWriter).updateStatus(...)（line 97/165）；全量 66 tests 通过（用户提供）。
+
+# ============================================================
+# 分类统计（复核轮）
+# ============================================================
+findings_by_category:
+  blocking_resolved: 2   # FND-CODE-001 / FND-CODE-002 已闭环
+  blocking_open: 0
+  warning: 3             # FND-CODE-003 / 004 / 005
+  info: 1                # FND-CODE-006
+  total: 6
+
+# ============================================================
+# 不确定性
+# ============================================================
+uncertainties:
+  - item: "REQUIRES_NEW 子事务与外层共用数据源的连接池容量"
+    note: >-
+      REQUIRES_NEW 会在外层事务持有连接期间额外占用一个连接（子事务独立连接）。
+      单次 verifyOtp 仅嵌套一层，连接占用 +1，常规连接池（HikariCP 默认 10）下无压力；
+      极端高并发同邮箱因 Redis 锁串行，不会放大连接占用。运行时连接池配置未读，标记为低风险不确定项。
+
+# ============================================================
+# 判定（复核轮）
+# ============================================================
+verdict: PASS
+verdict_reason: >-
+  上轮 2 条 blocking（FND-CODE-001 attempts/locked 被回滚、FND-CODE-002 @Version stale version）
+  均已闭环：OtpStateWriter 以独立 Bean + REQUIRES_NEW 使频控写入先于外层事务回滚提交，
+  避开自调用陷阱；incrementAttempt 改 setSql 原子递增彻底规避 stale version；V-001 防暴力破解恢复。
+  测试已补 OtpStateWriter mock，66 tests 通过。剩余 3 warning / 1 info 均非阻塞。
+  复核中新增 FND-CODE-004 补充观察（失败登录审计记录仍随外层回滚丢失），降级为 warning 留待后续，
+  不影响核心频控正确性，不阻塞放行。

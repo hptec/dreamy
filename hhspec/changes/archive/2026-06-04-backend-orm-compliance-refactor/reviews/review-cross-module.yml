@@ -1,0 +1,351 @@
+---
+review_report:
+  title: "跨模块复用 审查报告"
+  reviewer: "l3_cross_module_reviewer"
+  reviewer_layer: "cross-cutting"
+  date: "2026-06-04"
+  round: 1
+
+  # ============================================================
+  # 审查范围
+  # ============================================================
+  scope:
+    implementation_units:
+      - "unit_identity_identity-api-detail"          # DEC-001 OTP Redis 锁 + OtpStateWriter
+      - "unit_identity_identity-data-detail"          # B1/E2 Wrapper + DBConst 迁包/基类列
+      - "unit_identity_identity-design"               # A3 JOIN→分步查询 + role 聚合 DBConst
+      - "unit_data"                                    # A2/A4/A5 native SQL 消除
+      - "unit_data_identity-retention-anonymization"   # A6 流式导出/保留清理
+    total_files_reviewed: 14   # 8 service + 1 OtpStateWriter + AuditService + DataInitializer + 13 DBConst(Grep) + 2 infra(SessionValidator/EmailTemplateRenderer)
+    total_lines_reviewed: 1300
+
+  # ============================================================
+  # 审查依据
+  # ============================================================
+  references:
+    requirement_doc: "hhspec/changes/backend-orm-compliance-refactor/decision.md"
+    architecture_dir: "hhspec/specs/architecture"
+    design_dir: "hhspec/specs/design"
+    specs_files:
+      - "hhspec/specs/design/code-patterns.md"
+      - "hhspec/specs/design/code-structure-spec.md"
+    compliance_reports:
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/review-functional.yml"
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/review-architectural.yml"
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/review-spec-compliance.yml"
+    craft_reports:
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/review-code.yml"
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/review-security.yml"
+      # 注：review-performance.yml 在 reviews/ 目录不存在（见 UNC-REUSE-001）
+
+  # ============================================================
+  # 总体判定（无 blocking = PASS）
+  # ============================================================
+  verdict: "PASS"
+
+  # ============================================================
+  # 其他审查者已覆盖的重复/复用问题（去重，不重复计入本报告 findings）
+  # ============================================================
+  covered_by_others:
+    - finding_ref: "FND-CODE-001 / FND-CODE-002"
+      reviewer: "l3_code_reviewer"
+      overlap: >-
+        OtpStateWriter（REQUIRES_NEW 独立事务）的实现正确性与自调用陷阱规避已由 Code Reviewer
+        完整验证并闭环。本审查不重复其正确性判定；本审查独有视角为：该模式是否值得作为可复用范式
+        反哺 specs/（见 FND-REUSE-002，B 类）。
+    - finding_ref: "FND-SEC-001 / FND-SEC-004 / FND-SEC-005"
+      reviewer: "l3_security_reviewer"
+      overlap: >-
+        OtpStateWriter 锁内提交的并发安全性、version CAS 兜底有效性、嵌套事务连接占用均已由
+        Security Reviewer 覆盖。本审查不重复并发/连接分析。
+    - finding_ref: "FND-ARCH-002"
+      reviewer: "l3_architectural_reviewer"
+      overlap: >-
+        13 实体 DBConst extends CommonDBConst 的迁包结构合规性已由 Architectural Reviewer 正向确认
+        （包结构/依赖单向/repository 零残留）。本审查不重复结构合规判定；独有视角为该范式的 specs/ 沉淀
+        （见 FND-REUSE-001，B 类）。
+    - finding_ref: "FND-CODE-003"
+      reviewer: "l3_code_reviewer"
+      overlap: >-
+        AuditService 分页轮询终止逻辑的边界（整页空查询）已由 Code Reviewer 覆盖。本审查仅就该
+        游标分页轮询作为可复用模式做 specs 沉淀评估（见 FND-REUSE-003，B 类），不重复其边界分析。
+    - finding_ref: "FND-SPEC-001 / FND-SPEC-002"
+      reviewer: "l3_spec_compliance_reviewer"
+      overlap: >-
+        Mapper 基类（BaseMapper vs GenericMapper）与 @TableField 省略两项规范偏差已由 Spec Compliance
+        Reviewer 覆盖。属规范符合性范畴，非跨单元重复，本审查不计入。
+
+  # ============================================================
+  # 发现列表
+  # ============================================================
+  findings:
+
+    # ---------- B 类 1：DBConst + CommonDBConst 范式沉淀 ----------
+    - id: "FND-REUSE-001"
+      severity: "info"
+      classification: "B"
+      category: "REUSE-07"
+      check_item: "REUSE-07"
+      title: "13 实体统一 {Entity}DBConst extends CommonDBConst 列名常量范式，建议沉淀为新实体标准范式"
+      evidence:
+        locations:
+          - file: "backend/src/main/java/com/dreamy/identity/domain/consts/CommonDBConst.java"
+            line: "8-18"
+            code_snippet: "interface CommonDBConst { String ID=\"id\"; String CREATED_AT=\"created_at\"; String UPDATED_AT=\"updated_at\"; }"
+            implementer: "unit_identity_identity-data-detail"
+          - file: "backend/src/main/java/com/dreamy/identity/domain/user/consts/UserDBConst.java"
+            line: "10-26"
+            code_snippet: "interface UserDBConst extends CommonDBConst { String TABLE=\"user\"; String EMAIL=\"email\"; ... String VERSION=\"version\"; }"
+            implementer: "unit_identity_identity-data-detail"
+          - file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RoleDBConst.java"
+            line: "10-16"
+            code_snippet: "interface RoleDBConst extends CommonDBConst { String NAME=\"name\"; String TYPE=\"type\"; String IS_LOCKED=\"is_locked\"; String VERSION=\"version\"; }"
+            implementer: "unit_identity_identity-design"
+      counterpart:
+        source: "hhspec/specs/design/code-patterns.md"
+        location: "命名与结构 CP-001/CP-002（现状仅记字段命名规则，未记 DBConst 常量接口范式）"
+        quote: "CP-001 JSON/DB 字段 snake_case；CP-002 主键字段统一 id"
+      description: >-
+        本次重构对 13 个领域实体统一采用「{Entity}DBConst interface extends CommonDBConst」常量范式：
+        公共审计列（id/created_at/updated_at）单一来源于 domain/consts/CommonDBConst，各实体常量接口
+        仅声明自身业务列 + TABLE 名，@Column(name)/@TableField/Wrapper 全部引用常量禁止硬编码列名。
+        该范式跨全部 5 个实现单元一致出现（13 处），是后续新增实体的事实标准，但 code-patterns.md 现状
+        仅记录字段命名约定（CP-001/002），未记录该常量接口范式。属可复用范式，宜沉淀供后续新实体直接套用。
+      impact: >-
+        非缺陷。沉淀后可让后续新实体作者直接遵循统一范式（避免列名硬编码、避免审计列重复声明），
+        降低规范漂移。不阻塞当次交付。
+      recommendation: >-
+        将该范式按 CP-NNN 格式追加到 hhspec/specs/design/code-patterns.md「命名与结构」分类（见 pattern_spec）。
+      affected_implementer: "unit_identity_identity-data-detail, unit_identity_identity-design（全 5 单元一致）"
+      constraint_ids: ["DEC-003", "DBCONST-*"]
+      pattern_spec:
+        pattern_name: "实体列名常量接口范式（{Entity}DBConst extends CommonDBConst）"
+        cp_number: "CP-015"
+        type: "REUSABLE"
+        scope: "全局（所有 huihao-mysql 领域实体）"
+        description: >-
+          公共审计列（id/created_at/updated_at）集中于 domain/consts/CommonDBConst；每实体定义
+          {Entity}DBConst interface extends CommonDBConst，声明 TABLE 名 + 自身业务列 snake_case 常量；
+          实体 @Column(name)/@TableField 与 Service 层 LambdaWrapper 列引用一律取 DBConst 常量，禁止硬编码列名字符串。
+          常量接口置于 domain/{聚合根}/consts/ 包，单向依赖 domain/consts/CommonDBConst。
+        problem_scenario: >-
+          列名散落硬编码导致重命名时遗漏、审计列在每实体重复声明、常量接口曾误置于 repository/ 包成为 dead code。
+        usage_example: >-
+          UserDBConst/RoleDBConst/OtpCodeDBConst 等 13 个；新增实体时新建 {Entity}DBConst extends CommonDBConst 即可。
+        notes: >-
+          consts/ 包仅向 CommonDBConst 单向依赖，不得反向引用 entity/service；@Version 乐观锁列与 SQL 保留字列
+          （如 group→@TableField("`group`")）仍需在实体侧补 @TableField，常量值存裸列名。
+
+    # ---------- B 类 2：锁内独立事务写入范式沉淀 ----------
+    - id: "FND-REUSE-002"
+      severity: "info"
+      classification: "B"
+      category: "REUSE-07"
+      check_item: "REUSE-07"
+      title: "OtpStateWriter「锁内/事务内关键写入需独立提交以规避外层回滚」范式，建议沉淀为通用模式"
+      evidence:
+        locations:
+          - file: "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpStateWriter.java"
+            line: "34-49"
+            code_snippet: "@Transactional(propagation = REQUIRES_NEW) public void updateStatus(...) { ... } // 独立 @Service Bean，跨 bean 代理调用"
+            implementer: "unit_identity_identity-api-detail"
+          - file: "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpStateWriter.java"
+            line: "54-60"
+            code_snippet: "@Transactional(propagation = REQUIRES_NEW) public void incrementAttempt(Long id) { ...setSql(\"attempts = attempts + 1\") }"
+            implementer: "unit_identity_identity-api-detail"
+      counterpart:
+        source: "hhspec/specs/design/code-patterns.md"
+        location: "数据访问 CP-011/CP-012（CP-012 FOR UPDATE 已被 DEC-001 Redis 锁取代，无独立提交范式记录）"
+        quote: "CP-012 行锁串行化关键校验：SELECT ... FOR UPDATE（OTP 校验防并发绕过 attempts）"
+      description: >-
+        本次新增 OtpStateWriter 解决「频控写入（attempts++/locked/consumed）必须在外层 @Transactional
+        因 BizException 回滚之前落库」的问题：抽独立 @Service Bean，写入方法标 REQUIRES_NEW，经跨 bean
+        Spring 代理调用（规避 this 自调用陷阱）使子事务独立提交。该「锁内/校验失败回滚场景下的关键写入需独立
+        提交」是通用横切关注点，未来其他频控/审计/计数类写入会再次遇到，宜沉淀为模式。同时 code-patterns.md
+        的 CP-012（FOR UPDATE）已被 DEC-001 取代，应一并修订标注其演进。
+      impact: >-
+        非缺陷。沉淀后避免后续作者重蹈「写入随外层事务回滚丢失」与「self-invocation 导致 REQUIRES_NEW 失效」
+        两类陷阱。不阻塞当次交付。
+      recommendation: >-
+        新增 CP-016 记录该范式；同时更新 CP-012 标注「OTP 校验已由 DEC-001 改 Redis 分布式锁 + 锁内 REQUIRES_NEW
+        提交取代 FOR UPDATE」（见 pattern_spec）。
+      affected_implementer: "unit_identity_identity-api-detail"
+      constraint_ids: ["DEC-001", "V-001"]
+      pattern_spec:
+        pattern_name: "锁内/事务内关键写入独立提交范式（独立 Bean + REQUIRES_NEW）"
+        cp_number: "CP-016"
+        type: "REUSABLE"
+        scope: "全局（频控、审计、计数等需在外层回滚前持久化的关键写入）"
+        description: >-
+          当某写入必须在外层 @Transactional 可能回滚（如校验失败抛 BizException）之前落库时：
+          将该写入下沉到独立 @Service Bean，写入方法标 @Transactional(propagation=REQUIRES_NEW)，
+          由外层服务经构造器注入后跨 bean 调用（非 this 自调用，否则 Spring 代理不生效 REQUIRES_NEW 失效）。
+          子事务独立提交，外层回滚不影响该写入。计数类写入用 setSql 原子自增规避 stale version。
+        problem_scenario: >-
+          OTP attempts++/locked 原在外层事务内，校验失败抛 BizException 时随外层回滚丢失，max-attempts
+          频控形同虚设（可无限重试绕过）。CP-012 的 FOR UPDATE 行锁亦已被 DEC-001 Redis 分布式锁取代。
+        usage_example: >-
+          OtpStateWriter.updateStatus/incrementAttempt（otp 聚合）；FND-CODE-004 指出 recordFailedLogin
+          失败登录审计仍随外层回滚丢失，为本范式后续候选适用点。
+        notes: >-
+          必须为独立注入 Bean，禁止同类内 this 自调用；REQUIRES_NEW 在外层事务挂起期间额外占用一条 DB 连接，
+          需关注连接池容量（参见 FND-SEC-005）；version 兜底需用 setSql version+1 构成真 CAS（参见 FND-SEC-004）。
+
+    # ---------- B 类 3：游标分页轮询导出范式沉淀 ----------
+    - id: "FND-REUSE-003"
+      severity: "info"
+      classification: "B"
+      category: "REUSE-07"
+      check_item: "REUSE-07"
+      title: "AuditService id 游标递减分页轮询导出范式，建议沉淀为大数据集流式导出标准模式"
+      evidence:
+        locations:
+          - file: "backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java"
+            line: "68-115"
+            code_snippet: "streamForExport: while(true){ page=fetchExportPage(...,lastId); if(empty)break; consumer.accept; if(size<PAGE)break; lastId=last.getId(); } // fetchExportPage: lt(getId,lastId).orderByDesc(getId).last(\"LIMIT \"+PAGE)"
+            implementer: "unit_data_identity-retention-anonymization"
+          - file: "backend/src/main/java/com/dreamy/identity/domain/audit/service/RetentionScheduler.java"
+            line: "115-118"
+            code_snippet: "qw.eq(getStatus,\"deleted\").lt(getDeletedAt,cutoff).last(\"LIMIT \"+BATCH) // 同类有界批量拉取（保留清理）"
+            implementer: "unit_data_identity-retention-anonymization"
+      counterpart:
+        source: "hhspec/specs/design/code-patterns.md"
+        location: "数据访问（无大数据集流式导出/批量轮询范式记录）"
+        quote: "（现状无对应条目）"
+      description: >-
+        DEC-002 将 operation_log 导出由 native 游标流式（fetchSize=Integer.MIN_VALUE + ResultHandler）改为
+        LambdaQueryWrapper + id 游标递减分页轮询（每页 EXPORT_PAGE_SIZE，lt(getId,lastId).orderByDesc(getId)
+        .last("LIMIT N")，逐页 Consumer 回调写出、堆内常驻仅一页、强制时间窗上限保证轮询有界）。
+        RetentionScheduler 的有界批量删除（LIMIT BATCH）与之同源思路。该「无 OFFSET 的 keyset 游标分页 +
+        逐页回调 + 双终止条件（空页/不足一页）+ 强制窗口上界」是百万级数据集导出的通用 ORM 友好范式，
+        宜沉淀供后续其他大表导出复用。本审查仅评估其 specs 沉淀价值，分页边界正确性已由 Code Reviewer 覆盖。
+      impact: >-
+        非缺陷。沉淀后让后续大表导出直接套用 keyset 游标避免 OFFSET 深分页与 OOM。不阻塞当次交付。
+      recommendation: >-
+        新增 CP-017 记录该 keyset 游标分页轮询导出范式（见 pattern_spec）。
+      affected_implementer: "unit_data_identity-retention-anonymization"
+      constraint_ids: ["DEC-002", "RM-102", "BLOCKER-5"]
+      pattern_spec:
+        pattern_name: "keyset 游标递减分页轮询导出范式（无 OFFSET 流式导出）"
+        cp_number: "CP-017"
+        type: "REUSABLE"
+        scope: "全局（百万级大表的流式导出/批量处理）"
+        description: >-
+          while 循环每页用 LambdaQueryWrapper 按主键 id 游标递减拉取（lt(getId,lastId).orderByDesc(getId)
+          .last("LIMIT N")），逐页经 Consumer<T> 回调写出后即丢弃，堆内常驻仅一页；双终止条件（空页 break /
+          不足一页 break）；强制时间窗/范围上限保证轮询次数有界。每页查询独立从连接池借还，不持有长事务连接。
+        problem_scenario: >-
+          operation_log 百万行/月，原 selectList 全量进 List 必 OOM；OFFSET 深分页随页码线性劣化。
+        usage_example: >-
+          AuditService.streamForExport/fetchExportPage（operation_log 导出）；RetentionScheduler 有界批量
+          删除（LIMIT BATCH）为同源思路。
+        notes: >-
+          依赖 id 自增与创建时序单调一致（若严格要求 created_at 顺序需加二级排序，参见 UNC-FUNC-001）；
+          .last("LIMIT N") 的 N 必须为编译期常量（参见 FND-SEC-003，防注入）；数据量为页大小整倍数时末尾多一次
+          空查询（无害，参见 FND-CODE-003）。
+
+  # ============================================================
+  # 不确定性
+  # ============================================================
+  uncertainties:
+    - id: "UNC-REUSE-001"
+      question: >-
+        任务背景声明工艺层含 Performance Reviewer，但 reviews/ 目录下不存在 review-performance.yml
+        （仅 functional/architectural/spec-compliance/code/security + integration-check）。无法读取性能审查
+        是否已就分页轮询/批量查询提出过复用相关发现。
+      impact: >-
+        低。已读取的 5 份审查报告 + integration-check 中无与跨单元复用重叠的未覆盖项；性能维度即便存在
+        也不改变本报告 B 类范式沉淀结论。
+      suggestion: "请 L3 Coordinator 确认 Performance Reviewer 是否已执行；若有报告补充比对其 findings。"
+    - id: "UNC-REUSE-002"
+      question: >-
+        条件过滤构建（if(x!=null) qw.eq(...)）在 AuditService(buildFilter+fetchExportPage)、AdminService.pageAdmins、
+        UserOpsService 等多处出现，是否值得提取为共享 filter builder。
+      impact: >-
+        低。各处针对不同实体不同字段集，无两处逻辑等价；AuditService 内 buildFilter 与 fetchExportPage 的 4 段
+        if-null 重复属单元内重复（Code Reviewer CODE-07 范畴），非跨单元。强行抽象会引入泛型/反射复杂度，
+        判定为不构成 A 类提取项。
+      suggestion: "维持现状；若后续同实体过滤逻辑进一步增多再评估按实体提取 private filter builder。"
+
+  # ============================================================
+  # 汇总
+  # ============================================================
+  summary:
+    total_findings: 3
+    blocking_count: 0
+    warning_count: 0
+    info_count: 3
+    class_a_count: 0
+    class_b_count: 3
+    covered_by_others_count: 5
+    findings_by_implementer:
+      "unit_identity_identity-api-detail": { blocking: 0, warning: 0, info: 1 }
+      "unit_identity_identity-data-detail": { blocking: 0, warning: 0, info: 1 }
+      "unit_identity_identity-design": { blocking: 0, warning: 0, info: 0 }
+      "unit_data": { blocking: 0, warning: 0, info: 0 }
+      "unit_data_identity-retention-anonymization": { blocking: 0, warning: 0, info: 1 }
+    findings_by_category:
+      "REUSE-01": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-02": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-03": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-04": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-05": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-06": { blocking: 0, warning: 0, info: 0 }
+      "REUSE-07": { blocking: 0, warning: 0, info: 3 }
+
+  # ============================================================
+  # 检查项逐条判定
+  # ============================================================
+  check_items:
+    - id: "REUSE-01"
+      name: "跨单元重复函数"
+      result: PASS
+      basis: >-
+        Grep 全量 selectOne/selectCount/lambdaQuery 调用比对：各 Service 的查询函数针对不同实体不同
+        条件集，无两处函数体逻辑等价（相似度 >=80%）可提取的重复。本变更系消除重复的重构，未引入跨单元重复函数。
+    - id: "REUSE-02"
+      name: "跨单元重复验证逻辑"
+      result: PASS
+      basis: >-
+        条件过滤 if(x!=null) eq(...) 在多处出现但针对不同实体字段，非逻辑等价（见 UNC-REUSE-002）；
+        OTP 校验/导出时间窗校验为单实例，无跨单元重复验证。
+    - id: "REUSE-03"
+      name: "跨单元重复错误处理"
+      result: PASS
+      basis: >-
+        错误处理经统一 BizException + ErrorCode（CP-040/041 既有范式 + GlobalExceptionHandler 集中映射），
+        无散落的重复异常换逻辑。
+    - id: "REUSE-04"
+      name: "跨单元重复数据转换"
+      result: PASS
+      basis: "本变更为持久层 ORM 重构，零 controller/DTO 映射改动；无新增重复数据转换逻辑。"
+    - id: "REUSE-05"
+      name: "可提取的通用工具函数"
+      result: PASS
+      basis: >-
+        条件过滤构建虽多处出现但实体/字段各异，提取通用工具需泛型反射代价大于收益（UNC-REUSE-002），
+        不构成应提取项。无其他通用工具候选。
+    - id: "REUSE-06"
+      name: "可提取的通用中间件/装饰器"
+      result: PASS
+      basis: "本变更无横切中间件/装饰器改动（无 controller/filter/aspect 触及）。"
+    - id: "REUSE-07"
+      name: "反复出现的编码模式"
+      result: FINDINGS
+      basis: >-
+        识别 3 个反复出现且值得反哺 specs 的范式：DBConst+CommonDBConst（13 处，FND-REUSE-001）、
+        锁内独立事务写入（FND-REUSE-002）、keyset 游标分页轮询导出（FND-REUSE-003），均为 B 类 info。
+
+  # ============================================================
+  # 审查结论（250 字以内）
+  # ============================================================
+  conclusion: >-
+    跨模块复用审查通过（PASS，0 blocking / 0 warning / 3 info，全部 B 类）。本变更系消除重复的 ORM 合规重构，
+    A 类（当次需提取共享函数）为 0——各 Service 查询针对不同实体不同条件，无逻辑等价的跨单元重复函数；
+    条件过滤 if-null 多处出现但实体字段各异，强行抽象代价大于收益，不构成提取项（UNC-REUSE-002）。
+    价值集中在 B 类范式沉淀（反哺 code-patterns.md，不阻塞交付）：CP-015 实体列名常量接口范式
+    （{Entity}DBConst extends CommonDBConst，13 实体一致）、CP-016 锁内独立事务写入范式（OtpStateWriter
+    REQUIRES_NEW，并附修订过时的 CP-012 FOR UPDATE 标注其被 DEC-001 取代）、CP-017 keyset 游标分页轮询导出
+    范式（AuditService streamForExport）。OtpStateWriter/分页边界的正确性已由 Code/Security Reviewer 覆盖，
+    本报告不重复，仅做范式沉淀评估。待确认：reviews/ 缺 Performance 报告（UNC-REUSE-001）。
+...

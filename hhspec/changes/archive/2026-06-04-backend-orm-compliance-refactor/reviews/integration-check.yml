@@ -1,0 +1,280 @@
+# L3 Integration Check Report — backend-orm-compliance-refactor
+# 角色: L3 Integration Checker ｜ 检查类型: 跨单元一致性 (N=5 并行实现单元)
+# codebase_path: /Volumes/MAC/workspace/dreamy
+# generated_at: "2026-06-04T17:10:00+08:00"
+# 设计来源: decision.md (技术债 ORM 规范重构，无 L2 详设)
+
+meta:
+  change_name: backend-orm-compliance-refactor
+  units_checked: 5
+  shared_files_with_multi_unit_edits:
+    - "OtpService.java (unit_identity_identity-api-detail: verifyOtp/consumeValidCode Redis锁; unit_identity_identity-data-detail: updateStatus B1)"
+    - "RoleService.java (unit_data: A2/A4 native消除; unit_identity_identity-design: A3 permissionKeysOfRole; unit_identity_identity-data-detail: E2 listAllPermissionKeys)"
+    - "PermissionMapper.java (unit_data: 删 findIdByPermCode)"
+    - "DataInitializer.java (unit_data: A4 initPermissions; unit_identity_identity-design: A3 initSuperRole; unit_identity_identity-data-detail: E2 selectList)"
+
+verdict: PASS
+
+summary:
+  blocking: 0
+  warning: 2
+  info: 3
+  conclusion: >-
+    5 个并行单元对 4 个共享文件的修改互不覆盖、互相兼容，最终集成态主代码 compileJava EXIT 0、
+    无 native SQL 残留、无字符串列名 wrapper 残留、DBConst 全量迁包且常量值与列名一致
+    (PermissionDBConst.GROUP 反引号问题已确认修复无残留)。无阻塞性不一致。
+    2 个 warning 为 traceability map 文档与最终代码的描述漂移 (代码正确，文档陈旧)，不影响运行。
+
+# ============================================================
+# 5 维检查结果
+# ============================================================
+dimensions:
+
+  # 维度1: 数据格式/列名一致性 (DBConst 常量值 vs 实体列名)
+  - dimension: "ICK-01 数据格式/列名一致性"
+    status: PASS
+    checks:
+      - id: "DBConst 常量值与 @Column(name) 一致"
+        result: PASS
+        evidence: >-
+          13 个 DBConst 全部位于 domain/*/consts/，常量值为裸列名 (snake_case)。
+          实体 @Column(name=XxxDBConst.YYY) 引用常量，无硬编码字符串
+          (grep '@Column(name = "' 零命中)。
+      - id: "PermissionDBConst.GROUP 反引号残留 (重点核查)"
+        result: PASS
+        evidence: >-
+          PermissionDBConst.GROUP = "group" (裸名，无反引号)。grep '`' 扫描
+          domain/*/consts/*.java 仅命中注释文本，无常量值含反引号。
+          DML 转义由 PermissionEntity.@TableField("`group`") 单独负责 (entity line 34)，
+          @Column.name 用裸名供 SchemaBuilder 建表自动加反引号。职责分离正确，
+          DDL 建表失败风险已消除。
+      - id: "基类列常量统一 (CommonDBConst)"
+        result: PASS
+        evidence: >-
+          CommonDBConst 定义 ID/CREATED_AT/UPDATED_AT，13 个 DBConst 全部 extends
+          CommonDBConst。role 聚合 3 个 (Role/Permission/RolePermission) 补齐基类列一致。
+      - id: "枚举/状态值跨单元一致"
+        result: PASS
+        evidence: >-
+          OTP status 枚举 (pending/consumed/expired/locked) 在 OtpService 各处
+          (sendOtp line 102-103, consumeValidCode line 200/208/219, selectLatestPending line 230)
+          与 OtpCodeEntity @Column definition (line 50) 完全一致。
+
+  # 维度2: 共享文件变更满足所有 implementer 需求声明 (无互相覆盖)
+  - dimension: "ICK-05/ICK-03 共享文件多单元变更兼容性"
+    status: PASS
+    checks:
+      - id: "DataInitializer.java 三单元共存 (A4+A3+E2)"
+        result: PASS
+        side_a: "unit_data A4: initPermissions selectCount(LambdaQueryWrapper.eq(getPermCode)) — line 113-114"
+        side_b: "unit_identity_identity-design A3: initSuperRole 分步查询 existingPermIds — line 142-145"
+        side_c: "unit_identity_identity-data-detail E2: selectList(isNotNull(getId)) — line 146-147"
+        evidence: >-
+          三处改动位于不同方法/不同行块，互不覆盖。initSuperRole 同时含 A3 分步聚合
+          与 E2 显式条件，二者协同 (E2 的 isNotNull 提供 A3 遍历的全量 permission 来源)。
+      - id: "RoleService.java 三单元共存 (A2/A4+A3+E2)"
+        result: PASS
+        side_a: "unit_data A4: updateRole selectOne(LambdaQueryWrapper.eq(getPermCode)) — line 180-182"
+        side_b: "unit_identity_identity-design A3: permissionKeysOfRole 分步查询 — line 86-96"
+        side_c: "unit_identity_identity-data-detail E2: listAllPermissionKeys isNotNull — line 120/126-127"
+        evidence: >-
+          三处位于独立方法。permissionKeysOfRole (A3) 与 listAllPermissionKeys (E2)
+          均为 selectList，但语义独立 (前者按 roleId 分步，后者取全量)。无覆盖。
+      - id: "OtpService.java 双单元共存 (Redis锁 + B1)"
+        result: PASS
+        side_a: "unit_identity_identity-api-detail DEC-001: verifyOtp/verifyCodeOnly onIdLock 包裹 consumeValidCode — line 146/181"
+        side_b: "unit_identity_identity-data-detail B1: updateStatus LambdaUpdateWrapper — line 235-239"
+        evidence: >-
+          锁改造作用于 verifyOtp/consumeValidCode (调用 updateStatus)，B1 改造 updateStatus
+          内部实现。调用关系保持，updateStatus 改 Lambda 后被 consumeValidCode (line 200/208/219)
+          正常调用，无签名冲突。
+      - id: "已删除 Mapper 方法无残留调用 (主代码+测试)"
+        result: PASS
+        evidence: >-
+          lockPendingByEmail/streamByFilter/findIdByPermCode/findByEmailActive(mapper)/
+          findDeletedBefore/listKeysByRoleId 在主代码仅余注释，测试侧零命中。
+          调用方全部迁 LambdaQueryWrapper (MergeService/IdentityService/RetentionScheduler/RoleService/DataInitializer)。
+
+  # 维度3: Wrapper 写法一致性 (全 Lambda，无字符串列名)
+  - dimension: "ICK-01/ICK-03 Wrapper 写法一致性"
+    status: PASS
+    checks:
+      - id: "无 QueryWrapper 字符串列名残留"
+        result: PASS
+        evidence: >-
+          grep 'QueryWrapper\b'(非Lambda) 仅命中 3 处 DBConst 注释文本，无代码用法。
+          grep 'new QueryWrapper / new UpdateWrapper / Wrappers.query() / Wrappers.update()' 零命中。
+      - id: "OtpService selectLatestPending/updateStatus 已用 Lambda"
+        result: PASS
+        evidence: >-
+          selectLatestPending (line 227-232) 用 Wrappers.lambdaQuery().eq(getEmail/getStatus)；
+          updateStatus (line 236-239) 用 Wrappers.lambdaUpdate().eq(getId).set(getStatus)；
+          sendOtp expire (line 99-103) 用 Wrappers.lambdaUpdate()。全为方法引用，无字符串列名。
+      - id: "全量 Lambda 一致性"
+        result: PASS
+        evidence: "RoleService/DataInitializer/MergeService/RetentionScheduler 全部 LambdaQueryWrapper/lambdaQuery，风格统一。"
+
+  # 维度4: @Select native SQL 全部消除
+  - dimension: "ICK-02/ICK-03 native SQL 消除"
+    status: PASS
+    checks:
+      - id: "无 @Select 注解残留"
+        result: PASS
+        evidence: >-
+          grep '@Select' 主代码仅命中 3 处注释 (OtpCodeMapper/OperationLogMapper/AuditService)
+          说明性文本，无实际注解。6 个原 @Select 方法 (含 1 个 JOIN) 全部删除。
+      - id: "FOR UPDATE 行锁消除"
+        result: PASS
+        evidence: "grep 'FOR UPDATE' 仅注释命中，行锁改为 IdLockSupport.onIdLock 分布式锁。"
+      - id: "JOIN 消除 (A3 分步查询)"
+        result: PASS
+        evidence: >-
+          RolePermissionMapper.listKeysByRoleId JOIN 删除，改 RoleService.permissionKeysOfRole
+          分步查询 (line 86-96: Step1 role_permission 取 permission_id，Step2 permission IN 聚合)
+          + DataInitializer.initSuperRole 分步判重 (line 142-145)，禁 JOIN 原则一致落实。
+
+  # 维度5: DBConst 全量迁包 (consts/，repository/ 无残留)
+  - dimension: "ICK-05 DBConst 迁包完整性"
+    status: PASS
+    checks:
+      - id: "repository/ 下无 DBConst 残留"
+        result: PASS
+        evidence: "find repository/*DBConst 零命中；13 个 DBConst 全在 domain/*/consts/ 或 domain/consts/。"
+      - id: "无旧包路径 import 残留"
+        result: PASS
+        evidence: "grep 旧 repository.XxxDBConst import 零命中，引用方全部指向 consts 包。"
+      - id: "迁包数量符合决策 (13+1)"
+        result: PASS
+        evidence: "13 个实体 DBConst + 1 个 CommonDBConst = 14 文件，与决策3 '13 个 DBConst + CommonDBConst' 一致。"
+
+# ============================================================
+# 不一致发现列表 (每条含双方证据 + 路由级别 + 修复指令)
+# ============================================================
+findings:
+
+  - id: "WARN-01"
+    severity: warning
+    dimension: "ICK-05 文档一致性 (traceability map vs 代码)"
+    title: "api-detail tracemap 描述 selectLatestPending/updateStatus 用 QueryWrapper 字符串列名，与最终代码 (Lambda) 不符"
+    side_a:
+      source: "traceability-map-unit_identity_identity-api-detail.yml line 33/126-127"
+      claim: >-
+        '新增 selectLatestPending 方法：QueryWrapper(字符串列名)...用 QueryWrapper 非 Lambda 以兼容
+        无 Spring 上下文的单元测试'；'updateStatus/sendOtp expire 维持原有 UpdateWrapper 字符串列名写法'
+    side_b:
+      source: "OtpService.java line 227-232 (selectLatestPending) / 236-239 (updateStatus) / 99-103 (sendOtp expire)"
+      claim: "实际代码全部为 Wrappers.lambdaQuery()/lambdaUpdate() 方法引用，无字符串列名"
+    analysis: >-
+      最终集成态代码是全 Lambda (符合 decision.md 决策3.5/B1 目标，且 66 tests 含 8 个 OtpServiceTest 全绿)，
+      说明 B1 单元 (unit_identity_identity-data-detail) 改 updateStatus 为 Lambda 后，OTP 单元的
+      selectLatestPending/sendOtp expire 也最终落为 Lambda。tracemap 文档停留在中间态描述 (担心 lambda 缓存)，
+      但实测 Mockito 用 any() 匹配器 stub，wrapper 对象构造不触发 lambda SQL 解析，缓存担忧未实际发生。
+      代码正确，仅文档陈旧。
+    route_level: "Level 2"
+    route_basis: >-
+      decision.md 决策3.5/B1 明确要求 'UpdateWrapper 硬编码 → LambdaUpdateWrapper'，
+      specs 级规则以 Lambda 为准。最终代码符合规则，无需改码。
+    resolution: >-
+      [非阻塞] 代码无需修改 (已符合 Lambda 规范)。建议更新
+      traceability-map-unit_identity_identity-api-detail.yml line 33/126-127 的描述，
+      将 'QueryWrapper 字符串列名' 修正为 'Wrappers.lambdaQuery/lambdaUpdate'，消除文档漂移。
+    target_implementer: "unit_identity_identity-api-detail (仅文档同步，非代码)"
+
+  - id: "WARN-02"
+    severity: warning
+    dimension: "ICK-05 共享文件归属 (sendOtp expire wrapper)"
+    title: "OtpService.sendOtp expire wrapper (line 99-103) 改为 lambdaUpdate，无单元 tracemap 明确声明归属"
+    side_a:
+      source: "unit_identity_identity-data-detail tracemap line 70: '仅 updateStatus 私有方法 195-199'"
+      claim: "B1 单元仅声明 updateStatus，明确 not_touched verifyOtp/consumeValidCode/sendOtp"
+    side_b:
+      source: "unit_identity_identity-api-detail tracemap line 127: 'updateStatus/sendOtp expire 维持字符串列名'"
+      claim: "OTP 单元声称 sendOtp expire 保持字符串，但实际代码 line 99-103 已是 lambdaUpdate"
+    analysis: >-
+      sendOtp 的 expire wrapper 最终态为 Lambda，但两个单元 tracemap 均未明确认领此处转换
+      (B1 单元划界排除 sendOtp，OTP 单元声称保留字符串)。属归属声明缺口，非功能问题。
+      最终代码 Lambda 化符合规范，编译/测试通过。
+    route_level: "Level 2"
+    route_basis: "decision.md B1 规则要求全部 UpdateWrapper → Lambda，sendOtp expire 最终态符合规则。"
+    resolution: >-
+      [非阻塞] 代码无需修改。建议在归档时由 Coordinator 将 sendOtp expire 的 Lambda 转换
+      补录到 B1 单元 (unit_identity_identity-data-detail) owned_files 范围，明确归属。
+    target_implementer: "Coordinator (归属补录)"
+
+  - id: "INFO-01"
+    severity: info
+    dimension: "ICK-01 PermissionDBConst.GROUP 修复确认"
+    title: "PermissionDBConst.GROUP 反引号问题已修复且无残留 (用户已知问题复核)"
+    evidence: >-
+      GROUP="group" 裸名；@Column.name 用裸名 + @TableField('`group`') DML 转义。
+      职责分离正确，全 14 个 DBConst grep 反引号零命中。DDL 建表失败风险消除。
+    resolution: "无需动作，记录确认。"
+
+  - id: "INFO-02"
+    severity: info
+    dimension: "ICK-04 测试侧一致性"
+    title: "测试 mock 已随接口变更同步，无对已删除 mapper 方法的残留引用"
+    evidence: >-
+      MergeServiceTest mock 改 selectOne(any())；OtpServiceTest mock 改 selectOne(any()) + RedissonClient/RLock；
+      AuditServiceTest 重写为 selectList stub。grep 6 个已删除方法在 test/ 零命中。66 tests 全绿。
+    resolution: "无需动作。"
+
+  - id: "INFO-03"
+    severity: info
+    dimension: "ICK-04 预存编译破坏处置"
+    title: "GlobalExceptionHandlerTest 预存破坏 (上游 cb8b737) 由 OTP 单元最小修复解除验证阻塞"
+    evidence: >-
+      handleBiz/handleInfra/handleUnexpected 旧单参签名 vs 新增 HttpServletRequest 参数，
+      源自上游提交非本变更引入。OTP 单元机械补 null 实参 (reqLine 对 null 返回 '-' 安全)。
+    resolution: >-
+      非本变更范围，已解除阻塞。建议归属到异常处理单元正式跟进 (与本 ORM 重构无关)。
+
+# ============================================================
+# Level 4 上报项 (需 Coordinator 裁决)
+# ============================================================
+escalations: []  # 无需裁决：全部不一致项均可按 Level 2 (specs/decision.md 规则) 判定
+
+# ============================================================
+# 不确定性与待确认项
+# ============================================================
+uncertainties:
+  - item: "lambda 缓存初始化时序"
+    note: >-
+      api-detail tracemap 原担忧 LambdaWrapper 依赖 TableInfoHelper 全局静态缓存 (Spring 启动注册)，
+      纯 Mockito 单测无上下文会抛 'can not find lambda cache'。实测 66 tests 全绿 (含 OtpServiceTest 8 个)，
+      说明 Mockito any() 匹配器下 wrapper 不触发真实 lambda 解析，担忧未发生。运行时由 Spring 启动
+      + 4 个 Testcontainers IT 验证缓存正常。判定为非问题，但记录此假设依赖供后续注意。
+  - item: "分页轮询性能上界"
+    note: >-
+      AuditService.streamForExport 分页轮询 (1000/页) 性能依赖 operation_log.created_at/id 索引，
+      92 天时间窗最多约 276 次查询 (decision.md 估算)。本次为静态一致性检查，未做运行时压测，
+      性能假设以 decision.md 估算为准。
+
+# ============================================================
+# 自检清单执行结果
+# ============================================================
+self_check:
+  - check: "5 维度全部检查项逐条执行 (ICK-01~05)"
+    result: PASS
+  - check: "全部 5 单元 (4 份 tracemap) 代码与映射已完整阅读"
+    result: PASS
+    note: "5 个职责单元由 4 份 tracemap 覆盖 (DEC-004 native消除 与 A3 分属两份)"
+  - check: "全部共享文件多单元修改点逐一对比 (OtpService/RoleService/PermissionMapper/DataInitializer)"
+    result: PASS
+  - check: "每条 warning 发现附双方证据 (side_a/side_b) + upstream_ref"
+    result: PASS
+  - check: "每条发现 route_level 按 Level 1→4 优先级选择，无跳级"
+    result: PASS
+  - check: "Level 4 上报附原因 (本次无 Level 4，全部 Level 2 可判)"
+    result: PASS
+  - check: "blocking/warning/info 分级合理，无过度升级"
+    result: PASS
+    note: "2 个文档漂移项判 warning (代码已正确，仅文档陈旧)，未误升为 blocking"
+  - check: "每条 warning 有修复指令 + target_implementer"
+    result: PASS
+  - check: "verdict 判定与各维度 status 一致 (5 维全 PASS → verdict PASS)"
+    result: PASS
+  - check: "未修改任何 Implementer 代码 (只检不改)"
+    result: PASS
+  - check: "集成态 compileJava EXIT 0 复核通过"
+    result: PASS

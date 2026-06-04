@@ -1,0 +1,202 @@
+---
+review_report:
+  title: "架构合规性审查报告"
+  reviewer: "l3_architectural_reviewer"
+  reviewer_layer: "compliance"
+  date: "2026-06-04"
+  round: 1
+
+  # 审查范围
+  scope:
+    implementation_units:
+      - "unit_identity_identity-api-detail"   # DEC-001 OTP Redis 锁
+      - "unit_identity_identity-data-detail"  # B1/E2 Wrapper + DBConst 数据细节
+      - "unit_identity_identity-design"       # A3 JOIN→分步查询
+      - "unit_data"                           # A2/A4/A5 native 消除
+      - "unit_data_identity-retention-anonymization"  # A6 流式导出/保留
+    total_files_reviewed: 11
+    total_lines_reviewed: 1180
+
+  # 审查依据
+  references:
+    requirement_doc: "hhspec/changes/backend-orm-compliance-refactor/decision.md"
+    architecture_dir: "hhspec/specs/architecture"
+    design_dir: "hhspec/specs/design"
+    specs_files:
+      - "hhspec/specs/architecture/domain-model.md"
+      - "hhspec/specs/architecture/data-flow.md"
+      - "hhspec/specs/architecture/error-strategy.md"
+      - "hhspec/specs/design/code-structure-spec.md"
+      - "hhspec/specs/design/identity/shared-contracts.yml"
+
+  # 总体判定（无 blocking = PASS）
+  verdict: "PASS"
+
+  # 检查项逐条结论（ARCH-01 ~ ARCH-08）
+  check_items:
+    - id: "ARCH-01"
+      name: "模块依赖方向"
+      result: PASS
+      evidence: >-
+        Grep 全量 import（144 条 com.dreamy.* import 静态分析）。改动文件 import 方向均符合
+        domain-model.md 依赖矩阵：领域服务 → 自身/他聚合 entity+mapper（IDENTITY-COMMON 内部）
+        → error/infra/security/dto（COMMON 技术层）。无任何 import 指向 STORE/ADMIN 表现层
+        （改动文件均在 domain/，零 controller/filter/aspect 反向依赖）。consts 子包仅向
+        domain/consts/CommonDBConst 单向依赖，无逆向。
+    - id: "ARCH-02"
+      name: "无跨聚合直接引用"
+      result: PASS
+      evidence: >-
+        本次改动未新增跨聚合内部实体直接引用。OtpService 引入 IdLockSupport（huihao.redis 技术端口）
+        仅作用于本聚合 consumeValidCode；既有的 OtpService→MergeService/SessionService、
+        RoleService→AdminUserMapper 等跨聚合访问均经领域服务/Mapper 公开接口，非直接操作他聚合内部状态机，
+        且为本变更前既存关系，非本次引入。A3 分步查询在 role 聚合内（RolePermission+Permission），
+        Permission 为 domain-model 定义的引用数据（Value Object），不构成跨聚合根越界。
+    - id: "ARCH-03"
+      name: "接口契约匹配"
+      result: PASS
+      evidence: >-
+        本变更为 ORM/持久层重构，零 controller 文件改动（git status 下 domain/ 全为 entity/
+        repository/service/consts，无 store/admin controller）。OpenAPI 端点路径/方法/请求/响应
+        Schema 不受影响。AuditService.streamForExport 由 ResultHandler 改 Consumer<T> 回调为
+        Service 层内部契约（非 HTTP 端点签名），不触及 identity-api.openapi.yml 定义。
+    - id: "ARCH-04"
+      name: "数据流路径一致"
+      result: PASS
+      evidence: >-
+        追踪 FLOW-02（OTP 校验登录）实际调用链：verifyOtp → consumeValidCode(锁内) →
+        selectLatestPending/updateStatus(OtpCodeMapper) → resolveOrMerge(MergeService) →
+        openStoreSession(SessionService)，方向与 data-flow.md FLOW-02 序列图一致（Svc→DB）。
+        FLOW-11（角色权限保存）：updateRole → rolePermissionMapper.delete/insert +
+        permissionMapper.selectOne，链路一致。FLOW-16（保留清理）：RetentionScheduler →
+        各 Mapper.delete/update，与序列图 Sched→DB 一致。锁实现由 DB 行锁改 Redis 分布式锁
+        属 decision.md DEC-001 显式取代决策（data-flow FLOW-02 文字仍记原 FOR UPDATE，见 FND-ARCH-001）。
+    - id: "ARCH-05"
+      name: "错误码体系一致"
+      result: PASS
+      evidence: >-
+        改动代码使用错误码全部在 error-strategy.md 码表内：ACCOUNT_DISABLED(40301)、
+        OTP_EXPIRED(41001)、OTP_INVALID(40101)、OTP_LOCKED(41002)、ROLE_LOCKED(40308)、
+        ROLE_IN_USE(40904)、VALIDATION_ERROR(40000/40002)。AuditService 导出时间窗校验复用
+        VALIDATION_ERROR，未引入未定义码。Grep error-strategy.md 逐码命中确认。
+    - id: "ARCH-06"
+      name: "无循环依赖"
+      result: PASS
+      evidence: >-
+        基于 144 条 import 构建领域服务依赖有向图 DFS 检环：OtpService→{MergeService,
+        SessionService, AuthConfigService}；IdentityService→{OtpService, SessionService,
+        AuthConfigService}；AdminService→RoleService；MergeService/SessionService/RoleService/
+        AuditService/RetentionScheduler 不反向依赖上游 service。无环路。本次改动（OtpService 加
+        IdLockSupport、A3 分步、A6 轮询）未新增任何 service→service 边，依赖图拓扑不变。
+    - id: "ARCH-07"
+      name: "分层架构遵守"
+      result: PASS
+      evidence: >-
+        Service 层（OtpService/RoleService/AuditService/RetentionScheduler）经构造器注入
+        Mapper(Repository) 调用，方向 Service→Repository 正确。Repository（*Mapper extends
+        BaseMapper）仅 import 自身 entity，零 import service（Grep admin/repository 确认）。
+        DataInitializer 为 @Component 引导组件直接用 Mapper 播种，属初始化基础设施合法模式，非
+        Controller→Repository 越层。consts/ 为常量层，被 entity/service 引用，无反向。
+    - id: "ARCH-08"
+      name: "共享契约遵循"
+      result: PASS
+      evidence: >-
+        DBConst 常量值为裸列名 snake_case，符合 shared-contracts.yml naming.case.db_column=snake_case；
+        CommonDBConst.ID/CREATED_AT/UPDATED_AT 与 id_field=id 契约一致。
+        PermissionDBConst.GROUP 存裸名（SQL 保留字转义由 @TableField 单独负责），命名契约遵循。
+        枚举值（otp_status pending/consumed/expired/locked、account_status、role_type）代码用法
+        与 shared-contracts enum_values 锁定一致。
+
+  # 发现列表
+  findings:
+    - id: "FND-ARCH-001"
+      severity: "info"
+      category: "data_flow"
+      check_item: "ARCH-04"
+      title: "data-flow.md FLOW-02 序列图仍描述 SELECT ... FOR UPDATE 行锁，与 DEC-001 Redis 分布式锁实现存在文字漂移"
+      evidence:
+        file: "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java"
+        line: "142-182"
+        code_snippet: "onIdLock(OTP_VERIFY_LOCK, email, () -> consumeValidCode(email, code, ctx)); // 替代 SELECT ... FOR UPDATE"
+      counterpart:
+        source: "hhspec/specs/architecture/data-flow.md"
+        location: "FLOW-02 序列图 line 103 / error-strategy.md line 297"
+        quote: "Svc->>DB: SELECT OtpCode WHERE email=? AND status=pending FOR UPDATE / 行锁串行，BE-DIM-4"
+      description: >-
+        代码已按 decision.md DEC-001 将 OTP 校验并发控制从 DB 行锁（FOR UPDATE）改为
+        huihao-redis IdLockSupport.onIdLock 分布式锁 + @Version 乐观锁兜底，锁范围收窄至
+        consumeValidCode（STEP-01~03）。这是 decision.md 显式认可的架构演进，代码实现正确、
+        调用链方向与序列图参与者（Svc→DB）一致。但 data-flow.md FLOW-02 序列图与 error-strategy.md
+        line 297 的文字仍停留在原 FOR UPDATE 描述，属上游文档滞后于已批准决策的文字漂移。
+      impact: >-
+        非架构违规。调用链方向、事务边界、参与方与序列图保持一致，仅锁机制的实现注记过时。
+        不影响运行，不阻塞集成。后续读者若仅看 data-flow.md 可能误以为仍用行锁。
+      recommendation: >-
+        归档时由 Coordinator 同步更新 data-flow.md FLOW-02 锁注记与 error-strategy.md line 297，
+        将 "FOR UPDATE 行锁串行" 修正为 "IdLockSupport Redis 分布式锁（按 email）+ @Version 乐观锁兜底
+        （DEC-001）"。仅文档同步，代码无需改动。
+      affected_implementer: "Coordinator（上游文档同步，非 Implementer 代码）"
+      constraint_ids: ["DEC-001", "BE-DIM-4", "FLOW-02"]
+
+    - id: "FND-ARCH-002"
+      severity: "info"
+      category: "shared_contract"
+      check_item: "ARCH-08"
+      title: "DBConst 迁包至 domain/{聚合根}/consts/ 全量落实，包结构符合 huihao-mysql 领域分包规范"
+      evidence:
+        file: "backend/src/main/java/com/dreamy/identity/domain/consts/CommonDBConst.java 等 14 文件"
+        line: "全部 domain/*/consts/"
+        code_snippet: "13 实体 DBConst extends CommonDBConst；repository/ 下零 DBConst 残留（find 确认）"
+      counterpart:
+        source: "hhspec/changes/backend-orm-compliance-refactor/decision.md"
+        location: "决策 3 DBConst 全量改造"
+        quote: "迁移 13 个 DBConst：domain/{聚合根}/repository/ → domain/{聚合根}/consts/；创建 domain/consts/CommonDBConst"
+      description: >-
+        DBConst 迁包按聚合根落到 domain/{admin,audit,authconfig,otp,role,session,user}/consts/，
+        公共基类列抽到 domain/consts/CommonDBConst。包结构与领域边界对齐：每个聚合的列名常量内聚于
+        该聚合包内，CommonDBConst 作为跨聚合共享审计列的单一来源，依赖方向为聚合 consts→公共 consts 单向。
+        repository/ 旧路径零残留，引用方全部指向新 consts 包，无旧 import 残留。
+      impact: "正向确认。包结构符合规范，无越界。记录以供归档追溯。"
+      recommendation: "无需动作，记录确认。"
+      affected_implementer: "unit_identity_identity-data-detail"
+      constraint_ids: ["DEC-003"]
+
+  # 不确定性
+  uncertainties: []
+
+  # 汇总
+  summary:
+    total_findings: 2
+    blocking_count: 0
+    warning_count: 0
+    info_count: 2
+    findings_by_implementer:
+      "unit_identity_identity-api-detail": { blocking: 0, warning: 0, info: 0 }
+      "unit_identity_identity-data-detail": { blocking: 0, warning: 0, info: 1 }
+      "unit_identity_identity-design": { blocking: 0, warning: 0, info: 0 }
+      "unit_data": { blocking: 0, warning: 0, info: 0 }
+      "unit_data_identity-retention-anonymization": { blocking: 0, warning: 0, info: 0 }
+      "Coordinator": { blocking: 0, warning: 0, info: 1 }
+    findings_by_category:
+      "dependency_direction": { blocking: 0, warning: 0, info: 0 }
+      "aggregate_boundary": { blocking: 0, warning: 0, info: 0 }
+      "api_contract": { blocking: 0, warning: 0, info: 0 }
+      "data_flow": { blocking: 0, warning: 0, info: 1 }
+      "error_code_system": { blocking: 0, warning: 0, info: 0 }
+      "circular_dependency": { blocking: 0, warning: 0, info: 0 }
+      "layered_architecture": { blocking: 0, warning: 0, info: 0 }
+      "shared_contract": { blocking: 0, warning: 0, info: 1 }
+
+  # 审查结论
+  conclusion: >-
+    架构合规性审查通过（PASS，0 blocking / 0 warning / 2 info）。三个重点核查项均合规：
+    (1) DBConst 迁包后包结构符合 huihao-mysql 领域分包规范——14 个常量接口按聚合根落入
+    domain/{聚合根}/consts/，公共审计列抽到 domain/consts/CommonDBConst，依赖单向、repository/ 零残留；
+    (2) OTP 引入 IdLockSupport 未破坏领域边界——锁仅作用于 OtpCode 本聚合 consumeValidCode，
+    IdLockSupport 为 COMMON 技术端口（huihao.redis），属合法 IDENTITY-COMMON→技术层依赖，
+    且为 decision.md DEC-001 显式批准的演进；(3) A3 JOIN 改分步查询未引入跨聚合根直接依赖——
+    RolePermission 与 Permission 同属 role 聚合域，分步聚合在聚合内完成，无新增越界 import。
+    依赖矩阵（STORE/ADMIN→IDENTITY-COMMON→COMMON 单向）与分层（Service→Repository）保持，
+    依赖图无新增环路，错误码全部在 error-strategy 码表内。2 条 info 为正向确认与文档文字漂移
+    （data-flow FLOW-02 锁注记滞后于已批准的 DEC-001），均非架构违规，建议归档时同步上游文档。
+...

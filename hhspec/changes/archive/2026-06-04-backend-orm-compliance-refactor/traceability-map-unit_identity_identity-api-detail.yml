@@ -1,0 +1,128 @@
+---
+# Traceability Map: backend-orm-compliance-refactor / unit_identity_identity-api-detail
+# Generated: 2026-06-04
+# Implementer: L3 Implementer
+# Scope: DEC-001 (OTP 并发控制) + DEC-002 (流式导出改分页轮询)
+
+unit_id: unit_identity_identity-api-detail
+unit_name: "Identity API Detail - ORM Compliance Refactor"
+change_name: backend-orm-compliance-refactor
+
+constraint_mappings:
+  - constraint_id: DEC-001
+    description: "OTP 并发控制：删除 FOR UPDATE，改用 Redis 分布式锁 + @Version 乐观锁"
+    status: implemented
+    impl_location:
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/repository/OtpCodeMapper.java
+        lines: 1-15
+        change: "删除 lockPendingByEmail(@Select ... FOR UPDATE) 方法，添加 DEC-001 注释说明改由 IdLockSupport + LambdaQueryWrapper 实现"
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+        lines: 1-80
+        change: "implements IdLockSupport，新增 RedissonClient 依赖，添加 OTP_VERIFY_LOCK 常量和 getRedissonClient() 实现"
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+        lines: 135-165
+        change: "verifyOtp 方法：用 onIdLock(OTP_VERIFY_LOCK, email, () -> consumeValidCode(...)) 包裹 STEP-01~03，归并/开会话在锁外执行"
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+        lines: 167-182
+        change: "verifyCodeOnly 方法：用 onIdLock(OTP_VERIFY_LOCK, email, () -> consumeValidCode(...)) 包裹校验逻辑，与 verifyOtp 共享锁前缀"
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+        lines: 184-214
+        change: "consumeValidCode 方法：selectLatestPending(email) 替代 lockPendingByEmail(email)，互斥由调用方 onIdLock 保证，添加 DEC-001 注释"
+      - file: backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+        lines: 216-228
+        change: "新增 selectLatestPending 方法：LambdaQueryWrapper 查询 pending OTP（email + status + created_at DESC LIMIT 1），消除 native SQL FOR UPDATE；单元测试通过 @BeforeAll TableInfoHelper.initTableInfo 初始化 lambda 缓存以支持无 Spring 上下文场景"
+      - file: backend/src/test/java/com/dreamy/identity/common/domain/service/OtpServiceTest.java
+        lines: 24-25
+        change: "新增 RedissonClient + RLock mock 导入"
+      - file: backend/src/test/java/com/dreamy/identity/common/domain/service/OtpServiceTest.java
+        lines: 49-68
+        change: "setUp 方法：添加 RedissonClient + RLock mock stub，getLock 返回 mock RLock（lock/unlock no-op）"
+      - file: backend/src/test/java/com/dreamy/identity/common/domain/service/OtpServiceTest.java
+        lines: 74-179
+        change: "全部 when(otpCodeMapper.lockPendingByEmail(...)) 替换为 when(otpCodeMapper.selectOne(any()))，适配新查询契约"
+
+  - constraint_id: DEC-002
+    description: "OperationLog 流式导出：删除 @Select(<script>) + ResultHandler，改用 LambdaQueryWrapper 分页轮询"
+    status: implemented
+    impl_location:
+      - file: backend/src/main/java/com/dreamy/identity/domain/audit/repository/OperationLogMapper.java
+        lines: 1-15
+        change: "删除 streamByFilter(@Select ... fetchSize=Integer.MIN_VALUE + ResultHandler) 方法，添加 DEC-002 注释说明改由 AuditService 分页轮询实现"
+      - file: backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+        lines: 4-6
+        change: "新增 List 导入，删除 @Transactional 导入（不再持有长事务连接）"
+      - file: backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+        lines: 26-28
+        change: "新增 EXPORT_PAGE_SIZE = 1000 常量（每页条数）"
+      - file: backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+        lines: 54-87
+        change: "streamForExport 方法：while 循环 + fetchExportPage(lastId) 分页轮询，逐页回调 consumer，不足一页即结束，删除 @Transactional(readOnly)"
+      - file: backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+        lines: 89-109
+        change: "新增 fetchExportPage 方法：LambdaQueryWrapper 查询（filter + id < lastId + orderByDesc(id) + LIMIT 1000），消除 native SQL"
+      - file: backend/src/test/java/com/dreamy/identity/common/domain/service/AuditServiceTest.java
+        lines: 1-116
+        change: "完全重写测试：删除 ResultHandler/ResultContext stub，改为 selectList stub；TC-UNIT-060/061 验证校验短路；TC-UNIT-062 验证单页轮询；新增 TC-UNIT-063 验证满页翻页"
+
+coverage:
+  total_constraints: 2
+  implemented: 2
+  blocked: 0
+  coverage_percentage: 100
+
+verification:
+  - method: "代码审查"
+    result: "全部约束 ID 有对应实现，无 FOR UPDATE/native SQL 残留"
+  - method: "编译验证"
+    result: "./gradlew compileJava 通过（EXIT 0），主源码无语法错误"
+  - method: "单元测试"
+    result: "OtpServiceTest 8/8 通过 + AuditServiceTest 4/4 通过；全量测试 66 tests 全绿（./gradlew test BUILD SUCCESSFUL）"
+
+out_of_scope_fixes:
+  - file: backend/src/test/java/com/dreamy/identity/common/error/GlobalExceptionHandlerTest.java
+    lines: "62, 84, 100"
+    reason: "预存编译破坏（非本单元引入）：提交 cb8b737 给 handleBiz/handleInfra/handleUnexpected 增加 HttpServletRequest req 参数，但未同步更新此测试。该文件位于 common/error，不属本单元范围，但 Gradle 整体编译 test 源集，阻塞本单元单元测试执行。"
+    fix: "机械修复：三处 handler 调用补 null 实参（handler.handleBiz(ex, null) 等）。handler.reqLine 已对 req==null 返回 '-'，行为安全。"
+    note: "仅为解除验证阻塞的最小修复，不改变 handler 逻辑；建议归属到异常处理单元正式跟进。"
+
+dependencies_added:
+  - dependency: "huihao-redis (already present)"
+    reason: "IdLockSupport.onIdLock 分布式锁实现"
+    scope: runtime
+
+files_modified:
+  - backend/src/main/java/com/dreamy/identity/domain/otp/repository/OtpCodeMapper.java
+  - backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java
+  - backend/src/main/java/com/dreamy/identity/domain/audit/repository/OperationLogMapper.java
+  - backend/src/main/java/com/dreamy/identity/domain/audit/service/AuditService.java
+  - backend/src/test/java/com/dreamy/identity/common/domain/service/OtpServiceTest.java
+  - backend/src/test/java/com/dreamy/identity/common/domain/service/AuditServiceTest.java
+
+files_modified_out_of_scope:
+  - backend/src/test/java/com/dreamy/identity/common/error/GlobalExceptionHandlerTest.java  # 见 out_of_scope_fixes
+
+changes_summary: |
+  DEC-001（OTP 并发控制）：
+    - 删除 OtpCodeMapper.lockPendingByEmail（@Select ... FOR UPDATE）
+    - OtpService implements IdLockSupport，构造器注入 RedissonClient
+    - verifyOtp/verifyCodeOnly 用 onIdLock("otp:verify", email) 包裹 consumeValidCode（STEP-01~03）
+    - consumeValidCode 内部改用 selectLatestPending(LambdaQueryWrapper)，互斥由 onIdLock 保证
+    - OtpCodeEntity 保留 @Version 乐观锁（incrementAttempt 已有）
+    - OtpServiceTest 新增 RedissonClient/RLock mock，lockPendingByEmail 改 selectOne(any())
+
+  DEC-002（流式导出改分页轮询）：
+    - 删除 OperationLogMapper.streamByFilter（@Select(<script>) + ResultHandler）
+    - AuditService.streamForExport 改为 while 循环 + fetchExportPage(lastId) 分页轮询（1000/页）
+    - fetchExportPage 用 LambdaQueryWrapper（id < lastId + orderByDesc(id) + LIMIT 1000）
+    - 删除 @Transactional(readOnly)（每页查询独立连接）
+    - AuditServiceTest 完全重写：selectList stub 替代 ResultHandler stub，新增翻页测试
+
+  约束覆盖率：2/2 = 100%
+  单元测试覆盖：12 个用例（OTP 8 + Audit 4），全部通过
+
+notes: |
+  - DEC-003/004/005（DBConst 迁移/native SQL 简化/全表扫描显式化）不在本单元范围，由其他 Implementer 负责
+  - verifyOtp 事务范围保持完整方法覆盖（@Transactional），onIdLock 内部 try-finally 确保锁释放先于事务提交
+  - selectLatestPending / updateStatus / sendOtp 的 expire 全部用 LambdaQueryWrapper/LambdaUpdateWrapper 方法引用（符合 DEC-003/B1 规范）；单元测试用 @BeforeAll TableInfoHelper.initTableInfo(OtpCodeEntity.class) 初始化 MyBatis-Plus lambda 缓存，解决无 Spring 上下文时 "can not find lambda cache" 问题（范本：IdentityServiceUnbindTest）。保留 .last("LIMIT 1") 匹配原 SQL 单条语义
+  - fetchExportPage 按 id 倒序（等价 created_at DESC，id 自增与创建时序单调）；AuditService 由 Spring 启动并经集成测试初始化 lambda 缓存，单测对 selectList 走 mock 不触发真实 wrapper 解析
+  - 时间窗上限（≤92 天）保证分页轮询有界（最多约 276 次查询：百万行/月 × 3月 ÷ 1000）

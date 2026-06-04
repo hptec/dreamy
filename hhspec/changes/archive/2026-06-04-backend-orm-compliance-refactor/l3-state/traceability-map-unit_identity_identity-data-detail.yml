@@ -1,0 +1,115 @@
+# Traceability Map — unit_identity_identity-data-detail
+# 角色: l3_implementer ｜ change: backend-orm-compliance-refactor ｜ 变更类型: backend-only (ORM 规范合规重构)
+# 设计来源: hhspec/changes/backend-orm-compliance-refactor/decision.md (技术债重构，无独立 L2 设计)
+# codebase_path: /Volumes/MAC/workspace/dreamy
+# 负责约束: B1 (UpdateWrapper 硬编码 → LambdaUpdateWrapper) + E2 (selectList(null) 全表扫描 → 显式条件)
+
+unit_id: "unit_identity_identity-data-detail"
+unit_name: "identity ORM 合规重构 — B1/E2"
+generated_at: "2026-06-04T16:20:00+08:00"
+
+coverage:
+  total_constraints: 3
+  implemented: 3
+  blocked: 0
+  coverage_percentage: 100
+
+constraints:
+  # ===== B1: UpdateWrapper 硬编码列名 → LambdaUpdateWrapper =====
+  - constraint_id: "B1"
+    source: "decision.md 决策3.5 / pd-explore.local.md B"
+    status: "implemented"
+    description: >-
+      OtpService.updateStatus 私有方法的 UpdateWrapper 硬编码列名字符串
+      (eq("id",...).set("status",...)) 改为 LambdaUpdateWrapper 方法引用
+      (eq(OtpCodeEntity::getId,...).set(OtpCodeEntity::getStatus,...))，
+      消除硬编码列名，列重命名时编译期可发现。仅改 updateStatus 私有方法，
+      未触碰 verifyOtp/consumeValidCode (归属其他单元)。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java"
+        lines: "195-199"
+    style_note: >-
+      采用 new LambdaUpdateWrapper<>() 写法，与同文件 line 81 的 expire wrapper
+      构造风格一致 (IMP-14 已有代码风格一致性)。
+
+  # ===== E2: selectList(null) 全表扫描隐式写法 → 显式条件 (RoleService) =====
+  - constraint_id: "E2-RoleService"
+    source: "decision.md 决策5 / pd-explore.local.md E"
+    status: "implemented"
+    description: >-
+      RoleService.listAllPermissionKeys 中 permissionMapper.selectList(null)
+      隐式全表扫描改为显式条件 selectList(LambdaQueryWrapper.isNotNull(getId))，
+      消除 null 参数隐式全表语义，明确表达"取全部行"意图。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java"
+        lines: "110-116"
+    style_note: >-
+      复用同文件 line 106 已有的 new LambdaQueryWrapper<PermissionEntity>()
+      点查风格；import LambdaQueryWrapper 已存在 (line 3)，无新增依赖。
+
+  # ===== E2: selectList(null) 全表扫描隐式写法 → 显式条件 (DataInitializer) =====
+  - constraint_id: "E2-DataInitializer"
+    source: "decision.md 决策5 / pd-explore.local.md E"
+    status: "implemented"
+    description: >-
+      DataInitializer.initSuperRole 中 permissionMapper.selectList(null)
+      隐式全表扫描改为显式条件 selectList(LambdaQueryWrapper.isNotNull(getId))，
+      种子数据初始化遍历全部权限时显式化查询语义。
+    impl_location:
+      - file: "backend/src/main/java/com/dreamy/identity/config/DataInitializer.java"
+        lines: "141-143"
+    style_note: >-
+      复用同文件 line 128/156 已有的 LambdaQueryWrapper 风格；
+      import LambdaQueryWrapper 已存在 (line 3)，无新增依赖。
+
+# ============================================================
+# 边界声明 (scope boundary)
+# ============================================================
+scope_boundary:
+  owned_files:
+    - "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java (仅 updateStatus 私有方法 195-199)"
+    - "backend/src/main/java/com/dreamy/identity/domain/role/service/RoleService.java (仅 listAllPermissionKeys 110-116)"
+    - "backend/src/main/java/com/dreamy/identity/config/DataInitializer.java (仅 initSuperRole 中 selectList 调用 141-143)"
+  not_touched:
+    - "OtpService.verifyOtp / consumeValidCode / sendOtp (归属其他单元: OTP Redis 锁改造 DEC-001)"
+    - "DBConst 迁包 / CommonDBConst 新建 (归属其他单元: DEC-003)"
+    - "Mapper native SQL 消除 findIdByPermCode/listKeysByRoleId/findByEmailActive/findDeletedBefore (归属其他单元: DEC-004)"
+
+# ============================================================
+# 验证记录 (verification)
+# ============================================================
+verification:
+  method: "gradlew compileJava -x test + 方法引用解析核对"
+  my_edit_lines_compile: "PASS — 我修改的 3 处行号 (OtpService:195-199, RoleService:110-116, DataInitializer:141-143) 均无编译错误"
+  method_reference_resolution:
+    - "OtpCodeEntity::getId — 继承自 LongAuditableEntity (getId 存在)"
+    - "OtpCodeEntity::getStatus — @Data 生成 (status 字段 line 50)"
+    - "PermissionEntity::getId — 继承自 LongAuditableEntity，@Data 生成 (getId 存在)"
+  note: >-
+    全量构建当前 FAIL，但全部编译错误 (findIdByPermCode/listKeysByRoleId/
+    findByEmailActive/findDeletedBefore 找不到符号) 均源自并行兄弟单元
+    DEC-003/DEC-004 进行中的 Mapper native SQL 消除 + DBConst 迁包工作
+    (移除了 Mapper 方法但调用方尚未全部迁移)，在本单元编辑前即存在，
+    与本单元 B1/E2 改造无关。本单元三处改动不引入任何新编译错误。
+    全量构建通过需待全部并行单元集成完成 (L3 集成检查阶段)。
+
+# ============================================================
+# 自检清单 (self-check)
+# ============================================================
+self_check:
+  - check: "全部负责约束 (B1/E2×2) 有对应代码实现"
+    result: "PASS"
+  - check: "impl_location 指向真实文件路径和行号 (非占位符)"
+    result: "PASS"
+  - check: "命名/方法引用与实体 getter 一致 (IMP-12)"
+    result: "PASS"
+  - check: "无新增依赖 (LambdaQueryWrapper/LambdaUpdateWrapper import 均已存在)"
+    result: "PASS"
+  - check: "新代码风格与同文件已有 wrapper 用法一致 (IMP-14)"
+    result: "PASS"
+  - check: "无自由发挥 — 仅改 decision.md 指定的 B1/E2 范围 (IMP-15)"
+    result: "PASS"
+  - check: "未触碰其他单元负责的 verifyOtp/consumeValidCode/DBConst/Mapper"
+    result: "PASS"
+  - check: "无 TODO/FIXME/placeholder"
+    result: "PASS"

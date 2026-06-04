@@ -1,0 +1,178 @@
+---
+review_report:
+  title: "功能完整性审查报告"
+  reviewer: "l3_functional_reviewer"
+  reviewer_layer: "compliance"
+  date: "2026-06-04"
+  round: 1
+
+  # 审查范围
+  scope:
+    implementation_units:
+      - "unit_identity_identity-api-detail"   # DEC-001 OTP 锁 + DEC-002 分页导出
+      - "unit_identity_identity-data-detail"  # B1 UpdateWrapper + E2 显式条件
+      - "unit_identity_identity-design"       # A3 JOIN 消除 + role 聚合 DBConst 基类列
+      - "unit_data_identity-retention-anonymization"  # A2/A3/A4/A5 native SQL 消除
+    total_files_reviewed: 11
+    total_lines_reviewed: 1100
+
+  # 审查依据
+  references:
+    requirement_doc: "hhspec/changes/backend-orm-compliance-refactor/decision.md"
+    architecture_dir: "N/A（技术债 ORM 规范重构，无独立 L0/L1/L2 文档；功能基线为 decision.md 的 5 个决策点 + 业务行为不变约束）"
+    design_dir: "N/A"
+    specs_files:
+      - "hhspec/changes/backend-orm-compliance-refactor/reviews/integration-check.yml"
+
+  # 总体判定
+  verdict: "PASS"
+
+  # 检查项核对结果（FUNC-01~09，逐条交叉验证代码）
+  check_items:
+    - id: "FUNC-01"
+      name: "L0 Gherkin 正常路径覆盖"
+      result: PASS
+      basis: >-
+        本变更无独立 Gherkin（技术债重构）。以「业务行为不变」为正常路径基线，逐决策核对：
+        DEC-001 verifyOtp 主流程 STEP-01~10 完整保留（OtpService.java:142-166），STEP-01~03 校验逻辑
+        下沉 consumeValidCode（191-220）语义与原 lockPendingByEmail 流程一致；DEC-002 streamForExport
+        导出主流程保留逐行回调契约（AuditService.java:68-88）；A2/A4/A5/A3 各查询主路径均在 Service 层
+        LambdaQueryWrapper 等价复现。
+    - id: "FUNC-02"
+      name: "L0 Gherkin 异常路径覆盖"
+      result: PASS
+      basis: >-
+        OTP 异常分支全部保留：无 pending→41001(OtpService:194-196)、过期→41001(199-202)、hash 不匹配
+        attempts++→40101 带 remaining_attempts(204-217)、达上限→41002 locked(207-211)；DEC-002 导出时间窗
+        异常：缺 from/to→422、from>to→422、跨度>92天→422(AuditService:127-143)，且校验前置(never 触发查询，
+        TC-UNIT-060/061 verify never selectList)；A4 findByEmailActive null 短路保留(MergeService:122-124)、
+        未验证冲突→40902(91)、permissionKeysOfRole 空列表短路 List.of()(RoleService:91-93)。
+    - id: "FUNC-03"
+      name: "边界场景全覆盖"
+      result: PASS
+      basis: >-
+        A5 LIMIT 边界：RetentionScheduler BATCH=500 .last("LIMIT "+BATCH)(35/118)，cutoff=now-30d
+        lt(getDeletedAt,cutoff) 严格小于语义与原 SQL 一致(113-117)；DEC-002 分页边界：不足一页即结束(82)、
+        id 游标严格递减 lt(getId,lastId) 防重复(109-111)、92 天窗上限保证轮询有界、TC-UNIT-063 验证满页翻页
+        times(2)；DEC-001 selectLatestPending orderByDesc(getCreatedAt).last("LIMIT 1") 取最新单条(228-232)；
+        A3 空 permIds 短路避免空 IN(RoleService:91-93)。
+    - id: "FUNC-04"
+      name: "Traceability Map L0 覆盖（交叉验证代码位置真实存在）"
+      result: PASS
+      basis: >-
+        全部约束 ID 的 impl_location 均打开代码核对存在且语义匹配（非仅凭 status 字段）：
+        DEC-001(OtpService:43/142-166/191-233)、DEC-002(AuditService:68-115)、A2/A4(RoleService:178-189,
+        DataInitializer:112-114)、A4-findByEmailActive(MergeService:120-130,IdentityService:254-255)、
+        A5-findDeletedBefore(RetentionScheduler:110-121)、A3(RoleService:86-98,DataInitializer:141-156)、
+        B1(OtpService:235-240)、E2(RoleService:124-131,DataInitializer:146-147)、DBConst 14 文件全部迁
+        consts/ 包(Glob 确认)。
+    - id: "FUNC-05"
+      name: "Traceability Map L1 覆盖"
+      result: PASS
+      basis: "无独立 L1-API-* 约束（技术债重构）。RM-* 业务约束 ID 在代码注释保留可追溯（RM-020/021/002/005/070/100~102 等）。"
+    - id: "FUNC-06"
+      name: "验收策略达标"
+      result: PASS
+      basis: >-
+        验收策略=编译通过 + 业务行为不变 + native SQL 全消除。独立复核：./gradlew test BUILD SUCCESSFUL EXIT 0；
+        @Select/FOR UPDATE/fetchSize/ResultHandler grep 仅余注释(零代码命中)；new QueryWrapper/UpdateWrapper/
+        selectList(null) 零命中。
+    - id: "FUNC-07"
+      name: "功能逻辑正确性（语义一致）"
+      result: PASS
+      basis: >-
+        逐处比对代码逻辑与决策描述语义一致：onIdLock 仅包裹 consumeValidCode 调用、resolveOrMerge/openStoreSession
+        在锁外(OtpService:146-163)、@Transactional 覆盖完整方法、@Version 经 incrementAttempt selectById+updateById
+        兜底(243-247)；分页导出按 id 倒序等价 created_at DESC（id 自增单调）；A3 分步查询 role→permission_id→perm_code
+        等价原 JOIN 结果集。见 UNC-FUNC-001 记录 id 排序等价性的前提假设。
+    - id: "FUNC-08"
+      name: "测试结果与功能对应"
+      result: PASS
+      basis: >-
+        独立运行 ./gradlew test：66 tests（62 unit + 4 Testcontainers IT）全绿 0 failures 0 errors 0 skipped。
+        功能对应：OtpServiceTest 8（含无 pending/过期/锁定/remaining_attempts）、AuditServiceTest 4
+        （TC-UNIT-060~063 窗校验短路+单页+满页翻页）、MergeServiceTest 4（findByEmailActive selectOne 契约）、
+        OtpConcurrencyIT TC-IT-001 运行时验证并发仅一成功 consumedCount==1（DEC-001 锁等价 FOR UPDATE）。
+    - id: "FUNC-09"
+      name: "测试骨架消费完整性"
+      result: PASS
+      basis: >-
+        本变更无 L2 test-detail.md 骨架（技术债重构无独立详设）。测试随接口变更同步：MergeServiceTest 3 处 mock 改
+        selectOne(any())、OtpServiceTest 改 selectOne(any())+RedissonClient/RLock、AuditServiceTest 重写为
+        selectList stub，grep 6 个已删除 mapper 方法在 test/ 零命中。无 env_issue skipped。
+
+  # 发现列表（无 blocking；2 条 info 文档漂移，不影响功能）
+  findings:
+    - id: "FND-FUNC-001"
+      severity: info
+      category: "traceability_l0"
+      check_item: "FUNC-04"
+      title: "api-detail tracemap 描述 selectLatestPending/updateStatus 用 QueryWrapper 字符串列名，实际代码为 Lambda"
+      evidence:
+        file: "backend/src/main/java/com/dreamy/identity/domain/otp/service/OtpService.java"
+        line: "226-240"
+        code_snippet: "Wrappers.<OtpCodeEntity>lambdaQuery().eq(OtpCodeEntity::getEmail,email)... / Wrappers.<OtpCodeEntity>lambdaUpdate().eq(OtpCodeEntity::getId,id)"
+      counterpart:
+        source: "hhspec/changes/backend-orm-compliance-refactor/traceability-map-unit_identity_identity-api-detail.yml"
+        location: "line 33 / 126-127"
+        quote: "新增 selectLatestPending 方法：QueryWrapper(字符串列名)...；updateStatus/sendOtp expire 维持原有 UpdateWrapper 字符串列名写法"
+      description: >-
+        Tracemap 文档停留在中间态描述（QueryWrapper 字符串列名），最终集成态代码已全部为 Lambda 方法引用。
+        功能语义不受影响：查询条件 email+status+orderByDesc(created_at)+LIMIT 1 与原 native FOR UPDATE
+        取最新 pending 单条语义一致；updateStatus eq(id).set(status) 等价。仅文档陈旧。
+      impact: "无功能影响。仅 traceability map 文档与代码描述漂移，不影响运行与业务行为。"
+      recommendation: "归档时同步更新 api-detail tracemap line 33/126-127 描述为 Wrappers.lambdaQuery/lambdaUpdate（与 integration-check WARN-01 一致，仅文档非代码）。"
+      affected_implementer: "unit_identity_identity-api-detail"
+      constraint_ids: ["DEC-001", "B1"]
+    - id: "FND-FUNC-002"
+      severity: info
+      category: "traceability_l0"
+      check_item: "FUNC-04"
+      title: "design tracemap 标注 DBConst 位于 repository/ 包，实际已迁至 consts/ 包"
+      evidence:
+        file: "backend/src/main/java/com/dreamy/identity/domain/role/consts/RoleDBConst.java"
+        line: "1-16"
+        code_snippet: "package com.dreamy.identity.domain.role.consts; interface RoleDBConst extends CommonDBConst"
+      counterpart:
+        source: "hhspec/changes/backend-orm-compliance-refactor/specs/l3-state/traceability-map-unit_identity_identity-design.yml"
+        location: "line 48/57/66"
+        quote: "file: .../domain/role/repository/RoleDBConst.java"
+      description: >-
+        Design tracemap 的 impl_location 仍指向 repository/ 旧包路径，实际 14 个 DBConst（含 CommonDBConst）
+        已全部迁至 consts/ 子包（Glob 确认零 repository/ 残留）。DEC-003 迁包目标已达成，功能（基类列常量
+        ID/CREATED_AT/UPDATED_AT 补齐 + extends CommonDBConst）正确落地，仅 tracemap 路径未同步。
+      impact: "无功能影响。DBConst 迁包与基类列补齐均已正确实现，仅 tracemap 文件路径标注陈旧。"
+      recommendation: "归档时将 design tracemap 的 DBConst impl_location 路径由 repository/ 更正为 consts/。"
+      affected_implementer: "unit_identity_identity-design"
+      constraint_ids: ["DBCONST-ROLE", "DBCONST-PERMISSION", "DBCONST-ROLEPERMISSION"]
+
+  # 不确定性
+  uncertainties:
+    - id: "UNC-FUNC-001"
+      question: >-
+        DEC-002 导出按 id 倒序替代原 created_at DESC，依赖「id 自增与 created_at 单调一致」假设；
+        A5/DEC-002 的 LIMIT 分批 + 92 天窗轮询次数上界为静态估算（约 276 次），未做运行时压测。
+      impact: >-
+        若历史数据存在 id 与 created_at 非单调（如手工导入/时钟回拨），导出排序可能与原 created_at DESC 顺序
+        微差；但分页完整性（全量不漏不重）由 id 游标严格递减保证，不受影响。性能为非功能项，不影响功能判定。
+      suggestion: "运行时抽样核对导出顺序；若严格要求 created_at 顺序，可在 fetchExportPage 增 orderByDesc(created_at) 二级排序。属优化建议，非功能缺陷。"
+
+  # 汇总
+  summary:
+    total_findings: 2
+    blocking_count: 0
+    warning_count: 0
+    info_count: 2
+    findings_by_implementer:
+      "unit_identity_identity-api-detail": { blocking: 0, warning: 0, info: 1 }
+      "unit_identity_identity-design": { blocking: 0, warning: 0, info: 1 }
+      "unit_identity_identity-data-detail": { blocking: 0, warning: 0, info: 0 }
+      "unit_data_identity-retention-anonymization": { blocking: 0, warning: 0, info: 0 }
+    findings_by_category:
+      "traceability_l0": { blocking: 0, warning: 0, info: 2 }
+    conclusion: >-
+      5 个决策点（DEC-001/002 + A2/A3/A4/A5 + B1/E2 + DEC-003 DBConst 迁包/基类列）逐条交叉验证代码，
+      功能完整落地且业务语义不变：OTP 锁改造保留全部校验/异常/乐观锁语义并经 OtpConcurrencyIT 运行时验证
+      并发仅一成功；分页导出保留逐行回调与时间窗异常并经 TC-UNIT-060~063 验证；native SQL 全消除且查询语义
+      （含 A3 分步聚合等价 JOIN、A5 LIMIT/cutoff 边界）等价复现。66 tests 全绿独立复核通过。无 blocking、
+      无 warning，2 条 info 为 tracemap 文档漂移（代码正确），判定 PASS。
