@@ -36,7 +36,7 @@ const forceSessionId = ref<string | undefined>(undefined)
 const showToggleStatus = ref(false)
 const acting = ref(false)
 
-const isDisabled = computed(() => (user.value as any)?.status === 'disabled')
+const isDisabled = computed(() => (user.value as any)?.status === 2)
 
 async function load() {
   try {
@@ -73,9 +73,9 @@ async function doForceLogout() {
 async function doToggleStatus() {
   acting.value = true
   try {
-    const next = isDisabled.value ? 'active' : 'disabled'
+    const next = isDisabled.value ? 1 : 2
     await store.toggleStatus(userId.value, next)
-    toast.success(next === 'disabled' ? '账户已禁用' : '账户已启用')
+    toast.success(next === 2 ? '账户已禁用' : '账户已启用')
     showToggleStatus.value = false
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
@@ -129,7 +129,7 @@ onMounted(load)
                 <div class="flex items-center gap-2">
                   <span
                     class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
-                    :class="m.provider === 'google' ? 'bg-info/12 text-info' : m.provider === 'apple' ? 'bg-ink/8 text-ink' : 'bg-gold/12 text-gold-deep'"
+                    :class="m.provider === 2 ? 'bg-info/12 text-info' : m.provider === 3 ? 'bg-ink/8 text-ink' : 'bg-gold/12 text-gold-deep'"
                   >{{ providerLabel(m.provider).charAt(0) }}</span>
                   <span class="text-[13px] font-medium text-ink">{{ providerLabel(m.provider) }}</span>
                   <span v-if="m.isPrimary" class="rounded-full bg-ink/8 px-1.5 py-0.5 text-[10px] text-ink-soft">主</span>
@@ -164,7 +164,7 @@ onMounted(load)
                 <td class="font-mono text-[12px] text-ink-faint">{{ h.ip || '—' }}</td>
                 <td class="text-[12px] text-ink-soft">{{ h.device || '—' }}</td>
                 <td class="text-[12px] text-ink-faint">{{ h.location || '—' }}</td>
-                <td><StatusBadge :tone="h.result === 'success' ? 'ok' : 'danger'" :label="loginResultLabel(h.result)" /></td>
+                <td><StatusBadge :tone="h.result === 1 ? 'ok' : 'danger'" :label="loginResultLabel(h.result)" /></td>
               </tr>
             </tbody>
           </table>

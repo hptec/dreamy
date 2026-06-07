@@ -6,7 +6,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import { useRolesStore } from '@/stores/roles'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import type { Role } from '@/api/types'
+import { type Role, RoleType } from '@/api/types'
 import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 const store = useRolesStore()
@@ -156,7 +156,7 @@ async function submitRole() {
 
 // ---- 删除 ----
 function confirmDeleteRole(role: Role) {
-  if (role.isLocked || role.type === 'preset') return
+  if (role.isLocked || role.type === RoleType.PRESET) return
   deleteTarget.value = role
   showDeleteRoleConfirm.value = true
 }
@@ -214,7 +214,7 @@ onMounted(load)
               <div class="flex-1">
                 <p class="text-[13px] font-medium text-ink">{{ r.name }}</p>
                 <p class="text-[11px] text-ink-faint">
-                  {{ r.type === 'preset' ? '系统预设' : '自定义' }}
+                  {{ r.type === RoleType.PRESET ? '系统预设' : '自定义' }}
                   · {{ permCount(r) }} 项权限 · {{ r.memberCount }} 人
                 </p>
               </div>
@@ -231,7 +231,7 @@ onMounted(load)
             <div class="flex items-center gap-3">
               <h3 class="font-display text-base font-semibold text-ink">{{ selectedRole.name }}</h3>
               <span class="rounded-full bg-canvas-warm px-2 py-0.5 text-[11px] text-ink-faint">
-                {{ selectedRole.type === 'preset' ? '系统预设' : '自定义' }}
+                {{ selectedRole.type === RoleType.PRESET ? '系统预设' : '自定义' }}
               </span>
               <span v-if="selectedRole.isLocked" class="text-[11px] text-ink-faint">· 权限不可编辑</span>
             </div>
@@ -247,7 +247,7 @@ onMounted(load)
                 @click="openEditRole(selectedRole)"
               ><PencilSquareIcon class="h-4 w-4" />改名</button>
               <button
-                v-if="!selectedRole.isLocked && selectedRole.type === 'custom'"
+                v-if="!selectedRole.isLocked && selectedRole.type === RoleType.CUSTOM"
                 class="btn-ghost text-danger"
                 @click="confirmDeleteRole(selectedRole)"
               ><TrashIcon class="h-4 w-4" />删除</button>

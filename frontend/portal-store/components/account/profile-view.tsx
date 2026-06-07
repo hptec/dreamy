@@ -17,6 +17,7 @@ function initials(name: string | null, email: string | null): string {
 
 export function ProfileView({ user }: { user: UserProfile }) {
   const { t, locale } = useI18n()
+  const displayName = user.name ?? user.email?.split('@')[0] ?? t.account.notProvided
   const joined = (() => {
     if (!user.joinedAt) return null
     const d = new Date(user.joinedAt)
@@ -35,7 +36,7 @@ export function ProfileView({ user }: { user: UserProfile }) {
           </span>
         )}
         <div className="min-w-0">
-          <p className="font-display text-2xl font-medium">{user.name ?? t.account.notProvided}</p>
+          <p className="font-display text-2xl font-medium">{displayName}</p>
           <p className="truncate text-sm text-ink-soft">{user.email ?? t.account.notProvided}</p>
         </div>
         <span className="ml-auto rounded-full bg-ink/85 px-3 py-1 text-[10px] uppercase tracking-luxe text-canvas">

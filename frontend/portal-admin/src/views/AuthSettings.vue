@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// PAGE-A06 / COMP-A07：登录与认证配置。email 强制只读 on；OTP 区间前端预校验 + 422 40002 回显；OAuth 只读
+// PAGE-A06 / COMP-A07：登录与认证配置。email 强制只读 on；OTP 区间前端预校验 + 422 40002 回显
 // 约束: FORM-A05 前端区间预校验→保存→字段级错误回显
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { authConfigApi } from '@/api'
 import { useToastStore } from '@/stores/toast'
@@ -9,7 +9,13 @@ import { BizError } from '@/api/client'
 import type { AuthConfig } from '@/api/types'
 import {
   CheckBadgeIcon, KeyIcon, LinkIcon, LockClosedIcon, InformationCircleIcon,
+  ChevronUpDownIcon, CheckIcon,
 } from '@heroicons/vue/24/outline'
+import {
+  Listbox, ListboxButton, ListboxOptions, ListboxOption,
+} from '@headlessui/vue'
+
+const otpLengthOptions = [4, 6, 8]
 
 const toast = useToastStore()
 const loading = ref(true)
@@ -29,12 +35,6 @@ const form = reactive({
 const oauth = reactive({ googleClientId: '', appleServiceId: '' })
 const errors = ref<Record<string, string>>({})
 
-// 登录方式开关列表（email 锁定 on）
-const methods = computed(() => [
-  { provider: 'email', label: '邮箱验证码（Passwordless）', enabled: form.emailEnabled, locked: true, desc: '主登录方式，向用户邮箱发送一次性验证码，无需密码。' },
-  { provider: 'google', label: 'Google 登录', enabled: form.googleEnabled, locked: false, desc: 'OAuth 2.0 / OpenID Connect，按 Google sub 标识用户。' },
-  { provider: 'apple', label: 'Apple 登录', enabled: form.appleEnabled, locked: false, desc: '支持 Hide My Email，按 Apple sub 标识；首次授权才返回邮箱/姓名。' },
-])
 
 function applyConfig(cfg: AuthConfig) {
   form.emailEnabled = cfg.emailEnabled
@@ -94,6 +94,8 @@ async function save() {
       otpResendSeconds: form.otpResendSeconds,
       otpMaxAttempts: form.otpMaxAttempts,
       minMethods: form.minMethods,
+      googleClientId: oauth.googleClientId || null,
+      appleServiceId: oauth.appleServiceId || null,
     })
     applyConfig(updated)
     toast.success('登录与认证配置已保存，变更已记入操作日志')
@@ -133,27 +135,72 @@ onMounted(load)
 
     <div v-else class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- 登录方式 -->
-      <div class="panel p-6">
+      <div class="panel p-6 lg:col-span-2">
         <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><KeyIcon class="h-4 w-4 text-gold-deep" />登录方式</h3>
-        <p class="mb-4 text-[12px] text-ink-faint">控制消费端可用的登录入口。</p>
+        <p class="mb-4 text-[12px] text-ink-faint">控制消费端可用的登录入口。OAuth 凭据开启后即可填写。</p>
         <div class="space-y-3">
-          <div v-for="m in methods" :key="m.provider" class="flex items-start justify-between gap-3 rounded-luxe border border-line p-4">
+          <!-- email（锁定，无凭据） -->
+          <div class="flex items-start justify-between gap-3 rounded-luxe border border-line p-4">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="text-[13px] font-medium text-ink">{{ m.label }}</span>
-                <span v-if="m.locked" class="inline-flex items-center gap-0.5 rounded-full bg-ink/6 px-1.5 py-0.5 text-[10px] text-ink-soft"><LockClosedIcon class="h-3 w-3" />主登录</span>
+                <span class="text-[13px] font-medium text-ink">邮箱验证码（Passwordless）</span>
+                <span class="inline-flex items-center gap-0.5 rounded-full bg-ink/6 px-1.5 py-0.5 text-[10px] text-ink-soft"><LockClosedIcon class="h-3 w-3" />主登录</span>
               </div>
-              <p class="mt-1 text-[12px] text-ink-soft">{{ m.desc }}</p>
+              <p class="mt-1 text-[12px] text-ink-soft">主登录方式，向用户邮箱发送一次性验证码，无需密码。</p>
             </div>
-            <button
-              type="button"
-              class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors"
-              :class="[m.enabled ? 'bg-ok' : 'bg-ink-faint', m.locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer']"
-              :title="m.locked ? '主登录方式不可关闭' : ''"
-              @click="toggleMethod(m.provider)"
-            >
-              <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="m.enabled ? 'translate-x-5' : 'translate-x-1'" />
+            <button type="button" class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-not-allowed items-center rounded-full bg-ok opacity-60">
+              <span class="inline-block h-4 w-4 translate-x-5 rounded-full bg-white shadow-sm" />
             </button>
+          </div>
+
+          <!-- Google -->
+          <div class="rounded-luxe border border-line">
+            <div class="flex items-start justify-between gap-3 p-4">
+              <div class="min-w-0">
+                <span class="text-[13px] font-medium text-ink">Google 登录</span>
+                <p class="mt-1 text-[12px] text-ink-soft">OAuth 2.0 / OpenID Connect，按 Google sub 标识用户。</p>
+              </div>
+              <button
+                type="button"
+                class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors"
+                :class="form.googleEnabled ? 'bg-ok' : 'bg-ink-faint'"
+                @click="toggleMethod('google')"
+              >
+                <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="form.googleEnabled ? 'translate-x-5' : 'translate-x-1'" />
+              </button>
+            </div>
+            <div v-if="form.googleEnabled" class="border-t border-line px-4 pb-4 pt-3">
+              <label class="mb-1 block text-[12px] font-medium text-ink">Google Client ID</label>
+              <div class="flex items-center gap-2">
+                <input v-model.trim="oauth.googleClientId" placeholder="输入 Google OAuth Client ID" class="field min-w-0 flex-1 font-mono text-[12px]" />
+                <span v-if="oauth.googleClientId" class="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-ok"><CheckBadgeIcon class="h-3.5 w-3.5" />已配置</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Apple -->
+          <div class="rounded-luxe border border-line">
+            <div class="flex items-start justify-between gap-3 p-4">
+              <div class="min-w-0">
+                <span class="text-[13px] font-medium text-ink">Apple 登录</span>
+                <p class="mt-1 text-[12px] text-ink-soft">支持 Hide My Email，按 Apple sub 标识；首次授权才返回邮箱/姓名。</p>
+              </div>
+              <button
+                type="button"
+                class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors"
+                :class="form.appleEnabled ? 'bg-ok' : 'bg-ink-faint'"
+                @click="toggleMethod('apple')"
+              >
+                <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="form.appleEnabled ? 'translate-x-5' : 'translate-x-1'" />
+              </button>
+            </div>
+            <div v-if="form.appleEnabled" class="border-t border-line px-4 pb-4 pt-3">
+              <label class="mb-1 block text-[12px] font-medium text-ink">Apple Service ID</label>
+              <div class="flex items-center gap-2">
+                <input v-model.trim="oauth.appleServiceId" placeholder="输入 Apple Service ID" class="field min-w-0 flex-1 font-mono text-[12px]" />
+                <span v-if="oauth.appleServiceId" class="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-ok"><CheckBadgeIcon class="h-3.5 w-3.5" />已配置</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -165,11 +212,29 @@ onMounted(load)
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="mb-1 block text-[13px] font-medium text-ink">验证码长度</label>
-            <select v-model.number="form.otpLength" class="field w-full">
-              <option :value="4">4 位</option>
-              <option :value="6">6 位</option>
-              <option :value="8">8 位</option>
-            </select>
+            <Listbox v-model="form.otpLength" as="div" class="relative">
+              <ListboxButton as="button" class="field flex w-full items-center justify-between text-left">
+                <span>{{ form.otpLength }} 位</span>
+                <ChevronUpDownIcon class="h-4 w-4 shrink-0 text-ink-faint" />
+              </ListboxButton>
+              <ListboxOptions as="ul" class="absolute top-full left-0 z-20 mt-1 w-full overflow-hidden rounded-lg border border-line bg-white py-1 shadow-panel focus:outline-none">
+                <ListboxOption
+                  v-for="opt in otpLengthOptions"
+                  :key="opt"
+                  :value="opt"
+                  v-slot="{ active, selected }"
+                  as="template"
+                >
+                  <li
+                    class="flex items-center justify-between px-3 py-2 text-[13px] cursor-pointer"
+                    :class="active ? 'bg-canvas-warm text-ink' : 'text-ink-soft'"
+                  >
+                    <span>{{ opt }} 位</span>
+                    <CheckIcon v-if="selected" class="h-4 w-4 text-gold" />
+                  </li>
+                </ListboxOption>
+              </ListboxOptions>
+            </Listbox>
             <p v-if="errors.otpLength" class="mt-1 text-[12px] text-danger">{{ errors.otpLength }}</p>
           </div>
           <div>
@@ -209,31 +274,6 @@ onMounted(load)
         </div>
       </div>
 
-      <!-- OAuth 凭据（只读） -->
-      <div class="panel p-6">
-        <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><LockClosedIcon class="h-4 w-4 text-gold-deep" />OAuth 凭据</h3>
-        <p class="mb-4 text-[12px] text-ink-faint">第三方登录服务端凭据（只读展示，正式环境从密钥管理读取）。</p>
-        <div class="space-y-4">
-          <div>
-            <div class="mb-1 flex items-center justify-between">
-              <label class="text-[13px] font-medium text-ink">Google Client ID</label>
-              <span v-if="oauth.googleClientId" class="inline-flex items-center gap-0.5 text-[11px] text-ok"><CheckBadgeIcon class="h-3.5 w-3.5" />已配置</span>
-            </div>
-            <input :value="oauth.googleClientId || '未配置'" readonly class="field w-full cursor-not-allowed bg-canvas-warm font-mono text-[12px] text-ink-faint" />
-          </div>
-          <div>
-            <div class="mb-1 flex items-center justify-between">
-              <label class="text-[13px] font-medium text-ink">Apple Service ID</label>
-              <span v-if="oauth.appleServiceId" class="inline-flex items-center gap-0.5 text-[11px] text-ok"><CheckBadgeIcon class="h-3.5 w-3.5" />已配置</span>
-            </div>
-            <input :value="oauth.appleServiceId || '未配置'" readonly class="field w-full cursor-not-allowed bg-canvas-warm font-mono text-[12px] text-ink-faint" />
-          </div>
-          <div class="flex items-start gap-2 rounded-luxe bg-info/8 px-3 py-2.5 text-[12px] text-ink-soft">
-            <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-info" />
-            <p>Apple 仅在用户<strong>首次授权</strong>时返回邮箱与姓名，且支持 Hide My Email；系统以 Apple <code class="rounded bg-ink/6 px-1">sub</code> 作为稳定主键，首次即落库保存。</p>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>

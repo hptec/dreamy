@@ -27,7 +27,7 @@ const permIcon = { full: { c: 'text-ok', i: 'full' }, read: { c: 'text-info', i:
             <td><div><p class="font-medium text-ink">{{ u.name }}</p><p class="text-[11px] text-ink-faint">{{ u.email }}</p></div></td>
             <td><span class="rounded-full bg-gold/12 px-2.5 py-0.5 text-[12px] text-gold-deep">{{ u.role }}</span></td>
             <td class="text-[12px] text-ink-faint">{{ u.lastLogin }}</td>
-            <td><StatusBadge :tone="u.status === 'active' ? 'ok' : 'danger'" :label="u.status === 'active' ? '正常' : '已禁用'" /></td>
+            <td><StatusBadge :tone="u.status === 1 ? 'ok' : 'danger'" :label="u.status === 1 ? '正常' : '已禁用'" /></td>
             <td class="text-right"><button class="btn-ghost"><PencilSquareIcon class="h-4 w-4" />编辑</button></td>
           </tr>
         </tbody>

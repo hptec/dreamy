@@ -52,6 +52,8 @@ export interface StoreAuthConfig {
   googleEnabled: boolean
   appleEnabled: boolean
   otpLength: number
+  googleClientId?: string | null
+  appleServiceId?: string | null
 }
 
 /** 凭证（IdentityDTO / MAP-002） */

@@ -1,5 +1,7 @@
 // 展示格式化 + 枚举标签映射（中文 UI）
-// 约束: enum_values（shared-contracts）：tier[vip,regular] / account_status / provider / login_result
+// 约束: 后端 IntEnum，API 返回整数键值
+
+import { AdminStatus, UserStatus, UserTier, AuthProvider, LoginOutcome, RoleType } from '../api/types'
 
 export function formatDateTime(iso?: string | null): string {
   if (!iso) return '—'
@@ -17,56 +19,58 @@ export function formatDate(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-export const TIER_LABEL: Record<string, string> = {
-  vip: 'VIP',
-  regular: '常规',
+const TIER_LABEL: Record<number, string> = {
+  [UserTier.REGULAR]: '常规',
+  [UserTier.VIP]: 'VIP',
 }
-export function tierLabel(t?: string | null): string {
-  if (!t) return '—'
-  return TIER_LABEL[t] || t
+export function tierLabel(t?: number | null): string {
+  if (t == null) return '—'
+  return TIER_LABEL[t] ?? '—'
 }
 
-export const ACCOUNT_STATUS_LABEL: Record<string, string> = {
-  active: '正常',
-  disabled: '已禁用',
-  deleted: '已注销',
-  anonymized: '已匿名',
+const ACCOUNT_STATUS_LABEL: Record<number, string> = {
+  [UserStatus.ACTIVE]: '正常',
+  [UserStatus.DISABLED]: '已禁用',
+  [UserStatus.DELETED]: '已注销',
+  [UserStatus.ANONYMIZED]: '已匿名',
 }
-export function accountStatusLabel(s?: string | null): string {
-  if (!s) return '—'
-  return ACCOUNT_STATUS_LABEL[s] || s
+export function accountStatusLabel(s?: number | null): string {
+  if (s == null) return '—'
+  return ACCOUNT_STATUS_LABEL[s] ?? '—'
 }
-export function accountStatusTone(s?: string | null): string {
+export function accountStatusTone(s?: number | null): string {
   switch (s) {
-    case 'active':
-      return 'ok'
-    case 'disabled':
-      return 'danger'
-    case 'deleted':
-    case 'anonymized':
-      return 'neutral'
-    default:
-      return 'neutral'
+    case UserStatus.ACTIVE: return 'ok'
+    case UserStatus.DISABLED: return 'danger'
+    default: return 'neutral'
   }
 }
 
-export const PROVIDER_LABEL: Record<string, string> = {
-  email: '邮箱',
-  google: 'Google',
-  apple: 'Apple',
+const PROVIDER_LABEL: Record<number, string> = {
+  [AuthProvider.EMAIL]: '邮箱',
+  [AuthProvider.GOOGLE]: 'Google',
+  [AuthProvider.APPLE]: 'Apple',
 }
-export function providerLabel(p?: string | null): string {
-  if (!p) return '—'
-  return PROVIDER_LABEL[p] || p
+export function providerLabel(p?: number | null): string {
+  if (p == null) return '—'
+  return PROVIDER_LABEL[p] ?? '—'
 }
 
-export const LOGIN_RESULT_LABEL: Record<string, string> = {
-  success: '成功',
-  failed: '失败',
+const LOGIN_RESULT_LABEL: Record<number, string> = {
+  [LoginOutcome.SUCCESS]: '成功',
+  [LoginOutcome.FAILED]: '失败',
 }
-export function loginResultLabel(r?: string | null): string {
-  if (!r) return '—'
-  return LOGIN_RESULT_LABEL[r] || r
+export function loginResultLabel(r?: number | null): string {
+  if (r == null) return '—'
+  return LOGIN_RESULT_LABEL[r] ?? '—'
+}
+
+export function roleTypeLabel(t?: number | null): string {
+  return t === RoleType.PRESET ? '系统预设' : '自定义'
+}
+
+export function adminStatusLabel(s?: number | null): string {
+  return s === AdminStatus.ACTIVE ? '正常' : '已禁用'
 }
 
 export function initialsOf(name?: string | null, fallback = '?'): string {

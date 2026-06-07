@@ -2,7 +2,7 @@
 
 /**
  * COMP-S08 <ChangePrimaryDialog>：更换主邮箱（FORM-S05 / FUNC-026 / EDGE-020）。
- * 流程：输入 new_email → 发 OTP（sendOtp）→ 输入验证码 → changePrimaryEmail；
+ * 流程：选择已有已验证邮箱或输入新邮箱 → 发 OTP（sendOtp）→ 输入验证码 → changePrimaryEmail；
  * 409 占用 → 提示该邮箱已被使用（40901）。
  */
 
@@ -14,24 +14,28 @@ import { errorText, resendSecondsFrom } from '@/lib/i18n/error-text'
 import type { Identity } from '@/lib/api/types'
 import { Dialog } from './dialog'
 import { OtpInput } from './otp-input'
+import { ProviderMark } from './provider-icons'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface Props {
   open: boolean
+  identities: Identity[]
   onClose: () => void
   onChanged: (identities: Identity[]) => void
 }
 
-export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
+export function ChangePrimaryDialog({ open, identities, onClose, onChanged }: Props) {
   const { t, locale } = useI18n()
-  const [phase, setPhase] = useState<'email' | 'code'>('email')
+  const [phase, setPhase] = useState<'pick' | 'email' | 'code'>('pick')
   const [newEmail, setNewEmail] = useState('')
   const [otpLength, setOtpLength] = useState(6)
   const [code, setCode] = useState<string[]>(Array(6).fill(''))
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [resendIn, setResendIn] = useState(0)
+
+  const candidates = identities.filter((i) => !i.isPrimary && i.verified && i.identifier)
 
   useEffect(() => {
     if (resendIn <= 0) return
@@ -40,7 +44,7 @@ export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
   }, [resendIn])
 
   function reset() {
-    setPhase('email')
+    setPhase(candidates.length > 0 ? 'pick' : 'email')
     setNewEmail('')
     setCode(Array(6).fill(''))
     setError('')
@@ -62,26 +66,36 @@ export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
     }
   }
 
-  async function handleSendCode(e: React.FormEvent) {
-    e.preventDefault()
+  async function doSendCode(email: string) {
     setError('')
-    const normalized = newEmail.trim().toLowerCase()
-    if (!EMAIL_RE.test(normalized)) {
-      setError(errorText(new ApiError(40001, '', 422), locale))
-      return
-    }
     setBusy(true)
     try {
-      const res = await sendOtp(normalized, locale)
+      const res = await sendOtp(email, locale)
       setOtpLength(res.otpLength)
       setCode(Array(res.otpLength).fill(''))
       setResendIn(res.resendAfterSeconds)
+      setNewEmail(email)
       setPhase('code')
     } catch (err) {
       showErr(err)
     } finally {
       setBusy(false)
     }
+  }
+
+  async function handlePickExisting(identity: Identity) {
+    if (!identity.identifier) return
+    await doSendCode(identity.identifier.trim().toLowerCase())
+  }
+
+  async function handleSendCode(e: React.FormEvent) {
+    e.preventDefault()
+    const normalized = newEmail.trim().toLowerCase()
+    if (!EMAIL_RE.test(normalized)) {
+      setError(errorText(new ApiError(40001, '', 422), locale))
+      return
+    }
+    await doSendCode(normalized)
   }
 
   async function handleSubmit() {
@@ -94,8 +108,8 @@ export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
     setBusy(true)
     setError('')
     try {
-      const identities = await changePrimaryEmail(newEmail.trim().toLowerCase(), joined)
-      onChanged(identities)
+      const result = await changePrimaryEmail(newEmail.trim().toLowerCase(), joined)
+      onChanged(result)
       handleClose()
     } catch (err) {
       setCode(Array(otpLength).fill(''))
@@ -107,7 +121,35 @@ export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
 
   return (
     <Dialog open={open} title={t.security.changePrimaryTitle} onClose={handleClose}>
-      {phase === 'email' ? (
+      {phase === 'pick' ? (
+        <div className="space-y-4">
+          <p className="text-sm text-ink-soft">{t.security.pickExistingHint}</p>
+          <div className="space-y-2">
+            {candidates.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                disabled={busy}
+                onClick={() => handlePickExisting(a)}
+                className="flex w-full items-center gap-3 rounded-sm border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-gold"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-muted">
+                  <ProviderMark provider={a.provider} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">{a.identifier}</span>
+              </button>
+            ))}
+          </div>
+          {error && <p role="alert" aria-live="assertive" className="text-xs text-blush">{error}</p>}
+          <button
+            type="button"
+            onClick={() => { setError(''); setPhase('email') }}
+            className="w-full rounded-sm border border-line px-4 py-2.5 text-xs font-medium uppercase tracking-luxe text-ink-soft transition-colors hover:border-gold hover:text-ink"
+          >
+            {t.security.useAnotherEmail}
+          </button>
+        </div>
+      ) : phase === 'email' ? (
         <form onSubmit={handleSendCode} className="space-y-4">
           <div>
             <label htmlFor="new-primary-email" className="eyebrow mb-1.5 block">{t.security.newEmailLabel}</label>
@@ -125,6 +167,15 @@ export function ChangePrimaryDialog({ open, onClose, onChanged }: Props) {
           <button type="submit" disabled={busy} className="btn-primary w-full">
             {busy ? t.common.loading : t.security.sendCode}
           </button>
+          {candidates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setError(''); setPhase('pick') }}
+              className="w-full text-center text-xs text-ink-soft hover:text-ink"
+            >
+              &larr; {t.common.cancel}
+            </button>
+          )}
         </form>
       ) : (
         <form

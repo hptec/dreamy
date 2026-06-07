@@ -207,17 +207,8 @@ function EmailStep({
       <OAuthButtons
         googleEnabled={googleEnabled}
         appleEnabled={appleEnabled}
-        email={email}
         onError={onOauthError}
       />
-
-      {(googleEnabled || appleEnabled) && (
-        <div className="my-6 flex items-center gap-4">
-          <span className="h-px flex-1 bg-line" />
-          <span className="text-[11px] uppercase tracking-luxe text-ink-faint">{t.login.or}</span>
-          <span className="h-px flex-1 bg-line" />
-        </div>
-      )}
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
@@ -239,8 +230,6 @@ function EmailStep({
           {sending ? t.common.loading : t.login.emailMeCode}
         </button>
       </form>
-
-      <p className="mt-6 text-center text-xs text-ink-faint">{t.login.appleRelayNote}</p>
     </>
   )
 }

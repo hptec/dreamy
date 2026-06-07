@@ -90,6 +90,8 @@ export interface UiMessages {
     signOutOthersConfirm: string
     changePrimaryTitle: string
     changePrimaryCta: string
+    pickExistingHint: string
+    useAnotherEmail: string
     newEmailLabel: string
     sendCode: string
     codeLabel: string
@@ -189,6 +191,8 @@ const en: UiMessages = {
     signOutOthersConfirm: 'Sign out of all other devices? They will need to sign in again.',
     changePrimaryTitle: 'Change primary email',
     changePrimaryCta: 'Change primary email',
+    pickExistingHint: 'Select a verified email to set as primary, or enter a new one.',
+    useAnotherEmail: 'Use a different email',
     newEmailLabel: 'New email',
     sendCode: 'Send code',
     codeLabel: 'Verification code',
@@ -290,6 +294,8 @@ const es: UiMessages = {
     signOutOthersConfirm: 'Cerrar sesion en todos los demas dispositivos? Tendran que iniciar sesion de nuevo.',
     changePrimaryTitle: 'Cambiar correo principal',
     changePrimaryCta: 'Cambiar correo principal',
+    pickExistingHint: 'Seleccione un correo verificado como principal, o ingrese uno nuevo.',
+    useAnotherEmail: 'Usar otro correo',
     newEmailLabel: 'Nuevo correo',
     sendCode: 'Enviar codigo',
     codeLabel: 'Codigo de verificacion',
@@ -391,6 +397,8 @@ const fr: UiMessages = {
     signOutOthersConfirm: 'Se deconnecter de tous les autres appareils ? Ils devront se reconnecter.',
     changePrimaryTitle: 'Changer l e-mail principal',
     changePrimaryCta: 'Changer l e-mail principal',
+    pickExistingHint: 'Selectionnez un e-mail verifie comme principal, ou entrez-en un nouveau.',
+    useAnotherEmail: 'Utiliser un autre e-mail',
     newEmailLabel: 'Nouvel e-mail',
     sendCode: 'Envoyer le code',
     codeLabel: 'Code de verification',

@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { formatDateTime } from '@/utils/format'
-import type { Admin } from '@/api/types'
+import { type Admin, AdminStatus } from '@/api/types'
 import {
   PlusIcon, MagnifyingGlassIcon, PencilSquareIcon, TrashIcon,
   ArrowPathIcon, XMarkIcon, EyeIcon, EyeSlashIcon,
@@ -31,7 +31,7 @@ const editingAdmin = ref<Admin | null>(null)
 const submitting = ref(false)
 
 // 表单
-const form = ref({ name: '', email: '', password: '', roleId: '', status: 'active' })
+const form = ref({ name: '', email: '', password: '', roleId: '', status: 1 })
 const formErrors = ref<Record<string, string>>({})
 const showPassword = ref(false)
 const newPassword = ref('')
@@ -74,7 +74,7 @@ async function load() {
 
 function openAdd() {
   editingAdmin.value = null
-  form.value = { name: '', email: '', password: '', roleId: '', status: 'active' }
+  form.value = { name: '', email: '', password: '', roleId: '', status: 1 }
   formErrors.value = {}
   showModal.value = true
 }
@@ -153,8 +153,8 @@ async function doDelete() {
 async function toggleStatus(a: Admin) {
   if (!canToggle(a)) return
   try {
-    await store.toggleStatus(a.id, a.status === 'active' ? 'disabled' : 'active')
-    toast.success(a.status === 'active' ? '已禁用' : '已启用')
+    await store.toggleStatus(a.id, a.status === AdminStatus.ACTIVE ? AdminStatus.DISABLED : AdminStatus.ACTIVE)
+    toast.success(a.status === AdminStatus.ACTIVE ? '已禁用' : '已启用')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
   }
@@ -204,9 +204,9 @@ onMounted(load)
         <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
       </select>
       <select v-model="store.filterStatus" class="field w-36 shrink-0" @change="store.applyFilters()">
-        <option value="">全部状态</option>
-        <option value="active">正常</option>
-        <option value="disabled">已禁用</option>
+        <option value="all">全部状态</option>
+        <option :value="AdminStatus.ACTIVE">正常</option>
+        <option :value="AdminStatus.DISABLED">已禁用</option>
       </select>
       <span class="ml-auto text-[12px] text-ink-faint">共 {{ store.total }} 人</span>
     </div>
@@ -248,11 +248,11 @@ onMounted(load)
               <button
                 v-if="canToggle(a)"
                 class="relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors"
-                :class="a.status === 'active' ? 'bg-ok' : 'bg-ink-faint'"
-                :title="a.status === 'active' ? '点击禁用' : '点击启用'"
+                :class="a.status === AdminStatus.ACTIVE ? 'bg-ok' : 'bg-ink-faint'"
+                :title="a.status === AdminStatus.ACTIVE ? '点击禁用' : '点击启用'"
                 @click="toggleStatus(a)"
               >
-                <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="a.status === 'active' ? 'translate-x-5' : 'translate-x-1'" />
+                <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="a.status === AdminStatus.ACTIVE ? 'translate-x-5' : 'translate-x-1'" />
               </button>
               <span v-else class="inline-flex items-center gap-0.5 text-[11px] text-ink-faint" title="超级管理员不可被禁用">
                 <span class="h-2 w-2 rounded-full bg-ok" /> 正常
@@ -326,7 +326,7 @@ onMounted(load)
               <label class="mb-1 block text-[13px] font-medium text-ink">角色</label>
               <select v-model="form.roleId" class="field w-full">
                 <option value="" disabled>请选择角色</option>
-                <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}{{ r.type === 'preset' ? '（系统预设）' : '' }}</option>
+                <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}{{ r.type === 1 ? '（系统预设）' : '' }}</option>
               </select>
               <p v-if="formErrors.roleId" class="mt-1 text-[12px] text-danger">{{ formErrors.roleId }}</p>
             </div>

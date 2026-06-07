@@ -167,6 +167,7 @@ export function SecurityPanel() {
 
       <ChangePrimaryDialog
         open={changeOpen}
+        identities={identities}
         onClose={() => setChangeOpen(false)}
         onChanged={(ids) => setIdentities(ids)}
       />

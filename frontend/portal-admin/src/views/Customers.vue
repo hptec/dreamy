@@ -54,15 +54,15 @@ onMounted(load)
         </div>
         <select v-model="store.filterTier" class="field w-36 shrink-0" @change="onSearch">
           <option value="all">全部等级</option>
-          <option value="vip">VIP</option>
-          <option value="regular">常规</option>
+          <option :value="2">VIP</option>
+          <option :value="1">常规</option>
         </select>
         <select v-model="store.filterStatus" class="field w-36 shrink-0" @change="onSearch">
           <option value="all">全部状态</option>
-          <option value="active">正常</option>
-          <option value="disabled">已禁用</option>
-          <option value="deleted">已注销</option>
-          <option value="anonymized">已匿名</option>
+          <option :value="1">正常</option>
+          <option :value="2">已禁用</option>
+          <option :value="3">已注销</option>
+          <option :value="4">已匿名</option>
         </select>
         <button class="btn-outline shrink-0" @click="onSearch">查询</button>
       </div>
@@ -97,7 +97,7 @@ onMounted(load)
               </div>
             </td>
             <td class="text-[12px] text-ink-soft">{{ formatDate(c.joinedAt) }}</td>
-            <td><StatusBadge :tone="c.tier === 'vip' ? 'warn' : 'neutral'" :label="tierLabel(c.tier)" :dot="false" /></td>
+            <td><StatusBadge :tone="c.tier === 2 ? 'warn' : 'neutral'" :label="tierLabel(c.tier)" :dot="false" /></td>
             <td><StatusBadge :tone="accountStatusTone((c as any).status)" :label="accountStatusLabel((c as any).status)" /></td>
             <td class="text-right">
               <RouterLink :to="`/customers/${c.id}`" class="btn-ghost"><EyeIcon class="h-4 w-4" />详情</RouterLink>

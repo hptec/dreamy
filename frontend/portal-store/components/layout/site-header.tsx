@@ -8,11 +8,15 @@ import { mainNav, announcements, currencies, languages } from '@/data/navigation
 import { products } from '@/data/products'
 import { useStore } from '@/components/store-provider'
 import { CartDrawer } from '@/components/cart/cart-drawer'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import { cn } from '@/lib/utils'
 
 export function SiteHeader() {
   const pathname = usePathname()
   const { cartCount, wishlist, currency, setCurrency, language, setLanguage, setCartOpen } = useStore()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const hydrate = useAuthStore((s) => s.hydrate)
+  const accountHref = isAuthenticated ? '/account' : '/account/login'
   const [announceIdx, setAnnounceIdx] = useState(0)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -23,6 +27,10 @@ export function SiteHeader() {
     const t = setInterval(() => setAnnounceIdx((i) => (i + 1) % announcements.length), 4000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    void hydrate()
+  }, [hydrate])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -56,7 +64,7 @@ export function SiteHeader() {
 
       {/* 主导航 */}
       <div className={cn('border-b border-line bg-canvas/95 backdrop-blur transition-shadow', scrolled && 'shadow-soft')}>
-        <div className="container-luxe">
+        <div className="container-luxe" onMouseLeave={() => setOpenMenu(null)}>
           <div className="flex h-16 items-center justify-between lg:h-20">
             {/* 移动端菜单按钮 */}
             <button onClick={() => setMobileOpen(true)} className="cursor-pointer p-2 lg:hidden" aria-label="Open menu">
@@ -70,7 +78,7 @@ export function SiteHeader() {
             </Link>
 
             {/* 桌面导航 */}
-            <nav className="hidden items-center gap-7 lg:flex" onMouseLeave={() => setOpenMenu(null)}>
+            <nav className="hidden items-center gap-7 lg:flex">
               {mainNav.map((item) => (
                 <div key={item.label} onMouseEnter={() => setOpenMenu(item.label)} className="py-7">
                   <Link
@@ -98,7 +106,7 @@ export function SiteHeader() {
                   <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-blush text-[9px] text-white">{wishlist.length}</span>
                 )}
               </Link>
-              <Link href="/account/login" className="p-2 transition-colors hover:text-gold-deep" aria-label="Account">
+              <Link href={accountHref} className="p-2 transition-colors hover:text-gold-deep" aria-label="Account">
                 <User className="h-5 w-5" />
               </Link>
               <button onClick={() => setCartOpen(true)} className="relative cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label="Cart">
@@ -160,7 +168,7 @@ function MegaPanel({ label, onClose, onMouseEnter }: { label: string; onClose: (
   const item = mainNav.find((n) => n.label === label)
   if (!item?.columns) return null
   return (
-    <div onMouseEnter={onMouseEnter} className="absolute inset-x-0 top-full hidden border-b border-line bg-canvas shadow-lift lg:block">
+    <div onMouseEnter={onMouseEnter} onMouseLeave={onClose} className="absolute inset-x-0 top-full hidden border-b border-line bg-canvas shadow-lift lg:block">
       <div className="container-luxe grid grid-cols-4 gap-8 py-10">
         {item.columns.map((col) => (
           <div key={col.title}>
@@ -242,6 +250,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
       <div className="absolute inset-0 bg-ink/40" onClick={onClose} />
@@ -274,7 +283,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
               )}
             </div>
           ))}
-          <Link href="/account/login" onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-gold-deep">Sign In / Register</Link>
+          <Link href={isAuthenticated ? '/account' : '/account/login'} onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-gold-deep">{isAuthenticated ? 'My Account' : 'Sign In / Register'}</Link>
         </nav>
       </div>
     </div>
