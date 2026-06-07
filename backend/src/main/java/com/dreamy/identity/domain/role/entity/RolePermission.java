@@ -22,7 +22,7 @@ import com.dreamy.identity.domain.role.consts.RolePermissionDBConst;
         @Index(name = "uk_role_permission", columns = {"role_id", "permission_id"}, unique = true)
 })
 @TableName(value = "role_permission", autoResultMap = true)
-public class RolePermissionEntity extends LongAuditableEntity {
+public class RolePermission extends LongAuditableEntity {
 
     @Column(name = RolePermissionDBConst.ROLE_ID, definition = "bigint NOT NULL COMMENT '角色 id（FK role.id）'")
     private Long roleId;

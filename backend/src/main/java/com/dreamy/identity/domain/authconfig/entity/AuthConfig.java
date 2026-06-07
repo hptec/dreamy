@@ -17,7 +17,7 @@ import com.dreamy.identity.domain.authconfig.consts.AuthConfigDBConst;
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "auth_config", comment = "认证配置（单例 id=1）")
 @TableName(value = "auth_config", autoResultMap = true)
-public class AuthConfigEntity extends LongAuditableEntity {
+public class AuthConfig extends LongAuditableEntity {
 
     @Column(name = AuthConfigDBConst.EMAIL_ENABLED, definition = "tinyint(1) NOT NULL DEFAULT 1 COMMENT '邮箱登录启用（恒 true）'")
     private Boolean emailEnabled;

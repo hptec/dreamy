@@ -1,7 +1,7 @@
 package com.dreamy.identity.domain.user.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -9,5 +9,5 @@ import org.apache.ibatis.annotations.Mapper;
  * 复杂查询由 Repository 用 LambdaQueryWrapper 实现，避免散落 SQL。
  */
 @Mapper
-public interface UserIdentityMapper extends BaseMapper<UserIdentityEntity> {
+public interface UserIdentityMapper extends BaseMapper<UserIdentity> {
 }

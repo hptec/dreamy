@@ -5,6 +5,7 @@ import com.dreamy.identity.aspect.RequirePermission;
 import com.dreamy.identity.controller.pojo.AdminAuthSessionView;
 import com.dreamy.identity.controller.pojo.AdminMeView;
 import com.dreamy.identity.domain.admin.service.AdminService;
+import com.dreamy.identity.domain.enums.AdminStatus;
 import com.dreamy.identity.dto.AdminDTO;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
@@ -75,7 +76,7 @@ public class AdminAuthController {
     @GetMapping("/api/admin/admins")
     public ResponseEntity<R<Paginated<AdminDTO>>> listAdmins(@RequestParam(defaultValue = "1") int page,
                                              @RequestParam(defaultValue = "20") int pageSize,
-                                             @RequestParam(required = false) String status,
+                                             @RequestParam(required = false) AdminStatus status,
                                              @RequestParam(required = false) Long roleId) {
         AdminService.PageData<AdminDTO> pg = adminService.pageAdminDTOs(page, pageSize, status, roleId);
         Paginated<AdminDTO> paginated = new Paginated<>();
@@ -121,7 +122,7 @@ public class AdminAuthController {
     @PatchMapping("/api/admin/admins/{id}/status")
     public ResponseEntity<R<AdminDTO>> toggleStatus(@PathVariable Long id,
                                                @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(R.ok(adminService.toggleStatusDTO(id, body.get("status"))));
+        return ResponseEntity.ok(R.ok(adminService.toggleStatusDTO(id, AdminStatus.valueOf(body.get("status").toUpperCase()))));
     }
 
     /** 3.9 resetAdminPassword */

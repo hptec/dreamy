@@ -1,7 +1,7 @@
 package com.dreamy.identity.domain.audit.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -12,5 +12,5 @@ import org.apache.ibatis.annotations.Mapper;
  * 分页轮询（每页 1000 条、id 游标递减）逐页回调，时间窗上限（≤92 天）保证轮询有界。
  */
 @Mapper
-public interface OperationLogMapper extends BaseMapper<OperationLogEntity> {
+public interface OperationLogMapper extends BaseMapper<OperationLog> {
 }

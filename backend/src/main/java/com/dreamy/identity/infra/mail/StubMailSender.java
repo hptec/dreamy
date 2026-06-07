@@ -27,8 +27,8 @@ public class StubMailSender implements MailSender {
     public void send(String to, String code, String locale, Map<String, String> vars) {
         EmailTemplateRenderer.Rendered r = renderer.render(code, locale, vars);
         // 邮箱掩码 + OTP 明文绝不记录（redaction.masked / fully_redacted）
-        log.info("[MAIL-STUB] to={} code={} locale={} subject='{}' (body suppressed)",
-                mask(to), code, locale, r.subject());
+        log.info("[MAIL-STUB] to={} code={} locale={} subject='{}' (body suppressed) vars={}",
+                mask(to), code, locale, r.subject(),vars);
     }
 
     private String mask(String email) {

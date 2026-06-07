@@ -1,8 +1,8 @@
 package com.dreamy.identity.aspect;
 
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
 import com.dreamy.identity.domain.admin.repository.AdminUserMapper;
-import com.dreamy.identity.domain.role.entity.RoleEntity;
+import com.dreamy.identity.domain.role.entity.Role;
 import com.dreamy.identity.domain.role.repository.RoleMapper;
 import com.dreamy.identity.domain.role.service.RoleService;
 import com.dreamy.identity.error.BizException;
@@ -50,11 +50,11 @@ public class PermissionAspect {
 
     /** 实时查 admin→role→permissionKeys，权限变更下一请求即生效 */
     public List<String> resolvePermissions(String adminId) {
-        AdminUserEntity admin = adminUserMapper.selectById(Long.parseLong(adminId));
+        AdminUser admin = adminUserMapper.selectById(Long.parseLong(adminId));
         if (admin == null) {
             return List.of();
         }
-        RoleEntity role = roleMapper.selectById(admin.getRoleId());
+        Role role = roleMapper.selectById(admin.getRoleId());
         return roleService.effectivePermissionKeys(role);
     }
 }

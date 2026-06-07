@@ -50,6 +50,11 @@ public class OtpRateLimiter {
         return RateDecision.allowed();
     }
 
+    /** OTP 消费成功后清除重发冷却，避免跨场景串联时残留 key 阻塞下一次 sendOtp */
+    public void clearResend(String email) {
+        redis.delete("otp:resend:" + email);
+    }
+
     /** 发码成功后：置重发窗口 + 累加发码窗口计数 */
     public void recordSent(String email, String ip, int resendSeconds) {
         redis.opsForValue().set("otp:resend:" + email, "1", Duration.ofSeconds(resendSeconds));

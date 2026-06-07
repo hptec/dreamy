@@ -1,4 +1,5 @@
 package com.dreamy.identity.store.controller;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.config.CommonConfig;
 import com.dreamy.identity.controller.AccountController;
@@ -15,8 +16,8 @@ import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.error.GlobalExceptionHandler;
 import com.dreamy.identity.i18n.MessageResolver;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
-import com.dreamy.identity.domain.user.entity.UserEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
+import com.dreamy.identity.domain.user.entity.User;
 import com.dreamy.identity.security.JwtProperties;
 import com.dreamy.identity.security.JwtTokenProvider;
 import com.dreamy.identity.security.TokenPair;
@@ -120,11 +121,11 @@ class StoreAuthControllerTest {
     // 默认 stub 为有效（isStoreSessionValid=true），单独的撤销测试覆盖 false 分支。
     @MockitoBean com.dreamy.identity.infra.SessionValidator sessionValidator;
 
-    private AuthConfigEntity defaultConfig;
+    private AuthConfig defaultConfig;
 
     @BeforeEach
     void setUp() {
-        defaultConfig = new AuthConfigEntity();
+        defaultConfig = new AuthConfig();
         defaultConfig.setEmailEnabled(true);
         defaultConfig.setGoogleEnabled(true);
         defaultConfig.setAppleEnabled(false);
@@ -175,10 +176,10 @@ class StoreAuthControllerTest {
     @DisplayName("TC-WEB-STORE-003 [P0]: POST /api/store/auth/otp/verify 无 token → 200（FUNC-002）")
     void verifyOtp_noToken_returns200() throws Exception {
         // ARRANGE
-        UserEntity user = activeUser(1L, "user@example.com");
+        User user = activeUser(1L, "user@example.com");
         TokenPair tokens = buildTokenPair();
-        when(mapper.toProfile(any(UserEntity.class))).thenReturn(
-                new UserProfileDTO(1L, "user@example.com", true, null, null, "regular", null, null));
+        when(mapper.toProfile(any(User.class))).thenReturn(
+                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE));
         when(otpService.verifyOtp(eq("user@example.com"), eq("123456"), any(LoginContext.class)))
                 .thenReturn(new LoginResult(user, tokens, false, false));
 
@@ -232,7 +233,7 @@ class StoreAuthControllerTest {
         // ARRANGE：主键 Long 迁移，store token subject 必须为数字串
         TokenPair pair = jwtTokenProvider.issueStoreTokens("1", "email");
         when(identityService.getProfileView(1L)).thenReturn(
-                new UserProfileDTO(1L, "user@example.com", true, null, null, "regular", null, null));
+                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE));
 
         // ACT + ASSERT: L1 200, L2 user.id（R 包络 data）
         mockMvc.perform(get("/api/store/account/profile")
@@ -358,11 +359,11 @@ class StoreAuthControllerTest {
 
     // ===== helpers =====
 
-    private UserEntity activeUser(Long id, String email) {
-        UserEntity u = new UserEntity();
+    private User activeUser(Long id, String email) {
+        User u = new User();
         u.setId(id);
         u.setEmail(email);
-        u.setStatus("active");
+        u.setStatus(UserStatus.ACTIVE);
         u.setEmailVerified(true);
         return u;
     }

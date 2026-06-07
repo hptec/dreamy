@@ -1,6 +1,7 @@
 package com.dreamy.identity.domain.user.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.dreamy.identity.domain.enums.AuthProvider;
 import com.dreamy.identity.domain.user.consts.UserIdentityDBConst;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
@@ -11,27 +12,20 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/**
- * 表 user_identity（登录凭证）。对应 identity-ddl.sql 表 2。
- * 约束: RM-010~018、MAP-002（隐藏 provider_uid）、uk_identity_provider_uid（QP-002 幂等核心）。
- */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "user_identity", comment = "登录凭证", indexes = {
         @Index(name = "uk_identity_provider_uid", columns = {"provider", "provider_uid"}, unique = true)
 })
 @TableName(value = "user_identity", autoResultMap = true)
-public class UserIdentityEntity extends LongAuditableEntity {
+public class UserIdentity extends LongAuditableEntity {
 
-    /** 外键→user.id（非空） */
     @Column(name = UserIdentityDBConst.USER_ID, definition = "bigint NOT NULL COMMENT '外键 user.id'")
     private Long userId;
 
-    /** provider: email/google/apple（ck_identity_provider） */
-    @Column(name = UserIdentityDBConst.PROVIDER, definition = "varchar(16) NOT NULL COMMENT '渠道 email/google/apple'")
-    private String provider;
+    @Column(name = UserIdentityDBConst.PROVIDER, definition = "tinyint NOT NULL COMMENT '渠道：1=邮箱 2=Google 3=Apple'")
+    private AuthProvider provider;
 
-    /** 渠道唯一标识（email=邮箱小写 / OIDC=sub），非 FK 保持 String */
     @Column(name = UserIdentityDBConst.PROVIDER_UID, definition = "varchar(255) NOT NULL COMMENT '渠道唯一标识 email=邮箱小写/OIDC=sub'")
     private String providerUid;
 

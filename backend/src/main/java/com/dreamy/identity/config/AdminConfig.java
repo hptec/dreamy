@@ -30,6 +30,14 @@ public class AdminConfig {
     }
 
     @Bean
+    public FilterRegistrationBean<CorsFilter> adminCorsFilterRegistration(CorsFilter adminCorsFilter) {
+        FilterRegistrationBean<CorsFilter> reg = new FilterRegistrationBean<>(adminCorsFilter);
+        reg.addUrlPatterns("/api/admin/*");
+        reg.setOrder(1);
+        return reg;
+    }
+
+    @Bean
     public FilterRegistrationBean<AdminJwtFilter> adminJwtFilterRegistration(AdminJwtFilter filter) {
         FilterRegistrationBean<AdminJwtFilter> reg = new FilterRegistrationBean<>(filter);
         reg.addUrlPatterns("/api/admin/*");

@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
 import com.dreamy.identity.domain.audit.repository.OperationLogMapper;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +37,7 @@ public class AuditService {
     /** RM-100 insert：写审计（action ∈ ck_oplog_action 15 种枚举） */
     public void record(Long operatorId, String operatorName, String action,
                        String target, String ip, String userAgent, String changesJson) {
-        OperationLogEntity entry = new OperationLogEntity();
+        OperationLog entry = new OperationLog();
         entry.setOperatorId(operatorId);
         entry.setOperatorName(operatorName);
         entry.setAction(action);
@@ -49,7 +49,7 @@ public class AuditService {
     }
 
     /** RM-101 pageByFilter：按 action/operator/时间范围筛选，created_at 倒序（idx_oplog_created） */
-    public IPage<OperationLogEntity> page(int page, int pageSize, String action, Long operatorId,
+    public IPage<OperationLog> page(int page, int pageSize, String action, Long operatorId,
                                           LocalDateTime from, LocalDateTime to) {
         return operationLogMapper.selectPage(new Page<>(page, pageSize), buildFilter(action, operatorId, from, to));
     }
@@ -67,15 +67,15 @@ public class AuditService {
      */
     public void streamForExport(String action, Long operatorId,
                                 LocalDateTime from, LocalDateTime to,
-                                Consumer<OperationLogEntity> consumer) {
+                                Consumer<OperationLog> consumer) {
         enforceExportWindow(from, to);
         Long lastId = null;
         while (true) {
-            List<OperationLogEntity> pageRows = fetchExportPage(action, operatorId, from, to, lastId);
+            List<OperationLog> pageRows = fetchExportPage(action, operatorId, from, to, lastId);
             if (pageRows.isEmpty()) {
                 break;
             }
-            for (OperationLogEntity row : pageRows) {
+            for (OperationLog row : pageRows) {
                 consumer.accept(row);
             }
             // 不足一页 → 已到末页，结束轮询
@@ -91,25 +91,25 @@ public class AuditService {
      * DEC-002：导出单页查询——LambdaQueryWrapper + id 游标（{@code id < lastId}）+ LIMIT {@value #EXPORT_PAGE_SIZE}。
      * 按 id 倒序取页，等价原 created_at DESC 导出顺序（id 自增与创建时序单调一致）。
      */
-    private List<OperationLogEntity> fetchExportPage(String action, Long operatorId,
+    private List<OperationLog> fetchExportPage(String action, Long operatorId,
                                                      LocalDateTime from, LocalDateTime to, Long lastId) {
-        LambdaQueryWrapper<OperationLogEntity> qw = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<OperationLog> qw = new LambdaQueryWrapper<>();
         if (action != null) {
-            qw.eq(OperationLogEntity::getAction, action);
+            qw.eq(OperationLog::getAction, action);
         }
         if (operatorId != null) {
-            qw.eq(OperationLogEntity::getOperatorId, operatorId);
+            qw.eq(OperationLog::getOperatorId, operatorId);
         }
         if (from != null) {
-            qw.ge(OperationLogEntity::getCreatedAt, from);
+            qw.ge(OperationLog::getCreatedAt, from);
         }
         if (to != null) {
-            qw.le(OperationLogEntity::getCreatedAt, to);
+            qw.le(OperationLog::getCreatedAt, to);
         }
         if (lastId != null) {
-            qw.lt(OperationLogEntity::getId, lastId);
+            qw.lt(OperationLog::getId, lastId);
         }
-        qw.orderByDesc(OperationLogEntity::getId)
+        qw.orderByDesc(OperationLog::getId)
                 .last("LIMIT " + EXPORT_PAGE_SIZE);
         return operationLogMapper.selectList(qw);
     }
@@ -143,22 +143,22 @@ public class AuditService {
         }
     }
 
-    private LambdaQueryWrapper<OperationLogEntity> buildFilter(String action, Long operatorId,
+    private LambdaQueryWrapper<OperationLog> buildFilter(String action, Long operatorId,
                                                                LocalDateTime from, LocalDateTime to) {
-        LambdaQueryWrapper<OperationLogEntity> qw = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<OperationLog> qw = new LambdaQueryWrapper<>();
         if (action != null) {
-            qw.eq(OperationLogEntity::getAction, action);
+            qw.eq(OperationLog::getAction, action);
         }
         if (operatorId != null) {
-            qw.eq(OperationLogEntity::getOperatorId, operatorId);
+            qw.eq(OperationLog::getOperatorId, operatorId);
         }
         if (from != null) {
-            qw.ge(OperationLogEntity::getCreatedAt, from);
+            qw.ge(OperationLog::getCreatedAt, from);
         }
         if (to != null) {
-            qw.le(OperationLogEntity::getCreatedAt, to);
+            qw.le(OperationLog::getCreatedAt, to);
         }
-        qw.orderByDesc(OperationLogEntity::getCreatedAt);
+        qw.orderByDesc(OperationLog::getCreatedAt);
         return qw;
     }
 }

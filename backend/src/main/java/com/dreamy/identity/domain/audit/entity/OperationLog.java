@@ -20,7 +20,7 @@ import com.dreamy.identity.domain.audit.consts.OperationLogDBConst;
         @Index(name = "idx_oplog_operator", columns = {"operator_id"}, unique = false)
 })
 @TableName(value = "operation_log", autoResultMap = true)
-public class OperationLogEntity extends LongAuditableEntity {
+public class OperationLog extends LongAuditableEntity {
 
     /** 弱引用→admin_user.id；系统=NULL（audit_weak_ref） */
     @Column(name = OperationLogDBConst.OPERATOR_ID, definition = "bigint NULL COMMENT '弱引用 admin_user.id，系统操作为 NULL'")

@@ -1,9 +1,10 @@
 package com.dreamy.identity.common.domain.service;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
-import com.dreamy.identity.domain.role.entity.RoleEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
+import com.dreamy.identity.domain.role.entity.Role;
 import com.dreamy.identity.domain.admin.repository.AdminUserMapper;
 import com.dreamy.identity.domain.admin.service.AdminService;
 import com.dreamy.identity.domain.role.repository.PermissionMapper;
@@ -42,7 +43,7 @@ class RoleAndAdminServiceTest {
     @Test
     @DisplayName("TC-UNIT-030: 超管角色 is_locked → updateRole 40308 ROLE_LOCKED（EDGE-014）")
     void updateRole_lockedRole_throws40308() {
-        RoleEntity locked = lockedRole();
+        Role locked = lockedRole();
         when(roleMapper.selectById(100L)).thenReturn(locked);
 
         assertThatThrownBy(() -> roleService.updateRole(100L, null, java.util.List.of()))
@@ -65,7 +66,7 @@ class RoleAndAdminServiceTest {
     @Test
     @DisplayName("TC-UNIT-032: 角色有成员 → deleteRole 40904 ROLE_IN_USE（EDGE-015）")
     void deleteRole_hasMembers_throws40904() {
-        RoleEntity custom = customRole();
+        Role custom = customRole();
         when(roleMapper.selectById(1L)).thenReturn(custom);
         when(adminUserMapper.selectCount(any())).thenReturn(2L);
 
@@ -87,20 +88,20 @@ class RoleAndAdminServiceTest {
                         .isEqualTo(ErrorCode.CANNOT_DELETE_SELF));
     }
 
-    private RoleEntity lockedRole() {
-        RoleEntity r = new RoleEntity();
+    private Role lockedRole() {
+        Role r = new Role();
         r.setId(100L);
         r.setName("超级管理员");
-        r.setType("preset");
+        r.setType(RoleType.PRESET);
         r.setIsLocked(true);
         return r;
     }
 
-    private RoleEntity customRole() {
-        RoleEntity r = new RoleEntity();
+    private Role customRole() {
+        Role r = new Role();
         r.setId(1L);
         r.setName("运营");
-        r.setType("custom");
+        r.setType(RoleType.CUSTOM);
         r.setIsLocked(false);
         return r;
     }

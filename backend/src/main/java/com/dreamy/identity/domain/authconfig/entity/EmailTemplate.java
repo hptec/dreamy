@@ -19,7 +19,7 @@ import com.dreamy.identity.domain.authconfig.consts.EmailTemplateDBConst;
         @Index(name = "uk_template_code_locale", columns = {"code", "locale"}, unique = true)
 })
 @TableName(value = "email_template", autoResultMap = true)
-public class EmailTemplateEntity extends LongAuditableEntity {
+public class EmailTemplate extends LongAuditableEntity {
 
     /** code: otp/new_device/change_primary/account_deleted（ck_tpl_code） */
     @Column(name = EmailTemplateDBConst.CODE, definition = "varchar(32) NOT NULL COMMENT '模板码 otp/new_device/change_primary/account_deleted'")

@@ -1,10 +1,11 @@
 package com.dreamy.identity.infra;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.identity.domain.session.entity.AdminSessionEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.session.entity.AdminSession;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import com.dreamy.identity.domain.session.repository.AdminSessionMapper;
 import com.dreamy.identity.domain.session.repository.UserSessionMapper;
+import com.dreamy.identity.domain.enums.SessionStatus;
 import org.springframework.stereotype.Component;
 
 /**
@@ -44,9 +45,9 @@ public class SessionValidator {
         if (storeCache.isValid(tokenId)) {
             return true;
         }
-        LambdaQueryWrapper<UserSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserSessionEntity::getTokenId, tokenId)
-                .eq(UserSessionEntity::getStatus, "active");
+        LambdaQueryWrapper<UserSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserSession::getTokenId, tokenId)
+                .eq(UserSession::getStatus, SessionStatus.ACTIVE);
         boolean dbActive = userSessionMapper.selectCount(qw) > 0;
         if (dbActive) {
             // 自愈：回填 Redis 单级键，降低后续请求 DB 压力
@@ -63,9 +64,9 @@ public class SessionValidator {
         if (adminCache.isValid(tokenId)) {
             return true;
         }
-        LambdaQueryWrapper<AdminSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(AdminSessionEntity::getTokenId, tokenId)
-                .eq(AdminSessionEntity::getStatus, "active");
+        LambdaQueryWrapper<AdminSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(AdminSession::getTokenId, tokenId)
+                .eq(AdminSession::getStatus, SessionStatus.ACTIVE);
         boolean dbActive = adminSessionMapper.selectCount(qw) > 0;
         if (dbActive) {
             adminCache.markValid(tokenId);

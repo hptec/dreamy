@@ -3,10 +3,11 @@ package com.dreamy.identity.domain.role.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
-import com.dreamy.identity.domain.role.entity.PermissionEntity;
-import com.dreamy.identity.domain.role.entity.RoleEntity;
-import com.dreamy.identity.domain.role.entity.RolePermissionEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
+import com.dreamy.identity.domain.role.entity.Permission;
+import com.dreamy.identity.domain.enums.RoleType;
+import com.dreamy.identity.domain.role.entity.Role;
+import com.dreamy.identity.domain.role.entity.RolePermission;
 import com.dreamy.identity.domain.admin.repository.AdminUserMapper;
 import com.dreamy.identity.domain.role.repository.PermissionMapper;
 import com.dreamy.identity.domain.role.repository.RoleMapper;
@@ -44,15 +45,15 @@ public class RoleService {
     }
 
     /** listRoles：全角色 + member_count + permission_keys（MAP-005） */
-    public List<RoleEntity> listRoles() {
-        return roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>()
-                .orderByAsc(RoleEntity::getCreatedAt));
+    public List<Role> listRoles() {
+        return roleMapper.selectList(new LambdaQueryWrapper<Role>()
+                .orderByAsc(Role::getCreatedAt));
     }
 
     // ===== 表示层 DTO 组装（Controller 不接触 Entity）=====
 
-    /** RoleEntity→RoleDTO（补 member_count + effective permission_keys） */
-    public com.dreamy.identity.dto.RoleDTO toRoleDTO(RoleEntity role) {
+    /** Role→RoleDTO（补 member_count + effective permission_keys） */
+    public com.dreamy.identity.dto.RoleDTO toRoleDTO(Role role) {
         List<String> keys = effectivePermissionKeys(role);
         long memberCount = countMembers(role.getId());
         return new com.dreamy.identity.dto.RoleDTO(role.getId(), role.getName(),
@@ -74,7 +75,7 @@ public class RoleService {
         return toRoleDTO(updateRole(roleId, name, permissionKeys));
     }
 
-    public RoleEntity findById(Long roleId) {
+    public Role findById(Long roleId) {
         return roleMapper.selectById(roleId);
     }
 
@@ -84,28 +85,28 @@ public class RoleService {
      * STEP-02: 按 id IN 批量查 permission，内存提取 perm_code。
      */
     public List<String> permissionKeysOfRole(Long roleId) {
-        LambdaQueryWrapper<RolePermissionEntity> rpQw = new LambdaQueryWrapper<>();
-        rpQw.eq(RolePermissionEntity::getRoleId, roleId);
+        LambdaQueryWrapper<RolePermission> rpQw = new LambdaQueryWrapper<>();
+        rpQw.eq(RolePermission::getRoleId, roleId);
         List<Long> permIds = rolePermissionMapper.selectList(rpQw)
-                .stream().map(RolePermissionEntity::getPermissionId).toList();
+                .stream().map(RolePermission::getPermissionId).toList();
         if (permIds.isEmpty()) {
             return List.of();
         }
-        LambdaQueryWrapper<PermissionEntity> permQw = new LambdaQueryWrapper<>();
-        permQw.in(PermissionEntity::getId, permIds);
+        LambdaQueryWrapper<Permission> permQw = new LambdaQueryWrapper<>();
+        permQw.in(Permission::getId, permIds);
         return permissionMapper.selectList(permQw)
-                .stream().map(PermissionEntity::getPermCode).toList();
+                .stream().map(Permission::getPermCode).toList();
     }
 
     /** RM-052 countByRoleId：角色成员数（member_count + 删除前校验） */
     public long countMembers(Long roleId) {
-        LambdaQueryWrapper<AdminUserEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(AdminUserEntity::getRoleId, roleId);
+        LambdaQueryWrapper<AdminUser> qw = new LambdaQueryWrapper<>();
+        qw.eq(AdminUser::getRoleId, roleId);
         return adminUserMapper.selectCount(qw);
     }
 
     /** GUARD-04 / adminMe：超管(is_locked) 短路全 22 key；否则取关联 key（RISK-03 应用层短路方案） */
-    public List<String> effectivePermissionKeys(RoleEntity role) {
+    public List<String> effectivePermissionKeys(Role role) {
         if (role == null) {
             return List.of();
         }
@@ -116,15 +117,15 @@ public class RoleService {
     }
 
     /** RM-080 listAll：22 项权限字典（按 group） */
-    public List<PermissionEntity> listPermissions() {
-        return permissionMapper.selectList(new LambdaQueryWrapper<PermissionEntity>()
-                .orderByAsc(PermissionEntity::getGroup));
+    public List<Permission> listPermissions() {
+        return permissionMapper.selectList(new LambdaQueryWrapper<Permission>()
+                .orderByAsc(Permission::getGroup));
     }
 
     public List<String> listAllPermissionKeys() {
         List<String> keys = new ArrayList<>();
-        for (PermissionEntity p : permissionMapper.selectList(
-                new LambdaQueryWrapper<PermissionEntity>().isNotNull(PermissionEntity::getId))) {
+        for (Permission p : permissionMapper.selectList(
+                new LambdaQueryWrapper<Permission>().isNotNull(Permission::getId))) {
             keys.add(p.getPermCode());
         }
         return keys;
@@ -132,14 +133,14 @@ public class RoleService {
 
     /** FUNC-018 createRole：DR-06 重名 40000（字段级 details.field=name）；type=custom */
     @Transactional
-    public RoleEntity createRole(String name) {
+    public Role createRole(String name) {
         if (existsByName(name)) {
             throw new BizException(ErrorCode.VALIDATION_ERROR,
                     java.util.Map.of("field", "name")); // DR-06 重名
         }
-        RoleEntity role = new RoleEntity();
+        Role role = new Role();
         role.setName(name);
-        role.setType("custom");
+        role.setType(RoleType.CUSTOM);
         role.setIsLocked(false);
         role.setVersion(0);
         roleMapper.insert(role); // id/createdAt/updatedAt 由 DB 自增 + 审计基类自动填充
@@ -151,8 +152,8 @@ public class RoleService {
      * 约束: STEP-01 is_locked 40308；STEP-02 TX-004 全量重写 role_permission（DELETE+批量 INSERT，校验 keys 存在）。
      */
     @Transactional
-    public RoleEntity updateRole(Long roleId, String name, List<String> permissionKeys) {
-        RoleEntity role = requireExist(roleId);
+    public Role updateRole(Long roleId, String name, List<String> permissionKeys) {
+        Role role = requireExist(roleId);
         if (Boolean.TRUE.equals(role.getIsLocked())) {
             throw new BizException(ErrorCode.ROLE_LOCKED); // 40308
         }
@@ -172,18 +173,18 @@ public class RoleService {
                 }
             }
             // RM-071 全量重写（TX-004）：权限码 → permission_id 后写入关联表
-            LambdaQueryWrapper<RolePermissionEntity> del = new LambdaQueryWrapper<>();
-            del.eq(RolePermissionEntity::getRoleId, roleId);
+            LambdaQueryWrapper<RolePermission> del = new LambdaQueryWrapper<>();
+            del.eq(RolePermission::getRoleId, roleId);
             rolePermissionMapper.delete(del);
             for (String key : permissionKeys) {
                 // A4: LambdaQueryWrapper 替代 @Select
-                LambdaQueryWrapper<PermissionEntity> permQw = new LambdaQueryWrapper<>();
-                permQw.eq(PermissionEntity::getPermCode, key);
-                PermissionEntity perm = permissionMapper.selectOne(permQw);
+                LambdaQueryWrapper<Permission> permQw = new LambdaQueryWrapper<>();
+                permQw.eq(Permission::getPermCode, key);
+                Permission perm = permissionMapper.selectOne(permQw);
                 if (perm == null) {
                     throw new BizException(ErrorCode.VALIDATION_ERROR, java.util.Map.of("field", "permission_keys"));
                 }
-                RolePermissionEntity rp = new RolePermissionEntity();
+                RolePermission rp = new RolePermission();
                 rp.setRoleId(roleId);
                 rp.setPermissionId(perm.getId());
                 rolePermissionMapper.insert(rp);
@@ -195,28 +196,28 @@ public class RoleService {
     /** FLOW-11 deleteRole（FUNC-020 EDGE-015）：STEP-01 is_locked 40308；STEP-02 有成员 40904；STEP-03 DELETE */
     @Transactional
     public void deleteRole(Long roleId) {
-        RoleEntity role = requireExist(roleId);
+        Role role = requireExist(roleId);
         if (Boolean.TRUE.equals(role.getIsLocked())) {
             throw new BizException(ErrorCode.ROLE_LOCKED); // 40308
         }
         if (countMembers(roleId) > 0) {
             throw new BizException(ErrorCode.ROLE_IN_USE); // 40904
         }
-        LambdaQueryWrapper<RolePermissionEntity> del = new LambdaQueryWrapper<>();
-        del.eq(RolePermissionEntity::getRoleId, roleId);
+        LambdaQueryWrapper<RolePermission> del = new LambdaQueryWrapper<>();
+        del.eq(RolePermission::getRoleId, roleId);
         rolePermissionMapper.delete(del);
         roleMapper.deleteById(roleId);
     }
 
     /** RM-061 existsByName */
     public boolean existsByName(String name) {
-        LambdaQueryWrapper<RoleEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(RoleEntity::getName, name);
+        LambdaQueryWrapper<Role> qw = new LambdaQueryWrapper<>();
+        qw.eq(Role::getName, name);
         return roleMapper.selectCount(qw) > 0;
     }
 
-    private RoleEntity requireExist(Long roleId) {
-        RoleEntity role = roleMapper.selectById(roleId);
+    private Role requireExist(Long roleId) {
+        Role role = roleMapper.selectById(roleId);
         if (role == null) {
             throw new BizException(ErrorCode.NOT_FOUND);
         }

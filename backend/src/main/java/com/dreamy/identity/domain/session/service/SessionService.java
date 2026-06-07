@@ -2,13 +2,16 @@ package com.dreamy.identity.domain.session.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.dreamy.identity.domain.enums.AuthProvider;
+import com.dreamy.identity.domain.enums.LoginOutcome;
+import com.dreamy.identity.domain.enums.SessionStatus;
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.infra.SessionValidityCache;
 import com.dreamy.identity.infra.mail.MailSender;
-import com.dreamy.identity.domain.audit.entity.LoginHistoryEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.audit.entity.LoginHistory;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import com.dreamy.identity.domain.audit.repository.LoginHistoryMapper;
 import com.dreamy.identity.domain.session.repository.UserSessionMapper;
 import com.dreamy.identity.security.JwtTokenProvider;
@@ -53,10 +56,10 @@ public class SessionService {
 
     /** RM-041：is_new_device 判定（idx_login_user_created，设备指纹此前未出现过） */
     public boolean isNewDevice(Long userId, String fingerprint) {
-        LambdaQueryWrapper<LoginHistoryEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(LoginHistoryEntity::getUserId, userId)
-                .eq(LoginHistoryEntity::getDevice, splitDevice(fingerprint))
-                .eq(LoginHistoryEntity::getResult, "success");
+        LambdaQueryWrapper<LoginHistory> qw = new LambdaQueryWrapper<>();
+        qw.eq(LoginHistory::getUserId, userId)
+                .eq(LoginHistory::getDevice, splitDevice(fingerprint))
+                .eq(LoginHistory::getResult, LoginOutcome.SUCCESS);
         return loginHistoryMapper.selectCount(qw) == 0;
     }
 
@@ -70,12 +73,12 @@ public class SessionService {
      * 约束: TX-001（@Transactional，afterCommit 写 Redis/发邮件）。
      */
     @Transactional
-    public TokenPair openStoreSession(Long userId, String email, String method,
+    public TokenPair openStoreSession(Long userId, String email, AuthProvider method,
                                       boolean newDevice, LoginContext ctx) {
-        TokenPair pair = jwtTokenProvider.issueStoreTokens(String.valueOf(userId), method);
+        TokenPair pair = jwtTokenProvider.issueStoreTokens(String.valueOf(userId), method.name().toLowerCase());
         LocalDateTime now = LocalDateTime.now();
 
-        UserSessionEntity session = new UserSessionEntity();
+        UserSession session = new UserSession();
         session.setUserId(userId);
         session.setTokenId(pair.getTokenId());
         session.setRefreshTokenId(pair.getRefreshTokenId());
@@ -87,19 +90,19 @@ public class SessionService {
         session.setLocation(ctx.location());
         session.setIsNewDevice(newDevice);
         session.setMethod(method);
-        session.setStatus("active");
+        session.setStatus(SessionStatus.ACTIVE);
         session.setLastActiveAt(now);
         session.setVersion(0);
         sessionMapper.insert(session);
 
-        LoginHistoryEntity history = new LoginHistoryEntity();
+        LoginHistory history = new LoginHistory();
         history.setUserId(userId);
         history.setEmail(email);
         history.setMethod(method);
         history.setIp(ctx.ip());
         history.setDevice(ctx.device());
         history.setLocation(ctx.location());
-        history.setResult("success");
+        history.setResult(LoginOutcome.SUCCESS);
         history.setIsNewDevice(newDevice);
         history.setNotified(false);
         loginHistoryMapper.insert(history);
@@ -115,15 +118,15 @@ public class SessionService {
     }
 
     /** FLOW-02 失败登录记录（result=failed，独立写入） */
-    public void recordFailedLogin(Long userId, String email, String method, LoginContext ctx) {
-        LoginHistoryEntity history = new LoginHistoryEntity();
+    public void recordFailedLogin(Long userId, String email, AuthProvider method, LoginContext ctx) {
+        LoginHistory history = new LoginHistory();
         history.setUserId(userId);
         history.setEmail(email);
         history.setMethod(method);
         history.setIp(ctx.ip());
         history.setDevice(ctx.device());
         history.setLocation(ctx.location());
-        history.setResult("failed");
+        history.setResult(LoginOutcome.FAILED);
         history.setIsNewDevice(false);
         history.setNotified(false);
         loginHistoryMapper.insert(history);
@@ -132,16 +135,16 @@ public class SessionService {
     /** RM-030：refresh 续期（FLOW-04 STEP-01~04 滑动顺延 @version） */
     @Transactional
     public TokenPair refresh(String refreshJti) {
-        LambdaQueryWrapper<UserSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserSessionEntity::getRefreshTokenId, refreshJti)
-                .eq(UserSessionEntity::getStatus, "active");
-        UserSessionEntity session = sessionMapper.selectOne(qw);
+        LambdaQueryWrapper<UserSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserSession::getRefreshTokenId, refreshJti)
+                .eq(UserSession::getStatus, SessionStatus.ACTIVE);
+        UserSession session = sessionMapper.selectOne(qw);
         LocalDateTime now = LocalDateTime.now();
         if (session == null || session.getRefreshExpiresAt() == null
                 || session.getRefreshExpiresAt().isBefore(now)) {
             throw new BizException(ErrorCode.REFRESH_INVALID); // 40102
         }
-        TokenPair pair = jwtTokenProvider.reissueStoreTokens(String.valueOf(session.getUserId()), session.getMethod());
+        TokenPair pair = jwtTokenProvider.reissueStoreTokens(String.valueOf(session.getUserId()), session.getMethod().name().toLowerCase());
         String oldTokenId = session.getTokenId();
         session.setTokenId(pair.getTokenId());
         session.setRefreshTokenId(pair.getRefreshTokenId());
@@ -158,15 +161,15 @@ public class SessionService {
     }
 
     /** RM-032：当前 user 的 active 会话列表（idx_session_user_status） */
-    public List<UserSessionEntity> listActive(Long userId) {
-        LambdaQueryWrapper<UserSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserSessionEntity::getUserId, userId)
-                .eq(UserSessionEntity::getStatus, "active")
-                .orderByDesc(UserSessionEntity::getCreatedAt);
+    public List<UserSession> listActive(Long userId) {
+        LambdaQueryWrapper<UserSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserSession::getUserId, userId)
+                .eq(UserSession::getStatus, SessionStatus.ACTIVE)
+                .orderByDesc(UserSession::getCreatedAt);
         return sessionMapper.selectList(qw);
     }
 
-    public UserSessionEntity findById(Long sessionId) {
+    public UserSession findById(Long sessionId) {
         return sessionMapper.selectById(sessionId);
     }
 
@@ -184,7 +187,7 @@ public class SessionService {
     /** FLOW-07 表示层：按 userId+sessionId 撤销，归属校验下沉（EDGE-009：非归属抛 40300） */
     @Transactional
     public void revoke(Long userId, Long sessionId) {
-        UserSessionEntity session = sessionMapper.selectById(sessionId);
+        UserSession session = sessionMapper.selectById(sessionId);
         if (session == null || !userId.equals(session.getUserId())) {
             throw new BizException(ErrorCode.FORBIDDEN); // 40300
         }
@@ -194,7 +197,7 @@ public class SessionService {
     /** FLOW-07 RM-035：撤销单会话 + DEL Redis（EDGE-009 归属校验由调用方先做） */
     @Transactional
     public void revokeById(Long sessionId) {
-        UserSessionEntity session = sessionMapper.selectById(sessionId);
+        UserSession session = sessionMapper.selectById(sessionId);
         if (session == null) {
             return;
         }
@@ -204,7 +207,7 @@ public class SessionService {
     /** FLOW-07 RM-036：撤销当前 user 除 exceptJti 外全部 active 会话 */
     @Transactional
     public void revokeAllExcept(Long userId, String exceptJti) {
-        for (UserSessionEntity session : listActive(userId)) {
+        for (UserSession session : listActive(userId)) {
             if (exceptJti != null && exceptJti.equals(session.getTokenId())) {
                 continue;
             }
@@ -218,10 +221,10 @@ public class SessionService {
         revokeAllExcept(userId, null);
     }
 
-    private void revokeEntity(UserSessionEntity session) {
-        LambdaUpdateWrapper<UserSessionEntity> uw = new LambdaUpdateWrapper<>();
-        uw.eq(UserSessionEntity::getId, session.getId())
-                .set(UserSessionEntity::getStatus, "revoked");
+    private void revokeEntity(UserSession session) {
+        LambdaUpdateWrapper<UserSession> uw = new LambdaUpdateWrapper<>();
+        uw.eq(UserSession::getId, session.getId())
+                .set(UserSession::getStatus, SessionStatus.REVOKED);
         sessionMapper.update(null, uw);
         String tokenId = session.getTokenId();
         afterCommit(() -> validityCache.invalidate(tokenId));
@@ -233,9 +236,9 @@ public class SessionService {
                     "device", ctx.device() == null ? "Unknown" : ctx.device(),
                     "ip", ctx.ip() == null ? "Unknown" : ctx.ip(),
                     "location", ctx.location() == null ? "Unknown" : ctx.location()));
-            LambdaUpdateWrapper<LoginHistoryEntity> uw = new LambdaUpdateWrapper<>();
-            uw.eq(LoginHistoryEntity::getId, historyId)
-                    .set(LoginHistoryEntity::getNotified, true);
+            LambdaUpdateWrapper<LoginHistory> uw = new LambdaUpdateWrapper<>();
+            uw.eq(LoginHistory::getId, historyId)
+                    .set(LoginHistory::getNotified, true);
             loginHistoryMapper.update(null, uw); // RM-042 markNotified
         } catch (Exception ignored) {
             // FLOW-14 通知失败不影响登录主流程

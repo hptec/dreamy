@@ -13,3 +13,18 @@ hhspec/prototype/.qa/mall-admin-deep.js
 hhspec/prototype/.qa/mall-admin-explore.js
 hhspec/prototype/.qa/competitor-register.js
 .codegraph/
+
+# PD 流程日志与会话（自动生成，不入库）
+hhspec/.pd-logs/
+hhspec/pd-sessions/
+**/hhspec/.pd-logs/
+**/hhspec/pd-sessions/
+
+# OAuth secrets
+**/oauth/client_secret_*.json
+
+# 测试截图
+tests/ui-verification/*.png
+
+# 运行时日志目录
+logs/

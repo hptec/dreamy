@@ -1,8 +1,9 @@
 package com.dreamy.identity.it;
 
+import com.dreamy.identity.domain.enums.AuthProvider;
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.domain.user.service.IdentityService;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
 import com.dreamy.identity.domain.user.repository.UserIdentityMapper;
 import com.dreamy.identity.domain.user.repository.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -13,27 +14,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * IT-02/03：OIDC 归并事务原子性 + 重复回调幂等（真 MySQL，零 Mock）。
- * L0 TRACE: FUNC-004/005, TX-002, EDGE-016/017
- */
 class OidcMergeIT extends AbstractIT {
 
     @Autowired IdentityService identityService;
     @Autowired UserIdentityMapper identityMapper;
     @Autowired UserMapper userMapper;
 
-    private static final String PROVIDER = "google";
+    private static final AuthProvider PROVIDER = AuthProvider.GOOGLE;
     private static final String SUB = "google-sub-it-001";
     private static final String EMAIL = "oidc-it@dreamy.com";
-    // StubOidcVerifier 格式: sub|email|emailVerified
     private static final String ID_TOKEN = SUB + "|" + EMAIL + "|true";
 
     @BeforeEach
     void cleanup() {
-        identityMapper.delete(new LambdaQueryWrapper<UserIdentityEntity>()
-                .eq(UserIdentityEntity::getProvider, PROVIDER)
-                .eq(UserIdentityEntity::getProviderUid, SUB));
+        identityMapper.delete(new LambdaQueryWrapper<UserIdentity>()
+                .eq(UserIdentity::getProvider, PROVIDER)
+                .eq(UserIdentity::getProviderUid, SUB));
         userMapper.delete(new LambdaQueryWrapper<>());
     }
 
@@ -42,9 +38,9 @@ class OidcMergeIT extends AbstractIT {
     void oidcCallback_merge_atomicTransaction() {
         identityService.oidcLogin(PROVIDER, ID_TOKEN, null, LoginContext.empty());
 
-        long identityCount = identityMapper.selectCount(new LambdaQueryWrapper<UserIdentityEntity>()
-                .eq(UserIdentityEntity::getProvider, PROVIDER)
-                .eq(UserIdentityEntity::getProviderUid, SUB));
+        long identityCount = identityMapper.selectCount(new LambdaQueryWrapper<UserIdentity>()
+                .eq(UserIdentity::getProvider, PROVIDER)
+                .eq(UserIdentity::getProviderUid, SUB));
         assertThat(identityCount).isEqualTo(1);
 
         long userCount = userMapper.selectCount(new LambdaQueryWrapper<>());
@@ -59,9 +55,9 @@ class OidcMergeIT extends AbstractIT {
 
         assertThat(r1.user().getId()).isEqualTo(r2.user().getId());
 
-        long identityCount = identityMapper.selectCount(new LambdaQueryWrapper<UserIdentityEntity>()
-                .eq(UserIdentityEntity::getProvider, PROVIDER)
-                .eq(UserIdentityEntity::getProviderUid, SUB));
+        long identityCount = identityMapper.selectCount(new LambdaQueryWrapper<UserIdentity>()
+                .eq(UserIdentity::getProvider, PROVIDER)
+                .eq(UserIdentity::getProviderUid, SUB));
         assertThat(identityCount).isEqualTo(1);
     }
 }

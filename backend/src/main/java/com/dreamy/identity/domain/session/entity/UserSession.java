@@ -3,6 +3,9 @@ package com.dreamy.identity.domain.session.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
+import com.dreamy.identity.domain.enums.AuthProvider;
+import com.dreamy.identity.domain.enums.SessionStatus;
+import com.dreamy.identity.domain.session.consts.UserSessionDBConst;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
 import huihao.mysql.annotation.Table;
@@ -11,25 +14,18 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
-import com.dreamy.identity.domain.session.consts.UserSessionDBConst;
 
-/**
- * 表 user_session（消费端会话）。对应 identity-ddl.sql 表 4。
- * 约束: RM-030~037、MAP-003（隐藏 token_id/refresh_token_id）、乐观锁 version（FLOW-04 滑动续期）。
- */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "user_session", comment = "消费端会话", indexes = {
         @Index(name = "uk_session_token_id", columns = {"token_id"}, unique = true)
 })
 @TableName(value = "user_session", autoResultMap = true)
-public class UserSessionEntity extends LongAuditableEntity {
+public class UserSession extends LongAuditableEntity {
 
-    /** 关联用户（FK user.id） */
     @Column(name = UserSessionDBConst.USER_ID, definition = "bigint NOT NULL COMMENT '关联用户 user.id'")
     private Long userId;
 
-    /** access JWT jti（uk_session_token_id） */
     @Column(name = UserSessionDBConst.TOKEN_ID, definition = "varchar(64) NOT NULL COMMENT 'access JWT jti'")
     private String tokenId;
 
@@ -57,13 +53,11 @@ public class UserSessionEntity extends LongAuditableEntity {
     @Column(name = UserSessionDBConst.IS_NEW_DEVICE, definition = "tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否新设备'")
     private Boolean isNewDevice;
 
-    /** method: email/google/apple（ck_session_method） */
-    @Column(name = UserSessionDBConst.METHOD, definition = "varchar(16) NOT NULL COMMENT '登录方式 email/google/apple'")
-    private String method;
+    @Column(name = UserSessionDBConst.METHOD, definition = "tinyint NOT NULL COMMENT '登录方式：1=邮箱 2=Google 3=Apple'")
+    private AuthProvider method;
 
-    /** status: active/revoked（ck_session_status） */
-    @Column(name = UserSessionDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'active' COMMENT '状态 active/revoked'")
-    private String status;
+    @Column(name = UserSessionDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=活跃 2=已撤销'")
+    private SessionStatus status;
 
     @Column(name = UserSessionDBConst.LAST_ACTIVE_AT, definition = "datetime NULL COMMENT '最近活跃时间'")
     private LocalDateTime lastActiveAt;

@@ -72,7 +72,12 @@ identity:
       secret: ${ADMIN_JWT_SECRET:admin-dev-secret-key-32chars-min}
       access-ttl-seconds: 28800
   oidc:
-    mode: ${OIDC_MODE:stub}
+    mode: ${OIDC_MODE:real}
+    # real 模式 aud 校验必须等于 client_id，否则全部 id_token 被拒（RealOidcVerifier BLOCKER-3）
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:693342012243-bbusvo3ije990k9ddv7qdvs4kjrd1hsn.apps.googleusercontent.com}
+    apple:
+      client-id: ${APPLE_CLIENT_ID:}
   mail:
     mode: ${MAIL_MODE:stub}
     from: noreply@dreamy.com

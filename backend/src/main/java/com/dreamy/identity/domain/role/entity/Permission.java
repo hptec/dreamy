@@ -22,7 +22,7 @@ import com.dreamy.identity.domain.role.consts.PermissionDBConst;
         @Index(name = "uk_permission_perm_code", columns = {"perm_code"}, unique = true)
 })
 @TableName(value = "permission", autoResultMap = true)
-public class PermissionEntity extends LongAuditableEntity {
+public class Permission extends LongAuditableEntity {
 
     /** 业务码（原 key，如 /system/admins），改唯一索引 */
     @Column(name = PermissionDBConst.PERM_CODE, definition = "varchar(128) NOT NULL COMMENT '权限业务码（原 key）'")

@@ -1,5 +1,6 @@
 package com.dreamy.identity.controller;
 
+import com.dreamy.identity.domain.enums.AuthProvider;
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.domain.user.model.LoginResult;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
@@ -79,7 +80,8 @@ public class StoreAuthController {
             @Valid @RequestBody OidcCallbackRequest req,
             HttpServletRequest http) {
         LoginContext ctx = extractContext(http);
-        LoginResult result = identityService.oidcLogin(provider, req.idToken(), req.nonce(), ctx);
+        AuthProvider p = "google".equals(provider) ? AuthProvider.GOOGLE : AuthProvider.APPLE;
+        LoginResult result = identityService.oidcLogin(p, req.idToken(), req.nonce(), ctx);
         return ResponseEntity.ok(R.ok(buildLoginResponse(result)));
     }
 
@@ -100,11 +102,14 @@ public class StoreAuthController {
     @GetMapping("/config")
     public ResponseEntity<R<Map<String, Object>>> getAuthConfig() {
         AuthConfigView cfg = authConfigService.getConfigView();
-        return ResponseEntity.ok(R.ok(Map.of(
-                "email_enabled", cfg.emailEnabled(),
-                "google_enabled", cfg.googleEnabled(),
-                "apple_enabled", cfg.appleEnabled(),
-                "otp_length", cfg.otpLength())));
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("email_enabled", cfg.emailEnabled());
+        body.put("google_enabled", cfg.googleEnabled());
+        body.put("apple_enabled", cfg.appleEnabled());
+        body.put("otp_length", cfg.otpLength());
+        body.put("google_client_id", cfg.googleClientId());
+        body.put("apple_service_id", cfg.appleServiceId());
+        return ResponseEntity.ok(R.ok(body));
     }
 
     // ===== helpers =====

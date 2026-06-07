@@ -2,7 +2,7 @@ package com.dreamy.identity.common.domain.service;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
 import com.dreamy.identity.domain.authconfig.repository.AuthConfigMapper;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
 import org.junit.jupiter.api.DisplayName;
@@ -57,8 +57,8 @@ class AuthConfigServiceTest {
         authConfigService.validateRange(cfg(6, 10, 60, 5, 1));
     }
 
-    private AuthConfigEntity cfg(int length, int ttl, int resend, int maxAttempts, int minMethods) {
-        AuthConfigEntity c = new AuthConfigEntity();
+    private AuthConfig cfg(int length, int ttl, int resend, int maxAttempts, int minMethods) {
+        AuthConfig c = new AuthConfig();
         c.setOtpLength(length);
         c.setOtpTtlMinutes(ttl);
         c.setOtpResendSeconds(resend);

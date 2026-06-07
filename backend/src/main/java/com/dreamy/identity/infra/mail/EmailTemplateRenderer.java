@@ -1,6 +1,6 @@
 package com.dreamy.identity.infra.mail;
 
-import com.dreamy.identity.domain.authconfig.entity.EmailTemplateEntity;
+import com.dreamy.identity.domain.authconfig.entity.EmailTemplate;
 import com.dreamy.identity.domain.authconfig.repository.EmailTemplateMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,7 @@ public class EmailTemplateRenderer {
     }
 
     public Rendered render(String code, String locale, Map<String, String> vars) {
-        EmailTemplateEntity tpl = findTemplate(code, locale);
+        EmailTemplate tpl = findTemplate(code, locale);
         if (tpl == null) {
             tpl = findTemplate(code, DEFAULT_LOCALE);
         }
@@ -36,10 +36,10 @@ public class EmailTemplateRenderer {
         return new Rendered(subject, body);
     }
 
-    private EmailTemplateEntity findTemplate(String code, String locale) {
-        LambdaQueryWrapper<EmailTemplateEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(EmailTemplateEntity::getCode, code)
-                .eq(EmailTemplateEntity::getLocale, locale)
+    private EmailTemplate findTemplate(String code, String locale) {
+        LambdaQueryWrapper<EmailTemplate> qw = new LambdaQueryWrapper<>();
+        qw.eq(EmailTemplate::getCode, code)
+                .eq(EmailTemplate::getLocale, locale)
                 .last("LIMIT 1");
         return templateMapper.selectOne(qw);
     }

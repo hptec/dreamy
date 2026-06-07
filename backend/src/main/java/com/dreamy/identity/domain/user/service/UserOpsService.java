@@ -4,12 +4,14 @@ import com.alicp.jetcache.anno.CacheInvalidate;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dreamy.identity.domain.enums.UserStatus;
+import com.dreamy.identity.domain.enums.UserTier;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.audit.entity.LoginHistoryEntity;
+import com.dreamy.identity.domain.audit.entity.LoginHistory;
 import com.dreamy.identity.domain.session.service.SessionService;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import com.dreamy.identity.domain.audit.repository.LoginHistoryMapper;
 import com.dreamy.identity.domain.user.repository.UserMapper;
 import org.springframework.stereotype.Service;
@@ -46,8 +48,8 @@ public class UserOpsService {
 
     /** listUsers 分页 DTO（含 total/分页元数据） */
     public PageData<com.dreamy.identity.dto.UserProfileDTO> pageUserDTOs(
-            int page, int pageSize, String status, String tier, String emailLike) {
-        IPage<UserEntity> pg = pageUsers(page, pageSize, status, tier, emailLike);
+            int page, int pageSize, UserStatus status, UserTier tier, String emailLike) {
+        IPage<User> pg = pageUsers(page, pageSize, status, tier, emailLike);
         List<com.dreamy.identity.dto.UserProfileDTO> items =
                 pg.getRecords().stream().map(dtoMapper::toProfile).toList();
         return new PageData<>(items, pg.getTotal(), page, pageSize);
@@ -66,7 +68,7 @@ public class UserOpsService {
     }
 
     /** toggleUserStatus 后返回资料 DTO */
-    public com.dreamy.identity.dto.UserProfileDTO toggleUserStatusDTO(Long userId, String status) {
+    public com.dreamy.identity.dto.UserProfileDTO toggleUserStatusDTO(Long userId, UserStatus status) {
         return dtoMapper.toProfile(toggleUserStatus(userId, status));
     }
 
@@ -79,23 +81,23 @@ public class UserOpsService {
             List<com.dreamy.identity.dto.LoginHistoryDTO> loginHistory) {}
 
     /** RM-007 pageByFilter（Customers 页：status/tier/emailLike） */
-    public IPage<UserEntity> pageUsers(int page, int pageSize, String status, String tier, String emailLike) {
-        LambdaQueryWrapper<UserEntity> qw = new LambdaQueryWrapper<>();
+    public IPage<User> pageUsers(int page, int pageSize, UserStatus status, UserTier tier, String emailLike) {
+        LambdaQueryWrapper<User> qw = new LambdaQueryWrapper<>();
         if (status != null) {
-            qw.eq(UserEntity::getStatus, status);
+            qw.eq(User::getStatus, status);
         }
         if (tier != null) {
-            qw.eq(UserEntity::getTier, tier);
+            qw.eq(User::getTier, tier);
         }
         if (emailLike != null && !emailLike.isBlank()) {
-            qw.like(UserEntity::getEmail, emailLike);
+            qw.like(User::getEmail, emailLike);
         }
-        qw.orderByDesc(UserEntity::getCreatedAt);
+        qw.orderByDesc(User::getCreatedAt);
         return userMapper.selectPage(new Page<>(page, pageSize), qw);
     }
 
-    public UserEntity getUser(Long userId) {
-        UserEntity user = userMapper.selectById(userId);
+    public User getUser(Long userId) {
+        User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
@@ -103,19 +105,19 @@ public class UserOpsService {
     }
 
     /** NP-001：getUserDetail 近期登录历史（idx_login_user_created 单次批量） */
-    public List<LoginHistoryEntity> recentLoginHistory(Long userId, int limit) {
-        LambdaQueryWrapper<LoginHistoryEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(LoginHistoryEntity::getUserId, userId)
-                .orderByDesc(LoginHistoryEntity::getCreatedAt)
+    public List<LoginHistory> recentLoginHistory(Long userId, int limit) {
+        LambdaQueryWrapper<LoginHistory> qw = new LambdaQueryWrapper<>();
+        qw.eq(LoginHistory::getUserId, userId)
+                .orderByDesc(LoginHistory::getCreatedAt)
                 .last("LIMIT " + limit);
         return loginHistoryMapper.selectList(qw);
     }
 
-    public List<UserSessionEntity> activeSessions(Long userId) {
+    public List<UserSession> activeSessions(Long userId) {
         return sessionService.listActive(userId);
     }
 
-    public List<com.dreamy.identity.domain.user.entity.UserIdentityEntity> identities(Long userId) {
+    public List<com.dreamy.identity.domain.user.entity.UserIdentity> identities(Long userId) {
         return identityService.listAllIdentities(userId);
     }
 
@@ -126,11 +128,11 @@ public class UserOpsService {
      */
     @CacheInvalidate(name = "store:user:", key = "#userId")
     @Transactional
-    public UserEntity toggleUserStatus(Long userId, String status) {
-        UserEntity user = getUser(userId);
+    public User toggleUserStatus(Long userId, UserStatus status) {
+        User user = getUser(userId);
         user.setStatus(status);
         userMapper.updateById(user);
-        if ("disabled".equals(status)) {
+        if (status == UserStatus.DISABLED) {
             sessionService.revokeAll(userId);
         }
         return user;
@@ -143,7 +145,7 @@ public class UserOpsService {
     @Transactional
     public void forceLogout(Long userId, String scope, Long sessionId) {
         if ("single".equals(scope) && sessionId != null) {
-            UserSessionEntity session = sessionService.findById(sessionId);
+            UserSession session = sessionService.findById(sessionId);
             if (session == null || !userId.equals(session.getUserId())) {
                 throw new BizException(ErrorCode.NOT_FOUND);
             }

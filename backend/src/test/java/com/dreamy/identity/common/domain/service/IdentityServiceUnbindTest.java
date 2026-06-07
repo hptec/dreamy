@@ -1,14 +1,15 @@
 package com.dreamy.identity.common.domain.service;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.infra.mail.MailSender;
 import com.dreamy.identity.infra.oidc.OidcVerifier;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
 import com.dreamy.identity.domain.otp.service.OtpService;
 import com.dreamy.identity.domain.session.service.SessionService;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
 import com.dreamy.identity.domain.user.repository.UserIdentityMapper;
 import com.dreamy.identity.domain.user.repository.UserMapper;
 import com.dreamy.identity.domain.user.service.IdentityService;
@@ -59,11 +60,11 @@ class IdentityServiceUnbindTest {
     static void initMybatisPlusCache() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(
                 new org.apache.ibatis.session.Configuration(), "");
-        TableInfoHelper.initTableInfo(assistant, UserIdentityEntity.class);
+        TableInfoHelper.initTableInfo(assistant, UserIdentity.class);
     }
 
-    private AuthConfigEntity defaultConfig() {
-        AuthConfigEntity cfg = new AuthConfigEntity();
+    private AuthConfig defaultConfig() {
+        AuthConfig cfg = new AuthConfig();
         cfg.setMinMethods(1);
         return cfg;
     }
@@ -72,7 +73,7 @@ class IdentityServiceUnbindTest {
     @DisplayName("TC-UNIT-050 [P0]: unbindIdentity 主邮箱 → 40304 PRIMARY_EMAIL_REQUIRED（EDGE-007）")
     void unbindIdentity_primaryEmail_throws40304() {
         // ARRANGE: identity 是主邮箱
-        UserIdentityEntity primary = identity(1L, 1L, true, true);
+        UserIdentity primary = identity(1L, 1L, true, true);
         when(identityMapper.selectById(1L)).thenReturn(primary);
 
         // ACT + ASSERT: L2 code=40304
@@ -87,7 +88,7 @@ class IdentityServiceUnbindTest {
     @DisplayName("TC-UNIT-051 [P0]: unbindIdentity 低于 min_methods → 40305 MIN_METHODS_REQUIRED（EDGE-008）")
     void unbindIdentity_belowMinMethods_throws40305() {
         // ARRANGE: 非主邮箱，但只有 1 个 connected（解绑后 = 0 < min_methods=1）
-        UserIdentityEntity nonPrimary = identity(2L, 1L, false, true);
+        UserIdentity nonPrimary = identity(2L, 1L, false, true);
         when(identityMapper.selectById(2L)).thenReturn(nonPrimary);
         when(authConfigService.getConfig()).thenReturn(defaultConfig());
         // countConnected 返回 1（解绑后 0 < 1）
@@ -105,7 +106,7 @@ class IdentityServiceUnbindTest {
     @DisplayName("TC-UNIT-052 [P0]: unbindIdentity 合法解绑 → connected=false（FUNC-009）")
     void unbindIdentity_valid_setsConnectedFalse() {
         // ARRANGE: 非主邮箱，有 2 个 connected（解绑后 1 >= min_methods=1）
-        UserIdentityEntity nonPrimary = identity(3L, 1L, false, true);
+        UserIdentity nonPrimary = identity(3L, 1L, false, true);
         when(identityMapper.selectById(3L)).thenReturn(nonPrimary);
         when(authConfigService.getConfig()).thenReturn(defaultConfig());
         when(identityMapper.selectCount(any())).thenReturn(2L);
@@ -122,7 +123,7 @@ class IdentityServiceUnbindTest {
     @DisplayName("TC-UNIT-053 [P0]: unbindIdentity 归属校验失败 → 40300 FORBIDDEN（EDGE-007）")
     void unbindIdentity_wrongUser_throws40300() {
         // ARRANGE: identity 属于 user-2，但调用方是 user-1
-        UserIdentityEntity other = identity(4L, 2L, false, true);
+        UserIdentity other = identity(4L, 2L, false, true);
         when(identityMapper.selectById(4L)).thenReturn(other);
 
         // ACT + ASSERT: L2 code=40300
@@ -135,11 +136,11 @@ class IdentityServiceUnbindTest {
 
     // ===== helpers =====
 
-    private UserIdentityEntity identity(Long id, Long userId, boolean isPrimary, boolean connected) {
-        UserIdentityEntity i = new UserIdentityEntity();
+    private UserIdentity identity(Long id, Long userId, boolean isPrimary, boolean connected) {
+        UserIdentity i = new UserIdentity();
         i.setId(id);
         i.setUserId(userId);
-        i.setProvider("email");
+        i.setProvider(AuthProvider.EMAIL);
         i.setProviderUid("user@example.com");
         i.setIsPrimary(isPrimary);
         i.setConnected(connected);

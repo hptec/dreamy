@@ -3,6 +3,8 @@ package com.dreamy.identity.controller;
 import com.dreamy.identity.aspect.AuditLog;
 import com.dreamy.identity.aspect.RequirePermission;
 import com.dreamy.identity.controller.pojo.UserDetailView;
+import com.dreamy.identity.domain.enums.UserStatus;
+import com.dreamy.identity.domain.enums.UserTier;
 import com.dreamy.identity.domain.user.service.UserOpsService;
 import com.dreamy.identity.dto.UserProfileDTO;
 import huihao.page.Paginated;
@@ -31,8 +33,8 @@ public class UserOpsController {
     @GetMapping
     public ResponseEntity<R<Paginated<UserProfileDTO>>> listUsers(@RequestParam(defaultValue = "1") int page,
                                             @RequestParam(defaultValue = "20") int pageSize,
-                                            @RequestParam(required = false) String status,
-                                            @RequestParam(required = false) String tier,
+                                            @RequestParam(required = false) UserStatus status,
+                                            @RequestParam(required = false) UserTier tier,
                                             @RequestParam(required = false) String email) {
         UserOpsService.PageData<UserProfileDTO> pg =
                 userOpsService.pageUserDTOs(page, pageSize, status, tier, email);
@@ -60,7 +62,7 @@ public class UserOpsController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<R<UserProfileDTO>> toggleStatus(@PathVariable Long id,
                                                @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(R.ok(userOpsService.toggleUserStatusDTO(id, body.get("status"))));
+        return ResponseEntity.ok(R.ok(userOpsService.toggleUserStatusDTO(id, UserStatus.valueOf(body.get("status").toUpperCase()))));
     }
 
     /** 5.4 forceLogoutUserSessions（FLOW-12 FUNC-022 EDGE-023） */

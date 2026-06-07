@@ -30,6 +30,14 @@ public class StoreConfig {
     }
 
     @Bean
+    public FilterRegistrationBean<CorsFilter> storeCorsFilterRegistration(CorsFilter storeCorsFilter) {
+        FilterRegistrationBean<CorsFilter> reg = new FilterRegistrationBean<>(storeCorsFilter);
+        reg.addUrlPatterns("/api/store/*");
+        reg.setOrder(0);
+        return reg;
+    }
+
+    @Bean
     public FilterRegistrationBean<StoreJwtFilter> storeJwtFilterRegistration(StoreJwtFilter filter) {
         FilterRegistrationBean<StoreJwtFilter> reg = new FilterRegistrationBean<>(filter);
         reg.addUrlPatterns("/api/store/*");

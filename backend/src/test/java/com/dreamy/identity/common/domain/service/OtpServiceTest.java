@@ -1,12 +1,13 @@
 package com.dreamy.identity.common.domain.service;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.infra.OtpRateLimiter;
 import com.dreamy.identity.infra.mail.MailSender;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
-import com.dreamy.identity.domain.otp.entity.OtpCodeEntity;
+import com.dreamy.identity.domain.otp.entity.OtpCode;
 import com.dreamy.identity.domain.otp.repository.OtpCodeMapper;
 import com.dreamy.identity.domain.otp.service.OtpService;
 import com.dreamy.identity.domain.otp.service.OtpStateWriter;
@@ -61,12 +62,12 @@ class OtpServiceTest {
                 new org.apache.ibatis.builder.MapperBuilderAssistant(
                         new org.apache.ibatis.session.Configuration(), "");
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
-                assistant, OtpCodeEntity.class);
+                assistant, OtpCode.class);
     }
 
     @BeforeEach
     void setUp() {
-        AuthConfigEntity cfg = new AuthConfigEntity();
+        AuthConfig cfg = new AuthConfig();
         cfg.setOtpLength(6);
         cfg.setOtpTtlMinutes(10);
         cfg.setOtpResendSeconds(60);
@@ -81,7 +82,7 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-001: OTP 正确码 → consumed，返回 LoginResult")
     void verifyOtp_correct_returnsLoginResult() {
-        OtpCodeEntity otp = pendingOtp(3, 5, LocalDateTime.now().plusMinutes(5));
+        OtpCode otp = pendingOtp(3, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
         when(mergeService.resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any()))
@@ -94,13 +95,13 @@ class OtpServiceTest {
                 LoginContext.empty());
 
         assertThat(result).isNotNull();
-        verify(otpStateWriter, atLeastOnce()).updateStatus(eq(1L), eq("consumed"), any());
+        verify(otpStateWriter, atLeastOnce()).updateStatus(eq(1L), eq(OtpStatus.CONSUMED), any());
     }
 
     @Test
     @DisplayName("TC-UNIT-002: OTP 错误码未达上限 → 40101 + remaining_attempts")
     void verifyOtp_wrongCode_returnsOtpInvalid() {
-        OtpCodeEntity otp = pendingOtp(1, 5, LocalDateTime.now().plusMinutes(5));
+        OtpCode otp = pendingOtp(1, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches(any(), any())).thenReturn(false);
 
@@ -117,7 +118,7 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-003: OTP 错误达上限 → 41002 OTP_LOCKED")
     void verifyOtp_maxAttempts_locked() {
-        OtpCodeEntity otp = pendingOtp(4, 5, LocalDateTime.now().plusMinutes(5));
+        OtpCode otp = pendingOtp(4, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches(any(), any())).thenReturn(false);
 
@@ -130,7 +131,7 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-004: OTP 已过期 → 41001 OTP_EXPIRED")
     void verifyOtp_expired_returnsOtpExpired() {
-        OtpCodeEntity otp = pendingOtp(0, 5, LocalDateTime.now().minusMinutes(1));
+        OtpCode otp = pendingOtp(0, 5, LocalDateTime.now().minusMinutes(1));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
 
         assertThatThrownBy(() -> otpService.verifyOtp("test@example.com", "123456",
@@ -155,14 +156,14 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-006 [P0]: verifyCodeOnly 正确码 → consumed，不调 resolveOrMerge/openStoreSession（BLOCKER-4）")
     void verifyCodeOnly_correct_consumesWithoutLoginPipeline() {
-        OtpCodeEntity otp = pendingOtp(0, 5, LocalDateTime.now().plusMinutes(5));
+        OtpCode otp = pendingOtp(0, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
 
         otpService.verifyCodeOnly("bind@example.com", "123456");
 
         // ASSERT: 置 consumed（updateStatus 调用），但绝不触发归并/开会话（否则绑定产生孤立账户）
-        verify(otpStateWriter, atLeastOnce()).updateStatus(eq(1L), eq("consumed"), any());
+        verify(otpStateWriter, atLeastOnce()).updateStatus(eq(1L), eq(OtpStatus.CONSUMED), any());
         verify(mergeService, never()).resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any());
         verify(sessionService, never()).openStoreSession(any(), any(), any(), anyBoolean(), any());
     }
@@ -170,7 +171,7 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-007 [P0]: verifyCodeOnly 错误码 → 40101，仍不开会话（BLOCKER-4）")
     void verifyCodeOnly_wrongCode_throwsAndNoSession() {
-        OtpCodeEntity otp = pendingOtp(1, 5, LocalDateTime.now().plusMinutes(5));
+        OtpCode otp = pendingOtp(1, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches(any(), any())).thenReturn(false);
         when(otpCodeMapper.selectById(any())).thenReturn(otp);
@@ -185,7 +186,7 @@ class OtpServiceTest {
     @Test
     @DisplayName("TC-UNIT-008 [P0]: verifyCodeOnly 过期码 → 41001 OTP_EXPIRED（BLOCKER-4）")
     void verifyCodeOnly_expired_throwsOtpExpired() {
-        OtpCodeEntity otp = pendingOtp(0, 5, LocalDateTime.now().minusMinutes(1));
+        OtpCode otp = pendingOtp(0, 5, LocalDateTime.now().minusMinutes(1));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
 
         assertThatThrownBy(() -> otpService.verifyCodeOnly("bind@example.com", "123456"))
@@ -193,24 +194,24 @@ class OtpServiceTest {
                 .satisfies(e -> assertThat(((BizException) e).getErrorCode()).isEqualTo(ErrorCode.OTP_EXPIRED));
     }
 
-    private OtpCodeEntity pendingOtp(int attempts, int maxAttempts, LocalDateTime expiresAt) {
-        OtpCodeEntity otp = new OtpCodeEntity();
+    private OtpCode pendingOtp(int attempts, int maxAttempts, LocalDateTime expiresAt) {
+        OtpCode otp = new OtpCode();
         otp.setId(1L);
         otp.setEmail("test@example.com");
         otp.setCodeHash("hash");
         otp.setAttempts(attempts);
         otp.setMaxAttempts(maxAttempts);
-        otp.setStatus("pending");
+        otp.setStatus(OtpStatus.PENDING);
         otp.setExpiresAt(expiresAt);
         otp.setVersion(0);
         return otp;
     }
 
-    private com.dreamy.identity.domain.user.entity.UserEntity activeUser() {
-        var u = new com.dreamy.identity.domain.user.entity.UserEntity();
+    private com.dreamy.identity.domain.user.entity.User activeUser() {
+        var u = new com.dreamy.identity.domain.user.entity.User();
         u.setId(1L);
         u.setEmail("test@example.com");
-        u.setStatus("active");
+        u.setStatus(UserStatus.ACTIVE);
         return u;
     }
 }

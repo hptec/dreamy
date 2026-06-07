@@ -1,6 +1,6 @@
 package com.dreamy.identity.aspect;
 
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
 import com.dreamy.identity.domain.admin.repository.AdminUserMapper;
 import com.dreamy.identity.domain.audit.service.AuditService;
 import com.dreamy.identity.security.AuthContext;
@@ -82,7 +82,7 @@ public class AuditAspect {
     private String resolveOperatorName(Long operatorId) {
         if (operatorId == null) return "系统";
         try {
-            AdminUserEntity admin = adminUserMapper.selectById(operatorId);
+            AdminUser admin = adminUserMapper.selectById(operatorId);
             if (admin != null && admin.getName() != null) return admin.getName();
         } catch (Exception ignored) {
         }

@@ -140,7 +140,10 @@ public class RealOidcVerifier implements OidcVerifier {
         boolean emailVerified = booleanClaim(claims, "email_verified");
         boolean hidden = booleanClaim(claims, "is_private_email");
         String relay = hidden ? email : null;
-        return new OidcResult(sub, email, emailVerified, hidden, relay);
+        String name = stringClaim(claims, "name");
+        String picture = stringClaim(claims, "picture");
+        String locale = stringClaim(claims, "locale");
+        return new OidcResult(sub, email, emailVerified, hidden, relay, name, picture, locale);
     }
 
     private ConfigurableJWTProcessor<SecurityContext> processorFor(String provider) {

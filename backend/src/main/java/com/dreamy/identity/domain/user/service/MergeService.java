@@ -1,11 +1,14 @@
 package com.dreamy.identity.domain.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.dreamy.identity.domain.enums.AuthProvider;
+import com.dreamy.identity.domain.enums.UserStatus;
+import com.dreamy.identity.domain.enums.UserTier;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
 import com.dreamy.identity.domain.audit.repository.OperationLogMapper;
 import com.dreamy.identity.domain.user.repository.UserIdentityMapper;
 import com.dreamy.identity.domain.user.repository.UserMapper;
@@ -53,32 +56,40 @@ public class MergeService implements IdLockSupport {
      * @param emailVerified OIDC email_verified（email 渠道恒 true）
      * @param hiddenEmail  Apple Hide My Email
      * @param relayEmail   Apple relay 邮箱
+     * @param name         OIDC profile claim（可空）
+     * @param avatar       OIDC picture claim（可空）
      */
     @Transactional
-    public MergeOutcome resolveOrMerge(String provider, String providerUid, String email,
-                                       boolean emailVerified, boolean hiddenEmail, String relayEmail) {
+    public MergeOutcome resolveOrMerge(AuthProvider provider, String providerUid, String email,
+                                       boolean emailVerified, boolean hiddenEmail, String relayEmail,
+                                       String name, String avatar) {
         // STEP-02：(provider,provider_uid) 命中即幂等返回既有 User（uk_identity_provider_uid）
-        UserIdentityEntity existing = findByProviderUid(provider, providerUid);
+        UserIdentity existing = findByProviderUid(provider, providerUid);
         if (existing != null) {
-            UserEntity user = userMapper.selectById(existing.getUserId());
-            return new MergeOutcome(user, false);
+            User user = userMapper.selectById(existing.getUserId());
+            if (user == null) {
+                identityMapper.deleteById(existing.getId());
+            } else {
+                return new MergeOutcome(user, false);
+            }
         }
 
         // 按 email 加分布式锁：消除多实例并发下"查同邮箱→新建"的 check-then-act 竞态。
         // email 为空时无法按邮箱锁，回退依赖 uk_identity_provider_uid 唯一索引兜底。
         if (email == null) {
-            return doResolveOrMerge(provider, providerUid, null, emailVerified, hiddenEmail, relayEmail);
+            return doResolveOrMerge(provider, providerUid, null, emailVerified, hiddenEmail, relayEmail, name, avatar);
         }
         return onIdLock("identity:merge:email", email,
-                () -> doResolveOrMerge(provider, providerUid, email, emailVerified, hiddenEmail, relayEmail));
+                () -> doResolveOrMerge(provider, providerUid, email, emailVerified, hiddenEmail, relayEmail, name, avatar));
     }
 
-    private MergeOutcome doResolveOrMerge(String provider, String providerUid, String email,
-                                          boolean emailVerified, boolean hiddenEmail, String relayEmail) {
+    private MergeOutcome doResolveOrMerge(AuthProvider provider, String providerUid, String email,
+                                          boolean emailVerified, boolean hiddenEmail, String relayEmail,
+                                          String name, String avatar) {
         LocalDateTime now = LocalDateTime.now();
 
         // STEP-03：凭证不存在 → 查同邮箱 User（RM-002 findByEmailActive，DEC-004/A2 LambdaQueryWrapper）
-        UserEntity sameEmailUser = findByEmailActive(email);
+        User sameEmailUser = findByEmailActive(email);
         if (sameEmailUser != null) {
             if (Boolean.TRUE.equals(sameEmailUser.getEmailVerified()) && emailVerified) {
                 // 自动归并 R1：INSERT identity 挂既有 User + operation_log(账户合并)
@@ -92,47 +103,48 @@ public class MergeService implements IdLockSupport {
         }
 
         // 无同邮箱 User → 新建 user + user_identity
-        UserEntity user = new UserEntity();
+        User user = new User();
         user.setEmail(email);
         user.setEmailVerified(emailVerified);
-        user.setTier("regular");
-        user.setStatus("active");
+        user.setName(name);
+        user.setAvatar(avatar);
+        user.setTier(UserTier.REGULAR);
+        user.setStatus(UserStatus.ACTIVE);
         user.setAnonymized(false);
         user.setJoinedAt(now);
         user.setVersion(0);
         userMapper.insert(user);
 
-        boolean primary = "email".equals(provider);
-        insertIdentity(user.getId(), provider, providerUid, email, primary,
+        insertIdentity(user.getId(), provider, providerUid, email, true,
                 emailVerified, hiddenEmail, relayEmail, now);
         return new MergeOutcome(user, true);
     }
 
     /** RM-010 findByProviderUid */
-    public UserIdentityEntity findByProviderUid(String provider, String providerUid) {
-        LambdaQueryWrapper<UserIdentityEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserIdentityEntity::getProvider, provider)
-                .eq(UserIdentityEntity::getProviderUid, providerUid)
+    public UserIdentity findByProviderUid(AuthProvider provider, String providerUid) {
+        LambdaQueryWrapper<UserIdentity> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserIdentity::getProvider, provider)
+                .eq(UserIdentity::getProviderUid, providerUid)
                 .last("LIMIT 1");
         return identityMapper.selectOne(qw);
     }
 
     /** RM-002 findByEmailActive：命中 uk_user_email；status≠anonymized（DEC-004/A2 LambdaQueryWrapper） */
-    public UserEntity findByEmailActive(String email) {
+    public User findByEmailActive(String email) {
         if (email == null) {
             return null;
         }
-        LambdaQueryWrapper<UserEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserEntity::getEmail, email)
-                .ne(UserEntity::getStatus, "anonymized")
+        LambdaQueryWrapper<User> qw = new LambdaQueryWrapper<>();
+        qw.eq(User::getEmail, email)
+                .ne(User::getStatus, UserStatus.ANONYMIZED)
                 .last("LIMIT 1");
         return userMapper.selectOne(qw);
     }
 
-    private void insertIdentity(Long userId, String provider, String providerUid, String identifier,
+    private void insertIdentity(Long userId, AuthProvider provider, String providerUid, String identifier,
                                 boolean primary, boolean verified, boolean hiddenEmail,
                                 String relayEmail, LocalDateTime now) {
-        UserIdentityEntity identity = new UserIdentityEntity();
+        UserIdentity identity = new UserIdentity();
         identity.setUserId(userId);
         identity.setProvider(provider);
         identity.setProviderUid(providerUid);
@@ -150,7 +162,7 @@ public class MergeService implements IdLockSupport {
 
     /** TX-002：operator_name=系统 账户合并审计（FLOW-03） */
     private void writeMergeLog(Long userId, String email) {
-        OperationLogEntity logEntry = new OperationLogEntity();
+        OperationLog logEntry = new OperationLog();
         logEntry.setOperatorId(null);
         logEntry.setOperatorName("系统");
         logEntry.setAction("账户合并");
@@ -158,6 +170,6 @@ public class MergeService implements IdLockSupport {
         operationLogMapper.insert(logEntry);
     }
 
-    public record MergeOutcome(UserEntity user, boolean newAccount) {
+    public record MergeOutcome(User user, boolean newAccount) {
     }
 }

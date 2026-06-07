@@ -1,12 +1,13 @@
 package com.dreamy.identity.it;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.domain.session.service.SessionService;
 import com.dreamy.identity.domain.user.service.UserOpsService;
 import com.dreamy.identity.infra.SessionValidityCache;
 import com.dreamy.identity.infra.SessionValidator;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import com.dreamy.identity.domain.user.repository.UserMapper;
 import com.dreamy.identity.domain.session.repository.UserSessionMapper;
 import com.dreamy.identity.security.TokenPair;
@@ -38,11 +39,11 @@ class ForceLogoutIT extends AbstractIT {
     @BeforeEach
     void setup() {
         // 插入最小 user 行（id 由 DB 自增回写）；forceLogout 需要 userId 存在于 user_session
-        UserEntity user = new UserEntity();
+        User user = new User();
         user.setEmail("force-logout-it@dreamy.com");
         user.setEmailVerified(true);
-        user.setTier("regular");
-        user.setStatus("active");
+        user.setTier(UserTier.REGULAR);
+        user.setStatus(UserStatus.ACTIVE);
         user.setVersion(0);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -55,7 +56,7 @@ class ForceLogoutIT extends AbstractIT {
     void forceLogout_revokesSessionAndRedis() throws Exception {
         // ARRANGE: 建立真实会话（DB + Redis markValid）
         TokenPair tokens = sessionService.openStoreSession(
-                userId, "force-logout-it@dreamy.com", "email", false, LoginContext.empty());
+                userId, "force-logout-it@dreamy.com", AuthProvider.EMAIL, false, LoginContext.empty());
         String tokenId = tokens.getTokenId();
 
         // 等待 afterCommit 写 Redis（Testcontainers 同步事务，afterCommit 在提交后立即执行）
@@ -71,9 +72,9 @@ class ForceLogoutIT extends AbstractIT {
         Thread.sleep(200);
 
         // ASSERT: DB session.status = revoked
-        UserSessionEntity session = userSessionMapper.selectOne(
-                new LambdaQueryWrapper<UserSessionEntity>()
-                        .eq(UserSessionEntity::getTokenId, tokenId));
+        UserSession session = userSessionMapper.selectOne(
+                new LambdaQueryWrapper<UserSession>()
+                        .eq(UserSession::getTokenId, tokenId));
         assertThat(session).isNotNull();
         assertThat(session.getStatus()).isEqualTo("revoked");
 

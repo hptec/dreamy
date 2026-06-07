@@ -1,13 +1,15 @@
 package com.dreamy.identity.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
 import com.dreamy.identity.domain.admin.repository.AdminUserMapper;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
+import com.dreamy.identity.domain.enums.AdminStatus;
+import com.dreamy.identity.domain.enums.RoleType;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
 import com.dreamy.identity.domain.authconfig.repository.AuthConfigMapper;
-import com.dreamy.identity.domain.role.entity.PermissionEntity;
-import com.dreamy.identity.domain.role.entity.RoleEntity;
-import com.dreamy.identity.domain.role.entity.RolePermissionEntity;
+import com.dreamy.identity.domain.role.entity.Permission;
+import com.dreamy.identity.domain.role.entity.Role;
+import com.dreamy.identity.domain.role.entity.RolePermission;
 import com.dreamy.identity.domain.role.repository.PermissionMapper;
 import com.dreamy.identity.domain.role.repository.RoleMapper;
 import com.dreamy.identity.domain.role.repository.RolePermissionMapper;
@@ -69,7 +71,7 @@ public class DataInitializer {
         if (authConfigMapper.selectById(1L) != null) {
             return;
         }
-        AuthConfigEntity cfg = new AuthConfigEntity();
+        AuthConfig cfg = new AuthConfig();
         cfg.setEmailEnabled(true);
         cfg.setGoogleEnabled(true);
         cfg.setAppleEnabled(true);
@@ -110,12 +112,12 @@ public class DataInitializer {
         };
         for (String[] p : perms) {
             // A4: LambdaQueryWrapper 替代 @Select findIdByPermCode（仅判存在性，幂等）
-            Long existing = permissionMapper.selectCount(new LambdaQueryWrapper<PermissionEntity>()
-                    .eq(PermissionEntity::getPermCode, p[0]));
+            Long existing = permissionMapper.selectCount(new LambdaQueryWrapper<Permission>()
+                    .eq(Permission::getPermCode, p[0]));
             if (existing != null && existing > 0) {
                 continue;
             }
-            PermissionEntity pe = new PermissionEntity();
+            Permission pe = new Permission();
             pe.setPermCode(p[0]);
             pe.setGroup(p[1]);
             pe.setLabel(p[2]);
@@ -125,12 +127,12 @@ public class DataInitializer {
 
     /** 超管角色（is_locked=true）：缺则建，并关联全部权限（与应用层短路双保险 RISK-03）。返回 roleId。 */
     private Long initSuperRole() {
-        RoleEntity role = roleMapper.selectOne(new LambdaQueryWrapper<RoleEntity>()
-                .eq(RoleEntity::getName, SUPER_ADMIN_ROLE));
+        Role role = roleMapper.selectOne(new LambdaQueryWrapper<Role>()
+                .eq(Role::getName, SUPER_ADMIN_ROLE));
         if (role == null) {
-            role = new RoleEntity();
+            role = new Role();
             role.setName(SUPER_ADMIN_ROLE);
-            role.setType("preset");
+            role.setType(RoleType.PRESET);
             role.setIsLocked(true);
             role.setVersion(0);
             roleMapper.insert(role);
@@ -140,15 +142,15 @@ public class DataInitializer {
         // 关联全部权限（幂等：已存在的跳过）
         // A3: 分步查询替代 listKeysByRoleId JOIN —— 取已关联的 permission_id 集合按 id 判重
         java.util.Set<Long> existingPermIds = rolePermissionMapper.selectList(
-                        new LambdaQueryWrapper<RolePermissionEntity>().eq(RolePermissionEntity::getRoleId, roleId))
-                .stream().map(RolePermissionEntity::getPermissionId)
+                        new LambdaQueryWrapper<RolePermission>().eq(RolePermission::getRoleId, roleId))
+                .stream().map(RolePermission::getPermissionId)
                 .collect(java.util.stream.Collectors.toSet());
-        for (PermissionEntity p : permissionMapper.selectList(
-                new LambdaQueryWrapper<PermissionEntity>().isNotNull(PermissionEntity::getId))) {
+        for (Permission p : permissionMapper.selectList(
+                new LambdaQueryWrapper<Permission>().isNotNull(Permission::getId))) {
             if (existingPermIds.contains(p.getId())) {
                 continue;
             }
-            RolePermissionEntity rp = new RolePermissionEntity();
+            RolePermission rp = new RolePermission();
             rp.setRoleId(roleId);
             rp.setPermissionId(p.getId());
             rolePermissionMapper.insert(rp);
@@ -158,17 +160,17 @@ public class DataInitializer {
 
     /** 超管账户：缺则建（email 唯一）。密码 Admin@123456。 */
     private void initSuperAdmin(Long roleId) {
-        AdminUserEntity existing = adminUserMapper.selectOne(new LambdaQueryWrapper<AdminUserEntity>()
-                .eq(AdminUserEntity::getEmail, SUPER_ADMIN_EMAIL));
+        AdminUser existing = adminUserMapper.selectOne(new LambdaQueryWrapper<AdminUser>()
+                .eq(AdminUser::getEmail, SUPER_ADMIN_EMAIL));
         if (existing != null) {
             return;
         }
-        AdminUserEntity admin = new AdminUserEntity();
+        AdminUser admin = new AdminUser();
         admin.setName("超级管理员");
         admin.setEmail(SUPER_ADMIN_EMAIL);
         admin.setPasswordHash(SUPER_ADMIN_PWD_HASH);
         admin.setRoleId(roleId);
-        admin.setStatus("active");
+        admin.setStatus(AdminStatus.ACTIVE);
         admin.setVersion(0);
         adminUserMapper.insert(admin);
         log.info("[DataInitializer] 超管账户已初始化 id={}", admin.getId());

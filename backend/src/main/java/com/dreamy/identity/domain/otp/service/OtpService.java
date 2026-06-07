@@ -1,15 +1,18 @@
 package com.dreamy.identity.domain.otp.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.dreamy.identity.domain.enums.AuthProvider;
+import com.dreamy.identity.domain.enums.OtpStatus;
+import com.dreamy.identity.domain.enums.UserStatus;
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.domain.user.model.LoginResult;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.infra.OtpRateLimiter;
 import com.dreamy.identity.infra.mail.MailSender;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
-import com.dreamy.identity.domain.otp.entity.OtpCodeEntity;
-import com.dreamy.identity.domain.user.entity.UserEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
+import com.dreamy.identity.domain.otp.entity.OtpCode;
+import com.dreamy.identity.domain.user.entity.User;
 import com.dreamy.identity.domain.otp.repository.OtpCodeMapper;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
 import com.dreamy.identity.domain.user.service.MergeService;
@@ -88,7 +91,7 @@ public class OtpService implements IdLockSupport {
         String email = normalize(rawEmail); // STEP-01
 
         // STEP-02 重发间隔频控
-        AuthConfigEntity cfg = authConfigService.getConfig(); // STEP-04
+        AuthConfig cfg = authConfigService.getConfig(); // STEP-04
         OtpRateLimiter.RateDecision resend = rateLimiter.checkResend(email, cfg.getOtpResendSeconds());
         if (!resend.permitted()) {
             throw new BizException(resend.errorCode(), resend.details()); // 42901
@@ -101,22 +104,22 @@ public class OtpService implements IdLockSupport {
 
         // STEP-05 失效旧 pending（RM-021 expireAllPending）
         otpCodeMapper.update(null,
-                Wrappers.<OtpCodeEntity>lambdaUpdate()
-                        .eq(OtpCodeEntity::getEmail, email)
-                        .eq(OtpCodeEntity::getStatus, "pending")
-                        .set(OtpCodeEntity::getStatus, "expired"));
+                Wrappers.<OtpCode>lambdaUpdate()
+                        .eq(OtpCode::getEmail, email)
+                        .eq(OtpCode::getStatus, OtpStatus.PENDING)
+                        .set(OtpCode::getStatus, OtpStatus.EXPIRED));
 
         // STEP-06 生成明文 → 仅持久化 code_hash（CV-004）
         LocalDateTime now = LocalDateTime.now();
         String plaintext = OtpGenerator.numeric(cfg.getOtpLength());
-        OtpCodeEntity otp = new OtpCodeEntity();
+        OtpCode otp = new OtpCode();
         otp.setEmail(email);
         otp.setCodeHash(passwordEncoder.encode(plaintext));
         otp.setLength(cfg.getOtpLength());
         otp.setExpiresAt(now.plusMinutes(cfg.getOtpTtlMinutes()));
         otp.setAttempts(0);
         otp.setMaxAttempts(cfg.getOtpMaxAttempts());
-        otp.setStatus("pending");
+        otp.setStatus(OtpStatus.PENDING);
         otp.setLastSentAt(now);
         otp.setVersion(0);
         otpCodeMapper.insert(otp);
@@ -151,12 +154,12 @@ public class OtpService implements IdLockSupport {
 
         // STEP-04 归并/建号（email 渠道 provider_uid=email，email_verified=true）——锁外执行
         MergeService.MergeOutcome outcome = mergeService.resolveOrMerge(
-                "email", email, email, true, false, null);
-        UserEntity user = outcome.user();
+                AuthProvider.EMAIL, email, email, true, false, null, null, null);
+        User user = outcome.user();
 
         // STEP-05 禁用拒签
-        if ("disabled".equals(user.getStatus()) || "deleted".equals(user.getStatus())
-                || "anonymized".equals(user.getStatus())) {
+        if (user.getStatus() == UserStatus.DISABLED || user.getStatus() == UserStatus.DELETED
+                || user.getStatus() == UserStatus.ANONYMIZED) {
             throw new BizException(ErrorCode.ACCOUNT_DISABLED); // 40301
         }
 
@@ -164,7 +167,7 @@ public class OtpService implements IdLockSupport {
         boolean newDevice = sessionService.isNewDevice(user.getId(), ctx.deviceFingerprint());
         // STEP-07~10 会话 + 历史 + 提交后 Redis + 新设备通知
         TokenPair tokens = sessionService.openStoreSession(
-                user.getId(), user.getEmail(), "email", newDevice, ctx);
+                user.getId(), user.getEmail(), AuthProvider.EMAIL, newDevice, ctx);
 
         return new LoginResult(user, tokens, outcome.newAccount(), newDevice);
     }
@@ -194,14 +197,14 @@ public class OtpService implements IdLockSupport {
      */
     private void consumeValidCode(String email, String code, LoginContext ctx) {
         // STEP-01 取最新 pending OTP（DEC-001：LambdaQueryWrapper 替代 @Select ... FOR UPDATE，互斥由 onIdLock 保证）
-        OtpCodeEntity otp = selectLatestPending(email);
+        OtpCode otp = selectLatestPending(email);
         if (otp == null) {
             throw new BizException(ErrorCode.OTP_EXPIRED); // 41001 无 pending
         }
         LocalDateTime now = LocalDateTime.now();
         // STEP-02 过期
         if (otp.getExpiresAt().isBefore(now)) {
-            otpStateWriter.updateStatus(otp.getId(), "expired", null);
+            otpStateWriter.updateStatus(otp.getId(), OtpStatus.EXPIRED, null);
             throw new BizException(ErrorCode.OTP_EXPIRED); // 41001
         }
         // STEP-03 校验 code_hash
@@ -209,30 +212,31 @@ public class OtpService implements IdLockSupport {
         if (!match) {
             int nextAttempts = otp.getAttempts() + 1;
             if (nextAttempts >= otp.getMaxAttempts()) {
-                otpStateWriter.updateStatus(otp.getId(), "locked", null);
-                sessionService.recordFailedLogin(null, email, "email", ctx);
+                otpStateWriter.updateStatus(otp.getId(), OtpStatus.LOCKED, null);
+                sessionService.recordFailedLogin(null, email, AuthProvider.EMAIL, ctx);
                 throw new BizException(ErrorCode.OTP_LOCKED); // 41002
             }
             otpStateWriter.incrementAttempt(otp.getId());
-            sessionService.recordFailedLogin(null, email, "email", ctx);
+            sessionService.recordFailedLogin(null, email, AuthProvider.EMAIL, ctx);
             Map<String, Object> details = new HashMap<>();
             details.put("remaining_attempts", otp.getMaxAttempts() - nextAttempts);
             throw new BizException(ErrorCode.OTP_INVALID, details); // 40101
         }
         // 正确 → consumed（version 条件防并发双消费）
-        otpStateWriter.updateStatus(otp.getId(), "consumed", otp.getVersion());
+        otpStateWriter.updateStatus(otp.getId(), OtpStatus.CONSUMED, otp.getVersion());
+        rateLimiter.clearResend(email);
     }
 
     /**
      * RM-020 取最新 pending OTP（DEC-001：LambdaQueryWrapper 替代原 lockPendingByEmail 的 native FOR UPDATE）。
      * 排序 created_at DESC 取首条，等价原 SQL 语义，行级互斥转由 onIdLock 分布式锁保证。
      */
-    private OtpCodeEntity selectLatestPending(String email) {
+    private OtpCode selectLatestPending(String email) {
         return otpCodeMapper.selectOne(
-                Wrappers.<OtpCodeEntity>lambdaQuery()
-                        .eq(OtpCodeEntity::getEmail, email)
-                        .eq(OtpCodeEntity::getStatus, "pending")
-                        .orderByDesc(OtpCodeEntity::getCreatedAt)
+                Wrappers.<OtpCode>lambdaQuery()
+                        .eq(OtpCode::getEmail, email)
+                        .eq(OtpCode::getStatus, OtpStatus.PENDING)
+                        .orderByDesc(OtpCode::getCreatedAt)
                         .last("LIMIT 1"));
     }
 

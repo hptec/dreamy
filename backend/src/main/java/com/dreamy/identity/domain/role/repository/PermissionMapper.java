@@ -1,7 +1,7 @@
 package com.dreamy.identity.domain.role.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.dreamy.identity.domain.role.entity.PermissionEntity;
+import com.dreamy.identity.domain.role.entity.Permission;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -9,5 +9,5 @@ import org.apache.ibatis.annotations.Mapper;
  * findIdByPermCode 已迁至 RoleService 用 LambdaQueryWrapper 实现（DEC-004/A4）。
  */
 @Mapper
-public interface PermissionMapper extends BaseMapper<PermissionEntity> {
+public interface PermissionMapper extends BaseMapper<Permission> {
 }

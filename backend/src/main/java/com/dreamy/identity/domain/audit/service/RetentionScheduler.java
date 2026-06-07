@@ -2,12 +2,15 @@ package com.dreamy.identity.domain.audit.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.dreamy.identity.domain.session.entity.AdminSessionEntity;
-import com.dreamy.identity.domain.audit.entity.LoginHistoryEntity;
-import com.dreamy.identity.domain.otp.entity.OtpCodeEntity;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.enums.OtpStatus;
+import com.dreamy.identity.domain.enums.SessionStatus;
+import com.dreamy.identity.domain.enums.UserStatus;
+import com.dreamy.identity.domain.session.entity.AdminSession;
+import com.dreamy.identity.domain.audit.entity.LoginHistory;
+import com.dreamy.identity.domain.otp.entity.OtpCode;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import com.dreamy.identity.domain.session.repository.AdminSessionMapper;
 import com.dreamy.identity.domain.audit.repository.LoginHistoryMapper;
 import com.dreamy.identity.domain.otp.repository.OtpCodeMapper;
@@ -70,35 +73,35 @@ public class RetentionScheduler {
     /** RM-025：otp_code 终态后 24h 清（idx_otp_status_created） */
     public void cleanOtp() {
         LocalDateTime cutoff = now().minusHours(24);
-        LambdaQueryWrapper<OtpCodeEntity> qw = new LambdaQueryWrapper<>();
-        qw.in(OtpCodeEntity::getStatus, List.of("consumed", "expired", "locked"))
-                .lt(OtpCodeEntity::getCreatedAt, cutoff);
+        LambdaQueryWrapper<OtpCode> qw = new LambdaQueryWrapper<>();
+        qw.in(OtpCode::getStatus, List.of(OtpStatus.CONSUMED, OtpStatus.EXPIRED, OtpStatus.LOCKED))
+                .lt(OtpCode::getCreatedAt, cutoff);
         otpCodeMapper.delete(qw);
     }
 
     /** RM-037：user_session revoked 30d 清（idx_session_status_created） */
     public void cleanRevokedUserSessions() {
         LocalDateTime cutoff = now().minusDays(30);
-        LambdaQueryWrapper<UserSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserSessionEntity::getStatus, "revoked")
-                .lt(UserSessionEntity::getCreatedAt, cutoff);
+        LambdaQueryWrapper<UserSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserSession::getStatus, SessionStatus.REVOKED)
+                .lt(UserSession::getCreatedAt, cutoff);
         userSessionMapper.delete(qw);
     }
 
     /** RM-091：admin_session revoked 30d 清（[INFERRED]） */
     public void cleanRevokedAdminSessions() {
         LocalDateTime cutoff = now().minusDays(30);
-        LambdaQueryWrapper<AdminSessionEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(AdminSessionEntity::getStatus, "revoked")
-                .lt(AdminSessionEntity::getCreatedAt, cutoff);
+        LambdaQueryWrapper<AdminSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(AdminSession::getStatus, SessionStatus.REVOKED)
+                .lt(AdminSession::getCreatedAt, cutoff);
         adminSessionMapper.delete(qw);
     }
 
     /** RM-043：login_history 1 年清（idx_login_created） */
     public void cleanLoginHistory() {
         LocalDateTime cutoff = now().minusYears(1);
-        LambdaQueryWrapper<LoginHistoryEntity> qw = new LambdaQueryWrapper<>();
-        qw.lt(LoginHistoryEntity::getCreatedAt, cutoff);
+        LambdaQueryWrapper<LoginHistory> qw = new LambdaQueryWrapper<>();
+        qw.lt(LoginHistory::getCreatedAt, cutoff);
         loginHistoryMapper.delete(qw);
     }
 
@@ -112,12 +115,12 @@ public class RetentionScheduler {
     public void anonymizeExpiredDeletedUsers() {
         LocalDateTime cutoff = now().minusDays(30);
         // RM-005：idx_user_status_deleted_at
-        LambdaQueryWrapper<UserEntity> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserEntity::getStatus, "deleted")
-                .lt(UserEntity::getDeletedAt, cutoff)
+        LambdaQueryWrapper<User> qw = new LambdaQueryWrapper<>();
+        qw.eq(User::getStatus, UserStatus.DELETED)
+                .lt(User::getDeletedAt, cutoff)
                 .last("LIMIT " + BATCH);
-        List<UserEntity> targets = userMapper.selectList(qw);
-        for (UserEntity user : targets) {
+        List<User> targets = userMapper.selectList(qw);
+        for (User user : targets) {
             anonymizeUser(user.getId());
         }
         if (!targets.isEmpty()) {
@@ -129,28 +132,28 @@ public class RetentionScheduler {
     @Transactional
     public void anonymizeUser(Long userId) {
         LocalDateTime now = now();
-        LambdaUpdateWrapper<UserEntity> uw = new LambdaUpdateWrapper<>();
-        uw.eq(UserEntity::getId, userId)
-                .eq(UserEntity::getStatus, "deleted")
-                .set(UserEntity::getEmail, null)
-                .set(UserEntity::getName, null)
-                .set(UserEntity::getPhone, null)
-                .set(UserEntity::getAvatar, null)
-                .set(UserEntity::getStatus, "anonymized")
-                .set(UserEntity::getAnonymized, true)
-                .set(UserEntity::getAnonymizedAt, now);
+        LambdaUpdateWrapper<User> uw = new LambdaUpdateWrapper<>();
+        uw.eq(User::getId, userId)
+                .eq(User::getStatus, UserStatus.DELETED)
+                .set(User::getEmail, null)
+                .set(User::getName, null)
+                .set(User::getPhone, null)
+                .set(User::getAvatar, null)
+                .set(User::getStatus, UserStatus.ANONYMIZED)
+                .set(User::getAnonymized, true)
+                .set(User::getAnonymizedAt, now);
         userMapper.update(null, uw);
 
         // RI-004 级联匿名化凭证 PII（provider_uid→anon:{identityId} 保唯一约束）
-        LambdaQueryWrapper<UserIdentityEntity> q = new LambdaQueryWrapper<>();
-        q.eq(UserIdentityEntity::getUserId, userId);
-        for (UserIdentityEntity identity : identityMapper.selectList(q)) {
-            LambdaUpdateWrapper<UserIdentityEntity> iu = new LambdaUpdateWrapper<>();
-            iu.eq(UserIdentityEntity::getId, identity.getId())
-                    .set(UserIdentityEntity::getProviderUid, "anon:" + identity.getId())
-                    .set(UserIdentityEntity::getIdentifier, null)
-                    .set(UserIdentityEntity::getRelayEmail, null)
-                    .set(UserIdentityEntity::getConnected, false);
+        LambdaQueryWrapper<UserIdentity> q = new LambdaQueryWrapper<>();
+        q.eq(UserIdentity::getUserId, userId);
+        for (UserIdentity identity : identityMapper.selectList(q)) {
+            LambdaUpdateWrapper<UserIdentity> iu = new LambdaUpdateWrapper<>();
+            iu.eq(UserIdentity::getId, identity.getId())
+                    .set(UserIdentity::getProviderUid, "anon:" + identity.getId())
+                    .set(UserIdentity::getIdentifier, null)
+                    .set(UserIdentity::getRelayEmail, null)
+                    .set(UserIdentity::getConnected, false);
             identityMapper.update(null, iu);
         }
     }

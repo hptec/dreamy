@@ -1,10 +1,11 @@
 package com.dreamy.identity.common.domain.service;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
 import com.dreamy.identity.domain.audit.repository.OperationLogMapper;
 import com.dreamy.identity.domain.user.repository.UserIdentityMapper;
 import com.dreamy.identity.domain.user.repository.UserMapper;
@@ -47,43 +48,43 @@ class MergeServiceTest {
     @Test
     @DisplayName("TC-UNIT-010: provider_uid 命中 → 幂等返回既有 User（DR-02）")
     void resolveOrMerge_existingProviderUid_idempotent() {
-        UserIdentityEntity existing = identity(1L);
-        UserEntity user = activeUser(1L);
+        UserIdentity existing = identity(1L);
+        User user = activeUser(1L);
         when(identityMapper.selectOne(any())).thenReturn(existing);
         when(userMapper.selectById(1L)).thenReturn(user);
 
-        var outcome = mergeService.resolveOrMerge("google", "sub-123", "a@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-123", "a@b.com", true, false, null);
 
         assertThat(outcome.user().getId()).isEqualTo(1L);
         assertThat(outcome.newAccount()).isFalse();
-        verify(userMapper, never()).insert(any(UserEntity.class));
+        verify(userMapper, never()).insert(any(User.class));
     }
 
     @Test
     @DisplayName("TC-UNIT-011: 同邮箱 email_verified=true → 自动归并 R1")
     void resolveOrMerge_sameEmailVerified_merges() {
         when(identityMapper.selectOne(any())).thenReturn(null);
-        UserEntity sameEmailUser = activeUser(2L);
+        User sameEmailUser = activeUser(2L);
         sameEmailUser.setEmailVerified(true);
         when(userMapper.selectOne(any())).thenReturn(sameEmailUser);
 
-        var outcome = mergeService.resolveOrMerge("google", "sub-new", "a@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-new", "a@b.com", true, false, null);
 
         assertThat(outcome.user().getId()).isEqualTo(2L);
         assertThat(outcome.newAccount()).isFalse();
-        verify(identityMapper).insert(any(UserIdentityEntity.class));
-        verify(operationLogMapper).insert(any(OperationLogEntity.class)); // TX-002 账户合并审计
+        verify(identityMapper).insert(any(UserIdentity.class));
+        verify(operationLogMapper).insert(any(OperationLog.class)); // TX-002 账户合并审计
     }
 
     @Test
     @DisplayName("TC-UNIT-012: 同邮箱 email_verified=false → 40902 EMAIL_CONFLICT_UNVERIFIED（EDGE-017）")
     void resolveOrMerge_sameEmailUnverified_throws40902() {
         when(identityMapper.selectOne(any())).thenReturn(null);
-        UserEntity unverified = activeUser(3L);
+        User unverified = activeUser(3L);
         unverified.setEmailVerified(false);
         when(userMapper.selectOne(any())).thenReturn(unverified);
 
-        assertThatThrownBy(() -> mergeService.resolveOrMerge("google", "sub-x", "a@b.com", true, false, null))
+        assertThatThrownBy(() -> mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-x", "a@b.com", true, false, null))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).getErrorCode())
                         .isEqualTo(ErrorCode.EMAIL_CONFLICT_UNVERIFIED));
@@ -95,27 +96,27 @@ class MergeServiceTest {
         when(identityMapper.selectOne(any())).thenReturn(null);
         when(userMapper.selectOne(any())).thenReturn(null);
 
-        var outcome = mergeService.resolveOrMerge("email", "new@b.com", "new@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.EMAIL, "new@b.com", "new@b.com", true, false, null);
 
         assertThat(outcome.newAccount()).isTrue();
-        verify(userMapper).insert(any(UserEntity.class));
-        verify(identityMapper).insert(any(UserIdentityEntity.class));
+        verify(userMapper).insert(any(User.class));
+        verify(identityMapper).insert(any(UserIdentity.class));
     }
 
-    private UserIdentityEntity identity(Long userId) {
-        var i = new UserIdentityEntity();
+    private UserIdentity identity(Long userId) {
+        var i = new UserIdentity();
         i.setId(1L);
         i.setUserId(userId);
-        i.setProvider("google");
+        i.setProvider(AuthProvider.GOOGLE);
         i.setProviderUid("sub-123");
         return i;
     }
 
-    private UserEntity activeUser(Long id) {
-        var u = new UserEntity();
+    private User activeUser(Long id) {
+        var u = new User();
         u.setId(id);
         u.setEmail("a@b.com");
-        u.setStatus("active");
+        u.setStatus(UserStatus.ACTIVE);
         u.setEmailVerified(true);
         return u;
     }

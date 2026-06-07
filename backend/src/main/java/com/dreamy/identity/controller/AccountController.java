@@ -1,5 +1,6 @@
 package com.dreamy.identity.controller;
 
+import com.dreamy.identity.domain.enums.AuthProvider;
 import com.dreamy.identity.domain.user.model.LoginContext;
 import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
 import com.dreamy.identity.domain.user.service.IdentityService;
@@ -118,7 +119,7 @@ public class AccountController {
         return Long.parseLong(principal().subject());
     }
 
-    public record BindRequest(String provider, String idToken, String email, String code) {}
+    public record BindRequest(AuthProvider provider, String idToken, String email, String code) {}
     public record ChangePrimaryRequest(@NotBlank String newEmail, @NotBlank String code) {}
     public record DeleteAccountRequest(@NotNull Boolean confirm) {}
 }

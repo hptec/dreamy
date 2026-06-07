@@ -1,18 +1,18 @@
 package com.dreamy.identity.dto;
 
+import com.dreamy.identity.domain.enums.AuthProvider;
+import com.dreamy.identity.domain.enums.LoginOutcome;
+
 import java.time.LocalDateTime;
 
-/**
- * 登录记录出参（MAP-007）。用户详情页登录历史展示，按需脱敏。
- */
 public record LoginHistoryDTO(
         Long id,
         String email,
-        String method,
+        AuthProvider method,
         String ip,
         String device,
         String location,
-        String result,
+        LoginOutcome result,
         Boolean isNewDevice,
         LocalDateTime createdAt
 ) {

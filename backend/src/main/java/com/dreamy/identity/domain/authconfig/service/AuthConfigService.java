@@ -8,7 +8,7 @@ import com.dreamy.identity.dto.AuthConfigView;
 import com.dreamy.identity.dto.mapper.IdentityDtoMapper;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
 import com.dreamy.identity.domain.authconfig.repository.AuthConfigMapper;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +33,8 @@ public class AuthConfigService {
     /** RM-110 读单例（两级缓存 store:authconfig，资料/配置类 600s）。内部用，返回 Entity。 */
     @Cached(name = "store:authconfig", key = "'singleton'", cacheType = CacheType.BOTH,
             expire = 600, localExpire = 600)
-    public AuthConfigEntity getConfig() {
-        AuthConfigEntity cfg = authConfigMapper.selectById(SINGLETON_ID);
+    public AuthConfig getConfig() {
+        AuthConfig cfg = authConfigMapper.selectById(SINGLETON_ID);
         if (cfg == null) {
             throw new BizException(ErrorCode.INTERNAL_ERROR);
         }
@@ -52,7 +52,7 @@ public class AuthConfigService {
      */
     @CacheInvalidate(name = "store:authconfig", key = "'singleton'")
     public AuthConfigView updateConfig(AuthConfigUpdateRequest request) {
-        AuthConfigEntity update = new AuthConfigEntity();
+        AuthConfig update = new AuthConfig();
         update.setGoogleEnabled(request.googleEnabled());
         update.setAppleEnabled(request.appleEnabled());
         update.setOtpLength(request.otpLength());
@@ -70,7 +70,7 @@ public class AuthConfigService {
     }
 
     /** CV-002：otp_length∈{4,6,8}；ttl 1..30；resend 10..120；max_attempts 3..10；min_methods 1..3 */
-    public void validateRange(AuthConfigEntity c) {
+    public void validateRange(AuthConfig c) {
         boolean ok = c.getOtpLength() != null && (c.getOtpLength() == 4 || c.getOtpLength() == 6 || c.getOtpLength() == 8)
                 && inRange(c.getOtpTtlMinutes(), 1, 30)
                 && inRange(c.getOtpResendSeconds(), 10, 120)

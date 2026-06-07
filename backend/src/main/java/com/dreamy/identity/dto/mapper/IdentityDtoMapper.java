@@ -7,13 +7,13 @@ import com.dreamy.identity.dto.OperationLogDTO;
 import com.dreamy.identity.dto.PermissionDTO;
 import com.dreamy.identity.dto.SessionDTO;
 import com.dreamy.identity.dto.UserProfileDTO;
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
-import com.dreamy.identity.domain.authconfig.entity.AuthConfigEntity;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
-import com.dreamy.identity.domain.role.entity.PermissionEntity;
-import com.dreamy.identity.domain.user.entity.UserEntity;
-import com.dreamy.identity.domain.user.entity.UserIdentityEntity;
-import com.dreamy.identity.domain.session.entity.UserSessionEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
+import com.dreamy.identity.domain.authconfig.entity.AuthConfig;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
+import com.dreamy.identity.domain.role.entity.Permission;
+import com.dreamy.identity.domain.user.entity.User;
+import com.dreamy.identity.domain.user.entity.UserIdentity;
+import com.dreamy.identity.domain.session.entity.UserSession;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -28,30 +28,31 @@ import org.mapstruct.ReportingPolicy;
 public interface IdentityDtoMapper {
 
     // MAP-001 User→UserProfileDTO（匿名化态 email 已在库为 null，自然映射 null）
-    UserProfileDTO toProfile(UserEntity entity);
+    UserProfileDTO toProfile(User entity);
 
     // MAP-002 UserIdentity→IdentityDTO（隐藏 provider_uid，不在目标字段即不暴露）
-    IdentityDTO toIdentity(UserIdentityEntity entity);
+    @Mapping(target = "provider", expression = "java(entity.getProvider().name().toLowerCase())")
+    IdentityDTO toIdentity(UserIdentity entity);
 
     // MAP-003 UserSession→SessionDTO（is_current 由 @Mapping 忽略，Service 层据 jti 补）
     @Mapping(target = "isCurrent", ignore = true)
-    SessionDTO toSession(UserSessionEntity entity);
+    SessionDTO toSession(UserSession entity);
 
     // MAP-004 AdminUser→AdminDTO（隐藏 password_hash；role_name 由 @Mapping 忽略，Service 补）
     @Mapping(target = "roleName", ignore = true)
-    AdminDTO toAdmin(AdminUserEntity entity);
+    AdminDTO toAdmin(AdminUser entity);
 
     // MAP-006 OperationLog→LogDTO（changes JSON 原样，operator_name 快照）
-    OperationLogDTO toOperationLog(OperationLogEntity entity);
+    OperationLogDTO toOperationLog(OperationLog entity);
 
     // 权限字典
     @Mapping(source = "permCode", target = "key")
-    PermissionDTO toPermission(PermissionEntity entity);
+    PermissionDTO toPermission(Permission entity);
 
     // MAP-009 AuthConfig→AuthConfigView（隐藏单例 id/updatedAt 等内部字段）
-    AuthConfigView toAuthConfig(AuthConfigEntity entity);
+    AuthConfigView toAuthConfig(AuthConfig entity);
 
     // MAP-007 LoginHistory→LoginHistoryDTO（用户详情登录记录）
     com.dreamy.identity.dto.LoginHistoryDTO toLoginHistory(
-            com.dreamy.identity.domain.audit.entity.LoginHistoryEntity entity);
+            com.dreamy.identity.domain.audit.entity.LoginHistory entity);
 }

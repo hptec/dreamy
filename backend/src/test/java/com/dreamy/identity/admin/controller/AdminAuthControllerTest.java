@@ -1,4 +1,5 @@
 package com.dreamy.identity.admin.controller;
+import com.dreamy.identity.domain.enums.*;
 
 import com.dreamy.identity.aspect.AuditAspect;
 import com.dreamy.identity.aspect.AuditLog;
@@ -17,8 +18,8 @@ import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.error.GlobalExceptionHandler;
 import com.dreamy.identity.i18n.MessageResolver;
-import com.dreamy.identity.domain.admin.entity.AdminUserEntity;
-import com.dreamy.identity.domain.role.entity.RoleEntity;
+import com.dreamy.identity.domain.admin.entity.AdminUser;
+import com.dreamy.identity.domain.role.entity.Role;
 import com.dreamy.identity.security.AuthContext;
 import com.dreamy.identity.security.AuthPrincipal;
 import com.dreamy.identity.security.JwtProperties;
@@ -139,8 +140,8 @@ class AdminAuthControllerTest {
     @DisplayName("TC-WEB-ADMIN-001 [P0]: POST /api/admin/auth/login 无 token → 200（FUNC-014）")
     void adminLogin_validCredentials_returns200() throws Exception {
         // ARRANGE
-        AdminUserEntity admin = adminUser(1L, "admin@dreamy.com", "active");
-        RoleEntity role = customRole(1L, "运营");
+        AdminUser admin = adminUser(1L, "admin@dreamy.com", AdminStatus.ACTIVE);
+        Role role = customRole(1L, "运营");
         AdminService.LoginOutcome outcome = new AdminService.LoginOutcome(
                 admin, role, List.of("/system/admins"), "mock-token");
         when(adminService.login(eq("admin@dreamy.com"), eq("pass123"), any(), any()))
@@ -194,7 +195,7 @@ class AdminAuthControllerTest {
         JwtTokenProvider.AdminToken token = jwtTokenProvider.issueAdminToken("1", "1");
         when(adminService.meData(eq(1L), any())).thenReturn(
                 new AdminService.MeData(
-                        new AdminDTO(1L, "Admin", "admin@dreamy.com", 1L, "运营", "active", null),
+                        new AdminDTO(1L, "Admin", "admin@dreamy.com", 1L, "运营", AdminStatus.ACTIVE, null),
                         "运营", false, List.of("/system/admins")));
 
         // ACT + ASSERT: L1 200, L2 admin 存在, L3 role_name/is_super/permission_keys, L4 is_super=false
@@ -234,8 +235,8 @@ class AdminAuthControllerTest {
     void createAdmin_withoutPermission_returns403() throws Exception {
         // ARRANGE: 低权 admin，实时查 DB 权限仅含 /customers（不含 /system/admins）
         JwtTokenProvider.AdminToken token = jwtTokenProvider.issueAdminToken("2", "2");
-        AdminUserEntity admin = adminUser(2L, "low@dreamy.com", "active");
-        RoleEntity role = customRole(2L, "客服");
+        AdminUser admin = adminUser(2L, "low@dreamy.com", AdminStatus.ACTIVE);
+        Role role = customRole(2L, "客服");
         when(adminUserMapper.selectById(2L)).thenReturn(admin);
         when(roleMapper.selectById(1L)).thenReturn(role);
         when(roleService.effectivePermissionKeys(role)).thenReturn(List.of("/customers"));
@@ -256,13 +257,13 @@ class AdminAuthControllerTest {
     void createAdmin_withPermission_returns201() throws Exception {
         // ARRANGE: admin 实时查 DB 权限含 /system/admins
         JwtTokenProvider.AdminToken token = jwtTokenProvider.issueAdminToken("3", "3");
-        AdminUserEntity admin = adminUser(3L, "ops@dreamy.com", "active");
-        RoleEntity role = customRole(3L, "运营");
+        AdminUser admin = adminUser(3L, "ops@dreamy.com", AdminStatus.ACTIVE);
+        Role role = customRole(3L, "运营");
         when(adminUserMapper.selectById(3L)).thenReturn(admin);
         when(roleMapper.selectById(1L)).thenReturn(role);
         when(roleService.effectivePermissionKeys(role)).thenReturn(List.of("/system/admins"));
         when(adminService.createAdminDTO(any(), any(), any(), any()))
-                .thenReturn(new AdminDTO(10L, "X", "x@dreamy.com", 1L, "运营", "active", null));
+                .thenReturn(new AdminDTO(10L, "X", "x@dreamy.com", 1L, "运营", AdminStatus.ACTIVE, null));
 
         // ACT + ASSERT: 权限校验通过 → 业务执行 → 201（R 包络 data）
         mockMvc.perform(post("/api/admin/admins")
@@ -327,8 +328,8 @@ class AdminAuthControllerTest {
 
     // ===== helpers =====
 
-    private AdminUserEntity adminUser(Long id, String email, String status) {
-        AdminUserEntity a = new AdminUserEntity();
+    private AdminUser adminUser(Long id, String email, AdminStatus status) {
+        AdminUser a = new AdminUser();
         a.setId(id);
         a.setName("Admin");
         a.setEmail(email);
@@ -337,11 +338,11 @@ class AdminAuthControllerTest {
         return a;
     }
 
-    private RoleEntity customRole(Long id, String name) {
-        RoleEntity r = new RoleEntity();
+    private Role customRole(Long id, String name) {
+        Role r = new Role();
         r.setId(id);
         r.setName(name);
-        r.setType("custom");
+        r.setType(RoleType.CUSTOM);
         r.setIsLocked(false);
         return r;
     }

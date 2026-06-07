@@ -2,7 +2,7 @@ package com.dreamy.identity.common.domain.service;
 
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
-import com.dreamy.identity.domain.audit.entity.OperationLogEntity;
+import com.dreamy.identity.domain.audit.entity.OperationLog;
 import com.dreamy.identity.domain.audit.repository.OperationLogMapper;
 import com.dreamy.identity.domain.audit.service.AuditService;
 import org.junit.jupiter.api.DisplayName;
@@ -67,9 +67,9 @@ class AuditServiceTest {
         LocalDateTime from = to.minusDays(30);
 
         // 单页（3 条 < 1000 每页上限）→ 轮询一次即结束
-        List<OperationLogEntity> page = new ArrayList<>();
+        List<OperationLog> page = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            OperationLogEntity row = new OperationLogEntity();
+            OperationLog row = new OperationLog();
             row.setId((long) i);
             page.add(row);
         }
@@ -90,9 +90,9 @@ class AuditServiceTest {
         LocalDateTime from = to.minusDays(30);
 
         // 第一页满 1000 条（id 999..0 倒序）→ 触发翻页；第二页空 → 结束
-        List<OperationLogEntity> fullPage = new ArrayList<>(1000);
+        List<OperationLog> fullPage = new ArrayList<>(1000);
         for (int i = 999; i >= 0; i--) {
-            OperationLogEntity row = new OperationLogEntity();
+            OperationLog row = new OperationLog();
             row.setId((long) i);
             fullPage.add(row);
         }
