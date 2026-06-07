@@ -68,15 +68,3 @@ export interface Identity {
   lastLoginAt: string | null
 }
 
-/** 会话（SessionDTO / MAP-003） */
-export interface Session {
-  id: number
-  device: string | null
-  browser: string | null
-  ip: string | null
-  location: string | null
-  isNewDevice: boolean
-  isCurrent: boolean
-  lastActiveAt: string | null
-  createdAt: string
-}

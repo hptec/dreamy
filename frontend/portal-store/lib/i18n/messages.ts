@@ -81,13 +81,6 @@ export interface UiMessages {
     primaryCannotRemove: string
     keepOneMethod: string
     keepAtLeastOne: string
-    devicesTitle: string
-    devicesSubtitle: string
-    thisDevice: string
-    via: string
-    signOutDevice: string
-    signOutOthers: string
-    signOutOthersConfirm: string
     changePrimaryTitle: string
     changePrimaryCta: string
     pickExistingHint: string
@@ -182,13 +175,6 @@ const en: UiMessages = {
     keepOneMethod: 'Keep at least one login method',
     keepAtLeastOne:
       'Keep at least one login method connected. Your primary email stays verified and cannot be removed.',
-    devicesTitle: 'Devices & sessions',
-    devicesSubtitle: "Where you're currently signed in.",
-    thisDevice: 'This device',
-    via: 'via',
-    signOutDevice: 'Sign out',
-    signOutOthers: 'Sign out other devices',
-    signOutOthersConfirm: 'Sign out of all other devices? They will need to sign in again.',
     changePrimaryTitle: 'Change primary email',
     changePrimaryCta: 'Change primary email',
     pickExistingHint: 'Select a verified email to set as primary, or enter a new one.',
@@ -285,13 +271,6 @@ const es: UiMessages = {
     keepOneMethod: 'Mantenga al menos un metodo de inicio de sesion',
     keepAtLeastOne:
       'Mantenga al menos un metodo conectado. Su correo principal permanece verificado y no se puede eliminar.',
-    devicesTitle: 'Dispositivos y sesiones',
-    devicesSubtitle: 'Donde tiene la sesion iniciada actualmente.',
-    thisDevice: 'Este dispositivo',
-    via: 'via',
-    signOutDevice: 'Cerrar sesion',
-    signOutOthers: 'Cerrar otros dispositivos',
-    signOutOthersConfirm: 'Cerrar sesion en todos los demas dispositivos? Tendran que iniciar sesion de nuevo.',
     changePrimaryTitle: 'Cambiar correo principal',
     changePrimaryCta: 'Cambiar correo principal',
     pickExistingHint: 'Seleccione un correo verificado como principal, o ingrese uno nuevo.',
@@ -388,13 +367,6 @@ const fr: UiMessages = {
     keepOneMethod: 'Conservez au moins une methode de connexion',
     keepAtLeastOne:
       'Conservez au moins une methode connectee. Votre e-mail principal reste verifie et ne peut pas etre supprime.',
-    devicesTitle: 'Appareils et sessions',
-    devicesSubtitle: 'Ou vous etes actuellement connecte.',
-    thisDevice: 'Cet appareil',
-    via: 'via',
-    signOutDevice: 'Deconnecter',
-    signOutOthers: 'Deconnecter les autres appareils',
-    signOutOthersConfirm: 'Se deconnecter de tous les autres appareils ? Ils devront se reconnecter.',
     changePrimaryTitle: 'Changer l e-mail principal',
     changePrimaryCta: 'Changer l e-mail principal',
     pickExistingHint: 'Selectionnez un e-mail verifie comme principal, ou entrez-en un nouveau.',

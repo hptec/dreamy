@@ -1,12 +1,8 @@
 package com.dreamy.identity.controller;
 
 import com.dreamy.identity.domain.enums.AuthProvider;
-import com.dreamy.identity.domain.user.model.LoginContext;
-import com.dreamy.identity.domain.authconfig.service.AuthConfigService;
 import com.dreamy.identity.domain.user.service.IdentityService;
-import com.dreamy.identity.domain.session.service.SessionService;
 import com.dreamy.identity.dto.IdentityDTO;
-import com.dreamy.identity.dto.SessionDTO;
 import com.dreamy.identity.error.BizException;
 import com.dreamy.identity.error.ErrorCode;
 import com.dreamy.identity.security.AuthContext;
@@ -29,11 +25,9 @@ import java.util.List;
 public class AccountController {
 
     private final IdentityService identityService;
-    private final SessionService sessionService;
 
-    public AccountController(IdentityService identityService, SessionService sessionService) {
+    public AccountController(IdentityService identityService) {
         this.identityService = identityService;
-        this.sessionService = sessionService;
     }
 
     /** 2.1 getProfile（FUNC-007） */
@@ -71,29 +65,6 @@ public class AccountController {
         List<IdentityDTO> items = identityService.changePrimaryEmailViews(
                 userId(), req.newEmail(), req.code());
         return ResponseEntity.ok(R.ok(items));
-    }
-
-    /** 2.6 listSessions（FUNC-011/013） */
-    @GetMapping("/sessions")
-    public ResponseEntity<R<List<SessionDTO>>> listSessions() {
-        AuthPrincipal p = principal();
-        List<SessionDTO> items = sessionService.listActiveViews(Long.parseLong(p.subject()), p.tokenId());
-        return ResponseEntity.ok(R.ok(items));
-    }
-
-    /** 2.7 revokeSession（FLOW-07 FUNC-012）：归属校验下沉 Service（EDGE-009） */
-    @DeleteMapping("/sessions/{sessionId}")
-    public ResponseEntity<R<Void>> revokeSession(@PathVariable Long sessionId) {
-        sessionService.revoke(userId(), sessionId);
-        return ResponseEntity.ok(R.ok());
-    }
-
-    /** 2.8 revokeOtherSessions（FLOW-07 FUNC-012） */
-    @DeleteMapping("/sessions/others")
-    public ResponseEntity<R<Void>> revokeOtherSessions() {
-        AuthPrincipal p = principal();
-        sessionService.revokeAllExcept(Long.parseLong(p.subject()), p.tokenId());
-        return ResponseEntity.ok(R.ok());
     }
 
     /** 2.9 deleteAccount（FLOW-08 FUNC-027） */

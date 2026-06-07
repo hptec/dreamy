@@ -9,7 +9,6 @@ import type {
   Identity,
   LoginResponse,
   SendOtpResult,
-  Session,
   StoreAuthConfig,
   UserProfile
 } from './types'
@@ -93,27 +92,6 @@ export function changePrimaryEmail(newEmail: string, code: string): Promise<Iden
     auth: true,
     body: { newEmail, code }
   })
-}
-
-/** listSessions — GET /api/store/account/sessions（FUNC-011/013） */
-export function listSessions(): Promise<Session[]> {
-  return request<Session[]>('/api/store/account/sessions', {
-    method: 'GET',
-    auth: true
-  })
-}
-
-/** revokeSession — DELETE /api/store/account/sessions/{sessionId}（FLOW-07 FUNC-012） */
-export function revokeSession(sessionId: number): Promise<void> {
-  return request<void>(`/api/store/account/sessions/${sessionId}`, {
-    method: 'DELETE',
-    auth: true
-  })
-}
-
-/** revokeOtherSessions — DELETE /api/store/account/sessions/others（FLOW-07 FUNC-012） */
-export function revokeOtherSessions(): Promise<void> {
-  return request<void>('/api/store/account/sessions/others', { method: 'DELETE', auth: true })
 }
 
 /** deleteAccount — POST /api/store/account/delete（FLOW-08 FUNC-027） */
