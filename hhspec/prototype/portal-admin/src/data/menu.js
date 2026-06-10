@@ -26,7 +26,7 @@ export const menuGroups = [
     icon: ShoppingBagIcon,
     items: [
       { title: '商品列表', to: '/products' },
-      { title: '品类与主题', to: '/categories' }
+      { title: '分类管理', to: '/categories' }
     ]
   },
   {

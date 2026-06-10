@@ -38,8 +38,9 @@ admin_pages:
   - { name: 后台登录, file: portal-admin/src/views/Login.vue, route: /login, type: form, features: [鉴权,登录守卫,登出,会话持久化], drift: prototype_ahead }
   - { name: 工作台, file: portal-admin/src/views/Dashboard.vue, route: /, type: dashboard, features: [A-001,A-002,A-003], drift: prototype_ahead }
   - { name: 商品列表, file: portal-admin/src/views/Products.vue, route: /products, type: list, features: [A-004], drift: prototype_ahead }
-  - { name: 商品编辑, file: portal-admin/src/views/ProductEdit.vue, route: /products/:id/edit, type: form, features: [A-005,A-006,A-007,A-008,A-009,A-010], drift: prototype_ahead }
-  - { name: 品类与主题, file: portal-admin/src/views/Categories.vue, route: /categories, type: list, features: [A-011,A-012], drift: prototype_ahead }
+  - { name: 商品编辑, file: portal-admin/src/views/ProductEdit.vue, route: /products/:id/edit, type: form, features: [A-005,A-005b,A-006,A-007,A-008,A-009,A-009b,A-010], drift: prototype_ahead, last_updated: '2026-06-08', layout: anchor-scroll, note: '迭代:由向导步骤式改为左侧sticky锚点目录+右侧区块拉通(scroll-spy高亮),移除上一步/下一步' }
+  - { name: 品类与标签, file: portal-admin/src/views/Categories.vue, route: /categories, type: list, features: [A-011,A-012], drift: prototype_ahead, last_updated: '2026-06-08', note: '迭代:Shopify三层分类模型(标准品类树/品类属性/自定义标签)。标准品类Tab改横向滚动卡片应对多品类;自定义标签按维度(主题/系列/季节)分组' }
+  - { name: 属性集定义, file: portal-admin/src/views/AttributeSets.vue, route: /attributes, type: management, features: [A-011,A-012], drift: prototype_ahead, last_updated: '2026-06-08', note: '迭代:品类×属性矩阵列改为按属性集聚合(列数=属性集数,与品类数无关),列头显示属性集名+覆盖品类;属性字典Tab维护全局选项字典' }
   - { name: 订单列表, file: portal-admin/src/views/Orders.vue, route: /orders, type: list, features: [A-013,A-019], drift: prototype_ahead }
   - { name: 订单详情, file: portal-admin/src/views/OrderDetail.vue, route: /orders/:id, type: detail, features: [A-014,A-015,A-016,A-017,A-018], drift: prototype_ahead }
   - { name: 退款工单, file: portal-admin/src/views/Refunds.vue, route: /refunds, type: list, features: [A-039], drift: prototype_ahead }

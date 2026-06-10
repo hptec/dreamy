@@ -10,7 +10,8 @@ const routes = [
   { path: '/products', name: 'products', component: () => import('@/views/Products.vue'), meta: { title: '商品列表', group: '商品管理' } },
   { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true, permKey: '/products' } },
   { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true, permKey: '/products' } },
-  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与主题', group: '商品管理' } },
+  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '分类管理', group: '商品管理' } },
+  { path: '/attributes', redirect: '/categories' },
 
   // OMS 订单
   { path: '/orders', name: 'orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单列表', group: '订单管理' } },

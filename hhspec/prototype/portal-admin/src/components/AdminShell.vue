@@ -53,7 +53,7 @@ function groupActive(group) {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-canvas">
+  <div class="flex h-screen overflow-hidden bg-canvas">
     <!-- 侧边栏 -->
     <aside
       class="sticky top-0 flex h-screen flex-col bg-sidebar text-canvas/80 transition-all duration-300"
@@ -193,7 +193,7 @@ function groupActive(group) {
       </header>
 
       <!-- 内容 -->
-      <main class="flex-1 overflow-x-hidden p-6">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-6">
         <slot />
       </main>
     </div>

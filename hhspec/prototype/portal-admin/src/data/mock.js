@@ -78,26 +78,139 @@ const colorset = (names) => names.map((n) => ({
 }))
 
 export const products = [
-  { id: 'p-aurelia', slug: 'aurelia-aline-tulle', name: 'Aurelia A-Line Tulle Gown', img: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, category: 'Wedding Dresses', sub: 'A-Line', price: 1280, compareAt: 1480, stock: 24, sales: 132, status: 'published', isNew: true, isBest: true, recommend: true, sort: 100 },
-  { id: 'p-celeste', slug: 'celeste-lace-gown', name: 'Celeste Lace Gown', img: `${REF}/kissprom/wedding-aline-lace-02.jpg`, category: 'Wedding Dresses', sub: 'Sheath', price: 1560, compareAt: null, stock: 8, sales: 98, status: 'published', isNew: false, isBest: true, recommend: true, sort: 95 },
-  { id: 'p-willow', slug: 'willow-longsleeve', name: 'Willow Long-Sleeve Gown', img: `${REF}/kissprom/wedding-aline-longsleeve-06.jpg`, category: 'Wedding Dresses', sub: 'A-Line', price: 1420, compareAt: 1620, stock: 16, sales: 76, status: 'published', isNew: true, isBest: false, recommend: false, sort: 80 },
-  { id: 'p-marina', slug: 'marina-mermaid-chiffon', name: 'Marina Mermaid Chiffon', img: `${REF}/kissprom/wedding-mermaid-chiffon-03.jpg`, category: 'Wedding Dresses', sub: 'Mermaid', price: 1680, compareAt: null, stock: 3, sales: 54, status: 'published', isNew: false, isBest: false, recommend: false, sort: 70 },
-  { id: 'p-meadow', slug: 'meadow-bridesmaid', name: 'Meadow Bridesmaid Dress', img: `${REF}/birdygrey/bridesmaid-pink-bella-01.jpg`, category: 'Special Occasion', sub: 'Bridesmaid', price: 178, compareAt: 210, stock: 120, sales: 410, status: 'published', isNew: false, isBest: true, recommend: true, sort: 90 },
-  { id: 'p-petal', slug: 'petal-bridesmaid', name: 'Petal Bridesmaid Dress', img: `${REF}/birdygrey/bridesmaid-pink-bryten-02.jpg`, category: 'Special Occasion', sub: 'Bridesmaid', price: 168, compareAt: null, stock: 86, sales: 280, status: 'published', isNew: true, isBest: false, recommend: false, sort: 75 },
-  { id: 'p-luna', slug: 'luna-prom-champagne', name: 'Luna Prom Champagne', img: `${REF}/kissprom/prom-champagne-lace-05.jpg`, category: 'Special Occasion', sub: 'Prom', price: 248, compareAt: 298, stock: 42, sales: 156, status: 'published', isNew: false, isBest: false, recommend: true, sort: 60 },
-  { id: 'p-beach', slug: 'beach-short-dress', name: 'Coraline Beach Short Dress', img: `${REF}/kissprom/wedding-beach-short-05.jpg`, category: 'Wedding Dresses', sub: 'Short', price: 680, compareAt: null, stock: 0, sales: 64, status: 'draft', isNew: false, isBest: false, recommend: false, sort: 40 },
-  { id: 'a-cathedral-veil', slug: 'cathedral-veil', name: 'Cathedral Length Veil', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, category: 'Accessories', sub: 'Veils', price: 128, compareAt: null, stock: 200, sales: 320, status: 'published', isNew: false, isBest: true, recommend: false, sort: 85 },
-  { id: 'a-drop-earrings', slug: 'crystal-drop-earrings', name: 'Crystal Drop Earrings', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, category: 'Accessories', sub: 'Jewelry', price: 64, compareAt: 84, stock: 340, sales: 480, status: 'published', isNew: true, isBest: false, recommend: true, sort: 65 },
-  { id: 'a-hair-vine', slug: 'pearl-hair-vine', name: 'Pearl Hair Vine', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, category: 'Accessories', sub: 'Headpieces', price: 88, compareAt: null, stock: 6, sales: 142, status: 'published', isNew: false, isBest: false, recommend: false, sort: 50 },
-  { id: 'a-block-heels', slug: 'satin-block-heels', name: 'Satin Block Heels', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, category: 'Accessories', sub: 'Shoes', price: 148, compareAt: null, stock: 58, sales: 96, status: 'draft', isNew: false, isBest: false, recommend: false, sort: 30 }
+  { id: 'p-aurelia', slug: 'aurelia-aline-tulle', name: 'Aurelia A-Line Tulle Gown', img: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, categoryId: 'cat-wd-aline', productType: 'Bridal Gown', tags: ['tag-garden', 'tag-outdoor-edit-2026'], price: 1280, compareAt: 1480, stock: 24, sales: 132, status: 'published', isNew: true, isBest: true, recommend: true, sort: 100 },
+  { id: 'p-celeste', slug: 'celeste-lace-gown', name: 'Celeste Lace Gown', img: `${REF}/kissprom/wedding-aline-lace-02.jpg`, categoryId: 'cat-wd-sheath', productType: 'Bridal Gown', tags: ['tag-vineyard'], price: 1560, compareAt: null, stock: 8, sales: 98, status: 'published', isNew: false, isBest: true, recommend: true, sort: 95 },
+  { id: 'p-willow', slug: 'willow-longsleeve', name: 'Willow Long-Sleeve Gown', img: `${REF}/kissprom/wedding-aline-longsleeve-06.jpg`, categoryId: 'cat-wd-aline', productType: 'Bridal Gown', tags: ['tag-forest'], price: 1420, compareAt: 1620, stock: 16, sales: 76, status: 'published', isNew: true, isBest: false, recommend: false, sort: 80 },
+  { id: 'p-marina', slug: 'marina-mermaid-chiffon', name: 'Marina Mermaid Chiffon', img: `${REF}/kissprom/wedding-mermaid-chiffon-03.jpg`, categoryId: 'cat-wd-mermaid', productType: 'Bridal Gown', tags: ['tag-beach'], price: 1680, compareAt: null, stock: 3, sales: 54, status: 'published', isNew: false, isBest: false, recommend: false, sort: 70 },
+  { id: 'p-meadow', slug: 'meadow-bridesmaid', name: 'Meadow Bridesmaid Dress', img: `${REF}/birdygrey/bridesmaid-pink-bella-01.jpg`, categoryId: 'cat-so-bridesmaid', productType: 'Party Dress', tags: ['tag-garden', 'tag-outdoor-edit-2026'], price: 178, compareAt: 210, stock: 120, sales: 410, status: 'published', isNew: false, isBest: true, recommend: true, sort: 90 },
+  { id: 'p-petal', slug: 'petal-bridesmaid', name: 'Petal Bridesmaid Dress', img: `${REF}/birdygrey/bridesmaid-pink-bryten-02.jpg`, categoryId: 'cat-so-bridesmaid', productType: 'Party Dress', tags: ['tag-boho'], price: 168, compareAt: null, stock: 86, sales: 280, status: 'published', isNew: true, isBest: false, recommend: false, sort: 75 },
+  { id: 'p-luna', slug: 'luna-prom-champagne', name: 'Luna Prom Champagne', img: `${REF}/kissprom/prom-champagne-lace-05.jpg`, categoryId: 'cat-so-prom', productType: 'Prom Dress', tags: ['tag-golden-hour'], price: 248, compareAt: 298, stock: 42, sales: 156, status: 'published', isNew: false, isBest: false, recommend: true, sort: 60 },
+  { id: 'p-beach', slug: 'beach-short-dress', name: 'Coraline Beach Short Dress', img: `${REF}/kissprom/wedding-beach-short-05.jpg`, categoryId: 'cat-wd-short', productType: 'Beach Wedding Dress', tags: ['tag-beach'], price: 680, compareAt: null, stock: 0, sales: 64, status: 'draft', isNew: false, isBest: false, recommend: false, sort: 40 },
+  { id: 'a-cathedral-veil', slug: 'cathedral-veil', name: 'Cathedral Length Veil', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, categoryId: 'cat-acc-veils', productType: 'Bridal Veil', tags: [], price: 128, compareAt: null, stock: 200, sales: 320, status: 'published', isNew: false, isBest: true, recommend: false, sort: 85 },
+  { id: 'a-drop-earrings', slug: 'crystal-drop-earrings', name: 'Crystal Drop Earrings', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, categoryId: 'cat-acc-jewelry', productType: 'Bridal Jewelry', tags: ['tag-golden-hour'], price: 64, compareAt: 84, stock: 340, sales: 480, status: 'published', isNew: true, isBest: false, recommend: true, sort: 65 },
+  { id: 'a-hair-vine', slug: 'pearl-hair-vine', name: 'Pearl Hair Vine', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, categoryId: 'cat-acc-headpieces', productType: 'Hair Accessory', tags: ['tag-garden'], price: 88, compareAt: null, stock: 6, sales: 142, status: 'published', isNew: false, isBest: false, recommend: false, sort: 50 },
+  { id: 'a-block-heels', slug: 'satin-block-heels', name: 'Satin Block Heels', img: `${REF}/birdygrey/accessory-jewelry-01.jpg`, categoryId: 'cat-acc-shoes', productType: 'Wedding Shoes', tags: [], price: 148, compareAt: null, stock: 58, sales: 96, status: 'draft', isNew: false, isBest: false, recommend: false, sort: 30 }
 ]
 
 export const productColors = colorset([
   { name: 'Ivory', hex: '#F4EFE6' }, { name: 'Champagne', hex: '#E8D5B0' },
-  { name: 'Sage', hex: '#8B9D83' }, { name: 'Dusty Blue', hex: '#9DB0C4' },
-  { name: 'Blush', hex: '#D8A7A0' }, { name: 'Terracotta', hex: '#C17A56' }
+  { name: 'White', hex: '#FAFAF8' }, { name: 'Blush', hex: '#D8A7A0' },
+  { name: 'Dusty Rose', hex: '#C49A9A' }, { name: 'Sage', hex: '#8B9D83' },
+  { name: 'Dusty Blue', hex: '#9DB0C4' }, { name: 'Steel Blue', hex: '#6C8EAD' },
+  { name: 'Lavender', hex: '#C3B6D6' }, { name: 'Lilac', hex: '#D6BBDB' },
+  { name: 'Terracotta', hex: '#C17A56' }, { name: 'Rust', hex: '#A85D3A' },
+  { name: 'Burgundy', hex: '#7B2D42' }, { name: 'Navy', hex: '#2B3A5C' },
+  { name: 'Forest Green', hex: '#3D5A42' }, { name: 'Espresso', hex: '#5A4636' }
 ])
-export const productSizes = ['US 0','US 2','US 4','US 6','US 8','US 10','US 12','US 14']
+
+export const productSizes = ['US 0','US 2','US 4','US 6','US 8','US 10','US 12','US 14','US 16','US 18','US 20']
+
+// ===== 商品属性字典（AttributeSets 页面消费，含 key/label/type/optionsKey） =====
+// type: 'select' 单选 | 'multiselect' 多选 | 'toggle' 开关 | 'text' 文本
+export const attributeDict = [
+  { key: 'silhouette',         label: '廓形 / Silhouette',       type: 'select',      optionsKey: 'silhouetteOptions' },
+  { key: 'neckline',           label: '领口 / Neckline',         type: 'select',      optionsKey: 'necklineOptions' },
+  { key: 'sleeve',             label: '袖型 / Sleeve',           type: 'select',      optionsKey: 'sleeveOptions' },
+  { key: 'backStyle',          label: '背部设计 / Back Style',   type: 'select',      optionsKey: 'backStyleOptions' },
+  { key: 'waistline',          label: '腰线 / Waistline',        type: 'select',      optionsKey: 'waistlineOptions' },
+  { key: 'train',              label: '拖尾 / Train',            type: 'select',      optionsKey: 'trainOptions' },
+  { key: 'length',             label: '裙长 / Length',           type: 'select',      optionsKey: 'lengthOptions' },
+  { key: 'fabric',             label: '面料 / Fabric',           type: 'select',      optionsKey: 'fabricOptions' },
+  { key: 'embellishment',      label: '装饰细节 / Embellishment', type: 'multiselect', optionsKey: 'embellishmentOptions' },
+  { key: 'support',            label: '内置支撑 / Support',      type: 'multiselect', optionsKey: 'supportOptions' },
+  { key: 'occasion',           label: '场合 / Occasion',         type: 'multiselect', optionsKey: 'occasionOptions' },
+  { key: 'styleTag',           label: '风格标签 / Style',        type: 'multiselect', optionsKey: 'styleTagOptions' },
+  { key: 'season',             label: '季节 / Season',           type: 'multiselect', optionsKey: 'seasonOptions' },
+  { key: 'customSize',         label: '定制尺寸',               type: 'toggle',      optionsKey: null },
+  { key: 'leadTime',           label: '生产周期',               type: 'text',        optionsKey: null },
+  { key: 'modelInfo',          label: '模特信息',               type: 'text',        optionsKey: null },
+  { key: 'careInstructions',   label: '护理说明',               type: 'text',        optionsKey: null },
+  { key: 'fabricComposition',  label: '面料成分',               type: 'text',        optionsKey: null }
+]
+
+// ===== 商品属性选项（竞品对齐：Azazie / BHLDN / Kleinfeld）=====
+
+export const silhouetteOptions = ['A-Line', 'Ball Gown', 'Mermaid', 'Trumpet', 'Sheath / Column', 'Empire', 'Tea-Length', 'Mini / Short']
+
+export const necklineOptions = ['V-Neck', 'Sweetheart', 'Square', 'Scoop', 'Off-Shoulder', 'One-Shoulder', 'Halter', 'High Neck', 'Cowl', 'Strapless', 'Bateau / Boat Neck', 'Portrait']
+
+export const sleeveOptions = ['Sleeveless', 'Strapless', 'Cap Sleeve', 'Short Sleeve', '3/4 Sleeve', 'Long Sleeve', 'Off-Shoulder Flutter', 'Cold Shoulder']
+
+export const backStyleOptions = ['Zipper', 'Lace-Up / Corset', 'Button', 'Open Back', 'Keyhole', 'Bow', 'Low V-Back', 'Illusion Back']
+
+export const waistlineOptions = ['Natural', 'Empire', 'Basque / Drop', 'High Waist', 'Dropped Waist']
+
+export const trainOptions = ['No Train', 'Sweep Train', 'Court Train', 'Chapel Train', 'Cathedral Train', 'Royal / Monarch Train', 'Detachable Train']
+
+export const embellishmentOptions = ['Beading', 'Sequins', 'Lace Appliqué', '3D Florals', 'Embroidery', 'Crystal / Rhinestone', 'Bow', 'Ruching', 'Pleating', 'Plain / Minimal']
+
+export const fabricOptions = [
+  { name: 'Tulle', category: 'Light & Flowy' },
+  { name: 'Chiffon', category: 'Light & Flowy' },
+  { name: 'Organza', category: 'Light & Flowy' },
+  { name: 'Lace', category: 'Texture' },
+  { name: 'Satin', category: 'Structured' },
+  { name: 'Mikado', category: 'Structured' },
+  { name: 'Crepe', category: 'Structured' },
+  { name: 'Taffeta', category: 'Structured' },
+  { name: 'Charmeuse', category: 'Luxe' },
+  { name: 'Silk', category: 'Luxe' },
+  { name: 'Velvet', category: 'Statement' },
+  { name: 'Sequin Fabric', category: 'Statement' },
+]
+
+export const supportOptions = ['Built-in Bra / Cups', 'Boning / Underwire', 'Corset Back', 'Fully Lined', 'Light Lining Only', 'No Built-in Support']
+
+export const occasionOptions = ['Bridal / Wedding', 'Bridesmaid', 'Mother of the Bride', 'Wedding Guest', 'Flower Girl', 'Prom', 'Evening / Formal', 'Cocktail']
+
+export const styleTagOptions = ['Romantic', 'Classic / Timeless', 'Bohemian / Boho', 'Modern Minimalist', 'Glamorous', 'Rustic', 'Garden / Floral', 'Beach / Coastal']
+
+export const seasonOptions = ['Spring', 'Summer', 'Fall / Autumn', 'Winter', 'All Seasons']
+
+export const lengthOptions = ['Mini (Above Knee)', 'Knee Length', 'Midi (Below Knee)', 'Maxi / Tea Length', 'Floor Length', 'Puddle / Sweep']
+
+// ===== 属性集（Attribute Set）— Shopify 模式：基础属性集绑大品类，子品类继承并覆盖 =====
+// visible: 显示 | optional: 显示但折叠 | hidden: 隐藏
+// 大品类持有「基础属性集」，子品类通过 attrOverrides 仅声明与父级不同的字段（delta），
+// 最终生效配置 = 父级基础属性集 ⊕ 子品类覆盖（见 resolveAttributeConfig）。
+export const attributeSets = {
+  'as-wedding-dresses': {
+    id: 'as-wedding-dresses',
+    label: '婚纱',
+    categoryId: 'cat-wedding-dresses',
+    attrs: {
+      silhouette: 'visible', neckline: 'visible', sleeve: 'visible', backStyle: 'visible',
+      waistline: 'visible', train: 'visible', embellishment: 'visible', fabric: 'visible',
+      support: 'visible', occasion: 'optional', styleTag: 'visible', season: 'optional',
+      length: 'optional', customSize: 'optional', leadTime: 'visible', modelInfo: 'visible',
+      careInstructions: 'visible', fabricComposition: 'visible'
+    }
+  },
+  'as-special-occasion': {
+    id: 'as-special-occasion',
+    label: '礼服（伴娘/晚礼服）',
+    categoryId: 'cat-special-occasion',
+    attrs: {
+      silhouette: 'visible', neckline: 'visible', sleeve: 'visible', backStyle: 'optional',
+      waistline: 'optional', train: 'hidden', embellishment: 'visible', fabric: 'visible',
+      support: 'optional', occasion: 'visible', styleTag: 'optional', season: 'optional',
+      length: 'visible', customSize: 'visible', leadTime: 'visible', modelInfo: 'visible',
+      careInstructions: 'visible', fabricComposition: 'visible'
+    }
+  },
+  'as-accessories': {
+    id: 'as-accessories',
+    label: '配饰',
+    categoryId: 'cat-accessories',
+    attrs: {
+      silhouette: 'hidden', neckline: 'hidden', sleeve: 'hidden', backStyle: 'hidden',
+      waistline: 'hidden', train: 'hidden', embellishment: 'visible', fabric: 'visible',
+      support: 'hidden', occasion: 'optional', styleTag: 'optional', season: 'hidden',
+      length: 'hidden', customSize: 'hidden', leadTime: 'visible', modelInfo: 'hidden',
+      careInstructions: 'visible', fabricComposition: 'visible'
+    }
+  }
+}
 
 const ORDER_STATUS = {
   pending: { label: '待付款', tone: 'warn' },
@@ -217,14 +330,184 @@ export const homeBlocks = [
   { id: 'newsletter', type: 'Newsletter', label: 'Footer 订阅区', enabled: false, data: { title: 'Join the Dreamy circle' } }
 ]
 
+// ===== Standard Product Taxonomy (Shopify 模式三层分类) =====
+// Layer 1: 标准品类树 — 系统预定义，每个节点绑定属性集，商品单选一个叶节点
+// Layer 2: 品类属性 — 随品类自动出现的结构化属性字段及其预定义值
+// Layer 3: 自定义标签 — 商户自建的营销/组织标签，不驱动系统行为
+
+export const standardTaxonomy = [
+  {
+    id: 'cat-wedding-dresses',
+    name: 'Wedding Dresses',
+    slug: 'wedding-dresses',
+    level: 0,
+    children: [
+      // attrOverrides：仅声明与父级基础属性集不同的字段（delta）。空对象 = 完全继承父级。
+      { id: 'cat-wd-aline', name: 'A-Line', slug: 'a-line', attrOverrides: {} },
+      { id: 'cat-wd-mermaid', name: 'Mermaid', slug: 'mermaid', attrOverrides: { train: 'visible', waistline: 'visible' } },
+      { id: 'cat-wd-ballgown', name: 'Ball Gown', slug: 'ball-gown', attrOverrides: { train: 'visible', support: 'visible' } },
+      { id: 'cat-wd-sheath', name: 'Sheath', slug: 'sheath', attrOverrides: { train: 'optional' } },
+      { id: 'cat-wd-short', name: 'Short', slug: 'short', attrOverrides: { train: 'hidden', length: 'visible' } },
+      { id: 'cat-wd-trumpet', name: 'Trumpet', slug: 'trumpet', attrOverrides: { train: 'visible' } }
+    ],
+    attributeSetId: 'as-wedding-dresses',
+    count: 48,
+    enabled: true
+  },
+  {
+    id: 'cat-special-occasion',
+    name: 'Special Occasion',
+    slug: 'special-occasion',
+    level: 0,
+    children: [
+      { id: 'cat-so-bridesmaid', name: 'Bridesmaid', slug: 'bridesmaid', attrOverrides: { customSize: 'visible', support: 'visible' } },
+      { id: 'cat-so-mob', name: 'Mother of the Bride', slug: 'mother-of-the-bride', attrOverrides: { occasion: 'visible' } },
+      { id: 'cat-so-prom', name: 'Prom', slug: 'prom', attrOverrides: { train: 'optional', length: 'visible' } },
+      { id: 'cat-so-cocktail', name: 'Cocktail', slug: 'cocktail', attrOverrides: { train: 'hidden', length: 'visible' } },
+      { id: 'cat-so-guest', name: 'Wedding Guest', slug: 'wedding-guest', attrOverrides: { train: 'hidden', length: 'visible' } }
+    ],
+    attributeSetId: 'as-special-occasion',
+    count: 36,
+    enabled: true
+  },
+  {
+    id: 'cat-accessories',
+    name: 'Accessories',
+    slug: 'accessories',
+    level: 0,
+    children: [
+      { id: 'cat-acc-veils', name: 'Veils', slug: 'veils', attrOverrides: { length: 'visible' } },
+      { id: 'cat-acc-shoes', name: 'Shoes', slug: 'shoes', attrOverrides: {} },
+      { id: 'cat-acc-jewelry', name: 'Jewelry', slug: 'jewelry', attrOverrides: {} },
+      { id: 'cat-acc-headpieces', name: 'Headpieces', slug: 'headpieces', attrOverrides: {} }
+    ],
+    attributeSetId: 'as-accessories',
+    count: 28,
+    enabled: true
+  }
+]
+
+// 自定义标签维度（商户自建，不绑定属性集）
+export const tagDimensions = [
+  { id: 'dim-theme', name: '主题', slug: 'theme', desc: '婚礼场景标签' },
+  { id: 'dim-collection', name: '系列', slug: 'collection', desc: '产品系列/上新批次' },
+  { id: 'dim-season', name: '季节', slug: 'season', desc: '季节标签' }
+]
+
+export const customTags = [
+  // 主题
+  { id: 'tag-beach', dimensionId: 'dim-theme', name: 'Beach', slug: 'beach', count: 18, enabled: true, cover: `${REF}/kissprom/wedding-beach-short-05.jpg` },
+  { id: 'tag-garden', dimensionId: 'dim-theme', name: 'Garden', slug: 'garden', count: 24, enabled: true, cover: `${REF}/davidsbridal/bridesmaid-sage-01.jpg` },
+  { id: 'tag-vineyard', dimensionId: 'dim-theme', name: 'Vineyard', slug: 'vineyard', count: 15, enabled: true, cover: `${REF}/kissprom/prom-champagne-lace-05.jpg` },
+  { id: 'tag-forest', dimensionId: 'dim-theme', name: 'Forest', slug: 'forest', count: 12, enabled: true, cover: `${REF}/kissprom/wedding-aline-longsleeve-06.jpg` },
+  { id: 'tag-boho', dimensionId: 'dim-theme', name: 'Boho', slug: 'boho', count: 9, enabled: false, cover: `${REF}/birdygrey/bridesmaid-pink-bryten-02.jpg` },
+  // 系列
+  { id: 'tag-outdoor-edit-2026', dimensionId: 'dim-collection', name: 'Outdoor Edit 2026', slug: 'outdoor-edit-2026', count: 32, enabled: true },
+  { id: 'tag-golden-hour', dimensionId: 'dim-collection', name: 'Golden Hour', slug: 'golden-hour', count: 12, enabled: true }
+]
+
+// Helper functions
+export const tagsByDimension = (dimId) => customTags.filter(t => t.dimensionId === dimId)
+export const findCategory = (id) => {
+  for (const root of standardTaxonomy) {
+    if (root.id === id) return root
+    const child = root.children?.find(c => c.id === id)
+    if (child) return { ...child, parent: root }
+  }
+  return null
+}
+export const childrenOf = (parentId) => {
+  const parent = standardTaxonomy.find(r => r.id === parentId)
+  return parent?.children || []
+}
+
+// Get attribute set for a category (looks up parent if child selected)
+export function getAttributeSetForCategory(categoryId) {
+  // Direct match on root
+  const root = standardTaxonomy.find(r => r.id === categoryId)
+  if (root) return attributeSets[root.attributeSetId]
+  // Child: inherit parent's attribute set
+  for (const r of standardTaxonomy) {
+    if (r.children?.some(c => c.id === categoryId)) {
+      return attributeSets[r.attributeSetId]
+    }
+  }
+  return attributeSets['as-wedding-dresses'] // fallback
+}
+
+// 查找品类节点所属的根品类（无论传入根 id 还是子品类 id）
+function findRootByCategory(categoryId) {
+  const root = standardTaxonomy.find(r => r.id === categoryId)
+  if (root) return root
+  return standardTaxonomy.find(r => r.children?.some(c => c.id === categoryId)) || null
+}
+
+// 取子品类相对父级基础属性集的覆盖项（delta），传入根 id 返回空对象
+export function childOverridesOf(categoryId) {
+  for (const r of standardTaxonomy) {
+    const child = r.children?.find(c => c.id === categoryId)
+    if (child) return child.attrOverrides || {}
+  }
+  return {}
+}
+
+// 解析某品类（最具体粒度）的最终生效属性配置：
+//   基础属性集 ⊕ 子品类 attrOverrides。
+// 返回 { id, label, baseSetId, categoryId, attrs, overrides }，
+// 其中 attrs 为合并后的最终可见性映射，overrides 为该子品类声明的 delta（用于 UI 标注）。
+export function resolveAttributeConfig(categoryId) {
+  const root = findRootByCategory(categoryId)
+  const baseSet = attributeSets[root?.attributeSetId] || attributeSets['as-wedding-dresses']
+  const overrides = childOverridesOf(categoryId)
+  const child = root?.children?.find(c => c.id === categoryId)
+  return {
+    id: baseSet.id,
+    label: baseSet.label,
+    baseSetId: baseSet.id,
+    categoryId,
+    attrs: { ...baseSet.attrs, ...overrides },
+    overrides,
+    isChild: !!child,
+    childName: child?.name || null
+  }
+}
+
+// 向后兼容：旧代码引用 categories / themes / taxonomyTypes / taxonomies / taxonomiesByType
+export const taxonomyTypes = [
+  { type: 'category', label: '标准品类', desc: '系统预定义，驱动品类属性', structural: true },
+  { type: 'theme', label: '主题', desc: '自定义营销标签', structural: false }
+]
+export const taxonomies = [
+  ...standardTaxonomy.map(r => ({ id: r.id, type: 'category', name: r.name, href: '/' + r.slug, count: r.count, online: r.enabled, children: r.children?.map(c => ({ id: c.id, name: c.name })) })),
+  ...customTags.filter(t => t.dimensionId === 'dim-theme').map(t => ({ id: t.id, type: 'theme', name: t.name, href: '/outdoor/' + t.slug, count: t.count, online: t.enabled, cover: t.cover }))
+]
+export const taxonomiesByType = (type) => taxonomies.filter(t => t.type === type)
+export const categories = taxonomies.filter(t => t.type === 'category')
+export const themes = taxonomies.filter(t => t.type === 'theme').map(t => ({ ...t, products: t.count }))
+
 // ===== 站点装修：导航 =====
+// 导航项引用分类（taxonomy），按 type 选择目标，不复制结构：
+//   linkType: 'taxonomy' → 链接到某分类（taxonomyId，href 由分类派生，品类/主题通用）
+//   linkType: 'custom'   → 自定义 href（如 Inspiration 内容栏目）
+// megaMenu 每列声明数据源，子链接从被引用对象派生（只读），不再手敲：
+//   source: 'category-children' + refId → 取该品类的子类
+//   source: 'taxonomy-type' + refType   → 取某 type 的全部上线分类（如全部主题）
+//   source: 'custom' + links[]          → 自定义链接（仅 custom 列允许手填）
 export const navConfig = {
   main: [
-    { label: 'Wedding Dresses', href: '/wedding-dresses', columns: 2 },
-    { label: 'Special Occasion', href: '/special-occasion', columns: 2 },
-    { label: 'Accessories', href: '/accessories', columns: 1 },
-    { label: 'Outdoor Weddings', href: '/outdoor-weddings', columns: 1 },
-    { label: 'Inspiration', href: '/inspiration', columns: 1 }
+    { id: 'nav-wd', label: 'Wedding Dresses', linkType: 'taxonomy', taxonomyId: 'cat-wedding-dresses', megaMenu: [
+      { title: 'Shop by Silhouette', source: 'category-children', refId: 'cat-wedding-dresses' }
+    ]},
+    { id: 'nav-so', label: 'Special Occasion', linkType: 'taxonomy', taxonomyId: 'cat-special-occasion', megaMenu: [
+      { title: 'Shop by Occasion', source: 'category-children', refId: 'cat-special-occasion' }
+    ]},
+    { id: 'nav-acc', label: 'Accessories', linkType: 'taxonomy', taxonomyId: 'cat-accessories', megaMenu: [
+      { title: 'Shop Accessories', source: 'category-children', refId: 'cat-accessories' }
+    ]},
+    { id: 'nav-outdoor', label: 'Outdoor Weddings', linkType: 'custom', href: '/outdoor-weddings', megaMenu: [
+      { title: 'Shop by Setting', source: 'taxonomy-type', refType: 'theme' }
+    ]},
+    { id: 'nav-inspo', label: 'Inspiration', linkType: 'custom', href: '/inspiration', megaMenu: [] }
   ],
   footer: [
     { title: 'Shop', links: 4 },
@@ -329,7 +612,8 @@ export const menuPermissionKeys = [
   { key: '/site/banners', group: '站点装修', label: 'Banner 管理' },
   // 商品管理
   { key: '/products', group: '商品管理', label: '商品列表' },
-  { key: '/categories', group: '商品管理', label: '品类与主题' },
+  { key: '/categories', group: '商品管理', label: '分类管理' },
+  { key: '/attributes', group: '商品管理', label: '属性集定义' },
   // 订单管理
   { key: '/orders', group: '订单管理', label: '订单列表' },
   { key: '/refunds', group: '订单管理', label: '退款工单' },
@@ -379,7 +663,7 @@ export const roles = [
     isLocked: false,
     adminCount: 1,
     permissions: [
-      '/', '/products', '/categories',
+      '/', '/products', '/categories', '/attributes',
       '/site/home', '/site/navigation', '/site/banners',
       '/orders', '/refunds', '/analytics', '/publish', '/shipping'
     ]
