@@ -1,17 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { X, Plus, Minus, Heart, ShoppingBag, Truck, ShieldCheck } from 'lucide-react'
+import { X, Plus, Minus, Heart, ShoppingBag, Truck, ShieldCheck, Clock } from 'lucide-react'
 import { useStore } from '@/components/store-provider'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, formatCustomSize } from '@/lib/utils'
 import { products } from '@/data/products'
 import { ProductCard } from '@/components/product/product-card'
 
 export default function CartPage() {
-  const { cart, updateQty, removeLine, toggleWishlist, cartSubtotal, currency } = useStore()
+  const { cart, updateQty, removeLine, toggleWishlist, cartSubtotal, currency, showrooms } = useStore()
   const shipping = cartSubtotal > 200 || cartSubtotal === 0 ? 0 : 25
   const total = cartSubtotal + shipping
   const recommended = products.filter((p) => p.isBestSeller).slice(0, 4)
+
+  // F-071：购物车含同 Showroom 商品且团内已有人下单 → dye lot 提示
+  const dyeLotShowroom = showrooms.find(
+    (s) => s.members.some((m) => m.hasOrdered) && cart.some((l) => s.items.some((it) => it.productId === l.productId))
+  )
 
   if (cart.length === 0) {
     return (
@@ -35,6 +40,12 @@ export default function CartPage() {
   return (
     <div className="container-luxe py-12">
       <h1 className="font-display text-4xl font-medium">Your Bag</h1>
+      {dyeLotShowroom && (
+        <div className="mt-5 flex items-start gap-2.5 rounded-sm bg-gold/10 px-4 py-3 text-sm text-gold-deep">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Your bag includes a style from <strong>{dyeLotShowroom.name}</strong>. Order within 24h of your party to guarantee the same dye lot.</p>
+        </div>
+      )}
       <div className="mt-8 grid gap-12 lg:grid-cols-3">
         {/* Lines */}
         <div className="lg:col-span-2">
@@ -48,6 +59,12 @@ export default function CartPage() {
                   <span className="font-medium">{formatPrice(line.price * line.qty, currency)}</span>
                 </div>
                 <p className="mt-1 text-sm text-ink-soft">{line.color} · Size {line.size}</p>
+                {line.customSize && (
+                  <details className="mt-1.5">
+                    <summary className="cursor-pointer text-xs font-medium text-gold-deep">Custom Size · Free — view measurements</summary>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">{formatCustomSize(line.customSize)}</p>
+                  </details>
+                )}
                 <div className="mt-auto flex items-center gap-4">
                   <div className="flex items-center border border-line">
                     <button onClick={() => updateQty(i, line.qty - 1)} className="cursor-pointer p-2" aria-label="Decrease"><Minus className="h-3.5 w-3.5" /></button>

@@ -2,16 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Heart } from 'lucide-react'
+import { Heart, Users } from 'lucide-react'
 import type { Product } from '@/data/types'
 import { useStore } from '@/components/store-provider'
 import { formatPrice, installments, cn } from '@/lib/utils'
 import { Badge, Stars } from '@/components/ui/primitives'
+import { AddToShowroomModal } from '@/components/showroom/add-to-showroom-modal'
 
 export function ProductCard({ product, onQuickView }: { product: Product; onQuickView?: (p: Product) => void }) {
-  const { currency, toggleWishlist, isWished } = useStore()
+  const { currency, toggleWishlist, isWished, isInAnyShowroom } = useStore()
   const [hover, setHover] = useState(false)
+  const [showroomOpen, setShowroomOpen] = useState(false)
   const wished = isWished(product.id)
+  const inShowroom = isInAnyShowroom(product.id)
   const primary = product.gallery[0]
   const secondary = product.gallery[1] ?? primary
 
@@ -47,6 +50,14 @@ export function ProductCard({ product, onQuickView }: { product: Product; onQuic
       >
         <Heart className={cn('h-4 w-4 transition-colors', wished ? 'fill-blush text-blush' : 'text-ink')} />
       </button>
+      <button
+        onClick={() => setShowroomOpen(true)}
+        className={cn('absolute right-3 top-12 cursor-pointer rounded-full bg-canvas/90 p-2 shadow-soft backdrop-blur transition-all hover:bg-canvas focus-visible:opacity-100', hover || inShowroom ? 'opacity-100' : 'opacity-0')}
+        aria-label="Add to Showroom"
+        title="Add to Showroom"
+      >
+        <Users className={cn('h-4 w-4 transition-colors', inShowroom ? 'text-gold-deep' : 'text-ink')} />
+      </button>
 
       <div className="mt-3.5">
         <div className="flex items-start justify-between gap-2">
@@ -70,6 +81,7 @@ export function ProductCard({ product, onQuickView }: { product: Product; onQuic
           </div>
         )}
       </div>
+      {showroomOpen && <AddToShowroomModal product={product} open={showroomOpen} onClose={() => setShowroomOpen(false)} />}
     </div>
   )
 }

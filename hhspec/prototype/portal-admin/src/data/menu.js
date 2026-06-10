@@ -58,7 +58,8 @@ export const menuGroups = [
     items: [
       { title: 'Blog 文章', to: '/content/blog' },
       { title: 'Real Weddings', to: '/content/weddings' },
-      { title: 'Lookbook 与指南', to: '/content/lookbook' }
+      { title: 'Lookbook 与指南', to: '/content/lookbook' },
+      { title: '评价与 Q&A', to: '/reviews' }
     ]
   },
   {

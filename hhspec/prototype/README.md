@@ -4,9 +4,7 @@
 
 ## 概述
 
-单门户消费者商城（高保真可交互原型）。基于 birdygrey / davidsbridal / kissprom 三个竞品的深度结构分析与真实商品媒体素材构建。
-
-> 注：原计划含平台管理后台，已按用户要求移除，本次仅消费者前台。
+双门户高保真可交互原型：消费者商城（Next.js，根目录）+ 运营管理后台（Vue3，`portal-admin/`，端口 5174）。基于 birdygrey / davidsbridal / kissprom 等竞品的深度结构分析与真实商品媒体素材构建。
 
 ## 预览
 
@@ -34,7 +32,7 @@ cd hhspec/prototype && pnpm dev
 - **字体**：Cormorant Garamond（衬线标题）+ Jost（无衬线正文），经 Google Fonts CDN 加载
 - **UI 风格**：editorial-luxe-coastal（暖米白 + 沙金 + 鼠尾草绿 + 玫瑰金 + 大留白）
 
-## 功能范围（26 个页面）
+## 功能范围（消费端 28 个页面 + 后台 26 个页面）
 
 ### 商品浏览
 - 首页（编辑式 Hero / Shop by Color 调色板 / 户外主题 / 推荐位 / Lookbook / Real Weddings / 价值主张）
@@ -49,10 +47,17 @@ cd hhspec/prototype && pnpm dev
 - 信任承诺条 + 描述手风琴 + Complete the Look + Reviews + Q&A + 相关推荐
 
 ### 交易
-- Cart Drawer（加购抽屉）+ 购物车页（改数量 / 优惠码 / 摘要）
+- Cart Drawer（加购抽屉）+ 购物车页（改数量 / 优惠码 / 摘要 / 定制尺寸明细 / dye lot 提示）
 - 4 步结算（地址 → 物流 → 支付 → 复核）+ 6 种支付（Stripe/PayPal/Apple/Google Pay/Klarna/Afterpay）
+- 结算收集 Wedding Date（Showroom 婚期自动带入）+ 交期复核提示
 - 多币种切换（USD/CAD/AUD/GBP）+ 多语言切换器（EN/ES）
 - 下单成功页
+
+### Showroom 伴娘团协作（迭代 4）
+- My Showrooms（创建 / 婚期倒计时 / 款式收藏）+ Showroom 详情（新娘/访客双视图）
+- 邀请链接免注册访客：浏览 / 投票 / 留言 / 查看被指派款式
+- 各自下单各自付 + 24h 同批下单 dye lot 保证提示
+- 购买辅助：Find My Size 量体问卷推荐码、Custom Size 免费定制尺寸表单、婚期交期三态判定（标准/加急/来不及）
 
 ### 账户中心
 - 登录 / 注册、Dashboard、订单列表、订单详情（物流时间轴）

@@ -28,7 +28,7 @@ export const todos = [
   { label: '待确认收货', count: 18, tone: 'info', to: '/orders?status=shipped' },
   { label: '退款待审批', count: 6, tone: 'danger', to: '/refunds' },
   { label: '低库存预警', count: 12, tone: 'warn', to: '/products?stock=low' },
-  { label: '待审核评价', count: 9, tone: 'info', to: '/customers' },
+  { label: '待审核评价', count: 9, tone: 'info', to: '/reviews' },
   { label: '内容草稿待发布', count: 4, tone: 'warn', to: '/content/blog' },
   { label: 'Banner 即将到期', count: 2, tone: 'danger', to: '/site/banners' }
 ]
@@ -578,6 +578,92 @@ export const guides = [
   { id: 'g-5', phase: 'Phase 5', timeframe: '1–3 months out', title: 'Final Fittings', tasks: 4, status: 'draft' }
 ]
 
+// ===== 评价与 Q&A 审核（Reviews 消费 · 迭代 4 A-069~A-072） =====
+// status: pending 待审核 | approved 已通过 | rejected 已拒绝；featured 仅对 approved 生效（前台置顶）
+// images: [{ url, rejected }]，rejected = 单图驳回（前台隐藏，A-070）
+// reply: 官方回复（Dreamy Team 署名，A-071），null = 未回复
+export const reviews = [
+  { id: 'rv-2412', productId: 'p-aurelia', customer: 'Emma Johnson', rating: 5, date: '2026-06-09 21:14',
+    content: 'Wore this for our cliffside ceremony in Big Sur and the tulle caught the golden-hour light beautifully. The bodice support held up through six hours of dancing — zero adjustments needed. True to size, order your usual.',
+    images: [
+      { url: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, rejected: false },
+      { url: `${REF}/davidsbridal/wedding-dress-04.jpg`, rejected: false },
+      { url: `${REF}/kissprom/wedding-aline-lace-02.jpg`, rejected: false }
+    ],
+    status: 'pending', featured: false, reply: null },
+  { id: 'rv-2411', productId: 'p-meadow', customer: 'Sofia Marco', rating: 4, date: '2026-06-09 16:40',
+    content: 'Ordered six of these in Sage for my bridal party. The chiffon photographs like a dream outdoors. One dress ran slightly long but free swatches beforehand made color matching painless.',
+    images: [], status: 'pending', featured: false, reply: null },
+  { id: 'rv-2410', productId: 'p-celeste', customer: 'Ava Chen', rating: 5, date: '2026-06-08 19:25',
+    content: 'The lace detail is even more delicate in person. I had it hemmed locally and the seamstress kept complimenting the construction. Got married in a vineyard at sunset — the champagne undertone glowed.',
+    images: [
+      { url: `${REF}/kissprom/wedding-aline-lace-02.jpg`, rejected: false },
+      { url: `${REF}/kissprom/prom-champagne-lace-05.jpg`, rejected: false }
+    ],
+    status: 'approved', featured: true,
+    reply: { author: 'Dreamy Team', content: 'Thank you Ava! Your vineyard photos are stunning — we are so honored to be part of your golden hour. Congratulations from all of us at Dreamy!', time: '2026-06-09 10:20' } },
+  { id: 'rv-2409', productId: 'p-luna', customer: 'Olivia Brown', rating: 3, date: '2026-06-08 14:02',
+    content: 'Pretty dress but the champagne color is warmer than the product photos suggest. Shipping to Australia took 9 days. Fits well otherwise.',
+    images: [], status: 'approved', featured: false,
+    reply: { author: 'Dreamy Team', content: 'Thanks for the honest feedback, Olivia. We have flagged the color calibration to our studio team, and free fabric swatches are always available so you can confirm tones before ordering.', time: '2026-06-10 09:55' } },
+  { id: 'rv-2408', productId: 'p-marina', customer: 'Mia Wilson', rating: 2, date: '2026-06-07 22:18',
+    content: 'Check out my discount dress store at cheap-gowns.example.com — same look for half the price!!!',
+    images: [{ url: `${REF}/kissprom/wedding-mermaid-chiffon-03.jpg`, rejected: false }],
+    status: 'rejected', featured: false, reply: null },
+  { id: 'rv-2407', productId: 'p-petal', customer: 'Charlotte Lee', rating: 5, date: '2026-06-07 11:36',
+    content: 'Third time ordering from Dreamy and the quality is so consistent. The blush shade worked perfectly for our garden brunch wedding. My bridesmaids want to wear them again.',
+    images: [
+      { url: `${REF}/birdygrey/bridesmaid-pink-bryten-02.jpg`, rejected: false },
+      { url: `${REF}/birdygrey/bridesmaid-pink-bella-01.jpg`, rejected: false }
+    ],
+    status: 'approved', featured: false, reply: null },
+  { id: 'rv-2406', productId: 'p-aurelia', customer: 'Amelia Davis', rating: 4, date: '2026-06-06 20:44',
+    content: 'Gorgeous gown, arrived two days early. Took one star off because the detachable train clasp felt flimsy — ended up safety-pinning it for the reception.',
+    images: [
+      { url: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, rejected: false },
+      { url: `${REF}/birdygrey/accessory-jewelry-01.jpg`, rejected: true }
+    ],
+    status: 'approved', featured: true,
+    reply: { author: 'Dreamy Team', content: 'Thank you Amelia! Our product team has upgraded the train clasp hardware for the next production run based on your note — please reach out to support for a complimentary replacement clip.', time: '2026-06-07 09:12' } },
+  { id: 'rv-2405', productId: 'a-cathedral-veil', customer: 'Isabella Garcia', rating: 5, date: '2026-06-05 15:28',
+    content: 'The cathedral length is dramatic without being heavy. Floated beautifully in every beach photo. Comb stayed secure in fine hair all day.',
+    images: [], status: 'approved', featured: false, reply: null },
+  { id: 'rv-2404', productId: 'p-willow', customer: 'Grace Kim', rating: 1, date: '2026-06-05 09:50',
+    content: 'Dress arrived with a pulled thread on the left sleeve. Very disappointed for the price point. Waiting to hear back from support before deciding on a return.',
+    images: [
+      { url: `${REF}/kissprom/wedding-aline-longsleeve-06.jpg`, rejected: false },
+      { url: `${REF}/davidsbridal/bridesmaid-sage-01.jpg`, rejected: false }
+    ],
+    status: 'pending', featured: false, reply: null },
+  { id: 'rv-2403', productId: 'p-meadow', customer: 'Lily Park', rating: 4, date: '2026-06-04 18:09',
+    content: 'Lovely fabric! BTW everyone use code FAKE50 on my site for 50% off wedding decor, link in my profile.',
+    images: [], status: 'rejected', featured: false, reply: null },
+  { id: 'rv-2402', productId: 'a-drop-earrings', customer: 'Zoe Adams', rating: 5, date: '2026-06-04 10:31',
+    content: 'These earrings caught the sunset light during our first dance and the photographer would not stop raving. Lightweight enough to forget you are wearing them.',
+    images: [{ url: `${REF}/birdygrey/accessory-jewelry-01.jpg`, rejected: false }],
+    status: 'approved', featured: false,
+    reply: { author: 'Dreamy Team', content: 'Zoe, this made our week! Golden hour and crystal drops are a match made in heaven. Wishing you a lifetime of first dances.', time: '2026-06-04 16:45' } },
+  { id: 'rv-2401', productId: 'p-beach', customer: 'Hannah Moore', rating: 3, date: '2026-06-03 21:57',
+    content: 'Cute short dress for an elopement but the lining wrinkles easily when packed. Steam it on arrival and you are fine.',
+    images: [{ url: `${REF}/kissprom/wedding-beach-short-05.jpg`, rejected: false }],
+    status: 'pending', featured: false, reply: null },
+  { id: 'rv-2400', productId: 'p-luna', customer: 'Chloe Bennett', rating: 5, date: '2026-06-03 13:12',
+    content: 'Prom night perfection. The lace overlay is intricate and the champagne tone flattered every skin tone in our group photos.',
+    images: [], status: 'approved', featured: false, reply: null }
+]
+
+// Q&A：买家提问 + 官方回答（visible = 前台上线/隐藏）
+export const productQuestions = [
+  { id: 'qa-508', productId: 'p-aurelia', asker: 'Sophie R.', question: 'Does the tulle skirt hold up in a windy beach ceremony, or will it fly around too much for photos?', date: '2026-06-09 20:18', answer: null, answerTime: null, visible: true },
+  { id: 'qa-507', productId: 'p-meadow', asker: 'Sofia Marco', question: 'Can I order fabric swatches of the Sage color before committing to six bridesmaid dresses?', date: '2026-06-09 15:02', answer: 'Absolutely! Free swatches of every colorway ship within 2 business days — just add them from the product page under "Order a swatch". We recommend confirming tones under outdoor light.', answerTime: '2026-06-09 17:40', visible: true },
+  { id: 'qa-506', productId: 'p-celeste', asker: 'Ava Chen', question: 'What is the exact fabric composition of the lace overlay? I have a mild polyester sensitivity.', date: '2026-06-08 11:47', answer: 'The overlay is 70% cotton Chantilly-style lace with 30% nylon mesh backing; the lining is 100% breathable viscose. Full composition is listed under the Fabric tab as well.', answerTime: '2026-06-08 14:30', visible: true },
+  { id: 'qa-505', productId: 'a-cathedral-veil', asker: 'Megan T.', question: 'How long is the cathedral veil exactly? Trying to match it to a chapel train.', date: '2026-06-07 19:25', answer: 'It measures 108 inches (274 cm) from comb to hem — designed to extend roughly 20 inches past a chapel train.', answerTime: '2026-06-08 09:15', visible: false },
+  { id: 'qa-504', productId: 'p-luna', asker: 'Priya K.', question: 'Is the champagne color closer to gold or to nude in person? Photos online vary a lot.', date: '2026-06-07 10:08', answer: null, answerTime: null, visible: true },
+  { id: 'qa-503', productId: 'p-marina', asker: 'Rachel W.', question: 'Can the mermaid silhouette be let out around the hips by a local tailor, or is there no seam allowance?', date: '2026-06-06 16:53', answer: 'Yes — we include a generous 2-inch seam allowance at the hip and waist seams specifically for local alterations. Most tailors can let it out by up to one full size.', answerTime: '2026-06-06 18:20', visible: true },
+  { id: 'qa-502', productId: 'p-willow', asker: 'Elena V.', question: 'Are the long sleeves stretchy enough to move comfortably? Worried about raising my arms for the bouquet toss.', date: '2026-06-05 21:34', answer: null, answerTime: null, visible: true },
+  { id: 'qa-501', productId: 'a-drop-earrings', asker: 'Dana L.', question: 'Are these earrings hypoallergenic? My ears react to most costume jewelry.', date: '2026-06-05 09:12', answer: 'Yes — the posts are surgical-grade 316L stainless steel with a nickel-free plating, suitable for sensitive ears.', answerTime: '2026-06-05 11:48', visible: true }
+]
+
 // ===== 退款工单 =====
 export const refunds = [
   { id: 'RF-2051', order: 'DRM-20260528-0981', customer: 'Mia Wilson', amount: 296, currency: 'GBP', reason: '尺码不合适', date: '2026-05-28', status: 'pending' },
@@ -626,6 +712,7 @@ export const menuPermissionKeys = [
   { key: '/content/blog', group: '内容管理', label: 'Blog 文章' },
   { key: '/content/weddings', group: '内容管理', label: 'Real Weddings' },
   { key: '/content/lookbook', group: '内容管理', label: 'Lookbook 与指南' },
+  { key: '/reviews', group: '内容管理', label: '评价与 Q&A' },
   // 数据分析
   { key: '/analytics', group: '数据分析', label: '数据看板' },
   // 发布与系统
@@ -687,7 +774,7 @@ export const roles = [
     permissions: [
       '/', '/site/home', '/site/navigation', '/site/banners',
       '/marketing/promotions', '/marketing/email',
-      '/content/blog', '/content/weddings', '/content/lookbook',
+      '/content/blog', '/content/weddings', '/content/lookbook', '/reviews',
       '/publish'
     ]
   },
@@ -716,6 +803,35 @@ export const roleMatrix = {
 }
 
 export const auditLogs = [
+  // 迭代 4：评价与 Q&A 审核动作样例（A-074）
+  { id: 'log-rv1', time: '2026-06-10 10:12:45', user: 'Nina Editorial', action: '评价通过', target: 'Charlotte Lee 对 Petal Bridesmaid Dress 的评价', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '审核状态', before: '待审核', after: '已通过' }
+  ]},
+  { id: 'log-rv2', time: '2026-06-10 10:08:30', user: 'Nina Editorial', action: '设为精选', target: 'Ava Chen 对 Celeste Lace Gown 的评价', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '精选标记', before: '否', after: '是' }
+  ]},
+  { id: 'log-rv3', time: '2026-06-10 09:55:02', user: 'Nina Editorial', action: '官方回复', target: '回复 Olivia Brown 对 Luna Prom Champagne 的评价', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '官方回复', before: '—', after: '已回复（Dreamy Team 署名）' }
+  ]},
+  { id: 'log-rv4', time: '2026-06-09 18:42:18', user: 'Nina Editorial', action: '评价拒绝', target: 'Lily Park 对 Meadow Bridesmaid Dress 的评价', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '审核状态', before: '待审核', after: '已拒绝' },
+    { field: '拒绝原因', before: '—', after: '内容含第三方推广外链' }
+  ]},
+  { id: 'log-rv5', time: '2026-06-09 18:20:51', user: 'Nina Editorial', action: '图片驳回', target: 'Amelia Davis 评价中的第 2 张买家秀图片', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '图片状态', before: '展示中', after: '已驳回（前台隐藏）' }
+  ]},
+  { id: 'log-rv6', time: '2026-06-09 17:58:09', user: 'Nina Editorial', action: '取消精选', target: 'Isabella Garcia 对 Cathedral Length Veil 的评价', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '精选标记', before: '是', after: '否' }
+  ]},
+  { id: 'log-rv7', time: '2026-06-09 17:40:33', user: 'Nina Editorial', action: 'Q&A 回答', target: 'Sofia Marco 关于 Meadow Bridesmaid Dress 色样的提问', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '回答状态', before: '待回答', after: '已回答' }
+  ]},
+  { id: 'log-rv8', time: '2026-06-09 17:22:47', user: 'Nina Editorial', action: 'Q&A 隐藏', target: '重复提问：Cathedral Length Veil 的长度规格', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '可见性', before: '上线', after: '隐藏' }
+  ]},
+  { id: 'log-rv9', time: '2026-06-09 17:20:15', user: 'Nina Editorial', action: 'Q&A 上线', target: 'Ava Chen 关于 Celeste Lace Gown 面料成分的提问', ip: '198.51.100.12', ua: 'Chrome 125 / macOS', changes: [
+    { field: '可见性', before: '隐藏', after: '上线' }
+  ]},
   { id: 'log-0a', time: '2026-05-30 10:02:11', user: '系统（自动）', action: '账户合并', target: '自动归并 u-1071 → u-1001（Emma Johnson，已验证邮箱一致）', ip: '—', ua: '系统任务', changes: [
     { field: '保留账户', before: '—', after: 'u-1001 Emma Johnson' },
     { field: '合并账户', before: 'u-1071 Emma J.', after: '—（已删除）' },
@@ -767,7 +883,7 @@ export const auditLogs = [
 ]
 
 // 操作类型枚举（供日志筛选下拉）
-export const logActionTypes = ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点']
+export const logActionTypes = ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点', '评价通过', '评价拒绝', '设为精选', '取消精选', '官方回复', 'Q&A 回答', 'Q&A 上线', 'Q&A 隐藏', '图片驳回']
 
 // ===== 发布中心：待发布改动 + 历史 =====
 export const pendingChanges = [

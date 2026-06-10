@@ -218,3 +218,69 @@
 真实 OAuth 回调/后端、MFA、手机号短信登录、admin 员工改 passwordless。
 
 > 注：迭代 1 的反目标「社交登录（Facebook/Google/Apple）」已被本迭代决策推翻——本轮明确采用 Google + Apple（不含 Facebook）。
+
+## 迭代 4：2026-06-10 — 垂类竞品缺口补全（Showroom / 尺码推荐 / 定制尺寸与交期 / 评价审核）
+
+> 来源：竞品功能对标调研（Azazie / Birdy Grey / David's Bridal / Grace Loves Lace / Dessy / Revelry / Kennedy Blue）+ 用户选定第一梯队。
+> 调研结论：2026 婚纱电商标配能力 = 协作 Showroom、Home Try-On、Swatch 商店、尺码推荐、定制尺寸、虚拟造型师；Dreamy 当前全部缺失，且存在两端链路断裂（定制尺寸开关/发货周期后台有前台无；前台评价 Q&A 后台无审核）。
+
+### 本轮范围（第一梯队）
+
+1. **C1 虚拟 Showroom / 伴娘团协作下单**（portal-store · 商业模式级）
+   - 新娘创建 Showroom：命名（如 "Sarah's Bridal Party"）+ 婚期 + 从商品页/列表页「Add to Showroom」收藏款式与颜色
+   - 邀请链接分享：伴娘**免注册访客**即可浏览款式、投票（喜欢/不喜欢）、留言；下单时才需登录
+   - 新娘可为每位伴娘**指派款式/颜色**并发送提醒
+   - 下单模式：**各自下单各自付**；同一 Showroom 内 24h 同批下单展示「同染色批次（dye lot）保证」提示条
+   - 参考：Azazie Showroom（24h dye lot 保证）、Birdy Grey Bridal Salon、Revelry 指派+提醒
+
+2. **C5 尺码推荐工具**（portal-store）
+   - PDP 尺码区「Find My Size」入口 → 量体问卷弹窗（身高/体重/胸/腰/臀/穿着松紧偏好）
+   - 输出：推荐尺码 + 置信说明（如 "94% 的相似身材买家选择 US 8"）+ 一键选中该码
+   - 交互深度：纯问卷推荐（不做 avatar fit heatmap，列入 Future）
+   - 参考：Bold Metrics fit tech 转化 +50% 案例、Dessy Virtual Fitting Room
+
+3. **C7 定制尺寸（Custom Size）**（portal-store ↔ portal-admin 打通）
+   - PDP 尺码选择新增「Custom Size · Free」选项 → 展开量体表单（胸围/腰围/臀围/中空到地 hollow-to-floor/身高+鞋跟高）
+   - 仅当后台 SKU「定制尺寸开关」（A-007 已有字段）开启的商品显示
+   - 购物车/结算/订单明细透出定制尺寸信息
+   - 参考：Azazie 全款免费 custom sizing（0–30 码）
+
+4. **C8 婚期驱动交期**（portal-store）
+   - PDP「When is your wedding?」日期输入 → 按商品发货周期（A-007 已有字段）+ 物流时效判定：来得及（标准）/ 需加急（Rush Fee）/ 来不及（建议 ready-to-ship）
+   - 结算页地址步骤新增 wedding date 字段（选填），驱动交期复核提示
+   - Showroom 已含婚期时自动带入
+
+5. **A1 评价与 Q&A 审核**（portal-admin）
+   - 评价列表：待审/已通过/已拒绝/精选 状态流转 + 带图审核（图片缩略预览）+ 按商品/星级/状态筛选
+   - 官方回复：对评价追加 "Dreamy Team" 回复
+   - Q&A 管理：买家提问列表 + 官方回答 + 上线/隐藏
+   - 纳入 RBAC 菜单权限点（内容编辑/超管可见），操作日志记录审核动作
+
+### 排除项（本轮不做）
+- avatar 虚拟试衣 / fit heatmap（C5 仅问卷）
+- Showroom 新娘统一付款 / 代付（仅各自付）
+- 真实邮件/短信提醒发送（仅前端模拟）
+- 后台 Showroom 团体订单管理（A6，进入待办）
+
+### 待办清单（Backlog · 第二/三梯队，后续迭代）
+
+| 梯队 | 项 | 说明 |
+|------|----|------|
+| 2 | C2 Home Try-On 在家试穿 + A7 样品管理 | $10–15/件、6 件上限、7 天免邮退回（Azazie 模式） |
+| 2 | C9 消费端自助退货 + A3 RMA 流程升级 | 申请→审批→退货物流→质检→退款/换货 全链路 |
+| 2 | C3 Swatch 色样商店 | 单片/色卡套装/按码布料，前 N 片免费 |
+| 3 | C4 风格测试 Quiz | Find Your Dress，引流+个性化+线索沉淀 |
+| 3 | C6 虚拟造型师预约 + A11 预约管理 | 45–60 分钟视频咨询、会前问卷、会中下单 |
+| 3 | C10 在线客服 Live Chat + A4 客服工作台 | Gorgias 式可关联订单操作 |
+| 3 | C11 评价按身材筛选 + Fit 反馈条 | 偏小/正码/偏大投票 |
+| 3 | C12 缺货登记 + 低库存稀缺提示 | Back-in-stock 通知订阅 |
+| 3 | C13 礼品卡 | 婚礼亲友赠礼场景 |
+| 3 | C14 UGC 买家秀照片墙 | 可独立 SEO 的 Gallery + Shop the Look |
+| 3 | C15 推荐有礼 Referral | 新娘→伴娘天然裂变 |
+| 3 | A2 库存管理独立模块 | 总览/低库存预警承接页/出入库流水 |
+| 3 | A5 生产管理看板 | made-to-order：排产→裁剪→缝制→质检→出货 |
+| 3 | A8 搜索运营 Merchandising | 热门词/同义词/置顶坑位 |
+| 3 | A9 交易邮件模板管理 | 订单确认/发货/验证码模板 |
+| 3 | A10 汇率 + 税费配置 | 跨境 DDP/DDU |
+| 3 | I1 订单 24h 取消/修改窗口 | made-to-order 惯例 |
+| 3 | I3 优惠券效果数据 | 使用率/核销/ROI |

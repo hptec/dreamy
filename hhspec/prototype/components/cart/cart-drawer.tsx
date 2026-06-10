@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { X, ShoppingBag, Plus, Minus } from 'lucide-react'
 import { useStore } from '@/components/store-provider'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, formatCustomSize } from '@/lib/utils'
 
 export function CartDrawer() {
   const { cart, cartOpen, setCartOpen, updateQty, removeLine, cartSubtotal, currency } = useStore()
@@ -35,6 +35,7 @@ export function CartDrawer() {
                   <div className="flex flex-1 flex-col">
                     <Link href={`/product/${line.slug}`} onClick={() => setCartOpen(false)} className="text-sm font-medium leading-snug hover:text-gold-deep">{line.name}</Link>
                     <p className="mt-1 text-xs text-ink-soft">{line.color} · {line.size}</p>
+                    {line.customSize && <p className="mt-0.5 text-[11px] leading-snug text-gold-deep">{formatCustomSize(line.customSize)}</p>}
                     <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center border border-line">
                         <button onClick={() => updateQty(i, line.qty - 1)} className="cursor-pointer p-1.5" aria-label="Decrease"><Minus className="h-3 w-3" /></button>

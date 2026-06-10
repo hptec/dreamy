@@ -7,7 +7,7 @@
 tech_stack: nextjs15-app-router-ts-tailwind   # 指消费端 portal-store
 prototype_mode: standard
 portal_mode: multi
-last_prototype_update: 2026-05-31T15:30:00+08:00
+last_prototype_update: 2026-06-10T12:00:00+08:00
 design_style: editorial-luxe-coastal
 dev_command: pnpm dev   # 消费端 http://localhost:5173
 build_command: pnpm build
@@ -24,9 +24,9 @@ portals:
     tech_stack: pnpm-vue3-headless
     dir: portal-admin
     dev_command: pnpm -C portal-admin dev  # http://localhost:5174
-    pages_count: 25
+    pages_count: 26
     design_doc: portal-admin/PROTOTYPE-README.md
-    note: 迭代3新增身份与认证(AM12)：登录与认证配置；客户详情增登录方式卡+登录记录+强制下线。迭代4：账户合并改为系统自动（已验证邮箱一致即归并），下线后台人工合并页面与开关
+    note: 迭代3新增身份与认证(AM12)。迭代4(2026-06-10)新增AM13评价与Q&A审核(/reviews)：状态流转/带图审核/官方回复/Q&A管理，menuPermissionKeys 22→23，操作日志扩审核动作；账户合并改为系统自动（已验证邮箱一致即归并），下线后台人工合并页面与开关
 
 design_tokens:
   fonts: { display: Cormorant Garamond, sans: Jost }
@@ -60,7 +60,8 @@ admin_pages:
   - { name: 管理员管理, file: portal-admin/src/views/AdminList.vue, route: /system/admins, type: list, features: [A-041,A-042,A-043,A-044,A-045], drift: prototype_ahead }
   - { name: 角色权限, file: portal-admin/src/views/RoleManagement.vue, route: /system/roles, type: management, features: [A-046,A-047,A-048], drift: prototype_ahead }
   - { name: 登录与认证, file: portal-admin/src/views/AuthSettings.vue, route: /system/auth, type: settings, features: [A-067], drift: prototype_ahead }
-  - { name: 操作日志, file: portal-admin/src/views/OperationLogs.vue, route: /system/logs, type: list, features: [A-052,A-053,A-068], drift: prototype_ahead }
+  - { name: 操作日志, file: portal-admin/src/views/OperationLogs.vue, route: /system/logs, type: list, features: [A-052,A-053,A-068,A-074], drift: prototype_ahead }
+  - { name: 评价与Q&A审核, file: portal-admin/src/views/Reviews.vue, route: /reviews, type: list, features: [A-069,A-070,A-071,A-072,A-073], drift: prototype_ahead, last_updated: '2026-06-10', content_hash: 'sha256:08c456ab8b4cb61d31bec60cac32afc24ffe4b7c5602245d2a6f68c636c3cb21', hash_updated_at: '2026-06-10T12:00:00+08:00', note: '迭代4新增：双Tab(评价审核/Q&A管理)+详情抽屉+Lightbox单图驳回+官方回复' }
   - { name: 系统设置 (废弃), file: portal-admin/src/views/Settings.vue, route: /settings, type: settings, features: [A-040], drift: prototype_ahead, status: deprecated }
 
 admin_global_components:
@@ -79,10 +80,10 @@ pages:
   - { name: 小礼服列表, file: app/special-occasion/page.tsx, route: /special-occasion, type: list, features: [F-010,F-012,F-013,F-014,F-015,F-016,F-017], drift: prototype_ahead }
   - { name: 配饰列表, file: app/accessories/page.tsx, route: /accessories, type: list, features: [F-011,F-012,F-013,F-014,F-015,F-016,F-017], drift: prototype_ahead }
   - { name: Outdoor主题, file: app/outdoor-weddings/page.tsx, route: /outdoor-weddings, type: list, features: [F-018,F-019], drift: prototype_ahead }
-  - { name: 商品详情PDP, file: app/product/[slug]/page.tsx, route: /product/:slug, type: detail, features: [F-021,F-022,F-023,F-024,F-025,F-026,F-027,F-028,F-029,F-030,F-031], drift: prototype_ahead }
+  - { name: 商品详情PDP, file: app/product/[slug]/page.tsx, route: /product/:slug, type: detail, features: [F-021,F-022,F-023,F-024,F-025,F-026,F-027,F-028,F-029,F-030,F-031,F-067,F-072,F-073,F-074,F-076], drift: prototype_ahead, last_updated: '2026-06-10', note: '迭代4：Add to Showroom/Find My Size/Custom Size量体表单/婚期交期三态条' }
   - { name: 搜索结果, file: app/search/page.tsx, route: /search, type: list, features: [F-020,F-057], drift: prototype_ahead }
-  - { name: 购物车, file: app/cart/page.tsx, route: /cart, type: list, features: [F-033,F-034], drift: prototype_ahead }
-  - { name: 结算, file: app/checkout/page.tsx, route: /checkout, type: form, features: [F-035,F-036,F-037,F-038,F-040], drift: prototype_ahead }
+  - { name: 购物车, file: app/cart/page.tsx, route: /cart, type: list, features: [F-033,F-034,F-071,F-075], drift: prototype_ahead, last_updated: '2026-06-10' }
+  - { name: 结算, file: app/checkout/page.tsx, route: /checkout, type: form, features: [F-035,F-036,F-037,F-038,F-040,F-071,F-075,F-077], drift: prototype_ahead, last_updated: '2026-06-10', note: '迭代4：Wedding Date字段+交期复核+定制尺寸透出+dye lot提示' }
   - { name: 下单成功, file: app/order-success/page.tsx, route: /order-success, type: detail, features: [F-039], drift: prototype_ahead }
   - { name: 登录注册, file: app/account/login/page.tsx, route: /account/login, type: form, features: [F-041,F-059,F-060,F-061], drift: prototype_ahead }
   - { name: 账户总览, file: app/account/page.tsx, route: /account, type: dashboard, features: [F-042], drift: prototype_ahead }
@@ -102,6 +103,8 @@ pages:
   - { name: 联系, file: app/contact/page.tsx, route: /contact, type: content, features: [F-058], drift: prototype_ahead }
   - { name: FAQ, file: app/faq/page.tsx, route: /faq, type: content, features: [F-058], drift: prototype_ahead }
   - { name: 404, file: app/not-found.tsx, route: /:404, type: content, features: [F-058], drift: prototype_ahead }
+  - { name: MyShowrooms, file: app/showroom/page.tsx, route: /showroom, type: list, features: [F-066,F-070], drift: prototype_ahead, last_updated: '2026-06-10', content_hash: 'sha256:fe29f1b1a260aacb3b7bfc0b28b5f5033b987f64daa2ac1c72109d1f467beb07', hash_updated_at: '2026-06-10T12:00:00+08:00', note: '迭代4新增：Showroom列表+新建弹窗+空状态' }
+  - { name: Showroom详情, file: 'app/showroom/[id]/page.tsx', route: /showroom/:id, type: detail, features: [F-068,F-069,F-070,F-071], drift: prototype_ahead, last_updated: '2026-06-10', content_hash: 'sha256:bcdf10be927ad4f8a2523e5a407178a6a52cca551df30ef62b4cbcdd6f7beee0', hash_updated_at: '2026-06-10T12:00:00+08:00', note: '迭代4新增：新娘/访客双视图+邀请链接+投票留言+指派+24h dye lot提示' }
 
 global_components:
   - components/layout/site-header.tsx   # NavBar + MegaMenu + 搜索抽屉 + 币种/语言 (F-001~F-003, F-040, F-057)
@@ -112,4 +115,8 @@ global_components:
   - components/product/quick-view-modal.tsx    # 快速预览 (F-015)
   - components/product/size-guide-modal.tsx    # 尺码表 (F-026)
   - components/product/collection-view.tsx     # 共享列表页（Filter+排序+网格）
-  - components/store-provider.tsx              # 全局状态（购物车/收藏/币种/浏览历史）
+  - components/store-provider.tsx              # 全局状态（购物车/收藏/币种/浏览历史/Showrooms F-066~F-071）
+  - components/showroom/showroom-detail.tsx    # Showroom 详情双视图 (F-068~F-071)
+  - components/showroom/add-to-showroom-modal.tsx  # 加入 Showroom 弹窗 (F-067)
+  - components/product/find-my-size-modal.tsx  # 量体问卷尺码推荐 (F-072,F-073)
+  - data/showrooms.ts                          # Showroom mock 数据与 id 池

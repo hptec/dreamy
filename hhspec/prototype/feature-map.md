@@ -10,8 +10,8 @@
 
 | 门户 ID | 名称 | 目标用户 | 功能数 | 安全隔离 |
 |---------|------|---------|--------|---------|
-| `portal-store` | Dreamy 消费者商城 | 准新娘 / 伴娘 / 晚宴客户 / 全球 C 端 | F-001 ~ F-065 | 与 admin 完全隔离，不互链 |
-| `portal-admin` | Dreamy 运营管理后台 | 平台运营人员 | A-001 ~ A-068 | 与 store 完全隔离，独立鉴权 |
+| `portal-store` | Dreamy 消费者商城 | 准新娘 / 伴娘 / 晚宴客户 / 全球 C 端 | F-001 ~ F-077 | 与 admin 完全隔离，不互链 |
+| `portal-admin` | Dreamy 运营管理后台 | 平台运营人员 | A-001 ~ A-074 | 与 store 完全隔离，独立鉴权 |
 
 ## 架构预留建议
 
@@ -44,6 +44,7 @@
 | M6 内容栏目 | F-050 ~ F-055 | 灵感馆、Real Weddings、Blog、Wedding Guides、Lookbook |
 | M7 营销与全局 | F-056 ~ F-058 | Newsletter 弹窗、Exit Intent、Cookie Notice、搜索、404 |
 | M5+ 登录与安全（迭代3） | F-059 ~ F-065 | Passwordless 验证码 + Google + Apple、登录方式绑定、设备/会话管理 |
+| M8 Showroom 与购买辅助（迭代4） | F-066 ~ F-077 | 虚拟 Showroom 伴娘团协作（免注册访客投票/指派/dye lot）、Find My Size 尺码推荐、Custom Size 定制尺寸、婚期驱动交期 |
 
 ### portal-admin（后台）
 
@@ -60,6 +61,7 @@
 | AM9 系统 | A-040 | 管理员账号、角色、操作日志 |
 | AM11 系统管理 RBAC（迭代2） | A-041 ~ A-058 | 管理员 CRUD、角色权限矩阵、路由守卫、操作日志 |
 | AM12 身份与认证（迭代3） | A-064 ~ A-068 | 客户登录方式卡、登录记录、账户合并、登录与认证配置 |
+| AM13 评价审核（迭代4） | A-069 ~ A-074 | 评价审核状态流转、带图审核、官方回复、Q&A 管理、RBAC 权限点与操作日志扩展 |
 
 ## Must Have / Should Have 分级
 

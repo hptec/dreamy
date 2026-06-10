@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe } from 'lucide-react'
+import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe, Users } from 'lucide-react'
 import { mainNav, announcements, currencies, languages } from '@/data/navigation'
 import { products } from '@/data/products'
 import { useStore } from '@/components/store-provider'
@@ -97,6 +97,9 @@ export function SiteHeader() {
                 {wishlist.length > 0 && (
                   <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-blush text-[9px] text-white">{wishlist.length}</span>
                 )}
+              </Link>
+              <Link href="/showroom" className="hidden p-2 transition-colors hover:text-gold-deep sm:block" aria-label="My Showrooms">
+                <Users className="h-5 w-5" />
               </Link>
               <Link href="/account/login" className="p-2 transition-colors hover:text-gold-deep" aria-label="Account">
                 <User className="h-5 w-5" />
@@ -274,7 +277,8 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
               )}
             </div>
           ))}
-          <Link href="/account/login" onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-gold-deep">Sign In / Register</Link>
+          <Link href="/showroom" onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-ink">My Showrooms</Link>
+          <Link href="/account/login" onClick={onClose} className="mt-4 block text-sm font-medium uppercase tracking-luxe text-gold-deep">Sign In / Register</Link>
         </nav>
       </div>
     </div>

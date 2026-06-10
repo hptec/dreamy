@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Check, Lock, CreditCard, Truck } from 'lucide-react'
+import { Check, Lock, CreditCard, Truck, Clock, Zap, AlertTriangle } from 'lucide-react'
 import { useStore } from '@/components/store-provider'
-import { formatPrice, cn } from '@/lib/utils'
+import { products } from '@/data/products'
+import { formatPrice, cn, deliveryVerdict, formatCustomSize, formatDateLong, RUSH_FEE, type DeliveryVerdict } from '@/lib/utils'
 
 const steps = ['Address', 'Shipping', 'Payment', 'Review'] as const
 
@@ -26,13 +27,34 @@ const payments = [
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { cart, cartSubtotal, currency, clearCart } = useStore()
+  const { cart, cartSubtotal, currency, clearCart, showrooms, showroomWeddingDate } = useStore()
   const [step, setStep] = useState(0)
   const [shipMethod, setShipMethod] = useState('fedex')
   const [payMethod, setPayMethod] = useState('card')
+  const [weddingDate, setWeddingDate] = useState('')
+  const [dateTouched, setDateTouched] = useState(false)
+
+  // F-077：Showroom 已含婚期时自动带入（用户手动修改后不再覆盖）
+  useEffect(() => {
+    if (!dateTouched && showroomWeddingDate) setWeddingDate(showroomWeddingDate)
+  }, [showroomWeddingDate, dateTouched])
 
   const shipCost = shippingOptions.find((s) => s.id === shipMethod)?.price ?? 0
   const total = cartSubtotal + shipCost
+
+  // F-077：按婚期对购物车内商品做交期复核（取最差判定）
+  const verdicts = weddingDate
+    ? cart
+        .map((l) => products.find((p) => p.id === l.productId))
+        .filter(Boolean)
+        .map((p) => deliveryVerdict(weddingDate, p!.leadTimeDays, p!.rushAvailable))
+    : []
+  const worst: DeliveryVerdict | null = verdicts.length === 0 ? null : verdicts.includes('late') ? 'late' : verdicts.includes('rush') ? 'rush' : 'ok'
+
+  // F-071：同 Showroom 商品 + 团内已有人下单 → dye lot 提示
+  const dyeLotShowroom = showrooms.find(
+    (s) => s.members.some((m) => m.hasOrdered) && cart.some((l) => s.items.some((it) => it.productId === l.productId))
+  )
 
   if (cart.length === 0) {
     return (
@@ -83,6 +105,21 @@ export default function CheckoutPage() {
                 <select className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold">
                   <option>United States</option><option>Canada</option><option>Australia</option><option>United Kingdom</option>
                 </select>
+              </div>
+              <div>
+                <label htmlFor="checkout-wedding-date" className="eyebrow mb-1.5 block">Wedding Date (optional)</label>
+                <input
+                  id="checkout-wedding-date"
+                  type="date"
+                  value={weddingDate}
+                  onChange={(e) => { setWeddingDate(e.target.value); setDateTouched(true) }}
+                  className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold"
+                />
+                <p className="mt-1.5 text-xs text-ink-faint">
+                  {!dateTouched && showroomWeddingDate && weddingDate === showroomWeddingDate
+                    ? 'Pre-filled from your showroom — we’ll double-check production timelines against this date.'
+                    : 'We’ll double-check production timelines against this date.'}
+                </p>
               </div>
               <button onClick={() => setStep(1)} className="btn-primary mt-4 w-full sm:w-auto">Continue to Shipping</button>
             </div>
@@ -141,12 +178,41 @@ export default function CheckoutPage() {
           {step === 3 && (
             <div className="space-y-5">
               <h2 className="font-display text-2xl font-medium">Review Your Order</h2>
+
+              {/* F-077：婚期交期复核 */}
+              {weddingDate && worst === 'ok' && (
+                <p className="flex items-start gap-2 rounded-sm bg-sage/10 px-4 py-3 text-sm text-sage-deep">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0" /> All made-to-order items will arrive before your wedding on {formatDateLong(weddingDate)} with standard production.
+                </p>
+              )}
+              {weddingDate && worst === 'rush' && (
+                <p className="flex items-start gap-2 rounded-sm bg-gold/10 px-4 py-3 text-sm text-gold-deep">
+                  <Zap className="mt-0.5 h-4 w-4 shrink-0" /> Some items require rush production (+{formatPrice(RUSH_FEE, currency)} per item) to arrive before {formatDateLong(weddingDate)}. Our team will confirm by email after checkout.
+                </p>
+              )}
+              {weddingDate && worst === 'late' && (
+                <p className="flex items-start gap-2 rounded-sm bg-blush/15 px-4 py-3 text-sm text-blush">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Some items may not arrive before {formatDateLong(weddingDate)}. Consider <Link href="/wedding-dresses" className="underline">Ready-to-Ship styles</Link> or contact our stylists.
+                </p>
+              )}
+
+              {/* F-071：dye lot 提示 */}
+              {dyeLotShowroom && (
+                <p className="flex items-start gap-2 rounded-sm bg-gold/10 px-4 py-3 text-sm text-gold-deep">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0" /> This order includes a style from <strong>{dyeLotShowroom.name}</strong> — orders placed within 24h of your party share the same dye lot.
+                </p>
+              )}
+
               <div className="rounded-sm border border-line">
                 {cart.map((line, i) => (
                   <div key={i} className="flex items-center gap-4 border-b border-line/60 p-4 last:border-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={line.image} alt={line.name} className="h-20 w-14 rounded-sm object-cover" />
-                    <div className="flex-1"><p className="text-sm font-medium">{line.name}</p><p className="text-xs text-ink-soft">{line.color} · {line.size} · Qty {line.qty}</p></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{line.name}</p>
+                      <p className="text-xs text-ink-soft">{line.color} · {line.size} · Qty {line.qty}</p>
+                      {line.customSize && <p className="mt-0.5 text-[11px] leading-snug text-gold-deep">{formatCustomSize(line.customSize)}</p>}
+                    </div>
                     <span className="text-sm font-medium">{formatPrice(line.price * line.qty, currency)}</span>
                   </div>
                 ))}
@@ -173,7 +239,11 @@ export default function CheckoutPage() {
                 <div key={i} className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={line.image} alt={line.name} className="h-14 w-10 rounded-sm object-cover" />
-                  <div className="flex-1 text-xs"><p className="font-medium">{line.name}</p><p className="text-ink-soft">{line.size} · Qty {line.qty}</p></div>
+                  <div className="flex-1 text-xs">
+                    <p className="font-medium">{line.name}</p>
+                    <p className="text-ink-soft">{line.size} · Qty {line.qty}</p>
+                    {line.customSize && <p className="mt-0.5 text-[10px] leading-snug text-gold-deep">{formatCustomSize(line.customSize)}</p>}
+                  </div>
                   <span className="text-xs font-medium">{formatPrice(line.price * line.qty, currency)}</span>
                 </div>
               ))}

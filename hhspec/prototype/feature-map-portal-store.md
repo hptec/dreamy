@@ -156,3 +156,69 @@
 
 ### 不包含（Future）
 真实 OAuth/后端、MFA、手机号短信、社交头像同步。
+
+## 迭代 4：垂类竞品缺口补全（F-066 ~ F-077 · 2026-06-10）
+
+> 来源：requirements-brief.md「迭代 4」章节（竞品对标：Azazie Showroom / Birdy Grey Bridal Salon / Revelry / Dessy）。已有最大编号 F-065，本轮自 F-066 起。涵盖 C1 虚拟 Showroom、C5 尺码推荐、C7 定制尺寸、C8 婚期交期。
+
+### C1 虚拟 Showroom / 伴娘团协作
+
+| 编号 | 功能名 | 优先级 | 关键交互 | 承载页面 |
+|------|--------|--------|---------|---------|
+| F-066 | [新增] Showroom 创建与管理 | Must | 创建 Showroom（命名如 "Sarah's Bridal Party" + 婚期）+ 我的 Showroom 列表 + 编辑/删除；账户中心侧边栏新增入口 | `app/showroom/page.tsx` |
+| F-067 | [新增] Add to Showroom 收藏款式 | Must | PDP 与商品卡片新增「Add to Showroom」入口 → 选择目标 Showroom + 颜色后加入；已收藏态标识 | PDP `app/product/[slug]/page.tsx`、商品卡片组件 |
+| F-068 | [新增] 邀请链接与访客视图 | Must | 生成/复制邀请链接；伴娘**免注册访客**通过链接浏览 Showroom 款式与颜色（输入昵称即可参与）；下单时才要求登录 | `app/showroom/[id]/page.tsx` |
+| F-069 | [新增] 访客投票与留言 | Must | 每款式 喜欢/不喜欢 投票（票数聚合展示）+ 留言区（昵称 + 留言列表） | `app/showroom/[id]/page.tsx` |
+| F-070 | [新增] 款式指派与提醒 | Must | 新娘为每位伴娘指派款式/颜色（成员列表 + 指派状态）+「发送提醒」按钮（前端模拟，无真实邮件/短信） | `app/showroom/page.tsx`、`app/showroom/[id]/page.tsx` |
+| F-071 | [新增] 各自下单 + dye lot 提示 | Must | 伴娘从 Showroom 将被指派款式加购、各自付款；同一 Showroom 内 24h 同批下单展示「同染色批次（dye lot）保证」提示条（Showroom 视图 + 购物车/结算透出） | `app/showroom/[id]/page.tsx`、`app/cart/page.tsx`、`app/checkout/page.tsx` |
+
+### C5 尺码推荐
+
+| 编号 | 功能名 | 优先级 | 关键交互 | 承载页面 |
+|------|--------|--------|---------|---------|
+| F-072 | [新增] Find My Size 量体问卷 | Must | PDP 尺码区「Find My Size」入口 → 弹窗问卷（身高/体重/胸/腰/臀/穿着松紧偏好），分步填写 | PDP `app/product/[slug]/page.tsx`（弹窗组件） |
+| F-073 | [新增] 尺码推荐结果与一键选中 | Must | 输出推荐尺码 + 置信说明（如 "94% 的相似身材买家选择 US 8"）+「Select This Size」一键选中该码回填 SKU 选择器 | PDP（弹窗组件，联动 F-025 SKU 选择） |
+
+### C7 定制尺寸（Custom Size）
+
+| 编号 | 功能名 | 优先级 | 关键交互 | 承载页面 |
+|------|--------|--------|---------|---------|
+| F-074 | [新增] Custom Size 选项与量体表单 | Must | PDP 尺码选择新增「Custom Size · Free」选项 → 展开量体表单（胸围/腰围/臀围/中空到地 hollow-to-floor/身高+鞋跟高）；**仅后台 SKU 定制尺寸开关（A-007）开启的商品显示** | PDP `app/product/[slug]/page.tsx` |
+| F-075 | [新增] 定制尺寸信息透出 | Must | 购物车行项、结算订单复核、下单成功与订单详情展示定制尺寸明细（可折叠查看量体数据） | `app/cart/page.tsx`、`app/checkout/page.tsx`、订单详情/账户订单页 |
+
+### C8 婚期驱动交期
+
+| 编号 | 功能名 | 优先级 | 关键交互 | 承载页面 |
+|------|--------|--------|---------|---------|
+| F-076 | [新增] PDP 婚期交期判定 | Must | 「When is your wedding?」日期输入 → 按商品发货周期（A-007 字段）+ 物流时效判定三态：来得及（标准）/ 需加急（Rush Fee）/ 来不及（建议 ready-to-ship 替代款）；结果以提示条展示 | PDP `app/product/[slug]/page.tsx` |
+| F-077 | [新增] 结算 wedding date 复核 | Must | 结算地址步骤新增 wedding date 字段（选填）→ 对购物车内商品做交期复核提示；Showroom 已含婚期时自动带入（PDP 与结算均带入） | `app/checkout/page.tsx` |
+
+### 页面建议（迭代 4）
+
+**新增页面（2 个）**：
+
+| 页面 | 路径 | 类型 | 包含功能 | 关键交互 |
+|------|------|------|---------|---------|
+| Showroom 管理（新娘视图） | `app/showroom/page.tsx` | 列表/管理页 | F-066,F-070 | 我的 Showroom 列表 + 创建弹窗（命名+婚期）+ 成员指派概览 |
+| Showroom 详情（含访客邀请视图） | `app/showroom/[id]/page.tsx` | 协作页 | F-068,F-069,F-070,F-071 | 款式网格 + 投票/留言 + 邀请链接 + 指派 + dye lot 提示条；按身份（新娘/访客）差异渲染 |
+
+**修改页面（已有页面增强）**：
+
+| 页面 | 路径 | 涉及功能 | 增强点 |
+|------|------|---------|--------|
+| 商品详情 PDP | `app/product/[slug]/page.tsx` | F-067,F-072,F-073,F-074,F-076 | Add to Showroom 入口、Find My Size 弹窗、Custom Size 表单、婚期交期判定条 |
+| 商品卡片（全局组件） | 列表页/推荐位卡片 | F-067 | Add to Showroom 快捷入口 |
+| 购物车 | `app/cart/page.tsx` | F-071,F-075 | dye lot 提示、定制尺寸明细 |
+| 结算 | `app/checkout/page.tsx` | F-071,F-075,F-077 | wedding date 字段 + 交期复核、定制尺寸透出、dye lot 提示 |
+| 账户中心侧边栏 | `components/account/account-sidebar.tsx` | F-066 | 新增「My Showroom」入口 |
+
+### 关联与约束
+- F-074（Custom Size 显示条件）与 F-076（发货周期/加急判定）依赖后台 **A-007 SKU 矩阵已有字段**：定制尺寸开关、发货周期(天数)、加急开关——两端链路打通，无需后台新增字段。
+- F-073 一键选中联动 F-025 SKU 选择器；F-077 的 Showroom 婚期带入依赖 F-066 的婚期数据。
+- F-071 下单仍走已有结算链路（F-035~F-039），仅增加提示与来源标识。
+
+### 不包含（本轮排除项）
+- avatar 虚拟试衣 / fit heatmap（C5 仅问卷推荐）
+- Showroom 新娘统一付款 / 代付（仅各自下单各自付）
+- 真实邮件/短信提醒发送（F-070 仅前端模拟）
+- 后台 Showroom 团体订单管理（A6，进入 backlog）

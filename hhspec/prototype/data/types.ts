@@ -24,6 +24,12 @@ export interface Product {
   subCategory: string
   price: number
   compareAtPrice?: number
+  /** 是否支持免费定制尺寸（后台 A-007 SKU 开关，前台 PDP Custom Size 选项依赖） */
+  customSizeEnabled: boolean
+  /** 标准生产周期（天） */
+  leadTimeDays: number
+  /** 是否支持加急生产（Rush Fee） */
+  rushAvailable: boolean
   rating: number
   reviewCount: number
   /** 主图廊（按角色：正/侧/背/lifestyle） */
@@ -84,6 +90,53 @@ export interface BlogPost {
   cover: string
   excerpt: string
   body: string[]
+}
+
+// ============ 迭代 4：Showroom / 定制尺寸 ============
+
+/** 定制尺寸量体数据（inch） */
+export interface CustomSizeMeasurements {
+  bust: string
+  waist: string
+  hips: string
+  hollowToFloor: string
+  height: string
+  heelHeight: string
+}
+
+export interface ShowroomComment {
+  author: string
+  text: string
+  date: string
+}
+
+/** Showroom 内收藏的一个款式（款式 + 颜色组合） */
+export interface ShowroomItem {
+  productId: string
+  color: string
+  upVotes: string[]
+  downVotes: string[]
+  comments: ShowroomComment[]
+}
+
+export interface ShowroomMember {
+  id: string
+  name: string
+  role: 'bride' | 'bridesmaid'
+  assignedProductId?: string
+  assignedColor?: string
+  /** mock：是否已下单（触发 24h dye lot 保证提示） */
+  hasOrdered?: boolean
+}
+
+export interface Showroom {
+  id: string
+  name: string
+  /** YYYY-MM-DD */
+  weddingDate: string
+  createdAt: string
+  items: ShowroomItem[]
+  members: ShowroomMember[]
 }
 
 export interface WeddingGuide {

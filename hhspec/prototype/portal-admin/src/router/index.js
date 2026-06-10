@@ -35,6 +35,7 @@ const routes = [
   { path: '/content/blog', name: 'content-blog', component: () => import('@/views/ContentBlog.vue'), meta: { title: 'Blog 文章', group: '内容管理' } },
   { path: '/content/weddings', name: 'content-weddings', component: () => import('@/views/ContentWeddings.vue'), meta: { title: 'Real Weddings', group: '内容管理' } },
   { path: '/content/lookbook', name: 'content-lookbook', component: () => import('@/views/ContentLookbook.vue'), meta: { title: 'Lookbook 与指南', group: '内容管理' } },
+  { path: '/reviews', name: 'reviews', component: () => import('@/views/Reviews.vue'), meta: { title: '评价与 Q&A', group: '内容管理' } },
 
   // 数据
   { path: '/analytics', name: 'analytics', component: () => import('@/views/Analytics.vue'), meta: { title: '数据看板', group: '数据分析' } },
