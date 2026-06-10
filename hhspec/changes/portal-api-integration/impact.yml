@@ -1,0 +1,67 @@
+change_name: portal-api-integration
+generated_at: "2026-06-10T13:11:49Z"
+
+entity_impact:
+  skipped: false
+entities_analyzed:
+  - id: Category
+  - id: AttributeDef
+  - id: AttributeSet
+  - id: AttributeSetItem
+  - id: TagDimension
+  - id: Tag
+  - id: Banner
+  - id: BlogPost
+  - id: AnalyticsDashboard
+  - id: Product
+  - id: ProductImage
+  - id: Sku
+  - id: SizeChartRow
+  - id: Customer
+  - id: Address
+  - id: CartItem
+  - id: Order
+  - id: OrderLine
+  - id: Payment
+
+state_impact:
+  skipped: true
+
+flow_impact:
+  skipped: false
+flows_analyzed:
+  - id: checkout_order
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: n15
+  - id: n16
+  - id: n17
+  - id: n18
+
+affected_specs:
+  []
+
+affected_domains:
+  []
+
+breaking_changes:
+  []
+
+summary:
+  total_affected_specs: 0
+  regression_risk_score: 4
+  regression_risk_level: medium
+  must_review:
+    []

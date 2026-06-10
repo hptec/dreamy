@@ -1,0 +1,64 @@
+machines:
+  - id: banner_lifecycle
+    entity: Banner
+    states: [draft, published, archived, deleted]
+    initial: draft
+    source: "prototype/portal-admin/src/views/Banners.vue > 保存并发布/Toggle b.online/TrashIcon + 投放时间 start/end"
+    transitions:
+      - {from: draft, event: publish, to: published, guard: "name != null && image_url != null"}
+      - {from: published, event: take_offline, to: archived}
+      - {from: published, event: schedule_expire, to: archived, guard: "now > end_time"}
+      - {from: archived, event: republish, to: published}
+      - {from: draft, event: delete, to: deleted}
+      - {from: published, event: delete, to: deleted}
+      - {from: archived, event: delete, to: deleted}
+
+  - id: blog_post_lifecycle
+    entity: BlogPost
+    states: [draft, published, archived, deleted]
+    initial: draft
+    source: "prototype/portal-admin/src/views/ContentBlog.vue > 发布按钮 v-if p.status==='draft' / filter tabs / TrashIcon"
+    transitions:
+      - {from: draft, event: publish, to: published, guard: "title != null"}
+      - {from: published, event: unpublish, to: archived}
+      - {from: archived, event: republish, to: published}
+      - {from: draft, event: delete, to: deleted}
+      - {from: published, event: delete, to: deleted}
+      - {from: archived, event: delete, to: deleted}
+
+  - id: category_lifecycle
+    entity: Category
+    states: [active, deleted]
+    initial: active
+    source: "prototype/portal-admin/src/views/Categories.vue > confirmAddRoot/confirmAddChild/canDelete/TrashIcon :disabled=!canDelete(cat)"
+    transitions:
+      - {from: active, event: delete, to: deleted, guard: "product_count === 0"}
+
+  - id: tag_lifecycle
+    entity: Tag
+    states: [enabled, disabled, deleted]
+    initial: enabled
+    source: "prototype/portal-admin/src/views/Categories.vue > confirmAddTag enabled:true / Toggle v-model=t.enabled / removeTag"
+    transitions:
+      - {from: enabled, event: toggle_off, to: disabled}
+      - {from: disabled, event: toggle_on, to: enabled}
+      - {from: enabled, event: delete, to: deleted}
+      - {from: disabled, event: delete, to: deleted}
+
+  - id: tag_dimension_lifecycle
+    entity: TagDimension
+    states: [active, deleted]
+    initial: active
+    source: "prototype/portal-admin/src/views/Categories.vue > confirmAddDim / removeDim 级联删除维度下标签"
+    transitions:
+      - {from: active, event: delete, to: deleted}
+
+  - id: attribute_visibility_cycle
+    entity: AttributeSetItem
+    states: [visible, optional, hidden]
+    initial: hidden
+    source: "prototype/portal-admin/src/views/AttributeSets.vue > cycleState STATES=['visible','optional','hidden'] 点击循环切换"
+    transitions:
+      - {from: hidden, event: cycle_click, to: visible}
+      - {from: visible, event: cycle_click, to: optional}
+      - {from: optional, event: cycle_click, to: hidden}

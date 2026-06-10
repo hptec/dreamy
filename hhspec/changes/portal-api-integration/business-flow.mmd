@@ -1,0 +1,384 @@
+flowchart LR
+  n1((消费者进入商城))
+  n2["浏览商品列表/详情（CDN/ISR+JetCache 两级缓存读，开启穿透保护）"]
+  n3{是否已登录}
+  n4["加入购物车（DB 持久化，按 user_id 隔离）"]
+  n5["匿名加购（anonToken/localStorage），登录时按 anonToken 合并入账户购物车"]
+  n6["结算：选择收货地址，按 ShippingRate 分区计算运费，可选礼品包装（固定费计入总额，决策28），优惠券抵扣"]
+  n7{鉴权校验：登录态有效且购物车条目归属当前 user_id}
+  n8{防重校验：订单号预生成，重复提交返回已有订单}
+  n9["创建订单（原子事务：订单+订单行快照+现货 SKU 乐观锁扣库存+清购物车；定制款不扣库存仅记 customSizeData）"]
+  n10{扣库存是否成功（乐观锁版本冲突/库存不足）}
+  n11["下单失败：事务整体回滚，提示库存不足或冲突重试"]
+  n12["创建 Stripe PaymentIntent（Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，决策25；金额/币种一致性校验）"]
+  n13["Stripe 创建超时/失败：订单保持 pending，可重试发起支付"]
+  n14["消费者确认支付 stripe_confirm"]
+  n15["Stripe webhook 回调：签名验证 + 按 event_id 幂等消费（重复事件直接 ACK）"]
+  n16{webhook 支付结果}
+  n17["支付成功"]
+  n18["订单已支付（状态前置校验+乐观锁防与超时关单并发竞争）"]
+  n19["发布支付成功事件到 RabbitMQ（→ 订单事件分发流）"]
+  n20["支付失败"]
+  n21["支付失败：订单仍 pending 且未超时可重试支付（failed→processing retry_payment）"]
+  n22((下单支付完成))
+  n23((流程终止))
+  n1 --> n2
+  n2 --> n3
+  n3 -->|yes| n4
+  n3 -->|no| n5
+  n4 --> n6
+  n5 --> n6
+  n6 --> n7
+  n7 -->|yes| n8
+  n7 -->|no| n23
+  n8 -->|首次提交| n9
+  n8 -->|重复提交返回已有订单| n12
+  n9 --> n10
+  n10 -->|yes| n12
+  n10 -->|no| n11
+  n11 --> n23
+  n12 -->|成功| n14
+  n12 -->|超时/失败| n13
+  n13 -->|重试| n12
+  n14 --> n15
+  n15 --> n16
+  n16 -->|succeeded| n17
+  n16 -->|failed| n20
+  n17 --> n18
+  n18 --> n19
+  n19 --> n22
+  n20 --> n21
+  n21 -->|重试支付| n14
+  n21 -->|放弃| n23
+  n1((定时任务触发))
+  n2["扫描 now > expiresAt 的 pending 订单"]
+  n3{状态前置校验：订单仍为 pending（防与支付 webhook 并发竞争）}
+  n4["超时自动取消（与库存回补同事务）"]
+  n5["回补现货 SKU 库存（定制款无库存跳过）"]
+  n6["发布订单取消事件到 RabbitMQ"]
+  n7["并发冲突：订单已被 webhook 置为 paid，跳过该单不取消"]
+  n8((本轮扫描结束))
+  n1 --> n2
+  n2 --> n3
+  n3 -->|yes| n4
+  n3 -->|no| n7
+  n4 --> n5
+  n5 --> n6
+  n6 --> n8
+  n7 --> n8
+  n1((管理员打开已支付订单详情))
+  n2{权限校验：RBAC @RequirePermission 订单发货权限点}
+  n3["选择承运商（来自 Shipping 配置启用的 Carrier）并填写运单号"]
+  n4{guard：carrier 与 trackingNo 已填写且订单仍为 paid}
+  n5["标记发货"]
+  n6["记录审计日志（OperationLog 发货操作）"]
+  n7["发布发货事件到 RabbitMQ（缓存失效+通知消费者）"]
+  n8["消费者确认收货"]
+  n9["权限不足或订单状态已变更（如已转 refunding），操作拒绝"]
+  n10((订单完成))
+  n11((发货中止))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n9
+  n3 --> n4
+  n4 -->|yes| n5
+  n4 -->|no| n9
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 --> n10
+  n9 --> n11
+  n1((消费者发起退款申请))
+  n2{鉴权校验：订单归属当前 user_id 且状态为 paid/shipped，金额不超过订单总额}
+  n3["创建退款工单（初始 pending）"]
+  n4["订单转入退款中"]
+  n5{权限校验：RBAC @RequirePermission 退款审核权限点}
+  n6{管理员审核结论}
+  n7["审核通过"]
+  n8["调用 Stripe Refund API（沙箱）"]
+  n9{Stripe 退款是否成功}
+  n10["原子事务：退款记录落账+订单状态变更+现货库存回补"]
+  n11["支付单转退款"]
+  n12["退款工单完成"]
+  n13["订单退款完成"]
+  n14["记录审计日志（OperationLog 退款审核）"]
+  n15["发布退款事件到 RabbitMQ（缓存失效+通知消费者）"]
+  n16["审核驳回"]
+  n17["订单回退到退款前状态"]
+  n18["Stripe 退款失败/超时：工单保持 approved，事务不提交，待人工重试"]
+  n19["鉴权/状态校验失败：拒绝申请"]
+  n20((退款完成))
+  n21((退款驳回))
+  n22((申请终止))
+  n23{订单含定制行（customSizeData 非空）且已超 24h 投产宽限期？}
+  n24["422 定制款已投产不可退（消费端入口置灰+三语说明文案）"]
+  n1 --> n2
+  n2 -->|yes| n23
+  n2 -->|no| n19
+  n3 --> n4
+  n4 --> n5
+  n5 -->|yes| n6
+  n5 -->|no| n19
+  n6 -->|通过| n7
+  n6 -->|驳回| n16
+  n7 --> n8
+  n8 --> n9
+  n9 -->|yes| n10
+  n9 -->|no| n18
+  n10 --> n11
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14
+  n14 --> n15
+  n15 --> n20
+  n16 --> n17
+  n17 --> n14
+  n18 -->|重试| n8
+  n18 -->|终止| n22
+  n19 --> n22
+  n14 -->|驳回路径| n21
+  n23 -->|yes| n24
+  n23 -->|no| n3
+  n24 --> n22
+  n1((消费者进入已完成订单提交评价))
+  n2{鉴权校验：订单归属当前 user_id 且状态为 completed}
+  n3["提交评分/内容/买家秀图片（评价初始 pending 不前台展示）"]
+  n4{权限校验：RBAC @RequirePermission 评价审核权限点}
+  n5{管理员审核结论}
+  n6["审核通过，前台展示"]
+  n7["审核拒绝（featured 强制置 false）"]
+  n8["记录审计日志（OperationLog 评价审核）"]
+  n9["非 completed 订单或越权提交：拒绝并提示"]
+  n10((审核完成))
+  n11((提交终止))
+  n12["消费者在账户中心查看我写的评价及审核状态（按 user_id 过滤，F-049）"]
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n9
+  n3 --> n4
+  n4 -->|yes| n5
+  n4 -->|no| n9
+  n5 -->|approve| n6
+  n5 -->|reject| n7
+  n6 --> n8
+  n7 --> n8
+  n8 --> n12
+  n9 --> n11
+  n12 --> n10
+  n1((管理员编辑商品/内容))
+  n2{权限校验：RBAC @RequirePermission 商品/内容编辑权限点}
+  n3["图片上传：后端签发对象存储预签名 URL，前端直传，DB 仅存对象 key/URL"]
+  n4["上传失败/预签名过期：重新申请预签名 URL 重传"]
+  n5["保存草稿（商品含 SKU 矩阵/属性/尺码表）"]
+  n6["发布"]
+  n7["记录审计日志（OperationLog 上下架/改价/内容发布）"]
+  n8["发布内容变更事件到 RabbitMQ"]
+  n9["失效链：JetCache @CacheInvalidate → Next.js revalidatePath（ISR） → CDN 边缘秒级更新"]
+  n10["MQ 投递/消费失败：进入死信队列重试，缓存按 TTL 兜底过期"]
+  n11((发布生效，前台可见))
+  n12((编辑终止))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n12
+  n3 -->|成功| n5
+  n3 -->|失败| n4
+  n4 -->|重试| n3
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 -->|投递成功| n9
+  n8 -->|投递失败| n10
+  n10 -->|死信重试成功| n9
+  n9 --> n11
+  n1((订单事件产生))
+  n2["发布事件到 RabbitMQ 交换机"]
+  n3["投递失败：本地重试，多次失败进死信队列告警"]
+  n4["消费者A：JetCache 缓存失效（订单聚合/商品销量相关 key）"]
+  n5["消费者B：触发 Next.js ISR revalidate 相关页面"]
+  n6["消费者C：通知消费者（支付/发货/取消邮件）"]
+  n7{消费是否成功}
+  n8["消费失败：按 event_id 幂等重投，超限进死信队列"]
+  n9((事件分发完成))
+  n1 --> n2
+  n2 -->|投递成功| n4
+  n2 -->|投递失败| n3
+  n3 -->|重试| n2
+  n4 --> n7
+  n5 --> n7
+  n6 --> n7
+  n2 -->|投递成功| n5
+  n2 -->|投递成功| n6
+  n7 -->|yes| n9
+  n7 -->|no| n8
+  n8 --> n9
+  n1((管理员打开 Dashboard/Analytics))
+  n2{权限校验：RBAC @RequirePermission 数据看板权限点}
+  n3{JetCache 60s 缓存是否命中}
+  n4["返回缓存聚合结果"]
+  n5["实时 SQL 聚合 Order/Refund/Product（GMV/订单数/退款率/漏斗）并写入缓存"]
+  n6["聚合 SQL 超时：返回上次缓存快照并提示数据延迟（缓存穿透保护兜底）"]
+  n7((看板展示))
+  n8((访问拒绝))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n8
+  n3 -->|命中| n4
+  n3 -->|未命中| n5
+  n4 --> n7
+  n5 -->|成功| n7
+  n5 -->|超时| n6
+  n6 --> n7
+  n1((消费者结算页输入优惠码或选择已领券))
+  n2{券校验：状态 active/expiring 且 now 在 startAt~endAt 内、usedCount < totalLimit、订单满足 minAmount}
+  n3["结算金额抵扣（折扣/满减/包邮三类），下单事务内核销 usedCount+1"]
+  n4["券无效/已抢光/未达门槛：提示并移除抵扣，按原价结算"]
+  n5((抵扣生效随订单提交))
+  n6((按原价结算))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n4
+  n3 --> n5
+  n4 --> n6
+  n1((定时任务触发))
+  n2{guard：now > endAt 且活动为 active}
+  n3["自动下线"]
+  n4["发布活动下线事件触发缓存失效与 ISR revalidate"]
+  n5["事件投递失败：死信重试，前台缓存按 TTL 兜底过期"]
+  n6((本轮扫描结束))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n6
+  n3 --> n4
+  n4 -->|成功| n6
+  n4 -->|失败| n5
+  n5 --> n6
+  n1["MQ 订单事件到达（支付成功/发货/退款结果）"]
+  n2{MailRecord（orderId+type） 已存在？（幂等检查）}
+  n3["创建 MailRecord（pending），按用户 locale 三语渲染模板"]
+  n4["SMTP 抽象接口发送（dev 落日志 / 生产 SES 等配置化）"]
+  n5["MailRecord pending → sent"]
+  n6["MailRecord pending → failed"]
+  n7{retryCount < 3？}
+  n8["failed → pending 重试"]
+  n9["failed → dead 告警"]
+  n10((跳过（已发送过，不重发）))
+  n11((邮件发送完成（MailRecord=sent）))
+  n1 --> n2
+  n2 -->|yes| n10
+  n2 -->|no| n3
+  n3 --> n4
+  n4 -->|成功| n5
+  n4 -->|失败| n6
+  n6 --> n7
+  n7 -->|yes| n8
+  n7 -->|no| n9
+  n8 --> n4
+  n5 --> n11
+  n1((消费者点击收藏（商品卡片/PDP 心形）))
+  n2{是否已登录？}
+  n3["引导登录（登录后回到当前页继续收藏）"]
+  n4{WishlistItem（customerId+productId） 已存在？（幂等）}
+  n5["创建 WishlistItem，已收藏态标识回显"]
+  n6["收藏页移入购物车：创建 CartItem 并删除该 WishlistItem"]
+  n7["移除收藏：删除 WishlistItem"]
+  n8((收藏网格刷新（空时显示空状态引导）))
+  n1 --> n2
+  n2 -->|no| n3
+  n3 --> n4
+  n2 -->|yes| n4
+  n4 -->|yes| n8
+  n4 -->|no| n5
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n1((新娘创建 Showroom（命名+婚期），生成不可猜 inviteToken))
+  n2["PDP/商品卡片 Add to Showroom（选目标 Showroom+颜色）"]
+  n3["生成/复制邀请链接（可重置作废旧 token）"]
+  n4["访客凭 token+昵称换取受限 guest JWT（仅可读本 Showroom+投票/留言）"]
+  n5{token 有效且未被重置？}
+  n6["403 邀请链接已失效，提示向新娘索取新链接"]
+  n7["投票（喜欢/不喜欢，按 member 去重覆盖）+ 留言（≤500字）"]
+  n8["新娘指派款式/颜色给成员 unassigned → assigned"]
+  n9{成员 email 已填写？}
+  n10["发送提醒 assigned → reminded（MQ→MailRecord→SMTP，复用决策16基建）"]
+  n11["提示补填成员邮箱后再发提醒"]
+  n12["伴娘登录后将被指派款式加购下单 assigned/reminded → ordered"]
+  n13["同 Showroom 24h 内同款式已付订单 → 购物车/结算/Showroom 视图透出 dye lot 同染色批次提示条"]
+  n14((成员列表展示指派与下单状态))
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5
+  n5 -->|no| n6
+  n5 -->|yes| n7
+  n7 --> n8
+  n8 --> n9
+  n9 -->|yes| n10
+  n9 -->|no| n11
+  n10 --> n12
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14
+  n1((PDP 尺码区点击 Find My Size，分步填写问卷（身高/体重/胸/腰/臀/松紧偏好）))
+  n2["后端按商品 SizeChartRow 区间匹配（三围落码段+松紧偏好偏移），纯函数可测"]
+  n3{三围均落入某码段区间？}
+  n4["返回推荐码+区间说明（如“您的三围均落在 US 8 区间”，不虚构买家占比统计）"]
+  n5["Select This Size 一键回填 SKU 选择器（联动 F-025）"]
+  n6["跨码段冲突时返回相邻两码+提示参考定制尺寸（Custom Size）选项"]
+  n7((关闭弹窗，尺码选中态更新))
+  n1 --> n2
+  n2 --> n3
+  n3 -->|yes| n4
+  n3 -->|no| n6
+  n4 --> n5
+  n5 --> n7
+  n6 --> n7
+  n1((管理员打开 Analytics 页（trafficSources/funnel/device_share 区块）))
+  n2{JetCache 命中（5min TTL）？}
+  n3["后端持 service account 凭证调用 GA4 Data API（凭证仅后端配置，不暴露前端）"]
+  n4{GA4 调用成功？}
+  n5["转换为原型图表数据结构并写入 JetCache"]
+  n6["降级：流量区块显示“数据暂不可用”+重试入口，交易指标区块不受影响"]
+  n7((流量图表按原型视觉渲染（消费端 gtag 标准电商事件为数据源，Consent 拒绝用户不计入）))
+  n1 --> n2
+  n2 -->|yes| n7
+  n2 -->|no| n3
+  n3 --> n4
+  n4 -->|yes| n5
+  n4 -->|no| n6
+  n5 --> n7
+  n1((登录消费者打开商品详情页))
+  n2{BrowseHistory（customerId+productId） 已存在？}
+  n3["upsert 更新 viewedAt（不新增记录）"]
+  n4["插入记录；超过 50 条滚动清理最旧记录"]
+  n5["账户页 Recently Viewed 横滑按 viewedAt 倒序展示（批量拉商品卡片）"]
+  n6((匿名用户不记录（登录前浏览不回溯）))
+  n1 --> n2
+  n2 -->|yes| n3
+  n2 -->|no| n4
+  n3 --> n5
+  n4 --> n5
+  n5 --> n6
+  n1((消费者提交订阅邮箱（footer/modal/exit_intent 任一入口）))
+  n2{邮箱格式合法？（前后端双重校验）}
+  n3["422 邮箱格式错误（三语提示，决策27 UI 文案）"]
+  n4{NewsletterSubscriber（email） 已存在？（幂等）}
+  n5["落表 NewsletterSubscriber（email+source+locale+subscribedAt），不发码不发邮件"]
+  n6((展示订阅确认文案（弹窗文案为纯订阅确认，无折扣码话术）))
+  n1 --> n2
+  n2 -->|no| n3
+  n2 -->|yes| n4
+  n4 -->|yes| n6
+  n4 -->|no| n5
+  n5 --> n6
+  n3 --> n1
+  n1((消费者填写联系表单（姓名/邮箱/主题/内容）))
+  n2{必填项与邮箱格式校验通过？}
+  n3["422 校验失败（逐字段三语提示）"]
+  n4["落表 ContactMessage（提交限流靠 WAF，决策11；管理端本期不做查看页）"]
+  n5((展示提交成功确认))
+  n1 --> n2
+  n2 -->|no| n3
+  n3 --> n1
+  n2 -->|yes| n4
+  n4 --> n5

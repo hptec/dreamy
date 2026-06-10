@@ -1,0 +1,74 @@
+entities:
+  - id: Refund
+    desc: 退款工单，记录客户退款申请、审批结果与退款执行
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: refund_no, t: str, req: true, source: "FLD-REFUNDS-001 工单号 > Refunds.vue r.id"}
+      - {n: order_id, t: Long, req: true, source: "FLD-REFUNDS-002 关联订单 > Refunds.vue r.order [INFERRED: 后端外键]"}
+      - {n: customer_name, t: str, source: "FLD-REFUNDS-003 客户 > Refunds.vue r.customer"}
+      - {n: amount, t: decimal, req: true, min: 0, source: "FLD-REFUNDS-004 退款金额 > Refunds.vue r.amount"}
+      - {n: currency, t: enum, vals: [USD, CAD, AUD, GBP], req: true, source: "Refunds.vue cur 映射表"}
+      - {n: reason, t: str, source: "FLD-REFUNDS-005 退款原因 > Refunds.vue r.reason"}
+      - {n: applied_at, t: datetime, source: "FLD-REFUNDS-006 申请时间 > Refunds.vue r.date"}
+      - {n: status, t: enum, vals: [pending, approved, rejected, refunded], req: true, js_guard: "r.status === 'pending' 时才允许同意/拒绝操作", source: "FLD-REFUNDS-007/008/009 + Refunds.vue tabs + 业务上下文退款完成态 [INFERRED: refunded]"}
+      - {n: stripe_refund_id, t: str, source: "业务上下文 Stripe 退款沙箱 [INFERRED]"}
+    relations:
+      - {to: Order, type: n1}
+  - id: Review
+    desc: 商品评价，消费端提交、管理端审核，支持精选与官方回复
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: product_id, t: Long, req: true, source: "Reviews.vue r.productId"}
+      - {n: user_id, t: Long, req: true, source: "业务上下文 按 user_id 隔离 [INFERRED]"}
+      - {n: customer_name, t: str, source: "Reviews.vue r.customer"}
+      - {n: rating, t: int, req: true, min: 1, max: 5, source: "Reviews.vue r.rating 五星组件"}
+      - {n: content, t: str, source: "Reviews.vue r.content"}
+      - {n: status, t: enum, vals: [pending, approved, rejected], req: true, js_guard: "r.status === 'pending' 时才显示通过/拒绝按钮", source: "Reviews.vue statusChips + approveReview/rejectReview"}
+      - {n: featured, t: bool, js_guard: "featured 仅 status=='approved' 可为 true；rejectReview/batchSet 非 approved 时强制 featured=false", source: "Reviews.vue setFeatured/batchSet"}
+      - {n: submitted_at, t: datetime, source: "Reviews.vue r.date 提交时间列"}
+      - {n: reply_author, t: str, source: "Reviews.vue saveReply author 'Dreamy Team'"}
+      - {n: reply_content, t: str, js_guard: "detailReview.status=='approved' 才可创建/编辑官方回复且 replyDraft.trim() 非空", source: "Reviews.vue saveReply/deleteReply"}
+      - {n: reply_time, t: datetime, source: "Reviews.vue saveReply time"}
+    relations:
+      - {to: Product, type: n1}
+      - {to: User, type: n1}
+  - id: ReviewImage
+    desc: 评价买家秀图片，可单独驳回或恢复前台展示
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: review_id, t: Long, req: true, source: "Reviews.vue r.images [INFERRED: 子表外键]"}
+      - {n: url, t: str, req: true, source: "Reviews.vue img.url"}
+      - {n: rejected, t: bool, js_guard: "rejected=true 时前台不展示该图", source: "Reviews.vue rejectImage/restoreImage"}
+    relations:
+      - {to: Review, type: n1}
+  - id: ProductQuestion
+    desc: 商品 Q&A 提问，管理端回答并控制前台可见性
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: product_id, t: Long, req: true, source: "Reviews.vue q.productId"}
+      - {n: asker, t: str, source: "Reviews.vue q.asker"}
+      - {n: question, t: str, req: true, source: "Reviews.vue q.question"}
+      - {n: asked_at, t: datetime, source: "Reviews.vue q.date"}
+      - {n: answer, t: str, js_guard: "answerDraft.trim() 非空才能保存", source: "Reviews.vue saveAnswer"}
+      - {n: answer_time, t: datetime, source: "Reviews.vue q.answerTime"}
+      - {n: visible, t: enum, vals: [visible, hidden], source: "Reviews.vue Toggle q.visible [INFERRED: UI toggle 映射后端可见性枚举，需后端确认]"}
+    relations:
+      - {to: Product, type: n1}
+  - id: Carrier
+    desc: 物流承运方，含覆盖区域、时效与启用状态
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: name, t: str, req: true, source: "Shipping.vue c.name"}
+      - {n: zones, t: str, source: "Shipping.vue c.zones"}
+      - {n: lead_time, t: str, source: "Shipping.vue c.leadTime"}
+      - {n: status, t: enum, vals: [enabled, disabled], req: true, source: "Shipping.vue Toggle c.enabled [INFERRED: UI enabled toggle 映射后端 status 枚举，需后端确认]"}
+    relations: []
+  - id: ShippingRate
+    desc: 国际邮费分区运费规则，订单结算依赖其运费计算
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend java MyBatis-Plus Long 自增主键"}
+      - {n: zone, t: str, req: true, source: "Shipping.vue r.zone 区域列"}
+      - {n: fee_under, t: decimal, min: 0, source: "Shipping.vue r.under 基础邮费列"}
+      - {n: fee_over, t: decimal, min: 0, source: "Shipping.vue r.over 满额包邮列"}
+      - {n: threshold, t: decimal, min: 0, source: "Shipping.vue r.threshold 门槛列"}
+    relations: []

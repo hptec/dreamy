@@ -1,0 +1,208 @@
+---
+review_id: challenger-r3
+change_name: portal-api-integration
+round: 3
+verdict: PASS
+reviewed_at: '2026-06-10T11:05:00Z'
+validation_mode: full
+---
+
+# 变更检测：5 个文件 sha256 全部与 r2 不同，属结构性变更
+# （er-diagram 52→53 实体新增 BrowseHistory、order_lifecycle 2 条 refund_requested
+#   转换新增决策24 guard、business-flow 15→16 新增 browse_history_track +
+#   refund_flow 插入 n23/n24 + review_moderation_flow 插入 n12、
+#   acceptance 1042→1058 重新生成）→ 触发完整审查，重点覆盖细化轮四增量。
+
+previous_round_followup:
+  - check: VER-03
+    status: fixed
+    desc: r2 跟踪的 flow 级 FUNC 场景断言已补全——本轮 16 条 source:func 场景全部含 http_status + assertions 列表（含新增 s-1058 browse_history_track），0 缺失。
+  - check: CON-03
+    status: persists
+    desc: r1 遗留（sm 来源边界场景 field:state 命名 vs ER 字段 status）仍存在，写法未变，语义无歧义，继续以 warning 跟踪。
+  - check: CON-05
+    status: persists
+    desc: r2 warning（12 条 source:flow 场景 s-762~s-773 的 source_id 形如 decision-13.i18n-read，指向 decision.md 决策编号而非 business-flow flow id）本轮未收敛，已连续两轮提示，建议下次重生成时将 source 改为 decision 或对齐到实际 flow id。
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+    - level: warning
+      check: CON-01
+      desc: >-
+        refund_flow 新插入的 n24（error：422 定制款已投产不可退）只有入边
+        n23→n24（cond yes），无任何出边，无法到达任何 end 节点。
+        与本流程内既有 error 节点的处理惯例不一致（n19→n22、n18→n22 均
+        汇入 end "申请终止"）；但与 showroom_collaboration n6 / ga4_traffic_fetch n6
+        两个既有终止型 error 节点写法一致（r2 已按此惯例放行），且 n24 非孤立
+        节点（可从 start 到达）、语义明确（拒绝即终止），故按 warning 处理。
+        建议补一条 n24→n22 边以保持 refund_flow 内部惯例统一。
+      evidence: "business-flow.yml:516-519(n24 定义) + 520-587(edges 全集，n24 仅出现于 n23→n24)"
+    - level: info
+      check: CON-01
+      desc: >-
+        refund_flow 其余增量连通性正常：n23（定制款校验 decision）入边 n2→n23(yes)、
+        出边 n23→n24(yes)/n23→n3(no) 均连通主链，无孤立节点、无悬挂边引用；
+        review_moderation_flow 插入 n12（我的评价查看，F-049）后链路
+        n8→n12→n10 完整，两个 end（n10 审核完成 / n11 提交终止）均可达，
+        全部 12 节点从 start 可达。脚本全量校验 16 个 flow 的 25+ 个
+        state_change 节点 from/to 与 state-machine.yml 转换 0 失配
+        （含 refund_flow n4 paid→refunding、n13 refunding→refunded、
+        n17 refunding→paid）。
+      evidence: "business-flow.yml refund_flow/review_moderation_flow edges 图遍历脚本 + flows[*].nodes(type=state_change) vs state-machine.yml transitions"
+    - level: warning
+      check: CON-01
+      desc: >-
+        既有遗留（非本轮增量，r2 未覆盖连通性检查）：transactional_email 流程
+        n1 类型为 event 而非 start，且 n5（pending→sent）与 n9（failed→dead 告警）
+        为无出边的 state_change 终止节点，发送成功的主路径未汇入任何 end 节点
+        （唯一 end n10 为幂等跳过分支）。语义可读但结构不规范，建议下次
+        重生成时补 end 节点，不阻断本轮。
+      evidence: "business-flow.yml transactional_email nodes(n1 type:event, n5/n9 无出边) + edges"
+    - level: info
+      check: CON-02
+      desc: >-
+        browse_history_track 流程引用的 BrowseHistory 实体存在于 er-diagram.yml
+        （4 字段：id/customerId/productId/viewedAt + Customer/Product n1 关系），
+        流程节点语义与实体定义一致——n2 "customerId+productId 已存在？" 对应
+        productId.js_guard 唯一约束；n3 upsert 更新 viewedAt 对应 viewedAt 字段；
+        n4 "超过 50 条滚动清理" 与实体 desc "每用户保留最近 50 条" 一致；
+        n5 按 viewedAt 倒序展示与字段 source（决策23 按 viewedAt 倒序拉取）一致。
+        16 个 flow 引用实体全量比对 0 缺失。
+      evidence: "business-flow.yml:1414-1461 vs er-diagram.yml:1949-1973(BrowseHistory)"
+    - level: info
+      check: CON-02
+      desc: >-
+        browse_history_track 末端 end 节点 n6 label 为"匿名用户不记录（登录前浏览
+        不回溯）"——是策略注记而非该路径（登录用户查看完毕）的终态描述，且流程
+        trigger 已限定登录用户、无匿名分支节点。语义不矛盾（策略已由 s-1058
+        assertions 覆盖验收），仅提示下次将 label 改为中性终态描述。
+      evidence: "business-flow.yml:1444-1446(n6) vs 1416(trigger)"
+    - level: warning
+      check: CON-03
+      desc: >-
+        r1/r2 遗留：sm 来源 state/concurrent 类边界场景 field: state 与 ER 字段名
+        status 不一致，本轮无新增违例。本轮新增的 11 条 browse_history 相关
+        边界场景（bs-376~bs-379 验证类、bs-625~bs-627、bs-704/705、bs-914/915）
+        引用的 entity/field 经脚本校验全部存在于 er-diagram.yml，0 例外。
+      evidence: "boundary-scenarios.yml browse_history 11 条 entity/field vs er-diagram.yml BrowseHistory.fields"
+    - level: info
+      check: CON-04
+      desc: >-
+        115 条 source:sm 场景 source_id 全量脚本校验 0 悬挂，含本轮新增
+        s-1043（order_lifecycle.paid→refunding.guard_fail）、
+        s-1044（order_lifecycle.shipped→refunding.guard_fail），
+        对应 state-machine.yml 两条新增决策24 guard 的 refund_requested 转换。
+      evidence: "acceptance.yml source:sm 115 条 vs state-machine.yml transitions 全量比对"
+    - level: info
+      check: CON-05
+      desc: >-
+        915 条 source:bs 场景 source_id 全量比对 boundary-scenarios.yml 915 个
+        场景 id，0 悬挂引用；1058 条场景 id 无重复。
+      evidence: "acceptance.yml source:bs 915 条 vs boundary-scenarios.yml scenarios[*].id"
+    - level: warning
+      check: CON-05
+      desc: >-
+        r2 遗留：12 条 source:flow 场景（s-762~s-773）source_id 前缀
+        decision-13/14/16/17 不是 business-flow.yml 的 flow id，按 flow 解引用
+        会失败。语义仍可追溯至 decision.md，不阻断；已连续两轮提示，建议收敛。
+      evidence: "acceptance.yml:s-762~s-773 source_id vs business-flow.yml flows[*].id（16 个 flow id 无 decision-* 命名）"
+
+  verifiability:
+    status: pass
+    findings:
+    - level: info
+      check: VER-01
+      desc: >-
+        1058 条场景全量脚本扫描：空 ctx / 空 act.op / 空 expect 均为 0。
+        新增场景（s-1043/s-1044 guard_fail、s-1056/s-1057 browse_history 边界、
+        s-1058 func）ctx 含 entity+state 或 precondition，act.op 明确。
+      evidence: "acceptance.yml 1058 条全量扫描"
+    - level: info
+      check: VER-03
+      desc: >-
+        16 条 source:func flow 级场景全部含 expect.http_status + assertions 列表。
+        新增 s-1058（browse_history_track）assertions 与决策23 逐条对应：
+        customerId+productId 唯一 upsert / 50 条滚动清理 / viewedAt 倒序 /
+        匿名不记录按 user_id 强隔离，断言可观察。s-756（review_moderation_flow）
+        已补 F-049 我的评价按 user_id 过滤断言，与新增节点 n12 对应。
+      evidence: "acceptance.yml:s-752~s-761, s-1038~s-1042, s-1058 expect"
+    - level: info
+      check: VER-04
+      desc: >-
+        全量扫描 0 条 success/fail 模糊断言、0 条 state/status 字段双结果值。
+        84 条 expect 含"或"字样均位于 description 叙述（如并发场景"后一个请求
+        失败或等待重试"），其可断言主体（http_status 409 + error_code
+        CONCURRENT_CONFLICT）唯一确定，不构成模糊断言。
+      evidence: "acceptance.yml expect 正则扫描：state/status 含或 0 命中；description 含或 84 条均带确定 http_status+error_code"
+    - level: info
+      check: VER-05
+      desc: >-
+        本轮新增 guard_fail 场景 expect 为三元组（状态保持值 + 422 +
+        GUARD_NOT_SATISFIED）：s-1043 保持 paid、s-1044 保持 shipped，
+        与决策24 "定制款已投产拒绝申请" 语义一致且可观察。
+      evidence: "acceptance.yml:s-1043/s-1044 expect"
+
+  completeness_supplement:
+    status: pass
+    findings:
+    - level: info
+      check: COM-01
+      desc: >-
+        本轮新增的 browse_history_track 为 cross_domain: false，无 auth/integrity
+        强制要求；其 user_id 隔离仍有边界场景覆盖（bs-625~bs-627 等 11 条含
+        auth 越权/归属校验类）。refund_flow 仍为 cross_domain: true（Stripe），
+        沿用 r1/r2 已验证的 auth/integrity 覆盖，本轮无回归。
+      evidence: "business-flow.yml:1420 + boundary-scenarios.yml browse_history 11 条"
+    - level: info
+      check: COM-02
+      desc: >-
+        state-machine.yml 全部 39 条带 guard 转换（r2 时 34 条 + 本轮
+        order_lifecycle paid→refunding / shipped→refunding 新增决策24 guard 等）
+        在 acceptance.yml 中均有对应 guard_fail 场景，脚本比对 missing=0。
+        新增两条 guard 的失败场景 s-1043/s-1044 断言与 business-flow refund_flow
+        n23（定制行 customSizeData 非空且超 24h 投产宽限期）→ n24（422 拒绝）
+        校验链语义一致；guard 文本（now > paidAt+24h）与流程 decision label
+        （已超 24h 投产宽限期）同源于 decision.md 决策24，0 冲突。
+      evidence: "state-machine.yml:161-170(两条 refund_requested guard) vs business-flow.yml:512-519(n23/n24) vs acceptance.yml s-1043/s-1044"
+    - level: info
+      check: COM-03
+      desc: >-
+        state file key_decisions（D13 起）均为 source: keyword，无 dimension:
+        BE-DIM-* 条目，按规则整项 PASS。人工抽样确认本轮 3 项决策落图情况：
+        决策23 → browse_history_track 流程 + BrowseHistory 实体（完整映射）；
+        决策24 → order_lifecycle 双 guard + refund_flow n23/n24（完整映射）；
+        决策22（portal-store 改 Node standalone 部署）为部署形态决策，
+        无图模型映射需求，符合预期。
+      evidence: "pd-explore.local.md:8-14 key_decisions + business-flow.yml/er-diagram.yml/state-machine.yml 增量段"
+
+  incremental_integrity:
+    status: skipped
+    findings:
+    - level: info
+      check: INC-01
+      desc: >-
+        er-diagram.yml meta 仅含 merged_at/merge_conflicts（无 mode: incremental），
+        state-machine.yml / business-flow.yml 无顶层 meta，判定为 bootstrap 模式，
+        维度四自动 PASS（与 r2 判定一致）。
+      evidence: "er-diagram.yml:1974-1979 meta 块"
+
+reviewed_files:
+  er_diagram: 845cceff064ee1fb530a0dd18a0b0b1c7e48a91d643317912a08abb9eacbc16e
+  state_machine: 271d3395140e99a6261770b6e50c1a29f3dce97c720f4ab8602367dd97b4eae9
+  business_flow: e02b298a30f5226ef37f900681567d663410185862937a36407a9068f8439f7c
+  boundary_scenarios: e2a6b6f81706c7fa83311e3d0308cbbd8d5389dc6812b323735626778632f0a9
+  acceptance: 963ddb023b1c77524df679a3add67b1c61c55fbc9692d9f8bb7774084059cd9a
+
+summary: >-
+  第 3 轮（细化轮四增量）审查通过：决策22~24 增量全部落图且语义自洽——
+  BrowseHistory 实体与 browse_history_track 流程逐字段一致、order_lifecycle
+  两条决策24 guard 与 refund_flow n23/n24 校验链同源零冲突、guard_fail 场景
+  s-1043/s-1044 三元组断言可观察、review_moderation_flow 插入 n12 后两个 end
+  均可达、115 条 sm + 915 条 bs source_id 与 39 条 guard 覆盖全量零失配、
+  16 条 flow 级 FUNC 场景断言已补全（r2 跟踪项关闭）。4 条 warning 不阻断：
+  refund_flow n24 终止型 error 节点缺 n24→n22 边（与本流程内 error→end 惯例
+  不一致，建议补边）、transactional_email 主路径缺 end 节点（既有遗留）、
+  field:state 命名约定（r1 遗留）、12 条 source:flow 场景 decision-* source_id
+  （r2 遗留，连续两轮提示建议收敛）。

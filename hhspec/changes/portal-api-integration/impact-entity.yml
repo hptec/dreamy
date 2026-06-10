@@ -1,0 +1,69 @@
+skipped: false
+analyzed_at: "2026-06-10T13:11:36Z"
+er_diagram_hash: "bda35148b3138b0eaab89a27ff35f6de1ea4e34f7e5ceddb06b894f68d99fe54"
+
+entities_analyzed:
+  - id: Category
+  - id: AttributeDef
+  - id: AttributeSet
+  - id: AttributeSetItem
+  - id: TagDimension
+  - id: Tag
+  - id: Banner
+  - id: BlogPost
+  - id: AnalyticsDashboard
+  - id: Product
+  - id: ProductImage
+  - id: Sku
+  - id: SizeChartRow
+  - id: Customer
+  - id: Address
+  - id: CartItem
+  - id: Order
+  - id: OrderLine
+  - id: Payment
+  - id: Refund
+  - id: Coupon
+  - id: FlashSale
+  - id: Lookbook
+  - id: Guide
+  - id: RealWedding
+  - id: CustomTag
+  - id: Review
+  - id: ReviewImage
+  - id: ProductQuestion
+  - id: Carrier
+  - id: ShippingRate
+  - id: ProductTranslation
+  - id: CategoryTranslation
+  - id: AttributeDefTranslation
+  - id: TagTranslation
+  - id: CustomTagTranslation
+  - id: TagDimensionTranslation
+  - id: BannerTranslation
+  - id: BlogPostTranslation
+  - id: LookbookTranslation
+  - id: GuideTranslation
+  - id: RealWeddingTranslation
+  - id: CouponTranslation
+  - id: FlashSaleTranslation
+  - id: ExchangeRate
+  - id: MailRecord
+  - id: WishlistItem
+  - id: Showroom
+  - id: ShowroomItem
+  - id: ShowroomMember
+  - id: ShowroomVote
+  - id: ShowroomComment
+  - id: BrowseHistory
+  - id: NewsletterSubscriber
+  - id: ContactMessage
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []

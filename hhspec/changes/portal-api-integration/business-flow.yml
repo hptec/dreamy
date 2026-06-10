@@ -1,0 +1,1557 @@
+flows:
+- id: checkout_order
+  name: 消费端购物下单与支付
+  trigger: 消费者浏览商品加购并结算支付
+  actors:
+  - consumer
+  - system
+  - stripe
+  cross_domain: true
+  external_systems:
+  - Stripe
+  - CDN
+  - ObjectStorage-CDN
+  source: pd-explore.local.md > BE-DIM-4 事务/幂等 + BE-DIM-5 外部集成
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者进入商城
+    source: state-machine.yml > order_lifecycle initial pending
+  - id: n2
+    type: action
+    actor: consumer
+    label: 浏览商品列表/详情（CDN/ISR+JetCache 两级缓存读，开启穿透保护）
+    entity: Product
+    meta:
+      cache: cdn_isr+jetcache
+      penetration_protect: true
+    source: pd-explore.local.md > BE-DIM-8 三层缓存
+  - id: n3
+    type: decision
+    label: 是否已登录
+    source: er-diagram.yml > CartItem.anonToken js_guard
+  - id: n4
+    type: action
+    actor: consumer
+    label: 加入购物车（DB 持久化，按 user_id 隔离）
+    entity: CartItem
+    source: pd-explore.local.md > BE-DIM-6 权限 user_id 强隔离
+  - id: n5
+    type: action
+    actor: consumer
+    label: 匿名加购（anonToken/localStorage），登录时按 anonToken 合并入账户购物车
+    entity: CartItem
+    source: er-diagram.yml > CartItem.anonToken 登录后合并
+  - id: n6
+    type: action
+    actor: consumer
+    label: 结算：选择收货地址，按 ShippingRate 分区计算运费，可选礼品包装（固定费计入总额，决策28），优惠券抵扣
+    entity: ShippingRate
+    source: er-diagram.yml > ShippingRate.zone/threshold + Order.totalAmount js_guard
+  - id: n7
+    type: decision
+    label: 鉴权校验：登录态有效且购物车条目归属当前 user_id
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n8
+    type: decision
+    label: 防重校验：订单号预生成，重复提交返回已有订单
+    source: pd-explore.local.md > BE-DIM-4 幂等 下单接口订单号预生成防重提交
+  - id: n9
+    type: action
+    actor: system
+    label: 创建订单（原子事务：订单+订单行快照+现货 SKU 乐观锁扣库存+清购物车；定制款不扣库存仅记 customSizeData）
+    entity: Order
+    meta:
+      tx_boundary: true
+      idempotent: true
+      rate_limit: cloudflare_waf
+    source: pd-explore.local.md > BE-DIM-4 事务 + BE-DIM-8 限流降级
+  - id: n10
+    type: decision
+    label: 扣库存是否成功（乐观锁版本冲突/库存不足）
+    source: er-diagram.yml > Sku.stock js_guard 乐观锁防超卖
+  - id: n11
+    type: error
+    label: 下单失败：事务整体回滚，提示库存不足或冲突重试
+    source: pd-explore.local.md > BE-DIM-4 事务 防超卖
+  - id: n12
+    type: integration
+    label: 创建 Stripe PaymentIntent（Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，决策25；金额/币种一致性校验）
+    entity: Payment
+    source: pd-explore.local.md > BE-DIM-5 外部集成 Stripe 沙箱
+  - id: n13
+    type: error
+    label: Stripe 创建超时/失败：订单保持 pending，可重试发起支付
+    source: pd-explore.local.md > BE-DIM-5 外部集成
+  - id: n14
+    type: state_change
+    entity: Payment
+    from: created
+    to: processing
+    label: 消费者确认支付 stripe_confirm
+    source: state-machine.yml > payment_lifecycle stripe_confirm
+  - id: n15
+    type: integration
+    label: Stripe webhook 回调：签名验证 + 按 event_id 幂等消费（重复事件直接 ACK）
+    meta:
+      idempotent: true
+    source: pd-explore.local.md > BE-DIM-4 幂等 Stripe webhook event_id
+  - id: n16
+    type: decision
+    label: webhook 支付结果
+    source: state-machine.yml > payment_lifecycle webhook_payment_succeeded/failed
+  - id: n17
+    type: state_change
+    entity: Payment
+    from: processing
+    to: succeeded
+    label: 支付成功
+    source: state-machine.yml > payment_lifecycle webhook_payment_succeeded
+  - id: n18
+    type: state_change
+    entity: Order
+    from: pending
+    to: paid
+    label: 订单已支付（状态前置校验+乐观锁防与超时关单并发竞争）
+    meta:
+      concurrency_control: optimistic_lock
+    source: state-machine.yml > order_lifecycle payment_webhook_succeeded + backend-flow-inference.md > 状态机并发
+  - id: n19
+    type: notification
+    label: 发布支付成功事件到 RabbitMQ（→ 订单事件分发流）
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+  - id: n20
+    type: state_change
+    entity: Payment
+    from: processing
+    to: failed
+    label: 支付失败
+    source: state-machine.yml > payment_lifecycle webhook_payment_failed
+  - id: n21
+    type: error
+    label: 支付失败：订单仍 pending 且未超时可重试支付（failed→processing retry_payment）
+    source: state-machine.yml > payment_lifecycle retry_payment guard
+  - id: n22
+    type: end
+    label: 下单支付完成
+    source: state-machine.yml > order_lifecycle paid
+  - id: n23
+    type: end
+    label: 流程终止
+    source: state-machine.yml > order_lifecycle pending
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+  - from: n3
+    to: n4
+    cond: 'yes'
+  - from: n3
+    to: n5
+    cond: 'no'
+  - from: n4
+    to: n6
+  - from: n5
+    to: n6
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+    cond: 'yes'
+  - from: n7
+    to: n23
+    cond: 'no'
+  - from: n8
+    to: n9
+    cond: 首次提交
+  - from: n8
+    to: n12
+    cond: 重复提交返回已有订单
+  - from: n9
+    to: n10
+  - from: n10
+    to: n12
+    cond: 'yes'
+  - from: n10
+    to: n11
+    cond: 'no'
+  - from: n11
+    to: n23
+  - from: n12
+    to: n14
+    cond: 成功
+  - from: n12
+    to: n13
+    cond: 超时/失败
+  - from: n13
+    to: n12
+    cond: 重试
+  - from: n14
+    to: n15
+  - from: n15
+    to: n16
+  - from: n16
+    to: n17
+    cond: succeeded
+  - from: n16
+    to: n20
+    cond: failed
+  - from: n17
+    to: n18
+  - from: n18
+    to: n19
+  - from: n19
+    to: n22
+  - from: n20
+    to: n21
+  - from: n21
+    to: n14
+    cond: 重试支付
+  - from: n21
+    to: n23
+    cond: 放弃
+- id: order_timeout_cancel
+  name: 待支付订单超时自动取消
+  trigger: 'scheduled: Spring @Scheduled 周期扫描（30 分钟超时）'
+  actors:
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > BE-DIM-4 定时任务
+  nodes:
+  - id: n1
+    type: start
+    label: 定时任务触发
+    source: pd-explore.local.md > BE-DIM-4 定时任务 Spring @Scheduled
+  - id: n2
+    type: action
+    actor: system
+    label: 扫描 now > expiresAt 的 pending 订单
+    entity: Order
+    source: er-diagram.yml > Order.expiresAt js_guard createdAt+30min
+  - id: n3
+    type: decision
+    label: 状态前置校验：订单仍为 pending（防与支付 webhook 并发竞争）
+    source: backend-flow-inference.md > 状态机并发 状态前置校验+CAS
+  - id: n4
+    type: state_change
+    entity: Order
+    from: pending
+    to: cancelled
+    label: 超时自动取消（与库存回补同事务）
+    meta:
+      tx_boundary: true
+      concurrency_control: optimistic_lock
+    source: state-machine.yml > order_lifecycle payment_timeout_30min
+  - id: n5
+    type: action
+    actor: system
+    label: 回补现货 SKU 库存（定制款无库存跳过）
+    entity: Sku
+    meta:
+      tx_boundary: true
+    source: pd-explore.local.md > BE-DIM-4 定时任务 回补现货库存
+  - id: n6
+    type: notification
+    label: 发布订单取消事件到 RabbitMQ
+    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件含取消
+  - id: n7
+    type: error
+    label: 并发冲突：订单已被 webhook 置为 paid，跳过该单不取消
+    source: backend-flow-inference.md > 状态机并发
+  - id: n8
+    type: end
+    label: 本轮扫描结束
+    source: pd-explore.local.md > BE-DIM-4 定时任务
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+  - from: n3
+    to: n4
+    cond: 'yes'
+  - from: n3
+    to: n7
+    cond: 'no'
+  - from: n4
+    to: n5
+  - from: n5
+    to: n6
+  - from: n6
+    to: n8
+  - from: n7
+    to: n8
+- id: admin_ship_complete
+  name: 管理端发货与订单完成
+  trigger: 管理员对 paid 订单执行发货
+  actors:
+  - admin
+  - system
+  - consumer
+  cross_domain: false
+  external_systems: []
+  source: state-machine.yml > order_lifecycle mark_shipped/confirm_receipt
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员打开已支付订单详情
+    source: state-machine.yml > order_lifecycle paid
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 订单发货权限点
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n3
+    type: action
+    actor: admin
+    label: 选择承运商（来自 Shipping 配置启用的 Carrier）并填写运单号
+    entity: Order
+    source: er-diagram.yml > Order.carrier/trackingNo + Carrier.status enabled
+  - id: n4
+    type: decision
+    label: guard：carrier 与 trackingNo 已填写且订单仍为 paid
+    source: state-machine.yml > order_lifecycle mark_shipped guard
+  - id: n5
+    type: state_change
+    entity: Order
+    from: paid
+    to: shipped
+    label: 标记发货
+    meta:
+      concurrency_control: optimistic_lock
+    source: state-machine.yml > order_lifecycle mark_shipped
+  - id: n6
+    type: action
+    actor: system
+    label: 记录审计日志（OperationLog 发货操作）
+    meta:
+      audit: true
+    source: pd-explore.local.md > BE-DIM-7 审计日志
+  - id: n7
+    type: notification
+    label: 发布发货事件到 RabbitMQ（缓存失效+通知消费者）
+    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件含发货
+  - id: n8
+    type: state_change
+    entity: Order
+    from: shipped
+    to: completed
+    label: 消费者确认收货
+    source: state-machine.yml > order_lifecycle confirm_receipt
+  - id: n9
+    type: error
+    label: 权限不足或订单状态已变更（如已转 refunding），操作拒绝
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n10
+    type: end
+    label: 订单完成
+    source: state-machine.yml > order_lifecycle completed
+  - id: n11
+    type: end
+    label: 发货中止
+    source: state-machine.yml > order_lifecycle paid
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n9
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+    cond: 'yes'
+  - from: n4
+    to: n9
+    cond: 'no'
+  - from: n5
+    to: n6
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+  - from: n8
+    to: n10
+  - from: n9
+    to: n11
+- id: refund_flow
+  name: 退款申请与审核
+  trigger: 消费者对 paid/shipped 订单发起退款申请
+  actors:
+  - consumer
+  - admin
+  - system
+  - stripe
+  cross_domain: true
+  external_systems:
+  - Stripe
+  source: pd-explore.local.md > BE-DIM-4 事务 退款审核原子 + BE-DIM-5 外部集成
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者发起退款申请
+    source: state-machine.yml > order_lifecycle refund_requested
+  - id: n2
+    type: decision
+    label: 鉴权校验：订单归属当前 user_id 且状态为 paid/shipped，金额不超过订单总额
+    source: pd-explore.local.md > BE-DIM-6 权限 + er-diagram.yml > Refund.amount js_guard
+  - id: n3
+    type: action
+    actor: consumer
+    label: 创建退款工单（初始 pending）
+    entity: Refund
+    source: state-machine.yml > refund_lifecycle initial pending
+  - id: n4
+    type: state_change
+    entity: Order
+    from: paid
+    to: refunding
+    label: 订单转入退款中
+    source: state-machine.yml > order_lifecycle refund_requested
+  - id: n5
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 退款审核权限点
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n6
+    type: decision
+    label: 管理员审核结论
+    source: er-diagram.yml > Refund.status js_guard pending 时才允许同意/拒绝
+  - id: n7
+    type: state_change
+    entity: Refund
+    from: pending
+    to: approved
+    label: 审核通过
+    source: state-machine.yml > refund_lifecycle admin_approve
+  - id: n8
+    type: integration
+    label: 调用 Stripe Refund API（沙箱）
+    source: pd-explore.local.md > BE-DIM-5 外部集成 Stripe
+  - id: n9
+    type: decision
+    label: Stripe 退款是否成功
+    source: state-machine.yml > refund_lifecycle stripe_refund_succeeded guard
+  - id: n10
+    type: action
+    actor: system
+    label: 原子事务：退款记录落账+订单状态变更+现货库存回补
+    entity: Refund
+    meta:
+      tx_boundary: true
+    source: pd-explore.local.md > BE-DIM-4 事务 退款审核原子
+  - id: n11
+    type: state_change
+    entity: Payment
+    from: succeeded
+    to: refunded
+    label: 支付单转退款
+    source: state-machine.yml > payment_lifecycle refund_executed
+  - id: n12
+    type: state_change
+    entity: Refund
+    from: approved
+    to: refunded
+    label: 退款工单完成
+    source: state-machine.yml > refund_lifecycle stripe_refund_succeeded
+  - id: n13
+    type: state_change
+    entity: Order
+    from: refunding
+    to: refunded
+    label: 订单退款完成
+    source: state-machine.yml > order_lifecycle refund_approved
+  - id: n14
+    type: action
+    actor: system
+    label: 记录审计日志（OperationLog 退款审核）
+    meta:
+      audit: true
+    source: pd-explore.local.md > BE-DIM-7 审计日志
+  - id: n15
+    type: notification
+    label: 发布退款事件到 RabbitMQ（缓存失效+通知消费者）
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+  - id: n16
+    type: state_change
+    entity: Refund
+    from: pending
+    to: rejected
+    label: 审核驳回
+    source: state-machine.yml > refund_lifecycle admin_reject
+  - id: n17
+    type: state_change
+    entity: Order
+    from: refunding
+    to: paid
+    label: 订单回退到退款前状态
+    source: state-machine.yml > order_lifecycle refund_rejected
+  - id: n18
+    type: error
+    label: Stripe 退款失败/超时：工单保持 approved，事务不提交，待人工重试
+    source: pd-explore.local.md > BE-DIM-5 外部集成
+  - id: n19
+    type: error
+    label: 鉴权/状态校验失败：拒绝申请
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n20
+    type: end
+    label: 退款完成
+    source: state-machine.yml > refund_lifecycle refunded
+  - id: n21
+    type: end
+    label: 退款驳回
+    source: state-machine.yml > refund_lifecycle rejected
+  - id: n22
+    type: end
+    label: 申请终止
+    source: state-machine.yml > refund_lifecycle pending
+  - id: n23
+    type: decision
+    label: 订单含定制行（customSizeData 非空）且已超 24h 投产宽限期？
+    source: decision.md 决策24 定制款投产后不可退
+  - id: n24
+    type: error
+    label: 422 定制款已投产不可退（消费端入口置灰+三语说明文案）
+    source: decision.md 决策24
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n23
+    cond: 'yes'
+  - from: n2
+    to: n19
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+  - from: n5
+    to: n6
+    cond: 'yes'
+  - from: n5
+    to: n19
+    cond: 'no'
+  - from: n6
+    to: n7
+    cond: 通过
+  - from: n6
+    to: n16
+    cond: 驳回
+  - from: n7
+    to: n8
+  - from: n8
+    to: n9
+  - from: n9
+    to: n10
+    cond: 'yes'
+  - from: n9
+    to: n18
+    cond: 'no'
+  - from: n10
+    to: n11
+  - from: n11
+    to: n12
+  - from: n12
+    to: n13
+  - from: n13
+    to: n14
+  - from: n14
+    to: n15
+  - from: n15
+    to: n20
+  - from: n16
+    to: n17
+  - from: n17
+    to: n14
+  - from: n18
+    to: n8
+    cond: 重试
+  - from: n18
+    to: n22
+    cond: 终止
+  - from: n19
+    to: n22
+  - from: n14
+    to: n21
+    cond: 驳回路径
+  - from: n23
+    to: n24
+    cond: 'yes'
+  - from: n23
+    to: n3
+    cond: 'no'
+  - from: n24
+    to: n22
+- id: review_moderation_flow
+  name: 评价提交与审核
+  trigger: 消费者对已完成订单提交评价
+  actors:
+  - consumer
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: state-machine.yml > review_moderation
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者进入已完成订单提交评价
+    source: er-diagram.yml > Review
+  - id: n2
+    type: decision
+    label: 鉴权校验：订单归属当前 user_id 且状态为 completed
+    source: pd-explore.local.md > BE-DIM-6 权限 评价按 user_id 强隔离
+  - id: n3
+    type: action
+    actor: consumer
+    label: 提交评分/内容/买家秀图片（评价初始 pending 不前台展示）
+    entity: Review
+    source: state-machine.yml > review_moderation initial pending
+  - id: n4
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 评价审核权限点
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n5
+    type: decision
+    label: 管理员审核结论
+    source: er-diagram.yml > Review.status js_guard pending 时才显示通过/拒绝
+  - id: n6
+    type: state_change
+    entity: Review
+    from: pending
+    to: approved
+    label: 审核通过，前台展示
+    source: state-machine.yml > review_moderation approve
+  - id: n7
+    type: state_change
+    entity: Review
+    from: pending
+    to: rejected
+    label: 审核拒绝（featured 强制置 false）
+    source: state-machine.yml > review_moderation reject guard
+  - id: n8
+    type: action
+    actor: system
+    label: 记录审计日志（OperationLog 评价审核）
+    meta:
+      audit: true
+    source: pd-explore.local.md > BE-DIM-7 审计日志
+  - id: n9
+    type: error
+    label: 非 completed 订单或越权提交：拒绝并提示
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n10
+    type: end
+    label: 审核完成
+    source: state-machine.yml > review_moderation
+  - id: n11
+    type: end
+    label: 提交终止
+    source: state-machine.yml > review_moderation initial pending
+  - id: n12
+    type: action
+    actor: consumer
+    label: 消费者在账户中心查看我写的评价及审核状态（按 user_id 过滤，F-049）
+    entity: Review
+    source: feature-map F-049 My Reviews（2026-06-10 细化轮四补充）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n9
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+    cond: 'yes'
+  - from: n4
+    to: n9
+    cond: 'no'
+  - from: n5
+    to: n6
+    cond: approve
+  - from: n5
+    to: n7
+    cond: reject
+  - from: n6
+    to: n8
+  - from: n7
+    to: n8
+  - from: n8
+    to: n12
+  - from: n9
+    to: n11
+  - from: n12
+    to: n10
+- id: content_publish_invalidate
+  name: 商品/内容发布与缓存失效链
+  trigger: 管理员编辑并发布商品或内容（Banner/Blog/Lookbook 等同模式）
+  actors:
+  - admin
+  - system
+  cross_domain: true
+  external_systems:
+  - ObjectStorage-CDN
+  - CDN
+  - RabbitMQ
+  source: pd-explore.local.md > BE-DIM-8 三层缓存 秒级主动失效链
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员编辑商品/内容
+    source: state-machine.yml > product_lifecycle initial draft
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 商品/内容编辑权限点
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n3
+    type: integration
+    label: 图片上传：后端签发对象存储预签名 URL，前端直传，DB 仅存对象 key/URL
+    source: pd-explore.local.md > BE-DIM-5 外部集成 S3 兼容对象存储预签名 URL
+  - id: n4
+    type: error
+    label: 上传失败/预签名过期：重新申请预签名 URL 重传
+    source: pd-explore.local.md > BE-DIM-5 外部集成
+  - id: n5
+    type: action
+    actor: admin
+    label: 保存草稿（商品含 SKU 矩阵/属性/尺码表）
+    entity: Product
+    source: er-diagram.yml > Product/Sku/SizeChartRow
+  - id: n6
+    type: state_change
+    entity: Product
+    from: draft
+    to: published
+    label: 发布
+    source: state-machine.yml > product_lifecycle publish
+  - id: n7
+    type: action
+    actor: system
+    label: 记录审计日志（OperationLog 上下架/改价/内容发布）
+    meta:
+      audit: true
+    source: pd-explore.local.md > BE-DIM-7 审计日志
+  - id: n8
+    type: notification
+    label: 发布内容变更事件到 RabbitMQ
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+  - id: n9
+    type: integration
+    label: 失效链：JetCache @CacheInvalidate → Next.js revalidatePath(ISR) → CDN 边缘秒级更新
+    source: pd-explore.local.md > BE-DIM-8 三层缓存 @CacheInvalidate→MQ→revalidatePath→CDN
+  - id: n10
+    type: error
+    label: MQ 投递/消费失败：进入死信队列重试，缓存按 TTL 兜底过期
+    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试开箱即用
+  - id: n11
+    type: end
+    label: 发布生效，前台可见
+    source: state-machine.yml > product_lifecycle published
+  - id: n12
+    type: end
+    label: 编辑终止
+    source: state-machine.yml > product_lifecycle draft
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n12
+    cond: 'no'
+  - from: n3
+    to: n5
+    cond: 成功
+  - from: n3
+    to: n4
+    cond: 失败
+  - from: n4
+    to: n3
+    cond: 重试
+  - from: n5
+    to: n6
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+  - from: n8
+    to: n9
+    cond: 投递成功
+  - from: n8
+    to: n10
+    cond: 投递失败
+  - from: n10
+    to: n9
+    cond: 死信重试成功
+  - from: n9
+    to: n11
+- id: order_event_dispatch
+  name: 订单事件分发
+  trigger: 订单事件产生（支付成功/发货/取消/退款）
+  actors:
+  - system
+  cross_domain: true
+  external_systems:
+  - RabbitMQ
+  - CDN
+  source: pd-explore.local.md > BE-DIM-4 消息队列
+  nodes:
+  - id: n1
+    type: start
+    label: 订单事件产生
+    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件
+  - id: n2
+    type: notification
+    label: 发布事件到 RabbitMQ 交换机
+    source: pd-explore.local.md > BE-DIM-4 消息队列 RabbitMQ Spring AMQP
+  - id: n3
+    type: error
+    label: 投递失败：本地重试，多次失败进死信队列告警
+    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试
+  - id: n4
+    type: integration
+    label: 消费者A：JetCache 缓存失效（订单聚合/商品销量相关 key）
+    source: pd-explore.local.md > BE-DIM-8 三层缓存 失效链
+  - id: n5
+    type: integration
+    label: 消费者B：触发 Next.js ISR revalidate 相关页面
+    source: pd-explore.local.md > BE-DIM-8 三层缓存 revalidatePath
+  - id: n6
+    type: notification
+    label: 消费者C：通知消费者（支付/发货/取消邮件）
+    source: pd-explore.local.md > BE-DIM-4 消息队列 通知消费者
+  - id: n7
+    type: decision
+    label: 消费是否成功
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+  - id: n8
+    type: error
+    label: 消费失败：按 event_id 幂等重投，超限进死信队列
+    meta:
+      idempotent: true
+    source: pd-explore.local.md > BE-DIM-4 幂等 event_id
+  - id: n9
+    type: end
+    label: 事件分发完成
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n4
+    cond: 投递成功
+  - from: n2
+    to: n3
+    cond: 投递失败
+  - from: n3
+    to: n2
+    cond: 重试
+  - from: n4
+    to: n7
+  - from: n5
+    to: n7
+  - from: n6
+    to: n7
+  - from: n2
+    to: n5
+    cond: 投递成功
+  - from: n2
+    to: n6
+    cond: 投递成功
+  - from: n7
+    to: n9
+    cond: 'yes'
+  - from: n7
+    to: n8
+    cond: 'no'
+  - from: n8
+    to: n9
+- id: dashboard_analytics_read
+  name: Dashboard/Analytics 聚合读
+  trigger: 管理员打开数据看板
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > Dashboard/Analytics 实时 SQL 聚合 + JetCache 60s
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员打开 Dashboard/Analytics
+    source: er-diagram.yml > AnalyticsDashboard
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 数据看板权限点
+    source: pd-explore.local.md > BE-DIM-6 权限
+  - id: n3
+    type: decision
+    label: JetCache 60s 缓存是否命中
+    source: pd-explore.local.md > Dashboard/Analytics JetCache 60s 缓存
+  - id: n4
+    type: action
+    actor: system
+    label: 返回缓存聚合结果
+    entity: AnalyticsDashboard
+    source: pd-explore.local.md > Dashboard/Analytics 不做预聚合表
+  - id: n5
+    type: action
+    actor: system
+    label: 实时 SQL 聚合 Order/Refund/Product（GMV/订单数/退款率/漏斗）并写入缓存
+    entity: AnalyticsDashboard
+    source: er-diagram.yml > AnalyticsDashboard 聚合派生
+  - id: n6
+    type: error
+    label: 聚合 SQL 超时：返回上次缓存快照并提示数据延迟（缓存穿透保护兜底）
+    source: pd-explore.local.md > BE-DIM-8 JetCache 缓存穿透保护
+  - id: n7
+    type: end
+    label: 看板展示
+    source: er-diagram.yml > AnalyticsDashboard
+  - id: n8
+    type: end
+    label: 访问拒绝
+    source: pd-explore.local.md > BE-DIM-6 权限
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n8
+    cond: 'no'
+  - from: n3
+    to: n4
+    cond: 命中
+  - from: n3
+    to: n5
+    cond: 未命中
+  - from: n4
+    to: n7
+  - from: n5
+    to: n7
+    cond: 成功
+  - from: n5
+    to: n6
+    cond: 超时
+  - from: n6
+    to: n7
+- id: coupon_redeem
+  name: 优惠券领取与核销
+  trigger: 消费者结算时输入/选择优惠券
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  external_systems: []
+  source: er-diagram.yml > Coupon + Order.couponId
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者结算页输入优惠码或选择已领券
+    source: er-diagram.yml > Coupon.code
+  - id: n2
+    type: decision
+    label: 券校验：状态 active/expiring 且 now 在 startAt~endAt 内、usedCount < totalLimit、订单满足 minAmount
+    source: er-diagram.yml > Coupon.usedCount/minAmount js_guard + state-machine.yml > coupon_lifecycle active
+  - id: n3
+    type: action
+    actor: system
+    label: 结算金额抵扣（折扣/满减/包邮三类），下单事务内核销 usedCount+1
+    entity: Coupon
+    meta:
+      tx_boundary: true
+    source: pd-explore.local.md > BE-DIM-4 事务 + er-diagram.yml > Coupon.type
+  - id: n4
+    type: error
+    label: 券无效/已抢光/未达门槛：提示并移除抵扣，按原价结算
+    source: er-diagram.yml > Coupon.usedCount js_guard
+  - id: n5
+    type: end
+    label: 抵扣生效随订单提交
+    source: er-diagram.yml > Order.couponId
+  - id: n6
+    type: end
+    label: 按原价结算
+    source: er-diagram.yml > Order.totalAmount
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n4
+    cond: 'no'
+  - from: n3
+    to: n5
+  - from: n4
+    to: n6
+- id: flash_sale_auto_offline
+  name: 闪购到期自动下线
+  trigger: 'scheduled: 定时任务扫描到期闪购活动'
+  actors:
+  - system
+  cross_domain: false
+  external_systems:
+  - RabbitMQ
+  source: state-machine.yml > flash_sale_lifecycle auto_offline
+  nodes:
+  - id: n1
+    type: start
+    label: 定时任务触发
+    source: backend-flow-inference.md > 定时任务 闪购活动到期自动下线
+  - id: n2
+    type: decision
+    label: guard：now > endAt 且活动为 active
+    source: state-machine.yml > flash_sale_lifecycle auto_offline guard
+  - id: n3
+    type: state_change
+    entity: FlashSale
+    from: active
+    to: ended
+    label: 自动下线
+    source: state-machine.yml > flash_sale_lifecycle auto_offline
+  - id: n4
+    type: notification
+    label: 发布活动下线事件触发缓存失效与 ISR revalidate
+    source: pd-explore.local.md > BE-DIM-8 三层缓存 失效链
+  - id: n5
+    type: error
+    label: 事件投递失败：死信重试，前台缓存按 TTL 兜底过期
+    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试
+  - id: n6
+    type: end
+    label: 本轮扫描结束
+    source: state-machine.yml > flash_sale_lifecycle ended
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n6
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n6
+    cond: 成功
+  - from: n4
+    to: n5
+    cond: 失败
+  - from: n5
+    to: n6
+- id: transactional_email
+  name: 交易性邮件发送（订单确认/发货/退款结果）
+  actors:
+  - system
+  - mq
+  - smtp
+  cross_domain: true
+  source: decision.md 决策16（2026-06-10 细化轮）；复用 order_event_dispatch 的 MQ 事件
+  nodes:
+  - id: n1
+    type: event
+    label: MQ 订单事件到达（支付成功/发货/退款结果）
+  - id: n2
+    type: decision
+    label: MailRecord(orderId+type) 已存在？（幂等检查）
+  - id: n3
+    type: action
+    label: 创建 MailRecord(pending)，按用户 locale 三语渲染模板
+  - id: n4
+    type: action
+    label: SMTP 抽象接口发送（dev 落日志 / 生产 SES 等配置化）
+  - id: n5
+    type: state_change
+    label: MailRecord pending → sent
+    machine: mail_delivery
+    event: send_success
+  - id: n6
+    type: state_change
+    label: MailRecord pending → failed
+    machine: mail_delivery
+    event: send_error
+  - id: n7
+    type: decision
+    label: retryCount < 3？
+  - id: n8
+    type: state_change
+    label: failed → pending 重试
+    machine: mail_delivery
+    event: retry
+  - id: n9
+    type: state_change
+    label: failed → dead 告警
+    machine: mail_delivery
+    event: exhaust_retry
+  - id: n10
+    type: end
+    label: 跳过（已发送过，不重发）
+  - id: n11
+    type: end
+    label: 邮件发送完成（MailRecord=sent）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n10
+    cond: 'yes'
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+    cond: 成功
+  - from: n4
+    to: n6
+    cond: 失败
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+    cond: 'yes'
+  - from: n7
+    to: n9
+    cond: 'no'
+  - from: n8
+    to: n4
+  - from: n5
+    to: n11
+- id: wishlist_manage
+  name: 收藏管理（加收藏/移除/移入购物车）
+  trigger: 消费者在商品卡片/PDP/收藏页操作心形收藏
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  source: decision.md 决策18（2026-06-10 细化轮三）；feature-map F-047/F-002/F-014
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者点击收藏（商品卡片/PDP 心形）
+  - id: n2
+    type: decision
+    label: 是否已登录？
+  - id: n3
+    type: action
+    actor: consumer
+    label: 引导登录（登录后回到当前页继续收藏）
+    source: decision.md 决策18 登录用户专属
+  - id: n4
+    type: decision
+    label: WishlistItem(customerId+productId) 已存在？（幂等）
+  - id: n5
+    type: action
+    actor: system
+    label: 创建 WishlistItem，已收藏态标识回显
+    entity: WishlistItem
+    source: er-diagram.yml > WishlistItem js_guard 唯一
+  - id: n6
+    type: action
+    actor: consumer
+    label: 收藏页移入购物车：创建 CartItem 并删除该 WishlistItem
+    entity: CartItem
+    source: feature-map F-047 移入购物车 + F-033 购物车移入 Wishlist 反向
+  - id: n7
+    type: action
+    actor: consumer
+    label: 移除收藏：删除 WishlistItem
+    entity: WishlistItem
+  - id: n8
+    type: end
+    label: 收藏网格刷新（空时显示空状态引导）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n2
+    to: n4
+    cond: 'yes'
+  - from: n4
+    to: n8
+    cond: 'yes'
+  - from: n4
+    to: n5
+    cond: 'no'
+  - from: n5
+    to: n6
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+- id: showroom_collaboration
+  name: Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单）
+  trigger: 新娘创建 Showroom 并邀请伴娘协作选款
+  actors:
+  - bride
+  - guest
+  - system
+  - mq
+  cross_domain: true
+  external_systems:
+  - SMTP
+  source: decision.md 决策20（2026-06-10 细化轮三）；feature-map F-066~F-071
+  nodes:
+  - id: n1
+    type: start
+    label: 新娘创建 Showroom（命名+婚期），生成不可猜 inviteToken
+    entity: Showroom
+    source: prototype/app/showroom/page.tsx > 创建弹窗
+  - id: n2
+    type: action
+    actor: bride
+    label: PDP/商品卡片 Add to Showroom（选目标 Showroom+颜色）
+    entity: ShowroomItem
+    source: prototype/components/showroom/add-to-showroom-modal.tsx
+  - id: n3
+    type: action
+    actor: bride
+    label: 生成/复制邀请链接（可重置作废旧 token）
+    source: decision.md 决策20.2
+  - id: n4
+    type: action
+    actor: guest
+    label: 访客凭 token+昵称换取受限 guest JWT（仅可读本 Showroom+投票/留言）
+    entity: ShowroomMember
+    source: decision.md 决策20.2 邀请 token + guest JWT
+  - id: n5
+    type: decision
+    label: token 有效且未被重置？
+  - id: n6
+    type: error
+    label: 403 邀请链接已失效，提示向新娘索取新链接
+  - id: n7
+    type: action
+    actor: guest
+    label: 投票（喜欢/不喜欢，按 member 去重覆盖）+ 留言（≤500字）
+    entity: ShowroomVote
+    source: prototype/app/showroom/[id]/page.tsx > F-069
+  - id: n8
+    type: state_change
+    label: 新娘指派款式/颜色给成员 unassigned → assigned
+    machine: showroom_member_assignment
+    event: assign
+  - id: n9
+    type: decision
+    label: 成员 email 已填写？
+  - id: n10
+    type: state_change
+    label: 发送提醒 assigned → reminded（MQ→MailRecord→SMTP，复用决策16基建）
+    machine: showroom_member_assignment
+    event: send_reminder
+  - id: n11
+    type: action
+    actor: bride
+    label: 提示补填成员邮箱后再发提醒
+  - id: n12
+    type: state_change
+    label: 伴娘登录后将被指派款式加购下单 assigned/reminded → ordered
+    machine: showroom_member_assignment
+    event: place_order
+  - id: n13
+    type: notification
+    label: 同 Showroom 24h 内同款式已付订单 → 购物车/结算/Showroom 视图透出 dye lot 同染色批次提示条
+    source: decision.md 决策20.4（F-071）
+  - id: n14
+    type: end
+    label: 成员列表展示指派与下单状态
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+  - from: n5
+    to: n6
+    cond: 'no'
+  - from: n5
+    to: n7
+    cond: 'yes'
+  - from: n7
+    to: n8
+  - from: n8
+    to: n9
+  - from: n9
+    to: n10
+    cond: 'yes'
+  - from: n9
+    to: n11
+    cond: 'no'
+  - from: n10
+    to: n12
+  - from: n11
+    to: n12
+  - from: n12
+    to: n13
+  - from: n13
+    to: n14
+- id: size_recommendation
+  name: Find My Size 尺码推荐
+  trigger: 消费者在 PDP 点击 Find My Size 填写量体问卷
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  source: decision.md 决策20.3（2026-06-10 细化轮三）；feature-map F-072/F-073
+  nodes:
+  - id: n1
+    type: start
+    label: PDP 尺码区点击 Find My Size，分步填写问卷（身高/体重/胸/腰/臀/松紧偏好）
+    source: prototype/components/product/find-my-size-modal.tsx
+  - id: n2
+    type: action
+    actor: system
+    label: 后端按商品 SizeChartRow 区间匹配（三围落码段+松紧偏好偏移），纯函数可测
+    entity: SizeChartRow
+    source: decision.md 决策20.3
+  - id: n3
+    type: decision
+    label: 三围均落入某码段区间？
+  - id: n4
+    type: action
+    actor: system
+    label: 返回推荐码+区间说明（如“您的三围均落在 US 8 区间”，不虚构买家占比统计）
+  - id: n5
+    type: action
+    actor: consumer
+    label: Select This Size 一键回填 SKU 选择器（联动 F-025）
+  - id: n6
+    type: action
+    actor: system
+    label: 跨码段冲突时返回相邻两码+提示参考定制尺寸（Custom Size）选项
+    source: decision.md 决策6 定制款 + F-074
+  - id: n7
+    type: end
+    label: 关闭弹窗，尺码选中态更新
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+  - from: n3
+    to: n4
+    cond: 'yes'
+  - from: n3
+    to: n6
+    cond: 'no'
+  - from: n4
+    to: n5
+  - from: n5
+    to: n7
+  - from: n6
+    to: n7
+- id: ga4_traffic_fetch
+  name: Analytics 流量指标拉取（GA4 Data API）
+  trigger: 管理员打开 Analytics 看板流量区块
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems:
+  - GA4
+  source: decision.md 决策19（2026-06-10 细化轮三）
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员打开 Analytics 页（trafficSources/funnel/device_share 区块）
+  - id: n2
+    type: decision
+    label: JetCache 命中（5min TTL）？
+  - id: n3
+    type: integration
+    label: 后端持 service account 凭证调用 GA4 Data API（凭证仅后端配置，不暴露前端）
+    source: decision.md 决策19 连带约束
+  - id: n4
+    type: decision
+    label: GA4 调用成功？
+  - id: n5
+    type: action
+    actor: system
+    label: 转换为原型图表数据结构并写入 JetCache
+  - id: n6
+    type: error
+    label: 降级：流量区块显示“数据暂不可用”+重试入口，交易指标区块不受影响
+    source: decision.md 决策19 备选降级路径
+  - id: n7
+    type: end
+    label: 流量图表按原型视觉渲染（消费端 gtag 标准电商事件为数据源，Consent 拒绝用户不计入）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n7
+    cond: 'yes'
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n3
+    to: n4
+  - from: n4
+    to: n5
+    cond: 'yes'
+  - from: n4
+    to: n6
+    cond: 'no'
+  - from: n5
+    to: n7
+- id: browse_history_track
+  name: Recently Viewed 浏览历史记录与展示
+  trigger: 登录消费者浏览商品详情页
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  source: decision.md 决策23（2026-06-10 细化轮四）；feature-map F-048
+  nodes:
+  - id: n1
+    type: start
+    label: 登录消费者打开商品详情页
+  - id: n2
+    type: decision
+    label: BrowseHistory(customerId+productId) 已存在？
+  - id: n3
+    type: action
+    actor: system
+    label: upsert 更新 viewedAt（不新增记录）
+    entity: BrowseHistory
+  - id: n4
+    type: action
+    actor: system
+    label: 插入记录；超过 50 条滚动清理最旧记录
+    entity: BrowseHistory
+    source: decision.md 决策23 每用户保留 50 条
+  - id: n5
+    type: action
+    actor: consumer
+    label: 账户页 Recently Viewed 横滑按 viewedAt 倒序展示（批量拉商品卡片）
+  - id: n6
+    type: end
+    label: 匿名用户不记录（登录前浏览不回溯）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n4
+    cond: 'no'
+  - from: n3
+    to: n5
+  - from: n4
+    to: n5
+  - from: n5
+    to: n6
+- id: newsletter_subscribe
+  name: Newsletter 订阅收集
+  trigger: 消费者在页脚输入框/首访弹窗/Exit Intent 弹窗提交邮箱
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  source: decision.md 决策26（2026-06-10 细化轮五）；feature-map F-008/F-056
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者提交订阅邮箱（footer/modal/exit_intent 任一入口）
+  - id: n2
+    type: decision
+    label: 邮箱格式合法？（前后端双重校验）
+  - id: n3
+    type: error
+    label: 422 邮箱格式错误（三语提示，决策27 UI 文案）
+  - id: n4
+    type: decision
+    label: NewsletterSubscriber(email) 已存在？（幂等）
+  - id: n5
+    type: action
+    actor: system
+    label: 落表 NewsletterSubscriber（email+source+locale+subscribedAt），不发码不发邮件
+    entity: NewsletterSubscriber
+    source: decision.md 决策26 仅落表收集
+  - id: n6
+    type: end
+    label: 展示订阅确认文案（弹窗文案为纯订阅确认，无折扣码话术）
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n2
+    to: n4
+    cond: 'yes'
+  - from: n4
+    to: n6
+    cond: 'yes'
+  - from: n4
+    to: n5
+    cond: 'no'
+  - from: n5
+    to: n6
+  - from: n3
+    to: n1
+- id: contact_submit
+  name: 联系表单提交
+  trigger: 消费者在 Contact 页填写并提交表单
+  actors:
+  - consumer
+  - system
+  cross_domain: false
+  source: decision.md 决策30（2026-06-10 细化轮五）；feature-map F-058
+  nodes:
+  - id: n1
+    type: start
+    label: 消费者填写联系表单（姓名/邮箱/主题/内容）
+  - id: n2
+    type: decision
+    label: 必填项与邮箱格式校验通过？
+  - id: n3
+    type: error
+    label: 422 校验失败（逐字段三语提示）
+  - id: n4
+    type: action
+    actor: system
+    label: 落表 ContactMessage（提交限流靠 WAF，决策11；管理端本期不做查看页）
+    entity: ContactMessage
+    source: decision.md 决策30 落表收集
+  - id: n5
+    type: end
+    label: 展示提交成功确认
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n3
+    to: n1
+  - from: n2
+    to: n4
+    cond: 'yes'
+  - from: n4
+    to: n5

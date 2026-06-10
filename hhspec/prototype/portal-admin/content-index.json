@@ -17,6 +17,14 @@
       "elements_with_testid": []
     },
     {
+      "page_id": "attribute-sets",
+      "portal_id": "portal-admin",
+      "file": "src/views/AttributeSets.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
       "page_id": "auth-settings",
       "portal_id": "portal-admin",
       "file": "src/views/AuthSettings.vue",
@@ -342,6 +350,14 @@
       "elements_with_testid": []
     },
     {
+      "page_id": "reviews",
+      "portal_id": "portal-admin",
+      "file": "src/views/Reviews.vue",
+      "text_nodes": [],
+      "css_vars": [],
+      "elements_with_testid": []
+    },
+    {
       "page_id": "role-management",
       "portal_id": "portal-admin",
       "file": "src/views/RoleManagement.vue",
@@ -367,6 +383,15 @@
     }
   ],
   "enum_values": [
+    {
+      "name": "STATES",
+      "values": [
+        "visible",
+        "optional",
+        "hidden"
+      ],
+      "source": "src/views/AttributeSets.vue"
+    },
     {
       "name": "stats",
       "values": [
@@ -432,10 +457,12 @@
       "source": "src/views/Orders.vue"
     },
     {
-      "name": "steps",
+      "name": "sections",
       "values": [
         "basic",
         "基础信息",
+        "attrs",
+        "版型属性",
         "media",
         "媒体素材",
         "sku",
@@ -444,29 +471,32 @@
         "尺码表",
         "price",
         "定价库存",
+        "content",
+        "内容详情",
         "seo",
         "SEO"
       ],
       "source": "src/views/ProductEdit.vue"
     },
     {
-      "name": "themes",
+      "name": "flagOptions",
       "values": [
-        "Beach",
-        "Garden",
-        "Boho",
-        "Forest",
-        "Vineyard"
+        "isNew",
+        "recommend",
+        "onSale"
       ],
-      "source": "src/views/ProductEdit.vue"
+      "source": "src/views/Products.vue"
     },
     {
-      "name": "cats",
+      "name": "stockLevels",
       "values": [
         "all",
-        "Wedding Dresses",
-        "Special Occasion",
-        "Accessories"
+        "全部",
+        "inStock",
+        "有货 (≥10)",
+        "low",
+        "out",
+        "缺货 (0)"
       ],
       "source": "src/views/Products.vue"
     },
@@ -481,128 +511,147 @@
         "部署到 CDN"
       ],
       "source": "src/views/Publish.vue"
+    },
+    {
+      "name": "mainTabs",
+      "values": [
+        "reviews",
+        "评价审核"
+      ],
+      "source": "src/views/Reviews.vue"
     }
   ],
   "component_map": {
     "src/views/AdminList.vue": [
-      "ArrowPathIcon",
-      "EyeIcon",
       "EyeSlashIcon",
-      "MagnifyingGlassIcon",
-      "Teleport",
-      "XMarkIcon",
-      "PlusIcon",
+      "EyeIcon",
       "PencilSquareIcon",
+      "ArrowPathIcon",
+      "XMarkIcon",
+      "MagnifyingGlassIcon",
       "PageHeader",
+      "PlusIcon",
+      "Teleport",
       "TrashIcon"
     ],
     "src/views/Analytics.vue": [
       "SparkArea",
-      "PageHeader",
-      "ArrowDownTrayIcon"
+      "ArrowDownTrayIcon",
+      "PageHeader"
+    ],
+    "src/views/AttributeSets.vue": [
+      "PlusIcon",
+      "XMarkIcon",
+      "RocketLaunchIcon",
+      "PageHeader"
     ],
     "src/views/AuthSettings.vue": [
-      "CheckBadgeIcon",
-      "Teleport",
-      "KeyIcon",
       "LockClosedIcon",
-      "InformationCircleIcon",
+      "KeyIcon",
       "PageHeader",
+      "InformationCircleIcon",
+      "Teleport",
+      "CheckBadgeIcon",
       "LinkIcon"
     ],
     "src/views/Banners.vue": [
-      "Toggle",
-      "RocketLaunchIcon",
       "CursorArrowRaysIcon",
-      "PlusIcon",
       "PencilSquareIcon",
       "PageHeader",
-      "TrashIcon"
+      "PlusIcon",
+      "TrashIcon",
+      "Toggle",
+      "RocketLaunchIcon"
     ],
     "src/views/Categories.vue": [
-      "Toggle",
-      "ChevronRightIcon",
-      "RocketLaunchIcon",
-      "PencilSquareIcon",
-      "PlusIcon",
-      "PageHeader",
       "Bars3Icon",
-      "TrashIcon"
+      "SwatchIcon",
+      "PencilSquareIcon",
+      "TagIcon",
+      "XMarkIcon",
+      "PageHeader",
+      "PhotoIcon",
+      "PlusIcon",
+      "TrashIcon",
+      "ExclamationTriangleIcon",
+      "ChevronRightIcon",
+      "Toggle",
+      "RocketLaunchIcon"
     ],
     "src/views/ContentBlog.vue": [
       "EyeIcon",
-      "RocketLaunchIcon",
-      "PlusIcon",
+      "StatusBadge",
       "PencilSquareIcon",
       "PageHeader",
-      "StatusBadge",
-      "TrashIcon"
+      "PlusIcon",
+      "TrashIcon",
+      "RocketLaunchIcon"
     ],
     "src/views/ContentLookbook.vue": [
-      "PlusIcon",
+      "StatusBadge",
+      "PencilSquareIcon",
       "PhotoIcon",
       "PageHeader",
-      "PencilSquareIcon",
-      "StatusBadge",
+      "PlusIcon",
       "TrashIcon"
     ],
     "src/views/ContentWeddings.vue": [
       "ShoppingBagIcon",
-      "PlusIcon",
-      "MapPinIcon",
-      "PageHeader",
-      "PencilSquareIcon",
       "StatusBadge",
+      "MapPinIcon",
+      "PencilSquareIcon",
+      "PageHeader",
+      "PlusIcon",
       "TrashIcon"
     ],
     "src/views/CustomerDetail.vue": [
-      "ShieldCheckIcon",
-      "CheckBadgeIcon",
-      "Teleport",
       "ArrowRightOnRectangleIcon",
-      "KeyIcon",
-      "ComputerDesktopIcon",
-      "ArrowLeftIcon",
-      "MapPinIcon",
-      "PageHeader",
       "StatusBadge",
-      "TagIcon"
+      "TagIcon",
+      "MapPinIcon",
+      "ArrowLeftIcon",
+      "KeyIcon",
+      "PageHeader",
+      "Teleport",
+      "CheckBadgeIcon",
+      "ShieldCheckIcon",
+      "ComputerDesktopIcon"
     ],
     "src/views/Customers.vue": [
-      "EyeIcon",
-      "MagnifyingGlassIcon",
       "RouterLink",
+      "EyeIcon",
+      "StatusBadge",
+      "MagnifyingGlassIcon",
       "PageHeader",
-      "Pagination",
-      "StatusBadge"
+      "Pagination"
     ],
     "src/views/Dashboard.vue": [
-      "SparkArea",
-      "RocketLaunchIcon",
       "RouterLink",
-      "PlusIcon",
+      "StatusBadge",
+      "SparkArea",
       "PageHeader",
-      "StatusBadge"
+      "PlusIcon",
+      "RocketLaunchIcon"
     ],
     "src/views/EmailMarketing.vue": [
       "EnvelopeIcon",
-      "PlusIcon",
+      "StatusBadge",
       "PaperAirplaneIcon",
       "PageHeader",
-      "StatusBadge"
+      "PlusIcon"
     ],
     "src/views/HomeBuilder.vue": [
+      "Bars3Icon",
       "EyeIcon",
-      "Toggle",
-      "RocketLaunchIcon",
       "ArrowUpTrayIcon",
-      "ComputerDesktopIcon",
-      "DevicePhoneMobileIcon",
       "PencilSquareIcon",
       "PageHeader",
       "ChevronUpIcon",
-      "Bars3Icon",
-      "ChevronDownIcon"
+      "ChevronDownIcon",
+      "DevicePhoneMobileIcon",
+      "Toggle",
+      "ComputerDesktopIcon",
+      "RocketLaunchIcon"
     ],
     "src/views/Login.vue": [
       "LockClosedIcon",
@@ -610,126 +659,148 @@
       "EnvelopeIcon"
     ],
     "src/views/NavigationConfig.vue": [
-      "EyeIcon",
-      "ChevronRightIcon",
-      "RocketLaunchIcon",
-      "PlusIcon",
-      "PageHeader",
       "Bars3Icon",
-      "TrashIcon"
+      "EyeIcon",
+      "LockClosedIcon",
+      "PageHeader",
+      "PlusIcon",
+      "TrashIcon",
+      "ChevronRightIcon",
+      "LinkIcon",
+      "RocketLaunchIcon"
     ],
     "src/views/OperationLogs.vue": [
-      "ComboboxInput",
-      "ComboboxOption",
-      "Popover",
+      "PopoverPanel",
+      "PopoverButton",
       "CheckIcon",
-      "Combobox",
+      "Popover",
+      "XMarkIcon",
+      "ArrowDownTrayIcon",
       "MagnifyingGlassIcon",
+      "PageHeader",
       "ComboboxButton",
       "Teleport",
-      "ArrowDownTrayIcon",
-      "XMarkIcon",
-      "PopoverPanel",
-      "PageHeader",
-      "PopoverButton",
+      "ComboboxOption",
       "ComboboxOptions",
-      "ChevronUpDownIcon"
+      "Combobox",
+      "ChevronUpDownIcon",
+      "ComboboxInput"
     ],
     "src/views/OrderDetail.vue": [
-      "TruckIcon",
       "CheckIcon",
-      "CreditCardIcon",
-      "ArrowLeftIcon",
+      "StatusBadge",
       "MapPinIcon",
-      "PageHeader",
+      "TruckIcon",
+      "ArrowLeftIcon",
       "ArrowUturnLeftIcon",
-      "StatusBadge"
+      "PageHeader",
+      "CreditCardIcon"
     ],
     "src/views/Orders.vue": [
-      "EyeIcon",
-      "EmptyState",
-      "MagnifyingGlassIcon",
-      "ArrowDownTrayIcon",
       "RouterLink",
+      "EyeIcon",
+      "StatusBadge",
+      "ArrowDownTrayIcon",
+      "MagnifyingGlassIcon",
       "PageHeader",
       "Pagination",
-      "StatusBadge"
+      "EmptyState"
     ],
     "src/views/ProductEdit.vue": [
-      "Toggle",
-      "CheckIcon",
       "RocketLaunchIcon",
-      "XMarkIcon",
       "ArrowUpTrayIcon",
+      "XMarkIcon",
       "ArrowLeftIcon",
-      "PlusIcon",
+      "PageHeader",
       "PhotoIcon",
-      "Bars3BottomLeftIcon",
-      "PageHeader"
+      "PlusIcon",
+      "Toggle",
+      "InformationCircleIcon",
+      "Bars3BottomLeftIcon"
     ],
     "src/views/Products.vue": [
+      "RouterLink",
+      "StatusBadge",
+      "PencilSquareIcon",
+      "XMarkIcon",
+      "ArrowDownTrayIcon",
+      "MagnifyingGlassIcon",
+      "PageHeader",
+      "PlusIcon",
+      "FunnelIcon",
+      "TrashIcon",
+      "Pagination",
       "Toggle",
       "EmptyState",
-      "MagnifyingGlassIcon",
       "DocumentDuplicateIcon",
-      "ArrowDownTrayIcon",
-      "RouterLink",
-      "PlusIcon",
-      "PencilSquareIcon",
-      "PageHeader",
-      "Pagination",
-      "StatusBadge",
-      "TrashIcon",
-      "FunnelIcon"
+      "ChevronDownIcon"
     ],
     "src/views/Promotions.vue": [
-      "ClockIcon",
-      "PlusIcon",
-      "PencilSquareIcon",
-      "PageHeader",
       "StatusBadge",
+      "PencilSquareIcon",
+      "ClockIcon",
+      "PageHeader",
+      "PlusIcon",
       "TrashIcon"
     ],
     "src/views/Publish.vue": [
-      "ArrowPathIcon",
-      "RocketLaunchIcon",
-      "PageHeader",
-      "ArrowUturnLeftIcon",
-      "CheckCircleIcon",
       "StatusBadge",
-      "ClockIcon",
+      "ArrowPathIcon",
       "CodeBracketIcon",
-      "GlobeAltIcon"
+      "ClockIcon",
+      "CheckCircleIcon",
+      "ArrowUturnLeftIcon",
+      "PageHeader",
+      "GlobeAltIcon",
+      "RocketLaunchIcon"
     ],
     "src/views/Refunds.vue": [
       "CheckIcon",
-      "XMarkIcon",
       "StatusBadge",
+      "XMarkIcon",
       "PageHeader",
       "EmptyState"
     ],
-    "src/views/RoleManagement.vue": [
+    "src/views/Reviews.vue": [
+      "CheckIcon",
+      "StatusBadge",
+      "PencilSquareIcon",
+      "ChatBubbleLeftRightIcon",
+      "XMarkIcon",
+      "ArrowUturnLeftIcon",
+      "MagnifyingGlassIcon",
+      "PhotoIcon",
+      "NoSymbolIcon",
+      "PageHeader",
+      "Pagination",
       "Teleport",
-      "PlusIcon",
+      "TrashIcon",
+      "Toggle",
+      "EmptyState",
+      "SparklesIcon"
+    ],
+    "src/views/RoleManagement.vue": [
       "PencilSquareIcon",
       "PageHeader",
+      "Teleport",
+      "PlusIcon",
       "TrashIcon"
     ],
     "src/views/Settings.vue": [
       "EyeIcon",
       "CheckIcon",
-      "XMarkIcon",
-      "PlusIcon",
+      "StatusBadge",
       "PencilSquareIcon",
+      "XMarkIcon",
       "PageHeader",
-      "StatusBadge"
+      "PlusIcon"
     ],
     "src/views/Shipping.vue": [
-      "Toggle",
       "TruckIcon",
-      "RocketLaunchIcon",
+      "PageHeader",
       "PlusIcon",
-      "PageHeader"
+      "Toggle",
+      "RocketLaunchIcon"
     ]
   },
   "tailwind_colors": {}

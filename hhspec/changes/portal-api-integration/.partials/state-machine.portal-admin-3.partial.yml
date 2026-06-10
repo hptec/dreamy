@@ -1,0 +1,41 @@
+machines:
+  - id: refund_lifecycle
+    entity: Refund
+    states: [pending, approved, rejected, refunded]
+    initial: pending
+    transitions:
+      - {from: pending, event: approve, to: approved, guard: "原子回补现货库存且订单状态变更成功", source: "OP-013 关联页 Refunds.vue 同意按钮 + 业务上下文"}
+      - {from: pending, event: reject, to: rejected, source: "Refunds.vue 拒绝按钮 r.status === 'pending'"}
+      - {from: approved, event: stripe_refund_succeeded, to: refunded, guard: "Stripe 沙箱退款回执成功", source: "业务上下文 退款完成 [INFERRED]"}
+  - id: review_moderation
+    entity: Review
+    states: [pending, approved, rejected]
+    initial: pending
+    transitions:
+      - {from: pending, event: approve, to: approved, source: "Reviews.vue approveReview"}
+      - {from: pending, event: reject, to: rejected, guard: "featured 强制置 false", source: "Reviews.vue rejectReview"}
+      - {from: rejected, event: batch_approve, to: approved, source: "Reviews.vue batchSet('approved') 不限当前状态"}
+      - {from: approved, event: batch_reject, to: rejected, guard: "featured 强制置 false", source: "Reviews.vue batchSet('rejected')"}
+      - {from: approved, event: set_featured, to: approved, guard: "featured=true 仅 approved 可设", source: "Reviews.vue setFeatured(r,true)"}
+      - {from: approved, event: unset_featured, to: approved, guard: "featured=false", source: "Reviews.vue setFeatured(r,false)"}
+  - id: review_image_visibility
+    entity: ReviewImage
+    states: [shown, rejected]
+    initial: shown
+    transitions:
+      - {from: shown, event: reject_image, to: rejected, source: "Reviews.vue rejectImage"}
+      - {from: rejected, event: restore_image, to: shown, source: "Reviews.vue restoreImage"}
+  - id: question_answer_flow
+    entity: ProductQuestion
+    states: [unanswered, answered]
+    initial: unanswered
+    transitions:
+      - {from: unanswered, event: save_answer, to: answered, guard: "answerDraft.trim() 非空", source: "Reviews.vue saveAnswer"}
+      - {from: answered, event: edit_answer, to: answered, guard: "answerDraft.trim() 非空", source: "Reviews.vue saveAnswer answerEditing"}
+  - id: carrier_status
+    entity: Carrier
+    states: [enabled, disabled]
+    initial: enabled
+    transitions:
+      - {from: enabled, event: disable, to: disabled, source: "Shipping.vue Toggle v-model c.enabled"}
+      - {from: disabled, event: enable, to: enabled, source: "Shipping.vue Toggle v-model c.enabled"}

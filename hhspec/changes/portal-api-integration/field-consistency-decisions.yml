@@ -1,0 +1,5 @@
+# Phase 1.10.1 字段约束冲突决策
+# 本 change 为全局字段字典建立前的首批字段普查（global dict 无基线），
+# field-constraint-test-matrix.yml 的 consistency_issue_count=0，无冲突需决策。
+generated_at: "2026-06-10T08:05:00Z"
+decisions: []

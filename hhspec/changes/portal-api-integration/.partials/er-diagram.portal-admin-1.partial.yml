@@ -1,0 +1,108 @@
+entities:
+  - id: Category
+    desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Categories.vue > 品类名称 * / newRootName / confirmAddChild"}
+      - {n: parent_id, t: Long, source: "prototype/portal-admin/src/views/Categories.vue > cat.children 子类目树"}
+      - {n: level, t: int, min: 1, max: 3, source: "需求描述: 分类为三层树模型 [INFERRED]"}
+      - {n: attribute_set_id, t: Long, source: "prototype/portal-admin/src/views/Categories.vue > cat.attributeSetId / attrSetInfo"}
+      - {n: attr_overrides, t: json, source: "prototype/portal-admin/src/views/Categories.vue > child.attrOverrides 仅存与父级属性集不同的 delta (saveDrawer)"}
+      - {n: sort, t: int, source: "prototype/portal-admin/src/views/Categories.vue > Bars3Icon 拖拽手柄 [INFERRED]"}
+      - {n: product_count, t: int, min: 0, js_guard: "product_count === 0 时才允许删除 (canDelete)", source: "prototype/portal-admin/src/views/Categories.vue > cat.count / canDelete(cat)"}
+    relations:
+      - {to: Category, type: n1}
+      - {to: AttributeSet, type: n1}
+
+  - id: AttributeDef
+    desc: 商品属性字典项，维护全局属性定义与可选值列表（廓形/领口/袖型/面料等）
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: key, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)"}
+      - {n: label, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.label"}
+      - {n: type, t: enum, vals: [select, multiselect, text, toggle], req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.type 徽章分支 select/multiselect + 过滤条件 type!=='text'&&type!=='toggle'"}
+      - {n: options, t: json, js_guard: "type === 'select' || type === 'multiselect' 时才有选项 (attr.optionsKey)", source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.options 增删改 (confirmAddOption/removeOption/confirmEdit)"}
+    relations: []
+
+  - id: AttributeSet
+    desc: 属性集，多个品类可共享同一属性集；定义该集合内各属性的可见性配置
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: label, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)"}
+    relations: []
+
+  - id: AttributeSetItem
+    desc: 属性集明细行，记录属性集内单个属性的可见性状态（必填/可选/隐藏）
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: attribute_set_id, t: Long, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId]"}
+      - {n: attribute_id, t: Long, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId][attrKey]"}
+      - {n: visibility, t: enum, vals: [visible, optional, hidden], req: true, source: "field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/AttributeSets.vue > STATES/cycleState 必填→可选→隐藏"}
+    relations:
+      - {to: AttributeSet, type: n1}
+      - {to: AttributeDef, type: n1}
+
+  - id: TagDimension
+    desc: 自定义标签维度（如风格/用途），仅用于前台营销聚合与导航，不影响商品属性表单
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Categories.vue > 维度名称 * / confirmAddDim"}
+      - {n: description, t: str, source: "prototype/portal-admin/src/views/Categories.vue > tagDimensions d.desc"}
+    relations: []
+
+  - id: Tag
+    desc: 自定义营销标签，归属某标签维度，商品可多选；带封面图用于前台导航卡片
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: dimension_id, t: Long, req: true, source: "prototype/portal-admin/src/views/Categories.vue > t.dimensionId / tagsByActiveDim"}
+      - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Categories.vue > 标签名称 * / confirmAddTag :disabled=!newTagName.trim()"}
+      - {n: cover, t: str, source: "prototype/portal-admin/src/views/Categories.vue > t.cover 封面上传 handleCoverUpload，可为空则纯文字展示"}
+      - {n: status, t: enum, vals: [enabled, disabled], req: true, source: "prototype/portal-admin/src/views/Categories.vue > Toggle v-model=t.enabled，UI 开关映射后端枚举 [INFERRED]"}
+      - {n: product_count, t: int, min: 0, source: "prototype/portal-admin/src/views/Categories.vue > t.count 件数"}
+    relations:
+      - {to: TagDimension, type: n1}
+      - {to: Product, type: nm}
+
+  - id: Banner
+    desc: 站点广告位图文配置（首页 Hero/推荐位/顶部条），支持排序、定时投放与上下线
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Banners.vue > b.name"}
+      - {n: image_url, t: str, req: true, source: "prototype/portal-admin/src/views/Banners.vue > b.img"}
+      - {n: position, t: enum, vals: [hero, featured, topbar], req: true, source: "prototype/portal-admin/src/views/Banners.vue > b.position + 页面副标题 首页Hero/推荐位/顶部条 [INFERRED]"}
+      - {n: start_time, t: datetime, source: "prototype/portal-admin/src/views/Banners.vue > 投放时间 b.start"}
+      - {n: end_time, t: datetime, js_guard: "end_time > start_time", source: "prototype/portal-admin/src/views/Banners.vue > 投放时间 b.end"}
+      - {n: status, t: enum, vals: [draft, published, archived], req: true, source: "prototype/portal-admin/src/views/Banners.vue > Toggle v-model=b.online + 保存并发布，UI 开关映射发布状态枚举 [INFERRED]"}
+      - {n: sort, t: int, req: true, source: "prototype/portal-admin/src/views/Banners.vue > 排序列 input :value=b.sort"}
+      - {n: clicks, t: int, min: 0, source: "prototype/portal-admin/src/views/Banners.vue > b.clicks 点击统计只读"}
+    relations: []
+
+  - id: BlogPost
+    desc: Blog 婚礼策划文章，发布后生成静态文章页
+    fields:
+      - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+      - {n: title, t: str, req: true, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.title"}
+      - {n: cover, t: str, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.cover"}
+      - {n: category, t: str, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.category 文章栏目"}
+      - {n: author, t: str, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.author"}
+      - {n: content, t: text, source: "prototype/portal-admin/src/views/ContentBlog.vue > 写文章/编辑入口 [INFERRED]"}
+      - {n: slug, t: str, source: "prototype/portal-admin/src/views/ContentBlog.vue > 发布后生成静态文章页 [INFERRED]"}
+      - {n: status, t: enum, vals: [draft, published, archived], req: true, source: "prototype/portal-admin/src/views/ContentBlog.vue > filter tabs published/draft + p.status，archived 按发布枚举规范补全 [INFERRED]"}
+      - {n: published_at, t: datetime, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.date"}
+      - {n: views, t: int, min: 0, source: "prototype/portal-admin/src/views/ContentBlog.vue > p.views 阅读数只读"}
+    relations: []
+
+  - id: AnalyticsDashboard
+    desc: 数据看板聚合只读视图（不落库不可写），指标由 Order/Refund/Product/流量埋点聚合派生
+    fields:
+      - {n: gmv_month, t: decimal, source: "prototype/portal-admin/src/views/Analytics.vue > 本月 GMV，聚合自 Order [INFERRED]"}
+      - {n: order_count, t: int, min: 0, source: "prototype/portal-admin/src/views/Analytics.vue > 订单数，聚合自 Order [INFERRED]"}
+      - {n: avg_order_value, t: decimal, source: "prototype/portal-admin/src/views/Analytics.vue > 客单价，聚合自 Order [INFERRED]"}
+      - {n: refund_rate, t: decimal, min: 0, max: 100, source: "prototype/portal-admin/src/views/Analytics.vue > 退款率，聚合自 Refund/Order [INFERRED]"}
+      - {n: gmv_trend, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > gmvTrend/gmvLabels SparkArea"}
+      - {n: category_sales, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > categorySales 品类销售占比，聚合自 Category/Order [INFERRED]"}
+      - {n: traffic_sources, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > trafficSources 访客来源"}
+      - {n: device_share, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > 设备占比 移动端/桌面端/平板"}
+      - {n: funnel, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > funnel 转化漏斗 stage/value"}
+      - {n: top_products, t: json, source: "prototype/portal-admin/src/views/Analytics.vue > topProducts 按 sales 排序取前6，聚合自 Product [INFERRED]"}
+    relations: []

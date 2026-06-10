@@ -1,0 +1,231 @@
+---
+review_id: challenger-r4
+change_name: portal-api-integration
+round: 4
+verdict: PASS
+reviewed_at: '2026-06-10T13:40:00Z'
+validation_mode: incremental
+validation_scope: [CON-01, CON-02, CON-03, CON-04, CON-05, VER-01, VER-02, VER-03, VER-04, VER-05, COM-01, COM-02, COM-03]
+---
+
+# 变更检测：er-diagram / business-flow / boundary-scenarios / acceptance 四文件
+# sha256 与 r3 不同（state-machine 未变，与决策31"不建 RMA 节点"一致）。
+# review_scope 限定增量审查（决策25~31 相关），存量项仅做低成本脚本全量复扫
+# （source_id 悬挂 / guard 覆盖 / 空字段 / 模糊断言），不重复 r3 已通过的人工语义复审。
+
+previous_round_followup:
+  - check: CON-01
+    status: fixed_with_new_warning
+    desc: >-
+      r3 warning（refund_flow n24 无出边）已修复——新增 n24→n20 边，n24 不再悬空；
+      但目标 end 选错：n20 label 为"退款完成"，而 n24 是"422 定制款已投产不可退"
+      拒绝路径，语义上应汇入 n22"申请终止"。见本轮新 warning。
+  - check: CON-01
+    status: partially_fixed
+    desc: >-
+      r3 warning（transactional_email 主路径缺 end）部分收敛——n5（pending→sent）
+      已有出边汇入后继；仍遗留 n9（failed→dead 告警）无出边、n1 类型为 event
+      而非 start。继续以 warning 跟踪，不阻断。
+  - check: CON-05
+    status: fixed
+    desc: >-
+      r2/r3 连续两轮 warning（12 条场景 source:flow 但 source_id 为 decision-13/14/16/17.*）
+      已收敛：s-762~s-773 的 source 字段改为 decision，与 source_id 命名空间对齐，
+      不再发生按 flow 解引用失败的歧义。
+  - check: CON-03
+    status: persists
+    desc: >-
+      r1 遗留（sm 来源 state/concurrent 类边界场景 field: state vs ER 字段名 status，
+      本轮 164 条）写法未变，语义无歧义，继续以 warning 跟踪。
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+    - level: info
+      check: CON-02
+      desc: >-
+        决策26/30 新增实体完整落图：NewsletterSubscriber（email 唯一幂等 js_guard +
+        source enum footer/modal/exit_intent + locale enum en/es/fr + subscribedAt，
+        5 字段全部带 source 溯源）、ContactMessage（name/email/subject/message/
+        submittedAt，maxlen 与原型表单一致）。newsletter_subscribe / contact_submit
+        两流程引用实体均存在；18 个 flow 引用实体全量脚本比对 0 缺失。
+      evidence: "er-diagram.yml NewsletterSubscriber/ContactMessage vs business-flow.yml n5(entity:NewsletterSubscriber)/n4(entity:ContactMessage)"
+    - level: info
+      check: CON-02
+      desc: >-
+        决策28/31 字段增量一致：Order.giftWrap(bool)+giftWrapFee(number,min:0) 已加入，
+        totalAmount js_guard 已更新为 "subtotal + shippingFee + giftWrapFee - 优惠减免"，
+        与 checkout_order n6 新 label（礼品包装固定费计入总额）同源决策28 零冲突；
+        Refund 字段清洗完成——11 字段无 snake_case 残留、无重复字段，
+        stripeRefundId/returnTrackingNo 在位，全部产出物 grep stripe_refund_id /
+        return_tracking_no 0 命中。
+      evidence: "er-diagram.yml Order.totalAmount js_guard + Refund.fields；business-flow.yml checkout_order n6/n12"
+    - level: info
+      check: CON-01
+      desc: >-
+        新增两流程连通性通过：newsletter_subscribe（6 节点，start/end 各 1，幂等
+        decision n4 双分支均达 end，无孤立节点无悬挂边）、contact_submit（5 节点，
+        校验失败 n3→n1 回填重试闭环，主链 n4 落表→n5 end）。两流程均无 state_change
+        节点，与 state-machine.yml 本轮零改动（决策31 不建 RMA 节点）一致。
+        18 个 flow 全量 state_change 节点（from/to 或 event 两种写法）vs
+        state-machine.yml 21 机器 transitions 脚本比对 0 失配。
+      evidence: "business-flow.yml newsletter_subscribe/contact_submit nodes+edges 图遍历脚本"
+    - level: warning
+      check: CON-01
+      desc: >-
+        refund_flow n24（422 定制款已投产不可退）的新增出边指向 n20"退款完成"end，
+        拒绝路径汇入成功终态，语义矛盾；本流程内既有 error 处理惯例（n18/n19→n22
+        "申请终止"）应同样适用。建议将 n24→n20 改为 n24→n22。连通性本身已修复
+        （r3 跟踪项），仅终点选择错误，不影响验收场景（s-1043/s-1044 断言独立成立），
+        按 warning 处理。
+      evidence: "business-flow.yml refund_flow edges(n24→n20) vs nodes(n20:end 退款完成 / n22:end 申请终止)"
+    - level: warning
+      check: CON-01
+      desc: >-
+        newsletter_subscribe 存在同类终点语义问题：n3（422 邮箱格式错误）出边
+        n3→n6，而 n6 label 为"展示订阅确认文案（纯订阅确认）"——格式错误路径
+        汇入订阅确认终态，与 contact_submit 的 n3→n1 重试闭环惯例不一致。
+        验收侧无影响（s-1088 asserts 已含"非法邮箱 422 三语提示"），建议改为
+        n3→n1 回填重试或补中性 end。
+      evidence: "business-flow.yml newsletter_subscribe edges(n3→n6) + nodes(n6:end label)"
+    - level: info
+      check: CON-03
+      desc: >-
+        boundary-scenarios 944 条 entity/field（snake_case 命名）vs er-diagram 55
+        实体脚本全量比对 0 缺失（field:state 既有约定除外，见 followup）。
+        新增实体边界覆盖充分：newsletter_subscriber 14 条、contact_message 14 条
+        （null/extreme/auth 等类齐备）；giftWrap/giftWrapFee 3 条、
+        stripeRefundId/returnTrackingNo 3 条均存在且字段引用有效。
+      evidence: "boundary-scenarios.yml bs-379~bs-389/bs-543~bs-551/bs-649~bs-652(新实体) + bs-152/153/456 + bs-195/196/479"
+    - level: info
+      check: CON-04
+      desc: >-
+        115 条 source:sm 场景 source_id 全量脚本校验 0 悬挂（state-machine 本轮
+        未变，39 条 guard 转换基线与 r3 一致），无回归。
+      evidence: "acceptance.yml source:sm 115 条 vs state-machine.yml transitions 全量比对"
+    - level: info
+      check: CON-05
+      desc: >-
+        944 条 source:bs 场景 source_id 全量比对 boundary-scenarios.yml 944 个
+        场景 id，0 悬挂；1089 条场景 id 无重复；source 分布
+        bs:944 + sm:115 + func:18 + decision:12 = 1089 自洽。
+      evidence: "acceptance.yml scenarios[*].source_id vs boundary-scenarios.yml scenarios[*].id 脚本比对"
+
+  verifiability:
+    status: pass
+    findings:
+    - level: info
+      check: VER-01
+      desc: >-
+        1089 条场景全量脚本扫描：空 ctx / 空 act.op / 空 expect 均为 0。
+        新增 s-1088（newsletter_subscribe）ctx 含入口与 locale 前置、
+        s-1089（contact_submit）ctx 含访客与页面前置，act.op 均明确。
+      evidence: "acceptance.yml 1089 条全量扫描"
+    - level: warning
+      check: VER-03
+      desc: >-
+        重新生成后 18 条 source:func 场景中 13 条 expect 缺 http_status 顶层字段
+        （r3 时 16 条全部含有），且断言键由 assertions 改名为 asserts（含 s-766/
+        s-771 等 decision 场景用单数 assert），属格式回退/漂移。其中
+        order_timeout_cancel / flash_sale_auto_offline / order_event_dispatch /
+        transactional_email 等系统内部流无 HTTP 语义尚可接受，但 coupon_redeem /
+        wishlist_manage / refund_flow / review_moderation_flow / admin_ship_complete
+        为 API 直达流程，建议恢复顶层 http_status。不阻断：13 条 asserts 内容仍
+        含可观察断言（422/401/403 错误码、状态变化、幂等行为），s-1088/s-1089
+        新增场景均含 http_status 200 + 具体 asserts。
+      evidence: "acceptance.yml s-753~s-758/s-760/s-761/s-1038~s-1040/s-1042/s-1058 expect 无 http_status；s-1088/s-1089 完整"
+    - level: info
+      check: VER-04
+      desc: >-
+        全量扫描 0 条仅含 success/fail 的模糊断言。bs-152/bs-195 等可空字段
+        null 场景 expect 用 error_code: SUCCESS + http_status 201 表达"正常处理"，
+        值确定可断言，不构成模糊。
+      evidence: "acceptance.yml expect 全量正则扫描"
+    - level: warning
+      check: VER-05
+      desc: >-
+        boundary-scenarios 重新生成后，109 条 cat:state 场景中 70 条 expect 为
+        通用文案"系统返回状态不允许错误，拒绝执行操作"，未在 bs 层写明错误码或
+        状态值（bs-735~bs-746 等，集中于 banner/blog_post/category 等存量实体）。
+        下游对应 acceptance 场景（s-870/s-875/s-880 等）均已补全
+        http_status 409 + error_code STATE_NOT_ALLOWED，可验收性在验收层闭环，
+        故不阻断；建议下次重生成时将错误码下沉到 bs 层保持单文件自足。
+      evidence: "boundary-scenarios.yml bs-735/bs-740/bs-745 expect vs acceptance.yml s-870/s-875/s-880 expect"
+    - level: info
+      check: VER-02
+      desc: >-
+        新实体相关验收场景断言三元组完整：必填类 422+FIELD_REQUIRED+field、
+        超长类 422+VALUE_OUT_OF_RANGE、越权类 403+FORBIDDEN，
+        giftWrapFee 低于 min 422+VALUE_OUT_OF_RANGE，全部可观察。
+      evidence: "acceptance.yml s-475/s-478/s-480/s-484/s-638/s-642/s-744/s-747/s-551/s-574"
+
+  completeness_supplement:
+    status: pass
+    findings:
+    - level: info
+      check: COM-01
+      desc: >-
+        新增两流程均为 cross_domain: false（Newsletter 仅落表不发邮件/决策26，
+        联系表单仅落表/决策30，无外部系统调用），不触发 auth/integrity 强制要求；
+        两实体仍各有 auth 类边界场景覆盖（bs-649~bs-652 越权 403）。
+        checkout_order n12 改为 Payment Element（决策25）仍在既有 Stripe
+        cross_domain 流程内，r1~r3 已验证的 integrity 覆盖无回归。
+      evidence: "business-flow.yml newsletter_subscribe/contact_submit cross_domain:false + boundary-scenarios.yml bs-649~bs-652"
+    - level: info
+      check: COM-02
+      desc: >-
+        state-machine 39 条 guard 转换（本轮零变更）在重新生成的 acceptance.yml
+        中 guard_fail 覆盖脚本比对 missing=0，无回归。
+      evidence: "state-machine.yml 39 guarded transitions vs acceptance.yml source:sm guard_fail 场景"
+    - level: info
+      check: COM-03
+      desc: >-
+        state file key_decisions（D13~D24）均为 source: keyword/code_feature，
+        无 dimension: BE-DIM-* 条目，按规则整项 PASS。人工抽样确认细化轮五决策
+        落图：决策25 → checkout_order n12 + Payment.method source；决策26 →
+        NewsletterSubscriber + newsletter_subscribe；决策27 → locale 路径前缀
+        体现于 content_publish_invalidate revalidate 断言与三语提示文案；
+        决策28 → Order.giftWrap/giftWrapFee + n6 + totalAmount js_guard；
+        决策30 → ContactMessage + contact_submit；决策31 →
+        Refund.returnTrackingNo（source 注明不建 RMA 节点）+ state-machine 零改动。
+      evidence: "pd-explore.local.md key_decisions + er-diagram/business-flow 决策25/28/30/31 source 标注"
+    - level: info
+      check: COM-03
+      desc: >-
+        两项轻微缺口提示（不阻断）：(1) 决策29（推荐位规则化）在五个图文件中
+        无显式映射（grep 决策29 零命中，仅 Banner 实体存量"推荐位"描述）——若为
+        纯查询规则无实体/状态变更则符合预期，建议人工确认；(2) state file
+        key_decisions 止于 D24，本轮决策 25~31 尚未同步登记，建议 scheduler
+        在下轮 explore 收尾时补录，保持 COM-03 可追溯基线完整。
+      evidence: "grep 决策29 er-diagram/business-flow/state-machine 0 命中；pd-explore.local.md key_decisions 末条 D24"
+
+  incremental_integrity:
+    status: skipped
+    findings:
+    - level: info
+      check: INC-01
+      desc: >-
+        er-diagram.yml meta 仅含 merged_at/merge_conflicts（无 mode: incremental），
+        state-machine.yml / business-flow.yml 无顶层 meta，判定为 bootstrap 模式，
+        维度四自动 PASS（与 r2/r3 判定一致）。
+      evidence: "er-diagram.yml meta 块"
+
+reviewed_files:
+  er_diagram: bda35148b3138b0eaab89a27ff35f6de1ea4e34f7e5ceddb06b894f68d99fe54
+  state_machine: 271d3395140e99a6261770b6e50c1a29f3dce97c720f4ab8602367dd97b4eae9
+  business_flow: ae46b9fbbea356e0e1c2b63c17bd65684529fd70a801264415ed00b00af67021
+  boundary_scenarios: fde0bd62d28e6137e880eacf77552d3abfbed525895d030c329644efc550d336
+  acceptance: d0cf72902128142a56fac3e9a6f698a501d9e276ccda24da136c6f6e606f8a58
+
+summary: >-
+  第 4 轮（细化轮五增量）审查通过：决策25~31 增量落图自洽——NewsletterSubscriber/
+  ContactMessage 两实体字段与新流程逐项一致且各有 14 条边界场景 + 显式错误码验收；
+  Order giftWrap 双字段与 totalAmount js_guard、checkout_order n6/n12 同源决策28/25
+  零冲突；Refund snake_case 清洗零残留零重复；state-machine 零改动与决策31 一致；
+  944 条 bs + 115 条 sm source_id 零悬挂、39 条 guard 覆盖零缺失、1089 条场景
+  空字段与模糊断言零命中。r2/r3 遗留的 decision-* source_id warning 已收敛（source
+  改为 decision），refund_flow n24 悬空已修复。4 条 warning 不阻断：n24 误汇入
+  "退款完成"end（应为 n22 申请终止）、newsletter_subscribe 格式错误路径汇入订阅
+  确认 end、13 条 func 场景 http_status 顶层字段回退（asserts 仍可观察）、70 条
+  cat:state 边界场景 bs 层缺显式错误码（acceptance 层已闭环 409+STATE_NOT_ALLOWED）。

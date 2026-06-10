@@ -1,0 +1,890 @@
+change_name: portal-api-integration
+generated_at: "2026-06-10T07:45:48Z"
+source_format: diagram
+has_cycle: false
+
+tasks:
+  - task_id: "TASK-001"
+    type: modify_schema
+    target: "entity:Category"
+    summary: "实现实体 Category 的数据模型"
+    source: er-diagram
+    source_id: "Category"
+    domain_id: "Category"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-002"
+    type: modify_schema
+    target: "entity:AttributeDef"
+    summary: "实现实体 AttributeDef 的数据模型"
+    source: er-diagram
+    source_id: "AttributeDef"
+    domain_id: "AttributeDef"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-003"
+    type: modify_schema
+    target: "entity:AttributeSet"
+    summary: "实现实体 AttributeSet 的数据模型"
+    source: er-diagram
+    source_id: "AttributeSet"
+    domain_id: "AttributeSet"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-004"
+    type: modify_schema
+    target: "entity:AttributeSetItem"
+    summary: "实现实体 AttributeSetItem 的数据模型"
+    source: er-diagram
+    source_id: "AttributeSetItem"
+    domain_id: "AttributeSetItem"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-005"
+    type: modify_schema
+    target: "entity:TagDimension"
+    summary: "实现实体 TagDimension 的数据模型"
+    source: er-diagram
+    source_id: "TagDimension"
+    domain_id: "TagDimension"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-006"
+    type: modify_schema
+    target: "entity:Tag"
+    summary: "实现实体 Tag 的数据模型"
+    source: er-diagram
+    source_id: "Tag"
+    domain_id: "Tag"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-007"
+    type: modify_schema
+    target: "entity:Banner"
+    summary: "实现实体 Banner 的数据模型"
+    source: er-diagram
+    source_id: "Banner"
+    domain_id: "Banner"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-008"
+    type: modify_schema
+    target: "entity:BlogPost"
+    summary: "实现实体 BlogPost 的数据模型"
+    source: er-diagram
+    source_id: "BlogPost"
+    domain_id: "BlogPost"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-009"
+    type: modify_schema
+    target: "entity:AnalyticsDashboard"
+    summary: "实现实体 AnalyticsDashboard 的数据模型"
+    source: er-diagram
+    source_id: "AnalyticsDashboard"
+    domain_id: "AnalyticsDashboard"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-010"
+    type: modify_schema
+    target: "entity:Product"
+    summary: "实现实体 Product 的数据模型"
+    source: er-diagram
+    source_id: "Product"
+    domain_id: "Product"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-011"
+    type: modify_schema
+    target: "entity:ProductImage"
+    summary: "实现实体 ProductImage 的数据模型"
+    source: er-diagram
+    source_id: "ProductImage"
+    domain_id: "ProductImage"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-012"
+    type: modify_schema
+    target: "entity:Sku"
+    summary: "实现实体 Sku 的数据模型"
+    source: er-diagram
+    source_id: "Sku"
+    domain_id: "Sku"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-013"
+    type: modify_schema
+    target: "entity:SizeChartRow"
+    summary: "实现实体 SizeChartRow 的数据模型"
+    source: er-diagram
+    source_id: "SizeChartRow"
+    domain_id: "SizeChartRow"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-014"
+    type: modify_schema
+    target: "entity:Customer"
+    summary: "实现实体 Customer 的数据模型"
+    source: er-diagram
+    source_id: "Customer"
+    domain_id: "Customer"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-015"
+    type: modify_schema
+    target: "entity:Address"
+    summary: "实现实体 Address 的数据模型"
+    source: er-diagram
+    source_id: "Address"
+    domain_id: "Address"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-016"
+    type: modify_schema
+    target: "entity:CartItem"
+    summary: "实现实体 CartItem 的数据模型"
+    source: er-diagram
+    source_id: "CartItem"
+    domain_id: "CartItem"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-017"
+    type: modify_schema
+    target: "entity:Order"
+    summary: "实现实体 Order 的数据模型"
+    source: er-diagram
+    source_id: "Order"
+    domain_id: "Order"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-018"
+    type: modify_schema
+    target: "entity:OrderLine"
+    summary: "实现实体 OrderLine 的数据模型"
+    source: er-diagram
+    source_id: "OrderLine"
+    domain_id: "OrderLine"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-019"
+    type: modify_schema
+    target: "entity:Payment"
+    summary: "实现实体 Payment 的数据模型"
+    source: er-diagram
+    source_id: "Payment"
+    domain_id: "Payment"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-020"
+    type: modify_schema
+    target: "entity:Refund"
+    summary: "实现实体 Refund 的数据模型"
+    source: er-diagram
+    source_id: "Refund"
+    domain_id: "Refund"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-021"
+    type: modify_schema
+    target: "entity:Coupon"
+    summary: "实现实体 Coupon 的数据模型"
+    source: er-diagram
+    source_id: "Coupon"
+    domain_id: "Coupon"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-022"
+    type: modify_schema
+    target: "entity:FlashSale"
+    summary: "实现实体 FlashSale 的数据模型"
+    source: er-diagram
+    source_id: "FlashSale"
+    domain_id: "FlashSale"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-023"
+    type: modify_schema
+    target: "entity:Lookbook"
+    summary: "实现实体 Lookbook 的数据模型"
+    source: er-diagram
+    source_id: "Lookbook"
+    domain_id: "Lookbook"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-024"
+    type: modify_schema
+    target: "entity:Guide"
+    summary: "实现实体 Guide 的数据模型"
+    source: er-diagram
+    source_id: "Guide"
+    domain_id: "Guide"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-025"
+    type: modify_schema
+    target: "entity:RealWedding"
+    summary: "实现实体 RealWedding 的数据模型"
+    source: er-diagram
+    source_id: "RealWedding"
+    domain_id: "RealWedding"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-026"
+    type: modify_schema
+    target: "entity:CustomTag"
+    summary: "实现实体 CustomTag 的数据模型"
+    source: er-diagram
+    source_id: "CustomTag"
+    domain_id: "CustomTag"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-027"
+    type: modify_schema
+    target: "entity:Review"
+    summary: "实现实体 Review 的数据模型"
+    source: er-diagram
+    source_id: "Review"
+    domain_id: "Review"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-028"
+    type: modify_schema
+    target: "entity:ReviewImage"
+    summary: "实现实体 ReviewImage 的数据模型"
+    source: er-diagram
+    source_id: "ReviewImage"
+    domain_id: "ReviewImage"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-029"
+    type: modify_schema
+    target: "entity:ProductQuestion"
+    summary: "实现实体 ProductQuestion 的数据模型"
+    source: er-diagram
+    source_id: "ProductQuestion"
+    domain_id: "ProductQuestion"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-030"
+    type: modify_schema
+    target: "entity:Carrier"
+    summary: "实现实体 Carrier 的数据模型"
+    source: er-diagram
+    source_id: "Carrier"
+    domain_id: "Carrier"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-031"
+    type: modify_schema
+    target: "entity:ShippingRate"
+    summary: "实现实体 ShippingRate 的数据模型"
+    source: er-diagram
+    source_id: "ShippingRate"
+    domain_id: "ShippingRate"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-032"
+    type: modify_logic
+    target: "state_machine:banner_lifecycle"
+    summary: "实现 banner_lifecycle 状态机（7 个转换）"
+    source: state-machine
+    source_id: "banner_lifecycle"
+    domain_id: "banner"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "banner 状态从 draft 流转到 published"
+      - "banner 在 draft 状态因 guard 条件不满足拒绝转换"
+      - "banner 状态从 published 流转到 archived"
+      - "banner 在 published 状态因 guard 条件不满足拒绝转换"
+      - "banner 状态从 archived 流转到 published"
+      - "banner 状态从 draft 流转到 deleted"
+      - "banner 状态从 published 流转到 deleted"
+      - "banner 状态从 archived 流转到 deleted"
+    dependencies: []
+  - task_id: "TASK-033"
+    type: modify_logic
+    target: "state_machine:blog_post_lifecycle"
+    summary: "实现 blog_post_lifecycle 状态机（6 个转换）"
+    source: state-machine
+    source_id: "blog_post_lifecycle"
+    domain_id: "blog"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "blog_post 状态从 draft 流转到 published"
+      - "blog_post 在 draft 状态因 guard 条件不满足拒绝转换"
+      - "blog_post 状态从 published 流转到 archived"
+      - "blog_post 状态从 archived 流转到 published"
+      - "blog_post 状态从 draft 流转到 deleted"
+      - "blog_post 状态从 published 流转到 deleted"
+      - "blog_post 状态从 archived 流转到 deleted"
+    dependencies: []
+  - task_id: "TASK-034"
+    type: modify_logic
+    target: "state_machine:category_lifecycle"
+    summary: "实现 category_lifecycle 状态机（1 个转换）"
+    source: state-machine
+    source_id: "category_lifecycle"
+    domain_id: "category"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "category 状态从 active 流转到 deleted"
+      - "category 在 active 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-035"
+    type: modify_logic
+    target: "state_machine:tag_lifecycle"
+    summary: "实现 tag_lifecycle 状态机（4 个转换）"
+    source: state-machine
+    source_id: "tag_lifecycle"
+    domain_id: "tag"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "tag 状态从 enabled 流转到 disabled"
+      - "tag 状态从 disabled 流转到 enabled"
+      - "tag 状态从 enabled 流转到 deleted"
+      - "tag 状态从 disabled 流转到 deleted"
+    dependencies: []
+  - task_id: "TASK-036"
+    type: modify_logic
+    target: "state_machine:tag_dimension_lifecycle"
+    summary: "实现 tag_dimension_lifecycle 状态机（1 个转换）"
+    source: state-machine
+    source_id: "tag_dimension_lifecycle"
+    domain_id: "tag"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "tag_dimension 状态从 active 流转到 deleted"
+    dependencies: []
+  - task_id: "TASK-037"
+    type: modify_logic
+    target: "state_machine:attribute_visibility_cycle"
+    summary: "实现 attribute_visibility_cycle 状态机（3 个转换）"
+    source: state-machine
+    source_id: "attribute_visibility_cycle"
+    domain_id: "attribute"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "attribute_set_item 状态从 hidden 流转到 visible"
+      - "attribute_set_item 状态从 visible 流转到 optional"
+      - "attribute_set_item 状态从 optional 流转到 hidden"
+    dependencies: []
+  - task_id: "TASK-038"
+    type: modify_logic
+    target: "state_machine:order_lifecycle"
+    summary: "实现 order_lifecycle 状态机（9 个转换）"
+    source: state-machine
+    source_id: "order_lifecycle"
+    domain_id: "order"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "order 状态从 pending 流转到 paid"
+      - "order 状态从 pending 流转到 cancelled"
+      - "order 在 pending 状态因 guard 条件不满足拒绝转换"
+      - "order 状态从 paid 流转到 shipped"
+      - "order 在 paid 状态因 guard 条件不满足拒绝转换"
+      - "order 状态从 shipped 流转到 completed"
+      - "order 状态从 paid 流转到 refunding"
+      - "order 状态从 shipped 流转到 refunding"
+      - "order 状态从 refunding 流转到 refunded"
+      - "order 状态从 refunding 流转到 paid"
+      - "order 在 refunding 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-039"
+    type: modify_logic
+    target: "state_machine:payment_lifecycle"
+    summary: "实现 payment_lifecycle 状态机（5 个转换）"
+    source: state-machine
+    source_id: "payment_lifecycle"
+    domain_id: "payment"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "payment 状态从 created 流转到 processing"
+      - "payment 状态从 processing 流转到 succeeded"
+      - "payment 状态从 processing 流转到 failed"
+      - "payment 状态从 failed 流转到 processing"
+      - "payment 在 failed 状态因 guard 条件不满足拒绝转换"
+      - "payment 状态从 succeeded 流转到 refunded"
+      - "payment 在 succeeded 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-040"
+    type: modify_logic
+    target: "state_machine:product_lifecycle"
+    summary: "实现 product_lifecycle 状态机（4 个转换）"
+    source: state-machine
+    source_id: "product_lifecycle"
+    domain_id: "product"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "product 状态从 draft 流转到 published"
+      - "product 状态从 published 流转到 draft"
+      - "product 状态从 draft 流转到 deleted"
+      - "product 状态从 published 流转到 deleted"
+      - "product 在 published 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-041"
+    type: modify_logic
+    target: "state_machine:refund_lifecycle"
+    summary: "实现 refund_lifecycle 状态机（5 个转换）"
+    source: state-machine
+    source_id: "refund_lifecycle"
+    domain_id: "refund"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "refund 状态从 pending 流转到 approved"
+      - "refund 在 pending 状态因 guard 条件不满足拒绝转换"
+      - "refund 状态从 pending 流转到 rejected"
+      - "refund 状态从 approved 流转到 refunded"
+      - "refund 在 approved 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-042"
+    type: modify_logic
+    target: "state_machine:coupon_lifecycle"
+    summary: "实现 coupon_lifecycle 状态机（8 个转换）"
+    source: state-machine
+    source_id: "coupon_lifecycle"
+    domain_id: "coupon"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "coupon 状态从 draft 流转到 scheduled"
+      - "coupon 在 draft 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 draft 流转到 active"
+      - "coupon 在 draft 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 scheduled 流转到 active"
+      - "coupon 在 scheduled 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 active 流转到 expiring"
+      - "coupon 在 active 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 expiring 流转到 expired"
+      - "coupon 在 expiring 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 active 流转到 expired"
+      - "coupon 在 active 状态因 guard 条件不满足拒绝转换"
+      - "coupon 状态从 draft 流转到 deleted"
+      - "coupon 状态从 expired 流转到 deleted"
+    dependencies: []
+  - task_id: "TASK-043"
+    type: modify_logic
+    target: "state_machine:flash_sale_lifecycle"
+    summary: "实现 flash_sale_lifecycle 状态机（3 个转换）"
+    source: state-machine
+    source_id: "flash_sale_lifecycle"
+    domain_id: "flash"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "flash_sale 状态从 draft 流转到 scheduled"
+      - "flash_sale 在 draft 状态因 guard 条件不满足拒绝转换"
+      - "flash_sale 状态从 scheduled 流转到 active"
+      - "flash_sale 在 scheduled 状态因 guard 条件不满足拒绝转换"
+      - "flash_sale 状态从 active 流转到 ended"
+      - "flash_sale 在 active 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-044"
+    type: modify_logic
+    target: "state_machine:lookbook_publish"
+    summary: "实现 lookbook_publish 状态机（2 个转换）"
+    source: state-machine
+    source_id: "lookbook_publish"
+    domain_id: "lookbook"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "lookbook 状态从 draft 流转到 published"
+      - "lookbook 状态从 published 流转到 draft"
+    dependencies: []
+  - task_id: "TASK-045"
+    type: modify_logic
+    target: "state_machine:guide_publish"
+    summary: "实现 guide_publish 状态机（2 个转换）"
+    source: state-machine
+    source_id: "guide_publish"
+    domain_id: "guide"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "guide 状态从 draft 流转到 published"
+      - "guide 状态从 published 流转到 draft"
+    dependencies: []
+  - task_id: "TASK-046"
+    type: modify_logic
+    target: "state_machine:real_wedding_publish"
+    summary: "实现 real_wedding_publish 状态机（2 个转换）"
+    source: state-machine
+    source_id: "real_wedding_publish"
+    domain_id: "real"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "real_wedding 状态从 draft 流转到 published"
+      - "real_wedding 状态从 published 流转到 draft"
+    dependencies: []
+  - task_id: "TASK-047"
+    type: modify_logic
+    target: "state_machine:review_moderation"
+    summary: "实现 review_moderation 状态机（6 个转换）"
+    source: state-machine
+    source_id: "review_moderation"
+    domain_id: "review"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "review 状态从 pending 流转到 approved"
+      - "review 状态从 pending 流转到 rejected"
+      - "review 在 pending 状态因 guard 条件不满足拒绝转换"
+      - "review 状态从 rejected 流转到 approved"
+      - "review 状态从 approved 流转到 rejected"
+      - "review 在 approved 状态因 guard 条件不满足拒绝转换"
+      - "review 状态从 approved 流转到 approved"
+      - "review 在 approved 状态因 guard 条件不满足拒绝转换"
+      - "评价提交后审核通过"
+      - "评价提交后审核驳回"
+    dependencies: []
+  - task_id: "TASK-048"
+    type: modify_logic
+    target: "state_machine:review_image_visibility"
+    summary: "实现 review_image_visibility 状态机（2 个转换）"
+    source: state-machine
+    source_id: "review_image_visibility"
+    domain_id: "review"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "review_image 状态从 shown 流转到 rejected"
+      - "review_image 状态从 rejected 流转到 shown"
+    dependencies: []
+  - task_id: "TASK-049"
+    type: modify_logic
+    target: "state_machine:question_answer_flow"
+    summary: "实现 question_answer_flow 状态机（2 个转换）"
+    source: state-machine
+    source_id: "question_answer_flow"
+    domain_id: "question"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "product_question 状态从 unanswered 流转到 answered"
+      - "product_question 在 unanswered 状态因 guard 条件不满足拒绝转换"
+      - "product_question 状态从 answered 流转到 answered"
+      - "product_question 在 answered 状态因 guard 条件不满足拒绝转换"
+    dependencies: []
+  - task_id: "TASK-050"
+    type: modify_logic
+    target: "state_machine:carrier_status"
+    summary: "实现 carrier_status 状态机（2 个转换）"
+    source: state-machine
+    source_id: "carrier_status"
+    domain_id: "carrier"
+    status: new
+    estimated_complexity: low
+    acceptance_criteria:
+      - "carrier 状态从 enabled 流转到 disabled"
+      - "carrier 状态从 disabled 流转到 enabled"
+    dependencies: []
+  - task_id: "TASK-051"
+    type: new_feature
+    target: "flow:checkout_order"
+    summary: "实现业务流程 checkout_order"
+    source: business-flow
+    source_id: "checkout_order"
+    domain_id: "checkout_order"
+    status: new
+    estimated_complexity: high
+    acceptance_criteria:
+      - "消费端登录用户购物下单全链路"
+    dependencies: []
+  - task_id: "TASK-052"
+    type: new_feature
+    target: "flow:order_timeout_cancel"
+    summary: "实现业务流程 order_timeout_cancel"
+    source: business-flow
+    source_id: "order_timeout_cancel"
+    domain_id: "order_timeout_cancel"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "待支付订单 30 分钟超时自动取消"
+    dependencies: []
+  - task_id: "TASK-053"
+    type: new_feature
+    target: "flow:admin_ship_complete"
+    summary: "实现业务流程 admin_ship_complete"
+    source: business-flow
+    source_id: "admin_ship_complete"
+    domain_id: "admin_ship_complete"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "管理端发货到完成"
+    dependencies: []
+  - task_id: "TASK-054"
+    type: new_feature
+    target: "flow:refund_flow"
+    summary: "实现业务流程 refund_flow"
+    source: business-flow
+    source_id: "refund_flow"
+    domain_id: "refund_flow"
+    status: new
+    estimated_complexity: high
+    acceptance_criteria:
+      - "退款申请审核与 Stripe 退款"
+    dependencies: []
+  - task_id: "TASK-055"
+    type: new_feature
+    target: "flow:review_moderation_flow"
+    summary: "实现业务流程 review_moderation_flow"
+    source: business-flow
+    source_id: "review_moderation_flow"
+    domain_id: "review_moderation_flow"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria: []
+    dependencies: []
+  - task_id: "TASK-056"
+    type: new_feature
+    target: "flow:content_publish_invalidate"
+    summary: "实现业务流程 content_publish_invalidate"
+    source: business-flow
+    source_id: "content_publish_invalidate"
+    domain_id: "content_publish_invalidate"
+    status: new
+    estimated_complexity: high
+    acceptance_criteria:
+      - "商品/内容发布秒级缓存失效链"
+    dependencies: []
+  - task_id: "TASK-057"
+    type: new_feature
+    target: "flow:order_event_dispatch"
+    summary: "实现业务流程 order_event_dispatch"
+    source: business-flow
+    source_id: "order_event_dispatch"
+    domain_id: "order_event_dispatch"
+    status: new
+    estimated_complexity: high
+    acceptance_criteria:
+      - "订单事件 MQ 分发"
+    dependencies: []
+  - task_id: "TASK-058"
+    type: new_feature
+    target: "flow:dashboard_analytics_read"
+    summary: "实现业务流程 dashboard_analytics_read"
+    source: business-flow
+    source_id: "dashboard_analytics_read"
+    domain_id: "dashboard_analytics_read"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "看板实时聚合读取"
+    dependencies: []
+  - task_id: "TASK-059"
+    type: new_feature
+    target: "flow:coupon_redeem"
+    summary: "实现业务流程 coupon_redeem"
+    source: business-flow
+    source_id: "coupon_redeem"
+    domain_id: "coupon_redeem"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "优惠券领取与结算核销"
+    dependencies: []
+  - task_id: "TASK-060"
+    type: new_feature
+    target: "flow:flash_sale_auto_offline"
+    summary: "实现业务流程 flash_sale_auto_offline"
+    source: business-flow
+    source_id: "flash_sale_auto_offline"
+    domain_id: "flash_sale_auto_offline"
+    status: new
+    estimated_complexity: medium
+    acceptance_criteria:
+      - "闪购到期自动下线"
+    dependencies: []
+
+domain_groups:
+  - domain_id: "Address"
+    task_ids: ['TASK-015']
+  - domain_id: "AnalyticsDashboard"
+    task_ids: ['TASK-009']
+  - domain_id: "AttributeDef"
+    task_ids: ['TASK-002']
+  - domain_id: "AttributeSet"
+    task_ids: ['TASK-003']
+  - domain_id: "AttributeSetItem"
+    task_ids: ['TASK-004']
+  - domain_id: "Banner"
+    task_ids: ['TASK-007']
+  - domain_id: "BlogPost"
+    task_ids: ['TASK-008']
+  - domain_id: "Carrier"
+    task_ids: ['TASK-030']
+  - domain_id: "CartItem"
+    task_ids: ['TASK-016']
+  - domain_id: "Category"
+    task_ids: ['TASK-001']
+  - domain_id: "Coupon"
+    task_ids: ['TASK-021']
+  - domain_id: "CustomTag"
+    task_ids: ['TASK-026']
+  - domain_id: "Customer"
+    task_ids: ['TASK-014']
+  - domain_id: "FlashSale"
+    task_ids: ['TASK-022']
+  - domain_id: "Guide"
+    task_ids: ['TASK-024']
+  - domain_id: "Lookbook"
+    task_ids: ['TASK-023']
+  - domain_id: "Order"
+    task_ids: ['TASK-017']
+  - domain_id: "OrderLine"
+    task_ids: ['TASK-018']
+  - domain_id: "Payment"
+    task_ids: ['TASK-019']
+  - domain_id: "Product"
+    task_ids: ['TASK-010']
+  - domain_id: "ProductImage"
+    task_ids: ['TASK-011']
+  - domain_id: "ProductQuestion"
+    task_ids: ['TASK-029']
+  - domain_id: "RealWedding"
+    task_ids: ['TASK-025']
+  - domain_id: "Refund"
+    task_ids: ['TASK-020']
+  - domain_id: "Review"
+    task_ids: ['TASK-027']
+  - domain_id: "ReviewImage"
+    task_ids: ['TASK-028']
+  - domain_id: "ShippingRate"
+    task_ids: ['TASK-031']
+  - domain_id: "SizeChartRow"
+    task_ids: ['TASK-013']
+  - domain_id: "Sku"
+    task_ids: ['TASK-012']
+  - domain_id: "Tag"
+    task_ids: ['TASK-006']
+  - domain_id: "TagDimension"
+    task_ids: ['TASK-005']
+  - domain_id: "admin_ship_complete"
+    task_ids: ['TASK-053']
+  - domain_id: "attribute"
+    task_ids: ['TASK-037']
+  - domain_id: "banner"
+    task_ids: ['TASK-032']
+  - domain_id: "blog"
+    task_ids: ['TASK-033']
+  - domain_id: "carrier"
+    task_ids: ['TASK-050']
+  - domain_id: "category"
+    task_ids: ['TASK-034']
+  - domain_id: "checkout_order"
+    task_ids: ['TASK-051']
+  - domain_id: "content_publish_invalidate"
+    task_ids: ['TASK-056']
+  - domain_id: "coupon"
+    task_ids: ['TASK-042']
+  - domain_id: "coupon_redeem"
+    task_ids: ['TASK-059']
+  - domain_id: "dashboard_analytics_read"
+    task_ids: ['TASK-058']
+  - domain_id: "flash"
+    task_ids: ['TASK-043']
+  - domain_id: "flash_sale_auto_offline"
+    task_ids: ['TASK-060']
+  - domain_id: "guide"
+    task_ids: ['TASK-045']
+  - domain_id: "lookbook"
+    task_ids: ['TASK-044']
+  - domain_id: "order"
+    task_ids: ['TASK-038']
+  - domain_id: "order_event_dispatch"
+    task_ids: ['TASK-057']
+  - domain_id: "order_timeout_cancel"
+    task_ids: ['TASK-052']
+  - domain_id: "payment"
+    task_ids: ['TASK-039']
+  - domain_id: "product"
+    task_ids: ['TASK-040']
+  - domain_id: "question"
+    task_ids: ['TASK-049']
+  - domain_id: "real"
+    task_ids: ['TASK-046']
+  - domain_id: "refund"
+    task_ids: ['TASK-041']
+  - domain_id: "refund_flow"
+    task_ids: ['TASK-054']
+  - domain_id: "review"
+    task_ids: ['TASK-047', 'TASK-048']
+  - domain_id: "review_moderation_flow"
+    task_ids: ['TASK-055']
+  - domain_id: "tag"
+    task_ids: ['TASK-035', 'TASK-036']

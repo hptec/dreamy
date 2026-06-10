@@ -1,0 +1,180 @@
+---
+review_id: challenger-r2
+change_name: portal-api-integration
+round: 2
+verdict: PASS
+reviewed_at: '2026-06-10T09:40:00Z'
+validation_mode: full
+---
+
+# 变更检测：5 个文件 sha256 全部与 r1 不同，且属结构性变更
+# （er-diagram 46→52 实体、state-machine 20→21 机器、business-flow 11→15 流程、
+#   acceptance 761→1042 场景重新生成）→ 触发完整审查，重点覆盖本轮新增部分。
+
+previous_round_followup:
+  - check: VER-03
+    status: fixed
+    desc: r1 warning（func 场景 expect 缺标准键）已修复——本轮 15 条 source:func 场景全部含 http_status。
+  - check: VER-04
+    status: fixed
+    desc: r1 warning（s-756 "approved 或 rejected" 双结果断言）已修复——全量扫描 0 条双结果断言。
+  - check: CON-03
+    status: persists
+    desc: r1 warning（sm 来源边界场景 field:state 命名）仍存在，且新增 showroom_member 场景沿用同一写法（+13 条），继续以 warning 跟踪。
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+    - level: info
+      check: CON-01
+      desc: >-
+        25 个 state_change 节点全部通过校验：18 个 entity+from/to 风格节点的转换
+        均存在于 state-machine.yml 对应机器；7 个 machine+event 风格节点
+        （transactional_email n5/n6/n8/n9 → mail_delivery 的
+        send_success/send_error/retry/exhaust_retry；showroom_collaboration
+        n8/n10/n12 → showroom_member_assignment 的 assign/send_reminder/place_order）
+        事件均存在于对应机器 transitions。新增 showroom_member_assignment 机器
+        （4 状态 6 转换，entity: ShowroomMember）与 showroom_collaboration 流程
+        的 3 个状态变更节点完全对应。
+      evidence: "business-flow.yml flows[*].nodes(type=state_change) vs state-machine.yml machines[*].transitions，0 失配"
+    - level: info
+      check: CON-02
+      desc: >-
+        business-flow 引用的 17 个实体（含本轮新增 WishlistItem/Showroom/ShowroomItem/
+        ShowroomMember/ShowroomVote + SizeChartRow）全部存在于 er-diagram.yml；
+        6 个新增 Showroom/Wishlist 实体均带完整字段定义（3~7 字段）。
+      evidence: "business-flow.yml nodes[*].entity vs er-diagram.yml entities[*].id，0 缺失"
+    - level: warning
+      check: CON-03
+      desc: >-
+        r1 遗留：sm 来源的 state/concurrent 类边界场景使用 field: state，
+        而 ER 中状态字段名为 status；本轮新增的 13 条 showroom_member 场景
+        沿用同一写法。语义无歧义（entity+from/to 可唯一定位），不阻断；
+        新增场景引用的其余 entity/field（showroom/showroom_item/showroom_member/
+        showroom_vote/showroom_comment/wishlist_item 共 104 条）经全量校验
+        均存在于 er-diagram.yml，0 例外。
+      evidence: "boundary-scenarios.yml showroom_member cat:state/concurrent 13 条 field:state vs er-diagram.yml ShowroomMember.fields(status)"
+    - level: info
+      check: CON-04
+      desc: >-
+        113 条 source:sm 场景的 source_id（machine.from→to 及 .guard_fail 变体）
+        全部存在于 state-machine.yml transitions，含新增
+        showroom_member_assignment.* 全部 6 条转换的 12 条场景（s-781~s-792），0 失配。
+      evidence: "acceptance.yml source:sm 113 条全量脚本交叉校验"
+    - level: info
+      check: CON-05
+      desc: >-
+        902 条 source:bs 场景的 source_id 全部存在于 boundary-scenarios.yml
+        （902 个边界场景 id 全量比对），0 悬挂引用。
+      evidence: "acceptance.yml source:bs 902 条 vs boundary-scenarios.yml scenarios[*].id"
+    - level: warning
+      check: CON-05
+      desc: >-
+        本轮新出现的 12 条 source: flow 场景（s-763~s-774）source_id 形如
+        decision-13.i18n-read / decision-14.multicurrency-checkout /
+        decision-16.mail-confirmed / decision-17.search-hit，指向 decision.md
+        决策编号而非 business-flow.yml 的 flow id（business-flow 中无
+        i18n/multicurrency/search 对应流程；mail 有 transactional_email 流程
+        但 source_id 未引用其 id）。语义可追溯到 decision.md 13/14/16/17，
+        且 sm/bs 类强校验（CON-04/05）不覆盖该类型，不阻断；
+        建议将 source 改为 decision 或将 source_id 对齐到实际 flow id，
+        避免下游工具按 flow 解引用失败。
+      evidence: "acceptance.yml:s-763~s-774 source_id 前缀 decision-1[3467] vs business-flow.yml flows[*].id（15 个 flow id 无 decision-* 命名）"
+
+  verifiability:
+    status: pass
+    findings:
+    - level: info
+      check: VER-01
+      desc: >-
+        1042 条场景 ctx 全部非空且含实体/前置状态（sm 类含 entity+state，
+        func 类含 precondition 描述）；act.op 全部非空；expect 全部非空。
+        新增 16 条 showroom/wishlist/size/ga4 相关场景（s-781~s-792、
+        s-1040~s-1043）ctx/act/expect 完整具体。
+      evidence: "acceptance.yml 1042 条全量脚本扫描，空 ctx/op/expect 均为 0"
+    - level: info
+      check: VER-03
+      desc: >-
+        15 条 source:func 端到端场景（含新增 wishlist_manage/showroom_collaboration/
+        size_recommendation/ga4_traffic_fetch）expect 均含 http_status，
+        并附领域级 assertions 列表（幂等回显/guest JWT 越权 403/跨码段冲突
+        返回相邻两码/JetCache 5min 命中等），断言可观察。r1 同项 warning 已修复。
+      evidence: "acceptance.yml:s-1040~s-1043 expect.http_status + assertions[]"
+    - level: info
+      check: VER-04
+      desc: >-
+        全量扫描 0 条 "success/fail" 模糊断言、0 条 "A 或 B" 双结果断言
+        （r1 s-756 问题已修复）。新增 guard_fail 场景 expect 均含
+        状态保持值 + http_status 422 + error_code GUARD_NOT_SATISFIED 三元组。
+      evidence: "acceptance.yml 全量正则扫描（→/或 双结果模式）0 命中"
+    - level: info
+      check: VER-05
+      desc: >-
+        新增 showroom_member 的 cat:state 边界场景中，bs-794~bs-799 expect
+        含明确保持状态值（如"保持在 unassigned"）；bs-800~bs-803 为
+        "系统返回状态不允许错误，拒绝执行操作"——含明确错误语义但无具体
+        error_code 字面量，与 r1 既有同类场景写法一致，按 r1 口径不阻断。
+      evidence: "boundary-scenarios.yml:bs-794~bs-803 expect"
+
+  completeness_supplement:
+    status: pass
+    findings:
+    - level: info
+      check: COM-01
+      desc: >-
+        本轮新增的唯一 cross_domain: true 流程 showroom_collaboration
+        （external_systems: SMTP）有 13 条对应 auth/integrity 边界场景覆盖
+        （bs-613~bs-615 等 auth：guest JWT 越权/token 重置失效；
+        bs-687~bs-691 等 integrity：showroom/showroom_member/showroom_vote
+        关联完整性）。其余 4 个跨域流程沿用 r1 已验证覆盖。
+      evidence: "boundary-scenarios.yml cat:auth/integrity entity~showroom* 13 条 vs business-flow.yml showroom_collaboration.cross_domain"
+    - level: info
+      check: COM-02
+      desc: >-
+        state-machine.yml 全部 34 条带 guard 的 transition（含新增
+        showroom_member_assignment 的 6 条：assign/reassign×2/send_reminder/
+        place_order×2）在 acceptance.yml 中均有对应 .guard_fail 失败场景，0 缺失。
+      evidence: "state-machine.yml transitions[guard] 34 条 vs acceptance.yml source_id *.guard_fail 全量比对"
+    - level: info
+      check: COM-03
+      desc: >-
+        本轮 state file 重写后 key_decisions（D13~D21）均为 source: keyword，
+        无 dimension: BE-DIM-* 条目，按规则整项 PASS。
+        人工抽样确认新增决策实质已落图：D18 Wishlist→wishlist_manage 流程
+        （n4 幂等 decision）；D19 GA4→ga4_traffic_fetch（integration 节点 +
+        GA4 external_systems + JetCache 5min 决策 + 降级 error 节点）；
+        D20 Showroom/尺码→showroom_collaboration + size_recommendation 流程
+        + showroom_member_assignment 状态机，定制表单落 ER 字段
+        （Product.customSizeAvailable / CartItem.customSizeData /
+        OrderLine.customSizeData）；D21 种子数据为脚本性决策，无图映射需求。
+      evidence: "pd-explore.local.md:8-35 key_decisions vs business-flow.yml / er-diagram.yml"
+
+  incremental_integrity:
+    status: skipped
+    findings:
+    - level: info
+      check: INC-01
+      desc: >-
+        er-diagram.yml meta 仅含 merged_at/merge_conflicts（无 mode: incremental），
+        state-machine.yml / business-flow.yml 无顶层 meta，判定为 bootstrap 模式，
+        维度四自动 PASS。另注意 er-diagram meta.merge_conflicts 含 1 条
+        Refund.amount 类型冲突记录（number vs decimal），属上游合并器留痕，
+        当前字段已落 decimal，不影响语义。
+      evidence: "er-diagram.yml meta 块"
+
+reviewed_files:
+  er_diagram: c073ea054222b78ca95756b70405af9a1ddbc2a3c05ead7698a237f00b83d826
+  state_machine: 043a121c967388690f03471228ef226934a0d28a9fbc7f0cc7e71b1d3f161d29
+  business_flow: 14f5f48e6013401ecf6141ae56519d4a585b39e8065309a64909139bbc5ba17e
+  boundary_scenarios: c0fc8fde652fe299bfb392652fd3e9725a6f77e310126ad5e437dcfd2c28f25b
+  acceptance: 2ec5b7c4bd5c464241146fe5611dfc21f7a38ea37e8d676f88a1d4af4e47ed3a
+
+summary: >-
+  第 2 轮（细化轮三增量）审查通过：本轮新增 6 实体/1 状态机/4 流程/281 场景全部通过
+  一致性与可验收性校验——25 个 state_change 节点（含 machine+event 风格 7 个）、
+  113 条 sm source_id、902 条 bs source_id、34 条 guard_fail 覆盖全量零失配；
+  r1 两条 warning（func expect 键名、s-756 双结果断言）已修复；
+  遗留 2 条 warning 不阻断：field:state 命名约定（r1 遗留+新增 13 条沿用）、
+  12 条 source:flow 场景 source_id 指向 decision.md 而非 business-flow flow id，
+  建议下轮顺手收敛。

@@ -1,0 +1,83 @@
+machines:
+  - id: order_lifecycle
+    entity: Order
+    states: [pending, paid, shipped, completed, cancelled, refunding, refunded]
+    initial: pending
+    transitions:
+      - {from: pending, event: payment_webhook_succeeded, to: paid, source: "业务上下文确认 Stripe PaymentIntent+webhook [INFERRED]"}
+      - {from: pending, event: payment_timeout_30min, to: cancelled, guard: "now > expiresAt; 自动取消并回补现货库存", source: "业务上下文确认30分钟超时 [INFERRED]"}
+      - {from: pending, event: customer_cancel, to: cancelled, guard: "取消时回补现货库存", source: "业务上下文确认支持取消分支 [INFERRED]"}
+      - {from: paid, event: mark_shipped, to: shipped, guard: "carrier 与 trackingNo 已填写", source: "OrderDetail.vue > 标记发货/填写物流信息/确认发货 (OP-009)"}
+      - {from: shipped, event: confirm_receipt, to: completed, source: "Orders.vue > tabs 已完成; OrderDetail.vue > 状态时间线"}
+      - {from: paid, event: refund_requested, to: refunding, source: "OrderDetail.vue > 发起退款按钮; Orders.vue > tabs 退款中"}
+      - {from: shipped, event: refund_requested, to: refunding, source: "OrderDetail.vue > 发起退款按钮"}
+      - {from: refunding, event: refund_approved, to: refunded, source: "field-inventory FLD-REFUNDS-008 approved; 业务上下文确认退款分支 [INFERRED]"}
+      - {from: refunding, event: refund_rejected, to: paid, guard: "回退到退款前状态(paid/shipped)", source: "field-inventory FLD-REFUNDS-009 rejected [INFERRED]"}
+  - id: payment_lifecycle
+    entity: Payment
+    states: [created, processing, succeeded, failed, refunded]
+    initial: created
+    transitions:
+      - {from: created, event: stripe_confirm, to: processing, source: "业务上下文确认 Stripe PaymentIntent 沙箱 [INFERRED]"}
+      - {from: processing, event: webhook_payment_succeeded, to: succeeded, source: "业务上下文确认 webhook [INFERRED]"}
+      - {from: processing, event: webhook_payment_failed, to: failed, source: "业务上下文确认 webhook [INFERRED]"}
+      - {from: failed, event: retry_payment, to: processing, guard: "订单仍处 pending 且未超时", source: "业务上下文确认 [INFERRED]"}
+      - {from: succeeded, event: refund_executed, to: refunded, guard: "关联 Refund 已 approved", source: "field-inventory FLD-REFUNDS-008 approved [INFERRED]"}
+  - id: product_lifecycle
+    entity: Product
+    states: [draft, published, deleted]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published, source: "Products.vue > Toggle p.status published; ProductEdit.vue > 保存并生成静态页 (OP-011)"}
+      - {from: published, event: unpublish, to: draft, source: "Products.vue > Toggle p.status = draft"}
+      - {from: draft, event: delete, to: deleted, source: "Products.vue > 商品列表删除操作 [INFERRED]"}
+      - {from: published, event: delete, to: deleted, guard: "建议先下架再删除", source: "Products.vue > 商品列表删除操作 [INFERRED]"}
+  - id: refund_lifecycle
+    entity: Refund
+    states: [pending, approved, rejected]
+    initial: pending
+    transitions:
+      - {from: pending, event: admin_approve, to: approved, guard: "触发 Payment refund_executed", source: "field-inventory FLD-REFUNDS-008 approved"}
+      - {from: pending, event: admin_reject, to: rejected, source: "field-inventory FLD-REFUNDS-009 rejected"}
+  - id: coupon_lifecycle
+    entity: Coupon
+    states: [draft, scheduled, active, expiring, expired, deleted]
+    initial: draft
+    transitions:
+      - {from: draft, event: schedule, to: scheduled, guard: "startAt > now", source: "Promotions.vue > label scheduled 已排期"}
+      - {from: draft, event: activate, to: active, guard: "startAt <= now < endAt", source: "Promotions.vue > label active 进行中"}
+      - {from: scheduled, event: auto_start, to: active, guard: "now >= startAt", source: "mock.js > coupons.start [INFERRED]"}
+      - {from: active, event: near_expiry, to: expiring, guard: "endAt - now <= 阈值", source: "Promotions.vue > label expiring 即将到期"}
+      - {from: expiring, event: auto_expire, to: expired, guard: "now > endAt", source: "mock.js > coupons.end [INFERRED]"}
+      - {from: active, event: auto_expire, to: expired, guard: "now > endAt", source: "mock.js > coupons.end [INFERRED]"}
+      - {from: draft, event: delete, to: deleted, source: "Promotions.vue > 优惠券卡片 TrashIcon 删除按钮"}
+      - {from: expired, event: delete, to: deleted, source: "Promotions.vue > 优惠券卡片 TrashIcon 删除按钮"}
+  - id: flash_sale_lifecycle
+    entity: FlashSale
+    states: [draft, scheduled, active, ended]
+    initial: draft
+    transitions:
+      - {from: draft, event: schedule, to: scheduled, guard: "startAt > now", source: "Promotions.vue > flashSales status scheduled"}
+      - {from: scheduled, event: auto_start, to: active, guard: "now >= startAt", source: "mock.js > flashSales.start [INFERRED]"}
+      - {from: active, event: auto_offline, to: ended, guard: "now > endAt; 定时任务自动下线", source: "业务上下文确认闪购到期自动下线 [INFERRED]"}
+  - id: lookbook_publish
+    entity: Lookbook
+    states: [draft, published]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published, source: "ContentLookbook.vue > StatusBadge published/draft"}
+      - {from: published, event: unpublish, to: draft, source: "ContentLookbook.vue > StatusBadge published/draft [INFERRED]"}
+  - id: guide_publish
+    entity: Guide
+    states: [draft, published]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published, source: "ContentLookbook.vue > guides StatusBadge published/draft"}
+      - {from: published, event: unpublish, to: draft, source: "ContentLookbook.vue > guides StatusBadge [INFERRED]"}
+  - id: real_wedding_publish
+    entity: RealWedding
+    states: [draft, published]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published, source: "ContentWeddings.vue > StatusBadge published/draft"}
+      - {from: published, event: unpublish, to: draft, source: "ContentWeddings.vue > StatusBadge [INFERRED]"}

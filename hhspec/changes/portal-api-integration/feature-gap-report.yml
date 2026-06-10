@@ -1,0 +1,189 @@
+gaps:
+- id: ALIGN-001
+  page: Dashboard
+  type: visual_only
+  prototype_has: KPI 卡片
+  impl_has: frontend/portal-admin/src/views/Dashboard.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-002
+  page: Products
+  type: visual_only
+  prototype_has: 商品表格
+  impl_has: frontend/portal-admin/src/views/Products.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-003
+  page: ProductEdit
+  type: visual_only
+  prototype_has: 基础信息表单
+  impl_has: frontend/portal-admin/src/views/ProductEdit.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-004
+  page: Categories
+  type: visual_only
+  prototype_has: 分类树 CRUD
+  impl_has: frontend/portal-admin/src/views/Categories.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-005
+  page: Orders
+  type: visual_only
+  prototype_has: 订单表格
+  impl_has: frontend/portal-admin/src/views/Orders.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-006
+  page: OrderDetail
+  type: visual_only
+  prototype_has: 订单跟踪
+  impl_has: frontend/portal-admin/src/views/OrderDetail.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-007
+  page: Refunds
+  type: visual_only
+  prototype_has: 退款列表
+  impl_has: frontend/portal-admin/src/views/Refunds.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-008
+  page: Promotions
+  type: visual_only
+  prototype_has: 优惠券 CRUD
+  impl_has: frontend/portal-admin/src/views/Promotions.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-009
+  page: Banners
+  type: visual_only
+  prototype_has: Banner CRUD
+  impl_has: frontend/portal-admin/src/views/Banners.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-010
+  page: ContentBlog
+  type: visual_only
+  prototype_has: 文章 CRUD
+  impl_has: frontend/portal-admin/src/views/ContentBlog.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-011
+  page: ContentWeddings
+  type: visual_only
+  prototype_has: 案例 CRUD
+  impl_has: frontend/portal-admin/src/views/ContentWeddings.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-012
+  page: ContentLookbook
+  type: visual_only
+  prototype_has: Lookbook CRUD
+  impl_has: frontend/portal-admin/src/views/ContentLookbook.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-013
+  page: Analytics
+  type: visual_only
+  prototype_has: GMV 趋势
+  impl_has: frontend/portal-admin/src/views/Analytics.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-014
+  page: Reviews
+  type: visual_only
+  prototype_has: 评价列表
+  impl_has: frontend/portal-admin/src/views/Reviews.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-015
+  page: Shipping
+  type: visual_only
+  prototype_has: 承运商配置
+  impl_has: frontend/portal-admin/src/views/Shipping.vue（UI 已实现，数据层为 mock，未接真实 API）
+  severity: high
+- id: ALIGN-021
+  page: AccountWishlist
+  type: visual_only
+  prototype_has: 收藏网格 + 移入购物车 + 空状态（F-047）
+  impl_has: frontend/portal-store/app/account/wishlist/page.tsx（UI 已存在，本地状态，无后端持久化）
+  severity: medium
+- id: ALIGN-022
+  page: Analytics
+  type: missing_module
+  prototype_has: trafficSources/funnel/device_share 流量图表（需 GA4 数据源）
+  impl_has: 流量类指标无任何数据来源（埋点机制原范围缺失）
+  severity: high
+- id: ALIGN-023
+  page: ShowroomList/ShowroomDetail
+  type: missing_module
+  prototype_has: Showroom 协作（创建/邀请/投票/留言/指派/提醒/dye lot，F-066~071）
+  impl_has: NOT_FOUND（消费端实现无 showroom 页面，需按复制+适配新建）
+  severity: high
+- id: ALIGN-024
+  page: ProductDetail/Checkout
+  type: missing_module
+  prototype_has: Find My Size 尺码推荐弹窗（F-072~073）+ Custom Size 定制表单（F-074~075）+ 婚期交期判定（F-076~077）
+  impl_has: NOT_FOUND（消费端 PDP/结算无对应模块，需按复制+适配增强）
+  severity: high
+- id: ALIGN-025
+  page: 全域
+  type: missing_module
+  prototype_has: 前端 mock 含成套演示数据（商品/分类/订单/内容/Banner/券）
+  impl_has: 后端从零建表无初始数据（决策 21 种子脚本补齐）
+  severity: medium
+- id: ALIGN-026
+  page: portal-store 全站
+  type: missing_module
+  prototype_has: 决策4 三层缓存要求 ISR+revalidatePath 秒级失效链与商品页 SSR SEO
+  impl_has: next.config.mjs 为 output:'export' 纯静态导出（revalidatePath/ISR 不可用，新增商品需重建）
+  severity: high
+- id: ALIGN-027
+  page: AccountDashboard/账户页
+  type: missing_module
+  prototype_has: Recently Viewed 浏览历史横滑（F-048 Must）
+  impl_has: NOT_FOUND（无浏览历史记录机制，需 BrowseHistory 后端持久化）
+  severity: medium
+- id: ALIGN-028
+  page: OrderDetail/Refunds/Checkout
+  type: missing_module
+  prototype_has: 退款审核流（管理端）+ 定制款按单制作业务背景
+  impl_has: 退款政策未区分定制款（投产后不可退规则缺失，决策24 补齐）
+  severity: medium
+- id: ALIGN-029
+  page: Checkout
+  type: missing_module
+  prototype_has: 结算支付步骤六种支付选项卡（Stripe卡/PayPal/Apple Pay/Google Pay/Klarna/Afterpay，F-037 Must）
+  impl_has: 决策 7 仅决策 Stripe 卡，其余方式悬空（决策 25 补齐：Payment Element 全家桶，PayPal 置灰）
+  severity: high
+- id: ALIGN-030
+  page: 全站 footer + Newsletter 弹窗
+  type: missing_module
+  prototype_has: 页脚订阅 + 首访弹窗/Exit Intent/折扣码（F-008/F-056 Must，Reveal My Code 交互）
+  impl_has: 零覆盖（决策 26 补齐：仅落表收集，弹窗文案改纯订阅确认）
+  severity: high
+- id: ALIGN-031
+  page: portal-store 全站
+  type: missing_module
+  prototype_has: 语言切换器与全站界面文案（F-040 Must）
+  impl_has: 决策 13 仅覆盖内容数据三语，UI 静态文案与 locale 路由无机制（决策 27 补齐：next-intl + 路径前缀 + hreflang）
+  severity: high
+- id: ALIGN-032
+  page: Checkout
+  type: missing_module
+  prototype_has: 结算物流步骤礼品包装选项（F-036 Must）
+  impl_has: Order 无对应字段（决策 28 补齐：giftWrap + giftWrapFee 固定费）
+  severity: medium
+- id: ALIGN-033
+  page: Home/ProductDetail
+  type: missing_module
+  prototype_has: New Arrivals/Best Sellers/Shop by Color/You May Also Like/Complete the Look 推荐位（F-006/F-031 Must）
+  impl_has: 区块数据来源无规则（决策 29 补齐：规则化查询 + 搭配同类目降级）
+  severity: medium
+- id: ALIGN-034
+  page: Contact
+  type: missing_module
+  prototype_has: 联系表单（F-058 Should）
+  impl_has: 表单 preventDefault 纯前端模拟（决策 30 补齐：ContactMessage 落表）
+  severity: low
+- id: ALIGN-035
+  page: Refunds/OrderDetail
+  type: missing_module
+  prototype_has: 决策 24 现货「已发货退货后退款」业务背景
+  impl_has: refund_flow 无寄回环节定义（决策 31 补齐：审核制 + returnTrackingNo 登记字段，不建 RMA 节点）
+  severity: low
+summary:
+  total: 30
+  by_portal:
+    portal-admin: 15
+    portal-store: 12
+    global: 3
+  change_type: alignment
+  note: 初版误报 impl_has=NOT_FOUND 已修正：实现文件存在，缺口为数据对接（mock→API），非页面缺失。细化轮三追加 ALIGN-021~025（Wishlist/GA4流量/Showroom/尺码定制/种子数据）。 细化轮五追加 ALIGN-029~035（支付方式/Newsletter/UI i18n/礼品包装/推荐位/联系表单/退货登记）。

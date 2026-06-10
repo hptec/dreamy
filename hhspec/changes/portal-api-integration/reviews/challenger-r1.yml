@@ -1,0 +1,122 @@
+---
+review_id: challenger-r1
+change_name: portal-api-integration
+round: 1
+verdict: PASS
+reviewed_at: '2026-06-10T07:40:00Z'
+validation_mode: full
+---
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+    - level: warning
+      check: CON-03
+      desc: >-
+        139 条 source:sm 的 state/concurrent 类边界场景使用 field: state，
+        但 er-diagram 中对应实体的状态字段名为 status（如 Banner.status、Order.status），
+        field: state 在 ER 字段中不存在。该写法为 sm 来源场景指代状态机状态的约定，
+        语义无歧义（entity + from/to 状态可唯一定位），不阻断；建议统一改为 field: status
+        或对 sm 来源场景省略 field 字段。
+      evidence: "boundary-scenarios.yml:bs-392~bs-530（cat: state 91 条 + cat: concurrent 48 条）vs er-diagram.yml entities[*].fields"
+    - level: info
+      check: CON-04
+      desc: >-
+        acceptance.yml 中 751 条 sm/bs 来源场景的 source_id 全部通过校验
+        （sm 类 source_id 的 machine.from→to 均存在于 state-machine.yml transitions，
+        含 .guard_fail 变体；bs 类 source_id 均存在于 boundary-scenarios.yml）。
+        另有 10 条 source: func 端到端场景不参与 source_id 校验，无悬挂引用。
+      evidence: "acceptance.yml 761 条全量脚本交叉校验，0 失配"
+    - level: info
+      check: CON-01
+      desc: >-
+        business-flow 全部 19 个 state_change 节点的 entity/from/to 均能在
+        state-machine.yml 对应机器的 transitions 中找到；引用的 11 个实体
+        （Product/CartItem/ShippingRate/Order/Payment/Sku/Refund/Review/
+        AnalyticsDashboard/Coupon/FlashSale）均存在于 er-diagram.yml。
+      evidence: "business-flow.yml flows[*].nodes vs state-machine.yml / er-diagram.yml，0 失配"
+
+  verifiability:
+    status: pass
+    findings:
+    - level: warning
+      check: VER-03
+      desc: >-
+        9 条 source: func 端到端场景（s-753~s-761）的 expect 不含标准
+        http_status/state/error_code 键，改用领域键（order_state/refund_state/
+        flash_sale_state/mq/cache 等）。断言内容具体可观察，不阻断；
+        建议补充 http_status 或统一键名以便自动化验收。
+      evidence: "acceptance.yml:s-753~s-761（func 场景）"
+    - level: warning
+      check: VER-04
+      desc: >-
+        s-756 的 expect 含 "review_state: pending→approved 或 rejected" 双结果断言，
+        验收时无法唯一判定通过条件；建议拆分为审核通过/拒绝两条独立场景
+        （sm 来源场景 s-XXX review_moderation.* 已分别覆盖，可直接引用收敛）。
+      evidence: "acceptance.yml:s-756 expect.review_state"
+    - level: info
+      check: VER-01
+      desc: >-
+        761 条场景 ctx 全部非空且含实体与前置状态；act.op 全部非空；
+        无 expect 仅为 success/fail 的模糊断言；boundary cat: state 91 条场景
+        expect 均含明确状态值或拒绝/错误语义。
+      evidence: "acceptance.yml / boundary-scenarios.yml 全量脚本扫描，0 违例"
+
+  completeness_supplement:
+    status: pass
+    findings:
+    - level: info
+      check: COM-01
+      desc: >-
+        4 个 cross_domain: true 流程均有对应 auth/integrity 边界场景覆盖：
+        checkout_order（auth: order；integrity: order/payment/cart_item）、
+        refund_flow（auth: refund；integrity: refund/payment）、
+        content_publish_invalidate（auth: product；integrity: product/product_image）、
+        order_event_dispatch（integrity: order/payment 间接覆盖）。
+      evidence: "boundary-scenarios.yml cat: auth(28)/integrity(29) vs business-flow.yml cross_domain flows"
+    - level: info
+      check: COM-02
+      desc: >-
+        state-machine.yml 全部带 guard 的 transition（27 条）在 acceptance.yml 中
+        均有对应 <machine>.<from>→<to>.guard_fail 失败场景，0 缺失。
+      evidence: "state-machine.yml transitions[guard] vs acceptance.yml source_id *.guard_fail"
+    - level: info
+      check: COM-03
+      desc: >-
+        state file 9 条 BE-DIM 决策中 8 条已在 business-flow.yml 找到映射：
+        BE-DIM-4 定时任务→order_timeout_cancel/flash_sale_auto_offline trigger scheduled；
+        BE-DIM-4 事务→n9/n10 等 meta.tx_boundary: true；BE-DIM-4 幂等→meta.idempotent: true；
+        BE-DIM-4 消息队列→notification 节点（RabbitMQ）；BE-DIM-5 外部集成→integration 节点
+        + external_systems 非空；BE-DIM-6 权限→各流程"权限校验/鉴权校验" decision 节点；
+        BE-DIM-7 审计日志→状态变更后"记录审计日志（OperationLog）" action 节点；
+        BE-DIM-8 限流降级→checkout n9 meta.rate_limit: cloudflare_waf。
+        第 9 条 BE-DIM-8（source: keyword，三层缓存，无 inference_tag）无映射规则表条目，
+        按规则 SKIP——人工确认：content_publish_invalidate 失效链与
+        dashboard_analytics_read JetCache 60s 流程实际已覆盖该决策。
+      evidence: "pd-explore.local.md:23-69 key_decisions vs business-flow.yml flows[*]"
+
+  incremental_integrity:
+    status: skipped
+    findings:
+    - level: info
+      check: INC-01
+      desc: >-
+        er-diagram.yml/state-machine.yml/business-flow.yml 顶层均无 meta.mode: incremental
+        （er-diagram meta 仅含 merged_at/merge_conflicts），判定为 bootstrap 模式，
+        维度四自动 PASS。
+      evidence: "er-diagram.yml:1356-1363 meta 块；state-machine.yml/business-flow.yml 无顶层 meta"
+
+reviewed_files:
+  er_diagram: 9dc5003032e99337d6aaacac9bb8154d6454c0b027d2964494d6eac4b36f18d5
+  state_machine: e7dceda2135805eda2d2b893bbd1e143b1deed5f0bc260c4f317b00bce8652e8
+  business_flow: 7106bfc58b3ea0d261f51e8ca5b337454ca631bf4587572947bcf1d600bdfd41
+  boundary_scenarios: ca3bd91ec01f159f2bc1456399a3b1b29a3283c47de6bbcbf0dbdac039e9c8f6
+  acceptance: ad7c44a66cd4e684d5b674989b070d3bb2a72840bc0ffe7f6292474921d323ea
+
+summary: >-
+  三维语义审查全部通过：一致性 0 阻断（751 条 source_id、19 个 state_change、27 条 guard_fail
+  全量交叉校验零失配），可验收性 0 阻断（761 条场景 ctx/act/expect 完备无模糊断言），
+  完整性补充 0 阻断（4 个跨域流程边界覆盖齐全、9 条 BE-DIM 决策 8 映射 1 合理跳过）；
+  3 条 warning（field: state 命名约定、func 场景 expect 键名、s-756 双结果断言）建议下轮顺手收敛，
+  不阻断进入下一阶段。

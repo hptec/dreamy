@@ -1,0 +1,509 @@
+# Phase 1.9 领域数据模型推断 — portal-admin 前后端 API 对接
+# 推断来源：field-inventory.yml + operation-paths.yml + prototype/portal-admin/src/data/mock.js（数据形状权威）
+# 范围外（独立 change）：HomeBuilder / NavigationConfig / Publish / EmailMarketing
+# identity 域（Customers/AdminList/Roles/AuthSettings/OperationLogs/Login）已对接，见 specs/architecture/domain-model.md，本文件不重复
+meta:
+  source: field-inventory + operation-paths + prototype mock.js
+  change: portal-api-integration
+  generated_at: "2026-06-10"
+  notes:
+    - field-inventory 抽取置信度 low（多页 script-setup 表格字段未捕获），实体字段以原型 mock.js + ProductEdit.vue 表单为准
+    - 命名约定沿用 hhspec/domains.yml（identity 先例）：领域 code 小写英文
+
+domains:
+  # ============ 1. catalog：商品 + 分类（含评价 Q&A 审核）============
+  - name: catalog
+    desc: 商品、三层分类（标准品类树/品类属性/自定义标签）、属性集、评价与 Q&A 审核
+    entities:
+      - name: Product
+        source_pages: [Products, ProductEdit, Dashboard, Reviews]
+        fields:
+          - {name: id, type: string}
+          - {name: slug, type: string}
+          - {name: name, type: string}
+          - {name: subtitle, type: string}
+          - {name: description, type: text}
+          - {name: designer_note, type: text}
+          - {name: img, type: string, note: 主图 URL（S3 key/URL）}
+          - {name: category_id, type: ref, ref: Category, note: 单选叶节点}
+          - {name: product_type, type: string}
+          - {name: tags, type: 'ref[]', ref: CustomTag}
+          - {name: price, type: decimal}
+          - {name: compare_at, type: decimal, nullable: true}
+          - {name: stock, type: int, note: 现货 SKU 乐观锁扣减}
+          - {name: sales, type: int}
+          - {name: status, type: enum, values: [published, draft]}
+          - {name: is_new, type: boolean}
+          - {name: is_best, type: boolean}
+          - {name: recommend, type: boolean}
+          - {name: sort, type: int}
+          - {name: attributes, type: json, note: 'silhouette/neckline/sleeve/back_style/waistline/train/length/fabric/fabric_composition/embellishments[]/support/occasions[]/style_tags[]/season，可见性由 AttributeSet 决定'}
+          - {name: lead_time_days, type: int, note: 定制款交期}
+          - {name: rush_available, type: boolean}
+          - {name: custom_size_available, type: boolean, note: 定制尺寸（双模式：现货库存/定制交期）}
+          - {name: installment, type: boolean}
+          - {name: model_height, type: string}
+          - {name: model_size, type: string}
+          - {name: model_body_type, type: string}
+          - {name: care_instructions, type: text}
+          - {name: country_of_origin, type: string}
+          - {name: seo_title, type: string}
+          - {name: seo_desc, type: string}
+        relations:
+          - has_many: ProductImage
+          - has_many: ProductVariant
+          - has_many: Review
+          - has_many: ProductQuestion
+          - belongs_to: Category
+          - many_to_many: CustomTag
+        data_flow: {read: [Products, ProductEdit, Dashboard, Reviews, Analytics], write: [Products(状态切换), ProductEdit(创建/编辑/保存生成静态页)]}
+
+      - name: ProductImage
+        source_pages: [ProductEdit]
+        fields:
+          - {name: id, type: string}
+          - {name: product_id, type: ref, ref: Product}
+          - {name: url, type: string}
+          - {name: sort, type: int}
+        relations: [{belongs_to: Product}]
+        data_flow: {read: [ProductEdit, Products], write: [ProductEdit(图片管理)]}
+
+      - name: ProductVariant
+        source_pages: [ProductEdit, OrderDetail]
+        fields:
+          - {name: id, type: string}
+          - {name: product_id, type: ref, ref: Product}
+          - {name: sku, type: string, note: 'AURELIA-IVORY-US6 形态'}
+          - {name: color, type: string, note: 取自 productColors 色板}
+          - {name: size, type: string, note: 'US 0..US 20'}
+          - {name: stock, type: int}
+        relations: [{belongs_to: Product}]
+        data_flow: {read: [ProductEdit, OrderDetail], write: [ProductEdit(SKU 颜色/尺码配置)]}
+
+      - name: Category
+        source_pages: [Categories, ProductEdit, Products]
+        fields:
+          - {name: id, type: string}
+          - {name: parent_id, type: ref, ref: Category, nullable: true, note: 两级树（根品类+子品类）}
+          - {name: name, type: string}
+          - {name: slug, type: string}
+          - {name: level, type: int}
+          - {name: attribute_set_id, type: ref, ref: AttributeSet, note: 仅根品类持有}
+          - {name: attr_overrides, type: json, note: 子品类对父级属性集的 delta 覆盖（visible/optional/hidden）}
+          - {name: count, type: int, note: 商品数（派生）}
+          - {name: enabled, type: boolean}
+        relations:
+          - has_many: Category (children)
+          - belongs_to: AttributeSet
+          - has_many: Product
+        data_flow: {read: [Categories, ProductEdit(品类选择), Products(筛选)], write: [Categories(树 CRUD)]}
+
+      - name: AttributeSet
+        source_pages: [AttributeSets, Categories, ProductEdit]
+        fields:
+          - {name: id, type: string}
+          - {name: label, type: string}
+          - {name: category_id, type: ref, ref: Category}
+          - {name: attrs, type: json, note: '属性 key → 可见性 enum [visible, optional, hidden]'}
+        relations:
+          - belongs_to: Category
+          - many_to_many: AttributeDef (经 attrs 映射)
+        data_flow: {read: [AttributeSets, Categories, ProductEdit(动态表单)], write: [AttributeSets(可见性配置)]}
+
+      - name: AttributeDef
+        source_pages: [AttributeSets, ProductEdit]
+        fields:
+          - {name: key, type: string, note: silhouette/neckline/sleeve/...18 项}
+          - {name: label, type: string}
+          - {name: type, type: enum, values: [select, multiselect, toggle, text]}
+          - {name: options, type: 'string[]', note: 预定义选项字典（silhouetteOptions 等）}
+        relations: []
+        data_flow: {read: [AttributeSets, ProductEdit], write: []}
+
+      - name: TagDimension
+        source_pages: [Categories]
+        fields:
+          - {name: id, type: string}
+          - {name: name, type: string}
+          - {name: slug, type: string}
+          - {name: desc, type: string}
+        relations: [{has_many: CustomTag}]
+        data_flow: {read: [Categories, ProductEdit], write: [Categories(维度管理)]}
+
+      - name: CustomTag
+        source_pages: [Categories, ProductEdit]
+        fields:
+          - {name: id, type: string}
+          - {name: dimension_id, type: ref, ref: TagDimension}
+          - {name: name, type: string}
+          - {name: slug, type: string}
+          - {name: count, type: int}
+          - {name: enabled, type: boolean}
+          - {name: cover, type: string, nullable: true}
+        relations: [{belongs_to: TagDimension}, {many_to_many: Product}]
+        data_flow: {read: [Categories, ProductEdit(标签勾选), Products(筛选)], write: [Categories(标签 CRUD)]}
+
+      - name: Review
+        source_pages: [Reviews, Dashboard]
+        fields:
+          - {name: id, type: string}
+          - {name: product_id, type: ref, ref: Product}
+          - {name: customer, type: string, note: 关联消费端 User（identity 域）}
+          - {name: rating, type: int, note: 1..5}
+          - {name: content, type: text}
+          - {name: status, type: enum, values: [pending, approved, rejected]}
+          - {name: featured, type: boolean, note: 仅 approved 可置精选}
+          - {name: created_at, type: datetime}
+        relations:
+          - has_many: ReviewImage
+          - has_one: ReviewReply
+          - belongs_to: Product
+        data_flow: {read: [Reviews, Dashboard(待审核数)], write: [Reviews(通过/驳回/精选/取消精选)]}
+
+      - name: ReviewImage
+        source_pages: [Reviews]
+        fields:
+          - {name: url, type: string}
+          - {name: rejected, type: boolean, note: 单图驳回（前台隐藏）}
+        relations: [{belongs_to: Review}]
+        data_flow: {read: [Reviews], write: [Reviews(图片驳回)]}
+
+      - name: ReviewReply
+        source_pages: [Reviews]
+        fields:
+          - {name: author, type: string, note: Dreamy Team 署名}
+          - {name: content, type: text}
+          - {name: time, type: datetime}
+        relations: [{belongs_to: Review}]
+        data_flow: {read: [Reviews], write: [Reviews(官方回复)]}
+
+      - name: ProductQuestion
+        source_pages: [Reviews]
+        fields:
+          - {name: id, type: string}
+          - {name: product_id, type: ref, ref: Product}
+          - {name: asker, type: string}
+          - {name: question, type: text}
+          - {name: answer, type: text, nullable: true}
+          - {name: answer_time, type: datetime, nullable: true}
+          - {name: visible, type: boolean, note: 前台上线/隐藏}
+          - {name: created_at, type: datetime}
+        relations: [{belongs_to: Product}]
+        data_flow: {read: [Reviews(Q&A 页签)], write: [Reviews(回答/上线/隐藏)]}
+
+  # ============ 2. order：订单 + 购物车 + 地址 + 退款（含 Stripe 支付）============
+  - name: order
+    desc: 订单、订单行、支付、发货、退款工单；购物车与地址（消费端写、后台读）
+    entities:
+      - name: Order
+        source_pages: [Orders, OrderDetail, Dashboard, Refunds]
+        fields:
+          - {name: id, type: string, note: 'DRM-YYYYMMDD-XXXX 业务单号'}
+          - {name: user_id, type: ref, ref: 'identity.User'}
+          - {name: customer_name, type: string}
+          - {name: email, type: string}
+          - {name: country, type: string}
+          - {name: items_count, type: int, note: 派生}
+          - {name: total, type: decimal}
+          - {name: currency, type: enum, values: [USD, CAD, AUD, GBP, EUR]}
+          - {name: status, type: enum, values: [pending, paid, shipped, completed, refunding], note: 待付款/待发货/已发货/已完成/退款中}
+          - {name: payment_method, type: string, note: Stripe/PayPal/Apple Pay/Klarna/Afterpay/Google Pay}
+          - {name: created_at, type: datetime}
+        relations:
+          - has_many: OrderItem
+          - has_one: OrderPayment
+          - has_one: OrderShipment
+          - has_one: OrderAddress (收货地址快照)
+          - has_many: OrderEvent
+          - has_many: Refund
+        data_flow: {read: [Orders(列表/状态筛选), OrderDetail, Dashboard(KPI/待办), Refunds(关联订单), CustomerDetail(近期订单), Analytics], write: [OrderDetail(标记发货/状态流转)]}
+
+      - name: OrderItem
+        source_pages: [OrderDetail]
+        fields:
+          - {name: order_id, type: ref, ref: Order}
+          - {name: product_id, type: ref, ref: 'catalog.Product'}
+          - {name: name, type: string, note: 商品名快照}
+          - {name: sku, type: string}
+          - {name: color, type: string}
+          - {name: size, type: string}
+          - {name: qty, type: int}
+          - {name: price, type: decimal, note: 成交价快照}
+          - {name: img, type: string}
+        relations: [{belongs_to: Order}]
+        data_flow: {read: [OrderDetail], write: []}
+
+      - name: OrderPayment
+        source_pages: [OrderDetail]
+        fields:
+          - {name: order_id, type: ref, ref: Order}
+          - {name: method, type: string, note: 'Stripe · Visa ···4242'}
+          - {name: paid, type: decimal}
+          - {name: currency, type: string}
+          - {name: paid_at, type: datetime}
+          - {name: stripe_payment_intent_id, type: string, note: Stripe 沙箱 webhook 幂等/对账}
+        relations: [{belongs_to: Order}]
+        data_flow: {read: [OrderDetail(支付信息)], write: ['(系统) Stripe webhook 回调']}
+
+      - name: OrderShipment
+        source_pages: [OrderDetail]
+        fields:
+          - {name: order_id, type: ref, ref: Order}
+          - {name: method, type: string, note: 承运商名称（引用 shipping.Carrier）}
+          - {name: fee, type: decimal}
+          - {name: tracking, type: string, nullable: true, note: 运单号}
+          - {name: shipped_at, type: datetime, nullable: true}
+        relations: [{belongs_to: Order}]
+        data_flow: {read: [OrderDetail], write: [OrderDetail(标记发货：承运方+运单号)]}
+
+      - name: OrderEvent
+        source_pages: [OrderDetail]
+        fields:
+          - {name: order_id, type: ref, ref: Order}
+          - {name: label, type: string, note: 订单创建/支付成功/已发货/已完成}
+          - {name: time, type: datetime, nullable: true}
+          - {name: done, type: boolean}
+        relations: [{belongs_to: Order}]
+        data_flow: {read: [OrderDetail(时间线)], write: ['(系统) 状态流转自动追加']}
+
+      - name: Refund
+        source_pages: [Refunds, Dashboard]
+        fields:
+          - {name: id, type: string, note: 'RF-XXXX 工单号'}
+          - {name: order_id, type: ref, ref: Order}
+          - {name: customer, type: string}
+          - {name: amount, type: decimal}
+          - {name: currency, type: string}
+          - {name: reason, type: string}
+          - {name: status, type: enum, values: [pending, approved, rejected]}
+          - {name: applied_at, type: datetime}
+        relations: [{belongs_to: Order}]
+        data_flow: {read: [Refunds(列表/状态 tab 筛选), Dashboard(退款待审批)], write: [Refunds(审批通过/拒绝 → 触发 Stripe 退款)]}
+
+      - name: Cart
+        source_pages: []
+        note: 消费端实体（登录用户 MySQL 持久化、匿名 localStorage、登录合并）；后台无页面，仅 Analytics 漏斗统计引用
+        fields:
+          - {name: user_id, type: ref, ref: 'identity.User'}
+          - {name: updated_at, type: datetime}
+        relations: [{has_many: CartItem}]
+        data_flow: {read: [Analytics(加购漏斗)], write: ['portal-store(加购/合并)']}
+
+      - name: CartItem
+        source_pages: []
+        fields:
+          - {name: cart_id, type: ref, ref: Cart}
+          - {name: product_id, type: ref, ref: 'catalog.Product'}
+          - {name: sku, type: string}
+          - {name: qty, type: int}
+        relations: [{belongs_to: Cart}]
+        data_flow: {read: [], write: ['portal-store']}
+
+      - name: Address
+        source_pages: [CustomerDetail, OrderDetail]
+        fields:
+          - {name: id, type: string}
+          - {name: user_id, type: ref, ref: 'identity.User'}
+          - {name: label, type: string, note: 默认地址}
+          - {name: line, type: string}
+          - {name: city, type: string}
+          - {name: state, type: string}
+          - {name: zip, type: string}
+          - {name: country, type: string}
+          - {name: is_default, type: boolean}
+        relations: []
+        data_flow: {read: [CustomerDetail(地址簿), OrderDetail(收货地址快照)], write: ['portal-store(地址簿 CRUD)']}
+
+  # ============ 3. marketing-content：营销 + 内容 CMS ============
+  - name: marketing-content
+    desc: 优惠券/闪购、Banner、博客、真实婚礼案例、Lookbook 与备婚指南
+    entities:
+      - name: Coupon
+        source_pages: [Promotions]
+        fields:
+          - {name: id, type: string}
+          - {name: code, type: string, note: WELCOME15}
+          - {name: name, type: string}
+          - {name: type, type: enum, values: [折扣, 满减, 包邮]}
+          - {name: value, type: string, note: '15% OFF / $50 OFF / Free Shipping'}
+          - {name: min, type: decimal, note: 最低消费门槛}
+          - {name: total, type: int, note: 发放总量}
+          - {name: used, type: int}
+          - {name: start, type: date}
+          - {name: end, type: date}
+          - {name: status, type: enum, values: [active, expiring, draft]}
+        relations: []
+        data_flow: {read: [Promotions], write: [Promotions(CRUD)]}
+
+      - name: FlashSale
+        source_pages: [Promotions]
+        fields:
+          - {name: id, type: string}
+          - {name: name, type: string}
+          - {name: products, type: int, note: 关联商品数（has_many catalog.Product）}
+          - {name: discount, type: string}
+          - {name: start, type: datetime}
+          - {name: end, type: datetime}
+          - {name: status, type: enum, values: [active, scheduled]}
+        relations: [{many_to_many: 'catalog.Product'}]
+        data_flow: {read: [Promotions], write: [Promotions(闪购配置)]}
+
+      - name: Banner
+        source_pages: [Banners, Dashboard]
+        fields:
+          - {name: id, type: int}
+          - {name: name, type: string}
+          - {name: position, type: string, note: 首页 Hero / 推荐位 / 全站顶部条 / 品类页顶部}
+          - {name: img, type: string}
+          - {name: start, type: date}
+          - {name: end, type: date}
+          - {name: online, type: boolean}
+          - {name: clicks, type: int, note: 派生统计}
+          - {name: sort, type: int}
+        relations: []
+        data_flow: {read: [Banners, Dashboard(即将到期待办)], write: [Banners(CRUD/排序/上下线)]}
+
+      - name: BlogPost
+        source_pages: [ContentBlog, Dashboard]
+        fields:
+          - {name: id, type: string}
+          - {name: title, type: string}
+          - {name: category, type: enum, values: [Planning, Inspiration, Education]}
+          - {name: author, type: string}
+          - {name: date, type: date}
+          - {name: status, type: enum, values: [published, draft]}
+          - {name: cover, type: string}
+          - {name: views, type: int}
+        relations: []
+        data_flow: {read: [ContentBlog, Dashboard(草稿待发布)], write: [ContentBlog(CRUD/发布)]}
+
+      - name: RealWedding
+        source_pages: [ContentWeddings]
+        fields:
+          - {name: id, type: string}
+          - {name: couple, type: string, note: 'Emma & James'}
+          - {name: location, type: string}
+          - {name: theme, type: string, note: 关联 catalog.CustomTag(dim-theme)}
+          - {name: date, type: string, note: YYYY-MM}
+          - {name: cover, type: string}
+          - {name: status, type: enum, values: [published, draft]}
+          - {name: shop_items, type: int, note: Shop the Look 关联商品数}
+        relations: [{many_to_many: 'catalog.Product', note: shop the look}]
+        data_flow: {read: [ContentWeddings], write: [ContentWeddings(案例 CRUD)]}
+
+      - name: Lookbook
+        source_pages: [ContentLookbook]
+        fields:
+          - {name: id, type: string}
+          - {name: title, type: string}
+          - {name: items, type: int, note: 关联商品数}
+          - {name: theme, type: string}
+          - {name: status, type: enum, values: [published, draft]}
+        relations: [{many_to_many: 'catalog.Product'}]
+        data_flow: {read: [ContentLookbook], write: [ContentLookbook(CRUD)]}
+
+      - name: StyleGuide
+        source_pages: [ContentLookbook]
+        fields:
+          - {name: id, type: string}
+          - {name: phase, type: string, note: Phase 1..5}
+          - {name: timeframe, type: string, note: '12+ months out'}
+          - {name: title, type: string}
+          - {name: tasks, type: int}
+          - {name: status, type: enum, values: [published, draft]}
+        relations: []
+        data_flow: {read: [ContentLookbook(备婚指南页签)], write: [ContentLookbook(CRUD)]}
+
+  # ============ 4. analytics：Dashboard + 数据看板（只读聚合投影，无独立持久化实体）============
+  - name: analytics
+    desc: 实时 SQL 聚合 + JetCache 60s 缓存的只读读模型；源数据来自 order/catalog/identity 域，不建预聚合表
+    entities:
+      - name: DashboardKpi
+        source_pages: [Dashboard]
+        fields:
+          - {name: key, type: enum, values: [gmv, orders, users, pending]}
+          - {name: label, type: string}
+          - {name: value, type: string}
+          - {name: delta, type: string, note: 同比变化}
+          - {name: up, type: boolean}
+        relations: [{derived_from: [Order, 'identity.User']}]
+        data_flow: {read: [Dashboard], write: []}
+
+      - name: TodoItem
+        source_pages: [Dashboard]
+        fields:
+          - {name: label, type: string, note: 待付款/待发货/退款待审批/低库存/待审核评价/草稿待发布/Banner 到期}
+          - {name: count, type: int}
+          - {name: tone, type: enum, values: [warn, danger, info]}
+          - {name: to, type: string, note: 跳转路由}
+        relations: [{derived_from: [Order, Refund, 'catalog.Product', 'catalog.Review', BlogPost, Banner]}]
+        data_flow: {read: [Dashboard], write: []}
+
+      - name: GmvTrendPoint
+        source_pages: [Analytics, Dashboard]
+        fields:
+          - {name: date, type: date}
+          - {name: gmv, type: decimal}
+        relations: [{derived_from: [Order]}]
+        data_flow: {read: [Analytics(近14天趋势), Dashboard], write: []}
+
+      - name: CategorySalesSlice
+        source_pages: [Analytics]
+        fields:
+          - {name: name, type: string}
+          - {name: value, type: decimal, note: 占比}
+        relations: [{derived_from: [Order, 'catalog.Category']}]
+        data_flow: {read: [Analytics], write: []}
+
+      - name: FunnelStage
+        source_pages: [Analytics]
+        fields:
+          - {name: stage, type: enum, values: [商品浏览, 加入购物车, 进入结算, 完成支付]}
+          - {name: value, type: int}
+        relations: [{derived_from: [Cart, Order]}]
+        data_flow: {read: [Analytics], write: []}
+
+      - name: TrafficSource
+        source_pages: [Analytics]
+        fields:
+          - {name: name, type: string}
+          - {name: value, type: int, note: 占比}
+        relations: []
+        data_flow: {read: [Analytics], write: []}
+
+  # ============ 5. shipping：物流配置 ============
+  - name: shipping
+    desc: 承运商与分区运费规则配置
+    entities:
+      - name: Carrier
+        source_pages: [Shipping, OrderDetail]
+        fields:
+          - {name: id, type: string}
+          - {name: name, type: string, note: FedEx International Priority 等}
+          - {name: zones, type: string, note: 覆盖区域}
+          - {name: lead_time, type: string, note: '3-5 天'}
+          - {name: enabled, type: boolean}
+        relations: []
+        data_flow: {read: [Shipping, OrderDetail(发货选择承运方)], write: [Shipping(启用/停用/编辑)]}
+
+      - name: ShippingRate
+        source_pages: [Shipping]
+        fields:
+          - {name: id, type: string}
+          - {name: zone, type: string, note: 美国境内/加拿大/欧洲英国/澳新}
+          - {name: under, type: decimal, note: 未达门槛运费}
+          - {name: over, type: string, note: 达门槛后（免邮）}
+          - {name: threshold, type: decimal, note: 免邮门槛}
+        relations: []
+        data_flow: {read: [Shipping, 'portal-store(结算运费计算)'], write: [Shipping(规则编辑)]}
+
+# 跨域关系汇总
+cross_domain_relations:
+  - {from: order.Order, to: identity.User, type: belongs_to}
+  - {from: order.OrderItem, to: catalog.Product, type: snapshot_ref, note: 商品名/价格/图片为下单快照}
+  - {from: order.Refund, to: order.Order, type: belongs_to}
+  - {from: catalog.Review, to: identity.User, type: belongs_to, note: 评价人}
+  - {from: marketing-content.FlashSale, to: catalog.Product, type: many_to_many}
+  - {from: marketing-content.RealWedding, to: catalog.Product, type: many_to_many, note: Shop the Look}
+  - {from: order.OrderShipment, to: shipping.Carrier, type: ref}
+  - {from: analytics.*, to: [order, catalog, identity], type: read_model, note: 只读 SQL 聚合 + JetCache 60s}

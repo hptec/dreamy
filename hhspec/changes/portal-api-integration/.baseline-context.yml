@@ -1,0 +1,18 @@
+mode: bootstrap
+reason: baseline_dir 中无任何图文件
+baseline_dir: hhspec/specs/architecture
+generated_at: '2026-06-10T07:12:19Z'
+baseline_files:
+  er_diagram: ''
+  state_machine: ''
+  business_flow: ''
+  field_inventory: ''
+relevant_baseline:
+  entities: []
+  machines: []
+  flows: []
+  fields_inventory: []
+relevant_strategy:
+  seed_entity_ids: []
+  expanded_entity_ids: []
+  neighbor_hop: 1

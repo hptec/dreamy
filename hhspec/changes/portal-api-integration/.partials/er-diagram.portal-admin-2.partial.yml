@@ -1,0 +1,265 @@
+entities:
+  - id: Product
+    desc: 商品主档（现货+定制双模式婚纱礼服，含版型属性与SEO）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > MyBatis-Plus Long 自增主键"}
+      - {n: name, t: str, req: true, maxlen: 128, source: "ProductEdit.vue > form.name 商品名称*"}
+      - {n: slug, t: str, req: true, maxlen: 128, pattern: "^[a-z0-9-]+$", source: "ProductEdit.vue > form.slug URL Slug"}
+      - {n: subtitle, t: str, maxlen: 255, source: "ProductEdit.vue > form.subtitle 副标题/卖点"}
+      - {n: categoryId, t: Long, req: true, source: "ProductEdit.vue > form.categoryId 标准品类级联*"}
+      - {n: productType, t: str, maxlen: 64, source: "ProductEdit.vue > form.productType 自由填写"}
+      - {n: description, t: text, source: "ProductEdit.vue > form.description 富文本介绍"}
+      - {n: designerNote, t: text, source: "ProductEdit.vue > form.designerNote 品牌故事"}
+      - {n: price, t: number, req: true, min: 0, source: "ProductEdit.vue > form.price 现价USD*"}
+      - {n: compareAt, t: number, min: 0, js_guard: "compareAt == null || compareAt >= price", source: "ProductEdit.vue > form.compareAt 划线价"}
+      - {n: installment, t: bool, source: "ProductEdit.vue > form.installment Klarna/Afterpay 分期"}
+      - {n: multiCurrencyPrices, t: json, source: "ProductEdit.vue > 多币种价格 USD/CAD/AUD/GBP 可覆盖"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "mock.js > products.status; Products.vue > Toggle published/draft"}
+      - {n: isNew, t: bool, source: "mock.js > products.isNew; Products.vue > Toggle"}
+      - {n: isBest, t: bool, source: "mock.js > products.isBest"}
+      - {n: recommend, t: bool, source: "mock.js > products.recommend; Products.vue > Toggle"}
+      - {n: sort, t: int, min: 0, source: "mock.js > products.sort"}
+      - {n: leadTimeDays, t: int, min: 1, req: true, source: "ProductEdit.vue > form.leadTimeDays 标准发货周期(天)"}
+      - {n: rushAvailable, t: bool, source: "ProductEdit.vue > form.rushAvailable 支持加急"}
+      - {n: customSizeAvailable, t: bool, source: "ProductEdit.vue > form.customSizeAvailable 定制尺寸(伴娘服核心)"}
+      - {n: silhouette, t: str, source: "ProductEdit.vue > form.silhouette 廓形(属性集控制显隐/必填)"}
+      - {n: neckline, t: str, source: "ProductEdit.vue > form.neckline 领口"}
+      - {n: sleeve, t: str, source: "ProductEdit.vue > form.sleeve 袖型"}
+      - {n: backStyle, t: str, source: "ProductEdit.vue > form.backStyle 背部设计"}
+      - {n: waistline, t: str, source: "ProductEdit.vue > form.waistline 腰线"}
+      - {n: train, t: str, source: "ProductEdit.vue > form.train 拖尾(父品类切换时重置)"}
+      - {n: length, t: str, source: "ProductEdit.vue > form.length 裙长"}
+      - {n: fabric, t: str, source: "ProductEdit.vue > form.fabric 主面料"}
+      - {n: fabricComposition, t: str, maxlen: 128, source: "ProductEdit.vue > form.fabricComposition 面料成分"}
+      - {n: support, t: str, source: "ProductEdit.vue > form.support 内置支撑"}
+      - {n: season, t: str, source: "ProductEdit.vue > form.season 季节"}
+      - {n: embellishments, t: json, source: "ProductEdit.vue > form.embellishments 装饰细节多选"}
+      - {n: occasions, t: json, source: "ProductEdit.vue > form.occasions 适合场合多选"}
+      - {n: styleTags, t: json, source: "ProductEdit.vue > form.styleTags 风格标签多选"}
+      - {n: modelHeight, t: str, maxlen: 32, source: "ProductEdit.vue > form.modelHeight 模特身高"}
+      - {n: modelSize, t: str, maxlen: 16, source: "ProductEdit.vue > form.modelSize 模特所穿尺码"}
+      - {n: modelBodyType, t: str, maxlen: 32, source: "ProductEdit.vue > form.modelBodyType 体型描述"}
+      - {n: careInstructions, t: text, source: "ProductEdit.vue > form.careInstructions 护理说明"}
+      - {n: countryOfOrigin, t: str, maxlen: 64, source: "ProductEdit.vue > form.countryOfOrigin 生产地"}
+      - {n: styleNo, t: str, maxlen: 32, source: "ProductEdit.vue > 款式编号 Style No."}
+      - {n: seoTitle, t: str, maxlen: 128, source: "ProductEdit.vue > form.seoTitle"}
+      - {n: seoDesc, t: str, maxlen: 255, source: "ProductEdit.vue > form.seoDesc Meta Description"}
+    relations:
+      - {to: Category, type: n1}
+      - {to: CustomTag, type: nm}
+  - id: ProductImage
+    desc: 商品媒体素材（图廊/场景图/视频/色样）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: productId, t: Long, req: true, source: "ProductEdit.vue > sec-media gallery"}
+      - {n: url, t: str, req: true, maxlen: 512, source: "ProductEdit.vue > gallery img src"}
+      - {n: kind, t: enum, vals: [gallery, lifestyle, video, swatch], req: true, source: "ProductEdit.vue > 图廊/Lifestyle/走秀视频/颜色色样四区块"}
+      - {n: colorName, t: str, maxlen: 32, source: "ProductEdit.vue > swatch 每颜色一张色样图"}
+      - {n: sort, t: int, min: 0, js_guard: "sort === 0 为主图", source: "ProductEdit.vue > 拖拽排序第一张为主图"}
+    relations:
+      - {to: Product, type: n1}
+  - id: Sku
+    desc: SKU（颜色x尺码矩阵；现货含库存乐观锁，定制款无库存仅交期）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: productId, t: Long, req: true, source: "ProductEdit.vue > sec-sku SKU 矩阵"}
+      - {n: skuCode, t: str, req: true, maxlen: 64, pattern: "^[A-Z0-9-]+$", source: "ProductEdit.vue > SKU 码 DRM-颜色缩写-尺码"}
+      - {n: color, t: str, req: true, maxlen: 32, source: "ProductEdit.vue > skuColors 颜色 swatch"}
+      - {n: size, t: str, req: true, maxlen: 16, source: "ProductEdit.vue > skuSizes 尺码"}
+      - {n: stock, t: int, min: 0, js_guard: "现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存", source: "ProductEdit.vue > 单元格库存数量; 业务上下文确认乐观锁 [INFERRED]"}
+      - {n: version, t: Long, source: "业务上下文确认乐观锁扣减 [INFERRED]"}
+    relations:
+      - {to: Product, type: n1}
+  - id: SizeChartRow
+    desc: 商品尺码对照表行（US/UK/AU 与三围、中空到地）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: productId, t: Long, req: true, source: "ProductEdit.vue > sec-size 尺码表"}
+      - {n: us, t: str, req: true, maxlen: 8, source: "ProductEdit.vue > 尺码表列 US"}
+      - {n: uk, t: str, maxlen: 8, source: "ProductEdit.vue > 尺码表列 UK"}
+      - {n: au, t: str, maxlen: 8, source: "ProductEdit.vue > 尺码表列 AU"}
+      - {n: bust, t: number, min: 0, source: "ProductEdit.vue > 胸围(in)"}
+      - {n: waist, t: number, min: 0, source: "ProductEdit.vue > 腰围(in)"}
+      - {n: hips, t: number, min: 0, source: "ProductEdit.vue > 臀围(in)"}
+      - {n: hollowToFloor, t: number, min: 0, source: "ProductEdit.vue > 中空到地(in)"}
+    relations:
+      - {to: Product, type: n1}
+  - id: Customer
+    desc: 消费者（identity 域已有，本图仅作关系锚点）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: name, t: str, source: "OrderDetail.vue > o.customer.name"}
+      - {n: email, t: str, pattern: "^[^@]+@[^@]+$", source: "Orders.vue > o.email"}
+      - {n: phone, t: str, maxlen: 32, source: "OrderDetail.vue > o.customer.phone"}
+  - id: Address
+    desc: 收货地址（消费端实体，原型后台仅展示快照）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: customerId, t: Long, req: true, source: "业务上下文确认必须建模 Address [INFERRED]"}
+      - {n: receiver, t: str, req: true, maxlen: 64, source: "业务上下文确认 [INFERRED]"}
+      - {n: phone, t: str, maxlen: 32, source: "OrderDetail.vue > 客户信息含 phone [INFERRED]"}
+      - {n: line, t: str, req: true, maxlen: 255, source: "OrderDetail.vue > o.address.line"}
+      - {n: city, t: str, req: true, maxlen: 64, source: "OrderDetail.vue > o.address.city"}
+      - {n: state, t: str, maxlen: 64, source: "OrderDetail.vue > o.address.state"}
+      - {n: zip, t: str, req: true, maxlen: 16, source: "OrderDetail.vue > o.address.zip"}
+      - {n: country, t: str, req: true, maxlen: 64, source: "OrderDetail.vue > o.address.country"}
+      - {n: isDefault, t: bool, source: "业务上下文确认 [INFERRED]"}
+    relations:
+      - {to: Customer, type: n1}
+  - id: CartItem
+    desc: 购物车条目（登录用户 DB 持久化，匿名 token 标识并在登录后合并）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: customerId, t: Long, source: "业务上下文确认必须建模 CartItem [INFERRED]"}
+      - {n: anonToken, t: str, maxlen: 64, js_guard: "customerId 与 anonToken 至少其一非空; 登录后按 anonToken 合并入 customerId", source: "业务上下文确认匿名合并 [INFERRED]"}
+      - {n: productId, t: Long, req: true, source: "业务上下文确认 [INFERRED]"}
+      - {n: skuId, t: Long, js_guard: "现货必填 skuId; 定制款可空并携带 customSizeData", source: "业务上下文确认双模式 [INFERRED]"}
+      - {n: qty, t: int, req: true, min: 1, source: "业务上下文确认 [INFERRED]"}
+      - {n: customSizeData, t: json, source: "ProductEdit.vue > customSizeAvailable 买家填写三围 [INFERRED]"}
+    relations:
+      - {to: Customer, type: n1}
+      - {to: Product, type: n1}
+      - {to: Sku, type: n1}
+  - id: Order
+    desc: 订单（核心交易主单，Stripe 沙箱支付，待支付30分钟超时自动取消并回补库存）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: orderNo, t: str, req: true, pattern: "^DRM-\\d{8}-\\d{4}$", source: "mock.js > orders.id 'DRM-20260529-1042'"}
+      - {n: customerId, t: Long, req: true, source: "Orders.vue > 客户列; OrderDetail.vue > o.customer"}
+      - {n: status, t: enum, vals: [pending, paid, shipped, completed, cancelled, refunding, refunded], req: true, source: "mock.js > ORDER_STATUS; Orders.vue > tabs; 业务上下文确认取消/退款分支 [INFERRED: cancelled/refunded]"}
+      - {n: currency, t: enum, vals: [USD, CAD, AUD, GBP], req: true, source: "Orders.vue > curSym 币种映射"}
+      - {n: subtotal, t: number, min: 0, req: true, source: "OrderDetail.vue > subtotal 行小计求和"}
+      - {n: shippingFee, t: number, min: 0, source: "OrderDetail.vue > 运费(免邮); mock.js > shipping.fee"}
+      - {n: totalAmount, t: number, min: 0, req: true, js_guard: "totalAmount === subtotal + shippingFee - 优惠减免", source: "Orders.vue > 金额列; OrderDetail.vue > 合计"}
+      - {n: couponId, t: Long, source: "Promotions.vue > 优惠券核销 [INFERRED]"}
+      - {n: paymentMethod, t: str, maxlen: 32, source: "Orders.vue > 支付方式列 Stripe/PayPal/Apple Pay/Klarna/Afterpay/Google Pay"}
+      - {n: addressSnapshot, t: json, req: true, source: "OrderDetail.vue > 收货地址面板(下单时快照)"}
+      - {n: carrier, t: enum, vals: [FedEx International Priority, UPS Worldwide Express, DHL Express], source: "OrderDetail.vue > 发货面板承运方 select"}
+      - {n: trackingNo, t: str, maxlen: 64, source: "OrderDetail.vue > tracking 运单号"}
+      - {n: expiresAt, t: datetime, js_guard: "createdAt + 30min; 超时未支付自动取消并回补库存", source: "业务上下文确认30分钟超时 [INFERRED]"}
+      - {n: paidAt, t: datetime, source: "OrderDetail.vue > o.payment.time 支付时间"}
+      - {n: shippedAt, t: datetime, source: "OrderDetail.vue > 状态时间线 [INFERRED]"}
+      - {n: completedAt, t: datetime, source: "OrderDetail.vue > 状态时间线 [INFERRED]"}
+      - {n: createdAt, t: datetime, req: true, source: "Orders.vue > 下单时间列"}
+    relations:
+      - {to: Customer, type: n1}
+      - {to: Coupon, type: n1}
+  - id: OrderLine
+    desc: 订单行（商品/SKU 快照，定制款携带定制尺寸数据）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: orderId, t: Long, req: true, source: "OrderDetail.vue > o.lines"}
+      - {n: productId, t: Long, req: true, source: "OrderDetail.vue > 商品明细行"}
+      - {n: skuId, t: Long, source: "OrderDetail.vue > l.sku; 定制款可空 [INFERRED]"}
+      - {n: productName, t: str, req: true, maxlen: 128, source: "OrderDetail.vue > l.name 快照"}
+      - {n: skuCode, t: str, maxlen: 64, source: "OrderDetail.vue > l.sku 'AURELIA-IVORY-US6'"}
+      - {n: color, t: str, maxlen: 32, source: "OrderDetail.vue > l.color"}
+      - {n: size, t: str, maxlen: 16, source: "OrderDetail.vue > l.size"}
+      - {n: qty, t: int, req: true, min: 1, source: "OrderDetail.vue > l.qty 数量列"}
+      - {n: unitPrice, t: number, req: true, min: 0, source: "OrderDetail.vue > l.price 单价列"}
+      - {n: img, t: str, maxlen: 512, source: "OrderDetail.vue > l.img 快照"}
+      - {n: customSizeData, t: json, source: "业务上下文确认定制尺寸 [INFERRED]"}
+    relations:
+      - {to: Order, type: n1}
+      - {to: Product, type: n1}
+      - {to: Sku, type: n1}
+  - id: Payment
+    desc: 支付单（Stripe PaymentIntent，webhook 异步回调驱动状态）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: orderId, t: Long, req: true, source: "OrderDetail.vue > 支付信息面板"}
+      - {n: provider, t: enum, vals: [stripe], req: true, source: "业务上下文确认 Stripe 沙箱 [INFERRED]"}
+      - {n: paymentIntentId, t: str, maxlen: 64, source: "业务上下文确认 PaymentIntent+webhook [INFERRED]"}
+      - {n: amount, t: number, req: true, min: 0, source: "mock.js > orderDetail.payment.paid"}
+      - {n: currency, t: enum, vals: [USD, CAD, AUD, GBP], req: true, source: "mock.js > orderDetail.payment.currency"}
+      - {n: status, t: enum, vals: [created, processing, succeeded, failed, refunded], req: true, source: "业务上下文确认 PaymentIntent 生命周期 [INFERRED]"}
+      - {n: cardSummary, t: str, maxlen: 64, source: "OrderDetail.vue > 'Stripe · Visa ···4242'"}
+      - {n: paidAt, t: datetime, source: "OrderDetail.vue > 支付时间"}
+    relations:
+      - {to: Order, type: n1}
+  - id: Refund
+    desc: 退款工单（关联订单，审核通过后执行 Stripe 退款）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: refundNo, t: str, req: true, maxlen: 32, source: "field-inventory FLD-REFUNDS-001 工单号"}
+      - {n: orderId, t: Long, req: true, source: "field-inventory FLD-REFUNDS-002 关联订单; OrderDetail.vue > 发起退款按钮"}
+      - {n: customerId, t: Long, req: true, source: "field-inventory FLD-REFUNDS-003 客户"}
+      - {n: amount, t: number, req: true, min: 0, js_guard: "amount <= Order.totalAmount", source: "field-inventory FLD-REFUNDS-004 退款金额"}
+      - {n: reason, t: str, maxlen: 255, source: "field-inventory FLD-REFUNDS-005 退款原因"}
+      - {n: status, t: enum, vals: [pending, approved, rejected], req: true, source: "field-inventory FLD-REFUNDS-007/008/009 pending/approved/rejected"}
+      - {n: appliedAt, t: datetime, req: true, source: "field-inventory FLD-REFUNDS-006 申请时间"}
+    relations:
+      - {to: Order, type: n1}
+      - {to: Customer, type: n1}
+  - id: Coupon
+    desc: 优惠券（折扣/满减/包邮三类，限量发放计数）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: code, t: str, req: true, maxlen: 32, pattern: "^[A-Z0-9]+$", source: "mock.js > coupons.code 'WELCOME15'"}
+      - {n: name, t: str, req: true, maxlen: 64, source: "Promotions.vue > c.name"}
+      - {n: type, t: enum, vals: [discount, fixed_amount, free_shipping], req: true, source: "mock.js > coupons.type 折扣/满减/包邮"}
+      - {n: value, t: str, req: true, maxlen: 32, source: "Promotions.vue > c.value '15% OFF'/'$50 OFF'"}
+      - {n: minAmount, t: number, min: 0, source: "Promotions.vue > 门槛 满 $min/无门槛"}
+      - {n: totalLimit, t: int, min: 0, source: "Promotions.vue > c.total(>9999 视为不限)"}
+      - {n: usedCount, t: int, min: 0, js_guard: "usedCount <= totalLimit", source: "Promotions.vue > 已用 used/total"}
+      - {n: startAt, t: datetime, source: "mock.js > coupons.start"}
+      - {n: endAt, t: datetime, js_guard: "endAt > startAt", source: "mock.js > coupons.end"}
+      - {n: status, t: enum, vals: [draft, scheduled, active, expiring, expired], req: true, source: "Promotions.vue > tone/label 映射 active/expiring/draft/scheduled; expired [INFERRED]"}
+    relations: []
+  - id: FlashSale
+    desc: 闪购活动（限时秒杀，到期自动下线）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: name, t: str, req: true, maxlen: 64, source: "Promotions.vue > f.name 活动名称"}
+      - {n: discount, t: str, req: true, maxlen: 32, source: "Promotions.vue > f.discount '最高 40% OFF'"}
+      - {n: startAt, t: datetime, req: true, source: "mock.js > flashSales.start"}
+      - {n: endAt, t: datetime, req: true, js_guard: "endAt > startAt; 到期后定时任务自动下线", source: "mock.js > flashSales.end; 业务上下文确认自动下线 [INFERRED]"}
+      - {n: status, t: enum, vals: [draft, scheduled, active, ended], req: true, source: "Promotions.vue > status active/scheduled; draft/ended [INFERRED]"}
+    relations:
+      - {to: Product, type: nm}
+  - id: Lookbook
+    desc: Lookbook 画册（主题内容集合）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: title, t: str, req: true, maxlen: 128, source: "mock.js > lookbooks.title"}
+      - {n: theme, t: str, maxlen: 32, source: "mock.js > lookbooks.theme Vineyard/Beach/Forest"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "ContentLookbook.vue > StatusBadge published/draft"}
+    relations:
+      - {to: Product, type: nm}
+  - id: Guide
+    desc: Wedding Guide 备婚指南（按备婚阶段组织）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: phase, t: str, req: true, maxlen: 32, source: "mock.js > guides.phase 'Phase 1'"}
+      - {n: timeframe, t: str, maxlen: 64, source: "mock.js > guides.timeframe '12+ months out'"}
+      - {n: title, t: str, req: true, maxlen: 128, source: "mock.js > guides.title"}
+      - {n: tasksCount, t: int, min: 0, source: "mock.js > guides.tasks"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "ContentLookbook.vue > guides StatusBadge published/draft"}
+    relations: []
+  - id: RealWedding
+    desc: 真实婚礼案例（Shop the Look 关联商品）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: couple, t: str, req: true, maxlen: 64, source: "mock.js > realWeddings.couple 'Emma & James'"}
+      - {n: location, t: str, maxlen: 128, source: "mock.js > realWeddings.location"}
+      - {n: theme, t: str, maxlen: 32, source: "mock.js > realWeddings.theme"}
+      - {n: weddingDate, t: str, maxlen: 16, source: "mock.js > realWeddings.date '2025-06'"}
+      - {n: cover, t: str, maxlen: 512, source: "mock.js > realWeddings.cover"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "ContentWeddings.vue > StatusBadge published/draft"}
+    relations:
+      - {to: Product, type: nm}
+  - id: Category
+    desc: 标准品类（级联两级，决定属性集配置；详细建模归 Categories 批次）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: name, t: str, req: true, maxlen: 64, source: "ProductEdit.vue > standardTaxonomy cat.name"}
+      - {n: parentId, t: Long, source: "ProductEdit.vue > standardTaxonomy root.children 两级级联"}
+    relations:
+      - {to: Category, type: n1}
+  - id: CustomTag
+    desc: 自定义标签（营销/导航维度，多选挂商品；详细建模归 Categories 批次）
+    fields:
+      - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+      - {n: name, t: str, req: true, maxlen: 64, source: "ProductEdit.vue > tagsByDimension tag.name"}
+      - {n: dimensionId, t: str, maxlen: 32, source: "ProductEdit.vue > tagDimensions dim.id"}
+    relations: []

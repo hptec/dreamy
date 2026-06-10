@@ -1,0 +1,14 @@
+report_meta:
+  report_type: challenger-verdict
+  generated_at: "2026-06-10T13:21:31Z"
+  change_name: portal-api-integration
+  round: 4
+verdict: PASS
+summary: >-
+  completeness=pass semantic=PASS — all checks passed
+completeness_verdict: pass
+semantic_verdict: PASS
+issue_type: none
+fix_target_phase: none
+
+fix_targets: []

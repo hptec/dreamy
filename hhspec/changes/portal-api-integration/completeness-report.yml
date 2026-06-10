@@ -1,0 +1,15 @@
+change_name: portal-api-integration
+generated_at: '2026-06-10T13:21:31Z'
+verdict: pass
+semantic_status: complete
+pass_items:
+- er-diagram.yml exists
+- state-machine.yml exists
+- business-flow.yml exists
+- boundary-scenarios.yml exists
+- acceptance.yml exists
+- 'er-diagram has 55 live entities (field-inventory: 36 fields across 0 pages)'
+- state-machine has 21 machine(s), 70 live states total
+- acceptance.yml has 1089 live scenarios
+- boundary-scenarios covers all 7 categories
+issues: []
