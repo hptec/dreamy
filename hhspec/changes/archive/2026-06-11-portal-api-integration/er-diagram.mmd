@@ -1,0 +1,558 @@
+erDiagram
+  Category {
+    Long id
+    str name
+    Long parent_id
+    int level
+    Long attribute_set_id
+    json attr_overrides
+    int sort
+    int product_count
+  }
+  Category ||--|| Category : "rel"
+  Category ||--|| AttributeSet : "rel"
+  AttributeDef {
+    Long id
+    str key
+    str label
+    enum type
+    json options
+  }
+  AttributeSet {
+    Long id
+    str label
+  }
+  AttributeSetItem {
+    Long id
+    Long attribute_set_id
+    Long attribute_id
+    enum visibility
+  }
+  AttributeSetItem ||--|| AttributeSet : "rel"
+  AttributeSetItem ||--|| AttributeDef : "rel"
+  TagDimension {
+    Long id
+    str name
+    str description
+  }
+  Tag {
+    Long id
+    Long dimension_id
+    str name
+    str cover
+    enum status
+    int product_count
+  }
+  Tag ||--|| TagDimension : "rel"
+  Tag ||--|| Product : "rel"
+  Banner {
+    Long id
+    str name
+    str image_url
+    enum position
+    datetime start_time
+    datetime end_time
+    enum status
+    int sort
+    int clicks
+  }
+  BlogPost {
+    Long id
+    str title
+    str cover
+    str category
+    str author
+    text content
+    str slug
+    enum status
+    datetime published_at
+    int views
+  }
+  AnalyticsDashboard {
+    decimal gmv_month
+    int order_count
+    decimal avg_order_value
+    decimal refund_rate
+    json gmv_trend
+    json category_sales
+    json traffic_sources
+    json device_share
+    json funnel
+    json top_products
+  }
+  Product {
+    Long id
+    str name
+    str slug
+    str subtitle
+    Long categoryId
+    str productType
+    text description
+    text designerNote
+    number price
+    number compareAt
+    bool installment
+    json multiCurrencyPrices
+    enum status
+    bool isNew
+    bool isBest
+    bool recommend
+    int sort
+    int leadTimeDays
+    bool rushAvailable
+    bool customSizeAvailable
+    str silhouette
+    str neckline
+    str sleeve
+    str backStyle
+    str waistline
+    str train
+    str length
+    str fabric
+    str fabricComposition
+    str support
+    str season
+    json embellishments
+    json occasions
+    json styleTags
+    str modelHeight
+    str modelSize
+    str modelBodyType
+    text careInstructions
+    str countryOfOrigin
+    str styleNo
+    str seoTitle
+    str seoDesc
+  }
+  Product ||--|| Category : "rel"
+  Product ||--|| CustomTag : "rel"
+  ProductImage {
+    Long id
+    Long productId
+    str url
+    enum kind
+    str colorName
+    int sort
+  }
+  ProductImage ||--|| Product : "rel"
+  Sku {
+    Long id
+    Long productId
+    str skuCode
+    str color
+    str size
+    int stock
+    Long version
+  }
+  Sku ||--|| Product : "rel"
+  SizeChartRow {
+    Long id
+    Long productId
+    str us
+    str uk
+    str au
+    number bust
+    number waist
+    number hips
+    number hollowToFloor
+  }
+  SizeChartRow ||--|| Product : "rel"
+  Customer {
+    Long id
+    str name
+    str email
+    str phone
+  }
+  Address {
+    Long id
+    Long customerId
+    str receiver
+    str phone
+    str line
+    str city
+    str state
+    str zip
+    str country
+    bool isDefault
+  }
+  Address ||--|| Customer : "rel"
+  CartItem {
+    Long id
+    Long customerId
+    str anonToken
+    Long productId
+    Long skuId
+    int qty
+    json customSizeData
+  }
+  CartItem ||--|| Customer : "rel"
+  CartItem ||--|| Product : "rel"
+  CartItem ||--|| Sku : "rel"
+  Order {
+    Long id
+    str orderNo
+    Long customerId
+    enum status
+    enum currency
+    decimal exchangeRate
+    date weddingDate
+    number subtotal
+    number shippingFee
+    bool giftWrap
+    number giftWrapFee
+    number totalAmount
+    Long couponId
+    str paymentMethod
+    json addressSnapshot
+    enum carrier
+    str trackingNo
+    datetime expiresAt
+    datetime paidAt
+    datetime shippedAt
+    datetime completedAt
+    datetime createdAt
+  }
+  Order ||--|| Customer : "rel"
+  Order ||--|| Coupon : "rel"
+  OrderLine {
+    Long id
+    Long orderId
+    Long productId
+    Long skuId
+    str productName
+    str skuCode
+    str color
+    str size
+    int qty
+    number unitPrice
+    str img
+    json customSizeData
+  }
+  OrderLine ||--|| Order : "rel"
+  OrderLine ||--|| Product : "rel"
+  OrderLine ||--|| Sku : "rel"
+  Payment {
+    Long id
+    Long orderId
+    enum provider
+    str paymentIntentId
+    number amount
+    enum currency
+    enum status
+    str cardSummary
+    datetime paidAt
+  }
+  Payment ||--|| Order : "rel"
+  Refund {
+    Long id
+    str refundNo
+    Long orderId
+    Long customerId
+    number amount
+    str reason
+    enum status
+    datetime appliedAt
+    enum currency
+    str stripeRefundId
+    str returnTrackingNo
+  }
+  Refund ||--|| Order : "rel"
+  Refund ||--|| Customer : "rel"
+  Coupon {
+    Long id
+    str code
+    str name
+    enum type
+    str value
+    number minAmount
+    int totalLimit
+    int usedCount
+    datetime startAt
+    datetime endAt
+    enum status
+  }
+  FlashSale {
+    Long id
+    str name
+    str discount
+    datetime startAt
+    datetime endAt
+    enum status
+  }
+  FlashSale ||--|| Product : "rel"
+  Lookbook {
+    Long id
+    str title
+    str theme
+    enum status
+  }
+  Lookbook ||--|| Product : "rel"
+  Guide {
+    Long id
+    str phase
+    str timeframe
+    str title
+    int tasksCount
+    enum status
+  }
+  RealWedding {
+    Long id
+    str couple
+    str location
+    str theme
+    str weddingDate
+    str cover
+    enum status
+  }
+  RealWedding ||--|| Product : "rel"
+  CustomTag {
+    Long id
+    str name
+    str dimensionId
+  }
+  Review {
+    Long id
+    Long product_id
+    Long user_id
+    str customer_name
+    int rating
+    str content
+    enum status
+    bool featured
+    datetime submitted_at
+    str reply_author
+    str reply_content
+    datetime reply_time
+  }
+  Review ||--|| Product : "rel"
+  Review ||--|| User : "rel"
+  ReviewImage {
+    Long id
+    Long review_id
+    str url
+    bool rejected
+  }
+  ReviewImage ||--|| Review : "rel"
+  ProductQuestion {
+    Long id
+    Long product_id
+    str asker
+    str question
+    datetime asked_at
+    str answer
+    datetime answer_time
+    enum visible
+  }
+  ProductQuestion ||--|| Product : "rel"
+  Carrier {
+    Long id
+    str name
+    str zones
+    str lead_time
+    enum status
+  }
+  ShippingRate {
+    Long id
+    str zone
+    decimal fee_under
+    decimal fee_over
+    decimal threshold
+  }
+  ProductTranslation {
+    Long id
+    Long productId
+    enum locale
+    str name
+    str subtitle
+    str description
+    str seoTitle
+    str seoDescription
+  }
+  ProductTranslation ||--|| Product : "rel"
+  CategoryTranslation {
+    Long id
+    Long categoryId
+    enum locale
+    str name
+  }
+  CategoryTranslation ||--|| Category : "rel"
+  AttributeDefTranslation {
+    Long id
+    Long attributeDefId
+    enum locale
+    str label
+    json options
+  }
+  AttributeDefTranslation ||--|| AttributeDef : "rel"
+  TagTranslation {
+    Long id
+    Long tagId
+    enum locale
+    str label
+  }
+  TagTranslation ||--|| Tag : "rel"
+  CustomTagTranslation {
+    Long id
+    Long customTagId
+    enum locale
+    str label
+  }
+  CustomTagTranslation ||--|| CustomTag : "rel"
+  TagDimensionTranslation {
+    Long id
+    Long tagDimensionId
+    enum locale
+    str name
+  }
+  TagDimensionTranslation ||--|| TagDimension : "rel"
+  BannerTranslation {
+    Long id
+    Long bannerId
+    enum locale
+    str title
+    str subtitle
+    str ctaText
+  }
+  BannerTranslation ||--|| Banner : "rel"
+  BlogPostTranslation {
+    Long id
+    Long blogPostId
+    enum locale
+    str title
+    str excerpt
+    str body
+    str seoTitle
+    str seoDescription
+  }
+  BlogPostTranslation ||--|| BlogPost : "rel"
+  LookbookTranslation {
+    Long id
+    Long lookbookId
+    enum locale
+    str title
+    str description
+  }
+  LookbookTranslation ||--|| Lookbook : "rel"
+  GuideTranslation {
+    Long id
+    Long guideId
+    enum locale
+    str title
+    str body
+  }
+  GuideTranslation ||--|| Guide : "rel"
+  RealWeddingTranslation {
+    Long id
+    Long realWeddingId
+    enum locale
+    str title
+    str story
+  }
+  RealWeddingTranslation ||--|| RealWedding : "rel"
+  CouponTranslation {
+    Long id
+    Long couponId
+    enum locale
+    str name
+    str description
+  }
+  CouponTranslation ||--|| Coupon : "rel"
+  FlashSaleTranslation {
+    Long id
+    Long flashSaleId
+    enum locale
+    str name
+  }
+  FlashSaleTranslation ||--|| FlashSale : "rel"
+  ExchangeRate {
+    Long id
+    enum currency
+    decimal rate
+    Long updatedBy
+    datetime updatedAt
+  }
+  MailRecord {
+    Long id
+    enum type
+    Long orderId
+    str recipient
+    enum locale
+    enum status
+    int retryCount
+    datetime sentAt
+  }
+  MailRecord ||--|| Order : "rel"
+  WishlistItem {
+    Long id
+    Long customerId
+    Long productId
+  }
+  WishlistItem ||--|| Customer : "rel"
+  WishlistItem ||--|| Product : "rel"
+  Showroom {
+    Long id
+    Long ownerId
+    str name
+    date weddingDate
+    str inviteToken
+  }
+  Showroom ||--|| Customer : "rel"
+  ShowroomItem {
+    Long id
+    Long showroomId
+    Long productId
+    str color
+  }
+  ShowroomItem ||--|| Showroom : "rel"
+  ShowroomItem ||--|| Product : "rel"
+  ShowroomMember {
+    Long id
+    Long showroomId
+    str nickname
+    str email
+    Long assignedItemId
+    enum assignStatus
+    Long linkedCustomerId
+  }
+  ShowroomMember ||--|| Showroom : "rel"
+  ShowroomMember ||--|| ShowroomItem : "rel"
+  ShowroomMember ||--|| Customer : "rel"
+  ShowroomVote {
+    Long id
+    Long showroomItemId
+    Long memberId
+    enum vote
+  }
+  ShowroomVote ||--|| ShowroomItem : "rel"
+  ShowroomVote ||--|| ShowroomMember : "rel"
+  ShowroomComment {
+    Long id
+    Long showroomItemId
+    Long memberId
+    str content
+  }
+  ShowroomComment ||--|| ShowroomItem : "rel"
+  ShowroomComment ||--|| ShowroomMember : "rel"
+  BrowseHistory {
+    Long id
+    Long customerId
+    Long productId
+    datetime viewedAt
+  }
+  BrowseHistory ||--|| Customer : "rel"
+  BrowseHistory ||--|| Product : "rel"
+  NewsletterSubscriber {
+    Long id
+    str email
+    enum source
+    enum locale
+    datetime subscribedAt
+  }
+  ContactMessage {
+    Long id
+    str name
+    str email
+    str subject
+    str message
+    datetime submittedAt
+  }

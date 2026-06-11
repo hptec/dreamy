@@ -1,0 +1,106 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> published : publish
+  published --> archived : take_offline
+  published --> archived : schedule_expire
+  archived --> published : republish
+  draft --> deleted : delete
+  published --> deleted : delete
+  archived --> deleted : delete
+  [*] --> draft
+  draft --> published : publish
+  published --> archived : unpublish
+  archived --> published : republish
+  draft --> deleted : delete
+  published --> deleted : delete
+  archived --> deleted : delete
+  [*] --> active
+  active --> deleted : delete
+  [*] --> enabled
+  enabled --> disabled : toggle_off
+  disabled --> enabled : toggle_on
+  enabled --> deleted : delete
+  disabled --> deleted : delete
+  [*] --> active
+  active --> deleted : delete
+  [*] --> hidden
+  hidden --> visible : cycle_click
+  visible --> optional : cycle_click
+  optional --> hidden : cycle_click
+  [*] --> pending
+  pending --> paid : payment_webhook_succeeded
+  pending --> cancelled : payment_timeout_30min
+  pending --> cancelled : customer_cancel
+  paid --> shipped : mark_shipped
+  shipped --> completed : confirm_receipt
+  paid --> refunding : refund_requested
+  shipped --> refunding : refund_requested
+  refunding --> refunded : refund_approved
+  refunding --> paid : refund_rejected
+  [*] --> created
+  created --> processing : stripe_confirm
+  processing --> succeeded : webhook_payment_succeeded
+  processing --> failed : webhook_payment_failed
+  failed --> processing : retry_payment
+  succeeded --> refunded : refund_executed
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  draft --> deleted : delete
+  published --> deleted : delete
+  [*] --> pending
+  pending --> approved : admin_approve
+  pending --> rejected : admin_reject
+  pending --> approved : approve
+  pending --> rejected : reject
+  approved --> refunded : stripe_refund_succeeded
+  [*] --> draft
+  draft --> scheduled : schedule
+  draft --> active : activate
+  scheduled --> active : auto_start
+  active --> expiring : near_expiry
+  expiring --> expired : auto_expire
+  active --> expired : auto_expire
+  draft --> deleted : delete
+  expired --> deleted : delete
+  [*] --> draft
+  draft --> scheduled : schedule
+  scheduled --> active : auto_start
+  active --> ended : auto_offline
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  [*] --> pending
+  pending --> approved : approve
+  pending --> rejected : reject
+  rejected --> approved : batch_approve
+  approved --> rejected : batch_reject
+  approved --> approved : set_featured
+  approved --> approved : unset_featured
+  [*] --> shown
+  shown --> rejected : reject_image
+  rejected --> shown : restore_image
+  [*] --> unanswered
+  unanswered --> answered : save_answer
+  answered --> answered : edit_answer
+  [*] --> enabled
+  enabled --> disabled : disable
+  disabled --> enabled : enable
+  [*] --> pending
+  pending --> sent : send_success
+  pending --> failed : send_error
+  failed --> pending : retry
+  failed --> dead : exhaust_retry
+  [*] --> unassigned
+  unassigned --> assigned : assign
+  assigned --> assigned : reassign
+  reminded --> assigned : reassign
+  assigned --> reminded : send_reminder
+  assigned --> ordered : place_order
+  reminded --> ordered : place_order

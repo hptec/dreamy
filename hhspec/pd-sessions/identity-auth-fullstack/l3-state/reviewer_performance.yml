@@ -1,4 +1,0 @@
-reviewer: performance
-verdict: PASS
-timestamp: "2026-06-01T03:39:34Z"
-note: "增量轮（Docker 可用后）：上轮已 PASS/CONDITIONAL_PASS；本轮新增 4 Testcontainers IT 真实通过 + 修复 2 生产缺陷（JetCache lettuce 依赖 / JNA JDK25）。backend 69 测试全绿。"

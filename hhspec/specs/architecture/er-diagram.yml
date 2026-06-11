@@ -1,0 +1,2063 @@
+entities:
+- id: Category
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: name
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/Categories.vue > 品类名称 * / newRootName
+      / confirmAddChild
+    maxlen: 64
+  - n: parent_id
+    t: Long
+    source: prototype/portal-admin/src/views/Categories.vue > cat.children 子类目树
+  - n: level
+    t: int
+    min: 1
+    max: 3
+    source: '需求描述: 分类为三层树模型 [INFERRED]'
+  - n: attribute_set_id
+    t: Long
+    source: prototype/portal-admin/src/views/Categories.vue > cat.attributeSetId /
+      attrSetInfo
+  - n: attr_overrides
+    t: json
+    source: prototype/portal-admin/src/views/Categories.vue > child.attrOverrides
+      仅存与父级属性集不同的 delta (saveDrawer)
+  - n: sort
+    t: int
+    source: prototype/portal-admin/src/views/Categories.vue > Bars3Icon 拖拽手柄 [INFERRED]
+  - n: product_count
+    t: int
+    min: 0
+    js_guard: product_count === 0 时才允许删除 (canDelete)
+    source: prototype/portal-admin/src/views/Categories.vue > cat.count / canDelete(cat)
+      + ProductEdit.vue > standardTaxonomy root.children 两级级联（经 parent_id 派生）
+  relations:
+  - to: Category
+    type: n1
+  - to: AttributeSet
+    type: n1
+  desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
+- id: AttributeDef
+  desc: 商品属性字典项，维护全局属性定义与可选值列表（廓形/领口/袖型/面料等）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: key
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)
+  - n: label
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.label
+  - n: type
+    t: enum
+    vals:
+    - select
+    - multiselect
+    - text
+    - toggle
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.type 徽章分支 select/multiselect
+      + 过滤条件 type!=='text'&&type!=='toggle'
+  - n: options
+    t: json
+    js_guard: type === 'select' || type === 'multiselect' 时才有选项 (attr.optionsKey)
+    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.options 增删改
+      (confirmAddOption/removeOption/confirmEdit)
+  relations: []
+- id: AttributeSet
+  desc: 属性集，多个品类可共享同一属性集；定义该集合内各属性的可见性配置
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: label
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)
+  relations: []
+- id: AttributeSetItem
+  desc: 属性集明细行，记录属性集内单个属性的可见性状态（必填/可选/隐藏）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: attribute_set_id
+    t: Long
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId]
+  - n: attribute_id
+    t: Long
+    req: true
+    source: prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId][attrKey]
+  - n: visibility
+    t: enum
+    vals:
+    - visible
+    - optional
+    - hidden
+    req: true
+    source: field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/AttributeSets.vue
+      > STATES/cycleState 必填→可选→隐藏
+  relations:
+  - to: AttributeSet
+    type: n1
+  - to: AttributeDef
+    type: n1
+- id: TagDimension
+  desc: 自定义标签维度（如风格/用途），仅用于前台营销聚合与导航，不影响商品属性表单
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: name
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/Categories.vue > 维度名称 * / confirmAddDim
+  - n: description
+    t: str
+    source: prototype/portal-admin/src/views/Categories.vue > tagDimensions d.desc
+  relations: []
+- id: Tag
+  desc: 自定义营销标签，归属某标签维度，商品可多选；带封面图用于前台导航卡片
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: dimension_id
+    t: Long
+    req: true
+    source: prototype/portal-admin/src/views/Categories.vue > t.dimensionId / tagsByActiveDim
+  - n: name
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/Categories.vue > 标签名称 * / confirmAddTag
+      :disabled=!newTagName.trim()
+  - n: cover
+    t: str
+    source: prototype/portal-admin/src/views/Categories.vue > t.cover 封面上传 handleCoverUpload，可为空则纯文字展示
+  - n: status
+    t: enum
+    vals:
+    - enabled
+    - disabled
+    req: true
+    source: prototype/portal-admin/src/views/Categories.vue > Toggle v-model=t.enabled，UI
+      开关映射后端枚举 [INFERRED]
+  - n: product_count
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/Categories.vue > t.count 件数
+  relations:
+  - to: TagDimension
+    type: n1
+  - to: Product
+    type: nm
+- id: Banner
+  desc: 站点广告位图文配置（首页 Hero/推荐位/顶部条），支持排序、定时投放与上下线
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: name
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/Banners.vue > b.name
+  - n: image_url
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/Banners.vue > b.img
+  - n: position
+    t: enum
+    vals:
+    - hero
+    - featured
+    - topbar
+    req: true
+    source: prototype/portal-admin/src/views/Banners.vue > b.position + 页面副标题 首页Hero/推荐位/顶部条
+      [INFERRED]
+  - n: start_time
+    t: datetime
+    source: prototype/portal-admin/src/views/Banners.vue > 投放时间 b.start
+  - n: end_time
+    t: datetime
+    js_guard: end_time > start_time
+    source: prototype/portal-admin/src/views/Banners.vue > 投放时间 b.end
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    - archived
+    req: true
+    source: prototype/portal-admin/src/views/Banners.vue > Toggle v-model=b.online
+      + 保存并发布，UI 开关映射发布状态枚举 [INFERRED]
+  - n: sort
+    t: int
+    req: true
+    source: prototype/portal-admin/src/views/Banners.vue > 排序列 input :value=b.sort
+  - n: clicks
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/Banners.vue > b.clicks 点击统计只读
+  relations: []
+- id: BlogPost
+  desc: Blog 婚礼策划文章，发布后生成静态文章页
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
+  - n: title
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.title
+  - n: cover
+    t: str
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.cover
+  - n: category
+    t: str
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.category 文章栏目
+  - n: author
+    t: str
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.author
+  - n: content
+    t: text
+    source: prototype/portal-admin/src/views/ContentBlog.vue > 写文章/编辑入口 [INFERRED]
+  - n: slug
+    t: str
+    source: prototype/portal-admin/src/views/ContentBlog.vue > 发布后生成静态文章页 [INFERRED]
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    - archived
+    req: true
+    source: prototype/portal-admin/src/views/ContentBlog.vue > filter tabs published/draft
+      + p.status，archived 按发布枚举规范补全 [INFERRED]
+  - n: published_at
+    t: datetime
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.date
+  - n: views
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/ContentBlog.vue > p.views 阅读数只读
+  relations: []
+- id: AnalyticsDashboard
+  desc: 数据看板聚合只读视图（不落库不可写），交易指标由 Order/Refund/Product 聚合派生，流量指标由 GA4 Data API 拉取（决策19）
+  fields:
+  - n: gmv_month
+    t: decimal
+    source: prototype/portal-admin/src/views/Analytics.vue > 本月 GMV，聚合自 Order [INFERRED]
+  - n: order_count
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/Analytics.vue > 订单数，聚合自 Order [INFERRED]
+  - n: avg_order_value
+    t: decimal
+    source: prototype/portal-admin/src/views/Analytics.vue > 客单价，聚合自 Order [INFERRED]
+  - n: refund_rate
+    t: decimal
+    min: 0
+    max: 100
+    source: prototype/portal-admin/src/views/Analytics.vue > 退款率，聚合自 Refund/Order
+      [INFERRED]
+  - n: gmv_trend
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > gmvTrend/gmvLabels SparkArea
+  - n: category_sales
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > categorySales 品类销售占比，聚合自
+      Category/Order [INFERRED]
+  - n: traffic_sources
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > trafficSources 访客来源；数据源
+      GA4 Data API + JetCache 5min（决策19）
+  - n: device_share
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > 设备占比 移动端/桌面端/平板；数据源 GA4
+      Data API（决策19）
+  - n: funnel
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > funnel 转化漏斗 stage/value；数据源
+      GA4 标准电商事件经 Data API 拉取（决策19）
+  - n: top_products
+    t: json
+    source: prototype/portal-admin/src/views/Analytics.vue > topProducts 按 sales 排序取前6，聚合自
+      Product [INFERRED]
+  relations: []
+- id: Product
+  desc: 商品主档（现货+定制双模式婚纱礼服，含版型属性与SEO）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > MyBatis-Plus Long 自增主键
+  - n: name
+    t: str
+    req: true
+    maxlen: 128
+    source: ProductEdit.vue > form.name 商品名称*
+  - n: slug
+    t: str
+    req: true
+    maxlen: 128
+    pattern: ^[a-z0-9-]+$
+    source: ProductEdit.vue > form.slug URL Slug
+  - n: subtitle
+    t: str
+    maxlen: 255
+    source: ProductEdit.vue > form.subtitle 副标题/卖点
+  - n: categoryId
+    t: Long
+    req: true
+    source: ProductEdit.vue > form.categoryId 标准品类级联*
+  - n: productType
+    t: str
+    maxlen: 64
+    source: ProductEdit.vue > form.productType 自由填写
+  - n: description
+    t: text
+    source: ProductEdit.vue > form.description 富文本介绍
+  - n: designerNote
+    t: text
+    source: ProductEdit.vue > form.designerNote 品牌故事
+  - n: price
+    t: number
+    req: true
+    min: 0
+    source: ProductEdit.vue > form.price 现价USD*
+  - n: compareAt
+    t: number
+    min: 0
+    js_guard: compareAt == null || compareAt >= price
+    source: ProductEdit.vue > form.compareAt 划线价
+  - n: installment
+    t: bool
+    source: ProductEdit.vue > form.installment Klarna/Afterpay 分期
+  - n: multiCurrencyPrices
+    t: json
+    source: ProductEdit.vue > 多币种价格 USD/CAD/AUD/GBP 可覆盖
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: mock.js > products.status; Products.vue > Toggle published/draft
+  - n: isNew
+    t: bool
+    source: mock.js > products.isNew; Products.vue > Toggle
+  - n: isBest
+    t: bool
+    source: mock.js > products.isBest
+  - n: recommend
+    t: bool
+    source: mock.js > products.recommend; Products.vue > Toggle
+  - n: sort
+    t: int
+    min: 0
+    source: mock.js > products.sort
+  - n: leadTimeDays
+    t: int
+    min: 1
+    req: true
+    source: ProductEdit.vue > form.leadTimeDays 标准发货周期(天)
+  - n: rushAvailable
+    t: bool
+    source: ProductEdit.vue > form.rushAvailable 支持加急
+  - n: customSizeAvailable
+    t: bool
+    source: ProductEdit.vue > form.customSizeAvailable 定制尺寸(伴娘服核心)
+  - n: silhouette
+    t: str
+    source: ProductEdit.vue > form.silhouette 廓形(属性集控制显隐/必填)
+  - n: neckline
+    t: str
+    source: ProductEdit.vue > form.neckline 领口
+  - n: sleeve
+    t: str
+    source: ProductEdit.vue > form.sleeve 袖型
+  - n: backStyle
+    t: str
+    source: ProductEdit.vue > form.backStyle 背部设计
+  - n: waistline
+    t: str
+    source: ProductEdit.vue > form.waistline 腰线
+  - n: train
+    t: str
+    source: ProductEdit.vue > form.train 拖尾(父品类切换时重置)
+  - n: length
+    t: str
+    source: ProductEdit.vue > form.length 裙长
+  - n: fabric
+    t: str
+    source: ProductEdit.vue > form.fabric 主面料
+  - n: fabricComposition
+    t: str
+    maxlen: 128
+    source: ProductEdit.vue > form.fabricComposition 面料成分
+  - n: support
+    t: str
+    source: ProductEdit.vue > form.support 内置支撑
+  - n: season
+    t: str
+    source: ProductEdit.vue > form.season 季节
+  - n: embellishments
+    t: json
+    source: ProductEdit.vue > form.embellishments 装饰细节多选
+  - n: occasions
+    t: json
+    source: ProductEdit.vue > form.occasions 适合场合多选
+  - n: styleTags
+    t: json
+    source: ProductEdit.vue > form.styleTags 风格标签多选
+  - n: modelHeight
+    t: str
+    maxlen: 32
+    source: ProductEdit.vue > form.modelHeight 模特身高
+  - n: modelSize
+    t: str
+    maxlen: 16
+    source: ProductEdit.vue > form.modelSize 模特所穿尺码
+  - n: modelBodyType
+    t: str
+    maxlen: 32
+    source: ProductEdit.vue > form.modelBodyType 体型描述
+  - n: careInstructions
+    t: text
+    source: ProductEdit.vue > form.careInstructions 护理说明
+  - n: countryOfOrigin
+    t: str
+    maxlen: 64
+    source: ProductEdit.vue > form.countryOfOrigin 生产地
+  - n: styleNo
+    t: str
+    maxlen: 32
+    source: ProductEdit.vue > 款式编号 Style No.
+  - n: seoTitle
+    t: str
+    maxlen: 128
+    source: ProductEdit.vue > form.seoTitle
+  - n: seoDesc
+    t: str
+    maxlen: 255
+    source: ProductEdit.vue > form.seoDesc Meta Description
+  relations:
+  - to: Category
+    type: n1
+  - to: CustomTag
+    type: nm
+- id: ProductImage
+  desc: 商品媒体素材（图廊/场景图/视频/色样）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: productId
+    t: Long
+    req: true
+    source: ProductEdit.vue > sec-media gallery
+  - n: url
+    t: str
+    req: true
+    maxlen: 512
+    source: ProductEdit.vue > gallery img src
+  - n: kind
+    t: enum
+    vals:
+    - gallery
+    - lifestyle
+    - video
+    - swatch
+    req: true
+    source: ProductEdit.vue > 图廊/Lifestyle/走秀视频/颜色色样四区块
+  - n: colorName
+    t: str
+    maxlen: 32
+    source: ProductEdit.vue > swatch 每颜色一张色样图
+  - n: sort
+    t: int
+    min: 0
+    js_guard: sort === 0 为主图
+    source: ProductEdit.vue > 拖拽排序第一张为主图
+  relations:
+  - to: Product
+    type: n1
+- id: Sku
+  desc: SKU（颜色x尺码矩阵；现货含库存乐观锁，定制款无库存仅交期）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: productId
+    t: Long
+    req: true
+    source: ProductEdit.vue > sec-sku SKU 矩阵
+  - n: skuCode
+    t: str
+    req: true
+    maxlen: 64
+    pattern: ^[A-Z0-9-]+$
+    source: ProductEdit.vue > SKU 码 DRM-颜色缩写-尺码
+  - n: color
+    t: str
+    req: true
+    maxlen: 32
+    source: ProductEdit.vue > skuColors 颜色 swatch
+  - n: size
+    t: str
+    req: true
+    maxlen: 16
+    source: ProductEdit.vue > skuSizes 尺码
+  - n: stock
+    t: int
+    min: 0
+    js_guard: 现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存
+    source: ProductEdit.vue > 单元格库存数量; 业务上下文确认乐观锁 [INFERRED]
+  - n: version
+    t: Long
+    source: 业务上下文确认乐观锁扣减 [INFERRED]
+  relations:
+  - to: Product
+    type: n1
+- id: SizeChartRow
+  desc: 商品尺码对照表行（US/UK/AU 与三围、中空到地）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: productId
+    t: Long
+    req: true
+    source: ProductEdit.vue > sec-size 尺码表
+  - n: us
+    t: str
+    req: true
+    maxlen: 8
+    source: ProductEdit.vue > 尺码表列 US
+  - n: uk
+    t: str
+    maxlen: 8
+    source: ProductEdit.vue > 尺码表列 UK
+  - n: au
+    t: str
+    maxlen: 8
+    source: ProductEdit.vue > 尺码表列 AU
+  - n: bust
+    t: number
+    min: 0
+    source: ProductEdit.vue > 胸围(in)
+  - n: waist
+    t: number
+    min: 0
+    source: ProductEdit.vue > 腰围(in)
+  - n: hips
+    t: number
+    min: 0
+    source: ProductEdit.vue > 臀围(in)
+  - n: hollowToFloor
+    t: number
+    min: 0
+    source: ProductEdit.vue > 中空到地(in)
+  relations:
+  - to: Product
+    type: n1
+- id: Customer
+  desc: 消费者（identity 域已有，本图仅作关系锚点）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: name
+    t: str
+    source: OrderDetail.vue > o.customer.name
+  - n: email
+    t: str
+    pattern: ^[^@]+@[^@]+$
+    source: Orders.vue > o.email
+  - n: phone
+    t: str
+    maxlen: 32
+    source: OrderDetail.vue > o.customer.phone
+- id: Address
+  desc: 收货地址（消费端实体，原型后台仅展示快照）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: customerId
+    t: Long
+    req: true
+    source: 业务上下文确认必须建模 Address [INFERRED]
+  - n: receiver
+    t: str
+    req: true
+    maxlen: 64
+    source: 业务上下文确认 [INFERRED]
+  - n: phone
+    t: str
+    maxlen: 32
+    source: OrderDetail.vue > 客户信息含 phone [INFERRED]
+  - n: line
+    t: str
+    req: true
+    maxlen: 255
+    source: OrderDetail.vue > o.address.line
+  - n: city
+    t: str
+    req: true
+    maxlen: 64
+    source: OrderDetail.vue > o.address.city
+  - n: state
+    t: str
+    maxlen: 64
+    source: OrderDetail.vue > o.address.state
+  - n: zip
+    t: str
+    req: true
+    maxlen: 16
+    source: OrderDetail.vue > o.address.zip
+  - n: country
+    t: str
+    req: true
+    maxlen: 64
+    source: OrderDetail.vue > o.address.country
+  - n: isDefault
+    t: bool
+    source: 业务上下文确认 [INFERRED]
+  relations:
+  - to: Customer
+    type: n1
+- id: CartItem
+  desc: 购物车条目（登录用户 DB 持久化，匿名 token 标识并在登录后合并）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: customerId
+    t: Long
+    source: 业务上下文确认必须建模 CartItem [INFERRED]
+  - n: anonToken
+    t: str
+    maxlen: 64
+    js_guard: customerId 与 anonToken 至少其一非空; 登录后按 anonToken 合并入 customerId
+    source: 业务上下文确认匿名合并 [INFERRED]
+  - n: productId
+    t: Long
+    req: true
+    source: 业务上下文确认 [INFERRED]
+  - n: skuId
+    t: Long
+    js_guard: 现货必填 skuId; 定制款可空并携带 customSizeData
+    source: 业务上下文确认双模式 [INFERRED]
+  - n: qty
+    t: int
+    req: true
+    min: 1
+    source: 业务上下文确认 [INFERRED]
+  - n: customSizeData
+    t: json
+    source: ProductEdit.vue > customSizeAvailable 买家填写三围 [INFERRED]
+  relations:
+  - to: Customer
+    type: n1
+  - to: Product
+    type: n1
+  - to: Sku
+    type: n1
+- id: Order
+  desc: 订单（核心交易主单，Stripe 沙箱支付，待支付30分钟超时自动取消并回补库存）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: orderNo
+    t: str
+    req: true
+    pattern: ^DRM-\d{8}-\d{4}$
+    source: mock.js > orders.id 'DRM-20260529-1042'
+  - n: customerId
+    t: Long
+    req: true
+    source: Orders.vue > 客户列; OrderDetail.vue > o.customer
+  - n: status
+    t: enum
+    vals:
+    - pending
+    - paid
+    - shipped
+    - completed
+    - cancelled
+    - refunding
+    - refunded
+    req: true
+    source: 'mock.js > ORDER_STATUS; Orders.vue > tabs; 业务上下文确认取消/退款分支 [INFERRED:
+      cancelled/refunded]'
+  - n: currency
+    t: enum
+    vals:
+    - USD
+    - CAD
+    - AUD
+    - GBP
+    req: true
+    source: Orders.vue > curSym 币种映射
+  - n: exchangeRate
+    t: decimal
+    source: decision.md 决策14 下单时锁定的 USD→订单币种汇率（退款按原币种原金额，不受后续汇率变化影响）
+  - n: weddingDate
+    t: date
+    source: prototype/app/checkout/page.tsx > 结算 wedding date 选填字段，交期复核；Showroom 婚期自动带入（F-077，决策20.6）
+  - n: subtotal
+    t: number
+    min: 0
+    req: true
+    source: OrderDetail.vue > subtotal 行小计求和
+  - n: shippingFee
+    t: number
+    min: 0
+    source: OrderDetail.vue > 运费(免邮); mock.js > shipping.fee
+  - n: giftWrap
+    t: bool
+    source: decision.md 决策28 结算物流步骤礼品包装选项（F-036）
+  - n: giftWrapFee
+    t: number
+    min: 0
+    source: decision.md 决策28 下单时快照的礼品包装固定费（后台可配置，按决策14锁汇换算）
+  - n: totalAmount
+    t: number
+    min: 0
+    req: true
+    js_guard: totalAmount === subtotal + shippingFee + giftWrapFee - 优惠减免
+    source: Orders.vue > 金额列; OrderDetail.vue > 合计
+  - n: couponId
+    t: Long
+    source: Promotions.vue > 优惠券核销 [INFERRED]
+  - n: paymentMethod
+    t: str
+    maxlen: 32
+    source: Orders.vue > 支付方式列 Stripe/PayPal/Apple Pay/Klarna/Afterpay/Google Pay；decision.md
+      决策25 Stripe Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，PayPal
+      置灰 coming soon
+  - n: addressSnapshot
+    t: json
+    req: true
+    source: OrderDetail.vue > 收货地址面板(下单时快照)
+  - n: carrier
+    t: enum
+    vals:
+    - FedEx International Priority
+    - UPS Worldwide Express
+    - DHL Express
+    source: OrderDetail.vue > 发货面板承运方 select
+  - n: trackingNo
+    t: str
+    maxlen: 64
+    source: OrderDetail.vue > tracking 运单号
+  - n: expiresAt
+    t: datetime
+    js_guard: createdAt + 30min; 超时未支付自动取消并回补库存
+    source: 业务上下文确认30分钟超时 [INFERRED]
+  - n: paidAt
+    t: datetime
+    source: OrderDetail.vue > o.payment.time 支付时间
+  - n: shippedAt
+    t: datetime
+    source: OrderDetail.vue > 状态时间线 [INFERRED]
+  - n: completedAt
+    t: datetime
+    source: OrderDetail.vue > 状态时间线 [INFERRED]
+  - n: createdAt
+    t: datetime
+    req: true
+    source: Orders.vue > 下单时间列
+  relations:
+  - to: Customer
+    type: n1
+  - to: Coupon
+    type: n1
+- id: OrderLine
+  desc: 订单行（商品/SKU 快照，定制款携带定制尺寸数据）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: orderId
+    t: Long
+    req: true
+    source: OrderDetail.vue > o.lines
+  - n: productId
+    t: Long
+    req: true
+    source: OrderDetail.vue > 商品明细行
+  - n: skuId
+    t: Long
+    source: OrderDetail.vue > l.sku; 定制款可空 [INFERRED]
+  - n: productName
+    t: str
+    req: true
+    maxlen: 128
+    source: OrderDetail.vue > l.name 快照
+  - n: skuCode
+    t: str
+    maxlen: 64
+    source: OrderDetail.vue > l.sku 'AURELIA-IVORY-US6'
+  - n: color
+    t: str
+    maxlen: 32
+    source: OrderDetail.vue > l.color
+  - n: size
+    t: str
+    maxlen: 16
+    source: OrderDetail.vue > l.size
+  - n: qty
+    t: int
+    req: true
+    min: 1
+    source: OrderDetail.vue > l.qty 数量列
+  - n: unitPrice
+    t: number
+    req: true
+    min: 0
+    source: OrderDetail.vue > l.price 单价列
+  - n: img
+    t: str
+    maxlen: 512
+    source: OrderDetail.vue > l.img 快照
+  - n: customSizeData
+    t: json
+    source: 业务上下文确认定制尺寸 [INFERRED]
+  relations:
+  - to: Order
+    type: n1
+  - to: Product
+    type: n1
+  - to: Sku
+    type: n1
+- id: Payment
+  desc: 支付单（Stripe PaymentIntent，webhook 异步回调驱动状态）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: orderId
+    t: Long
+    req: true
+    source: OrderDetail.vue > 支付信息面板
+  - n: provider
+    t: enum
+    vals:
+    - stripe
+    req: true
+    source: 业务上下文确认 Stripe 沙箱 [INFERRED]
+  - n: paymentIntentId
+    t: str
+    maxlen: 64
+    source: 业务上下文确认 PaymentIntent+webhook [INFERRED]
+  - n: amount
+    t: number
+    req: true
+    min: 0
+    source: mock.js > orderDetail.payment.paid
+  - n: currency
+    t: enum
+    vals:
+    - USD
+    - CAD
+    - AUD
+    - GBP
+    req: true
+    source: mock.js > orderDetail.payment.currency
+  - n: status
+    t: enum
+    vals:
+    - created
+    - processing
+    - succeeded
+    - failed
+    - refunded
+    req: true
+    source: 业务上下文确认 PaymentIntent 生命周期 [INFERRED]
+  - n: cardSummary
+    t: str
+    maxlen: 64
+    source: OrderDetail.vue > 'Stripe · Visa ···4242'
+  - n: paidAt
+    t: datetime
+    source: OrderDetail.vue > 支付时间
+  relations:
+  - to: Order
+    type: n1
+- id: Refund
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: refundNo
+    t: str
+    req: true
+    maxlen: 32
+    source: field-inventory FLD-REFUNDS-001 工单号
+  - n: orderId
+    t: Long
+    req: true
+    source: field-inventory FLD-REFUNDS-002 关联订单; OrderDetail.vue > 发起退款按钮
+  - n: customerId
+    t: Long
+    req: true
+    source: field-inventory FLD-REFUNDS-003 客户
+  - n: amount
+    t: number
+    req: true
+    min: 0
+    js_guard: amount <= Order.totalAmount
+    source: field-inventory FLD-REFUNDS-004 退款金额
+  - n: reason
+    t: str
+    maxlen: 255
+    source: field-inventory FLD-REFUNDS-005 退款原因
+  - n: status
+    t: enum
+    vals:
+    - pending
+    - approved
+    - rejected
+    req: true
+    source: field-inventory FLD-REFUNDS-007/008/009 pending/approved/rejected
+    js_guard: r.status === 'pending' 时才允许同意/拒绝操作
+  - n: appliedAt
+    t: datetime
+    req: true
+    source: field-inventory FLD-REFUNDS-006 申请时间
+  - n: currency
+    t: enum
+    vals:
+    - USD
+    - CAD
+    - AUD
+    - GBP
+    req: true
+    source: Refunds.vue cur 映射表
+  - n: stripeRefundId
+    t: str
+    source: 业务上下文 Stripe 退款沙箱 [INFERRED]
+  - n: returnTrackingNo
+    t: str
+    maxlen: 64
+    source: decision.md 决策31 已发货退货审核制：登记退货物流单号（选填），不建 RMA 状态节点
+  relations:
+  - to: Order
+    type: n1
+  - to: Customer
+    type: n1
+  desc: 退款工单（关联订单，审核通过后执行 Stripe 退款）
+- id: Coupon
+  desc: 优惠券（折扣/满减/包邮三类，限量发放计数）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: code
+    t: str
+    req: true
+    maxlen: 32
+    pattern: ^[A-Z0-9]+$
+    source: mock.js > coupons.code 'WELCOME15'
+  - n: name
+    t: str
+    req: true
+    maxlen: 64
+    source: Promotions.vue > c.name
+  - n: type
+    t: enum
+    vals:
+    - discount
+    - fixed_amount
+    - free_shipping
+    req: true
+    source: mock.js > coupons.type 折扣/满减/包邮
+  - n: value
+    t: str
+    req: true
+    maxlen: 32
+    source: Promotions.vue > c.value '15% OFF'/'$50 OFF'
+  - n: minAmount
+    t: number
+    min: 0
+    source: Promotions.vue > 门槛 满 $min/无门槛
+  - n: totalLimit
+    t: int
+    min: 0
+    source: Promotions.vue > c.total(>9999 视为不限)
+  - n: usedCount
+    t: int
+    min: 0
+    js_guard: usedCount <= totalLimit
+    source: Promotions.vue > 已用 used/total
+  - n: startAt
+    t: datetime
+    source: mock.js > coupons.start
+  - n: endAt
+    t: datetime
+    js_guard: endAt > startAt
+    source: mock.js > coupons.end
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - scheduled
+    - active
+    - expiring
+    - expired
+    req: true
+    source: Promotions.vue > tone/label 映射 active/expiring/draft/scheduled; expired
+      [INFERRED]
+  relations: []
+- id: FlashSale
+  desc: 闪购活动（限时秒杀，到期自动下线）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: name
+    t: str
+    req: true
+    maxlen: 64
+    source: Promotions.vue > f.name 活动名称
+  - n: discount
+    t: str
+    req: true
+    maxlen: 32
+    source: Promotions.vue > f.discount '最高 40% OFF'
+  - n: startAt
+    t: datetime
+    req: true
+    source: mock.js > flashSales.start
+  - n: endAt
+    t: datetime
+    req: true
+    js_guard: endAt > startAt; 到期后定时任务自动下线
+    source: mock.js > flashSales.end; 业务上下文确认自动下线 [INFERRED]
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - scheduled
+    - active
+    - ended
+    req: true
+    source: Promotions.vue > status active/scheduled; draft/ended [INFERRED]
+  relations:
+  - to: Product
+    type: nm
+- id: Lookbook
+  desc: Lookbook 画册（主题内容集合）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: title
+    t: str
+    req: true
+    maxlen: 128
+    source: mock.js > lookbooks.title
+  - n: theme
+    t: str
+    maxlen: 32
+    source: mock.js > lookbooks.theme Vineyard/Beach/Forest
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: ContentLookbook.vue > StatusBadge published/draft
+  relations:
+  - to: Product
+    type: nm
+- id: Guide
+  desc: Wedding Guide 备婚指南（按备婚阶段组织）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: phase
+    t: str
+    req: true
+    maxlen: 32
+    source: mock.js > guides.phase 'Phase 1'
+  - n: timeframe
+    t: str
+    maxlen: 64
+    source: mock.js > guides.timeframe '12+ months out'
+  - n: title
+    t: str
+    req: true
+    maxlen: 128
+    source: mock.js > guides.title
+  - n: tasksCount
+    t: int
+    min: 0
+    source: mock.js > guides.tasks
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: ContentLookbook.vue > guides StatusBadge published/draft
+  relations: []
+- id: RealWedding
+  desc: 真实婚礼案例（Shop the Look 关联商品）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: couple
+    t: str
+    req: true
+    maxlen: 64
+    source: mock.js > realWeddings.couple 'Emma & James'
+  - n: location
+    t: str
+    maxlen: 128
+    source: mock.js > realWeddings.location
+  - n: theme
+    t: str
+    maxlen: 32
+    source: mock.js > realWeddings.theme
+  - n: weddingDate
+    t: str
+    maxlen: 16
+    source: mock.js > realWeddings.date '2025-06'
+  - n: cover
+    t: str
+    maxlen: 512
+    source: mock.js > realWeddings.cover
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: ContentWeddings.vue > StatusBadge published/draft
+  relations:
+  - to: Product
+    type: nm
+- id: CustomTag
+  desc: 自定义标签（营销/导航维度，多选挂商品；详细建模归 Categories 批次）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: name
+    t: str
+    req: true
+    maxlen: 64
+    source: ProductEdit.vue > tagsByDimension tag.name
+  - n: dimensionId
+    t: str
+    maxlen: 32
+    source: ProductEdit.vue > tagDimensions dim.id
+  relations: []
+- id: Review
+  desc: 商品评价，消费端提交、管理端审核，支持精选与官方回复
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
+  - n: product_id
+    t: Long
+    req: true
+    source: Reviews.vue r.productId
+  - n: user_id
+    t: Long
+    req: true
+    source: 业务上下文 按 user_id 隔离 [INFERRED]
+  - n: customer_name
+    t: str
+    source: Reviews.vue r.customer
+  - n: rating
+    t: int
+    req: true
+    min: 1
+    max: 5
+    source: Reviews.vue r.rating 五星组件
+  - n: content
+    t: str
+    source: Reviews.vue r.content
+  - n: status
+    t: enum
+    vals:
+    - pending
+    - approved
+    - rejected
+    req: true
+    js_guard: r.status === 'pending' 时才显示通过/拒绝按钮
+    source: Reviews.vue statusChips + approveReview/rejectReview
+  - n: featured
+    t: bool
+    js_guard: featured 仅 status=='approved' 可为 true；rejectReview/batchSet 非 approved
+      时强制 featured=false
+    source: Reviews.vue setFeatured/batchSet
+  - n: submitted_at
+    t: datetime
+    source: Reviews.vue r.date 提交时间列
+  - n: reply_author
+    t: str
+    source: Reviews.vue saveReply author 'Dreamy Team'
+  - n: reply_content
+    t: str
+    js_guard: detailReview.status=='approved' 才可创建/编辑官方回复且 replyDraft.trim() 非空
+    source: Reviews.vue saveReply/deleteReply
+  - n: reply_time
+    t: datetime
+    source: Reviews.vue saveReply time
+  relations:
+  - to: Product
+    type: n1
+  - to: User
+    type: n1
+- id: ReviewImage
+  desc: 评价买家秀图片，可单独驳回或恢复前台展示
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
+  - n: review_id
+    t: Long
+    req: true
+    source: 'Reviews.vue r.images [INFERRED: 子表外键]'
+  - n: url
+    t: str
+    req: true
+    source: Reviews.vue img.url
+  - n: rejected
+    t: bool
+    js_guard: rejected=true 时前台不展示该图
+    source: Reviews.vue rejectImage/restoreImage
+  relations:
+  - to: Review
+    type: n1
+- id: ProductQuestion
+  desc: 商品 Q&A 提问，管理端回答并控制前台可见性
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
+  - n: product_id
+    t: Long
+    req: true
+    source: Reviews.vue q.productId
+  - n: asker
+    t: str
+    source: Reviews.vue q.asker
+  - n: question
+    t: str
+    req: true
+    source: Reviews.vue q.question
+  - n: asked_at
+    t: datetime
+    source: Reviews.vue q.date
+  - n: answer
+    t: str
+    js_guard: answerDraft.trim() 非空才能保存
+    source: Reviews.vue saveAnswer
+  - n: answer_time
+    t: datetime
+    source: Reviews.vue q.answerTime
+  - n: visible
+    t: enum
+    vals:
+    - visible
+    - hidden
+    source: 'Reviews.vue Toggle q.visible [INFERRED: UI toggle 映射后端可见性枚举，需后端确认]'
+  relations:
+  - to: Product
+    type: n1
+- id: Carrier
+  desc: 物流承运方，含覆盖区域、时效与启用状态
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
+  - n: name
+    t: str
+    req: true
+    source: Shipping.vue c.name
+  - n: zones
+    t: str
+    source: Shipping.vue c.zones
+  - n: lead_time
+    t: str
+    source: Shipping.vue c.leadTime
+  - n: status
+    t: enum
+    vals:
+    - enabled
+    - disabled
+    req: true
+    source: 'Shipping.vue Toggle c.enabled [INFERRED: UI enabled toggle 映射后端 status
+      枚举，需后端确认]'
+  relations: []
+- id: ShippingRate
+  desc: 国际邮费分区运费规则，订单结算依赖其运费计算
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
+  - n: zone
+    t: str
+    req: true
+    source: Shipping.vue r.zone 区域列
+  - n: fee_under
+    t: decimal
+    min: 0
+    source: Shipping.vue r.under 基础邮费列
+  - n: fee_over
+    t: decimal
+    min: 0
+    source: Shipping.vue r.over 满额包邮列
+  - n: threshold
+    t: decimal
+    min: 0
+    source: Shipping.vue r.threshold 门槛列
+  relations: []
+- id: ProductTranslation
+  desc: Product 多语言文案附表（locale=es/fr，EN 存主表；唯一键 productId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: productId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: name
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: subtitle
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: description
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: seoTitle
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: seoDescription
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Product
+    type: n1
+- id: CategoryTranslation
+  desc: Category 多语言文案附表（locale=es/fr，EN 存主表；唯一键 categoryId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: categoryId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: name
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Category
+    type: n1
+- id: AttributeDefTranslation
+  desc: AttributeDef 多语言文案附表（locale=es/fr，EN 存主表；唯一键 attributeDefId+locale；缺翻译消费端回退
+    EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: attributeDefId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: label
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: options
+    t: json
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: AttributeDef
+    type: n1
+- id: TagTranslation
+  desc: Tag 多语言文案附表（locale=es/fr，EN 存主表；唯一键 tagId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: tagId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: label
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Tag
+    type: n1
+- id: CustomTagTranslation
+  desc: CustomTag 多语言文案附表（locale=es/fr，EN 存主表；唯一键 customTagId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: customTagId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: label
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: CustomTag
+    type: n1
+- id: TagDimensionTranslation
+  desc: TagDimension 多语言文案附表（locale=es/fr，EN 存主表；唯一键 tagDimensionId+locale；缺翻译消费端回退
+    EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: tagDimensionId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: name
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: TagDimension
+    type: n1
+- id: BannerTranslation
+  desc: Banner 多语言文案附表（locale=es/fr，EN 存主表；唯一键 bannerId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: bannerId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: title
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: subtitle
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: ctaText
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Banner
+    type: n1
+- id: BlogPostTranslation
+  desc: BlogPost 多语言文案附表（locale=es/fr，EN 存主表；唯一键 blogPostId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: blogPostId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: title
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: excerpt
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: body
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: seoTitle
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: seoDescription
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: BlogPost
+    type: n1
+- id: LookbookTranslation
+  desc: Lookbook 多语言文案附表（locale=es/fr，EN 存主表；唯一键 lookbookId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: lookbookId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: title
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: description
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Lookbook
+    type: n1
+- id: GuideTranslation
+  desc: Guide 多语言文案附表（locale=es/fr，EN 存主表；唯一键 guideId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: guideId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: title
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: body
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Guide
+    type: n1
+- id: RealWeddingTranslation
+  desc: RealWedding 多语言文案附表（locale=es/fr，EN 存主表；唯一键 realWeddingId+locale；缺翻译消费端回退
+    EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: realWeddingId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: title
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: story
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: RealWedding
+    type: n1
+- id: CouponTranslation
+  desc: Coupon 多语言文案附表（locale=es/fr，EN 存主表；唯一键 couponId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: couponId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: name
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: description
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: Coupon
+    type: n1
+- id: FlashSaleTranslation
+  desc: FlashSale 多语言文案附表（locale=es/fr，EN 存主表；唯一键 flashSaleId+locale；缺翻译消费端回退 EN）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: flashSaleId
+    t: Long
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  - n: locale
+    t: enum
+    vals:
+    - es
+    - fr
+    req: true
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
+  - n: name
+    t: str
+    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
+  relations:
+  - to: FlashSale
+    type: n1
+- id: ExchangeRate
+  desc: 汇率表（USD 基准，管理端可维护，替换前端硬编码汇率；下单时按当前汇率锁定写入 Order.exchangeRate）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策14 多币种结算
+  - n: currency
+    t: enum
+    vals:
+    - USD
+    - EUR
+    - CAD
+    - AUD
+    - GBP
+    req: true
+    source: decision.md 决策14（前端现有 USD/CAD/AUD/GBP + 补 EUR）
+  - n: rate
+    t: decimal
+    req: true
+    min: 0
+    source: decision.md 决策14（相对 USD 的汇率，USD 恒为 1）
+  - n: updatedBy
+    t: Long
+    source: decision.md 决策14 管理端维护
+  - n: updatedAt
+    t: datetime
+    source: decision.md 决策14
+  relations: []
+- id: MailRecord
+  desc: 交易性邮件发送记录（MQ 订单事件消费者产出；按 orderId+type 幂等防重发；失败重试，按用户 locale 三语渲染）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: decision.md 决策16 交易性邮件
+  - n: type
+    t: enum
+    vals:
+    - order_confirmed
+    - shipped
+    - refund_result
+    req: true
+    source: decision.md 决策16 三类交易邮件
+  - n: orderId
+    t: Long
+    req: true
+    source: decision.md 决策16（orderId+type 唯一幂等键）
+  - n: recipient
+    t: str
+    req: true
+    source: decision.md 决策16
+  - n: locale
+    t: enum
+    vals:
+    - en
+    - es
+    - fr
+    req: true
+    source: decision.md 决策16 邮件按用户 locale 渲染
+  - n: status
+    t: enum
+    vals:
+    - pending
+    - sent
+    - failed
+    - dead
+    req: true
+    source: decision.md 决策16（failed 重试，超限转 dead）
+  - n: retryCount
+    t: int
+    min: 0
+    source: decision.md 决策16
+  - n: sentAt
+    t: datetime
+    source: decision.md 决策16
+  relations:
+  - to: Order
+    type: n1
+- id: WishlistItem
+  desc: 收藏条目（登录用户专属，后端持久化，决策18；未登录点击收藏引导登录）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: customerId
+    t: Long
+    req: true
+    source: decision.md 决策18 登录用户专属，BE-DIM-6 user_id 隔离
+  - n: productId
+    t: Long
+    req: true
+    js_guard: customerId+productId 唯一，重复收藏幂等返回已收藏
+    source: prototype/app/account/wishlist/page.tsx > 收藏网格 + feature-map F-047
+  relations:
+  - to: Customer
+    type: n1
+  - to: Product
+    type: n1
+- id: Showroom
+  desc: 虚拟陈列室（新娘创建的伴娘团协作空间，决策20；feature-map F-066~071）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: ownerId
+    t: Long
+    req: true
+    source: prototype/app/showroom/page.tsx > 我的 Showroom 列表（新娘 customerId）
+  - n: name
+    t: str
+    req: true
+    maxlen: 64
+    source: prototype/app/showroom/page.tsx > 创建弹窗命名（如 Sarah's Bridal Party）
+  - n: weddingDate
+    t: date
+    source: prototype/app/showroom/page.tsx > 创建弹窗婚期 + F-077 结算自动带入
+  - n: inviteToken
+    t: str
+    req: true
+    maxlen: 64
+    js_guard: 不可猜 UUID；新娘重置后旧 token 作废（决策20.2）
+    source: decision.md 决策20.2 邀请 token + guest JWT
+  relations:
+  - to: Customer
+    type: n1
+- id: ShowroomItem
+  desc: Showroom 收藏款式（含颜色，决策20；F-067 Add to Showroom）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: showroomId
+    t: Long
+    req: true
+    source: prototype/components/showroom/add-to-showroom-modal.tsx > 选择目标 Showroom
+  - n: productId
+    t: Long
+    req: true
+    source: prototype/components/showroom/add-to-showroom-modal.tsx > PDP/商品卡片加入
+  - n: color
+    t: str
+    maxlen: 64
+    js_guard: 同 showroom 内 productId+color 唯一
+    source: prototype/components/showroom/add-to-showroom-modal.tsx > 选择颜色后加入
+  relations:
+  - to: Showroom
+    type: n1
+  - to: Product
+    type: n1
+- id: ShowroomMember
+  desc: Showroom 成员（免注册访客凭邀请 token+昵称参与；新娘可指派款式并发提醒，决策20）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: showroomId
+    t: Long
+    req: true
+    source: prototype/app/showroom/[id]/page.tsx > 成员列表
+  - n: nickname
+    t: str
+    req: true
+    maxlen: 32
+    js_guard: 同 showroom 内昵称唯一（投票/留言去重身份）
+    source: prototype/app/showroom/[id]/page.tsx > 访客输入昵称即可参与（F-068）
+  - n: email
+    t: str
+    maxlen: 254
+    source: decision.md 决策20.5 新娘指派时填写，用于提醒邮件
+  - n: assignedItemId
+    t: Long
+    source: prototype/app/showroom/page.tsx > 新娘为伴娘指派款式/颜色（F-070）
+  - n: assignStatus
+    t: enum
+    vals:
+    - unassigned
+    - assigned
+    - reminded
+    - ordered
+    req: true
+    source: prototype/app/showroom/page.tsx > 成员指派状态 + 发送提醒（F-070/F-071）
+  - n: linkedCustomerId
+    t: Long
+    source: decision.md 决策20.2 访客下单时才要求登录，登录后回填关联（F-068）
+  relations:
+  - to: Showroom
+    type: n1
+  - to: ShowroomItem
+    type: n1
+  - to: Customer
+    type: n1
+- id: ShowroomVote
+  desc: 款式投票（喜欢/不喜欢，按成员去重，决策20；F-069）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: showroomItemId
+    t: Long
+    req: true
+    source: prototype/app/showroom/[id]/page.tsx > 每款式投票（票数聚合展示）
+  - n: memberId
+    t: Long
+    req: true
+    js_guard: memberId+showroomItemId 唯一（每成员每款一票，重复投票覆盖）
+    source: decision.md 决策20.2 投票按 member 去重
+  - n: vote
+    t: enum
+    vals:
+    - like
+    - dislike
+    req: true
+    source: prototype/app/showroom/[id]/page.tsx > 喜欢/不喜欢 投票（F-069）
+  relations:
+  - to: ShowroomItem
+    type: n1
+  - to: ShowroomMember
+    type: n1
+- id: ShowroomComment
+  desc: 款式留言（昵称+留言列表，决策20；F-069）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: showroomItemId
+    t: Long
+    req: true
+    source: prototype/app/showroom/[id]/page.tsx > 留言区挂款式
+  - n: memberId
+    t: Long
+    req: true
+    source: prototype/app/showroom/[id]/page.tsx > 留言带昵称
+  - n: content
+    t: str
+    req: true
+    maxlen: 500
+    source: prototype/app/showroom/[id]/page.tsx > 留言列表（F-069）
+  relations:
+  - to: ShowroomItem
+    type: n1
+  - to: ShowroomMember
+    type: n1
+- id: BrowseHistory
+  desc: 浏览历史（登录用户浏览商品详情时 upsert 记录，每用户保留最近 50 条滚动清理，决策23；F-048）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: customerId
+    t: Long
+    req: true
+    source: decision.md 决策23 登录用户记录，匿名不记录
+  - n: productId
+    t: Long
+    req: true
+    js_guard: customerId+productId 唯一，重复浏览 upsert 更新 viewedAt
+    source: prototype feature-map F-048 Recently Viewed 横滑
+  - n: viewedAt
+    t: datetime
+    req: true
+    source: decision.md 决策23 按 viewedAt 倒序拉取
+  relations:
+  - to: Customer
+    type: n1
+  - to: Product
+    type: n1
+- id: NewsletterSubscriber
+  desc: Newsletter 订阅记录（仅落表收集，不发码不发邮件，决策26；F-008 页脚 + F-056 弹窗/Exit Intent）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: email
+    t: str
+    req: true
+    maxlen: 255
+    pattern: email
+    js_guard: email 唯一，重复订阅幂等返回成功
+    source: prototype/components/marketing/newsletter-modal.tsx + site-footer.tsx
+      订阅输入框
+  - n: source
+    t: enum
+    vals:
+    - footer
+    - modal
+    - exit_intent
+    req: true
+    source: decision.md 决策26 订阅来源
+  - n: locale
+    t: enum
+    vals:
+    - en
+    - es
+    - fr
+    req: true
+    source: decision.md 决策26 订阅时页面语言（决策27 路径前缀）
+  - n: subscribedAt
+    t: datetime
+    req: true
+    source: decision.md 决策26 订阅时间
+  relations: []
+- id: ContactMessage
+  desc: 联系表单消息（落表收集，管理端本期不做查看页，决策30；F-058）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: MEMORY project_dreamy_backend_refactor > Long 主键
+  - n: name
+    t: str
+    req: true
+    maxlen: 100
+    source: prototype/app/contact/page.tsx 表单姓名
+  - n: email
+    t: str
+    req: true
+    maxlen: 255
+    pattern: email
+    source: prototype/app/contact/page.tsx 表单邮箱
+  - n: subject
+    t: str
+    maxlen: 200
+    source: prototype/app/contact/page.tsx 表单主题
+  - n: message
+    t: str
+    req: true
+    maxlen: 5000
+    source: prototype/app/contact/page.tsx 表单内容
+  - n: submittedAt
+    t: datetime
+    req: true
+    source: decision.md 决策30 提交时间
+  relations: []
