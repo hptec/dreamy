@@ -43,7 +43,7 @@ class OtpConcurrencyIT extends AbstractIT {
                 .inSql(UserSession::getUserId,
                         "SELECT id FROM `user` WHERE email='" + EMAIL + "'"));
         userIdentityMapper.delete(new LambdaQueryWrapper<UserIdentity>()
-                .eq(UserIdentity::getProvider, "email")
+                .eq(UserIdentity::getProvider, AuthProvider.EMAIL)
                 .eq(UserIdentity::getProviderUid, EMAIL));
         userMapper.delete(new LambdaQueryWrapper<User>()
                 .eq(User::getEmail, EMAIL));
@@ -93,7 +93,7 @@ class OtpConcurrencyIT extends AbstractIT {
 
         long consumedCount = otpCodeMapper.selectCount(new LambdaQueryWrapper<OtpCode>()
                 .eq(OtpCode::getEmail, EMAIL)
-                .eq(OtpCode::getStatus, "consumed"));
+                .eq(OtpCode::getStatus, OtpStatus.CONSUMED));
         assertThat(consumedCount).isEqualTo(1);
     }
 }

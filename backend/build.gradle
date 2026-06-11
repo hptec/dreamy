@@ -34,6 +34,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
+    // ── RabbitMQ：spring-amqp（dreamy.events 事件拓扑，BE-DIM-4；dev 缺省 stub 不连 broker）──
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
     // ── huihao 内部库（Nexus 私仓）────────────────────────────────
     implementation "com.huihao:huihao-mysql:${huihaoVersion}"
     implementation "com.huihao:huihao-base:${huihaoVersion}"

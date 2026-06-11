@@ -24,9 +24,21 @@ spring:
       write-dates-as-timestamps: false
   main:
     allow-bean-definition-overriding: true
+  # RabbitMQ 连接（仅 dreamy.mq.mode=real 时实际使用；dev 缺省 stub 不连 broker）
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 server:
   port: 8080
+
+# dev 缺省 stub 模式不连 RabbitMQ，关闭 rabbit 健康检查避免 actuator 误报 DOWN（real 环境按需开启）
+management:
+  health:
+    rabbit:
+      enabled: false
 
 # huihao-mysql：DDL 自动管理（@EnableMysql 覆盖 auto/scan-packages，此处兜底）
 huihao:
@@ -34,6 +46,12 @@ huihao:
     auto: update
     scan-packages:
       - com.dreamy.identity.domain
+      - com.dreamy.catalog.domain
+      - com.dreamy.shipping.domain
+      - com.dreamy.review.domain
+      - com.dreamy.marketing.domain
+      - com.dreamy.showroom.domain
+      - com.dreamy.trading.domain
   # huihao-redis：Redisson（分布式锁 IdLockSupport + 健康检查）
   redis:
     host: localhost
@@ -83,6 +101,115 @@ identity:
     from: noreply@dreamy.com
   retention:
     cron: "0 0 3 * * *"
+
+# ===== portal-api-integration 公共基建（七域前置依赖）=====
+dreamy:
+  # StoreJwtFilter 配置化白名单（error-strategy L2 要求 2；条目形式 METHOD:pattern，
+  # 无 METHOD 前缀缺省匹配全部 method——review-api-detail 0.1 定稿，向后兼容）
+  security:
+    store-public-paths:
+      # identity 既有 5 条公开路径（配置化迁移，行为保持不变）
+      - /api/store/auth/otp/send
+      - /api/store/auth/otp/verify
+      - /api/store/auth/oidc/**
+      - /api/store/auth/refresh
+      - /api/store/auth/config
+      # catalog 域登记 3 条（catalog-api-detail 0.1）
+      - /api/store/products/**
+      - /api/store/categories
+      - /api/store/tags
+      # marketing 域登记 4 条（marketing-api-detail 0.1；flash-sales 精确路径，
+      # 禁止 /api/store/promotions/**——否则误放行 coupons/validate）
+      - /api/store/content/**
+      - /api/store/promotions/flash-sales
+      - /api/store/newsletter
+      - /api/store/contact
+      # review 域登记 2 条 method-aware（review-api-detail 0.1；同路径 POST 仍强制鉴权）
+      - GET:/api/store/reviews
+      - GET:/api/store/questions
+      # trading 域登记 2 条（trading-api-detail §0；webhook 仅 POST，JWT 豁免后由
+      # Stripe 签名过滤器接管验签——webhook 安全第 5 条）
+      - /api/store/exchange-rates
+      - POST:/api/store/payments/stripe/webhook
+      # showroom 域登记 1 条（showroom-api-detail 0.1；其余 showrooms 路径含 GET 列表仍强制鉴权）
+      - POST:/api/store/showrooms/guest-session
+    # guest 操作白名单（showroom-api-detail 0.2-b，三条；条目形式与公开白名单完全一致）
+    showroom-guest-paths:
+      - GET:/api/store/showrooms/*
+      - PUT:/api/store/showrooms/*/items/*/vote
+      - POST:/api/store/showrooms/*/items/*/comments
+  # showroom guest JWT（showroom-api-detail 0.2-1：TTL 24h，无 refresh、不落 user_session）
+  showroom:
+    guest-token-ttl-seconds: 86400
+    # dye lot 24h 窗口（决策 20.4 / CV-SHR-011；详情 dye_lot_notice 与 DyeLotPort 同源同口径）
+    dye-lot-window-hours: 24
+    # 邀请链接 invite_url 基址（EVT-SHR-001/002：{store-base-url}/showroom/{id}?invite={token}）
+    store-base-url: ${SITE_BASE_URL:http://localhost:5173}
+  # Stripe（决策 7/25；dev 缺省 stub 零外部依赖；密钥仅后端配置，不落日志）
+  stripe:
+    mode: ${STRIPE_MODE:stub}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_stub_dev_secret}
+    timeout-ms: 10000
+    webhook-tolerance-seconds: 300
+  # RabbitMQ 事件拓扑（data-flow「MQ 事件拓扑」BE-DIM-4；dev 缺省 stub 同步直调，不连 broker）
+  mq:
+    mode: ${MQ_MODE:stub}
+    exchange: dreamy.events
+    dead-letter-exchange: dreamy.dlx
+    dead-letter-queue: dreamy.dlq
+    retry-queue-prefix: dreamy.retry.
+    max-retries: 3
+    # 缺省重试 TTL 阶梯（showroom data-detail §8.2：5s/30s/180s）
+    default-retry-ttl-ms: 5000,30000,180000
+    queues:
+      "[q.mail]":
+        binding-keys: ["order.*", "showroom.*", "refund.resolved"]
+      "[q.showroom]":
+        binding-keys: ["order.paid"]
+      "[q.catalog.sales]":
+        binding-keys: ["order.paid"]
+        retry-ttl-ms: 1000,4000,16000
+      "[q.catalog.rating]":
+        binding-keys: ["review.moderated"]
+        retry-ttl-ms: 1000,4000,16000
+      "[q.invalidate]":
+        binding-keys: ["content.invalidated"]
+  # S3 兼容对象存储预签名（决策 9；dev 缺省 stub 返回本地假 URL）
+  storage:
+    mode: ${STORAGE_MODE:stub}
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    region: ${S3_REGION:auto}
+    bucket: ${S3_BUCKET:dreamy-media}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:9000/dreamy-media}
+    presign-ttl-seconds: 600
+  # GA4 Data API 代理（决策 19 / SVC-ANA §5.2；dev 缺省 stub 确定样本，凭证仅生产配置不入日志）
+  ga4:
+    mode: ${GA4_MODE:stub}
+    property-id: ${GA4_PROPERTY_ID:}
+    credentials-path: ${GA4_CREDENTIALS_PATH:}
+    connect-timeout-ms: 2000
+    read-timeout-ms: 8000
+  # review 域：官方回复署名（E-REV-10 STEP-REV-03 reply_author 固定写入，缺省与原型一致）
+  review:
+    reply-author: "Dreamy Team"
+  # marketing 域：coupon active→expiring 阈值（DEC-MKT-3，缺省 72h）
+  marketing:
+    coupon-expiring-hours: 72
+  # q.invalidate 失效消费者下游（EVT-MKT-002 / FLOW-P03 / 决策 22/27）：
+  # mode=stub（dev 缺省，仅日志不出网）；real 时 POST {next-internal-url}/api/revalidate
+  # （header x-revalidate-token）+ Cloudflare purge（zone token 仅后端配置，不落日志）
+  invalidate:
+    mode: ${INVALIDATE_MODE:stub}
+    next-internal-url: ${NEXT_INTERNAL_URL:http://localhost:5173}
+    revalidate-token: ${REVALIDATE_TOKEN:dev-revalidate-token}
+    site-base-url: ${SITE_BASE_URL:http://localhost:5173}
+    timeout-ms: 5000
+    cloudflare:
+      zone-id: ${CF_ZONE_ID:}
+      api-token: ${CF_API_TOKEN:}
 
 logging:
   file:

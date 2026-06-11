@@ -53,7 +53,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * L0 TRACE: FUNC-001/002/003/030, EDGE-024, NBT-01/02/03/04, B-01
  * L2 TRACE: UT-01(web), NBT-01~04
  */
-@WebMvcTest(controllers = {StoreAuthController.class, AccountController.class})
+@WebMvcTest(controllers = {StoreAuthController.class, AccountController.class},
+        // 识别切片隔离：scanBasePackages 扩为 com.dreamy 后，排除其他域（catalog 等）的 @ControllerAdvice
+        excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.REGEX,
+                pattern = "com\\.dreamy\\.(?!identity).*"))
 @Import({StoreJwtFilter.class, StoreConfig.class, GlobalExceptionHandler.class,
         StoreAuthControllerTest.TestConfig.class})
 class StoreAuthControllerTest {
@@ -86,6 +90,21 @@ class StoreAuthControllerTest {
         @Bean
         public JwtTokenProvider jwtTokenProvider(JwtProperties props) {
             return new JwtTokenProvider(props);
+        }
+
+        // 白名单配置化（portal-api-integration 基建）：切片上下文不绑定 application.yml 的
+        // @ConfigurationProperties，显式提供 identity 既有 5 条公开路径，回归口径不变。
+        @Bean
+        public com.dreamy.identity.security.StoreSecurityProperties storeSecurityProperties() {
+            com.dreamy.identity.security.StoreSecurityProperties p =
+                    new com.dreamy.identity.security.StoreSecurityProperties();
+            p.setStorePublicPaths(java.util.List.of(
+                    "/api/store/auth/otp/send",
+                    "/api/store/auth/otp/verify",
+                    "/api/store/auth/oidc/**",
+                    "/api/store/auth/refresh",
+                    "/api/store/auth/config"));
+            return p;
         }
 
         // 主键 Long 迁移后 IdentityApplication 携带 @EnableMysql，@WebMvcTest 以其为配置源会 Import

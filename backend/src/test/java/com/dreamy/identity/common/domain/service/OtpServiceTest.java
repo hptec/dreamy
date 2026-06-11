@@ -85,7 +85,7 @@ class OtpServiceTest {
         OtpCode otp = pendingOtp(3, 5, LocalDateTime.now().plusMinutes(5));
         when(otpCodeMapper.selectOne(any())).thenReturn(otp);
         when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
-        when(mergeService.resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any()))
+        when(mergeService.resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any(), any(), any()))
                 .thenReturn(new MergeService.MergeOutcome(activeUser(), false));
         when(sessionService.isNewDevice(any(), any())).thenReturn(false);
         when(sessionService.openStoreSession(any(), any(), any(), anyBoolean(), any()))
@@ -164,7 +164,7 @@ class OtpServiceTest {
 
         // ASSERT: 置 consumed（updateStatus 调用），但绝不触发归并/开会话（否则绑定产生孤立账户）
         verify(otpStateWriter, atLeastOnce()).updateStatus(eq(1L), eq(OtpStatus.CONSUMED), any());
-        verify(mergeService, never()).resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any());
+        verify(mergeService, never()).resolveOrMerge(any(), any(), any(), anyBoolean(), anyBoolean(), any(), any(), any());
         verify(sessionService, never()).openStoreSession(any(), any(), any(), anyBoolean(), any());
     }
 

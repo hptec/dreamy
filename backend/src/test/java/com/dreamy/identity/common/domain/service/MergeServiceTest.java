@@ -53,7 +53,7 @@ class MergeServiceTest {
         when(identityMapper.selectOne(any())).thenReturn(existing);
         when(userMapper.selectById(1L)).thenReturn(user);
 
-        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-123", "a@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-123", "a@b.com", true, false, null, null, null);
 
         assertThat(outcome.user().getId()).isEqualTo(1L);
         assertThat(outcome.newAccount()).isFalse();
@@ -68,7 +68,7 @@ class MergeServiceTest {
         sameEmailUser.setEmailVerified(true);
         when(userMapper.selectOne(any())).thenReturn(sameEmailUser);
 
-        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-new", "a@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-new", "a@b.com", true, false, null, null, null);
 
         assertThat(outcome.user().getId()).isEqualTo(2L);
         assertThat(outcome.newAccount()).isFalse();
@@ -84,7 +84,7 @@ class MergeServiceTest {
         unverified.setEmailVerified(false);
         when(userMapper.selectOne(any())).thenReturn(unverified);
 
-        assertThatThrownBy(() -> mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-x", "a@b.com", true, false, null))
+        assertThatThrownBy(() -> mergeService.resolveOrMerge(AuthProvider.GOOGLE, "sub-x", "a@b.com", true, false, null, null, null))
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).getErrorCode())
                         .isEqualTo(ErrorCode.EMAIL_CONFLICT_UNVERIFIED));
@@ -96,7 +96,7 @@ class MergeServiceTest {
         when(identityMapper.selectOne(any())).thenReturn(null);
         when(userMapper.selectOne(any())).thenReturn(null);
 
-        var outcome = mergeService.resolveOrMerge(AuthProvider.EMAIL, "new@b.com", "new@b.com", true, false, null);
+        var outcome = mergeService.resolveOrMerge(AuthProvider.EMAIL, "new@b.com", "new@b.com", true, false, null, null, null);
 
         assertThat(outcome.newAccount()).isTrue();
         verify(userMapper).insert(any(User.class));

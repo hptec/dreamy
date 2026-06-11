@@ -76,7 +76,7 @@ class ForceLogoutIT extends AbstractIT {
                 new LambdaQueryWrapper<UserSession>()
                         .eq(UserSession::getTokenId, tokenId));
         assertThat(session).isNotNull();
-        assertThat(session.getStatus()).isEqualTo("revoked");
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.REVOKED);
 
         // ASSERT: Redis 有效性键已 DEL → isStoreSessionValid = false
         assertThat(validityCache.isValid(tokenId)).isFalse();
