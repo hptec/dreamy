@@ -1,0 +1,51 @@
+---
+review_id: challenger-r2
+change_name: admin-prototype-alignment
+round: 2
+verdict: PASS
+reviewed_at: '2026-06-11T04:30:00Z'
+validation_mode: incremental
+validation_scope: [INC-01, INC-02]
+---
+
+previous_blocking_verification:
+- check: INC-01
+  r1_finding: er-diagram.yml 与 state-machine.yml 完全缺失顶层 meta 块
+  status: fixed
+  evidence: er-diagram.yml:1-5 与 state-machine.yml:1-5 均已补齐顶层 meta（mode incremental / baseline_ref 指向 hhspec/specs/architecture 对应基线 / generated_at '2026-06-11T03:44:52Z' / breaking_changes []，四字段齐备且 breaking_changes 为合法空列表）；business-flow.yml:1-5 原本合规且保持不变
+- check: INC-02
+  r1_finding: business-flow.yml 22 个流程 meta.source 使用非法枚举值 baseline×17 / change×5
+  status: fixed
+  evidence: 全文正则扫描 ^\s*source:\s*(baseline|change)$ 命中 0 处；合法枚举值（inherited|new|modified|deleted）共 48 处——流程级 17 inherited（checkout_order 等基线流程）+ 5 new（category_attribute_config:1661 / product_batch_ops:1795 / admin_export_csv:1935 / order_list_query:2029 / dashboard_publish_entry）+ 1 modified（refund_flow:662），节点级标注（如 :445 modified / :583 new / 退款流 inherited 节点）亦全部合法
+
+dimensions:
+  consistency:
+    status: skipped
+    findings:
+    - {level: info, check: CON-*, desc: review_scope 限制（仅 INC-01/INC-02），第 1 轮已 pass；boundary-scenarios.yml 与 acceptance.yml sha256 与 r1 完全一致，本轮无新增审查面, evidence: sha256 比对 e6f721c0... / ce20e8fb... 未变}
+
+  verifiability:
+    status: skipped
+    findings:
+    - {level: info, check: VER-*, desc: review_scope 限制，第 1 轮已 pass 且 acceptance.yml 未变更, evidence: sha256 ce20e8fb... 与 r1 一致}
+
+  completeness_supplement:
+    status: skipped
+    findings:
+    - {level: info, check: COM-*, desc: review_scope 限制，第 1 轮已 pass；business-flow 本轮仅 meta 标注层变更（顶层 meta 块 + source 枚举值），节点/边结构未动，COM-03 的 D10/D11/D12 映射证据行号仍有效, evidence: business-flow.yml:1824/1959-1963/2054 meta 标注仍在}
+
+  incremental_integrity:
+    status: pass
+    findings:
+    - {level: info, check: INC-01, desc: 三个图文件顶层 meta 块全部合规（mode/baseline_ref/generated_at/breaking_changes 四字段齐备）, evidence: er-diagram.yml:1-5 / state-machine.yml:1-5 / business-flow.yml:1-5}
+    - {level: info, check: INC-02, desc: business-flow 流程级与节点级 meta.source 共 48 处全部落在 new|modified|inherited|deleted 枚举内，非法值 baseline/change 已清零；流程级分布 17 inherited + 5 new + 1 modified 与 r1 认定的 23 流程归类一一对应, evidence: business-flow.yml 全文正则扫描}
+    - {level: warning, check: INC-03, desc: 沿用 r1 非阻断发现——.baseline-context.yml relevant_baseline.entities/machines 为空数组，inherited 元素无法经 baseline-context 回溯，按降级规则保持 WARNING；r1 已直接抽检 baseline specs 命中，本轮未涉及该面变更, evidence: challenger-r1.yml INC-03 finding（结转）}
+
+reviewed_files:
+  er_diagram: 6501d35d04761040678e251ae8ccef1760ea3fb8eb5ff167aee62f0d01dc9cfc
+  state_machine: a1f8f7ab2fc445a7802c1c4cfab7d880f5cf0de321c6064449973187e6ec8249
+  business_flow: 6e2b981740aa6c4ef17399849a8693620278b2705f20ecac2c9ba54afb430c39
+  boundary_scenarios: e6f721c05c59b9b0de95f92d89881ce7362cf4c59002f3f9f0f0c91ce5b89f76
+  acceptance: ce20e8fb42d25219ce1de2068e1ac23341a705b04a14ad1dbe35f4ea7c36022e
+
+summary: 增量复审（scope INC-01/INC-02）确认 r1 两项 blocking 全部修复——er-diagram/state-machine 顶层 meta 块已补齐四必填字段，business-flow 22 处非法 meta.source（baseline/change）已全部归一为 inherited/new；boundary-scenarios 与 acceptance sha256 未变，三维语义维持 r1 PASS 结论，整体 verdict PASS（遗留 INC-03 baseline-context 空数组 warning 不阻断）。

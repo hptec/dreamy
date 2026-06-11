@@ -1,0 +1,92 @@
+---
+review_id: challenger-r1
+change_name: admin-prototype-alignment
+round: 1
+verdict: FAIL
+reviewed_at: '2026-06-11T04:05:00Z'
+validation_mode: full
+issue_type: semantic_error
+fallback_to: semantic_extraction
+---
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+    - level: info
+      check: CON-02
+      desc: business-flow 基线流程引用的实体（CartItem/ShippingRate/Payment/Review/Coupon/FlashSale/AnalyticsDashboard/WishlistItem/Showroom*/SizeChartRow/BrowseHistory/NewsletterSubscriber/ContactMessage 等）不在本变更 er-diagram 17 实体中，已逐一验证全部存在于 baseline er-diagram（hhspec/specs/architecture/er-diagram.yml），增量模式下符合预期
+      evidence: hhspec/specs/architecture/er-diagram.yml > 58 个 baseline 实体清单
+    - level: warning
+      check: CON-03
+      desc: boundary-scenarios 中 273 条 cat=state/concurrent 场景的 field 字段统一写为 "state"，但对应实体在 er-diagram 中无名为 state 的字段（实际为 status / ui_state，category 等实体则仅有生命周期状态无落库字段）。系统性占位写法，指代状态机状态而非 ER 字段，映射可恢复但不符合 CON-03 字面契约；建议改写为实际字段名 status 或留空
+      evidence: boundary-scenarios.yml > bs-227(category.state)/bs-234(product.state)/bs-244(refund.state) 等 273 处（脚本全量比对，entity 引用 0 缺失，field 缺失全部集中于 "state" 一种写法）
+    - level: info
+      check: CON-03
+      desc: boundary-scenarios/acceptance 实体名使用 snake_case（attribute_def/page_state/order_line/operation_log），er-diagram 使用 PascalCase（AttributeDef/PageState/OrderLine/OperationLog），17 个实体经大小写归一后全部一一对应，无歧义
+      evidence: boundary-scenarios.yml entity 分布 vs er-diagram.yml entities
+    - level: warning
+      check: CON-01
+      desc: refund_lifecycle 存在语义重复转换对：pending→approved 同时有 admin_approve 与 approve 两个事件、pending→rejected 同时有 admin_reject 与 reject 两个事件，均指向 Refunds.vue 同一行内审批操作（D7）；不阻断验证但会派生重复验收场景，建议合并
+      evidence: state-machine.yml:259-288 refund_lifecycle transitions
+    - level: info
+      check: CON-01
+      desc: page_content_lookbook_tabs 机器 entity 写为 "page_state"（snake_case），同文件其余 14 个页面机器 entity 写为 "PageState"，命名不一致
+      evidence: state-machine.yml:1196-1197
+
+  verifiability:
+    status: pass
+    findings:
+    - level: warning
+      check: VER-05
+      desc: boundary-scenarios 中 99 条 cat=state 场景的 expect 仅为模糊文本「系统返回状态不允许错误，拒绝执行操作」，未含明确错误码或目标状态值；但已逐条核验这 99 条在 acceptance.yml 中全部有对应结构化断言（http_status 409 + error_code STATE_NOT_ALLOWED），验收基准不受影响，降为 warning
+      evidence: boundary-scenarios.yml > bs-400~bs-498（99 条，脚本全量比对）；acceptance.yml > s-660 expect {http_status 409, error_code STATE_NOT_ALLOWED}
+    - level: info
+      check: VER-01~VER-04
+      desc: 脚本全量校验 899 条场景：ctx 非空 0 缺失、act.op 非空 0 缺失、expect 全部含 http_status/state/error_code 至少其一、无 "success"/"fail" 模糊断言；CON-04 sm 类 260 条 source_id（含 .guard_fail 后缀）全部命中 state-machine（含 baseline）transitions，CON-05 bs 类 616 条全部命中 boundary-scenarios id，func 类 23 条全部命中 business-flow flow id
+      evidence: acceptance.yml 全量脚本比对（sm 260 / bs 616 / func 23 = 899）
+
+  completeness_supplement:
+    status: pass
+    findings:
+    - level: info
+      check: COM-01
+      desc: cross_domain 流程共 6 个；本变更涉及的 refund_flow（modified）在 boundary-scenarios 中有 refund 实体 auth/integrity 场景 5 条，checkout_order/content_publish_invalidate 经 order(8)/product(9) 实体覆盖；order_event_dispatch/transactional_email/showroom_collaboration 为 baseline 继承的系统级 MQ 流程，无对应 auth 场景但不属本变更范围，人工确认即可
+      evidence: boundary-scenarios.yml > auth 51 条 + integrity 16 条实体分布
+    - level: info
+      check: COM-02
+      desc: state-machine 全部 guard 转换（含新增 batch_publish/batch_unpublish/batch_recommend/batch_delete、refund reject 原因必填等）在 acceptance.yml 中均有 <machine>.<from>→<to>.guard_fail 场景，脚本比对 0 缺失
+      evidence: acceptance.yml guard_fail 场景 vs state-machine.yml guards 全量比对
+    - level: info
+      check: COM-03
+      desc: state file 3 条 BE-DIM 决策全部在 business-flow 中有映射——D10（BE-DIM-4 事务）→ product_batch_ops n4 meta.tx_boundary=true；D11（BE-DIM-8 限流降级）→ admin_export_csv n3 meta.rate_limit=max_rows=10000；D12（BE-DIM-8 限流降级）→ order_list_query n3 meta.rate_limit=服务端分页+单查询防N+1
+      evidence: pd-explore.local.md:55-75 D10/D11/D12 vs business-flow.yml:1820-1825/1955-1960/2049-2055
+
+  incremental_integrity:
+    status: fail
+    findings:
+    - level: blocking
+      check: INC-01
+      desc: er-diagram.yml 与 state-machine.yml 完全缺失顶层 meta 块（mode/baseline_ref/generated_at/breaking_changes 四个必填字段全部缺失）。本变更为增量模式（.baseline-context.yml mode=incremental，且两文件元素级已普遍标注 meta.source inherited/modified/new），按 compact-yaml-spec.md「增量模式 meta 块规范」顶层 meta 为必填；三个图文件中仅 business-flow.yml 合规
+      evidence: er-diagram.yml:1（首行即 entities:，全文 989 行无顶层 meta）；state-machine.yml:1（首行即 machines:，全文 1213 行无顶层 meta）；business-flow.yml:1-5（合规样例）
+    - level: blocking
+      check: INC-02
+      desc: business-flow.yml 中 22 个流程的 meta.source 取值不在 new|modified|inherited|deleted 枚举内——17 个基线流程写为 "baseline"（应为 inherited），5 个新增流程（category_attribute_config/product_batch_ops/admin_export_csv/order_list_query/dashboard_publish_entry）写为 "change"（应为 new）；仅 refund_flow 的 "modified" 合规。archive-merge 增量归档按枚举值消费 meta.source，非法值会导致流程归并分类错误
+      evidence: business-flow.yml:219-220/2029-2030 等（meta source baseline×17 / change×5）；compact-yaml-spec.md:205-213 枚举定义
+    - level: warning
+      check: INC-03
+      desc: .baseline-context.yml 的 relevant_baseline.entities 与 relevant_baseline.machines 均为空数组，而 er-diagram 有 10 个 inherited 实体、state-machine 有 15 个 inherited 机器无法经 baseline-context 回溯；按降级规则（对应 section 为空数组时降为 WARNING）不阻断。已直接抽检 Category/Product/Order/payment_lifecycle/mail_delivery 等于 baseline specs 中确认存在
+      evidence: .baseline-context.yml:10-11（entities[] / machines[]）；hhspec/specs/architecture/er-diagram.yml、state-machine.yml 抽检命中
+    - level: info
+      check: INC-04~INC-07
+      desc: Product/Order/Refund 三个 modified 实体的变更均为新增派生/审计字段（sales/country/itemCount/rejectReason，meta.source=new），无类型变更、req 加严、enum 删减与删除元素，breaking_changes=[] 合规；INC-05/INC-06 无待核条目；INC-07 因 relevant_baseline.entities 为空无强制范围
+      evidence: er-diagram.yml:202-205/523-526/758-761 + business-flow.yml:5
+
+reviewed_files:
+  er_diagram: 25c60d7a913b744e937d00fa8f349ef32841555558725405933a7de2ea51632e
+  state_machine: 3533f68023deffca7cc5c3e79cd722c30e1f242a3e67591ef2d468a904a79b1c
+  business_flow: fceb92df16b45e95962b66848fbb640598cc0c82f5b5de743076599c9769c122
+  boundary_scenarios: e6f721c05c59b9b0de95f92d89881ce7362cf4c59002f3f9f0f0c91ce5b89f76
+  acceptance: ce20e8fb42d25219ce1de2068e1ac23341a705b04a14ad1dbe35f4ea7c36022e
+
+summary: 三维语义全部通过（899 条验收场景 ctx/act/expect 完整、260 条 sm + 616 条 bs + 23 条 func 引用零失配、全部 guard 有失败场景、BE-DIM D10~D12 全部映射），但增量模式完整性 FAIL——er-diagram.yml/state-machine.yml 缺失顶层 meta 块（INC-01）且 business-flow 22 个流程 meta.source 使用非法枚举值 baseline/change（INC-02），需回退 semantic_extraction 补齐增量标注后复审。

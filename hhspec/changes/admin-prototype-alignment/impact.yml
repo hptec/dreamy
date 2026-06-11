@@ -1,0 +1,67 @@
+change_name: admin-prototype-alignment
+generated_at: "2026-06-11T03:35:29Z"
+
+entity_impact:
+  skipped: false
+entities_analyzed:
+  - id: Category
+  - id: AttributeDef
+  - id: AttributeSet
+  - id: AttributeSetItem
+  - id: TagDimension
+  - id: Tag
+  - id: CustomTag
+  - id: Product
+  - id: Sku
+  - id: Customer
+  - id: Order
+  - id: OrderLine
+  - id: Refund
+  - id: OperationLog
+  - id: PageState
+  - id: lookbook
+  - id: style_guide
+
+affected_specs:
+
+state_impact:
+  skipped: true
+
+flow_impact:
+  skipped: false
+flows_analyzed:
+  - id: checkout_order
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: n15
+  - id: n16
+  - id: n17
+  - id: n18
+
+affected_specs:
+  []
+
+affected_domains:
+  []
+
+breaking_changes:
+  []
+
+summary:
+  total_affected_specs: 0
+  regression_risk_score: 4
+  regression_risk_level: medium
+  must_review:
+    []

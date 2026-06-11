@@ -1,0 +1,240 @@
+gaps:
+- id: ALIGN-001
+  page: Categories
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-002
+  page: Categories
+  type: wrong_purpose
+  prototype_has: 编辑抽屉增加 EN/ES/FR 三语 name tab（原型无）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-003
+  page: Categories
+  type: wrong_purpose
+  prototype_has: 维度删除收紧为 409506 引导（E-CAT-30 显式偏离）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-004
+  page: AttributeSets
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-005
+  page: AttributeSets
+  type: wrong_purpose
+  prototype_has: Tab 名「品类×属性矩阵」→「属性集×属性矩阵」（矩阵数据维度本质一致，原型列也按属性集分组）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-006
+  page: AttributeSets
+  type: wrong_purpose
+  prototype_has: 原型矩阵即点即改无保存；实现为 hasUnsavedChanges + 整单保存（E-CAT-21）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-007
+  page: Products
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-008
+  page: Products
+  type: wrong_purpose
+  prototype_has: 新增排序列（原型无）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-009
+  page: Dashboard
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-010
+  page: Dashboard
+  type: wrong_purpose
+  prototype_has: KPI 卡 delta 行删除（DEC-ANA-FE-2）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-011
+  page: Dashboard
+  type: wrong_purpose
+  prototype_has: 待办瓦片 4 列→3 列（DEC-ANA-FE-3）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-012
+  page: Orders
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-013
+  page: Orders
+  type: wrong_purpose
+  prototype_has: 表格列：地区→币种、商品数→承运
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-014
+  page: Orders
+  type: wrong_purpose
+  prototype_has: 状态 Tab 6→8（补 cancelled/refunded）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-015
+  page: Orders
+  type: wrong_purpose
+  prototype_has: 搜索范围：客户名→客户邮箱
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-016
+  page: Analytics
+  type: wrong_purpose
+  prototype_has: 商品热度列：库存/状态→销售额（DEC-ANA-FE-7）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-017
+  page: Analytics
+  type: wrong_purpose
+  prototype_has: 流量来源/漏斗标签中文化
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-018
+  page: ProductEdit
+  type: wrong_purpose
+  prototype_has: SKU 颜色：预设列表选择→自由文本输入
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-019
+  page: ProductEdit
+  type: wrong_purpose
+  prototype_has: 多币种价格 4 列→5 列（USD disabled + auto placeholder）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-020
+  page: ProductEdit
+  type: wrong_purpose
+  prototype_has: 保存并生成静态页：跳转 /publish→API 触发
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-021
+  page: OrderDetail
+  type: wrong_purpose
+  prototype_has: 操作按钮固定→按状态条件渲染
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-022
+  page: OrderDetail
+  type: wrong_purpose
+  prototype_has: 承运方 mock→API 枚举
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-023
+  page: OrderDetail
+  type: wrong_purpose
+  prototype_has: 金额拆分补 Gift Wrapping/优惠行
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-024
+  page: Refunds
+  type: wrong_purpose
+  prototype_has: 同意/拒绝行内按钮→弹窗二次确认
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-025
+  page: Refunds
+  type: wrong_purpose
+  prototype_has: 已处理状态增加退款/退货单号展示
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-026
+  page: Reviews
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-027
+  page: Reviews
+  type: wrong_purpose
+  prototype_has: Q&A 搜索全局→当前页内存过滤（FORM-REV-A01 显式偏离②）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-028
+  page: Reviews
+  type: wrong_purpose
+  prototype_has: 状态 chips 计数仅保留待审核角标（显式偏离①）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-029
+  page: Reviews
+  type: wrong_purpose
+  prototype_has: 删除回复直接点击→二次确认（CP-071）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-030
+  page: Shipping
+  type: missing_module
+  prototype_has: '[auto]'
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-031
+  page: Shipping
+  type: wrong_purpose
+  prototype_has: 承运方/邮费表只读→行内编辑/删除（DEC-SHP-FE-2）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-032
+  page: Shipping
+  type: wrong_purpose
+  prototype_has: 满额包邮 0 显示「免邮」
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-033
+  page: Promotions
+  type: wrong_purpose
+  prototype_has: 状态枚举补 expired/ended
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-034
+  page: Promotions
+  type: wrong_purpose
+  prototype_has: 已结束活动禁止编辑
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-035
+  page: Banners
+  type: wrong_purpose
+  prototype_has: Toggle 简单开关→published/archived 三态映射 + 409703 回滚
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-036
+  page: ContentBlog
+  type: wrong_purpose
+  prototype_has: 发布按钮增加下线/重新发布流转
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-037
+  page: ContentBlog
+  type: wrong_purpose
+  prototype_has: 预览增加 slug 校验+新窗口
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-038
+  page: ContentWeddings
+  type: wrong_purpose
+  prototype_has: 操作按钮增加发布/下线流转
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-039
+  page: ContentLookbook
+  type: wrong_purpose
+  prototype_has: Lookbook/Guide 卡片增加发布/下线按钮
+  impl_has: MISALIGNED
+  severity: medium
+summary:
+  total: 39
+  by_portal:
+    unknown: 39
+  change_type: alignment

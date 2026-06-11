@@ -1,0 +1,31 @@
+skipped: false
+analyzed_at: "2026-06-11T03:24:13Z"
+er_diagram_hash: "25c60d7a913b744e937d00fa8f349ef32841555558725405933a7de2ea51632e"
+
+entities_analyzed:
+  - id: Category
+  - id: AttributeDef
+  - id: AttributeSet
+  - id: AttributeSetItem
+  - id: TagDimension
+  - id: Tag
+  - id: CustomTag
+  - id: Product
+  - id: Sku
+  - id: Customer
+  - id: Order
+  - id: OrderLine
+  - id: Refund
+  - id: OperationLog
+  - id: PageState
+  - id: lookbook
+  - id: style_guide
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []

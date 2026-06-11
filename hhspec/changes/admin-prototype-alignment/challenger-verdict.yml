@@ -1,0 +1,14 @@
+report_meta:
+  report_type: challenger-verdict
+  generated_at: "2026-06-11T03:47:13Z"
+  change_name: admin-prototype-alignment
+  round: 2
+verdict: PASS
+summary: >-
+  completeness=pass semantic=PASS — all checks passed
+completeness_verdict: pass
+semantic_verdict: PASS
+issue_type: none
+fix_target_phase: none
+
+fix_targets: []

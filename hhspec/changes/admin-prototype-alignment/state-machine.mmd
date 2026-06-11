@@ -1,0 +1,242 @@
+stateDiagram-v2
+  [*] --> active
+  active --> deleted : delete
+  [*] --> enabled
+  enabled --> disabled : toggle_off
+  disabled --> enabled : toggle_on
+  enabled --> deleted : delete
+  disabled --> deleted : delete
+  [*] --> active
+  active --> deleted : delete
+  [*] --> hidden
+  hidden --> visible : cycle_click
+  visible --> optional : cycle_click
+  optional --> hidden : cycle_click
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  draft --> deleted : delete
+  published --> deleted : delete
+  draft --> published : batch_publish [new]
+  published --> draft : batch_unpublish [new]
+  published --> published : batch_recommend [new]
+  draft --> draft : batch_recommend [new]
+  draft --> deleted : batch_delete [new]
+  published --> deleted : batch_delete [new]
+  [*] --> pending
+  pending --> paid : payment_webhook_succeeded
+  pending --> cancelled : payment_timeout_30min
+  pending --> cancelled : customer_cancel
+  paid --> shipped : mark_shipped
+  shipped --> completed : confirm_receipt
+  paid --> refunding : refund_requested
+  shipped --> refunding : refund_requested
+  refunding --> refunded : refund_approved
+  refunding --> paid : refund_rejected
+  [*] --> created
+  created --> processing : stripe_confirm
+  processing --> succeeded : webhook_payment_succeeded
+  processing --> failed : webhook_payment_failed
+  failed --> processing : retry_payment
+  succeeded --> refunded : refund_executed
+  [*] --> pending
+  pending --> approved : admin_approve
+  pending --> rejected : admin_reject [modified]
+  pending --> approved : approve
+  pending --> rejected : reject [modified]
+  approved --> refunded : stripe_refund_succeeded
+  [*] --> pending
+  pending --> approved : approve
+  pending --> rejected : reject
+  rejected --> approved : batch_approve
+  approved --> rejected : batch_reject
+  approved --> approved : set_featured
+  approved --> approved : unset_featured
+  [*] --> shown
+  shown --> rejected : reject_image
+  rejected --> shown : restore_image
+  [*] --> unanswered
+  unanswered --> answered : save_answer
+  answered --> answered : edit_answer
+  [*] --> enabled
+  enabled --> disabled : disable
+  disabled --> enabled : enable
+  [*] --> draft
+  draft --> scheduled : schedule
+  draft --> active : activate
+  scheduled --> active : auto_start
+  active --> expiring : near_expiry
+  expiring --> expired : auto_expire
+  active --> expired : auto_expire
+  draft --> deleted : delete
+  expired --> deleted : delete
+  [*] --> draft
+  draft --> scheduled : schedule
+  scheduled --> active : auto_start
+  active --> ended : auto_offline
+  [*] --> draft
+  draft --> published : publish
+  published --> archived : take_offline
+  published --> archived : schedule_expire
+  archived --> published : republish
+  draft --> deleted : delete
+  published --> deleted : delete
+  archived --> deleted : delete
+  [*] --> draft
+  draft --> published : publish
+  published --> archived : unpublish
+  archived --> published : republish
+  draft --> deleted : delete
+  published --> deleted : delete
+  archived --> deleted : delete
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loaded : click_publish_site
+  loaded --> loaded : click_quick_entry
+  loaded --> loaded : switch_gmv_range
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> degraded : ga4_unavailable
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loaded : export_csv
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loading : change_filter
+  empty --> loading : change_filter
+  loaded --> batch_selected : select_rows
+  batch_selected --> loaded : clear_selection
+  batch_selected --> loading : batch_action
+  loaded --> loaded : export_products
+  batch_selected --> batch_selected : export_products
+  [*] --> loading
+  loading --> editing : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  editing --> saving : save
+  saving --> editing : save_success
+  saving --> editing : save_conflict
+  editing --> saving : save_and_generate
+  [*] --> taxonomy_tab
+  taxonomy_tab --> matrix_tab : switch_to_matrix
+  taxonomy_tab --> tags_tab : switch_to_tags
+  matrix_tab --> taxonomy_tab : switch_to_taxonomy
+  matrix_tab --> tags_tab : switch_to_tags
+  tags_tab --> taxonomy_tab : switch_to_taxonomy
+  tags_tab --> matrix_tab : switch_to_matrix
+  taxonomy_tab --> attr_set_drawer : click_set_badge
+  matrix_tab --> attr_set_drawer : open_set_drawer
+  attr_set_drawer --> attr_set_drawer : cycle_attr_state
+  attr_set_drawer --> matrix_tab : save_set_drawer
+  attr_set_drawer --> taxonomy_tab : close_drawer
+  taxonomy_tab --> child_override_drawer : open_child_override
+  child_override_drawer --> child_override_drawer : cycle_attr_state
+  child_override_drawer --> taxonomy_tab : save_override
+  child_override_drawer --> taxonomy_tab : close_drawer
+  [*] --> entered
+  entered --> redirected : route_redirect
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loading : switch_status_tab
+  loaded --> loading : search_orders
+  empty --> loading : switch_status_tab
+  loaded --> loaded : export_orders
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loaded : mark_shipped
+  loaded --> refund_modal : open_refund_modal
+  refund_modal --> loaded : submit_refund
+  refund_modal --> loaded : cancel
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loading : switch_status_tab
+  empty --> loading : switch_status_tab
+  loaded --> loading : click_approve
+  loaded --> reject_input_open : click_reject
+  reject_input_open --> loading : confirm_reject
+  reject_input_open --> loaded : cancel_reject
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> detail_drawer : open_detail
+  detail_drawer --> loaded : close_drawer
+  detail_drawer --> detail_drawer : moderate
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loaded : toggle_carrier
+  loaded --> edit_drawer : open_edit_drawer
+  edit_drawer --> loaded : save_resource
+  edit_drawer --> loaded : close_drawer
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> form_drawer : open_form_drawer
+  form_drawer --> loaded : save
+  form_drawer --> loaded : close_drawer
+  loaded --> loaded : delete_coupon
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loaded : toggle_online
+  loaded --> form_drawer : open_form_drawer
+  form_drawer --> loaded : save_publish
+  form_drawer --> loaded : close_drawer
+  loaded --> loaded : edit_sort
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loading : switch_status_tab
+  loaded --> edit_drawer : open_edit_drawer
+  edit_drawer --> loaded : save
+  edit_drawer --> loaded : close_drawer
+  loaded --> loaded : preview
+  [*] --> loading
+  loading --> loaded : load_success
+  loading --> empty : load_empty
+  loading --> error : load_error
+  error --> loading : retry
+  loaded --> loading : filter_status
+  loaded --> form_drawer : open_form_drawer
+  form_drawer --> loaded : save
+  form_drawer --> loaded : close_drawer
+  loaded --> loaded : delete_wedding
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  draft --> deleted : delete
+  published --> deleted : delete
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  draft --> deleted : delete
+  published --> deleted : delete
+  [*] --> tab_lookbook
+  tab_lookbook --> tab_guide : click_tab_guide
+  tab_guide --> tab_lookbook : click_tab_lookbook
+  classDef deprecated stroke:#999,stroke-dasharray:4 4,color:#999
+  classDef new stroke:#0a0,stroke-width:2px
+  classDef modified stroke:#fa0,stroke-width:2px

@@ -1,0 +1,164 @@
+# UI 测试期望（admin-prototype-alignment）— 基于原型的 Playwright 断言
+# 来源：hhspec/prototype/portal-admin/src/views/*.vue（ground truth）
+# 范围：16 页中存在缺口的全部页面；豁免项（决策 8/9、E-CAT-21/30 等）标注 exemption: true 供 L4 跳过差异计数
+schema_version: '1.0'
+change_name: admin-prototype-alignment
+base_url: http://localhost:5174
+viewport: { width: 1440, height: 900 }
+
+pages:
+  - page_id: Categories
+    route: /categories
+    gaps: [ALIGN-001, ALIGN-002, ALIGN-003, ALIGN-005, ALIGN-006]
+    assertions:
+      - { id: UI-CAT-01, type: text, target: 'main tab bar', expect: ['标准品类', '属性集与字典', '自定义标签'], gap: ALIGN-001 }
+      - { id: UI-CAT-02, type: interaction, path: "click tab '属性集与字典' -> click sub-tab '品类×属性矩阵'", expect: '矩阵表可见，列头为属性集名+品类徽章', gap: ALIGN-005 }
+      - { id: UI-CAT-03, type: text, target: 'matrix tab 卡片区标题', expect: '子品类属性覆盖（相对父级基础属性集的 delta）', gap: ALIGN-001, note: '有 delta 数据前置' }
+      - { id: UI-CAT-04, type: interaction, path: '品类卡片点击属性集徽章', expect: '属性三态配置抽屉打开', gap: ALIGN-001 }
+      - { id: UI-CAT-05, type: interaction, path: '矩阵点格子 -> 顶部按钮', expect: "按钮文案变为'保存配置 *' 且可点击", gap: ALIGN-006, exemption: true }
+      - { id: UI-CAT-06, type: interaction, path: '编辑抽屉切换 EN/ES/FR', expect: '三语 name 独立输入', gap: ALIGN-002, exemption: true }
+      - { id: UI-CAT-07, type: interaction, path: '删除含标签的维度', expect: '409506 引导提示出现且维度未删除', gap: ALIGN-003, exemption: true }
+      - { id: UI-CAT-08, type: visual, screenshot: categories-full-desktop.png }
+  - page_id: AttributeSets
+    route: /attribute-sets
+    gaps: [ALIGN-004]
+    assertions:
+      - { id: UI-ATS-01, type: navigation, path: '直接访问 /attribute-sets', expect: '重定向至 /categories?tab=attributes', gap: ALIGN-004 }
+      - { id: UI-ATS-02, type: structure, target: sidebar, expect: "不存在'属性集'菜单项", gap: ALIGN-004 }
+  - page_id: Products
+    route: /products
+    gaps: [ALIGN-007, ALIGN-008]
+    assertions:
+      - { id: UI-PRD-01, type: structure, target: 'table thead', expect: ['(checkbox)', '商品', '品类', '价格', '上架 / 新品 / 推荐', '库存', '销量', '排序', '状态', '操作'], gap: ALIGN-007, note: '排序列为豁免保留列' }
+      - { id: UI-PRD-02, type: interaction, path: '勾选 2 行', expect: "底栏出现'已选 2 项' 与 批量上架/批量下架/设为推荐/批量删除", gap: ALIGN-007 }
+      - { id: UI-PRD-03, type: text, target: 'page header actions', expect: ['导出', '新增商品'], gap: ALIGN-007 }
+      - { id: UI-PRD-04, type: interaction, path: "点击'更多筛选'", expect: '商品类型/库存状态/标记/价格区间/主题标签 5 组渲染', gap: ALIGN-007 }
+      - { id: UI-PRD-05, type: structure, target: '排序列 input', expect: '存在且 blur 触发保存', gap: ALIGN-008, exemption: true }
+      - { id: UI-PRD-06, type: visual, screenshot: products-full-desktop.png }
+  - page_id: Dashboard
+    route: /dashboard
+    gaps: [ALIGN-009, ALIGN-010, ALIGN-011]
+    assertions:
+      - { id: UI-DSH-01, type: text, target: 'page header actions', expect: ['查看完整看板', '发布站点'], gap: ALIGN-009 }
+      - { id: UI-DSH-02, type: navigation, path: "click '发布站点'", expect: 'route=/publish', gap: ALIGN-009 }
+      - { id: UI-DSH-03, type: text, target: 'quick actions', expect: ['新增商品', '编辑首页', '新建优惠券', '写一篇文章', '发布站点'], gap: ALIGN-009 }
+      - { id: UI-DSH-04, type: structure, target: 'KPI card', expect: "无趋势箭头/'较昨日' delta 行", gap: ALIGN-010, exemption: true }
+      - { id: UI-DSH-05, type: structure, target: 'todo grid', expect: 'class 含 sm:grid-cols-3', gap: ALIGN-011, exemption: true }
+      - { id: UI-DSH-06, type: visual, screenshot: dashboard-full-desktop.png }
+  - page_id: Analytics
+    route: /analytics
+    gaps: [ALIGN-016, ALIGN-017]
+    assertions:
+      - { id: UI-ANA-01, type: text, target: '流量分析 tab 来源标签', expect_any_of: ['自然搜索', 'Instagram', 'Pinterest', '直接访问', '邮件'], expect_not_regex: '^[a-z_]+$', gap: ALIGN-017 }
+      - { id: UI-ANA-02, type: text, target: '转化漏斗阶段标签', expect: ['商品浏览', '加入购物车', '进入结算', '完成支付'], gap: ALIGN-017 }
+      - { id: UI-ANA-03, type: structure, target: '商品热度表头', expect: ['排名', '商品', '销量', '销售额'], gap: ALIGN-016, exemption: true }
+      - { id: UI-ANA-04, type: visual, screenshot: analytics-full-desktop.png }
+  - page_id: ProductEdit
+    route: /products/new
+    gaps: [ALIGN-018, ALIGN-019, ALIGN-020]
+    assertions:
+      - { id: UI-PED-01, type: structure, target: 'SKU 区颜色组', expect: '预设颜色 swatch 按钮组（含色点）渲染', gap: ALIGN-018 }
+      - { id: UI-PED-02, type: interaction, path: '点选 2 色 + 自定义输入回车', expect: 'skuColors chips 含预设与自定义色，矩阵行同步', gap: ALIGN-018 }
+      - { id: UI-PED-03, type: structure, target: '多币种区', expect: '5 输入位：USD disabled，其余 placeholder=auto', gap: ALIGN-019, exemption: true }
+      - { id: UI-PED-04, type: interaction, path: "合法表单点'保存并生成静态页'", expect: '保存请求发出且成功后 route=/publish', gap: ALIGN-020 }
+      - { id: UI-PED-05, type: visual, screenshot: product-edit-full-desktop.png }
+  - page_id: Orders
+    route: /orders
+    gaps: [ALIGN-012, ALIGN-013, ALIGN-014, ALIGN-015]
+    assertions:
+      - { id: UI-ORD-01, type: structure, target: 'table thead', expect: ['订单号', '客户', '地区', '商品数', '金额', '支付方式', '状态', '下单时间', '操作'], gap: ALIGN-013 }
+      - { id: UI-ORD-02, type: structure, target: 'table thead', expect_not: ['币种', '承运'], gap: ALIGN-013 }
+      - { id: UI-ORD-03, type: text, target: 'page header actions', expect: ['导出订单'], gap: ALIGN-012 }
+      - { id: UI-ORD-04, type: interaction, path: "点'导出订单'", expect: '下载 csv 响应（拦截断言 /api/admin/orders/export 调用带当前筛选参数）', gap: ALIGN-012 }
+      - { id: UI-ORD-05, type: text, target: 'search input placeholder', expect: '搜索订单号 / 客户名…', gap: ALIGN-015 }
+      - { id: UI-ORD-06, type: structure, target: 'status tabs', expect: ['全部', '待付款', '待发货', '已发货', '已完成', '退款中', '已取消', '已退款'], gap: ALIGN-014, exemption: true }
+      - { id: UI-ORD-07, type: visual, screenshot: orders-full-desktop.png }
+  - page_id: OrderDetail
+    route: /orders/:id
+    gaps: [ALIGN-021, ALIGN-022, ALIGN-023]
+    assertions:
+      - { id: UI-ODT-01, type: state_matrix, target: 'header actions', expect: 'pending:[取消订单]; paid:[发起退款,标记发货]; shipped:[发起退款,确认完成]; completed:[]（返回恒在）', gap: ALIGN-021 }
+      - { id: UI-ODT-02, type: interaction, path: "paid 订单点'标记发货'", expect: '承运方下拉=API enabled 承运方集合（mock 注入）', gap: ALIGN-022 }
+      - { id: UI-ODT-03, type: structure, target: '金额拆分', expect: '小计→运费→Gift Wrapping(条件)→优惠(条件)→合计 行序', gap: ALIGN-023 }
+      - { id: UI-ODT-04, type: visual, screenshot: order-detail-full-desktop.png }
+  - page_id: Refunds
+    route: /refunds
+    gaps: [ALIGN-024, ALIGN-025]
+    assertions:
+      - { id: UI-RFD-01, type: structure, target: 'pending 行操作', expect: "行内 '同意' '拒绝' 按钮（无弹窗触发）", gap: ALIGN-024 }
+      - { id: UI-RFD-02, type: interaction, path: "点'拒绝'", expect: '按钮原位展开原因输入框；空原因确认被阻断；填写后确认成功', gap: ALIGN-024 }
+      - { id: UI-RFD-03, type: text, target: 'approved 行', expect_regex: '已处理[\s\S]*退款单号', gap: ALIGN-025 }
+      - { id: UI-RFD-04, type: text, target: '已登记退货行', expect_regex: '退货单号', gap: ALIGN-025 }
+      - { id: UI-RFD-05, type: visual, screenshot: refunds-full-desktop.png }
+  - page_id: Reviews
+    route: /reviews
+    gaps: [ALIGN-026, ALIGN-027, ALIGN-028, ALIGN-029]
+    assertions:
+      - { id: UI-REV-01, type: structure, target: 'main tabs', expect: ['评价审核', 'Q&A 管理'], gap: ALIGN-026 }
+      - { id: UI-REV-02, type: structure, target: 'chips', expect: ['全部', '待审核', '已通过', '精选', '已拒绝'], gap: ALIGN-026 }
+      - { id: UI-REV-03, type: interaction, path: '勾选 2 条评价', expect: '批量通过/批量拒绝 条出现', gap: ALIGN-026 }
+      - { id: UI-REV-04, type: interaction, path: '详情抽屉点图片 -> Lightbox 驳回', expect: "图片置灰 + '已驳回' 标记", gap: ALIGN-026 }
+      - { id: UI-REV-05, type: structure, target: 'chips 角标', expect: '仅待审核 chip 带计数', gap: ALIGN-028, exemption: true }
+      - { id: UI-REV-06, type: text, target: 'Q&A 搜索框 placeholder', expect_contains: '（当前页）', gap: ALIGN-027, exemption: true }
+      - { id: UI-REV-07, type: interaction, path: '删除官方回复', expect: 'ConfirmDialog 二次确认后才删除', gap: ALIGN-029, exemption: true }
+      - { id: UI-REV-08, type: visual, screenshot: reviews-full-desktop.png }
+  - page_id: Shipping
+    route: /shipping
+    gaps: [ALIGN-030, ALIGN-031, ALIGN-032]
+    assertions:
+      - { id: UI-SHP-01, type: structure, target: page, expect: '承运方面板（Toggle/添加承运方）与 国际邮费表（区域/基础邮费/满额包邮/门槛）双 panel', gap: ALIGN-030 }
+      - { id: UI-SHP-02, type: text, target: 'feeOver=0 行', expect: '免邮', gap: ALIGN-032 }
+      - { id: UI-SHP-03, type: structure, target: 'page header', expect_not: ['保存配置'], gap: ALIGN-031, exemption: true }
+      - { id: UI-SHP-04, type: visual, screenshot: shipping-full-desktop.png }
+  - page_id: Promotions
+    route: /promotions
+    gaps: [ALIGN-033, ALIGN-034]
+    assertions:
+      - { id: UI-PRM-01, type: text, target: 'expired 券徽章', expect: '已过期', gap: ALIGN-033 }
+      - { id: UI-PRM-02, type: text, target: 'ended 闪购徽章', expect: '已结束', gap: ALIGN-033 }
+      - { id: UI-PRM-03, type: structure, target: 'ended 闪购编辑按钮', expect: "disabled 且 title='已结束活动不可编辑'", gap: ALIGN-034 }
+      - { id: UI-PRM-04, type: visual, screenshot: promotions-full-desktop.png }
+  - page_id: Banners
+    route: /banners
+    gaps: [ALIGN-035]
+    assertions:
+      - { id: UI-BNR-01, type: interaction, path: 'published 行 Toggle off', expect: '请求 status=archived；成功后 Toggle off', gap: ALIGN-035 }
+      - { id: UI-BNR-02, type: interaction, path: 'archived 行 Toggle on', expect: '请求 status=published', gap: ALIGN-035 }
+      - { id: UI-BNR-03, type: interaction, path: 'mock 409703 后 Toggle', expect: "Toggle 视觉态回滚 + toast '当前发布状态不允许该操作'", gap: ALIGN-035 }
+      - { id: UI-BNR-04, type: visual, screenshot: banners-full-desktop.png }
+  - page_id: ContentBlog
+    route: /content/blog
+    gaps: [ALIGN-036, ALIGN-037]
+    assertions:
+      - { id: UI-BLG-01, type: state_matrix, target: '卡片操作按钮', expect: 'draft:发布；published:下线；archived:重新发布', gap: ALIGN-036 }
+      - { id: UI-BLG-02, type: structure, target: '无 slug 卡片预览按钮', expect: "disabled 且 title='需先填写 slug'", gap: ALIGN-037 }
+      - { id: UI-BLG-03, type: interaction, path: '有 slug 卡片点预览', expect: '新窗口 URL 以 /blog/{slug} 结尾', gap: ALIGN-037 }
+      - { id: UI-BLG-04, type: visual, screenshot: content-blog-full-desktop.png }
+  - page_id: ContentWeddings
+    route: /content/weddings
+    gaps: [ALIGN-038]
+    assertions:
+      - { id: UI-WED-01, type: state_matrix, target: '行操作', expect: 'draft:发布；published:下线（published↔draft 切换）', gap: ALIGN-038 }
+      - { id: UI-WED-02, type: visual, screenshot: content-weddings-full-desktop.png }
+  - page_id: ContentLookbook
+    route: /content/lookbook
+    gaps: [ALIGN-039]
+    assertions:
+      - { id: UI-LBK-01, type: state_matrix, target: 'Lookbook 卡片', expect: '发布/下线 按钮按状态切换', gap: ALIGN-039 }
+      - { id: UI-LBK-02, type: state_matrix, target: 'Guide 行', expect: '发布/下线 按钮按状态切换', gap: ALIGN-039 }
+      - { id: UI-LBK-03, type: visual, screenshot: content-lookbook-full-desktop.png }
+
+exemptions_registry:  # L4 四维对照差异豁免（决策 8/9 及既有显式偏离）
+  - { gap: ALIGN-002, reason: '三语 LocaleTabs 实现增强（决策 9）' }
+  - { gap: ALIGN-003, reason: 'E-CAT-30 维度删除 409506 引导（显式偏离）' }
+  - { gap: ALIGN-006, reason: 'E-CAT-21 矩阵整单保存（显式偏离）' }
+  - { gap: ALIGN-008, reason: '排序列实现增强（决策 9）' }
+  - { gap: ALIGN-010, reason: 'DEC-ANA-FE-2 KPI delta 删除（决策 8）' }
+  - { gap: ALIGN-011, reason: 'DEC-ANA-FE-3 待办 3 列（决策 8）' }
+  - { gap: ALIGN-014, reason: 'Orders 8 Tab 超集（决策 9）；币种/时间筛选同豁免' }
+  - { gap: ALIGN-016, reason: 'DEC-ANA-FE-7 热度列销售额（决策 8）' }
+  - { gap: ALIGN-019, reason: '多币种 5 列超集（决策 9）' }
+  - { gap: ALIGN-027, reason: 'FORM-REV-A01② Q&A 当前页过滤（决策 8）' }
+  - { gap: ALIGN-028, reason: 'FORM-REV-A01① chips 仅待审核角标（决策 8）' }
+  - { gap: ALIGN-029, reason: 'CP-071 删除二次确认（决策 9）' }
+  - { gap: ALIGN-031, reason: 'DEC-SHP-FE-1/2 即时持久化+行内编辑（决策 8）' }

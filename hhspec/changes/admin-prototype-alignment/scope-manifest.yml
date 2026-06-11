@@ -1,0 +1,55 @@
+schema_version: '1.0'
+change_name: admin-prototype-alignment
+generated_at: '2026-06-11T04:08:53Z'
+portals:
+- portal_id: portal-admin
+  impl_root: frontend/portal-admin
+  pages:
+  - page_id: Dashboard
+    proto_path: hhspec/prototype/portal-admin/src/views/Dashboard.vue
+    path: frontend/portal-admin/src/views/Dashboard.vue
+  - page_id: Analytics
+    proto_path: hhspec/prototype/portal-admin/src/views/Analytics.vue
+    path: frontend/portal-admin/src/views/Analytics.vue
+  - page_id: Products
+    proto_path: hhspec/prototype/portal-admin/src/views/Products.vue
+    path: frontend/portal-admin/src/views/Products.vue
+  - page_id: ProductEdit
+    proto_path: hhspec/prototype/portal-admin/src/views/ProductEdit.vue
+    path: frontend/portal-admin/src/views/ProductEdit.vue
+  - page_id: Categories
+    proto_path: hhspec/prototype/portal-admin/src/views/Categories.vue
+    path: frontend/portal-admin/src/views/Categories.vue
+  - page_id: AttributeSets
+    proto_path: hhspec/prototype/portal-admin/src/views/AttributeSets.vue
+    path: frontend/portal-admin/src/views/AttributeSets.vue
+  - page_id: Orders
+    proto_path: hhspec/prototype/portal-admin/src/views/Orders.vue
+    path: frontend/portal-admin/src/views/Orders.vue
+  - page_id: OrderDetail
+    proto_path: hhspec/prototype/portal-admin/src/views/OrderDetail.vue
+    path: frontend/portal-admin/src/views/OrderDetail.vue
+  - page_id: Refunds
+    proto_path: hhspec/prototype/portal-admin/src/views/Refunds.vue
+    path: frontend/portal-admin/src/views/Refunds.vue
+  - page_id: Reviews
+    proto_path: hhspec/prototype/portal-admin/src/views/Reviews.vue
+    path: frontend/portal-admin/src/views/Reviews.vue
+  - page_id: Shipping
+    proto_path: hhspec/prototype/portal-admin/src/views/Shipping.vue
+    path: frontend/portal-admin/src/views/Shipping.vue
+  - page_id: Promotions
+    proto_path: hhspec/prototype/portal-admin/src/views/Promotions.vue
+    path: frontend/portal-admin/src/views/Promotions.vue
+  - page_id: Banners
+    proto_path: hhspec/prototype/portal-admin/src/views/Banners.vue
+    path: frontend/portal-admin/src/views/Banners.vue
+  - page_id: ContentBlog
+    proto_path: hhspec/prototype/portal-admin/src/views/ContentBlog.vue
+    path: frontend/portal-admin/src/views/ContentBlog.vue
+  - page_id: ContentWeddings
+    proto_path: hhspec/prototype/portal-admin/src/views/ContentWeddings.vue
+    path: frontend/portal-admin/src/views/ContentWeddings.vue
+  - page_id: ContentLookbook
+    proto_path: hhspec/prototype/portal-admin/src/views/ContentLookbook.vue
+    path: frontend/portal-admin/src/views/ContentLookbook.vue

@@ -1,0 +1,15 @@
+change_name: admin-prototype-alignment
+generated_at: '2026-06-11T03:36:32Z'
+verdict: pass
+semantic_status: complete
+pass_items:
+- er-diagram.yml exists
+- state-machine.yml exists
+- business-flow.yml exists
+- boundary-scenarios.yml exists
+- acceptance.yml exists
+- 'er-diagram has 17 live entities (field-inventory: 19 fields across 0 pages)'
+- state-machine has 35 machine(s), 129 live states total
+- acceptance.yml has 899 live scenarios
+- boundary-scenarios covers all 7 categories
+issues: []

@@ -1,0 +1,38 @@
+meta:
+  mode: incremental
+  baseline_ref: "hhspec/specs/architecture/state-machine.yml"
+  generated_at: "2026-06-11T03:30:00Z"
+  breaking_changes: []
+machines:
+  - id: lookbook_lifecycle
+    entity: lookbook
+    meta: {source: new}
+    source: "prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 新增/编辑/删除按钮"
+    states: [draft, published, deleted]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published}
+      - {from: published, event: unpublish, to: draft}
+      - {from: draft, event: delete, to: deleted}
+      - {from: published, event: delete, to: deleted}
+  - id: style_guide_lifecycle
+    entity: style_guide
+    meta: {source: new}
+    source: "prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 编辑/删除按钮"
+    states: [draft, published, deleted]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published}
+      - {from: published, event: unpublish, to: draft}
+      - {from: draft, event: delete, to: deleted}
+      - {from: published, event: delete, to: deleted}
+  - id: page_content_lookbook_tabs
+    entity: page_state
+    page_id: portal-admin/ContentLookbook
+    meta: {source: new}
+    source: "prototype/portal-admin/src/views/ContentLookbook.vue > const tab = ref('lookbook') + @click tab 切换"
+    states: [tab_lookbook, tab_guide]
+    initial: tab_lookbook
+    transitions:
+      - {from: tab_lookbook, event: click_tab_guide, to: tab_guide}
+      - {from: tab_guide, event: click_tab_lookbook, to: tab_lookbook}

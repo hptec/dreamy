@@ -1,0 +1,29 @@
+meta:
+  mode: incremental
+  baseline_ref: "hhspec/specs/architecture/er-diagram.yml"
+  generated_at: "2026-06-11T03:30:00Z"
+  breaking_changes: []
+entities:
+  - id: lookbook
+    desc: Lookbook 主题画册，聚合商品锚点的 CMS 内容
+    meta: {source: new}
+    fields:
+      - {n: id, t: Long, pk: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=l.id"}
+      - {n: title, t: str, req: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.title }}"}
+      - {n: theme, t: str, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.theme }}"}
+      - {n: items, t: int, min: 0, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.items }} 件商品锚点"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge l.status === 'published'"}
+    relations:
+      - {to: product, type: nm, source: "prototype/portal-admin/src/views/ContentLookbook.vue > 商品锚点 [INFERRED]"}
+  - id: style_guide
+    desc: Wedding Guides 婚礼筹备时间轴指南条目
+    meta: {source: new}
+    fields:
+      - {n: id, t: Long, pk: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=g.id"}
+      - {n: title, t: str, req: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.title }}"}
+      - {n: timeframe, t: str, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.timeframe }}"}
+      - {n: phase, t: str, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.phase }}"}
+      - {n: tasks, t: int, min: 0, source: "prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.tasks }} 个待办任务"}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: "prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge g.status === 'published'"}
+      - {n: sort_order, t: int, min: 1, source: "prototype/portal-admin/src/views/ContentLookbook.vue > 序号 {{ i + 1 }} [INFERRED]"}
+    relations: []

@@ -1,0 +1,4849 @@
+scenarios:
+- id: bs-001
+  cat: "null"
+  entity: category
+  field: id
+  ctx: category 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-002
+  cat: "null"
+  entity: category
+  field: name
+  ctx: category 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-003
+  cat: "null"
+  entity: category
+  field: parent_id
+  ctx: category 的可选字段 parent_id 未提供
+  act: 提交 parent_id=null 的请求
+  expect: 系统正常处理并保持 parent_id 为空，不报错
+  source: er
+- id: bs-004
+  cat: "null"
+  entity: category
+  field: level
+  ctx: category 的可选字段 level 未提供
+  act: 提交 level=null 的请求
+  expect: 系统正常处理并保持 level 为空，不报错
+  source: er
+- id: bs-005
+  cat: "null"
+  entity: category
+  field: attribute_set_id
+  ctx: category 的可选字段 attribute_set_id 未提供
+  act: 提交 attribute_set_id=null 的请求
+  expect: 系统正常处理并保持 attribute_set_id 为空，不报错
+  source: er
+- id: bs-006
+  cat: "null"
+  entity: category
+  field: attr_overrides
+  ctx: category 的可选字段 attr_overrides 未提供
+  act: 提交 attr_overrides=null 的请求
+  expect: 系统正常处理并保持 attr_overrides 为空，不报错
+  source: er
+- id: bs-007
+  cat: "null"
+  entity: category
+  field: sort
+  ctx: category 的可选字段 sort 未提供
+  act: 提交 sort=null 的请求
+  expect: 系统正常处理并保持 sort 为空，不报错
+  source: er
+- id: bs-008
+  cat: "null"
+  entity: category
+  field: product_count
+  ctx: category 的可选字段 product_count 未提供
+  act: 提交 product_count=null 的请求
+  expect: 系统正常处理并保持 product_count 为空，不报错
+  source: er
+- id: bs-009
+  cat: "null"
+  entity: attribute_def
+  field: id
+  ctx: attribute_def 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-010
+  cat: "null"
+  entity: attribute_def
+  field: key
+  ctx: attribute_def 创建或更新时缺少必填字段 key
+  act: 提交 key=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 key
+  source: er
+- id: bs-011
+  cat: "null"
+  entity: attribute_def
+  field: label
+  ctx: attribute_def 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-012
+  cat: "null"
+  entity: attribute_def
+  field: type
+  ctx: attribute_def 创建或更新时缺少必填字段 type
+  act: 提交 type=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 type
+  source: er
+- id: bs-013
+  cat: "null"
+  entity: attribute_def
+  field: options
+  ctx: attribute_def 的可选字段 options 未提供
+  act: 提交 options=null 的请求
+  expect: 系统正常处理并保持 options 为空，不报错
+  source: er
+- id: bs-014
+  cat: "null"
+  entity: attribute_set
+  field: id
+  ctx: attribute_set 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-015
+  cat: "null"
+  entity: attribute_set
+  field: label
+  ctx: attribute_set 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-016
+  cat: "null"
+  entity: attribute_set_item
+  field: id
+  ctx: attribute_set_item 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-017
+  cat: "null"
+  entity: attribute_set_item
+  field: attribute_set_id
+  ctx: attribute_set_item 创建或更新时缺少必填字段 attribute_set_id
+  act: 提交 attribute_set_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 attribute_set_id
+  source: er
+- id: bs-018
+  cat: "null"
+  entity: attribute_set_item
+  field: attribute_id
+  ctx: attribute_set_item 创建或更新时缺少必填字段 attribute_id
+  act: 提交 attribute_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 attribute_id
+  source: er
+- id: bs-019
+  cat: "null"
+  entity: attribute_set_item
+  field: visibility
+  ctx: attribute_set_item 创建或更新时缺少必填字段 visibility
+  act: 提交 visibility=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 visibility
+  source: er
+- id: bs-020
+  cat: "null"
+  entity: tag_dimension
+  field: id
+  ctx: tag_dimension 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-021
+  cat: "null"
+  entity: tag_dimension
+  field: name
+  ctx: tag_dimension 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-022
+  cat: "null"
+  entity: tag_dimension
+  field: description
+  ctx: tag_dimension 的可选字段 description 未提供
+  act: 提交 description=null 的请求
+  expect: 系统正常处理并保持 description 为空，不报错
+  source: er
+- id: bs-023
+  cat: "null"
+  entity: tag
+  field: id
+  ctx: tag 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-024
+  cat: "null"
+  entity: tag
+  field: dimension_id
+  ctx: tag 创建或更新时缺少必填字段 dimension_id
+  act: 提交 dimension_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 dimension_id
+  source: er
+- id: bs-025
+  cat: "null"
+  entity: tag
+  field: name
+  ctx: tag 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-026
+  cat: "null"
+  entity: tag
+  field: cover
+  ctx: tag 的可选字段 cover 未提供
+  act: 提交 cover=null 的请求
+  expect: 系统正常处理并保持 cover 为空，不报错
+  source: er
+- id: bs-027
+  cat: "null"
+  entity: tag
+  field: status
+  ctx: tag 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-028
+  cat: "null"
+  entity: tag
+  field: product_count
+  ctx: tag 的可选字段 product_count 未提供
+  act: 提交 product_count=null 的请求
+  expect: 系统正常处理并保持 product_count 为空，不报错
+  source: er
+- id: bs-029
+  cat: "null"
+  entity: custom_tag
+  field: id
+  ctx: custom_tag 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-030
+  cat: "null"
+  entity: custom_tag
+  field: name
+  ctx: custom_tag 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-031
+  cat: "null"
+  entity: custom_tag
+  field: dimensionId
+  ctx: custom_tag 的可选字段 dimensionId 未提供
+  act: 提交 dimensionId=null 的请求
+  expect: 系统正常处理并保持 dimensionId 为空，不报错
+  source: er
+- id: bs-032
+  cat: "null"
+  entity: product
+  field: id
+  ctx: product 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-033
+  cat: "null"
+  entity: product
+  field: name
+  ctx: product 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-034
+  cat: "null"
+  entity: product
+  field: slug
+  ctx: product 创建或更新时缺少必填字段 slug
+  act: 提交 slug=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 slug
+  source: er
+- id: bs-035
+  cat: "null"
+  entity: product
+  field: subtitle
+  ctx: product 的可选字段 subtitle 未提供
+  act: 提交 subtitle=null 的请求
+  expect: 系统正常处理并保持 subtitle 为空，不报错
+  source: er
+- id: bs-036
+  cat: "null"
+  entity: product
+  field: categoryId
+  ctx: product 创建或更新时缺少必填字段 categoryId
+  act: 提交 categoryId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 categoryId
+  source: er
+- id: bs-037
+  cat: "null"
+  entity: product
+  field: productType
+  ctx: product 的可选字段 productType 未提供
+  act: 提交 productType=null 的请求
+  expect: 系统正常处理并保持 productType 为空，不报错
+  source: er
+- id: bs-038
+  cat: "null"
+  entity: product
+  field: description
+  ctx: product 的可选字段 description 未提供
+  act: 提交 description=null 的请求
+  expect: 系统正常处理并保持 description 为空，不报错
+  source: er
+- id: bs-039
+  cat: "null"
+  entity: product
+  field: designerNote
+  ctx: product 的可选字段 designerNote 未提供
+  act: 提交 designerNote=null 的请求
+  expect: 系统正常处理并保持 designerNote 为空，不报错
+  source: er
+- id: bs-040
+  cat: "null"
+  entity: product
+  field: price
+  ctx: product 创建或更新时缺少必填字段 price
+  act: 提交 price=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 price
+  source: er
+- id: bs-041
+  cat: "null"
+  entity: product
+  field: compareAt
+  ctx: product 的可选字段 compareAt 未提供
+  act: 提交 compareAt=null 的请求
+  expect: 系统正常处理并保持 compareAt 为空，不报错
+  source: er
+- id: bs-042
+  cat: "null"
+  entity: product
+  field: installment
+  ctx: product 的可选字段 installment 未提供
+  act: 提交 installment=null 的请求
+  expect: 系统正常处理并保持 installment 为空，不报错
+  source: er
+- id: bs-043
+  cat: "null"
+  entity: product
+  field: multiCurrencyPrices
+  ctx: product 的可选字段 multiCurrencyPrices 未提供
+  act: 提交 multiCurrencyPrices=null 的请求
+  expect: 系统正常处理并保持 multiCurrencyPrices 为空，不报错
+  source: er
+- id: bs-044
+  cat: "null"
+  entity: product
+  field: status
+  ctx: product 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-045
+  cat: "null"
+  entity: product
+  field: isNew
+  ctx: product 的可选字段 isNew 未提供
+  act: 提交 isNew=null 的请求
+  expect: 系统正常处理并保持 isNew 为空，不报错
+  source: er
+- id: bs-046
+  cat: "null"
+  entity: product
+  field: isBest
+  ctx: product 的可选字段 isBest 未提供
+  act: 提交 isBest=null 的请求
+  expect: 系统正常处理并保持 isBest 为空，不报错
+  source: er
+- id: bs-047
+  cat: "null"
+  entity: product
+  field: recommend
+  ctx: product 的可选字段 recommend 未提供
+  act: 提交 recommend=null 的请求
+  expect: 系统正常处理并保持 recommend 为空，不报错
+  source: er
+- id: bs-048
+  cat: "null"
+  entity: product
+  field: sort
+  ctx: product 的可选字段 sort 未提供
+  act: 提交 sort=null 的请求
+  expect: 系统正常处理并保持 sort 为空，不报错
+  source: er
+- id: bs-049
+  cat: "null"
+  entity: product
+  field: sales
+  ctx: product 的可选字段 sales 未提供
+  act: 提交 sales=null 的请求
+  expect: 系统正常处理并保持 sales 为空，不报错
+  source: er
+- id: bs-050
+  cat: "null"
+  entity: product
+  field: leadTimeDays
+  ctx: product 创建或更新时缺少必填字段 leadTimeDays
+  act: 提交 leadTimeDays=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 leadTimeDays
+  source: er
+- id: bs-051
+  cat: "null"
+  entity: product
+  field: rushAvailable
+  ctx: product 的可选字段 rushAvailable 未提供
+  act: 提交 rushAvailable=null 的请求
+  expect: 系统正常处理并保持 rushAvailable 为空，不报错
+  source: er
+- id: bs-052
+  cat: "null"
+  entity: product
+  field: customSizeAvailable
+  ctx: product 的可选字段 customSizeAvailable 未提供
+  act: 提交 customSizeAvailable=null 的请求
+  expect: 系统正常处理并保持 customSizeAvailable 为空，不报错
+  source: er
+- id: bs-053
+  cat: "null"
+  entity: product
+  field: silhouette
+  ctx: product 的可选字段 silhouette 未提供
+  act: 提交 silhouette=null 的请求
+  expect: 系统正常处理并保持 silhouette 为空，不报错
+  source: er
+- id: bs-054
+  cat: "null"
+  entity: product
+  field: neckline
+  ctx: product 的可选字段 neckline 未提供
+  act: 提交 neckline=null 的请求
+  expect: 系统正常处理并保持 neckline 为空，不报错
+  source: er
+- id: bs-055
+  cat: "null"
+  entity: product
+  field: sleeve
+  ctx: product 的可选字段 sleeve 未提供
+  act: 提交 sleeve=null 的请求
+  expect: 系统正常处理并保持 sleeve 为空，不报错
+  source: er
+- id: bs-056
+  cat: "null"
+  entity: product
+  field: backStyle
+  ctx: product 的可选字段 backStyle 未提供
+  act: 提交 backStyle=null 的请求
+  expect: 系统正常处理并保持 backStyle 为空，不报错
+  source: er
+- id: bs-057
+  cat: "null"
+  entity: product
+  field: waistline
+  ctx: product 的可选字段 waistline 未提供
+  act: 提交 waistline=null 的请求
+  expect: 系统正常处理并保持 waistline 为空，不报错
+  source: er
+- id: bs-058
+  cat: "null"
+  entity: product
+  field: train
+  ctx: product 的可选字段 train 未提供
+  act: 提交 train=null 的请求
+  expect: 系统正常处理并保持 train 为空，不报错
+  source: er
+- id: bs-059
+  cat: "null"
+  entity: product
+  field: length
+  ctx: product 的可选字段 length 未提供
+  act: 提交 length=null 的请求
+  expect: 系统正常处理并保持 length 为空，不报错
+  source: er
+- id: bs-060
+  cat: "null"
+  entity: product
+  field: fabric
+  ctx: product 的可选字段 fabric 未提供
+  act: 提交 fabric=null 的请求
+  expect: 系统正常处理并保持 fabric 为空，不报错
+  source: er
+- id: bs-061
+  cat: "null"
+  entity: product
+  field: fabricComposition
+  ctx: product 的可选字段 fabricComposition 未提供
+  act: 提交 fabricComposition=null 的请求
+  expect: 系统正常处理并保持 fabricComposition 为空，不报错
+  source: er
+- id: bs-062
+  cat: "null"
+  entity: product
+  field: support
+  ctx: product 的可选字段 support 未提供
+  act: 提交 support=null 的请求
+  expect: 系统正常处理并保持 support 为空，不报错
+  source: er
+- id: bs-063
+  cat: "null"
+  entity: product
+  field: season
+  ctx: product 的可选字段 season 未提供
+  act: 提交 season=null 的请求
+  expect: 系统正常处理并保持 season 为空，不报错
+  source: er
+- id: bs-064
+  cat: "null"
+  entity: product
+  field: embellishments
+  ctx: product 的可选字段 embellishments 未提供
+  act: 提交 embellishments=null 的请求
+  expect: 系统正常处理并保持 embellishments 为空，不报错
+  source: er
+- id: bs-065
+  cat: "null"
+  entity: product
+  field: occasions
+  ctx: product 的可选字段 occasions 未提供
+  act: 提交 occasions=null 的请求
+  expect: 系统正常处理并保持 occasions 为空，不报错
+  source: er
+- id: bs-066
+  cat: "null"
+  entity: product
+  field: styleTags
+  ctx: product 的可选字段 styleTags 未提供
+  act: 提交 styleTags=null 的请求
+  expect: 系统正常处理并保持 styleTags 为空，不报错
+  source: er
+- id: bs-067
+  cat: "null"
+  entity: product
+  field: modelHeight
+  ctx: product 的可选字段 modelHeight 未提供
+  act: 提交 modelHeight=null 的请求
+  expect: 系统正常处理并保持 modelHeight 为空，不报错
+  source: er
+- id: bs-068
+  cat: "null"
+  entity: product
+  field: modelSize
+  ctx: product 的可选字段 modelSize 未提供
+  act: 提交 modelSize=null 的请求
+  expect: 系统正常处理并保持 modelSize 为空，不报错
+  source: er
+- id: bs-069
+  cat: "null"
+  entity: product
+  field: modelBodyType
+  ctx: product 的可选字段 modelBodyType 未提供
+  act: 提交 modelBodyType=null 的请求
+  expect: 系统正常处理并保持 modelBodyType 为空，不报错
+  source: er
+- id: bs-070
+  cat: "null"
+  entity: product
+  field: careInstructions
+  ctx: product 的可选字段 careInstructions 未提供
+  act: 提交 careInstructions=null 的请求
+  expect: 系统正常处理并保持 careInstructions 为空，不报错
+  source: er
+- id: bs-071
+  cat: "null"
+  entity: product
+  field: countryOfOrigin
+  ctx: product 的可选字段 countryOfOrigin 未提供
+  act: 提交 countryOfOrigin=null 的请求
+  expect: 系统正常处理并保持 countryOfOrigin 为空，不报错
+  source: er
+- id: bs-072
+  cat: "null"
+  entity: product
+  field: styleNo
+  ctx: product 的可选字段 styleNo 未提供
+  act: 提交 styleNo=null 的请求
+  expect: 系统正常处理并保持 styleNo 为空，不报错
+  source: er
+- id: bs-073
+  cat: "null"
+  entity: product
+  field: seoTitle
+  ctx: product 的可选字段 seoTitle 未提供
+  act: 提交 seoTitle=null 的请求
+  expect: 系统正常处理并保持 seoTitle 为空，不报错
+  source: er
+- id: bs-074
+  cat: "null"
+  entity: product
+  field: seoDesc
+  ctx: product 的可选字段 seoDesc 未提供
+  act: 提交 seoDesc=null 的请求
+  expect: 系统正常处理并保持 seoDesc 为空，不报错
+  source: er
+- id: bs-075
+  cat: "null"
+  entity: sku
+  field: id
+  ctx: sku 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-076
+  cat: "null"
+  entity: sku
+  field: productId
+  ctx: sku 创建或更新时缺少必填字段 productId
+  act: 提交 productId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 productId
+  source: er
+- id: bs-077
+  cat: "null"
+  entity: sku
+  field: skuCode
+  ctx: sku 创建或更新时缺少必填字段 skuCode
+  act: 提交 skuCode=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 skuCode
+  source: er
+- id: bs-078
+  cat: "null"
+  entity: sku
+  field: color
+  ctx: sku 创建或更新时缺少必填字段 color
+  act: 提交 color=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 color
+  source: er
+- id: bs-079
+  cat: "null"
+  entity: sku
+  field: size
+  ctx: sku 创建或更新时缺少必填字段 size
+  act: 提交 size=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 size
+  source: er
+- id: bs-080
+  cat: "null"
+  entity: sku
+  field: stock
+  ctx: sku 的可选字段 stock 未提供
+  act: 提交 stock=null 的请求
+  expect: 系统正常处理并保持 stock 为空，不报错
+  source: er
+- id: bs-081
+  cat: "null"
+  entity: sku
+  field: version
+  ctx: sku 的可选字段 version 未提供
+  act: 提交 version=null 的请求
+  expect: 系统正常处理并保持 version 为空，不报错
+  source: er
+- id: bs-082
+  cat: "null"
+  entity: customer
+  field: id
+  ctx: customer 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-083
+  cat: "null"
+  entity: customer
+  field: name
+  ctx: customer 的可选字段 name 未提供
+  act: 提交 name=null 的请求
+  expect: 系统正常处理并保持 name 为空，不报错
+  source: er
+- id: bs-084
+  cat: "null"
+  entity: customer
+  field: email
+  ctx: customer 的可选字段 email 未提供
+  act: 提交 email=null 的请求
+  expect: 系统正常处理并保持 email 为空，不报错
+  source: er
+- id: bs-085
+  cat: "null"
+  entity: customer
+  field: phone
+  ctx: customer 的可选字段 phone 未提供
+  act: 提交 phone=null 的请求
+  expect: 系统正常处理并保持 phone 为空，不报错
+  source: er
+- id: bs-086
+  cat: "null"
+  entity: order
+  field: id
+  ctx: order 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-087
+  cat: "null"
+  entity: order
+  field: orderNo
+  ctx: order 创建或更新时缺少必填字段 orderNo
+  act: 提交 orderNo=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 orderNo
+  source: er
+- id: bs-088
+  cat: "null"
+  entity: order
+  field: customerId
+  ctx: order 创建或更新时缺少必填字段 customerId
+  act: 提交 customerId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 customerId
+  source: er
+- id: bs-089
+  cat: "null"
+  entity: order
+  field: status
+  ctx: order 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-090
+  cat: "null"
+  entity: order
+  field: currency
+  ctx: order 创建或更新时缺少必填字段 currency
+  act: 提交 currency=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 currency
+  source: er
+- id: bs-091
+  cat: "null"
+  entity: order
+  field: exchangeRate
+  ctx: order 的可选字段 exchangeRate 未提供
+  act: 提交 exchangeRate=null 的请求
+  expect: 系统正常处理并保持 exchangeRate 为空，不报错
+  source: er
+- id: bs-092
+  cat: "null"
+  entity: order
+  field: weddingDate
+  ctx: order 的可选字段 weddingDate 未提供
+  act: 提交 weddingDate=null 的请求
+  expect: 系统正常处理并保持 weddingDate 为空，不报错
+  source: er
+- id: bs-093
+  cat: "null"
+  entity: order
+  field: subtotal
+  ctx: order 创建或更新时缺少必填字段 subtotal
+  act: 提交 subtotal=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 subtotal
+  source: er
+- id: bs-094
+  cat: "null"
+  entity: order
+  field: shippingFee
+  ctx: order 的可选字段 shippingFee 未提供
+  act: 提交 shippingFee=null 的请求
+  expect: 系统正常处理并保持 shippingFee 为空，不报错
+  source: er
+- id: bs-095
+  cat: "null"
+  entity: order
+  field: giftWrap
+  ctx: order 的可选字段 giftWrap 未提供
+  act: 提交 giftWrap=null 的请求
+  expect: 系统正常处理并保持 giftWrap 为空，不报错
+  source: er
+- id: bs-096
+  cat: "null"
+  entity: order
+  field: giftWrapFee
+  ctx: order 的可选字段 giftWrapFee 未提供
+  act: 提交 giftWrapFee=null 的请求
+  expect: 系统正常处理并保持 giftWrapFee 为空，不报错
+  source: er
+- id: bs-097
+  cat: "null"
+  entity: order
+  field: totalAmount
+  ctx: order 创建或更新时缺少必填字段 totalAmount
+  act: 提交 totalAmount=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 totalAmount
+  source: er
+- id: bs-098
+  cat: "null"
+  entity: order
+  field: couponId
+  ctx: order 的可选字段 couponId 未提供
+  act: 提交 couponId=null 的请求
+  expect: 系统正常处理并保持 couponId 为空，不报错
+  source: er
+- id: bs-099
+  cat: "null"
+  entity: order
+  field: paymentMethod
+  ctx: order 的可选字段 paymentMethod 未提供
+  act: 提交 paymentMethod=null 的请求
+  expect: 系统正常处理并保持 paymentMethod 为空，不报错
+  source: er
+- id: bs-100
+  cat: "null"
+  entity: order
+  field: addressSnapshot
+  ctx: order 创建或更新时缺少必填字段 addressSnapshot
+  act: 提交 addressSnapshot=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 addressSnapshot
+  source: er
+- id: bs-101
+  cat: "null"
+  entity: order
+  field: country
+  ctx: order 的可选字段 country 未提供
+  act: 提交 country=null 的请求
+  expect: 系统正常处理并保持 country 为空，不报错
+  source: er
+- id: bs-102
+  cat: "null"
+  entity: order
+  field: itemCount
+  ctx: order 的可选字段 itemCount 未提供
+  act: 提交 itemCount=null 的请求
+  expect: 系统正常处理并保持 itemCount 为空，不报错
+  source: er
+- id: bs-103
+  cat: "null"
+  entity: order
+  field: carrier
+  ctx: order 的可选字段 carrier 未提供
+  act: 提交 carrier=null 的请求
+  expect: 系统正常处理并保持 carrier 为空，不报错
+  source: er
+- id: bs-104
+  cat: "null"
+  entity: order
+  field: trackingNo
+  ctx: order 的可选字段 trackingNo 未提供
+  act: 提交 trackingNo=null 的请求
+  expect: 系统正常处理并保持 trackingNo 为空，不报错
+  source: er
+- id: bs-105
+  cat: "null"
+  entity: order
+  field: expiresAt
+  ctx: order 的可选字段 expiresAt 未提供
+  act: 提交 expiresAt=null 的请求
+  expect: 系统正常处理并保持 expiresAt 为空，不报错
+  source: er
+- id: bs-106
+  cat: "null"
+  entity: order
+  field: paidAt
+  ctx: order 的可选字段 paidAt 未提供
+  act: 提交 paidAt=null 的请求
+  expect: 系统正常处理并保持 paidAt 为空，不报错
+  source: er
+- id: bs-107
+  cat: "null"
+  entity: order
+  field: shippedAt
+  ctx: order 的可选字段 shippedAt 未提供
+  act: 提交 shippedAt=null 的请求
+  expect: 系统正常处理并保持 shippedAt 为空，不报错
+  source: er
+- id: bs-108
+  cat: "null"
+  entity: order
+  field: completedAt
+  ctx: order 的可选字段 completedAt 未提供
+  act: 提交 completedAt=null 的请求
+  expect: 系统正常处理并保持 completedAt 为空，不报错
+  source: er
+- id: bs-109
+  cat: "null"
+  entity: order
+  field: createdAt
+  ctx: order 创建或更新时缺少必填字段 createdAt
+  act: 提交 createdAt=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 createdAt
+  source: er
+- id: bs-110
+  cat: "null"
+  entity: order_line
+  field: id
+  ctx: order_line 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-111
+  cat: "null"
+  entity: order_line
+  field: orderId
+  ctx: order_line 创建或更新时缺少必填字段 orderId
+  act: 提交 orderId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 orderId
+  source: er
+- id: bs-112
+  cat: "null"
+  entity: order_line
+  field: productId
+  ctx: order_line 创建或更新时缺少必填字段 productId
+  act: 提交 productId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 productId
+  source: er
+- id: bs-113
+  cat: "null"
+  entity: order_line
+  field: skuId
+  ctx: order_line 的可选字段 skuId 未提供
+  act: 提交 skuId=null 的请求
+  expect: 系统正常处理并保持 skuId 为空，不报错
+  source: er
+- id: bs-114
+  cat: "null"
+  entity: order_line
+  field: productName
+  ctx: order_line 创建或更新时缺少必填字段 productName
+  act: 提交 productName=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 productName
+  source: er
+- id: bs-115
+  cat: "null"
+  entity: order_line
+  field: skuCode
+  ctx: order_line 的可选字段 skuCode 未提供
+  act: 提交 skuCode=null 的请求
+  expect: 系统正常处理并保持 skuCode 为空，不报错
+  source: er
+- id: bs-116
+  cat: "null"
+  entity: order_line
+  field: color
+  ctx: order_line 的可选字段 color 未提供
+  act: 提交 color=null 的请求
+  expect: 系统正常处理并保持 color 为空，不报错
+  source: er
+- id: bs-117
+  cat: "null"
+  entity: order_line
+  field: size
+  ctx: order_line 的可选字段 size 未提供
+  act: 提交 size=null 的请求
+  expect: 系统正常处理并保持 size 为空，不报错
+  source: er
+- id: bs-118
+  cat: "null"
+  entity: order_line
+  field: qty
+  ctx: order_line 创建或更新时缺少必填字段 qty
+  act: 提交 qty=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 qty
+  source: er
+- id: bs-119
+  cat: "null"
+  entity: order_line
+  field: unitPrice
+  ctx: order_line 创建或更新时缺少必填字段 unitPrice
+  act: 提交 unitPrice=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 unitPrice
+  source: er
+- id: bs-120
+  cat: "null"
+  entity: order_line
+  field: img
+  ctx: order_line 的可选字段 img 未提供
+  act: 提交 img=null 的请求
+  expect: 系统正常处理并保持 img 为空，不报错
+  source: er
+- id: bs-121
+  cat: "null"
+  entity: order_line
+  field: customSizeData
+  ctx: order_line 的可选字段 customSizeData 未提供
+  act: 提交 customSizeData=null 的请求
+  expect: 系统正常处理并保持 customSizeData 为空，不报错
+  source: er
+- id: bs-122
+  cat: "null"
+  entity: refund
+  field: id
+  ctx: refund 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-123
+  cat: "null"
+  entity: refund
+  field: refundNo
+  ctx: refund 创建或更新时缺少必填字段 refundNo
+  act: 提交 refundNo=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 refundNo
+  source: er
+- id: bs-124
+  cat: "null"
+  entity: refund
+  field: orderId
+  ctx: refund 创建或更新时缺少必填字段 orderId
+  act: 提交 orderId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 orderId
+  source: er
+- id: bs-125
+  cat: "null"
+  entity: refund
+  field: customerId
+  ctx: refund 创建或更新时缺少必填字段 customerId
+  act: 提交 customerId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 customerId
+  source: er
+- id: bs-126
+  cat: "null"
+  entity: refund
+  field: amount
+  ctx: refund 创建或更新时缺少必填字段 amount
+  act: 提交 amount=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 amount
+  source: er
+- id: bs-127
+  cat: "null"
+  entity: refund
+  field: reason
+  ctx: refund 的可选字段 reason 未提供
+  act: 提交 reason=null 的请求
+  expect: 系统正常处理并保持 reason 为空，不报错
+  source: er
+- id: bs-128
+  cat: "null"
+  entity: refund
+  field: rejectReason
+  ctx: refund 的可选字段 rejectReason 未提供
+  act: 提交 rejectReason=null 的请求
+  expect: 系统正常处理并保持 rejectReason 为空，不报错
+  source: er
+- id: bs-129
+  cat: "null"
+  entity: refund
+  field: status
+  ctx: refund 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-130
+  cat: "null"
+  entity: refund
+  field: appliedAt
+  ctx: refund 创建或更新时缺少必填字段 appliedAt
+  act: 提交 appliedAt=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 appliedAt
+  source: er
+- id: bs-131
+  cat: "null"
+  entity: refund
+  field: currency
+  ctx: refund 创建或更新时缺少必填字段 currency
+  act: 提交 currency=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 currency
+  source: er
+- id: bs-132
+  cat: "null"
+  entity: refund
+  field: stripeRefundId
+  ctx: refund 的可选字段 stripeRefundId 未提供
+  act: 提交 stripeRefundId=null 的请求
+  expect: 系统正常处理并保持 stripeRefundId 为空，不报错
+  source: er
+- id: bs-133
+  cat: "null"
+  entity: refund
+  field: returnTrackingNo
+  ctx: refund 的可选字段 returnTrackingNo 未提供
+  act: 提交 returnTrackingNo=null 的请求
+  expect: 系统正常处理并保持 returnTrackingNo 为空，不报错
+  source: er
+- id: bs-134
+  cat: "null"
+  entity: operation_log
+  field: id
+  ctx: operation_log 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-135
+  cat: "null"
+  entity: operation_log
+  field: adminId
+  ctx: operation_log 创建或更新时缺少必填字段 adminId
+  act: 提交 adminId=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 adminId
+  source: er
+- id: bs-136
+  cat: "null"
+  entity: operation_log
+  field: action
+  ctx: operation_log 创建或更新时缺少必填字段 action
+  act: 提交 action=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 action
+  source: er
+- id: bs-137
+  cat: "null"
+  entity: operation_log
+  field: targetType
+  ctx: operation_log 的可选字段 targetType 未提供
+  act: 提交 targetType=null 的请求
+  expect: 系统正常处理并保持 targetType 为空，不报错
+  source: er
+- id: bs-138
+  cat: "null"
+  entity: operation_log
+  field: targetIds
+  ctx: operation_log 的可选字段 targetIds 未提供
+  act: 提交 targetIds=null 的请求
+  expect: 系统正常处理并保持 targetIds 为空，不报错
+  source: er
+- id: bs-139
+  cat: "null"
+  entity: operation_log
+  field: result
+  ctx: operation_log 的可选字段 result 未提供
+  act: 提交 result=null 的请求
+  expect: 系统正常处理并保持 result 为空，不报错
+  source: er
+- id: bs-140
+  cat: "null"
+  entity: operation_log
+  field: rowCount
+  ctx: operation_log 的可选字段 rowCount 未提供
+  act: 提交 rowCount=null 的请求
+  expect: 系统正常处理并保持 rowCount 为空，不报错
+  source: er
+- id: bs-141
+  cat: "null"
+  entity: operation_log
+  field: createdAt
+  ctx: operation_log 创建或更新时缺少必填字段 createdAt
+  act: 提交 createdAt=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 createdAt
+  source: er
+- id: bs-142
+  cat: "null"
+  entity: page_state
+  field: page_id
+  ctx: page_state 创建或更新时缺少必填字段 page_id
+  act: 提交 page_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 page_id
+  source: er
+- id: bs-143
+  cat: "null"
+  entity: page_state
+  field: ui_state
+  ctx: page_state 的可选字段 ui_state 未提供
+  act: 提交 ui_state=null 的请求
+  expect: 系统正常处理并保持 ui_state 为空，不报错
+  source: er
+- id: bs-144
+  cat: "null"
+  entity: lookbook
+  field: id
+  ctx: lookbook 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-145
+  cat: "null"
+  entity: lookbook
+  field: title
+  ctx: lookbook 创建或更新时缺少必填字段 title
+  act: 提交 title=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 title
+  source: er
+- id: bs-146
+  cat: "null"
+  entity: lookbook
+  field: theme
+  ctx: lookbook 的可选字段 theme 未提供
+  act: 提交 theme=null 的请求
+  expect: 系统正常处理并保持 theme 为空，不报错
+  source: er
+- id: bs-147
+  cat: "null"
+  entity: lookbook
+  field: items
+  ctx: lookbook 的可选字段 items 未提供
+  act: 提交 items=null 的请求
+  expect: 系统正常处理并保持 items 为空，不报错
+  source: er
+- id: bs-148
+  cat: "null"
+  entity: lookbook
+  field: status
+  ctx: lookbook 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-149
+  cat: "null"
+  entity: style_guide
+  field: id
+  ctx: style_guide 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-150
+  cat: "null"
+  entity: style_guide
+  field: title
+  ctx: style_guide 创建或更新时缺少必填字段 title
+  act: 提交 title=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 title
+  source: er
+- id: bs-151
+  cat: "null"
+  entity: style_guide
+  field: timeframe
+  ctx: style_guide 的可选字段 timeframe 未提供
+  act: 提交 timeframe=null 的请求
+  expect: 系统正常处理并保持 timeframe 为空，不报错
+  source: er
+- id: bs-152
+  cat: "null"
+  entity: style_guide
+  field: phase
+  ctx: style_guide 的可选字段 phase 未提供
+  act: 提交 phase=null 的请求
+  expect: 系统正常处理并保持 phase 为空，不报错
+  source: er
+- id: bs-153
+  cat: "null"
+  entity: style_guide
+  field: tasks
+  ctx: style_guide 的可选字段 tasks 未提供
+  act: 提交 tasks=null 的请求
+  expect: 系统正常处理并保持 tasks 为空，不报错
+  source: er
+- id: bs-154
+  cat: "null"
+  entity: style_guide
+  field: status
+  ctx: style_guide 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-155
+  cat: "null"
+  entity: style_guide
+  field: sort_order
+  ctx: style_guide 的可选字段 sort_order 未提供
+  act: 提交 sort_order=null 的请求
+  expect: 系统正常处理并保持 sort_order 为空，不报错
+  source: er
+- id: bs-156
+  cat: extreme
+  entity: category
+  field: name
+  ctx: name 的最大长度为 64
+  act: 提交长度为 65 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-157
+  cat: extreme
+  entity: category
+  field: level
+  ctx: level 的最小值约束为 1
+  act: 提交 level=0
+  expect: 系统拒绝低于最小值的输入，返回 level 边界错误
+  source: er
+- id: bs-158
+  cat: extreme
+  entity: category
+  field: level
+  ctx: level 的最大值约束为 3
+  act: 提交 level=4
+  expect: 系统拒绝超过最大值的输入，返回 level 边界错误
+  source: er
+- id: bs-159
+  cat: extreme
+  entity: category
+  field: product_count
+  ctx: product_count 的最小值约束为 0
+  act: 提交 product_count=-1
+  expect: 系统拒绝低于最小值的输入，返回 product_count 边界错误
+  source: er
+- id: bs-160
+  cat: extreme
+  entity: attribute_def
+  field: type
+  ctx: "type 的合法枚举为 ['select', 'multiselect', 'text', 'toggle']"
+  act: 提交枚举外的 type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 type 枚举错误
+  source: er
+- id: bs-161
+  cat: extreme
+  entity: attribute_set_item
+  field: visibility
+  ctx: "visibility 的合法枚举为 ['visible', 'optional', 'hidden']"
+  act: 提交枚举外的 visibility=__invalid__
+  expect: 系统拒绝非法枚举值，返回 visibility 枚举错误
+  source: er
+- id: bs-162
+  cat: extreme
+  entity: tag
+  field: status
+  ctx: "status 的合法枚举为 ['enabled', 'disabled']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-163
+  cat: extreme
+  entity: tag
+  field: product_count
+  ctx: product_count 的最小值约束为 0
+  act: 提交 product_count=-1
+  expect: 系统拒绝低于最小值的输入，返回 product_count 边界错误
+  source: er
+- id: bs-164
+  cat: extreme
+  entity: custom_tag
+  field: name
+  ctx: name 的最大长度为 64
+  act: 提交长度为 65 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-165
+  cat: extreme
+  entity: custom_tag
+  field: dimensionId
+  ctx: dimensionId 的最大长度为 32
+  act: 提交长度为 33 的 dimensionId
+  expect: 系统拒绝超长输入，返回 dimensionId 长度超限错误
+  source: er
+- id: bs-166
+  cat: extreme
+  entity: product
+  field: name
+  ctx: name 的最大长度为 128
+  act: 提交长度为 129 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-167
+  cat: extreme
+  entity: product
+  field: slug
+  ctx: slug 的最大长度为 128
+  act: 提交长度为 129 的 slug
+  expect: 系统拒绝超长输入，返回 slug 长度超限错误
+  source: er
+- id: bs-168
+  cat: extreme
+  entity: product
+  field: slug
+  ctx: "slug 需要匹配 pattern ^[a-z0-9-]+$"
+  act: "提交不匹配 ^[a-z0-9-]+$ 的 slug"
+  expect: 系统拒绝格式非法的 slug，返回 INVALID_FORMAT
+  source: er
+- id: bs-169
+  cat: extreme
+  entity: product
+  field: subtitle
+  ctx: subtitle 的最大长度为 255
+  act: 提交长度为 256 的 subtitle
+  expect: 系统拒绝超长输入，返回 subtitle 长度超限错误
+  source: er
+- id: bs-170
+  cat: extreme
+  entity: product
+  field: productType
+  ctx: productType 的最大长度为 64
+  act: 提交长度为 65 的 productType
+  expect: 系统拒绝超长输入，返回 productType 长度超限错误
+  source: er
+- id: bs-171
+  cat: extreme
+  entity: product
+  field: price
+  ctx: price 的最小值约束为 0
+  act: 提交 price=-1
+  expect: 系统拒绝低于最小值的输入，返回 price 边界错误
+  source: er
+- id: bs-172
+  cat: extreme
+  entity: product
+  field: compareAt
+  ctx: compareAt 的最小值约束为 0
+  act: 提交 compareAt=-1
+  expect: 系统拒绝低于最小值的输入，返回 compareAt 边界错误
+  source: er
+- id: bs-173
+  cat: extreme
+  entity: product
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-174
+  cat: extreme
+  entity: product
+  field: sort
+  ctx: sort 的最小值约束为 0
+  act: 提交 sort=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort 边界错误
+  source: er
+- id: bs-175
+  cat: extreme
+  entity: product
+  field: sales
+  ctx: sales 的最小值约束为 0
+  act: 提交 sales=-1
+  expect: 系统拒绝低于最小值的输入，返回 sales 边界错误
+  source: er
+- id: bs-176
+  cat: extreme
+  entity: product
+  field: leadTimeDays
+  ctx: leadTimeDays 的最小值约束为 1
+  act: 提交 leadTimeDays=0
+  expect: 系统拒绝低于最小值的输入，返回 leadTimeDays 边界错误
+  source: er
+- id: bs-177
+  cat: extreme
+  entity: product
+  field: fabricComposition
+  ctx: fabricComposition 的最大长度为 128
+  act: 提交长度为 129 的 fabricComposition
+  expect: 系统拒绝超长输入，返回 fabricComposition 长度超限错误
+  source: er
+- id: bs-178
+  cat: extreme
+  entity: product
+  field: modelHeight
+  ctx: modelHeight 的最大长度为 32
+  act: 提交长度为 33 的 modelHeight
+  expect: 系统拒绝超长输入，返回 modelHeight 长度超限错误
+  source: er
+- id: bs-179
+  cat: extreme
+  entity: product
+  field: modelSize
+  ctx: modelSize 的最大长度为 16
+  act: 提交长度为 17 的 modelSize
+  expect: 系统拒绝超长输入，返回 modelSize 长度超限错误
+  source: er
+- id: bs-180
+  cat: extreme
+  entity: product
+  field: modelBodyType
+  ctx: modelBodyType 的最大长度为 32
+  act: 提交长度为 33 的 modelBodyType
+  expect: 系统拒绝超长输入，返回 modelBodyType 长度超限错误
+  source: er
+- id: bs-181
+  cat: extreme
+  entity: product
+  field: countryOfOrigin
+  ctx: countryOfOrigin 的最大长度为 64
+  act: 提交长度为 65 的 countryOfOrigin
+  expect: 系统拒绝超长输入，返回 countryOfOrigin 长度超限错误
+  source: er
+- id: bs-182
+  cat: extreme
+  entity: product
+  field: styleNo
+  ctx: styleNo 的最大长度为 32
+  act: 提交长度为 33 的 styleNo
+  expect: 系统拒绝超长输入，返回 styleNo 长度超限错误
+  source: er
+- id: bs-183
+  cat: extreme
+  entity: product
+  field: seoTitle
+  ctx: seoTitle 的最大长度为 128
+  act: 提交长度为 129 的 seoTitle
+  expect: 系统拒绝超长输入，返回 seoTitle 长度超限错误
+  source: er
+- id: bs-184
+  cat: extreme
+  entity: product
+  field: seoDesc
+  ctx: seoDesc 的最大长度为 255
+  act: 提交长度为 256 的 seoDesc
+  expect: 系统拒绝超长输入，返回 seoDesc 长度超限错误
+  source: er
+- id: bs-185
+  cat: extreme
+  entity: sku
+  field: skuCode
+  ctx: skuCode 的最大长度为 64
+  act: 提交长度为 65 的 skuCode
+  expect: 系统拒绝超长输入，返回 skuCode 长度超限错误
+  source: er
+- id: bs-186
+  cat: extreme
+  entity: sku
+  field: skuCode
+  ctx: "skuCode 需要匹配 pattern ^[A-Z0-9-]+$"
+  act: "提交不匹配 ^[A-Z0-9-]+$ 的 skuCode"
+  expect: 系统拒绝格式非法的 skuCode，返回 INVALID_FORMAT
+  source: er
+- id: bs-187
+  cat: extreme
+  entity: sku
+  field: color
+  ctx: color 的最大长度为 32
+  act: 提交长度为 33 的 color
+  expect: 系统拒绝超长输入，返回 color 长度超限错误
+  source: er
+- id: bs-188
+  cat: extreme
+  entity: sku
+  field: size
+  ctx: size 的最大长度为 16
+  act: 提交长度为 17 的 size
+  expect: 系统拒绝超长输入，返回 size 长度超限错误
+  source: er
+- id: bs-189
+  cat: extreme
+  entity: sku
+  field: stock
+  ctx: stock 的最小值约束为 0
+  act: 提交 stock=-1
+  expect: 系统拒绝低于最小值的输入，返回 stock 边界错误
+  source: er
+- id: bs-190
+  cat: extreme
+  entity: customer
+  field: email
+  ctx: "email 需要匹配 pattern ^[^@]+@[^@]+$"
+  act: "提交不匹配 ^[^@]+@[^@]+$ 的 email"
+  expect: 系统拒绝格式非法的 email，返回 INVALID_FORMAT
+  source: er
+- id: bs-191
+  cat: extreme
+  entity: customer
+  field: phone
+  ctx: phone 的最大长度为 32
+  act: 提交长度为 33 的 phone
+  expect: 系统拒绝超长输入，返回 phone 长度超限错误
+  source: er
+- id: bs-192
+  cat: extreme
+  entity: order
+  field: orderNo
+  ctx: "orderNo 需要匹配 pattern ^DRM-\\d{8}-\\d{4}$"
+  act: "提交不匹配 ^DRM-\\d{8}-\\d{4}$ 的 orderNo"
+  expect: 系统拒绝格式非法的 orderNo，返回 INVALID_FORMAT
+  source: er
+- id: bs-193
+  cat: extreme
+  entity: order
+  field: status
+  ctx: "status 的合法枚举为 ['pending', 'paid', 'shipped', 'completed', 'cancelled', 'refunding',\
+    \ 'refunded']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-194
+  cat: extreme
+  entity: order
+  field: currency
+  ctx: "currency 的合法枚举为 ['USD', 'CAD', 'AUD', 'GBP']"
+  act: 提交枚举外的 currency=__invalid__
+  expect: 系统拒绝非法枚举值，返回 currency 枚举错误
+  source: er
+- id: bs-195
+  cat: extreme
+  entity: order
+  field: subtotal
+  ctx: subtotal 的最小值约束为 0
+  act: 提交 subtotal=-1
+  expect: 系统拒绝低于最小值的输入，返回 subtotal 边界错误
+  source: er
+- id: bs-196
+  cat: extreme
+  entity: order
+  field: shippingFee
+  ctx: shippingFee 的最小值约束为 0
+  act: 提交 shippingFee=-1
+  expect: 系统拒绝低于最小值的输入，返回 shippingFee 边界错误
+  source: er
+- id: bs-197
+  cat: extreme
+  entity: order
+  field: giftWrapFee
+  ctx: giftWrapFee 的最小值约束为 0
+  act: 提交 giftWrapFee=-1
+  expect: 系统拒绝低于最小值的输入，返回 giftWrapFee 边界错误
+  source: er
+- id: bs-198
+  cat: extreme
+  entity: order
+  field: totalAmount
+  ctx: totalAmount 的最小值约束为 0
+  act: 提交 totalAmount=-1
+  expect: 系统拒绝低于最小值的输入，返回 totalAmount 边界错误
+  source: er
+- id: bs-199
+  cat: extreme
+  entity: order
+  field: paymentMethod
+  ctx: paymentMethod 的最大长度为 32
+  act: 提交长度为 33 的 paymentMethod
+  expect: 系统拒绝超长输入，返回 paymentMethod 长度超限错误
+  source: er
+- id: bs-200
+  cat: extreme
+  entity: order
+  field: country
+  ctx: country 的最大长度为 64
+  act: 提交长度为 65 的 country
+  expect: 系统拒绝超长输入，返回 country 长度超限错误
+  source: er
+- id: bs-201
+  cat: extreme
+  entity: order
+  field: itemCount
+  ctx: itemCount 的最小值约束为 0
+  act: 提交 itemCount=-1
+  expect: 系统拒绝低于最小值的输入，返回 itemCount 边界错误
+  source: er
+- id: bs-202
+  cat: extreme
+  entity: order
+  field: carrier
+  ctx: "carrier 的合法枚举为 ['FedEx International Priority', 'UPS Worldwide Express', 'DHL\
+    \ Express']"
+  act: 提交枚举外的 carrier=__invalid__
+  expect: 系统拒绝非法枚举值，返回 carrier 枚举错误
+  source: er
+- id: bs-203
+  cat: extreme
+  entity: order
+  field: trackingNo
+  ctx: trackingNo 的最大长度为 64
+  act: 提交长度为 65 的 trackingNo
+  expect: 系统拒绝超长输入，返回 trackingNo 长度超限错误
+  source: er
+- id: bs-204
+  cat: extreme
+  entity: order_line
+  field: productName
+  ctx: productName 的最大长度为 128
+  act: 提交长度为 129 的 productName
+  expect: 系统拒绝超长输入，返回 productName 长度超限错误
+  source: er
+- id: bs-205
+  cat: extreme
+  entity: order_line
+  field: skuCode
+  ctx: skuCode 的最大长度为 64
+  act: 提交长度为 65 的 skuCode
+  expect: 系统拒绝超长输入，返回 skuCode 长度超限错误
+  source: er
+- id: bs-206
+  cat: extreme
+  entity: order_line
+  field: color
+  ctx: color 的最大长度为 32
+  act: 提交长度为 33 的 color
+  expect: 系统拒绝超长输入，返回 color 长度超限错误
+  source: er
+- id: bs-207
+  cat: extreme
+  entity: order_line
+  field: size
+  ctx: size 的最大长度为 16
+  act: 提交长度为 17 的 size
+  expect: 系统拒绝超长输入，返回 size 长度超限错误
+  source: er
+- id: bs-208
+  cat: extreme
+  entity: order_line
+  field: qty
+  ctx: qty 的最小值约束为 1
+  act: 提交 qty=0
+  expect: 系统拒绝低于最小值的输入，返回 qty 边界错误
+  source: er
+- id: bs-209
+  cat: extreme
+  entity: order_line
+  field: unitPrice
+  ctx: unitPrice 的最小值约束为 0
+  act: 提交 unitPrice=-1
+  expect: 系统拒绝低于最小值的输入，返回 unitPrice 边界错误
+  source: er
+- id: bs-210
+  cat: extreme
+  entity: order_line
+  field: img
+  ctx: img 的最大长度为 512
+  act: 提交长度为 513 的 img
+  expect: 系统拒绝超长输入，返回 img 长度超限错误
+  source: er
+- id: bs-211
+  cat: extreme
+  entity: refund
+  field: refundNo
+  ctx: refundNo 的最大长度为 32
+  act: 提交长度为 33 的 refundNo
+  expect: 系统拒绝超长输入，返回 refundNo 长度超限错误
+  source: er
+- id: bs-212
+  cat: extreme
+  entity: refund
+  field: amount
+  ctx: amount 的最小值约束为 0
+  act: 提交 amount=-1
+  expect: 系统拒绝低于最小值的输入，返回 amount 边界错误
+  source: er
+- id: bs-213
+  cat: extreme
+  entity: refund
+  field: reason
+  ctx: reason 的最大长度为 255
+  act: 提交长度为 256 的 reason
+  expect: 系统拒绝超长输入，返回 reason 长度超限错误
+  source: er
+- id: bs-214
+  cat: extreme
+  entity: refund
+  field: rejectReason
+  ctx: rejectReason 的最大长度为 255
+  act: 提交长度为 256 的 rejectReason
+  expect: 系统拒绝超长输入，返回 rejectReason 长度超限错误
+  source: er
+- id: bs-215
+  cat: extreme
+  entity: refund
+  field: status
+  ctx: "status 的合法枚举为 ['pending', 'approved', 'rejected']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-216
+  cat: extreme
+  entity: refund
+  field: currency
+  ctx: "currency 的合法枚举为 ['USD', 'CAD', 'AUD', 'GBP']"
+  act: 提交枚举外的 currency=__invalid__
+  expect: 系统拒绝非法枚举值，返回 currency 枚举错误
+  source: er
+- id: bs-217
+  cat: extreme
+  entity: refund
+  field: returnTrackingNo
+  ctx: returnTrackingNo 的最大长度为 64
+  act: 提交长度为 65 的 returnTrackingNo
+  expect: 系统拒绝超长输入，返回 returnTrackingNo 长度超限错误
+  source: er
+- id: bs-218
+  cat: extreme
+  entity: operation_log
+  field: action
+  ctx: "action 的合法枚举为 ['batch_publish', 'batch_unpublish', 'batch_recommend', 'batch_delete',\
+    \ 'export_products', 'export_orders']"
+  act: 提交枚举外的 action=__invalid__
+  expect: 系统拒绝非法枚举值，返回 action 枚举错误
+  source: er
+- id: bs-219
+  cat: extreme
+  entity: operation_log
+  field: targetType
+  ctx: targetType 的最大长度为 32
+  act: 提交长度为 33 的 targetType
+  expect: 系统拒绝超长输入，返回 targetType 长度超限错误
+  source: er
+- id: bs-220
+  cat: extreme
+  entity: operation_log
+  field: rowCount
+  ctx: rowCount 的最小值约束为 0
+  act: 提交 rowCount=-1
+  expect: 系统拒绝低于最小值的输入，返回 rowCount 边界错误
+  source: er
+- id: bs-221
+  cat: extreme
+  entity: page_state
+  field: ui_state
+  ctx: "ui_state 的合法枚举为 ['loading', 'loaded', 'empty', 'error']"
+  act: 提交枚举外的 ui_state=__invalid__
+  expect: 系统拒绝非法枚举值，返回 ui_state 枚举错误
+  source: er
+- id: bs-222
+  cat: extreme
+  entity: lookbook
+  field: items
+  ctx: items 的最小值约束为 0
+  act: 提交 items=-1
+  expect: 系统拒绝低于最小值的输入，返回 items 边界错误
+  source: er
+- id: bs-223
+  cat: extreme
+  entity: lookbook
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-224
+  cat: extreme
+  entity: style_guide
+  field: tasks
+  ctx: tasks 的最小值约束为 0
+  act: 提交 tasks=-1
+  expect: 系统拒绝低于最小值的输入，返回 tasks 边界错误
+  source: er
+- id: bs-225
+  cat: extreme
+  entity: style_guide
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-226
+  cat: extreme
+  entity: style_guide
+  field: sort_order
+  ctx: sort_order 的最小值约束为 1
+  act: 提交 sort_order=0
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-227
+  cat: concurrent
+  entity: category
+  field: state
+  ctx: category 当前处于 active，同一转换被重复提交
+  act: 并发提交两个 delete 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-228
+  cat: concurrent
+  entity: tag
+  field: state
+  ctx: tag 当前处于 enabled，两个互斥转换同时触发
+  act: 并发提交 toggle_off 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-229
+  cat: concurrent
+  entity: tag
+  field: state
+  ctx: tag 当前处于 disabled，两个互斥转换同时触发
+  act: 并发提交 toggle_on 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-230
+  cat: concurrent
+  entity: tag_dimension
+  field: state
+  ctx: tag_dimension 当前处于 active，同一转换被重复提交
+  act: 并发提交两个 delete 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-231
+  cat: concurrent
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 hidden，同一转换被重复提交
+  act: 并发提交两个 cycle_click 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-232
+  cat: concurrent
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 visible，同一转换被重复提交
+  act: 并发提交两个 cycle_click 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-233
+  cat: concurrent
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 optional，同一转换被重复提交
+  act: 并发提交两个 cycle_click 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-234
+  cat: concurrent
+  entity: product
+  field: state
+  ctx: product 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-235
+  cat: concurrent
+  entity: product
+  field: state
+  ctx: product 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 unpublish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-236
+  cat: concurrent
+  entity: order
+  field: state
+  ctx: order 当前处于 pending，两个互斥转换同时触发
+  act: 并发提交 payment_webhook_succeeded 与 payment_timeout_30min
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-237
+  cat: concurrent
+  entity: order
+  field: state
+  ctx: order 当前处于 paid，两个互斥转换同时触发
+  act: 并发提交 mark_shipped 与 refund_requested
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-238
+  cat: concurrent
+  entity: order
+  field: state
+  ctx: order 当前处于 shipped，两个互斥转换同时触发
+  act: 并发提交 confirm_receipt 与 refund_requested
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-239
+  cat: concurrent
+  entity: order
+  field: state
+  ctx: order 当前处于 refunding，两个互斥转换同时触发
+  act: 并发提交 refund_approved 与 refund_rejected
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-240
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 created，同一转换被重复提交
+  act: 并发提交两个 stripe_confirm 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-241
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 processing，两个互斥转换同时触发
+  act: 并发提交 webhook_payment_succeeded 与 webhook_payment_failed
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-242
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 failed，同一转换被重复提交
+  act: 并发提交两个 retry_payment 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-243
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 succeeded，同一转换被重复提交
+  act: 并发提交两个 refund_executed 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-244
+  cat: concurrent
+  entity: refund
+  field: state
+  ctx: refund 当前处于 pending，两个互斥转换同时触发
+  act: 并发提交 admin_approve 与 admin_reject
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-245
+  cat: concurrent
+  entity: refund
+  field: state
+  ctx: refund 当前处于 approved，同一转换被重复提交
+  act: 并发提交两个 stripe_refund_succeeded 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-246
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 pending，两个互斥转换同时触发
+  act: 并发提交 approve 与 reject
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-247
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 rejected，同一转换被重复提交
+  act: 并发提交两个 batch_approve 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-248
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 approved，两个互斥转换同时触发
+  act: 并发提交 batch_reject 与 set_featured
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-249
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: review_image 当前处于 shown，同一转换被重复提交
+  act: 并发提交两个 reject_image 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-250
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: review_image 当前处于 rejected，同一转换被重复提交
+  act: 并发提交两个 restore_image 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-251
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: product_question 当前处于 unanswered，同一转换被重复提交
+  act: 并发提交两个 save_answer 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-252
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: product_question 当前处于 answered，同一转换被重复提交
+  act: 并发提交两个 edit_answer 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-253
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: carrier 当前处于 enabled，同一转换被重复提交
+  act: 并发提交两个 disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-254
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: carrier 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-255
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 schedule 与 activate
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-256
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 scheduled，同一转换被重复提交
+  act: 并发提交两个 auto_start 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-257
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 active，两个互斥转换同时触发
+  act: 并发提交 near_expiry 与 auto_expire
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-258
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 expiring，同一转换被重复提交
+  act: 并发提交两个 auto_expire 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-259
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 expired，同一转换被重复提交
+  act: 并发提交两个 delete 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-260
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 draft，同一转换被重复提交
+  act: 并发提交两个 schedule 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-261
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 scheduled，同一转换被重复提交
+  act: 并发提交两个 auto_start 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-262
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 active，同一转换被重复提交
+  act: 并发提交两个 auto_offline 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-263
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-264
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 take_offline 与 schedule_expire
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-265
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 archived，两个互斥转换同时触发
+  act: 并发提交 republish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-266
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-267
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 unpublish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-268
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 archived，两个互斥转换同时触发
+  act: 并发提交 republish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-269
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: real_wedding 当前处于 draft，同一转换被重复提交
+  act: 并发提交两个 publish 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-270
+  cat: concurrent
+  entity: attribute_def
+  field: state
+  ctx: real_wedding 当前处于 published，同一转换被重复提交
+  act: 并发提交两个 unpublish 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-271
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loading，两个互斥转换同时触发
+  act: 并发提交 load_success 与 load_error
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-272
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 error，同一转换被重复提交
+  act: 并发提交两个 retry 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-273
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 click_publish_site 与 click_quick_entry
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-274
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loading，两个互斥转换同时触发
+  act: 并发提交 load_success 与 ga4_unavailable
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-275
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，同一转换被重复提交
+  act: 并发提交两个 export_csv 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-276
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loading，两个互斥转换同时触发
+  act: 并发提交 load_success 与 load_empty
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-277
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 change_filter 与 select_rows
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-278
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 empty，同一转换被重复提交
+  act: 并发提交两个 change_filter 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-279
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 batch_selected，两个互斥转换同时触发
+  act: 并发提交 clear_selection 与 batch_action
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-280
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 editing，两个互斥转换同时触发
+  act: 并发提交 save 与 save_and_generate
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-281
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 saving，两个互斥转换同时触发
+  act: 并发提交 save_success 与 save_conflict
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-282
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 taxonomy_tab，两个互斥转换同时触发
+  act: 并发提交 switch_to_matrix 与 switch_to_tags
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-283
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 matrix_tab，两个互斥转换同时触发
+  act: 并发提交 switch_to_taxonomy 与 switch_to_tags
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-284
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tags_tab，两个互斥转换同时触发
+  act: 并发提交 switch_to_taxonomy 与 switch_to_matrix
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-285
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 attr_set_drawer，两个互斥转换同时触发
+  act: 并发提交 cycle_attr_state 与 save_set_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-286
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 child_override_drawer，两个互斥转换同时触发
+  act: 并发提交 cycle_attr_state 与 save_override
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-287
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 entered，同一转换被重复提交
+  act: 并发提交两个 route_redirect 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-288
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 switch_status_tab 与 search_orders
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-289
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 empty，同一转换被重复提交
+  act: 并发提交两个 switch_status_tab 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-290
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 mark_shipped 与 open_refund_modal
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-291
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 refund_modal，两个互斥转换同时触发
+  act: 并发提交 submit_refund 与 cancel
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-292
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 switch_status_tab 与 click_approve
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-293
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 reject_input_open，两个互斥转换同时触发
+  act: 并发提交 confirm_reject 与 cancel_reject
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-294
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，同一转换被重复提交
+  act: 并发提交两个 open_detail 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-295
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 detail_drawer，两个互斥转换同时触发
+  act: 并发提交 close_drawer 与 moderate
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-296
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 toggle_carrier 与 open_edit_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-297
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 edit_drawer，两个互斥转换同时触发
+  act: 并发提交 save_resource 与 close_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-298
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 open_form_drawer 与 delete_coupon
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-299
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 form_drawer，两个互斥转换同时触发
+  act: 并发提交 save 与 close_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-300
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 toggle_online 与 open_form_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-301
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 form_drawer，两个互斥转换同时触发
+  act: 并发提交 save_publish 与 close_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-302
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 switch_status_tab 与 open_edit_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-303
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 edit_drawer，两个互斥转换同时触发
+  act: 并发提交 save 与 close_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-304
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded，两个互斥转换同时触发
+  act: 并发提交 filter_status 与 open_form_drawer
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-305
+  cat: concurrent
+  entity: lookbook
+  field: state
+  ctx: lookbook 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-306
+  cat: concurrent
+  entity: lookbook
+  field: state
+  ctx: lookbook 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 unpublish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-307
+  cat: concurrent
+  entity: style_guide
+  field: state
+  ctx: style_guide 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-308
+  cat: concurrent
+  entity: style_guide
+  field: state
+  ctx: style_guide 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 unpublish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-309
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tab_lookbook，同一转换被重复提交
+  act: 并发提交两个 click_tab_guide 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-310
+  cat: concurrent
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tab_guide，同一转换被重复提交
+  act: 并发提交两个 click_tab_lookbook 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-311
+  cat: auth
+  entity: product
+  ctx: 用户角色为 viewer，无权执行流程 消费端购物下单与支付
+  act: 触发 消费端购物下单与支付 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-312
+  cat: auth
+  entity: product
+  ctx: 用户已开始执行流程 消费端购物下单与支付，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-313
+  cat: auth
+  entity: product
+  ctx: 用户属于 tenant-A，尝试访问 product 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-314
+  cat: auth
+  entity: order
+  ctx: 用户角色为 viewer，无权执行流程 待支付订单超时自动取消
+  act: 触发 待支付订单超时自动取消 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-315
+  cat: auth
+  entity: order
+  ctx: 用户已开始执行流程 待支付订单超时自动取消，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-316
+  cat: auth
+  entity: order
+  ctx: 用户属于 tenant-A，尝试访问 order 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-317
+  cat: auth
+  entity: order
+  ctx: 用户角色为 viewer，无权执行流程 管理端发货与订单完成
+  act: 触发 管理端发货与订单完成 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-318
+  cat: auth
+  entity: order
+  ctx: 用户已开始执行流程 管理端发货与订单完成，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-319
+  cat: auth
+  entity: refund
+  ctx: 用户角色为 viewer，无权执行流程 退款申请与审核
+  act: 触发 退款申请与审核 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-320
+  cat: auth
+  entity: refund
+  ctx: 用户已开始执行流程 退款申请与审核，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-321
+  cat: auth
+  entity: refund
+  ctx: 用户属于 tenant-A，尝试访问 refund 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-322
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 评价提交与审核
+  act: 触发 评价提交与审核 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-323
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 评价提交与审核，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-324
+  cat: auth
+  entity: attribute_def
+  ctx: 用户属于 tenant-A，尝试访问 attribute_def 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-325
+  cat: auth
+  entity: product
+  ctx: 用户角色为 viewer，无权执行流程 商品/内容发布与缓存失效链
+  act: 触发 商品/内容发布与缓存失效链 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-326
+  cat: auth
+  entity: product
+  ctx: 用户已开始执行流程 商品/内容发布与缓存失效链，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-327
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 订单事件分发
+  act: 触发 订单事件分发 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-328
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 订单事件分发，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-329
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Dashboard/Analytics 聚合读
+  act: 触发 Dashboard/Analytics 聚合读 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-330
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Dashboard/Analytics 聚合读，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-331
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 优惠券领取与核销
+  act: 触发 优惠券领取与核销 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-332
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 优惠券领取与核销，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-333
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 闪购到期自动下线
+  act: 触发 闪购到期自动下线 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-334
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 闪购到期自动下线，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-335
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 交易性邮件发送（订单确认/发货/退款结果）
+  act: 触发 交易性邮件发送（订单确认/发货/退款结果） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-336
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 交易性邮件发送（订单确认/发货/退款结果），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-337
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 收藏管理（加收藏/移除/移入购物车）
+  act: 触发 收藏管理（加收藏/移除/移入购物车） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-338
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 收藏管理（加收藏/移除/移入购物车），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-339
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单）
+  act: 触发 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-340
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-341
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Find My Size 尺码推荐
+  act: 触发 Find My Size 尺码推荐 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-342
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Find My Size 尺码推荐，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-343
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Analytics 流量指标拉取（GA4 Data API）
+  act: 触发 Analytics 流量指标拉取（GA4 Data API） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-344
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Analytics 流量指标拉取（GA4 Data API），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-345
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Recently Viewed 浏览历史记录与展示
+  act: 触发 Recently Viewed 浏览历史记录与展示 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-346
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Recently Viewed 浏览历史记录与展示，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-347
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Newsletter 订阅收集
+  act: 触发 Newsletter 订阅收集 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-348
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Newsletter 订阅收集，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-349
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 联系表单提交
+  act: 触发 联系表单提交 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-350
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 联系表单提交，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-351
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 品类属性配置（3-Tab/徽章抽屉/矩阵三态/子品类 delta 覆盖）
+  act: 触发 品类属性配置（3-Tab/徽章抽屉/矩阵三态/子品类 delta 覆盖） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-352
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 品类属性配置（3-Tab/徽章抽屉/矩阵三态/子品类 delta 覆盖），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-353
+  cat: auth
+  entity: product
+  ctx: 用户角色为 viewer，无权执行流程 商品批量操作（上架/下架/推荐/删除）
+  act: 触发 商品批量操作（上架/下架/推荐/删除） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-354
+  cat: auth
+  entity: product
+  ctx: 用户已开始执行流程 商品批量操作（上架/下架/推荐/删除），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-355
+  cat: auth
+  entity: operation_log
+  ctx: 用户角色为 viewer，无权执行流程 商品/订单 CSV 导出
+  act: 触发 商品/订单 CSV 导出 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-356
+  cat: auth
+  entity: operation_log
+  ctx: 用户已开始执行流程 商品/订单 CSV 导出，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-357
+  cat: auth
+  entity: operation_log
+  ctx: 用户属于 tenant-A，尝试访问 operation_log 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-358
+  cat: auth
+  entity: order
+  ctx: 用户角色为 viewer，无权执行流程 订单列表查询（地区/商品数列）
+  act: 触发 订单列表查询（地区/商品数列） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-359
+  cat: auth
+  entity: order
+  ctx: 用户已开始执行流程 订单列表查询（地区/商品数列），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-360
+  cat: auth
+  entity: attribute_def
+  ctx: 用户角色为 viewer，无权执行流程 Dashboard 发布站点入口
+  act: 触发 Dashboard 发布站点入口 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-361
+  cat: auth
+  entity: attribute_def
+  ctx: 用户已开始执行流程 Dashboard 发布站点入口，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-362
+  cat: network
+  entity: product
+  ctx: 流程 消费端购物下单与支付 依赖的外部系统 Stripe 不可用
+  act: 触发需要访问 Stripe 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-363
+  cat: network
+  entity: product
+  ctx: 流程 消费端购物下单与支付 调用 Stripe 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-364
+  cat: network
+  entity: product
+  ctx: 流程 消费端购物下单与支付 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-365
+  cat: network
+  entity: refund
+  ctx: 流程 退款申请与审核 依赖的外部系统 Stripe 不可用
+  act: 触发需要访问 Stripe 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-366
+  cat: network
+  entity: refund
+  ctx: 流程 退款申请与审核 调用 Stripe 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-367
+  cat: network
+  entity: refund
+  ctx: 流程 退款申请与审核 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-368
+  cat: network
+  entity: product
+  ctx: 流程 商品/内容发布与缓存失效链 依赖的外部系统 ObjectStorage-CDN 不可用
+  act: 触发需要访问 ObjectStorage-CDN 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-369
+  cat: network
+  entity: product
+  ctx: 流程 商品/内容发布与缓存失效链 调用 ObjectStorage-CDN 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-370
+  cat: network
+  entity: product
+  ctx: 流程 商品/内容发布与缓存失效链 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-371
+  cat: network
+  entity: attribute_def
+  ctx: 流程 订单事件分发 依赖的外部系统 RabbitMQ 不可用
+  act: 触发需要访问 RabbitMQ 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-372
+  cat: network
+  entity: attribute_def
+  ctx: 流程 订单事件分发 调用 RabbitMQ 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-373
+  cat: network
+  entity: attribute_def
+  ctx: 流程 订单事件分发 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-374
+  cat: network
+  entity: attribute_def
+  ctx: 流程 闪购到期自动下线 依赖的外部系统 RabbitMQ 不可用
+  act: 触发需要访问 RabbitMQ 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-375
+  cat: network
+  entity: attribute_def
+  ctx: 流程 闪购到期自动下线 调用 RabbitMQ 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-376
+  cat: network
+  entity: attribute_def
+  ctx: 流程 闪购到期自动下线 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-377
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单） 依赖的外部系统 SMTP 不可用
+  act: 触发需要访问 SMTP 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-378
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单） 调用 SMTP 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-379
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-380
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Analytics 流量指标拉取（GA4 Data API） 依赖的外部系统 GA4 不可用
+  act: 触发需要访问 GA4 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-381
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Analytics 流量指标拉取（GA4 Data API） 调用 GA4 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-382
+  cat: network
+  entity: attribute_def
+  ctx: 流程 Analytics 流量指标拉取（GA4 Data API） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-383
+  cat: integrity
+  entity: category
+  ctx: category 关联的 attribute_set 记录不存在
+  act: 提交引用不存在 attribute_set 的写请求
+  expect: 系统返回关联实体 attribute_set 不存在错误，拒绝写入
+  source: er
+- id: bs-384
+  cat: integrity
+  entity: category
+  ctx: category 关联的 category 记录不存在
+  act: 提交引用不存在 category 的写请求
+  expect: 系统返回关联实体 category 不存在错误，拒绝写入
+  source: er
+- id: bs-385
+  cat: integrity
+  entity: attribute_set_item
+  ctx: attribute_set_item 关联的 attribute_def 记录不存在
+  act: 提交引用不存在 attribute_def 的写请求
+  expect: 系统返回关联实体 attribute_def 不存在错误，拒绝写入
+  source: er
+- id: bs-386
+  cat: integrity
+  entity: attribute_set_item
+  ctx: attribute_set_item 关联的 attribute_set 记录不存在
+  act: 提交引用不存在 attribute_set 的写请求
+  expect: 系统返回关联实体 attribute_set 不存在错误，拒绝写入
+  source: er
+- id: bs-387
+  cat: integrity
+  entity: tag
+  ctx: tag 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-388
+  cat: integrity
+  entity: tag
+  ctx: tag 关联的 tag_dimension 记录不存在
+  act: 提交引用不存在 tag_dimension 的写请求
+  expect: 系统返回关联实体 tag_dimension 不存在错误，拒绝写入
+  source: er
+- id: bs-389
+  cat: integrity
+  entity: product
+  ctx: product 关联的 category 记录不存在
+  act: 提交引用不存在 category 的写请求
+  expect: 系统返回关联实体 category 不存在错误，拒绝写入
+  source: er
+- id: bs-390
+  cat: integrity
+  entity: product
+  ctx: product 关联的 custom_tag 记录不存在
+  act: 提交引用不存在 custom_tag 的写请求
+  expect: 系统返回关联实体 custom_tag 不存在错误，拒绝写入
+  source: er
+- id: bs-391
+  cat: integrity
+  entity: sku
+  ctx: sku 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-392
+  cat: integrity
+  entity: order
+  ctx: order 关联的 customer 记录不存在
+  act: 提交引用不存在 customer 的写请求
+  expect: 系统返回关联实体 customer 不存在错误，拒绝写入
+  source: er
+- id: bs-393
+  cat: integrity
+  entity: order_line
+  ctx: order_line 关联的 order 记录不存在
+  act: 提交引用不存在 order 的写请求
+  expect: 系统返回关联实体 order 不存在错误，拒绝写入
+  source: er
+- id: bs-394
+  cat: integrity
+  entity: order_line
+  ctx: order_line 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-395
+  cat: integrity
+  entity: order_line
+  ctx: order_line 关联的 sku 记录不存在
+  act: 提交引用不存在 sku 的写请求
+  expect: 系统返回关联实体 sku 不存在错误，拒绝写入
+  source: er
+- id: bs-396
+  cat: integrity
+  entity: refund
+  ctx: refund 关联的 customer 记录不存在
+  act: 提交引用不存在 customer 的写请求
+  expect: 系统返回关联实体 customer 不存在错误，拒绝写入
+  source: er
+- id: bs-397
+  cat: integrity
+  entity: refund
+  ctx: refund 关联的 order 记录不存在
+  act: 提交引用不存在 order 的写请求
+  expect: 系统返回关联实体 order 不存在错误，拒绝写入
+  source: er
+- id: bs-398
+  cat: integrity
+  entity: lookbook
+  ctx: lookbook 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-399
+  cat: state
+  entity: category
+  field: state
+  ctx: "category 当前处于 active，但 guard 条件不满足: product_count === 0"
+  act: 触发事件 delete，尝试从 active 转到 deleted
+  expect: 系统拒绝状态转换，category 保持在 active
+  source: sm
+- id: bs-400
+  cat: state
+  entity: category
+  field: state
+  ctx: category 当前处于 active
+  act: 触发该状态下不允许的操作 delete_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-401
+  cat: state
+  entity: category
+  field: state
+  ctx: category 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-402
+  cat: state
+  entity: tag
+  field: state
+  ctx: tag 当前处于 enabled
+  act: 触发该状态下不允许的操作 toggle_off_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-403
+  cat: state
+  entity: tag
+  field: state
+  ctx: tag 当前处于 disabled
+  act: 触发该状态下不允许的操作 toggle_on_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-404
+  cat: state
+  entity: tag
+  field: state
+  ctx: tag 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-405
+  cat: state
+  entity: tag_dimension
+  field: state
+  ctx: tag_dimension 当前处于 active
+  act: 触发该状态下不允许的操作 delete_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-406
+  cat: state
+  entity: tag_dimension
+  field: state
+  ctx: tag_dimension 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-407
+  cat: state
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 visible
+  act: 触发该状态下不允许的操作 cycle_click_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-408
+  cat: state
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 optional
+  act: 触发该状态下不允许的操作 cycle_click_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-409
+  cat: state
+  entity: attribute_set_item
+  field: state
+  ctx: attribute_set_item 当前处于 hidden
+  act: 触发该状态下不允许的操作 cycle_click_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-410
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 published，但 guard 条件不满足: 建议先下架再删除"
+  act: 触发事件 delete，尝试从 published 转到 deleted
+  expect: 系统拒绝状态转换，product 保持在 published
+  source: sm
+- id: bs-411
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 draft，但 guard 条件不满足: selected.length > 0；D10 批量端点一次请求 N 个 id，逐条容错返回成功/失败清单并记录\
+    \ OperationLog"
+  act: 触发事件 batch_publish，尝试从 draft 转到 published
+  expect: 系统拒绝状态转换，product 保持在 draft
+  source: sm
+- id: bs-412
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 published，但 guard 条件不满足: selected.length > 0；逐条容错（D10）"
+  act: 触发事件 batch_unpublish，尝试从 published 转到 draft
+  expect: 系统拒绝状态转换，product 保持在 published
+  source: sm
+- id: bs-413
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 published，但 guard 条件不满足: recommend=true 批量设置，不改变上下架状态"
+  act: 触发事件 batch_recommend，尝试从 published 转到 published
+  expect: 系统拒绝状态转换，product 保持在 published
+  source: sm
+- id: bs-414
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 draft，但 guard 条件不满足: recommend=true 批量设置，不改变上下架状态"
+  act: 触发事件 batch_recommend，尝试从 draft 转到 draft
+  expect: 系统拒绝状态转换，product 保持在 draft
+  source: sm
+- id: bs-415
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 draft，但 guard 条件不满足: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）"
+  act: 触发事件 batch_delete，尝试从 draft 转到 deleted
+  expect: 系统拒绝状态转换，product 保持在 draft
+  source: sm
+- id: bs-416
+  cat: state
+  entity: product
+  field: state
+  ctx: "product 当前处于 published，但 guard 条件不满足: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）"
+  act: 触发事件 batch_delete，尝试从 published 转到 deleted
+  expect: 系统拒绝状态转换，product 保持在 published
+  source: sm
+- id: bs-417
+  cat: state
+  entity: product
+  field: state
+  ctx: product 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-418
+  cat: state
+  entity: product
+  field: state
+  ctx: product 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-419
+  cat: state
+  entity: product
+  field: state
+  ctx: product 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-420
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 pending，但 guard 条件不满足: now > expiresAt; 自动取消并回补现货库存"
+  act: 触发事件 payment_timeout_30min，尝试从 pending 转到 cancelled
+  expect: 系统拒绝状态转换，order 保持在 pending
+  source: sm
+- id: bs-421
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 pending，但 guard 条件不满足: 取消时回补现货库存"
+  act: 触发事件 customer_cancel，尝试从 pending 转到 cancelled
+  expect: 系统拒绝状态转换，order 保持在 pending
+  source: sm
+- id: bs-422
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 paid，但 guard 条件不满足: carrier 与 trackingNo 已填写"
+  act: 触发事件 mark_shipped，尝试从 paid 转到 shipped
+  expect: 系统拒绝状态转换，order 保持在 paid
+  source: sm
+- id: bs-423
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 paid，但 guard 条件不满足: 决策24：含定制行（OrderLine.customSizeData 非空）且 now\
+    \ > paidAt+24h（已投产）时拒绝申请；现货行不受限"
+  act: 触发事件 refund_requested，尝试从 paid 转到 refunding
+  expect: 系统拒绝状态转换，order 保持在 paid
+  source: sm
+- id: bs-424
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 shipped，但 guard 条件不满足: 决策24：含定制行（OrderLine.customSizeData 非空）且\
+    \ now > paidAt+24h（已投产）时拒绝申请；现货行不受限"
+  act: 触发事件 refund_requested，尝试从 shipped 转到 refunding
+  expect: 系统拒绝状态转换，order 保持在 shipped
+  source: sm
+- id: bs-425
+  cat: state
+  entity: order
+  field: state
+  ctx: "order 当前处于 refunding，但 guard 条件不满足: 回退到退款前状态(paid/shipped)"
+  act: 触发事件 refund_rejected，尝试从 refunding 转到 paid
+  expect: 系统拒绝状态转换，order 保持在 refunding
+  source: sm
+- id: bs-426
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 pending
+  act: 触发该状态下不允许的操作 payment_webhook_succeeded_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-427
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 paid
+  act: 触发该状态下不允许的操作 mark_shipped_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-428
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 shipped
+  act: 触发该状态下不允许的操作 confirm_receipt_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-429
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 completed
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-430
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 cancelled
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-431
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 refunding
+  act: 触发该状态下不允许的操作 refund_approved_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-432
+  cat: state
+  entity: order
+  field: state
+  ctx: order 当前处于 refunded
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-433
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "payment 当前处于 failed，但 guard 条件不满足: 订单仍处 pending 且未超时"
+  act: 触发事件 retry_payment，尝试从 failed 转到 processing
+  expect: 系统拒绝状态转换，payment 保持在 failed
+  source: sm
+- id: bs-434
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "payment 当前处于 succeeded，但 guard 条件不满足: 关联 Refund 已 approved"
+  act: 触发事件 refund_executed，尝试从 succeeded 转到 refunded
+  expect: 系统拒绝状态转换，payment 保持在 succeeded
+  source: sm
+- id: bs-435
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 created
+  act: 触发该状态下不允许的操作 stripe_confirm_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-436
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 processing
+  act: 触发该状态下不允许的操作 webhook_payment_succeeded_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-437
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 succeeded
+  act: 触发该状态下不允许的操作 refund_executed_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-438
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 failed
+  act: 触发该状态下不允许的操作 retry_payment_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-439
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: payment 当前处于 refunded
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-440
+  cat: state
+  entity: refund
+  field: state
+  ctx: "refund 当前处于 pending，但 guard 条件不满足: 触发 Payment refund_executed"
+  act: 触发事件 admin_approve，尝试从 pending 转到 approved
+  expect: 系统拒绝状态转换，refund 保持在 pending
+  source: sm
+- id: bs-441
+  cat: state
+  entity: refund
+  field: state
+  ctx: "refund 当前处于 pending，但 guard 条件不满足: rejectReason.trim() 非空（D7 行内展开输入框填原因，后端拒绝原因必填约束不变）"
+  act: 触发事件 admin_reject，尝试从 pending 转到 rejected
+  expect: 系统拒绝状态转换，refund 保持在 pending
+  source: sm
+- id: bs-442
+  cat: state
+  entity: refund
+  field: state
+  ctx: "refund 当前处于 pending，但 guard 条件不满足: 原子回补现货库存且订单状态变更成功"
+  act: 触发事件 approve，尝试从 pending 转到 approved
+  expect: 系统拒绝状态转换，refund 保持在 pending
+  source: sm
+- id: bs-443
+  cat: state
+  entity: refund
+  field: state
+  ctx: "refund 当前处于 pending，但 guard 条件不满足: r.status === 'pending' 且 rejectReason.trim()\
+    \ 非空（D7 行内拒绝，原因必填）"
+  act: 触发事件 reject，尝试从 pending 转到 rejected
+  expect: 系统拒绝状态转换，refund 保持在 pending
+  source: sm
+- id: bs-444
+  cat: state
+  entity: refund
+  field: state
+  ctx: "refund 当前处于 approved，但 guard 条件不满足: Stripe 沙箱退款回执成功"
+  act: 触发事件 stripe_refund_succeeded，尝试从 approved 转到 refunded
+  expect: 系统拒绝状态转换，refund 保持在 approved
+  source: sm
+- id: bs-445
+  cat: state
+  entity: refund
+  field: state
+  ctx: refund 当前处于 pending
+  act: 触发该状态下不允许的操作 admin_approve_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-446
+  cat: state
+  entity: refund
+  field: state
+  ctx: refund 当前处于 approved
+  act: 触发该状态下不允许的操作 stripe_refund_succeeded_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-447
+  cat: state
+  entity: refund
+  field: state
+  ctx: refund 当前处于 rejected
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-448
+  cat: state
+  entity: refund
+  field: state
+  ctx: refund 当前处于 refunded
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-449
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "review 当前处于 pending，但 guard 条件不满足: featured 强制置 false"
+  act: 触发事件 reject，尝试从 pending 转到 rejected
+  expect: 系统拒绝状态转换，review 保持在 pending
+  source: sm
+- id: bs-450
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "review 当前处于 approved，但 guard 条件不满足: featured 强制置 false"
+  act: 触发事件 batch_reject，尝试从 approved 转到 rejected
+  expect: 系统拒绝状态转换，review 保持在 approved
+  source: sm
+- id: bs-451
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "review 当前处于 approved，但 guard 条件不满足: featured=true 仅 approved 可设"
+  act: 触发事件 set_featured，尝试从 approved 转到 approved
+  expect: 系统拒绝状态转换，review 保持在 approved
+  source: sm
+- id: bs-452
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "review 当前处于 approved，但 guard 条件不满足: featured=false"
+  act: 触发事件 unset_featured，尝试从 approved 转到 approved
+  expect: 系统拒绝状态转换，review 保持在 approved
+  source: sm
+- id: bs-453
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 pending
+  act: 触发该状态下不允许的操作 approve_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-454
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 approved
+  act: 触发该状态下不允许的操作 batch_reject_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-455
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: review 当前处于 rejected
+  act: 触发该状态下不允许的操作 batch_approve_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-456
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: review_image 当前处于 shown
+  act: 触发该状态下不允许的操作 reject_image_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-457
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: review_image 当前处于 rejected
+  act: 触发该状态下不允许的操作 restore_image_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-458
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "product_question 当前处于 unanswered，但 guard 条件不满足: answerDraft.trim() 非空"
+  act: 触发事件 save_answer，尝试从 unanswered 转到 answered
+  expect: 系统拒绝状态转换，product_question 保持在 unanswered
+  source: sm
+- id: bs-459
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "product_question 当前处于 answered，但 guard 条件不满足: answerDraft.trim() 非空"
+  act: 触发事件 edit_answer，尝试从 answered 转到 answered
+  expect: 系统拒绝状态转换，product_question 保持在 answered
+  source: sm
+- id: bs-460
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: product_question 当前处于 unanswered
+  act: 触发该状态下不允许的操作 save_answer_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-461
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: product_question 当前处于 answered
+  act: 触发该状态下不允许的操作 edit_answer_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-462
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: carrier 当前处于 enabled
+  act: 触发该状态下不允许的操作 disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-463
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: carrier 当前处于 disabled
+  act: 触发该状态下不允许的操作 enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-464
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 draft，但 guard 条件不满足: startAt > now"
+  act: 触发事件 schedule，尝试从 draft 转到 scheduled
+  expect: 系统拒绝状态转换，coupon 保持在 draft
+  source: sm
+- id: bs-465
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 draft，但 guard 条件不满足: startAt <= now < endAt"
+  act: 触发事件 activate，尝试从 draft 转到 active
+  expect: 系统拒绝状态转换，coupon 保持在 draft
+  source: sm
+- id: bs-466
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 scheduled，但 guard 条件不满足: now >= startAt"
+  act: 触发事件 auto_start，尝试从 scheduled 转到 active
+  expect: 系统拒绝状态转换，coupon 保持在 scheduled
+  source: sm
+- id: bs-467
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 active，但 guard 条件不满足: endAt - now <= 阈值"
+  act: 触发事件 near_expiry，尝试从 active 转到 expiring
+  expect: 系统拒绝状态转换，coupon 保持在 active
+  source: sm
+- id: bs-468
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 expiring，但 guard 条件不满足: now > endAt"
+  act: 触发事件 auto_expire，尝试从 expiring 转到 expired
+  expect: 系统拒绝状态转换，coupon 保持在 expiring
+  source: sm
+- id: bs-469
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "coupon 当前处于 active，但 guard 条件不满足: now > endAt"
+  act: 触发事件 auto_expire，尝试从 active 转到 expired
+  expect: 系统拒绝状态转换，coupon 保持在 active
+  source: sm
+- id: bs-470
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 draft
+  act: 触发该状态下不允许的操作 schedule_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-471
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 scheduled
+  act: 触发该状态下不允许的操作 auto_start_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-472
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 active
+  act: 触发该状态下不允许的操作 near_expiry_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-473
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 expiring
+  act: 触发该状态下不允许的操作 auto_expire_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-474
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 expired
+  act: 触发该状态下不允许的操作 delete_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-475
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: coupon 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-476
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "flash_sale 当前处于 draft，但 guard 条件不满足: startAt > now"
+  act: 触发事件 schedule，尝试从 draft 转到 scheduled
+  expect: 系统拒绝状态转换，flash_sale 保持在 draft
+  source: sm
+- id: bs-477
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "flash_sale 当前处于 scheduled，但 guard 条件不满足: now >= startAt"
+  act: 触发事件 auto_start，尝试从 scheduled 转到 active
+  expect: 系统拒绝状态转换，flash_sale 保持在 scheduled
+  source: sm
+- id: bs-478
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "flash_sale 当前处于 active，但 guard 条件不满足: now > endAt; 定时任务自动下线"
+  act: 触发事件 auto_offline，尝试从 active 转到 ended
+  expect: 系统拒绝状态转换，flash_sale 保持在 active
+  source: sm
+- id: bs-479
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 draft
+  act: 触发该状态下不允许的操作 schedule_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-480
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 scheduled
+  act: 触发该状态下不允许的操作 auto_start_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-481
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 active
+  act: 触发该状态下不允许的操作 auto_offline_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-482
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: flash_sale 当前处于 ended
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-483
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "banner 当前处于 draft，但 guard 条件不满足: name != null && image_url != null"
+  act: 触发事件 publish，尝试从 draft 转到 published
+  expect: 系统拒绝状态转换，banner 保持在 draft
+  source: sm
+- id: bs-484
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "banner 当前处于 published，但 guard 条件不满足: now > end_time"
+  act: 触发事件 schedule_expire，尝试从 published 转到 archived
+  expect: 系统拒绝状态转换，banner 保持在 published
+  source: sm
+- id: bs-485
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-486
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 published
+  act: 触发该状态下不允许的操作 take_offline_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-487
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 archived
+  act: 触发该状态下不允许的操作 republish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-488
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: banner 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-489
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: "blog_post 当前处于 draft，但 guard 条件不满足: title != null"
+  act: 触发事件 publish，尝试从 draft 转到 published
+  expect: 系统拒绝状态转换，blog_post 保持在 draft
+  source: sm
+- id: bs-490
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-491
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-492
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 archived
+  act: 触发该状态下不允许的操作 republish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-493
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: blog_post 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-494
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: real_wedding 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-495
+  cat: state
+  entity: attribute_def
+  field: state
+  ctx: real_wedding 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-496
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: PageHeader「发布站点」按钮跳转 Publish 页（D5 补齐）"
+  act: 触发事件 click_publish_site，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-497
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 快捷入口恢复 5 项（含编辑首页/发布站点，D5）"
+  act: 触发事件 click_quick_entry，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-498
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: GMV 14/30 天切换（D9 保留实现增强）"
+  act: 触发事件 switch_gmv_range，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-499
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loading
+  act: 触发该状态下不允许的操作 load_success_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-500
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 click_publish_site_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-501
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 error
+  act: 触发该状态下不允许的操作 retry_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-502
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loading，但 guard 条件不满足: GA4 流量指标拉取失败时降级占位，交易指标仍展示"
+  act: 触发事件 ga4_unavailable，尝试从 loading 转到 degraded
+  expect: 系统拒绝状态转换，page_state 保持在 loading
+  source: sm
+- id: bs-503
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: D9 保留实现增强"
+  act: 触发事件 export_csv，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-504
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 export_csv_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-505
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 degraded
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-506
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loading，但 guard 条件不满足: filtered.length > 0"
+  act: 触发事件 load_success，尝试从 loading 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loading
+  source: sm
+- id: bs-507
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loading，但 guard 条件不满足: filtered.length === 0 显示 EmptyState「没有符合条件的商品」"
+  act: 触发事件 load_empty，尝试从 loading 转到 empty
+  expect: 系统拒绝状态转换，page_state 保持在 loading
+  source: sm
+- id: bs-508
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: search/cat/statusFilter/moreFilters(productTypes/价格区间/stockLevel/flags/tagIds)\
+    \ 变更触发服务端分页查询；activeMoreCount 角标计数"
+  act: 触发事件 change_filter，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-509
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: selected.length > 0（勾选框列，allChecked\
+    \ 全选）"
+  act: 触发事件 select_rows，尝试从 loaded 转到 batch_selected
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-510
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 batch_selected，但 guard 条件不满足: selected.length === 0"
+  act: 触发事件 clear_selection，尝试从 batch_selected 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 batch_selected
+  source: sm
+- id: bs-511
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 batch_selected，但 guard 条件不满足: 批量上架/下架/设为推荐/批量删除走 D10 批量端点，逐条容错后刷新列表"
+  act: 触发事件 batch_action，尝试从 batch_selected 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 batch_selected
+  source: sm
+- id: bs-512
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D11）"
+  act: 触发事件 export_products，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-513
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 batch_selected，但 guard 条件不满足: 同上（D11）"
+  act: 触发事件 export_products，尝试从 batch_selected 转到 batch_selected
+  expect: 系统拒绝状态转换，page_state 保持在 batch_selected
+  source: sm
+- id: bs-514
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 change_filter_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-515
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 empty
+  act: 触发该状态下不允许的操作 change_filter_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-516
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 batch_selected
+  act: 触发该状态下不允许的操作 clear_selection_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-517
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 editing，但 guard 条件不满足: name/slug/categoryId/price/leadTimeDays\
+    \ 必填；属性集控制版型属性显隐与必填"
+  act: 触发事件 save，尝试从 editing 转到 saving
+  expect: 系统拒绝状态转换，page_state 保持在 editing
+  source: sm
+- id: bs-518
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 saving，但 guard 条件不满足: SKU 乐观锁版本冲突提示"
+  act: 触发事件 save_conflict，尝试从 saving 转到 editing
+  expect: 系统拒绝状态转换，page_state 保持在 saving
+  source: sm
+- id: bs-519
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 editing，但 guard 条件不满足: 保存并生成静态页改为 API 触发（维持实现）"
+  act: 触发事件 save_and_generate，尝试从 editing 转到 saving
+  expect: 系统拒绝状态转换，page_state 保持在 editing
+  source: sm
+- id: bs-520
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 editing
+  act: 触发该状态下不允许的操作 save_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-521
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 saving
+  act: 触发该状态下不允许的操作 save_success_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-522
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 taxonomy_tab，但 guard 条件不满足: D1 第二 Tab 合并属性字典+品类×属性矩阵，Tab 文案「品类×属性矩阵」；AttributeSets\
+    \ 菜单移除并路由重定向至此"
+  act: 触发事件 switch_to_matrix，尝试从 taxonomy_tab 转到 matrix_tab
+  expect: 系统拒绝状态转换，page_state 保持在 taxonomy_tab
+  source: sm
+- id: bs-523
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 taxonomy_tab，但 guard 条件不满足: cat.attributeSetId 非空；点击品类卡片属性集徽章直接打开三态配置抽屉（D2\
+    \ openCatSetDrawer）"
+  act: 触发事件 click_set_badge，尝试从 taxonomy_tab 转到 attr_set_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 taxonomy_tab
+  source: sm
+- id: bs-524
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 matrix_tab，但 guard 条件不满足: openSetDrawer(set)"
+  act: 触发事件 open_set_drawer，尝试从 matrix_tab 转到 attr_set_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 matrix_tab
+  source: sm
+- id: bs-525
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 attr_set_drawer，但 guard 条件不满足: cycleSetDrawerState 必填→可选→隐藏循环"
+  act: 触发事件 cycle_attr_state，尝试从 attr_set_drawer 转到 attr_set_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 attr_set_drawer
+  source: sm
+- id: bs-526
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 attr_set_drawer，但 guard 条件不满足: saveSetDrawer 写回属性集配置"
+  act: 触发事件 save_set_drawer，尝试从 attr_set_drawer 转到 matrix_tab
+  expect: 系统拒绝状态转换，page_state 保持在 attr_set_drawer
+  source: sm
+- id: bs-527
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 taxonomy_tab，但 guard 条件不满足: openDrawer(child, parentCat) 解析\
+    \ resolveAttributeConfig 含继承"
+  act: 触发事件 open_child_override，尝试从 taxonomy_tab 转到 child_override_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 taxonomy_tab
+  source: sm
+- id: bs-528
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 child_override_drawer，但 guard 条件不满足: cycleDrawerState；isInherited\
+    \ 标记继承项"
+  act: 触发事件 cycle_attr_state，尝试从 child_override_drawer 转到 child_override_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 child_override_drawer
+  source: sm
+- id: bs-529
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 child_override_drawer，但 guard 条件不满足: saveDrawer 仅存与父级属性集不同的\
+    \ delta 至 child.attrOverrides；矩阵 Tab 内子品类属性覆盖卡片区按根品类分组只读展示该 delta（D3）"
+  act: 触发事件 save_override，尝试从 child_override_drawer 转到 taxonomy_tab
+  expect: 系统拒绝状态转换，page_state 保持在 child_override_drawer
+  source: sm
+- id: bs-530
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 taxonomy_tab
+  act: 触发该状态下不允许的操作 switch_to_matrix_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-531
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 matrix_tab
+  act: 触发该状态下不允许的操作 switch_to_taxonomy_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-532
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tags_tab
+  act: 触发该状态下不允许的操作 switch_to_taxonomy_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-533
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 attr_set_drawer
+  act: 触发该状态下不允许的操作 cycle_attr_state_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-534
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 child_override_drawer
+  act: 触发该状态下不允许的操作 cycle_attr_state_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-535
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 entered，但 guard 条件不满足: 访问 /attribute-sets 自动重定向至 Categories\
+    \ 品类×属性矩阵 Tab（D1）"
+  act: 触发事件 route_redirect，尝试从 entered 转到 redirected
+  expect: 系统拒绝状态转换，page_state 保持在 entered
+  source: sm
+- id: bs-536
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 entered
+  act: 触发该状态下不允许的操作 route_redirect_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-537
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 redirected
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-538
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loading，但 guard 条件不满足: 列表列严格回对原型：地区（addressSnapshot.country）/商品数（itemCount）替换币种/承运（D6/D12）"
+  act: 触发事件 load_success，尝试从 loading 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loading
+  source: sm
+- id: bs-539
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 状态 Tab 过滤刷新列表"
+  act: 触发事件 switch_status_tab，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-540
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 防抖搜索（D9 保留）"
+  act: 触发事件 search_orders，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-541
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 「导出订单」按钮：按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D6/D11）"
+  act: 触发事件 export_orders，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-542
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 switch_status_tab_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-543
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 empty
+  act: 触发该状态下不允许的操作 switch_status_tab_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-544
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: Order.status === 'paid' 且 carrier/trackingNo\
+    \ 已填写；操作按钮按状态条件渲染"
+  act: 触发事件 mark_shipped，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-545
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 含定制行且已投产时拒绝（422602）"
+  act: 触发事件 open_refund_modal，尝试从 loaded 转到 refund_modal
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-546
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 refund_modal，但 guard 条件不满足: amount <= Order.totalAmount，创建\
+    \ Refund 工单"
+  act: 触发事件 submit_refund，尝试从 refund_modal 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 refund_modal
+  source: sm
+- id: bs-547
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 mark_shipped_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-548
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 refund_modal
+  act: 触发该状态下不允许的操作 submit_refund_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-549
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loading，但 guard 条件不满足: filtered.length === 0 显示 EmptyState「暂无退款工单」"
+  act: 触发事件 load_empty，尝试从 loading 转到 empty
+  expect: 系统拒绝状态转换，page_state 保持在 loading
+  source: sm
+- id: bs-550
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: status tabs 全部/待审批/已同意/已拒绝过滤"
+  act: 触发事件 switch_status_tab，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-551
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: r.status === 'pending' 行内同意，无需弹窗二次确认（D7\
+    \ 回对原型）；成功后刷新行状态为已处理"
+  act: 触发事件 click_approve，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-552
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: r.status === 'pending'；按钮位置行内展开拒绝原因输入框（D7）"
+  act: 触发事件 click_reject，尝试从 loaded 转到 reject_input_open
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-553
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 reject_input_open，但 guard 条件不满足: rejectReason.trim() 非空才可提交（后端拒绝原因必填约束不变，D7）"
+  act: 触发事件 confirm_reject，尝试从 reject_input_open 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 reject_input_open
+  source: sm
+- id: bs-554
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 reject_input_open
+  act: 触发该状态下不允许的操作 confirm_reject_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-555
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 detail_drawer，但 guard 条件不满足: 通过/拒绝仅 pending 可操作；删除回复需二次确认（CP-071，维持实现）"
+  act: 触发事件 moderate，尝试从 detail_drawer 转到 detail_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 detail_drawer
+  source: sm
+- id: bs-556
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 open_detail_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-557
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 empty
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-558
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 detail_drawer
+  act: 触发该状态下不允许的操作 close_drawer_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-559
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 最后一个启用承运方禁删禁停（维持实现）；逐资源即时持久化（DEC-SHP-FE-1）"
+  act: 触发事件 toggle_carrier，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-560
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 edit_drawer，但 guard 条件不满足: 即时持久化；满额包邮 0 显示「免邮」"
+  act: 触发事件 save_resource，尝试从 edit_drawer 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 edit_drawer
+  source: sm
+- id: bs-561
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 toggle_carrier_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-562
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 edit_drawer
+  act: 触发该状态下不允许的操作 save_resource_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-563
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 已结束（expired/ended）活动禁止编辑"
+  act: 触发事件 open_form_drawer，尝试从 loaded 转到 form_drawer
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-564
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 form_drawer，但 guard 条件不满足: endAt > startAt"
+  act: 触发事件 save，尝试从 form_drawer 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 form_drawer
+  source: sm
+- id: bs-565
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 删除二次确认（维持实现）"
+  act: 触发事件 delete_coupon，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-566
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 open_form_drawer_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-567
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 form_drawer
+  act: 触发该状态下不允许的操作 save_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-568
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: Toggle 映射 published/archived 三态，失败按\
+    \ 409703 回滚 UI"
+  act: 触发事件 toggle_online，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-569
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 form_drawer，但 guard 条件不满足: name 与 image_url 非空；end_time >\
+    \ start_time"
+  act: 触发事件 save_publish，尝试从 form_drawer 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 form_drawer
+  source: sm
+- id: bs-570
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 排序 blur 保存（维持实现）"
+  act: 触发事件 edit_sort，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-571
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 toggle_online_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-572
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 form_drawer
+  act: 触发该状态下不允许的操作 save_publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-573
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: published/draft/archived tab 过滤 + 分页"
+  act: 触发事件 switch_status_tab，尝试从 loaded 转到 loading
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-574
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 edit_drawer，但 guard 条件不满足: title 非空"
+  act: 触发事件 save，尝试从 edit_drawer 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 edit_drawer
+  source: sm
+- id: bs-575
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: slug 校验通过后新窗口预览（维持实现）"
+  act: 触发事件 preview，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-576
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 edit_drawer
+  act: 触发该状态下不允许的操作 save_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-577
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 form_drawer，但 guard 条件不满足: couple 非空"
+  act: 触发事件 save，尝试从 form_drawer 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 form_drawer
+  source: sm
+- id: bs-578
+  cat: state
+  entity: page_state
+  field: state
+  ctx: "page_state 当前处于 loaded，但 guard 条件不满足: 删除二次确认（维持实现）"
+  act: 触发事件 delete_wedding，尝试从 loaded 转到 loaded
+  expect: 系统拒绝状态转换，page_state 保持在 loaded
+  source: sm
+- id: bs-579
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 loaded
+  act: 触发该状态下不允许的操作 filter_status_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-580
+  cat: state
+  entity: lookbook
+  field: state
+  ctx: lookbook 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-581
+  cat: state
+  entity: lookbook
+  field: state
+  ctx: lookbook 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-582
+  cat: state
+  entity: lookbook
+  field: state
+  ctx: lookbook 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-583
+  cat: state
+  entity: style_guide
+  field: state
+  ctx: style_guide 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-584
+  cat: state
+  entity: style_guide
+  field: state
+  ctx: style_guide 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-585
+  cat: state
+  entity: style_guide
+  field: state
+  ctx: style_guide 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-586
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tab_lookbook
+  act: 触发该状态下不允许的操作 click_tab_guide_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-587
+  cat: state
+  entity: page_state
+  field: state
+  ctx: page_state 当前处于 tab_guide
+  act: 触发该状态下不允许的操作 click_tab_lookbook_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-588
+  cat: callsite-compat
+  entity: category
+  ctx: attribute_set 实体结构变更，category 通过 外键 引用
+  act: 修改 attribute_set 的字段定义（添加/删除/修改类型）
+  expect: category 能正常读取 attribute_set 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-589
+  cat: callsite-compat
+  entity: category
+  ctx: category 实体结构变更，category 通过 外键 引用
+  act: 修改 category 的字段定义（添加/删除/修改类型）
+  expect: category 能正常读取 category 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-590
+  cat: callsite-compat
+  entity: attribute_def
+  field: type
+  ctx: "attribute_def.type 枚举值集合 ['select', 'multiselect', 'text', 'toggle']，调用方依赖当前值"
+  act: 为 type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-591
+  cat: callsite-compat
+  entity: attribute_set_item
+  field: visibility
+  ctx: "attribute_set_item.visibility 枚举值集合 ['visible', 'optional', 'hidden']，调用方依赖当前值"
+  act: 为 visibility 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-592
+  cat: callsite-compat
+  entity: attribute_set_item
+  ctx: attribute_def 实体结构变更，attribute_set_item 通过 外键 引用
+  act: 修改 attribute_def 的字段定义（添加/删除/修改类型）
+  expect: attribute_set_item 能正常读取 attribute_def 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-593
+  cat: callsite-compat
+  entity: attribute_set_item
+  ctx: attribute_set 实体结构变更，attribute_set_item 通过 外键 引用
+  act: 修改 attribute_set 的字段定义（添加/删除/修改类型）
+  expect: attribute_set_item 能正常读取 attribute_set 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-594
+  cat: callsite-compat
+  entity: tag
+  field: status
+  ctx: "tag.status 枚举值集合 ['enabled', 'disabled']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-595
+  cat: callsite-compat
+  entity: tag
+  ctx: product 实体结构变更，tag 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: tag 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-596
+  cat: callsite-compat
+  entity: tag
+  ctx: tag_dimension 实体结构变更，tag 通过 外键 引用
+  act: 修改 tag_dimension 的字段定义（添加/删除/修改类型）
+  expect: tag 能正常读取 tag_dimension 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-597
+  cat: callsite-compat
+  entity: product
+  field: status
+  ctx: "product.status 枚举值集合 ['draft', 'published']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-598
+  cat: callsite-compat
+  entity: product
+  ctx: category 实体结构变更，product 通过 外键 引用
+  act: 修改 category 的字段定义（添加/删除/修改类型）
+  expect: product 能正常读取 category 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-599
+  cat: callsite-compat
+  entity: product
+  ctx: custom_tag 实体结构变更，product 通过 外键 引用
+  act: 修改 custom_tag 的字段定义（添加/删除/修改类型）
+  expect: product 能正常读取 custom_tag 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-600
+  cat: callsite-compat
+  entity: sku
+  ctx: product 实体结构变更，sku 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: sku 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-601
+  cat: callsite-compat
+  entity: order
+  field: status
+  ctx: "order.status 枚举值集合 ['pending', 'paid', 'shipped', 'completed', 'cancelled',\
+    \ 'refunding', 'refunded']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-602
+  cat: callsite-compat
+  entity: order
+  field: currency
+  ctx: "order.currency 枚举值集合 ['USD', 'CAD', 'AUD', 'GBP']，调用方依赖当前值"
+  act: 为 currency 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-603
+  cat: callsite-compat
+  entity: order
+  field: carrier
+  ctx: "order.carrier 枚举值集合 ['FedEx International Priority', 'UPS Worldwide Express',\
+    \ 'DHL Express']，调用方依赖当前值"
+  act: 为 carrier 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-604
+  cat: callsite-compat
+  entity: order
+  ctx: customer 实体结构变更，order 通过 外键 引用
+  act: 修改 customer 的字段定义（添加/删除/修改类型）
+  expect: order 能正常读取 customer 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-605
+  cat: callsite-compat
+  entity: order_line
+  ctx: order 实体结构变更，order_line 通过 外键 引用
+  act: 修改 order 的字段定义（添加/删除/修改类型）
+  expect: order_line 能正常读取 order 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-606
+  cat: callsite-compat
+  entity: order_line
+  ctx: product 实体结构变更，order_line 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: order_line 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-607
+  cat: callsite-compat
+  entity: order_line
+  ctx: sku 实体结构变更，order_line 通过 外键 引用
+  act: 修改 sku 的字段定义（添加/删除/修改类型）
+  expect: order_line 能正常读取 sku 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-608
+  cat: callsite-compat
+  entity: refund
+  field: status
+  ctx: "refund.status 枚举值集合 ['pending', 'approved', 'rejected']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-609
+  cat: callsite-compat
+  entity: refund
+  field: currency
+  ctx: "refund.currency 枚举值集合 ['USD', 'CAD', 'AUD', 'GBP']，调用方依赖当前值"
+  act: 为 currency 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-610
+  cat: callsite-compat
+  entity: refund
+  ctx: customer 实体结构变更，refund 通过 外键 引用
+  act: 修改 customer 的字段定义（添加/删除/修改类型）
+  expect: refund 能正常读取 customer 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-611
+  cat: callsite-compat
+  entity: refund
+  ctx: order 实体结构变更，refund 通过 外键 引用
+  act: 修改 order 的字段定义（添加/删除/修改类型）
+  expect: refund 能正常读取 order 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-612
+  cat: callsite-compat
+  entity: operation_log
+  field: action
+  ctx: "operation_log.action 枚举值集合 ['batch_publish', 'batch_unpublish', 'batch_recommend',\
+    \ 'batch_delete', 'export_products', 'export_orders']，调用方依赖当前值"
+  act: 为 action 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-613
+  cat: callsite-compat
+  entity: page_state
+  field: ui_state
+  ctx: "page_state.ui_state 枚举值集合 ['loading', 'loaded', 'empty', 'error']，调用方依赖当前值"
+  act: 为 ui_state 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-614
+  cat: callsite-compat
+  entity: lookbook
+  field: status
+  ctx: "lookbook.status 枚举值集合 ['draft', 'published']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-615
+  cat: callsite-compat
+  entity: lookbook
+  ctx: product 实体结构变更，lookbook 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: lookbook 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-616
+  cat: callsite-compat
+  entity: style_guide
+  field: status
+  ctx: "style_guide.status 枚举值集合 ['draft', 'published']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er

@@ -1,0 +1,364 @@
+metadata:
+  generated_at: "2026-06-11T02:50:22Z"
+  source_prototype_dir: hhspec/prototype/portal-admin
+  proto_type: vue-sfc
+  source_files_processed: 16
+  html_files_processed: 16
+  total_fields_extracted: 19
+  cjk_name_renamed: 8
+  change_name: admin-prototype-alignment
+  domain_code: null
+  pages_without_fields:
+    - Analytics
+    - Banners
+    - ContentBlog
+    - ContentLookbook
+    - ContentWeddings
+    - OrderDetail
+    - ProductEdit
+    - Promotions
+    - Reviews
+    - Shipping
+  warn_empty: false
+  extraction_confidence: low
+  page_confidence:
+    - page_id: Analytics
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: AttributeSets
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Banners
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Categories
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: ContentBlog
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: ContentLookbook
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: ContentWeddings
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Dashboard
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: OrderDetail
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Orders
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: ProductEdit
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Products
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Promotions
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Refunds
+      confidence: low
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+        - "dynamic_labels: 1/1 labels are dynamic bindings"
+    - page_id: Reviews
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Shipping
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+fields:
+  - field_id: FLD-ATTRIBUTESETS-001
+    name: visible
+    label: visible
+    source_type: table_column
+    pages: ["AttributeSets", "Categories"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["AttributeSets"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-ATTRIBUTESETS-002
+    name: optional
+    label: optional
+    source_type: table_column
+    pages: ["AttributeSets", "Categories"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["AttributeSets"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-ATTRIBUTESETS-003
+    name: hidden
+    label: hidden
+    source_type: table_column
+    pages: ["AttributeSets", "Categories"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["AttributeSets"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-DASHBOARD-001
+    name: icon
+    label: icon
+    source_type: table_column
+    pages: ["Dashboard"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Dashboard"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-DASHBOARD-002
+    name: to
+    label: to
+    source_type: table_column
+    pages: ["Dashboard"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Dashboard"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-ORDERS-001
+    name: k
+    label: k
+    source_type: table_column
+    pages: ["Orders"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Orders"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-PRODUCTS-001
+    name: get
+    label: get
+    source_type: table_column
+    pages: ["Products"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Products"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-PRODUCTS-002
+    name: set
+    label: set
+    source_type: table_column
+    pages: ["Products"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Products"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-001
+    name: tcol_f55ad7d4
+    label: 工单号
+    original_name: 工单号
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-002
+    name: tcol_969d961c
+    label: 关联订单
+    original_name: 关联订单
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-003
+    name: tcol_f2068706
+    label: 客户
+    original_name: 客户
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-004
+    name: tcol_f243aec2
+    label: 退款金额
+    original_name: 退款金额
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: amount
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-005
+    name: tcol_6bbe1ee9
+    label: 退款原因
+    original_name: 退款原因
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-006
+    name: tcol_e85ad6ea
+    label: 申请时间
+    original_name: 申请时间
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-007
+    name: tcol_62e951a6
+    label: 状态
+    original_name: 状态
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: status
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-008
+    name: tcol_f3ea6d34
+    label: 操作
+    original_name: 操作
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-009
+    name: pending
+    label: pending
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-010
+    name: approved
+    label: approved
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-REFUNDS-011
+    name: rejected
+    label: rejected
+    source_type: table_column
+    pages: ["Refunds"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Refunds"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null

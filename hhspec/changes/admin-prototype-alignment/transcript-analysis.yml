@@ -1,0 +1,33 @@
+analyzed_at: '2026-06-11T04:12:23Z'
+session_id: 20fb1f53-bf72-4f79-9699-531b45b34c7a
+transcript_path: /Users/harryhe/.claude/projects/-Volumes-MAC-workspace-hh-factory-hh-marketplace/20fb1f53-bf72-4f79-9699-531b45b34c7a.jsonl
+summary:
+  total_entries: 112
+  session_duration_s: 809.6
+  turn_count: 34
+  phase_count: 0
+  error_count: 0
+  warning_count: 0
+performance:
+  session_duration_ms: 809622
+  session_duration_s: 809.6
+  turn_count: 34
+  total_input_tokens: 67
+  total_output_tokens: 6065
+  total_cache_read_tokens: 2386887
+  total_cache_create_tokens: 233138
+  cache_hit_ratio: 35625.179
+  avg_turn_ms: 17590
+  median_turn_ms: 4324
+  tool_count: 0
+  total_tool_ms: 0
+  slowest_tools: []
+phases: []
+errors: []
+warnings:
+- level: warn
+  message: Session 总时长 810s 超过阈值 600s
+  suggestion: 建议对耗时阶段进行脚本化或任务原子化，锁定精确输入参数避免重复上下文加载
+- level: warn
+  message: Turn 数 34 超过阈值 20
+  suggestion: 检查是否存在死循环或无限 retry，考虑设置 max_iterations 上限

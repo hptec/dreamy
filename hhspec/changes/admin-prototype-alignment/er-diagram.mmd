@@ -1,0 +1,217 @@
+erDiagram
+  Category {
+    Long id
+    str name
+    Long parent_id
+    int level
+    Long attribute_set_id
+    json attr_overrides
+    int sort
+    int product_count
+  }
+  Category ||--|| Category : "rel"
+  Category ||--|| AttributeSet : "rel"
+  AttributeDef {
+    Long id
+    str key
+    str label
+    enum type
+    json options
+  }
+  AttributeSet {
+    Long id
+    str label
+  }
+  AttributeSetItem {
+    Long id
+    Long attribute_set_id
+    Long attribute_id
+    enum visibility
+  }
+  AttributeSetItem ||--|| AttributeSet : "rel"
+  AttributeSetItem ||--|| AttributeDef : "rel"
+  TagDimension {
+    Long id
+    str name
+    str description
+  }
+  Tag {
+    Long id
+    Long dimension_id
+    str name
+    str cover
+    enum status
+    int product_count
+  }
+  Tag ||--|| TagDimension : "rel"
+  Tag ||--|| Product : "rel"
+  CustomTag {
+    Long id
+    str name
+    str dimensionId
+  }
+  %% Product [modified]
+  Product {
+    Long id
+    str name
+    str slug
+    str subtitle
+    Long categoryId
+    str productType
+    text description
+    text designerNote
+    number price
+    number compareAt
+    bool installment
+    json multiCurrencyPrices
+    enum status
+    bool isNew
+    bool isBest
+    bool recommend
+    int sort
+    int sales  "new"
+    int leadTimeDays
+    bool rushAvailable
+    bool customSizeAvailable
+    str silhouette
+    str neckline
+    str sleeve
+    str backStyle
+    str waistline
+    str train
+    str length
+    str fabric
+    str fabricComposition
+    str support
+    str season
+    json embellishments
+    json occasions
+    json styleTags
+    str modelHeight
+    str modelSize
+    str modelBodyType
+    text careInstructions
+    str countryOfOrigin
+    str styleNo
+    str seoTitle
+    str seoDesc
+  }
+  Product ||--|| Category : "rel"
+  Product ||--|| CustomTag : "rel"
+  Sku {
+    Long id
+    Long productId
+    str skuCode
+    str color
+    str size
+    int stock
+    Long version
+  }
+  Sku ||--|| Product : "rel"
+  Customer {
+    Long id
+    str name
+    str email
+    str phone
+  }
+  %% Order [modified]
+  Order {
+    Long id
+    str orderNo
+    Long customerId
+    enum status
+    enum currency
+    decimal exchangeRate
+    date weddingDate
+    number subtotal
+    number shippingFee
+    bool giftWrap
+    number giftWrapFee
+    number totalAmount
+    Long couponId
+    str paymentMethod
+    json addressSnapshot
+    str country  "new"
+    int itemCount  "new"
+    enum carrier
+    str trackingNo
+    datetime expiresAt
+    datetime paidAt
+    datetime shippedAt
+    datetime completedAt
+    datetime createdAt
+  }
+  Order ||--|| Customer : "rel"
+  Order ||--|| Coupon : "rel"
+  OrderLine {
+    Long id
+    Long orderId
+    Long productId
+    Long skuId
+    str productName
+    str skuCode
+    str color
+    str size
+    int qty
+    number unitPrice
+    str img
+    json customSizeData
+  }
+  OrderLine ||--|| Order : "rel"
+  OrderLine ||--|| Product : "rel"
+  OrderLine ||--|| Sku : "rel"
+  %% Refund [modified]
+  Refund {
+    Long id
+    str refundNo
+    Long orderId
+    Long customerId
+    number amount
+    str reason
+    str rejectReason  "new"
+    enum status
+    datetime appliedAt
+    enum currency
+    str stripeRefundId
+    str returnTrackingNo
+  }
+  Refund ||--|| Order : "rel"
+  Refund ||--|| Customer : "rel"
+  %% OperationLog [new]
+  OperationLog {
+    Long id
+    Long adminId
+    enum action
+    str targetType
+    json targetIds
+    json result
+    int rowCount
+    datetime createdAt
+  }
+  %% PageState [new]
+  PageState {
+    str page_id
+    enum ui_state
+  }
+  %% lookbook [new]
+  lookbook {
+    Long id
+    str title
+    str theme
+    int items
+    enum status
+  }
+  lookbook ||--|| product : "rel"
+  %% style_guide [new]
+  style_guide {
+    Long id
+    str title
+    str timeframe
+    str phase
+    int tasks
+    enum status
+    int sort_order
+  }
+  classDef deprecated stroke:#999,stroke-dasharray:4 4,color:#999
+  classDef new stroke:#0a0,stroke-width:2px
+  classDef modified stroke:#fa0,stroke-width:2px

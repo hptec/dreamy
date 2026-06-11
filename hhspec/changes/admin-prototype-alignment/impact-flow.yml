@@ -1,0 +1,1308 @@
+skipped: false
+analyzed_at: "2026-06-11T03:24:24Z"
+business_flow_hash: "fceb92df16b45e95962b66848fbb640598cc0c82f5b5de743076599c9769c122"
+
+flows_analyzed:
+  - id: checkout_order
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: n15
+  - id: n16
+  - id: n17
+  - id: n18
+  - id: n19
+  - id: n20
+  - id: n21
+  - id: n22
+  - id: n23
+  - id: order_timeout_cancel
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: admin_ship_complete
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: refund_flow
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: n15
+  - id: n16
+  - id: n17
+  - id: n18
+  - id: n19
+  - id: n20
+  - id: n21
+  - id: n22
+  - id: n23
+  - id: n24
+  - id: n25
+  - id: review_moderation_flow
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: content_publish_invalidate
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: order_event_dispatch
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: dashboard_analytics_read
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: coupon_redeem
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: flash_sale_auto_offline
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: transactional_email
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: wishlist_manage
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: showroom_collaboration
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: size_recommendation
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: ga4_traffic_fetch
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: browse_history_track
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: newsletter_subscribe
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: contact_submit
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: category_attribute_config
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: product_batch_ops
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: n11
+  - id: n12
+  - id: n13
+  - id: n14
+  - id: admin_export_csv
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: n10
+  - id: order_list_query
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+  - id: n6
+  - id: n7
+  - id: n8
+  - id: n9
+  - id: dashboard_publish_entry
+  - id: n1
+  - id: n2
+  - id: n3
+  - id: n4
+  - id: n5
+
+cross_domain_impacts:
+  []
+
+affected_specs:
+  []
+
+regression_risks:
+  - flow_id: checkout_order
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n13
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n14
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n15
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n16
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n17
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n18
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n19
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n20
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n21
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n22
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n23
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: order_timeout_cancel
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: admin_ship_complete
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: refund_flow
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n13
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n14
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n15
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n16
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n17
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n18
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n19
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n20
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n21
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n22
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n23
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n24
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n25
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: review_moderation_flow
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: content_publish_invalidate
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: order_event_dispatch
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: dashboard_analytics_read
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: coupon_redeem
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: flash_sale_auto_offline
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: transactional_email
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: wishlist_manage
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: showroom_collaboration
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n13
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n14
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: size_recommendation
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: ga4_traffic_fetch
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: browse_history_track
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: newsletter_subscribe
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: contact_submit
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: category_attribute_config
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n13
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n14
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: product_batch_ops
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n11
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n12
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n13
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n14
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: admin_export_csv
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n10
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: order_list_query
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n6
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n7
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n8
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n9
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: dashboard_publish_entry
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: n5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []

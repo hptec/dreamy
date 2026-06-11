@@ -1,0 +1,279 @@
+schema_version: "1.0"
+
+meta:
+  change_name: admin-prototype-alignment
+  portal_id: ""
+  extracted_at: "2026-06-11T10:50:34+08:00"
+  extraction_method: script
+  source_files:
+    - file: portal-admin/src/views/Analytics.vue
+      page_id: analytics
+      hash: "sha256:c02f088cf89355c4a8c6fdd5736202b00d0eb9e934756e582b9bc9985c298cc0"
+    - file: portal-admin/src/views/AttributeSets.vue
+      page_id: attribute-sets
+      hash: "sha256:28e68e51c9dad5b2e99d02daaabea24b1a22f8a05220c9b43b8045e4d8db69df"
+    - file: portal-admin/src/views/Banners.vue
+      page_id: banners
+      hash: "sha256:531260e03d17f95e090de91ffe3166e64766133069b701f3506e21aff3e292b8"
+    - file: portal-admin/src/views/Categories.vue
+      page_id: categories
+      hash: "sha256:9cd49bffb471e6602776666456e1cb65be361149e830e324f94966cdf4bd2e09"
+    - file: portal-admin/src/views/ContentBlog.vue
+      page_id: content-blog
+      hash: "sha256:5922ace236f3d6a0f1dff07a317f2c5f2fa7e8d02d244f3512d8541ead90d847"
+    - file: portal-admin/src/views/ContentLookbook.vue
+      page_id: content-lookbook
+      hash: "sha256:424fe52c8f356508be2d42967758688434857fb478ed513ce083485623790471"
+    - file: portal-admin/src/views/ContentWeddings.vue
+      page_id: content-weddings
+      hash: "sha256:1ffe21f155e4ed85f1f74f77bed6caa6162bf0f647a538a2de889183af96ea70"
+    - file: portal-admin/src/views/Dashboard.vue
+      page_id: dashboard
+      hash: "sha256:49f3339120e5e943d5a703be6f38c6494a268bff602c98e1cfd84ec57af98ac4"
+    - file: portal-admin/src/views/OrderDetail.vue
+      page_id: order-detail
+      hash: "sha256:4d4f02137afa1158e4bdd105258b53cd1862922cabed774c19aafe7c82e57ba3"
+    - file: portal-admin/src/views/Orders.vue
+      page_id: orders
+      hash: "sha256:73107e9a4d154841f76e21b7f834a6f9f6618de809694a126f539afe9102a521"
+    - file: portal-admin/src/views/ProductEdit.vue
+      page_id: product-edit
+      hash: "sha256:124d14a9b3508364a23a0fbb20b4d36569987737c9a657824e59e9ec03966e14"
+    - file: portal-admin/src/views/Products.vue
+      page_id: products
+      hash: "sha256:e1bb77083f6dd8cdafefaa83ab1ca08403e8fda205c7a558dac8970648181ab8"
+    - file: portal-admin/src/views/Promotions.vue
+      page_id: promotions
+      hash: "sha256:7f6e833a82018653c0e8ea6104cad42853ba4f64cc9b6002a1f264b811d0052b"
+    - file: portal-admin/src/views/Refunds.vue
+      page_id: refunds
+      hash: "sha256:4330543f08c571d21296a30d8b9c2c4c12045c3ff996266b3099d535bbfe83cc"
+    - file: portal-admin/src/views/Reviews.vue
+      page_id: reviews
+      hash: "sha256:08c456ab8b4cb61d31bec60cac32afc24ffe4b7c5602245d2a6f68c636c3cb21"
+    - file: portal-admin/src/views/Shipping.vue
+      page_id: shipping
+      hash: "sha256:bcbb05da6ad99f6fd4824cc0e55dc5a307af21f505891711bb5cbec661af39f4"
+  stats:
+    total_operations: 8
+    by_type:
+      api_call: 2
+      dialog_open: 1
+      navigation: 4
+      state_toggle: 1
+    by_page:
+      dashboard: 2
+      order-detail: 2
+      product-edit: 2
+      products: 1
+      refunds: 1
+
+operations:
+
+  - id: OP-001
+    page_id: dashboard
+
+    source:
+      file: portal-admin/src/views/Dashboard.vue
+      selector: "a[href=\"/analytics\"]"
+      selector_confidence: medium
+      label: 查看完整看板(/analytics)
+      element_type: link
+
+    type: navigation
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: null
+        notification: null
+        navigation: /analytics
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [navigation]
+
+  - id: OP-002
+    page_id: dashboard
+
+    source:
+      file: portal-admin/src/views/Dashboard.vue
+      selector: "a[href=\"/publish\"]"
+      selector_confidence: medium
+      label: 发布站点(/publish)
+      element_type: link
+
+    type: navigation
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: null
+        notification: null
+        navigation: /publish
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [navigation]
+
+  - id: OP-003
+    page_id: order-detail
+
+    source:
+      file: portal-admin/src/views/OrderDetail.vue
+      selector: button.btn-ghost
+      selector_confidence: medium
+      label: 返回
+      element_type: button
+
+    type: api_call
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: 数据更新
+        notification: {type: toast, level: success, text: 操作成功}
+        navigation: null
+      - condition: api_error
+        state_change: 无变化
+        notification: {type: toast, level: error, text: 操作失败}
+        navigation: null
+      - condition: confirm_cancel
+        state_change: 无变化
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [api]
+
+  - id: OP-004
+    page_id: order-detail
+
+    source:
+      file: portal-admin/src/views/OrderDetail.vue
+      selector: button.btn-primary
+      selector_confidence: medium
+      label: 标记发货
+      element_type: button
+
+    type: dialog_open
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: "<dialog> → visible"
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [dialog]
+
+  - id: OP-005
+    page_id: product-edit
+
+    source:
+      file: portal-admin/src/views/ProductEdit.vue
+      selector: button.btn-ghost
+      selector_confidence: medium
+      label: 返回列表
+      element_type: button
+
+    type: api_call
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: 数据更新
+        notification: {type: toast, level: success, text: 操作成功}
+        navigation: null
+      - condition: api_error
+        state_change: 无变化
+        notification: {type: toast, level: error, text: 操作失败}
+        navigation: null
+      - condition: confirm_cancel
+        state_change: 无变化
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [api]
+
+  - id: OP-006
+    page_id: product-edit
+
+    source:
+      file: portal-admin/src/views/ProductEdit.vue
+      selector: button.btn-gold
+      selector_confidence: medium
+      label: 保存并生成静态页
+      element_type: button
+
+    type: navigation
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: null
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [read, navigation]
+
+  - id: OP-007
+    page_id: products
+
+    source:
+      file: portal-admin/src/views/Products.vue
+      selector: "a[href=\"/products/new\"]"
+      selector_confidence: medium
+      label: 新增商品(/products/new)
+      element_type: link
+
+    type: navigation
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: null
+        notification: null
+        navigation: /products/new
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [navigation]
+
+  - id: OP-008
+    page_id: refunds
+
+    source:
+      file: portal-admin/src/views/Refunds.vue
+      selector: button.border-b-2
+      selector_confidence: medium
+      label: "{{ t[1] }}"
+      element_type: button
+
+    type: state_toggle
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: status 切换为选中值，图表/列表随即刷新
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [filter, state]

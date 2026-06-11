@@ -1,0 +1,240 @@
+meta:
+  mode: incremental
+  baseline_ref: "hhspec/specs/architecture/er-diagram.yml"
+  generated_at: "2026-06-11T03:15:00Z"
+  breaking_changes: []
+entities:
+- id: Category
+  meta: {source: inherited}
+  desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: name, t: str, req: true, maxlen: 64, source: "prototype/portal-admin/src/views/Categories.vue > 品类名称 * / newRootName / confirmAddChild"}
+  - {n: parent_id, t: Long, source: "prototype/portal-admin/src/views/Categories.vue > cat.children 子类目树"}
+  - {n: level, t: int, min: 1, max: 3, source: "需求描述: 分类为三层树模型 [INFERRED]"}
+  - {n: attribute_set_id, t: Long, source: "prototype/portal-admin/src/views/Categories.vue > cat.attributeSetId / attrSetInfo"}
+  - {n: attr_overrides, t: json, source: "prototype/portal-admin/src/views/Categories.vue > child.attrOverrides 仅存与父级属性集不同的 delta (saveDrawer)；key_decisions D3 子品类属性覆盖卡片区按根品类分组只读展示该 delta"}
+  - {n: sort, t: int, source: "prototype/portal-admin/src/views/Categories.vue > Bars3Icon 拖拽手柄 [INFERRED]"}
+  - {n: product_count, t: int, min: 0, js_guard: "product_count === 0 时才允许删除 (canDelete)", source: "prototype/portal-admin/src/views/Categories.vue > cat.count / canDelete(cat) + ProductEdit.vue > standardTaxonomy root.children 两级级联（经 parent_id 派生）"}
+  relations:
+  - {to: Category, type: n1}
+  - {to: AttributeSet, type: n1}
+- id: AttributeDef
+  meta: {source: inherited}
+  desc: 商品属性字典项，维护全局属性定义与可选值列表（廓形/领口/袖型/面料等）
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: key, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)；key_decisions D1 属性字典并回 Categories 第二 Tab"}
+  - {n: label, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.label"}
+  - {n: type, t: enum, vals: [select, multiselect, text, toggle], req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.type 徽章分支 select/multiselect + 过滤条件 type!=='text'&&type!=='toggle'"}
+  - {n: options, t: json, js_guard: "type === 'select' || type === 'multiselect' 时才有选项 (attr.optionsKey)", source: "prototype/portal-admin/src/views/AttributeSets.vue > attr.options 增删改 (confirmAddOption/removeOption/confirmEdit) + Categories.vue > confirmAddOption/removeOption/confirmEditOpt"}
+  relations: []
+- id: AttributeSet
+  meta: {source: inherited}
+  desc: 属性集，多个品类可共享同一属性集；定义该集合内各属性的可见性配置
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: label, t: str, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)；key_decisions D1 Tab 文案恢复「品类×属性矩阵」"}
+  relations: []
+- id: AttributeSetItem
+  meta: {source: inherited}
+  desc: 属性集明细行，记录属性集内单个属性的可见性状态（必填/可选/隐藏）
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: attribute_set_id, t: Long, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId]"}
+  - {n: attribute_id, t: Long, req: true, source: "prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId][attrKey]"}
+  - {n: visibility, t: enum, vals: [visible, optional, hidden], req: true, source: "field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/Categories.vue > STATES=['visible','optional','hidden'] cycleDrawerState/cycleSetDrawerState 必填→可选→隐藏"}
+  relations:
+  - {to: AttributeSet, type: n1}
+  - {to: AttributeDef, type: n1}
+- id: TagDimension
+  meta: {source: inherited}
+  desc: 自定义标签维度（如风格/用途），仅用于前台营销聚合与导航，不影响商品属性表单
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Categories.vue > 维度名称 * / confirmAddDim"}
+  - {n: description, t: str, source: "prototype/portal-admin/src/views/Categories.vue > tagDimensions d.desc"}
+  relations: []
+- id: Tag
+  meta: {source: inherited}
+  desc: 自定义营销标签，归属某标签维度，商品可多选；带封面图用于前台导航卡片
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]"}
+  - {n: dimension_id, t: Long, req: true, source: "prototype/portal-admin/src/views/Categories.vue > t.dimensionId / tagsByActiveDim"}
+  - {n: name, t: str, req: true, source: "prototype/portal-admin/src/views/Categories.vue > 标签名称 * / confirmAddTag :disabled=!newTagName.trim()"}
+  - {n: cover, t: str, source: "prototype/portal-admin/src/views/Categories.vue > t.cover 封面上传 handleCoverUpload，可为空则纯文字展示"}
+  - {n: status, t: enum, vals: [enabled, disabled], req: true, source: "prototype/portal-admin/src/views/Categories.vue > Toggle v-model=t.enabled，UI 开关映射后端枚举 [INFERRED]"}
+  - {n: product_count, t: int, min: 0, source: "prototype/portal-admin/src/views/Categories.vue > t.count 件数"}
+  relations:
+  - {to: TagDimension, type: n1}
+  - {to: Product, type: nm}
+- id: CustomTag
+  meta: {source: inherited}
+  desc: 自定义标签（营销/导航维度，多选挂商品；详细建模归 Categories 批次）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+  - {n: name, t: str, req: true, maxlen: 64, source: "ProductEdit.vue > tagsByDimension tag.name"}
+  - {n: dimensionId, t: str, maxlen: 32, source: "ProductEdit.vue > tagDimensions dim.id"}
+  relations: []
+- id: Product
+  meta: {source: modified}
+  desc: 商品主档（现货+定制双模式婚纱礼服，含版型属性与SEO）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > MyBatis-Plus Long 自增主键", meta: {source: inherited}}
+  - {n: name, t: str, req: true, maxlen: 128, source: "ProductEdit.vue > form.name 商品名称*", meta: {source: inherited}}
+  - {n: slug, t: str, req: true, maxlen: 128, pattern: '^[a-z0-9-]+$', source: "ProductEdit.vue > form.slug URL Slug", meta: {source: inherited}}
+  - {n: subtitle, t: str, maxlen: 255, source: "ProductEdit.vue > form.subtitle 副标题/卖点", meta: {source: inherited}}
+  - {n: categoryId, t: Long, req: true, source: "ProductEdit.vue > form.categoryId 标准品类级联*", meta: {source: inherited}}
+  - {n: productType, t: str, maxlen: 64, source: "ProductEdit.vue > form.productType 自由填写；prototype/portal-admin/src/views/Products.vue > productTypeOptions 更多筛选商品类型多选（D4）", meta: {source: inherited}}
+  - {n: description, t: text, source: "ProductEdit.vue > form.description 富文本介绍", meta: {source: inherited}}
+  - {n: designerNote, t: text, source: "ProductEdit.vue > form.designerNote 品牌故事", meta: {source: inherited}}
+  - {n: price, t: number, req: true, min: 0, source: "ProductEdit.vue > form.price 现价USD*；Products.vue > moreFilters.priceMin/priceMax 价格区间筛选", meta: {source: inherited}}
+  - {n: compareAt, t: number, min: 0, js_guard: "compareAt == null || compareAt >= price", source: "ProductEdit.vue > form.compareAt 划线价；Products.vue > flags onSale 以 compareAt 非空判定促销中", meta: {source: inherited}}
+  - {n: installment, t: bool, source: "ProductEdit.vue > form.installment Klarna/Afterpay 分期", meta: {source: inherited}}
+  - {n: multiCurrencyPrices, t: json, source: "ProductEdit.vue > 多币种价格 USD/CAD/AUD/GBP 可覆盖", meta: {source: inherited}}
+  - {n: status, t: enum, vals: [draft, published], req: true, source: "mock.js > products.status; Products.vue > Toggle published/draft + 批量上架/批量下架（D4/D10）", meta: {source: inherited}}
+  - {n: isNew, t: bool, source: "mock.js > products.isNew; Products.vue > Toggle + flags 筛选新品", meta: {source: inherited}}
+  - {n: isBest, t: bool, source: "mock.js > products.isBest", meta: {source: inherited}}
+  - {n: recommend, t: bool, source: "mock.js > products.recommend; Products.vue > Toggle + 批量设为推荐（D4/D10）", meta: {source: inherited}}
+  - {n: sort, t: int, min: 0, source: "mock.js > products.sort", meta: {source: inherited}}
+  - {n: sales, t: int, min: 0, js_guard: "只读聚合列：由订单行销量统计派生，管理端不可直接编辑", source: "prototype/portal-admin/src/views/Products.vue > 销量列 p.sales + key_decisions D4 补齐销量列 [INFERRED: 聚合派生]", meta: {source: new}}
+  - {n: leadTimeDays, t: int, min: 1, req: true, source: "ProductEdit.vue > form.leadTimeDays 标准发货周期(天)", meta: {source: inherited}}
+  - {n: rushAvailable, t: bool, source: "ProductEdit.vue > form.rushAvailable 支持加急", meta: {source: inherited}}
+  - {n: customSizeAvailable, t: bool, source: "ProductEdit.vue > form.customSizeAvailable 定制尺寸(伴娘服核心)", meta: {source: inherited}}
+  - {n: silhouette, t: str, source: "ProductEdit.vue > form.silhouette 廓形(属性集控制显隐/必填)", meta: {source: inherited}}
+  - {n: neckline, t: str, source: "ProductEdit.vue > form.neckline 领口", meta: {source: inherited}}
+  - {n: sleeve, t: str, source: "ProductEdit.vue > form.sleeve 袖型", meta: {source: inherited}}
+  - {n: backStyle, t: str, source: "ProductEdit.vue > form.backStyle 背部设计", meta: {source: inherited}}
+  - {n: waistline, t: str, source: "ProductEdit.vue > form.waistline 腰线", meta: {source: inherited}}
+  - {n: train, t: str, source: "ProductEdit.vue > form.train 拖尾(父品类切换时重置)", meta: {source: inherited}}
+  - {n: length, t: str, source: "ProductEdit.vue > form.length 裙长", meta: {source: inherited}}
+  - {n: fabric, t: str, source: "ProductEdit.vue > form.fabric 主面料", meta: {source: inherited}}
+  - {n: fabricComposition, t: str, maxlen: 128, source: "ProductEdit.vue > form.fabricComposition 面料成分", meta: {source: inherited}}
+  - {n: support, t: str, source: "ProductEdit.vue > form.support 内置支撑", meta: {source: inherited}}
+  - {n: season, t: str, source: "ProductEdit.vue > form.season 季节", meta: {source: inherited}}
+  - {n: embellishments, t: json, source: "ProductEdit.vue > form.embellishments 装饰细节多选", meta: {source: inherited}}
+  - {n: occasions, t: json, source: "ProductEdit.vue > form.occasions 适合场合多选", meta: {source: inherited}}
+  - {n: styleTags, t: json, source: "ProductEdit.vue > form.styleTags 风格标签多选", meta: {source: inherited}}
+  - {n: modelHeight, t: str, maxlen: 32, source: "ProductEdit.vue > form.modelHeight 模特身高", meta: {source: inherited}}
+  - {n: modelSize, t: str, maxlen: 16, source: "ProductEdit.vue > form.modelSize 模特所穿尺码", meta: {source: inherited}}
+  - {n: modelBodyType, t: str, maxlen: 32, source: "ProductEdit.vue > form.modelBodyType 体型描述", meta: {source: inherited}}
+  - {n: careInstructions, t: text, source: "ProductEdit.vue > form.careInstructions 护理说明", meta: {source: inherited}}
+  - {n: countryOfOrigin, t: str, maxlen: 64, source: "ProductEdit.vue > form.countryOfOrigin 生产地", meta: {source: inherited}}
+  - {n: styleNo, t: str, maxlen: 32, source: "ProductEdit.vue > 款式编号 Style No.", meta: {source: inherited}}
+  - {n: seoTitle, t: str, maxlen: 128, source: "ProductEdit.vue > form.seoTitle", meta: {source: inherited}}
+  - {n: seoDesc, t: str, maxlen: 255, source: "ProductEdit.vue > form.seoDesc Meta Description", meta: {source: inherited}}
+  relations:
+  - {to: Category, type: n1}
+  - {to: CustomTag, type: nm}
+- id: Sku
+  meta: {source: inherited}
+  desc: SKU（颜色x尺码矩阵；现货含库存乐观锁，定制款无库存仅交期）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+  - {n: productId, t: Long, req: true, source: "ProductEdit.vue > sec-sku SKU 矩阵"}
+  - {n: skuCode, t: str, req: true, maxlen: 64, pattern: '^[A-Z0-9-]+$', source: "ProductEdit.vue > SKU 码 DRM-颜色缩写-尺码"}
+  - {n: color, t: str, req: true, maxlen: 32, source: "ProductEdit.vue > skuColors 颜色 swatch"}
+  - {n: size, t: str, req: true, maxlen: 16, source: "ProductEdit.vue > skuSizes 尺码"}
+  - {n: stock, t: int, min: 0, js_guard: "现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存; Products.vue 库存筛选 inStock>=10/low<10/out=0 按 SKU 聚合", source: "ProductEdit.vue > 单元格库存数量; 业务上下文确认乐观锁 [INFERRED]"}
+  - {n: version, t: Long, source: "业务上下文确认乐观锁扣减 [INFERRED]"}
+  relations:
+  - {to: Product, type: n1}
+- id: Customer
+  meta: {source: inherited}
+  desc: 消费者（identity 域已有，本图仅作关系锚点）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+  - {n: name, t: str, source: "OrderDetail.vue > o.customer.name"}
+  - {n: email, t: str, pattern: '^[^@]+@[^@]+$', source: "Orders.vue > o.email"}
+  - {n: phone, t: str, maxlen: 32, source: "OrderDetail.vue > o.customer.phone"}
+  relations: []
+- id: Order
+  meta: {source: modified}
+  desc: 订单（核心交易主单，Stripe 沙箱支付，待支付30分钟超时自动取消并回补库存）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键", meta: {source: inherited}}
+  - {n: orderNo, t: str, req: true, pattern: '^DRM-\d{8}-\d{4}$', source: "mock.js > orders.id 'DRM-20260529-1042'", meta: {source: inherited}}
+  - {n: customerId, t: Long, req: true, source: "Orders.vue > 客户列; OrderDetail.vue > o.customer", meta: {source: inherited}}
+  - {n: status, t: enum, vals: [pending, paid, shipped, completed, cancelled, refunding, refunded], req: true, source: "mock.js > ORDER_STATUS; Orders.vue > tabs; 业务上下文确认取消/退款分支 [INFERRED: cancelled/refunded]", meta: {source: inherited}}
+  - {n: currency, t: enum, vals: [USD, CAD, AUD, GBP], req: true, source: "Orders.vue > curSym 币种映射", meta: {source: inherited}}
+  - {n: exchangeRate, t: decimal, source: "decision.md 决策14 下单时锁定的 USD→订单币种汇率（退款按原币种原金额，不受后续汇率变化影响）", meta: {source: inherited}}
+  - {n: weddingDate, t: date, source: "prototype/app/checkout/page.tsx > 结算 wedding date 选填字段，交期复核；Showroom 婚期自动带入（F-077，决策20.6）", meta: {source: inherited}}
+  - {n: subtotal, t: number, min: 0, req: true, source: "OrderDetail.vue > subtotal 行小计求和", meta: {source: inherited}}
+  - {n: shippingFee, t: number, min: 0, source: "OrderDetail.vue > 运费(免邮); mock.js > shipping.fee", meta: {source: inherited}}
+  - {n: giftWrap, t: bool, source: "decision.md 决策28 结算物流步骤礼品包装选项（F-036）", meta: {source: inherited}}
+  - {n: giftWrapFee, t: number, min: 0, source: "decision.md 决策28 下单时快照的礼品包装固定费（后台可配置，按决策14锁汇换算）", meta: {source: inherited}}
+  - {n: totalAmount, t: number, min: 0, req: true, js_guard: "totalAmount === subtotal + shippingFee + giftWrapFee - 优惠减免", source: "Orders.vue > 金额列; OrderDetail.vue > 合计", meta: {source: inherited}}
+  - {n: couponId, t: Long, source: "Promotions.vue > 优惠券核销 [INFERRED]", meta: {source: inherited}}
+  - {n: paymentMethod, t: str, maxlen: 32, source: "Orders.vue > 支付方式列 Stripe/PayPal/Apple Pay/Klarna/Afterpay/Google Pay；decision.md 决策25 Stripe Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，PayPal 置灰 coming soon", meta: {source: inherited}}
+  - {n: addressSnapshot, t: json, req: true, source: "OrderDetail.vue > 收货地址面板(下单时快照)", meta: {source: inherited}}
+  - {n: country, t: str, maxlen: 64, js_guard: "列表展示派生字段：取 addressSnapshot.country，AdminOrderListItem DTO 经列表 SQL join/子查询提供，不新增存储列", source: "key_decisions D6 Orders 表格列「地区」替换「币种」 + D12 AdminOrderListItem DTO 扩展 country（地址快照） [INFERRED: 派生]", meta: {source: new}}
+  - {n: itemCount, t: int, min: 0, js_guard: "列表展示派生字段：OrderLine 按 orderId 计数子查询，避免前端 N+1，不落库", source: "key_decisions D6 Orders 表格列「商品数」替换「承运」 + D12 AdminOrderListItem DTO 扩展 itemCount（订单行计数） [INFERRED: 派生]", meta: {source: new}}
+  - {n: carrier, t: enum, vals: [FedEx International Priority, UPS Worldwide Express, DHL Express], source: "OrderDetail.vue > 发货面板承运方 select", meta: {source: inherited}}
+  - {n: trackingNo, t: str, maxlen: 64, source: "OrderDetail.vue > tracking 运单号", meta: {source: inherited}}
+  - {n: expiresAt, t: datetime, js_guard: "createdAt + 30min; 超时未支付自动取消并回补库存", source: "业务上下文确认30分钟超时 [INFERRED]", meta: {source: inherited}}
+  - {n: paidAt, t: datetime, source: "OrderDetail.vue > o.payment.time 支付时间", meta: {source: inherited}}
+  - {n: shippedAt, t: datetime, source: "OrderDetail.vue > 状态时间线 [INFERRED]", meta: {source: inherited}}
+  - {n: completedAt, t: datetime, source: "OrderDetail.vue > 状态时间线 [INFERRED]", meta: {source: inherited}}
+  - {n: createdAt, t: datetime, req: true, source: "Orders.vue > 下单时间列", meta: {source: inherited}}
+  relations:
+  - {to: Customer, type: n1}
+  - {to: Coupon, type: n1}
+- id: OrderLine
+  meta: {source: inherited}
+  desc: 订单行（商品/SKU 快照，定制款携带定制尺寸数据）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键"}
+  - {n: orderId, t: Long, req: true, source: "OrderDetail.vue > o.lines"}
+  - {n: productId, t: Long, req: true, source: "OrderDetail.vue > 商品明细行"}
+  - {n: skuId, t: Long, source: "OrderDetail.vue > l.sku; 定制款可空 [INFERRED]"}
+  - {n: productName, t: str, req: true, maxlen: 128, source: "OrderDetail.vue > l.name 快照"}
+  - {n: skuCode, t: str, maxlen: 64, source: "OrderDetail.vue > l.sku 'AURELIA-IVORY-US6'"}
+  - {n: color, t: str, maxlen: 32, source: "OrderDetail.vue > l.color"}
+  - {n: size, t: str, maxlen: 16, source: "OrderDetail.vue > l.size"}
+  - {n: qty, t: int, req: true, min: 1, source: "OrderDetail.vue > l.qty 数量列"}
+  - {n: unitPrice, t: number, req: true, min: 0, source: "OrderDetail.vue > l.price 单价列"}
+  - {n: img, t: str, maxlen: 512, source: "OrderDetail.vue > l.img 快照"}
+  - {n: customSizeData, t: json, source: "业务上下文确认定制尺寸 [INFERRED]"}
+  relations:
+  - {to: Order, type: n1}
+  - {to: Product, type: n1}
+  - {to: Sku, type: n1}
+- id: Refund
+  meta: {source: modified}
+  desc: 退款工单（关联订单，审核通过后执行 Stripe 退款；行内同意/拒绝审批，拒绝必须填写拒绝原因）
+  fields:
+  - {n: id, t: Long, pk: true, source: "MEMORY project_dreamy_backend_refactor > Long 主键", meta: {source: inherited}}
+  - {n: refundNo, t: str, req: true, maxlen: 32, source: "field-inventory FLD-REFUNDS-001 工单号; prototype/portal-admin/src/views/Refunds.vue > r.id 工单号列", meta: {source: inherited}}
+  - {n: orderId, t: Long, req: true, source: "field-inventory FLD-REFUNDS-002 关联订单; Refunds.vue > r.order; OrderDetail.vue > 发起退款按钮", meta: {source: inherited}}
+  - {n: customerId, t: Long, req: true, source: "field-inventory FLD-REFUNDS-003 客户; Refunds.vue > r.customer", meta: {source: inherited}}
+  - {n: amount, t: number, req: true, min: 0, js_guard: "amount <= Order.totalAmount", source: "field-inventory FLD-REFUNDS-004 退款金额; Refunds.vue > cur[r.currency]+r.amount", meta: {source: inherited}}
+  - {n: reason, t: str, maxlen: 255, source: "field-inventory FLD-REFUNDS-005 退款原因（买家申请原因）; Refunds.vue > r.reason", meta: {source: inherited}}
+  - {n: rejectReason, t: str, maxlen: 255, js_guard: "status === 'rejected' 时必填且非空；行内拒绝按钮位置展开输入框填写后提交", source: "key_decisions D7 拒绝时按钮位置行内展开输入框填原因（后端拒绝原因必填约束不变） + page_diff_summary Refunds impl_extra 拒绝原因必填", meta: {source: new}}
+  - {n: status, t: enum, vals: [pending, approved, rejected], req: true, js_guard: "r.status === 'pending' 时才允许同意/拒绝操作，否则展示「已处理」", source: "field-inventory FLD-REFUNDS-007/009/010/011 状态 pending/approved/rejected; Refunds.vue > tabs/tone/label + v-if r.status==='pending'", meta: {source: inherited}}
+  - {n: appliedAt, t: datetime, req: true, source: "field-inventory FLD-REFUNDS-006 申请时间; Refunds.vue > r.date", meta: {source: inherited}}
+  - {n: currency, t: enum, vals: [USD, CAD, AUD, GBP], req: true, source: "Refunds.vue > cur 映射表 USD/CAD/AUD/GBP", meta: {source: inherited}}
+  - {n: stripeRefundId, t: str, source: "业务上下文 Stripe 退款沙箱 [INFERRED]", meta: {source: inherited}}
+  - {n: returnTrackingNo, t: str, maxlen: 64, source: "decision.md 决策31 已发货退货审核制：登记退货物流单号（选填），不建 RMA 状态节点", meta: {source: inherited}}
+  relations:
+  - {to: Order, type: n1}
+  - {to: Customer, type: n1}
+- id: OperationLog
+  meta: {source: new}
+  desc: 管理端操作日志（批量操作与导出动作的审计记录，含逐条容错结果清单）
+  fields:
+  - {n: id, t: Long, pk: true, source: "project_tech_stack.backend=java-gradle MyBatis-Plus Long 自增主键 [INFERRED]"}
+  - {n: adminId, t: Long, req: true, source: "key_decisions D10/D11 记录操作日志（操作者） [INFERRED]"}
+  - {n: action, t: enum, vals: [batch_publish, batch_unpublish, batch_recommend, batch_delete, export_products, export_orders], req: true, source: "key_decisions D4/D6 批量操作与导出按钮 + D10 批量端点 + D11 CSV 导出端点"}
+  - {n: targetType, t: str, maxlen: 32, source: "key_decisions D10 批量端点作用对象（Product/Order） [INFERRED]"}
+  - {n: targetIds, t: json, source: "key_decisions D10 一次请求 N 个 id"}
+  - {n: result, t: json, js_guard: "逐条容错：记录成功/失败清单（删除失败项复用 409509 校验码）", source: "key_decisions D10 逐条容错返回成功/失败清单"}
+  - {n: rowCount, t: int, min: 0, source: "key_decisions D11 导出按当前筛选条件全量导出，设行数上限"}
+  - {n: createdAt, t: datetime, req: true, source: "key_decisions D10/D11 记录操作日志 [INFERRED]"}
+  relations: []
+- id: PageState
+  meta: {source: new}
+  desc: 前端页面 UI 状态伪实体（不落库），为本批次 15 个管理端页面的页面级状态机提供建模锚点
+  fields:
+  - {n: page_id, t: str, req: true, source: "pd-explore.local.md > phase_3_1.batches[portal-admin-1].snapshots 15 页 page_id"}
+  - {n: ui_state, t: enum, vals: [loading, loaded, empty, error], source: "page_diff_summary impl_extra 骨架屏/空态/错误态/重试 + 各页 EmptyState 组件"}
+  relations: []

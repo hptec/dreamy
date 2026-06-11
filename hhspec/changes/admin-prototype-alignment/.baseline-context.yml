@@ -1,0 +1,55 @@
+mode: incremental
+generated_at: '2026-06-11T03:06:29Z'
+baseline_dir: hhspec/specs/architecture
+baseline_files:
+  er_diagram: hhspec/specs/architecture/er-diagram.yml
+  state_machine: hhspec/specs/architecture/state-machine.yml
+  business_flow: hhspec/specs/architecture/business-flow.yml
+  field_inventory: hhspec/specs/architecture/field-inventory.yml
+relevant_baseline:
+  entities: []
+  machines: []
+  flows:
+  - id: checkout_order
+    source: baseline
+  - id: order_timeout_cancel
+    source: baseline
+  - id: admin_ship_complete
+    source: baseline
+  - id: refund_flow
+    source: baseline
+  - id: review_moderation_flow
+    source: baseline
+  - id: content_publish_invalidate
+    source: baseline
+  - id: order_event_dispatch
+    source: baseline
+  - id: dashboard_analytics_read
+    source: baseline
+  - id: coupon_redeem
+    source: baseline
+  - id: flash_sale_auto_offline
+    source: baseline
+  - id: transactional_email
+    source: baseline
+  - id: wishlist_manage
+    source: baseline
+  - id: showroom_collaboration
+    source: baseline
+  - id: size_recommendation
+    source: baseline
+  - id: ga4_traffic_fetch
+    source: baseline
+  - id: browse_history_track
+    source: baseline
+  - id: newsletter_subscribe
+    source: baseline
+  - id: contact_submit
+    source: baseline
+  fields_inventory: []
+relevant_strategy:
+  seed_entity_ids:
+  - tcol
+  expanded_entity_ids:
+  - tcol
+  neighbor_hop: 1
