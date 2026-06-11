@@ -17,4 +17,4 @@ fi
 cd "${PROJECT_ROOT}/backend"
 echo "[backend-build] 构建后端..."
 ./gradlew build -x test
-echo "[backend-build] 完成"
+exec echo "[backend-build] 完成"

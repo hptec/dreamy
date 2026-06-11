@@ -33,4 +33,4 @@ case "$TARGET" in
   all)   build_app portal-store && build_app portal-admin ;;
   *)     echo "用法: bash scripts/frontend-build.sh [store|admin]" >&2; exit 1 ;;
 esac
-echo "[frontend-build] 完成"
+exec echo "[frontend-build] 完成"

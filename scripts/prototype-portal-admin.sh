@@ -6,7 +6,7 @@ cd "$(git rev-parse --show-toplevel)"
 if [[ ! -d "$ADMIN_DIR" ]]; then
   echo "错误：后台目录 $ADMIN_DIR 不存在" >&2; exit 1
 fi
-command -v pnpm &>/dev/null || { echo "错误：pnpm 未安装，请先执行 npm install -g pnpm" >&2; exit 1; }
+command -v pnpm &>/dev/null || { echo "错误：pnpm 未安装，请先执行 corepack enable" >&2; exit 1; }
 # 后台依赖装在 prototype workspace 根
 if [[ ! -d "hhspec/prototype/node_modules" ]]; then
   echo "首次启动，正在安装依赖..."
