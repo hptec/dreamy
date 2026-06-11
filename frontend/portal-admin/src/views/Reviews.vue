@@ -460,7 +460,7 @@ onMounted(() => {
 
     <!-- ===================== 评价详情抽屉 ===================== -->
     <Teleport to="body">
-      <div v-if="showReviewDrawer" class="fixed inset-0 z-50 flex justify-end bg-ink/20" @click.self="showReviewDrawer = false">
+      <div v-if="showReviewDrawer" class="fixed inset-0 z-50 flex justify-end bg-ink/20" v-dismiss="() => (showReviewDrawer = false)">
         <div class="h-full w-full max-w-lg overflow-y-auto border-l border-line bg-white shadow-2xl">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-white px-6 py-4">
             <h3 class="font-display text-lg font-semibold text-ink">评价详情</h3>
@@ -559,7 +559,7 @@ onMounted(() => {
 
     <!-- ===================== 图片 Lightbox ===================== -->
     <Teleport to="body">
-      <div v-if="lightbox && lightboxImage" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-ink/85 p-6" @click.self="lightbox = null">
+      <div v-if="lightbox && lightboxImage" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-ink/85 p-6" v-dismiss="() => (lightbox = null)">
         <button class="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20" @click="lightbox = null">
           <XMarkIcon class="h-5 w-5" />
         </button>
@@ -585,7 +585,7 @@ onMounted(() => {
 
     <!-- ===================== Q&A 详情抽屉 ===================== -->
     <Teleport to="body">
-      <div v-if="showQaDrawer" class="fixed inset-0 z-50 flex justify-end bg-ink/20" @click.self="showQaDrawer = false">
+      <div v-if="showQaDrawer" class="fixed inset-0 z-50 flex justify-end bg-ink/20" v-dismiss="() => (showQaDrawer = false)">
         <div class="h-full w-full max-w-lg overflow-y-auto border-l border-line bg-white shadow-2xl">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-white px-6 py-4">
             <h3 class="font-display text-lg font-semibold text-ink">问答详情</h3>

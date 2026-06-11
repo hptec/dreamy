@@ -334,7 +334,7 @@ onMounted(() => {
 
     <!-- 发起退款弹窗 -->
     <Teleport to="body">
-      <div v-if="showRefund" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showRefund = false">
+      <div v-if="showRefund" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showRefund = false)">
         <div class="panel w-[28rem] p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">发起退款（代客）</h3>

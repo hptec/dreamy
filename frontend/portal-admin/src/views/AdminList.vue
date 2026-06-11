@@ -287,7 +287,7 @@ onMounted(load)
 
     <!-- 新增/编辑弹窗 -->
     <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto pt-[10vh]" @click.self="closeModal">
+      <div v-if="showModal" class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto pt-[10vh]" v-dismiss="closeModal">
         <div class="mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true">
           <div class="flex items-center justify-between border-b border-line px-6 py-4">
             <h3 class="font-display text-lg font-semibold text-ink">{{ editingAdmin ? '编辑管理员' : '新增管理员' }}</h3>
@@ -341,7 +341,7 @@ onMounted(load)
 
     <!-- 删除确认 -->
     <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showDeleteConfirm = false">
+      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showDeleteConfirm = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">确认删除</h3>
           <p class="mt-2 text-[13px] text-ink-soft">确定删除管理员 <strong>{{ editingAdmin?.name }}</strong> 吗？删除后不可恢复。</p>
@@ -355,7 +355,7 @@ onMounted(load)
 
     <!-- 重置密码 -->
     <Teleport to="body">
-      <div v-if="showResetPassword" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showResetPassword = false">
+      <div v-if="showResetPassword" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showResetPassword = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">重置密码</h3>
           <p class="mt-1 text-[13px] text-ink-faint">为 <strong>{{ editingAdmin?.name }}</strong> 设置新密码</p>

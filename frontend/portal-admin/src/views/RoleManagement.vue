@@ -313,7 +313,7 @@ onMounted(load)
 
     <!-- 新增/编辑角色弹窗 -->
     <Teleport to="body">
-      <div v-if="showRoleModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showRoleModal = false">
+      <div v-if="showRoleModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showRoleModal = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">{{ editingRole ? '编辑角色' : '新增角色' }}</h3>
           <div class="mt-4">
@@ -331,7 +331,7 @@ onMounted(load)
 
     <!-- 删除角色确认 -->
     <Teleport to="body">
-      <div v-if="showDeleteRoleConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showDeleteRoleConfirm = false">
+      <div v-if="showDeleteRoleConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showDeleteRoleConfirm = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">确认删除角色</h3>
           <p class="mt-2 text-[13px] text-ink-soft">

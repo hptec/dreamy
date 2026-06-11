@@ -198,7 +198,7 @@ onMounted(load)
 
     <!-- 强制下线确认 -->
     <Teleport to="body">
-      <div v-if="showForceLogout" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showForceLogout = false">
+      <div v-if="showForceLogout" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showForceLogout = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">{{ forceScope === 'all' ? '强制下线全部会话' : '下线该会话' }}</h3>
           <p class="mt-2 text-[13px] text-ink-soft">
@@ -215,7 +215,7 @@ onMounted(load)
 
     <!-- 禁用/启用确认 -->
     <Teleport to="body">
-      <div v-if="showToggleStatus" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showToggleStatus = false">
+      <div v-if="showToggleStatus" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showToggleStatus = false)">
         <div class="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
           <h3 class="font-display text-lg font-semibold text-ink">{{ isDisabled ? '启用账户' : '禁用账户' }}</h3>
           <p class="mt-2 text-[13px] text-ink-soft">

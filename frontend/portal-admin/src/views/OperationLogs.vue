@@ -316,7 +316,7 @@ onMounted(load)
 
     <!-- 详情抽屉 -->
     <Teleport to="body">
-      <div v-if="showDetail" class="fixed inset-0 z-50 flex justify-end" @click.self="showDetail = false">
+      <div v-if="showDetail" class="fixed inset-0 z-50 flex justify-end" v-dismiss="() => (showDetail = false)">
         <div class="h-full w-full max-w-lg overflow-y-auto border-l border-line bg-white shadow-2xl" role="dialog" aria-modal="true">
           <div class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-white px-6 py-4">
             <h3 class="font-display text-lg font-semibold text-ink">操作详情</h3>

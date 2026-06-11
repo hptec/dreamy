@@ -445,7 +445,7 @@ onMounted(load)
 
     <!-- 属性集名称弹窗 -->
     <Teleport to="body">
-      <div v-if="setModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="setModal = null">
+      <div v-if="setModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (setModal = null)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">{{ setModal.editing ? '编辑属性集' : '新增属性集' }}</h3>

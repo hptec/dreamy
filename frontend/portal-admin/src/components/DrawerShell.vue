@@ -13,7 +13,7 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-50 flex justify-end bg-ink/30" @click.self="emit('close')">
+    <div v-if="open" class="fixed inset-0 z-50 flex justify-end bg-ink/30" v-dismiss="() => (emit('close'))">
       <div class="flex h-full w-full flex-col border-l border-line bg-canvas shadow-2xl" :class="width">
         <div class="flex items-center justify-between border-b border-line bg-canvas px-6 py-4">
           <div>

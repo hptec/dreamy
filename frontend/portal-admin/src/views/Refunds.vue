@@ -159,7 +159,7 @@ onMounted(load)
 
     <!-- 审批 / 拒绝 / 登记弹窗（FORM-TRD-A03 二次确认语义由弹窗承载） -->
     <Teleport to="body">
-      <div v-if="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="modal = null">
+      <div v-if="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (modal = null)">
         <div class="panel w-[26rem] p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">

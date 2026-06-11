@@ -19,7 +19,7 @@ const emit = defineEmits<{ (e: 'confirm'): void; (e: 'cancel'): void }>()
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40" @click.self="emit('cancel')">
+    <div v-if="open" class="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40" v-dismiss="() => (emit('cancel'))">
       <div class="panel w-96 p-6">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="flex items-center gap-2 text-[15px] font-medium text-ink">

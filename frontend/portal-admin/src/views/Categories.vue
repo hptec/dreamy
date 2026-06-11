@@ -476,7 +476,7 @@ onMounted(load)
 
     <!-- ===== Modal: 添加根品类 ===== -->
     <Teleport to="body">
-      <div v-if="showNewRoot" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showNewRoot = false">
+      <div v-if="showNewRoot" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showNewRoot = false)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">添加根品类</h3>
@@ -510,7 +510,7 @@ onMounted(load)
 
     <!-- ===== Modal: 新增/编辑标签（封面上传 scope=tag） ===== -->
     <Teleport to="body">
-      <div v-if="tagModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="tagModal = null">
+      <div v-if="tagModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (tagModal = null)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">{{ tagModal.editing ? '编辑标签' : '新增标签' }}</h3>
@@ -539,7 +539,7 @@ onMounted(load)
 
     <!-- ===== Modal: 新建维度 ===== -->
     <Teleport to="body">
-      <div v-if="showNewDim" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" @click.self="showNewDim = false">
+      <div v-if="showNewDim" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showNewDim = false)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">新建标签维度</h3>
@@ -562,7 +562,7 @@ onMounted(load)
 
     <!-- ===== 分类编辑抽屉（COMP-CAT-A05：根=改名/绑属性集；子=delta 三态 + 三语 name tab） ===== -->
     <Teleport to="body">
-      <div v-if="drawer" class="fixed inset-0 z-50 flex justify-end bg-ink/40" @click.self="drawer = null">
+      <div v-if="drawer" class="fixed inset-0 z-50 flex justify-end bg-ink/40" v-dismiss="() => (drawer = null)">
         <div class="flex h-full w-[480px] flex-col bg-canvas shadow-2xl">
           <div class="flex items-center justify-between border-b border-line px-6 py-4">
             <div>
