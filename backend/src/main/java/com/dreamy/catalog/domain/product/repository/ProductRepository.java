@@ -127,6 +127,30 @@ public class ProductRepository {
     }
 
     /**
+     * RM-CAT-03a/b（admin-prototype-alignment 导出）keyset 游标读取：
+     * 条件同 pageAdminList（status/categoryIds 子树/search）；ORDER BY id ASC, WHERE id > :lastId LIMIT :limit
+     * （keyset 分页避免深翻页，批大小由调用方控制——BE-DIM-8）。
+     */
+    public List<Product> listAdminKeyset(AdminFilter filter, long lastId, int limit) {
+        LambdaQueryWrapper<Product> qw = new LambdaQueryWrapper<>();
+        if (filter.status() != null) {
+            qw.eq(Product::getStatus, filter.status());
+        }
+        if (filter.categoryIds() != null) {
+            if (filter.categoryIds().isEmpty()) {
+                return List.of();
+            }
+            qw.in(Product::getCategoryId, filter.categoryIds());
+        }
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String s = filter.search().trim();
+            qw.and(w -> w.like(Product::getName, s).or().like(Product::getStyleNo, s));
+        }
+        qw.gt(Product::getId, lastId).orderByAsc(Product::getId).last("LIMIT " + limit);
+        return productMapper.selectList(qw);
+    }
+
+    /**
      * RM-CAT-087 update —— 冗余列不在 SET 列表（TX-CAT-002）。
      * 调用方须保证 entity 的 sales30d/salesRefreshedAt/ratingAvg/ratingCount 为 null（MP 默认 NOT_NULL 策略跳过）。
      */

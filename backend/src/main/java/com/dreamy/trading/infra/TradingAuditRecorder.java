@@ -13,9 +13,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * trading 域操作审计记录器（BE-DIM-7；复用 identity AuditService operation_log，只读不可删）。
- * 本域 7 个 action 枚举（trading-api-detail §0）：订单发货 / 订单状态变更 / 发起退款 /
- * 退款审核通过 / 退款审核拒绝 / 汇率变更 / 结算配置变更。
- * 审计行在事务内写入（属 TX-TRD-003/004/009/011/012 边界），随 TX 原子提交/回滚。
+ * 本域 8 个 action 枚举（trading-api-detail §0 + admin-prototype-alignment API-TRD-02 STEP-04）：
+ * 订单发货 / 订单状态变更 / 发起退款 / 退款审核通过 / 退款审核拒绝 / 汇率变更 / 结算配置变更 / 导出订单。
+ * 审计行在事务内写入（属 TX-TRD-003/004/009/011/012 边界），随 TX 原子提交/回滚；导出审计为只读旁路写入。
  */
 @Component
 public class TradingAuditRecorder {
@@ -24,6 +24,8 @@ public class TradingAuditRecorder {
 
     public static final String ACTION_ORDER_SHIP = "订单发货";
     public static final String ACTION_ORDER_STATUS = "订单状态变更";
+    /** API-TRD-02 STEP-04：订单 CSV 导出（PII 导出审计——BE-DIM-8） */
+    public static final String ACTION_ORDER_EXPORT = "导出订单";
     public static final String ACTION_REFUND_CREATE = "发起退款";
     public static final String ACTION_REFUND_APPROVE = "退款审核通过";
     public static final String ACTION_REFUND_REJECT = "退款审核拒绝";

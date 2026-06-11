@@ -3,8 +3,9 @@ package com.dreamy.catalog.dto;
 import java.math.BigDecimal;
 
 /**
- * 后台商品列表行（含派生列 category_name/stock_total/image_url——MAP-CAT-003）。
- * L2 TRACE: MAP-CAT-003 / openapi AdminProductListItem。
+ * 后台商品列表行（含派生列 category_name/stock_total/image_url——MAP-CAT-003；
+ * sales_total 累计销量派生列——admin-prototype-alignment API-CAT-03/RM-CAT-01）。
+ * L2 TRACE: MAP-CAT-003 / openapi AdminProductListItem（v1.1 增量 sales_total）。
  */
 public record AdminProductListItem(
         Long id,
@@ -21,6 +22,7 @@ public record AdminProductListItem(
         Boolean recommend,
         Integer sort,
         Integer stockTotal,
-        String imageUrl
+        String imageUrl,
+        Integer salesTotal
 ) {
 }

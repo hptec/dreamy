@@ -1,6 +1,11 @@
 package com.dreamy.catalog.controller;
 
+import com.dreamy.catalog.domain.product.service.AdminProductBatchService;
+import com.dreamy.catalog.domain.product.service.AdminProductExportService;
+import com.dreamy.catalog.domain.product.service.AdminProductExportService.ExportResult;
 import com.dreamy.catalog.domain.product.service.AdminProductService;
+import com.dreamy.catalog.dto.AdminProductBatchDtos.BatchRequest;
+import com.dreamy.catalog.dto.AdminProductBatchDtos.BatchResult;
 import com.dreamy.catalog.dto.AdminProductDetail;
 import com.dreamy.catalog.dto.AdminProductListItem;
 import com.dreamy.catalog.dto.AdminProductUpsert;
@@ -24,6 +29,7 @@ import java.util.Map;
 
 /**
  * 后台商品控制器（E-CAT-08~14；AdminBearerAuth + RBAC `/products`；不缓存）。
+ * admin-prototype-alignment 增量：API-CAT-01 批量操作 / API-CAT-02 CSV 导出。
  * 审计在 Service 事务内写入（changes before/after），不挂 identity @AuditLog 切面避免重复记账。
  */
 @RestController
@@ -32,9 +38,15 @@ public class AdminProductController {
     private static final String PERMISSION = "/products";
 
     private final AdminProductService adminProductService;
+    private final AdminProductBatchService batchService;
+    private final AdminProductExportService exportService;
 
-    public AdminProductController(AdminProductService adminProductService) {
+    public AdminProductController(AdminProductService adminProductService,
+                                  AdminProductBatchService batchService,
+                                  AdminProductExportService exportService) {
         this.adminProductService = adminProductService;
+        this.batchService = batchService;
+        this.exportService = exportService;
     }
 
     /** E-CAT-08 listAdminProducts */
@@ -54,6 +66,36 @@ public class AdminProductController {
     @PostMapping("/api/admin/products")
     public ResponseEntity<R<AdminProductDetail>> create(@RequestBody AdminProductUpsert req) {
         return ResponseEntity.status(201).body(R.ok(adminProductService.create(req)));
+    }
+
+    /**
+     * API-CAT-01 batchAdminProducts（admin-prototype-alignment）。V-003 鉴权 + 权限点 /products；
+     * 逐条容错：部分/全部失败仍 200，由调用方按 failures 展示。
+     */
+    @RequirePermission(PERMISSION)
+    @PostMapping("/api/admin/products/batch")
+    public ResponseEntity<R<BatchResult>> batch(@RequestBody BatchRequest req) {
+        return ResponseEntity.ok(R.ok(batchService.execute(req.action(), req.ids())));
+    }
+
+    /**
+     * API-CAT-02 exportAdminProducts（admin-prototype-alignment）。
+     * 出参 200 text/csv; charset=UTF-8（带 BOM）；Content-Disposition attachment filename="products-{yyyyMMdd}.csv"；
+     * 截断时响应头 X-Export-Truncated: true（STEP-03）。
+     */
+    @RequirePermission(PERMISSION)
+    @GetMapping("/api/admin/products/export")
+    public ResponseEntity<byte[]> export(@RequestParam(required = false) String status,
+                                         @RequestParam(name = "category_id", required = false) Long categoryId,
+                                         @RequestParam(required = false) String search) {
+        ExportResult result = exportService.export(status, categoryId, search);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                .header("Content-Type", "text/csv; charset=UTF-8")
+                .header("Content-Disposition", "attachment; filename=\"" + result.fileName() + "\"");
+        if (result.truncated()) {
+            builder.header("X-Export-Truncated", "true");
+        }
+        return builder.body(result.content());
     }
 
     /** E-CAT-10 getAdminProduct */

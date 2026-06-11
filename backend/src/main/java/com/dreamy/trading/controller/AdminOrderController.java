@@ -12,6 +12,9 @@ import com.dreamy.trading.dto.TradingDtos.AdminRefundDto;
 import huihao.page.Paginated;
 import huihao.web.R;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,7 +24,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 后台订单控制器（trading-api-detail §9，FLOW-P09，RBAC `/orders`；不缓存）。
@@ -58,6 +64,29 @@ public class AdminOrderController {
     @GetMapping("/api/admin/orders/{id}")
     public ResponseEntity<R<AdminOrderDetail>> get(@PathVariable Long id) {
         return ResponseEntity.ok(R.ok(adminOrderService.getDetail(id)));
+    }
+
+    /**
+     * E-exportAdminOrders（API-TRD-02：V-101/102 + STEP-01~04，ALIGN-012）。
+     * 200 text/csv（UTF-8 BOM）+ Content-Disposition attachment；截断 → X-Export-Truncated: true。
+     */
+    @RequirePermission(PERMISSION)
+    @GetMapping("/api/admin/orders/export")
+    public ResponseEntity<byte[]> export(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        AdminOrderService.OrderExport export = adminOrderService.export(status, search, currency, from, to);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(new MediaType("text", "csv", StandardCharsets.UTF_8));
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"orders-"
+                + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + ".csv\"");
+        if (export.truncated()) {
+            headers.set("X-Export-Truncated", "true");
+        }
+        return new ResponseEntity<>(export.csv().getBytes(StandardCharsets.UTF_8), headers, HttpStatus.OK);
     }
 
     /** E-shipAdminOrder（OP-009/s-752；TX-TRD-004a） */

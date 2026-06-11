@@ -75,12 +75,32 @@ public class OrderRepository {
         return mapper.selectPage(new Page<>(page, pageSize), qw);
     }
 
-    /** RM-TRD-025 后台分页（status/currency/时间窗/订单号 LIKE 或 customer_ids IN——邮箱命中由 identity 先解析） */
+    /** RM-TRD-025 后台分页（status/currency/时间窗/订单号 LIKE 或 customer_ids IN——客户名/邮箱命中由 identity 先解析） */
     public Page<Order> pageByAdminFilter(OrderStatus status, String currency, LocalDateTime from, LocalDateTime to,
                                          String orderNoLike, List<Long> customerIds, int page, int pageSize) {
-        LambdaQueryWrapper<Order> qw = new LambdaQueryWrapper<Order>()
+        LambdaQueryWrapper<Order> qw = adminFilter(status, currency, from, to, orderNoLike, customerIds)
                 .orderByDesc(Order::getCreatedAt)
                 .orderByDesc(Order::getId);
+        return mapper.selectPage(new Page<>(page, pageSize), qw);
+    }
+
+    /**
+     * RM-TRD-01a/STEP-02：导出 keyset 游标批读（id ASC，id > lastId LIMIT batch；
+     * 筛选条件与 pageByAdminFilter 完全同口径——API-TRD-02 STEP-01）。
+     */
+    public List<Order> listByAdminFilterAfterId(OrderStatus status, String currency, LocalDateTime from,
+                                                LocalDateTime to, String orderNoLike, List<Long> customerIds,
+                                                Long lastId, int limit) {
+        return mapper.selectList(adminFilter(status, currency, from, to, orderNoLike, customerIds)
+                .gt(Order::getId, lastId)
+                .orderByAsc(Order::getId)
+                .last("LIMIT " + limit));
+    }
+
+    /** 后台筛选条件装配（RM-TRD-025 与导出 keyset 共用，不含排序） */
+    private LambdaQueryWrapper<Order> adminFilter(OrderStatus status, String currency, LocalDateTime from,
+                                                  LocalDateTime to, String orderNoLike, List<Long> customerIds) {
+        LambdaQueryWrapper<Order> qw = new LambdaQueryWrapper<>();
         if (status != null) {
             qw.eq(Order::getStatus, status);
         }
@@ -102,7 +122,7 @@ public class OrderRepository {
                 }
             });
         }
-        return mapper.selectPage(new Page<>(page, pageSize), qw);
+        return qw;
     }
 
     /**

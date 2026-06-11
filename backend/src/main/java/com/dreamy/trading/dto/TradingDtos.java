@@ -150,6 +150,7 @@ public final class TradingDtos {
 
     // ==================== 后台订单（MAP-TRD-005） ====================
 
+    /** API-TRD-01：追加 country（address_snapshot.country 提取，RM-TRD-01b）/ item_count（SUM(qty) 派生，RM-TRD-01c），非 breaking */
     public record AdminOrderListItem(Long id, String orderNo, String status, String currency,
                                      BigDecimal exchangeRate, LocalDate weddingDate, BigDecimal subtotal,
                                      BigDecimal shippingFee, Boolean giftWrap, BigDecimal giftWrapFee,
@@ -157,7 +158,8 @@ public final class TradingDtos {
                                      String paymentMethod, String carrier, String trackingNo,
                                      LocalDateTime expiresAt, LocalDateTime paidAt, LocalDateTime shippedAt,
                                      LocalDateTime completedAt, LocalDateTime createdAt,
-                                     Long customerId, String customerName, String customerEmail) {
+                                     Long customerId, String customerName, String customerEmail,
+                                     String country, Integer itemCount) {
     }
 
     public record AdminOrderDetail(Long id, String orderNo, String status, String currency,

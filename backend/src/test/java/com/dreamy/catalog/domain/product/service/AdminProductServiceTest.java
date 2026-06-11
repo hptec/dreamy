@@ -21,6 +21,7 @@ import com.dreamy.catalog.event.ContentInvalidatedPublisher;
 import com.dreamy.catalog.infra.AfterCommitRunner;
 import com.dreamy.catalog.infra.CatalogAuditRecorder;
 import com.dreamy.catalog.infra.CatalogCacheService;
+import com.dreamy.catalog.port.TradingQueryPort;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -80,6 +81,8 @@ class AdminProductServiceTest {
     @Mock
     ContentInvalidatedPublisher invalidatedPublisher;
     @Mock
+    TradingQueryPort tradingQueryPort;
+    @Mock
     TransactionTemplate transactionTemplate;
 
     AdminProductService service;
@@ -88,8 +91,8 @@ class AdminProductServiceTest {
     void setUp() {
         service = new AdminProductService(productRepository, translationRepository, imageRepository,
                 skuRepository, sizeChartRepository, productTagRepository, tagRepository, categoryRepository,
-                treeService, cache, audit, afterCommit, invalidatedPublisher, transactionTemplate,
-                new ObjectMapper());
+                treeService, cache, audit, afterCommit, invalidatedPublisher, tradingQueryPort,
+                transactionTemplate, new ObjectMapper());
     }
 
     private static Product published(long id) {
@@ -169,6 +172,7 @@ class AdminProductServiceTest {
         Product existing = published(10L);
         when(productRepository.findById(10L)).thenReturn(existing);
         when(skuRepository.sumStockByProductIds(anyCollection())).thenReturn(java.util.Map.of());
+        when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of());
         when(imageRepository.listByProductIds(anyCollection())).thenReturn(List.of());
         when(categoryRepository.listAll()).thenReturn(List.of());
         var item = service.toggleStatus(10L, "published");
@@ -176,6 +180,22 @@ class AdminProductServiceTest {
         verify(transactionTemplate, never()).executeWithoutResult(any());
         verify(audit, never()).record(any(), any(), any());
         verify(invalidatedPublisher, never()).publish(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RM-CAT-01b/c [P0]: 列表行 sales_total 端口批量聚合合并；缺失 product_id → 0（API-CAT-03）")
+    void salesTotalMergedFromTradingPort() {
+        Product existing = published(10L);
+        when(productRepository.findById(10L)).thenReturn(existing);
+        when(skuRepository.sumStockByProductIds(anyCollection())).thenReturn(java.util.Map.of());
+        when(imageRepository.listByProductIds(anyCollection())).thenReturn(List.of());
+        when(categoryRepository.listAll()).thenReturn(List.of());
+        // RM-CAT-01b 一次聚合命中 → 合并到 DTO
+        when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of(10L, 7));
+        assertThat(service.toggleStatus(10L, "published").salesTotal()).isEqualTo(7);
+        // RM-CAT-01c 缺失 product_id → sales_total = 0
+        when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of());
+        assertThat(service.toggleStatus(10L, "published").salesTotal()).isZero();
     }
 
     @Test

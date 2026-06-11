@@ -86,6 +86,15 @@ class RefundServiceTest {
 
     RefundService service;
 
+    /** 初始化 MyBatis-Plus lambda 缓存（findUserIdsByNameOrEmailLike 的 LambdaQueryWrapper 需要 User TableInfo）。 */
+    @org.junit.jupiter.api.BeforeAll
+    static void initMybatisPlusCache() {
+        org.apache.ibatis.builder.MapperBuilderAssistant assistant = new org.apache.ibatis.builder.MapperBuilderAssistant(
+                new org.apache.ibatis.session.Configuration(), "");
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                assistant, com.dreamy.identity.domain.user.entity.User.class);
+    }
+
     @BeforeEach
     void setUp() {
         service = new RefundService(refundRepository, orderRepository, orderLineRepository, paymentRepository,
@@ -319,5 +328,14 @@ class RefundServiceTest {
         assertThatThrownBy(() -> service.patchReturnTrackingNo(REFUND_ID, "SF999"))
                 .isInstanceOfSatisfying(TradingException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.REFUND_STATE_INVALID));
+    }
+
+    @Test
+    @DisplayName("RM-TRD-02: 客户名/邮箱模糊 → user ids（API-TRD-03 listAdminOrders 搜索范围扩展，ALIGN-015）")
+    void findUserIdsByNameOrEmailLike() {
+        com.dreamy.identity.domain.user.entity.User user = new com.dreamy.identity.domain.user.entity.User();
+        user.setId(7L);
+        when(userMapper.selectList(any())).thenReturn(List.of(user));
+        assertThat(service.findUserIdsByNameOrEmailLike("Alice")).containsExactly(7L);
     }
 }

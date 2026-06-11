@@ -5,7 +5,9 @@ import com.dreamy.trading.domain.order.repository.OrderLineRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * catalog TradingQueryPort 真实现（EVT-CAT-001/003 销量重算数据源；提供 @Bean 后
@@ -35,5 +37,14 @@ public class TradingQueryPortImpl implements TradingQueryPort {
     @Override
     public List<Long> listPaidProductIds(LocalDateTime since) {
         return orderLineRepository.listPaidProductIdsSince(since);
+    }
+
+    /**
+     * 商品累计销量批量聚合（admin-prototype-alignment RM-CAT-01：order.status ∈ 已支付后五态的
+     * order_line.qty 合计；域内 SQL 聚合一次 IN 下推，防 N+1——RM-CAT-01b）。
+     */
+    @Override
+    public Map<Long, Integer> sumSalesTotalByProductIds(Collection<Long> productIds) {
+        return orderLineRepository.sumSalesTotalByProductIds(productIds);
     }
 }

@@ -10,7 +10,9 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 跨域查询端口 stub 装配（任务书第 5 条：trading 域 sumPaidQty 端口未实现前定义接口 + stub，
@@ -35,6 +37,12 @@ public class CatalogPortConfig {
             @Override
             public List<Long> listPaidProductIds(LocalDateTime since) {
                 return List.of();
+            }
+
+            @Override
+            public Map<Long, Integer> sumSalesTotalByProductIds(Collection<Long> productIds) {
+                // RM-CAT-01c：stub 空映射 → 调用方合并为 sales_total = 0
+                return Map.of();
             }
         };
     }

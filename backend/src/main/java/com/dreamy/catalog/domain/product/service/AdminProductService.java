@@ -33,6 +33,7 @@ import com.dreamy.catalog.infra.AfterCommitRunner;
 import com.dreamy.catalog.infra.CatalogAuditRecorder;
 import com.dreamy.catalog.infra.CatalogCacheService;
 import com.dreamy.catalog.infra.CatalogCacheService.Family;
+import com.dreamy.catalog.port.TradingQueryPort;
 import com.dreamy.catalog.support.FieldErrors;
 import com.dreamy.catalog.support.PaginatedSupport;
 import com.dreamy.catalog.support.StoreParams;
@@ -76,6 +77,7 @@ public class AdminProductService {
     private final CatalogAuditRecorder audit;
     private final AfterCommitRunner afterCommit;
     private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final TradingQueryPort tradingQueryPort;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
 
@@ -87,6 +89,7 @@ public class AdminProductService {
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                CatalogCacheService cache, CatalogAuditRecorder audit,
                                AfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
+                               TradingQueryPort tradingQueryPort,
                                TransactionTemplate transactionTemplate, ObjectMapper objectMapper) {
         this.productRepository = productRepository;
         this.translationRepository = translationRepository;
@@ -101,6 +104,7 @@ public class AdminProductService {
         this.audit = audit;
         this.afterCommit = afterCommit;
         this.invalidatedPublisher = invalidatedPublisher;
+        this.tradingQueryPort = tradingQueryPort;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
     }
@@ -476,13 +480,19 @@ public class AdminProductService {
         product.setSeoDesc(req.seoDesc());
     }
 
-    /** MAP-CAT-003 列表行批量装配（category_name / stock_total / image_url 单次 IN 批查） */
+    /**
+     * MAP-CAT-003 列表行批量装配（category_name / stock_total / image_url 单次 IN 批查）。
+     * sales_total：admin-prototype-alignment RM-CAT-01b 取本页 product_ids 后一次聚合（避免 N+1）+
+     * RM-CAT-01c 内存合并到 DTO（缺失 product_id → 0）；listAdminProducts / 导出 CSV 共用同一派生逻辑（API-CAT-03）。
+     */
     private List<AdminProductListItem> assembleListItems(List<Product> products) {
         if (products.isEmpty()) {
             return List.of();
         }
         List<Long> ids = products.stream().map(Product::getId).toList();
         Map<Long, Integer> stockTotals = skuRepository.sumStockByProductIds(ids);
+        // RM-CAT-01b 本页 product_ids 一次聚合（trading 域端口下沉 SQL：order_line JOIN orders status IN 已支付后态）
+        Map<Long, Integer> salesTotals = tradingQueryPort.sumSalesTotalByProductIds(ids);
         Map<Long, String> mainImages = new HashMap<>();
         for (ProductImage image : imageRepository.listByProductIds(ids)) {
             if (image.getKind() == ImageKind.GALLERY && image.getSort() != null && image.getSort() == 0) {
@@ -499,7 +509,9 @@ public class AdminProductService {
                     p.getCategoryId(), categoryNames.get(p.getCategoryId()), p.getPrice(), p.getCompareAt(),
                     p.getStatus() == null ? null : p.getStatus().getKey(), p.getIsNew(), p.getIsBest(),
                     p.getRecommend(), p.getSort(), stockTotals.getOrDefault(p.getId(), 0),
-                    mainImages.get(p.getId())));
+                    mainImages.get(p.getId()),
+                    // RM-CAT-01c 缺失 product_id → sales_total = 0
+                    salesTotals.getOrDefault(p.getId(), 0)));
         }
         return items;
     }

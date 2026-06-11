@@ -72,12 +72,94 @@ public class AdminOrderService {
         this.eventsPublisher = eventsPublisher;
     }
 
-    /** E-listAdminOrders（V-TRD-043~047 + STEP-TRD-01/02） */
+    /** E-listAdminOrders（V-TRD-043~047 + STEP-TRD-01/02；API-TRD-03 搜索范围含客户名——ALIGN-015） */
     public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, String status, String search,
                                               String currency, LocalDateTime from, LocalDateTime to) {
         FieldErrors errors = new FieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
         int parsedSize = TradingParams.parsePageSize(pageSize, errors);
+        AdminOrderFilter filter = parseFilter(status, search, currency, from, to, errors);
+        // RM-TRD-02 客户名/邮箱搜索：identity 先解析 customer_ids 再回本域 IN（避免跨域 join）
+        List<Long> customerIds = filter.keyword() == null ? null
+                : refundService.findUserIdsByNameOrEmailLike(filter.keyword());
+        Page<Order> result = orderRepository.pageByAdminFilter(filter.status(), filter.currency(),
+                filter.from(), filter.to(), filter.keyword(), customerIds, parsedPage, parsedSize);
+        // STEP-TRD-02 customer_name/customer_email 批量联取（防 N+1）
+        Map<Long, User> users = refundService.loadUsers(
+                result.getRecords().stream().map(Order::getCustomerId).distinct().toList());
+        // RM-TRD-01c item_count 批量聚合（SUM(qty) GROUP BY，缺失 → 0）
+        Map<Long, Integer> itemCounts = orderLineRepository.sumQtyByOrderIds(
+                result.getRecords().stream().map(Order::getId).toList());
+        return PaginatedSupport.of(result,
+                order -> toListItem(order, users.get(order.getCustomerId()), itemCounts));
+    }
+
+    // ==================== 订单导出（API-TRD-02） ====================
+
+    /** STEP-02：keyset 游标批大小 */
+    static final int EXPORT_BATCH_SIZE = 500;
+    /** STEP-03：导出行数上限（BE-DIM-8） */
+    static final int EXPORT_MAX_ROWS = 10000;
+    /** STEP-03：截断标记末行 */
+    static final String EXPORT_TRUNCATED_LINE = "# TRUNCATED AT 10000 ROWS";
+    /** API-TRD-02 出参列序 */
+    private static final String EXPORT_CSV_HEADER =
+            "order_no,customer_name,customer_email,country,item_count,total_amount,currency,payment_method,status,created_at";
+
+    /** E-exportAdminOrders（API-TRD-02：V-101/102 + STEP-01~04；CSV ≤10000 行） */
+    public OrderExport export(String status, String search, String currency,
+                              LocalDateTime from, LocalDateTime to) {
+        // V-101 query 与 listAdminOrders 完全一致（不含分页）；V-102 枚举外值/from>to 非法（既有 422601 校验口径）
+        AdminOrderFilter filter = parseFilter(status, search, currency, from, to, new FieldErrors());
+        // STEP-01 组装列表同款查询条件（RM-TRD-02 客户名/邮箱 → customer_ids）
+        List<Long> customerIds = filter.keyword() == null ? null
+                : refundService.findUserIdsByNameOrEmailLike(filter.keyword());
+        StringBuilder csv = new StringBuilder("\uFEFF").append(EXPORT_CSV_HEADER).append('\n');
+        int rows = 0;
+        boolean truncated = false;
+        long lastId = 0L;
+        // STEP-02 keyset 游标流式读取（id ASC，批 500），每批做 RM-TRD-01b/01c 派生
+        while (!truncated) {
+            List<Order> batch = orderRepository.listByAdminFilterAfterId(filter.status(), filter.currency(),
+                    filter.from(), filter.to(), filter.keyword(), customerIds, lastId, EXPORT_BATCH_SIZE);
+            if (batch.isEmpty()) {
+                break;
+            }
+            Map<Long, User> users = refundService.loadUsers(
+                    batch.stream().map(Order::getCustomerId).distinct().toList());
+            Map<Long, Integer> itemCounts = orderLineRepository.sumQtyByOrderIds(
+                    batch.stream().map(Order::getId).toList());
+            for (Order order : batch) {
+                // STEP-03 行数达 10000 → 截断
+                if (rows >= EXPORT_MAX_ROWS) {
+                    truncated = true;
+                    break;
+                }
+                csv.append(csvLine(order, users.get(order.getCustomerId()), itemCounts)).append('\n');
+                rows++;
+            }
+            lastId = batch.get(batch.size() - 1).getId();
+            if (batch.size() < EXPORT_BATCH_SIZE) {
+                break;
+            }
+        }
+        if (truncated) {
+            csv.append(EXPORT_TRUNCATED_LINE).append('\n');
+        }
+        // STEP-04 OperationLog（action=导出订单，detail 含筛选条件、行数；PII 导出审计——BE-DIM-8）
+        audit.record(TradingAuditRecorder.ACTION_ORDER_EXPORT, "orders",
+                "{\"status\":\"" + (status == null || status.isBlank() ? "all" : status)
+                        + "\",\"search\":" + jsonText(filter.keyword())
+                        + ",\"currency\":" + jsonText(filter.currency())
+                        + ",\"from\":" + jsonText(from == null ? null : from.toString())
+                        + ",\"to\":" + jsonText(to == null ? null : to.toString())
+                        + ",\"rows\":" + rows + ",\"truncated\":" + truncated + "}");
+        return new OrderExport(csv.toString(), rows, truncated);
+    }
+
+    /** V-TRD-043~047 / V-101~102：列表与导出共用筛选参数解析（导出不含分页） */
+    private AdminOrderFilter parseFilter(String status, String search, String currency,
+                                         LocalDateTime from, LocalDateTime to, FieldErrors errors) {
         String statusFilter = (status == null || status.isBlank()) ? "all" : status;
         if (!TradingParams.ORDER_STATUS_FILTER.contains(statusFilter)) {
             errors.reject("status", "invalid_enum");
@@ -86,21 +168,79 @@ public class AdminOrderService {
         if (currency != null && !currency.isBlank() && !TradingParams.isSupportedCurrency(currency)) {
             errors.reject("currency", "invalid_enum");
         }
-        // V-TRD-047 from ≤ to
+        // V-TRD-047 / V-102 from ≤ to
         if (from != null && to != null && from.isAfter(to)) {
             errors.reject("from", "range_invalid");
         }
         errors.throwIfAny();
         OrderStatus statusEnum = "all".equals(statusFilter) ? null : OrderStatus.of(statusFilter);
         String currencyFilter = (currency == null || currency.isBlank()) ? null : currency;
-        // 客户邮箱搜索：identity 先解析 customer_ids 再回本域 IN（避免跨域 join）
-        List<Long> customerIds = keyword == null ? null : refundService.findUserIdsByEmailLike(keyword);
-        Page<Order> result = orderRepository.pageByAdminFilter(statusEnum, currencyFilter, from, to,
-                keyword, customerIds, parsedPage, parsedSize);
-        // STEP-TRD-02 customer_name/customer_email 批量联取（防 N+1）
-        Map<Long, User> users = refundService.loadUsers(
-                result.getRecords().stream().map(Order::getCustomerId).distinct().toList());
-        return PaginatedSupport.of(result, order -> toListItem(order, users.get(order.getCustomerId())));
+        return new AdminOrderFilter(statusEnum, currencyFilter, from, to, keyword);
+    }
+
+    /** 列表/导出共用筛选载体（V-101：query 与 listAdminOrders 一致，不含分页） */
+    private record AdminOrderFilter(OrderStatus status, String currency, LocalDateTime from,
+                                    LocalDateTime to, String keyword) {
+    }
+
+    /** 导出结果载体（csv 含 UTF-8 BOM；truncated → 响应头 X-Export-Truncated——STEP-03） */
+    public record OrderExport(String csv, int rowCount, boolean truncated) {
+    }
+
+    /** CSV 行装配（列序见 API-TRD-02 出参；country=RM-TRD-01b / item_count=RM-TRD-01c 派生；
+     * customer_name/customer_email/country 为顾客侧可控文本 → 公式注入中和（L4 security 修复），
+     * 金额/数字/系统枚举列不做中和） */
+    private String csvLine(Order order, User user, Map<Long, Integer> itemCounts) {
+        return String.join(",",
+                csvCell(order.getOrderNo()),
+                csvCellUntrusted(user == null ? null : user.getName()),
+                csvCellUntrusted(user == null ? null : user.getEmail()),
+                csvCellUntrusted(extractCountry(order)),
+                String.valueOf(itemCounts.getOrDefault(order.getId(), 0)),
+                csvCell(order.getTotalAmount() == null ? null : order.getTotalAmount().toPlainString()),
+                csvCell(order.getCurrency()),
+                csvCell(order.getPaymentMethod()),
+                csvCell(order.getStatus().getKey()),
+                csvCell(order.getCreatedAt() == null ? null : order.getCreatedAt().toString()));
+    }
+
+    /** CSV 转义（含逗号/引号/换行 → 双引号包裹 + 引号翻倍；null → 空串） */
+    private static String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    /**
+     * 顾客可控文本列的 CSV 公式注入中和（L4 security ISS 修复，OWASP CSV Injection）：
+     * 值以 = + - @ \t 开头 → 前置 ' 使电子表格按文本解析，再走常规 csvCell 转义。
+     */
+    static String csvCellUntrusted(String value) {
+        if (value != null && !value.isEmpty()) {
+            char first = value.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t') {
+                value = "'" + value;
+            }
+        }
+        return csvCell(value);
+    }
+
+    /** 审计 detail JSON 文本值（null → null 字面量） */
+    private static String jsonText(String value) {
+        return value == null ? "null" : "\"" + value.replace("\"", "\\\"") + "\"";
+    }
+
+    /** RM-TRD-01b：country 取 orders.address_snapshot JSON 列 country 键（实体已反序列化为 Map，无额外 join） */
+    private static String extractCountry(Order order) {
+        if (order.getAddressSnapshot() == null) {
+            return null;
+        }
+        Object country = order.getAddressSnapshot().get("country");
+        return country == null ? null : country.toString();
     }
 
     /** E-getAdminOrder（V-TRD-048 + STEP-TRD-01/02） */
@@ -181,15 +321,17 @@ public class AdminOrderService {
         return assembleDetail(orderRepository.findById(orderId));
     }
 
-    // ==================== 装配（MAP-TRD-005） ====================
+    // ==================== 装配（MAP-TRD-005 + API-TRD-01 扩展列） ====================
 
-    private AdminOrderListItem toListItem(Order o, User user) {
+    /** MAP-TRD-005：country（RM-TRD-01b）/ item_count（RM-TRD-01c，缺失 → 0）追加 */
+    private AdminOrderListItem toListItem(Order o, User user, Map<Long, Integer> itemCounts) {
         return new AdminOrderListItem(o.getId(), o.getOrderNo(), o.getStatus().getKey(), o.getCurrency(),
                 o.getExchangeRate(), o.getWeddingDate(), o.getSubtotal(), o.getShippingFee(), o.getGiftWrap(),
                 o.getGiftWrapFee(), o.getDiscountAmount(), o.getTotalAmount(), o.getCouponId(),
                 o.getPaymentMethod(), o.getCarrier(), o.getTrackingNo(), o.getExpiresAt(), o.getPaidAt(),
                 o.getShippedAt(), o.getCompletedAt(), o.getCreatedAt(), o.getCustomerId(),
-                user == null ? null : user.getName(), user == null ? null : user.getEmail());
+                user == null ? null : user.getName(), user == null ? null : user.getEmail(),
+                extractCountry(o), itemCounts.getOrDefault(o.getId(), 0));
     }
 
     /** AdminOrderDetail 装配（客户信息/定制明细/支付摘要/地址快照/礼品包装/工单/状态时间线） */

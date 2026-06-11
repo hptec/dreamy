@@ -321,4 +321,16 @@ public class RefundService {
                         .last("LIMIT 500"))
                 .stream().map(User::getId).toList();
     }
+
+    /**
+     * RM-TRD-02：客户名/邮箱模糊 → user ids（API-TRD-03 listAdminOrders 搜索范围扩展，ALIGN-015；
+     * QP-TRD-01：LIKE '%kw%' 不走索引，与既有邮箱搜索同量级，管理端低频可接受，不引入额外索引）。
+     */
+    public List<Long> findUserIdsByNameOrEmailLike(String keyword) {
+        return userMapper.selectList(new LambdaQueryWrapper<User>()
+                        .and(w -> w.like(User::getName, keyword).or().like(User::getEmail, keyword))
+                        .select(User::getId)
+                        .last("LIMIT 500"))
+                .stream().map(User::getId).toList();
+    }
 }
