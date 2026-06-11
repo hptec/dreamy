@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================
-# 脚本名称: backend.sh
+# 脚本名称: backend-api.sh
 # 功能描述: 启动后端服务（内置 restart：端口占用检测 + kill + 启动）
-# 使用方式: bash scripts/backend.sh [PORT]
+# 使用方式: bash scripts/backend-api.sh [PORT]
 # 默认端口: 8080
 # 依赖环境: JDK 25（GraalVM）、Gradle Wrapper 9.3.1
 # =============================================================

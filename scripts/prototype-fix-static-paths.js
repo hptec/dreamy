@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * fix-static-paths.js
+ * prototype-fix-static-paths.js
  * 修复 Next.js 静态导出，使 out/ 目录下的 HTML 可通过 file:// 协议直接打开。
  *
  * 修复内容：

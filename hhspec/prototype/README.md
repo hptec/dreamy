@@ -10,7 +10,7 @@
 
 ```bash
 # 一键启动（推荐）
-./scripts/prototype.sh
+./scripts/prototype-portal-store.sh
 
 # 或从项目根
 pnpm run prototype:dev

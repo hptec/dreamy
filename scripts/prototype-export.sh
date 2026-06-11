@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# export-prototype.sh — 将 Dreamy 原型编译为静态 HTML 文件
+# prototype-export.sh — 将 Dreamy 原型编译为静态 HTML 文件
 set -euo pipefail
 PROTOTYPE_DIR="${1:-hhspec/prototype}"
 cd "$(git rev-parse --show-toplevel)"
@@ -11,7 +11,7 @@ fi
 echo "构建静态文件..."
 (cd "$PROTOTYPE_DIR" && pnpm build)
 echo "修复 file:// 路径..."
-node "$(git rev-parse --show-toplevel)/scripts/fix-static-paths.js"
+node "$(git rev-parse --show-toplevel)/scripts/prototype-fix-static-paths.js"
 echo ""
 echo "✓ 静态文件已输出到 $PROTOTYPE_DIR/out/"
 echo ""

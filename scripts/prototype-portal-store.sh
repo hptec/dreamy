@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# prototype.sh — 启动 Dreamy 原型开发服务器（Next.js + Vite-like dev）
+# prototype-portal-store.sh — 启动 Dreamy 消费端原型开发服务器（Next.js）
 set -euo pipefail
 PROTOTYPE_DIR="${1:-hhspec/prototype}"
 cd "$(git rev-parse --show-toplevel)"

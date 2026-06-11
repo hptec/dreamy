@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-links.js — 用 Playwright 遍历 out/ 所有 HTML 页面，
+ * prototype-check-links.js — 用 Playwright 遍历 out/ 所有 HTML 页面，
  * 收集每个页面上的所有 <a href> 链接并尝试导航，记录失败项。
  */
 const { chromium } = require('playwright');

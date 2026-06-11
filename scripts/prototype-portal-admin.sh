@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# admin.sh — 启动 Dreamy 运营管理后台原型（portal-admin · Vue3 + Vite）
+# prototype-portal-admin.sh — 启动 Dreamy 运营管理后台原型（portal-admin · Vue3 + Vite）
 set -euo pipefail
 ADMIN_DIR="hhspec/prototype/portal-admin"
 cd "$(git rev-parse --show-toplevel)"

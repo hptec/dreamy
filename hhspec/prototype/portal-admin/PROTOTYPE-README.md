@@ -6,7 +6,7 @@
 
 ```bash
 # 方式 1：项目根脚本（推荐）
-./scripts/admin.sh
+./scripts/prototype-portal-admin.sh
 
 # 方式 2：pnpm workspace
 pnpm -C hhspec/prototype/portal-admin dev
