@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { LoginCard } from '@/components/account/login-card'
+import { LoginCard, readReturnTo } from '@/components/account/login-card'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { oidcCallback } from '@/lib/api/auth-api'
 import { ApiError } from '@/lib/api/client'
@@ -31,7 +31,7 @@ function OidcCallbackHandler() {
     oidcCallback(provider, idToken, nonce)
       .then((result) => {
         login(result)
-        router.replace('/account')
+        router.replace(readReturnTo())
       })
       .catch((err: unknown) => {
         // OIDC 失败（502/504/409）回到登录页，由 OTP 流兜底引导（DG-001）

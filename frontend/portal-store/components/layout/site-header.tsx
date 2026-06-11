@@ -1,22 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+/**
+ * SiteHeader（COMP-MKT-S02 AnnouncementBar data-swap + 搜索抽屉 API 化）：
+ * - announcements ← layout RSC 下传 topbar banners title 列表（E-MKT-01 position=topbar）；空回退静态文案。
+ * - SearchDrawer：mock 内存检索 → E-CAT-02（防抖 300ms，4 卡）。
+ * - 语言切换联动 i18n locale（Accept-Language 驱动 API 文案语言）。
+ */
+
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe } from 'lucide-react'
-import { mainNav, announcements, currencies, languages } from '@/data/navigation'
-import { products } from '@/data/products'
+import { mainNav, announcements as staticAnnouncements, currencies, languages } from '@/data/navigation'
+import type { StoreProductCard } from '@/lib/api/store-types'
+import { searchStoreProducts } from '@/lib/api/catalog-api'
 import { useStore } from '@/components/store-provider'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useI18n } from '@/lib/i18n/i18n-context'
+import type { Locale } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
-export function SiteHeader() {
+export function SiteHeader({ announcements: serverAnnouncements }: { announcements?: string[] }) {
   const pathname = usePathname()
   const { cartCount, wishlist, currency, setCurrency, language, setLanguage, setCartOpen } = useStore()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const hydrate = useAuthStore((s) => s.hydrate)
   const accountHref = isAuthenticated ? '/account' : '/account/login'
+  const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
   const [announceIdx, setAnnounceIdx] = useState(0)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -26,7 +37,7 @@ export function SiteHeader() {
   useEffect(() => {
     const t = setInterval(() => setAnnounceIdx((i) => (i + 1) % announcements.length), 4000)
     return () => clearInterval(t)
-  }, [])
+  }, [announcements.length])
 
   useEffect(() => {
     void hydrate()
@@ -53,7 +64,7 @@ export function SiteHeader() {
             <CurrencyLang currency={currency} setCurrency={setCurrency} language={language} setLanguage={setLanguage} />
           </div>
           <p key={announceIdx} className="mx-auto animate-fadeup text-center tracking-wide sm:mx-0 sm:flex-1">
-            {announcements[announceIdx]}
+            {announcements[announceIdx % announcements.length]}
           </p>
           <div className="hidden items-center gap-4 sm:flex">
             <Link href="/contact" className="transition-colors hover:text-gold-light">Contact</Link>
@@ -136,6 +147,7 @@ export function SiteHeader() {
 }
 
 function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
+  const { setLocale } = useI18n()
   return (
     <div className="flex items-center gap-3">
       <Globe className="h-3.5 w-3.5 text-gold-light" />
@@ -152,7 +164,11 @@ function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
       <span className="text-gold-light/40">|</span>
       <select
         value={language}
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={(e) => {
+          setLanguage(e.target.value)
+          // 语言切换联动 i18n locale（Accept-Language → API 文案语言，决策 13/27）
+          setLocale(e.target.value.toLowerCase() as Locale)
+        }}
         className="cursor-pointer bg-transparent text-canvas outline-none [&>option]:text-ink"
         aria-label="Language"
       >
@@ -197,8 +213,34 @@ function MegaPanel({ label, onClose, onMouseEnter }: { label: string; onClose: (
 
 function SearchDrawer({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('')
-  const results = q.length > 1 ? products.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 4) : []
+  const [results, setResults] = useState<StoreProductCard[]>([])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const seq = useRef(0)
   const popular = ['Sage bridesmaid', 'A-line tulle', 'Beach wedding', 'Cathedral veil']
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const term = q.trim()
+    if (term.length <= 1) {
+      seq.current += 1
+      setResults([])
+      return
+    }
+    debounceRef.current = setTimeout(() => {
+      const mySeq = ++seq.current
+      searchStoreProducts(term, 1, 4)
+        .then((res) => {
+          if (mySeq === seq.current) setResults(res.data)
+        })
+        .catch(() => {
+          if (mySeq === seq.current) setResults([])
+        })
+    }, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [q])
+
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
@@ -231,8 +273,12 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
               ) : (
                 results.map((p) => (
                   <Link key={p.id} href={`/product/${p.slug}`} onClick={onClose} className="group">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.gallery[0]} alt={p.name} className="aspect-[3/4] w-full rounded-sm object-cover" />
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.imageUrl} alt={p.name} className="aspect-[3/4] w-full rounded-sm object-cover" />
+                    ) : (
+                      <div className="aspect-[3/4] w-full rounded-sm bg-muted" />
+                    )}
                     <p className="mt-2 text-sm">{p.name}</p>
                   </Link>
                 ))

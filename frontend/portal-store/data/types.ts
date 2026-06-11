@@ -1,6 +1,6 @@
 // 共享类型定义 — Dreamy 商城原型数据层
 
-export type Currency = 'USD' | 'CAD' | 'AUD' | 'GBP'
+export type Currency = 'USD' | 'EUR' | 'CAD' | 'AUD' | 'GBP'
 
 export interface ColorOption {
   name: string

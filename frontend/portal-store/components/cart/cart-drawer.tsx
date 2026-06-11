@@ -1,5 +1,10 @@
 'use client'
 
+/**
+ * CartDrawer（data-swap）：cart 上下文 → API 驱动 cartStore（双态）。
+ * 行结构不变；定制行显示 Custom 标签；409601 行内提示由 cart 页承载。
+ */
+
 import Link from 'next/link'
 import { X, ShoppingBag, Plus, Minus } from 'lucide-react'
 import { useStore } from '@/components/store-provider'
@@ -28,23 +33,29 @@ export function CartDrawer() {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              {cart.map((line, i) => (
-                <div key={`${line.productId}-${i}`} className="flex gap-4 border-b border-line/60 py-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={line.image} alt={line.name} className="h-28 w-20 rounded-sm object-cover" />
+              {cart.map((line) => (
+                <div key={line.key} className="flex gap-4 border-b border-line/60 py-4">
+                  {line.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={line.image} alt={line.name} className="h-28 w-20 rounded-sm object-cover" />
+                  ) : (
+                    <div className="h-28 w-20 rounded-sm bg-muted" />
+                  )}
                   <div className="flex flex-1 flex-col">
                     <Link href={`/product/${line.slug}`} onClick={() => setCartOpen(false)} className="text-sm font-medium leading-snug hover:text-gold-deep">{line.name}</Link>
-                    <p className="mt-1 text-xs text-ink-soft">{line.color} · {line.size}</p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                      {[line.color, line.customSizeData ? 'Custom size' : line.size].filter(Boolean).join(' · ')}
+                    </p>
                     <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center border border-line">
-                        <button onClick={() => updateQty(i, line.qty - 1)} className="cursor-pointer p-1.5" aria-label="Decrease"><Minus className="h-3 w-3" /></button>
+                        <button onClick={() => void updateQty(line.key, line.qty - 1)} className="cursor-pointer p-1.5" aria-label="Decrease"><Minus className="h-3 w-3" /></button>
                         <span className="w-8 text-center text-sm">{line.qty}</span>
-                        <button onClick={() => updateQty(i, line.qty + 1)} className="cursor-pointer p-1.5" aria-label="Increase"><Plus className="h-3 w-3" /></button>
+                        <button onClick={() => void updateQty(line.key, line.qty + 1)} className="cursor-pointer p-1.5" aria-label="Increase"><Plus className="h-3 w-3" /></button>
                       </div>
-                      <span className="text-sm font-medium">{formatPrice(line.price * line.qty, currency)}</span>
+                      <span className="text-sm font-medium">{formatPrice(line.priceUsd * line.qty, currency, line.multiCurrencyPrices)}</span>
                     </div>
                   </div>
-                  <button onClick={() => removeLine(i)} className="cursor-pointer self-start p-1 text-ink-faint hover:text-blush" aria-label="Remove"><X className="h-4 w-4" /></button>
+                  <button onClick={() => void removeLine(line.key)} className="cursor-pointer self-start p-1 text-ink-faint hover:text-blush" aria-label="Remove"><X className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>

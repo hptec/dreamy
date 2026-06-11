@@ -40,6 +40,29 @@ interface RequestOptions {
   auth?: boolean
   locale?: Locale
   retryOnUnauthorized?: boolean
+  /**
+   * showroom guest JWT 注入（showroom-frontend B.1 最小 diff）：提供时 Authorization 直用该值，
+   * 且跳过 401→refresh 续期重放（guest token 无 refresh 概念，401101 直接抛 ApiError 由 guest 流程处理）。
+   */
+  authTokenOverride?: string
+  /** query 参数（值为 undefined/null/'' 时忽略；key 自动 camel→snake） */
+  query?: Record<string, string | number | boolean | undefined | null>
+}
+
+function camelKeyToSnake(key: string): string {
+  return key.replace(/([A-Z])/g, (m) => `_${m.toLowerCase()}`)
+}
+
+/** 拼接 query string（忽略空值，key 转 snake_case） */
+export function buildQuery(query?: Record<string, string | number | boolean | undefined | null>): string {
+  if (!query) return ''
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) {
+    if (v === undefined || v === null || v === '') continue
+    sp.set(camelKeyToSnake(k), String(v))
+  }
+  const s = sp.toString()
+  return s ? `?${s}` : ''
 }
 
 // 续期单飞：并发请求共享同一次 refresh
@@ -50,7 +73,9 @@ function buildHeaders(opts: RequestOptions): Headers {
   headers.set('Accept', 'application/json')
   headers.set('Accept-Language', opts.locale ?? getActiveLocale())
   if (opts.body !== undefined) headers.set('Content-Type', 'application/json')
-  if (opts.auth) {
+  if (opts.authTokenOverride) {
+    headers.set('Authorization', `Bearer ${opts.authTokenOverride}`)
+  } else if (opts.auth) {
     const token = getAccessToken()
     if (token) headers.set('Authorization', `Bearer ${token}`)
   }
@@ -124,10 +149,11 @@ export async function refreshTokens(): Promise<TokenPair> {
 
 /** 核心请求方法 */
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = false, retryOnUnauthorized = true } = opts
+  const { method = 'GET', body, auth = false, retryOnUnauthorized = true, authTokenOverride, query } = opts
 
   // 前置续期：access 已过期且有 refresh 时先续期，减少一次 401 往返（STORE-S03）
-  if (auth && isAccessExpired() && getRefreshToken()) {
+  // guest token 注入时跳过（无 refresh 概念）
+  if (!authTokenOverride && auth && isAccessExpired() && getRefreshToken()) {
     try {
       await refreshTokens()
     } catch {
@@ -136,7 +162,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
 
   const doFetch = async (): Promise<Response> =>
-    fetch(`${API_BASE}${path}`, {
+    fetch(`${API_BASE}${path}${buildQuery(query)}`, {
       method,
       headers: buildHeaders(opts),
       body: body !== undefined ? JSON.stringify(deepSnakeize(body)) : undefined
@@ -144,8 +170,8 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 
   let res = await doFetch()
 
-  // 401 → 续期重放一次（仅鉴权请求）
-  if (res.status === 401 && auth && retryOnUnauthorized && getRefreshToken()) {
+  // 401 → 续期重放一次（仅鉴权请求；guest token 注入时直抛由 guest 流程处理 401101）
+  if (res.status === 401 && auth && retryOnUnauthorized && !authTokenOverride && getRefreshToken()) {
     try {
       await refreshTokens()
       res = await doFetch()

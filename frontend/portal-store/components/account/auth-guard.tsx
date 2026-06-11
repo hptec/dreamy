@@ -6,12 +6,13 @@
  */
 
 import { useEffect, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { t } = useI18n()
   const status = useAuthStore((s) => s.status)
   const hydrated = useAuthStore((s) => s.hydrated)
@@ -24,9 +25,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (hydrated && !isAuthenticated) {
-      router.replace('/account/login')
+      router.replace(`/account/login?returnTo=${encodeURIComponent(pathname || '/account')}`)
     }
-  }, [hydrated, isAuthenticated, router])
+  }, [hydrated, isAuthenticated, router, pathname])
 
   if (!hydrated || status === 'loading' || status === 'idle') {
     return (

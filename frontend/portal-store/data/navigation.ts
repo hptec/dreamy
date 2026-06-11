@@ -163,6 +163,7 @@ export const footerNav: MegaColumn[] = [
 
 export const currencies: { code: Currency; label: string }[] = [
   { code: 'USD', label: 'USD $' },
+  { code: 'EUR', label: 'EUR €' },
   { code: 'CAD', label: 'CAD C$' },
   { code: 'AUD', label: 'AUD A$' },
   { code: 'GBP', label: 'GBP £' }
@@ -170,7 +171,8 @@ export const currencies: { code: Currency; label: string }[] = [
 
 export const languages = [
   { code: 'EN', label: 'English' },
-  { code: 'ES', label: 'Español' }
+  { code: 'ES', label: 'Español' },
+  { code: 'FR', label: 'Français' }
 ]
 
 export const announcements = [

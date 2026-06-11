@@ -1,13 +1,48 @@
 'use client'
 
+/**
+ * SiteFooter（COMP-MKT-S09，data-swap）：Newsletter 输入接 E-MKT-11（source=footer）。
+ * 成功行内确认文案（sage 信息条风格复用）；email 预校验不通过红框不发请求（FORM-MKT-S01）。
+ */
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { footerNav } from '@/data/navigation'
 import { Instagram, Facebook, Twitter } from 'lucide-react'
+import { subscribeNewsletter } from '@/lib/api/marketing-api'
+import { ApiError } from '@/lib/api/client'
+import { useI18n } from '@/lib/i18n/i18n-context'
+import { cn } from '@/lib/utils'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function SiteFooter() {
+  const { locale, te } = useI18n()
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
+  const [invalid, setInvalid] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = email.trim()
+    if (!EMAIL_RE.test(trimmed)) {
+      setInvalid(true)
+      return
+    }
+    setInvalid(false)
+    setSubmitting(true)
+    setError(null)
+    try {
+      await subscribeNewsletter(trimmed, 'footer', locale)
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? te(err.code) : te(50000))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <footer className="mt-24 bg-ink text-canvas">
@@ -17,26 +52,31 @@ export function SiteFooter() {
           <div>
             <p className="eyebrow mb-2 text-gold-light">Join the Atelier</p>
             <h3 className="font-display text-3xl font-medium lg:text-4xl">Be the first to know</h3>
-            <p className="mt-2 max-w-md text-sm text-canvas/70">Sign up for early access to new collections, outdoor wedding inspiration, and 10% off your first order.</p>
+            <p className="mt-2 max-w-md text-sm text-canvas/70">Sign up for early access to new collections and outdoor wedding inspiration.</p>
           </div>
-          <form
-            onSubmit={(e) => { e.preventDefault(); setDone(true) }}
-            className="flex w-full max-w-md gap-3 lg:ml-auto"
-          >
-            <label htmlFor="footer-email" className="sr-only">Email address</label>
-            <input
-              id="footer-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email address"
-              className="flex-1 rounded-sm border border-white/20 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-canvas/40 focus:border-gold-light"
-            />
-            <button type="submit" className="cursor-pointer rounded-sm bg-gold px-6 py-3 text-[13px] font-medium uppercase tracking-luxe text-white transition-colors hover:bg-gold-deep">
-              {done ? 'Thank you' : 'Subscribe'}
-            </button>
-          </form>
+          <div className="w-full max-w-md lg:ml-auto">
+            {done ? (
+              <p className="rounded-sm bg-sage/15 px-4 py-3 text-sm text-sage-deep">You&apos;re on the list — welcome to the atelier.</p>
+            ) : (
+              <form onSubmit={submit} className="flex w-full gap-3" noValidate>
+                <label htmlFor="footer-email" className="sr-only">Email address</label>
+                <input
+                  id="footer-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email address"
+                  className={cn('flex-1 rounded-sm border bg-transparent px-4 py-3 text-sm outline-none placeholder:text-canvas/40 focus:border-gold-light', invalid ? 'border-blush' : 'border-white/20')}
+                />
+                <button type="submit" disabled={submitting} className="cursor-pointer rounded-sm bg-gold px-6 py-3 text-[13px] font-medium uppercase tracking-luxe text-white transition-colors hover:bg-gold-deep disabled:opacity-60">
+                  {submitting ? '…' : 'Subscribe'}
+                </button>
+              </form>
+            )}
+            {invalid && !done && <p className="mt-2 text-xs text-blush">Please enter a valid email address.</p>}
+            {error && !done && <p className="mt-2 text-xs text-blush">{error}</p>}
+          </div>
         </div>
       </div>
 
@@ -61,12 +101,12 @@ export function SiteFooter() {
         <div className="container-luxe flex flex-col items-center justify-between gap-4 py-6 text-xs text-canvas/60 sm:flex-row">
           <div className="flex items-center gap-4">
             <span className="font-display text-lg text-canvas">Dreamy</span>
-            <span>© 2026 Dreamy Atelier. Prototype demo.</span>
+            <span>© 2026 Dreamy Atelier.</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline">We accept</span>
             <div className="flex items-center gap-2">
-              {['Visa', 'MC', 'Amex', 'PayPal', 'Klarna'].map((p) => (
+              {['Visa', 'MC', 'Amex', 'Klarna', 'Afterpay'].map((p) => (
                 <span key={p} className="rounded border border-white/20 px-2 py-1 text-[10px] tracking-wide">{p}</span>
               ))}
             </div>

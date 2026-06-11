@@ -23,6 +23,18 @@ import { OAuthButtons } from './oauth-buttons'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** 登录成功跳转目标：?returnTo=（站内相对路径白名单）缺省 /account */
+export function readReturnTo(): string {
+  if (typeof window === 'undefined') return '/account'
+  try {
+    const raw = new URLSearchParams(window.location.search).get('returnTo')
+    if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw
+  } catch {
+    /* ignore */
+  }
+  return '/account'
+}
+
 export function LoginCard() {
   const router = useRouter()
   const { t, locale } = useI18n()
@@ -103,7 +115,7 @@ export function LoginCard() {
     try {
       const result = await verifyOtp(email.trim().toLowerCase(), joined)
       login(result) // 存 token + user
-      router.push('/account')
+      router.push(readReturnTo())
     } catch (err) {
       setCode(Array(otpLength).fill(''))
       handleApiError(err)

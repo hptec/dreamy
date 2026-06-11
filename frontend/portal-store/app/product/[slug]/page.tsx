@@ -1,35 +1,61 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getProduct, products, getRelated, getPairsWith } from '@/data/products'
+import { fetchStoreProduct } from '@/lib/api/catalog-server'
+import { fetchStoreReviewsServer, fetchStoreQuestionsServer } from '@/lib/api/review-api'
 import { ProductGallery } from '@/components/product/product-gallery'
 import { ProductBuyBox } from '@/components/product/product-buy-box'
 import { ProductReviews } from '@/components/product/product-reviews'
-import { ProductCard } from '@/components/product/product-card'
-import { SectionHeading } from '@/components/ui/primitives'
+import { RecommendationRail } from '@/components/product/recommendation-rail'
+import { galleryOf, lifestyleOf, hasVideoOf } from '@/components/product/product-utils'
 
-export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }))
-}
+/**
+ * PDP（PAGE-CAT-S01，layout-keep + data-swap）：
+ * - generateStaticParams 全量预构建删除 → dynamicParams=true + revalidate=300（TTL 兜底）；
+ *   秒级失效靠 on-demand POST /api/revalidate → revalidatePath（FLOW-P03/s-758）。
+ * - 数据：E-CAT-04 详情 + E-REV-01/03 评价区首屏（随 PDP ISR）+ E-CAT-03 推荐区块。
+ * - 404501 → notFound()。
+ */
+
+export const revalidate = 300
+export const dynamicParams = true
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const product = getProduct(slug)
+  const { data: product } = await fetchStoreProduct(slug)
   if (!product) return { title: 'Product Not Found' }
   return {
-    title: product.name,
-    description: product.description,
-    openGraph: { title: product.name, description: product.description, images: [product.gallery[0]] }
+    title: product.seoTitle ?? product.name,
+    description: product.seoDesc ?? product.description,
+    openGraph: {
+      title: product.seoTitle ?? product.name,
+      description: product.seoDesc ?? product.description,
+      images: product.images[0]?.url ? [product.images[0].url] : undefined
+    }
   }
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const product = getProduct(slug)
-  if (!product) notFound()
+  const { data: product, status } = await fetchStoreProduct(slug)
+  if (!product) {
+    if (status === 404) notFound()
+    // 上游不可用：不缓存错误页语义，返回 404 视图以免白屏（CDN serve-stale 为主兜底）
+    notFound()
+  }
 
-  const related = getRelated(product)
-  const pairs = getPairsWith(product)
+  const [initialReviews, initialQuestions] = await Promise.all([
+    fetchStoreReviewsServer(product.id, { sort: 'featured_first', page: 1, pageSize: 5 }),
+    fetchStoreQuestionsServer(product.id, { page: 1, pageSize: 5 })
+  ])
+
+  const gallery = galleryOf(product).map((img) => img.url)
+  const categorySlugMap: Record<string, string> = {
+    'wedding dresses': '/wedding-dresses',
+    'special occasion': '/special-occasion',
+    accessories: '/accessories'
+  }
+  const categoryHref = categorySlugMap[(product.categoryName ?? '').toLowerCase()] ?? '/wedding-dresses'
 
   return (
     <div>
@@ -37,39 +63,41 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <div className="container-luxe py-5 text-xs text-ink-soft">
         <Link href="/" className="hover:text-ink">Home</Link>
         <span className="mx-2">/</span>
-        <Link href={`/${product.category}`} className="capitalize hover:text-ink">{product.category.replace('-', ' ')}</Link>
+        <Link href={categoryHref} className="capitalize hover:text-ink">{product.categoryName ?? 'Collection'}</Link>
         <span className="mx-2">/</span>
         <span className="text-ink">{product.name}</span>
       </div>
 
       {/* 主区：图廊 + 购买框 */}
       <div className="container-luxe grid gap-10 pb-12 lg:grid-cols-2 lg:gap-16">
-        <ProductGallery images={product.gallery} name={product.name} hasVideo={product.hasVideo} lifestyle={product.lifestyle} />
+        <ProductGallery images={gallery} name={product.name} hasVideo={hasVideoOf(product)} lifestyle={lifestyleOf(product)} />
         <ProductBuyBox product={product} />
       </div>
 
-      {/* Complete the Look */}
-      {pairs.length > 0 && (
-        <section className="bg-muted py-16">
-          <div className="container-luxe">
-            <SectionHeading align="left" eyebrow="Style it together" title="Complete the Look" />
-            <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
-              {pairs.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Complete the Look（E-CAT-03 block=complete_the_look） */}
+      <RecommendationRail
+        block="complete_the_look"
+        eyebrow="Style it together"
+        title="Complete the Look"
+        productId={product.id}
+        tone="muted"
+      />
 
-      {/* Reviews & Q&A */}
-      <ProductReviews product={product} />
+      {/* Reviews & Q&A（PAGE-REV-S01） */}
+      <ProductReviews
+        productId={product.id}
+        slug={product.slug}
+        initialReviews={initialReviews}
+        initialQuestions={initialQuestions}
+      />
 
-      {/* Related */}
-      <section className="container-luxe py-16">
-        <SectionHeading align="left" eyebrow="You may also like" title="More to love" />
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
-          {related.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </section>
+      {/* You may also like（E-CAT-03 block=you_may_also_like） */}
+      <RecommendationRail
+        block="you_may_also_like"
+        eyebrow="You may also like"
+        title="More to love"
+        productId={product.id}
+      />
     </div>
   )
 }

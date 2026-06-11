@@ -1,9 +1,22 @@
 import Link from 'next/link'
 import { ArrowRight, Truck, Sparkles, Globe, Heart } from 'lucide-react'
-import { products, palette, getByCategory } from '@/data/products'
-import { realWeddings } from '@/data/content'
-import { ProductCard } from '@/components/product/product-card'
-import { SectionHeading, TextLink, Eyebrow } from '@/components/ui/primitives'
+import { palette } from '@/data/products'
+import { fetchStoreTags } from '@/lib/api/catalog-server'
+import { fetchStoreBanners, fetchStoreFlashSales, fetchStoreWeddings } from '@/lib/api/marketing-server'
+import { RecommendationRail } from '@/components/product/recommendation-rail'
+import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
+import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
+
+/**
+ * 首页（PAGE-CAT-S04 + PAGE-MKT-S01，layout-keep + data-swap，revalidate=300）：
+ * - hero ← E-MKT-01 position=hero 首条（空回退现有静态 hero——冷启动安全）
+ * - FlashSaleRail ← E-MKT-09（空 items 整段不渲染）
+ * - Shop by Color ← E-CAT-07 色板标签（空回退静态 palette）
+ * - New Arrivals / Best Sellers ← E-CAT-03 推荐位（空整段不渲染）
+ * - Real Weddings ← E-MKT-04（空整段不渲染）
+ */
+
+export const revalidate = 300
 
 const themeCards = [
   { theme: 'Beach', image: '/competitor-refs/kissprom/wedding-beach-short-05.jpg', desc: 'Breezy & barefoot' },
@@ -12,25 +25,34 @@ const themeCards = [
   { theme: 'Forest', image: '/competitor-refs/kissprom/wedding-aline-longsleeve-06.jpg', desc: 'Woodland fairytale' }
 ]
 
-export default function HomePage() {
-  const newArrivals = products.filter((p) => p.isNew).concat(products.filter((p) => p.isBestSeller)).slice(0, 4)
-  const dresses = getByCategory('wedding-dresses').slice(0, 4)
+export default async function HomePage() {
+  const [heroBanners, flashSales, tagGroups, weddingsPage] = await Promise.all([
+    fetchStoreBanners('hero'),
+    fetchStoreFlashSales(),
+    fetchStoreTags(),
+    fetchStoreWeddings({ page: 1, pageSize: 3 })
+  ])
+
+  const hero = heroBanners[0]
+  const colorGroup = tagGroups.find((g) => /color/i.test(g.name))
+  const colorTags = colorGroup?.tags ?? []
+  const weddings = weddingsPage?.data ?? []
 
   return (
     <div>
-      {/* HERO — editorial split (clean portrait, no baked-in competitor text) */}
+      {/* HERO — editorial split（COMP-MKT-S01：banner.title 空回退静态文案，视觉零改动） */}
       <section className="relative grid min-h-[600px] lg:grid-cols-2">
         <div className="order-2 flex items-center bg-canvas px-6 py-14 lg:order-1 lg:px-16">
           <div className="max-w-md animate-fadeup">
-            <Eyebrow>The Outdoor Wedding Edit · 2026</Eyebrow>
+            <Eyebrow>{hero?.subtitle ?? 'The Outdoor Wedding Edit · 2026'}</Eyebrow>
             <h1 className="mt-4 font-display text-5xl font-medium leading-[1.02] text-ink sm:text-6xl lg:text-[4.25rem]">
-              Dresses made<br />for golden hour
+              {hero?.title ?? 'Dresses made for golden hour'}
             </h1>
             <p className="mt-5 text-ink-soft">
               Effortless gowns, bridesmaid dresses, and accessories designed for beaches, gardens, and everywhere your love story takes you.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/wedding-dresses" className="btn-primary">Shop the Collection</Link>
+              <Link href="/wedding-dresses" className="btn-primary">{hero?.ctaText ?? 'Shop the Collection'}</Link>
               <Link href="/outdoor-weddings" className="btn-outline">Explore Outdoor</Link>
             </div>
             <div className="mt-10 flex items-center gap-6 text-xs uppercase tracking-luxe text-ink-faint">
@@ -42,31 +64,53 @@ export default function HomePage() {
         </div>
         <div className="relative order-1 min-h-[420px] overflow-hidden lg:order-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/competitor-refs/kissprom/wedding-aline-tulle-01.jpg" alt="Bride in an A-line tulle gown" className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top" />
+          <img
+            src={hero?.imageUrl ?? '/competitor-refs/kissprom/wedding-aline-tulle-01.jpg'}
+            alt={hero?.title ?? 'Bride in an A-line tulle gown'}
+            className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top"
+          />
         </div>
       </section>
 
-      {/* SHOP BY COLOR — 核心差异化 */}
+      {/* FLASH SALE（E-MKT-09，空不渲染） */}
+      <FlashSaleRail sales={flashSales} />
+
+      {/* SHOP BY COLOR — 核心差异化（E-CAT-07 色板标签；空回退静态 palette） */}
       <section className="container-luxe py-16 lg:py-24">
         <SectionHeading eyebrow="Find your palette" title="Shop by Color" description="Start with the shade that sets your scene. Our outdoor wedding palette is curated for every season and setting." />
         <div className="mt-10 grid grid-cols-4 gap-4 sm:grid-cols-8">
-          {palette.map((c) => (
-            <Link key={c.name} href={`/special-occasion?color=${encodeURIComponent(c.name)}`} className="group text-center">
-              <div className="mx-auto aspect-square w-full rounded-full border border-line shadow-soft transition-transform duration-300 ease-luxe group-hover:scale-105 group-hover:shadow-card" style={{ backgroundColor: c.hex }} />
-              <p className="mt-3 text-xs font-medium">{c.name}</p>
-              <p className="text-[11px] text-ink-faint">{c.count} styles</p>
-            </Link>
-          ))}
+          {colorTags.length > 0
+            ? colorTags.slice(0, 8).map((t) => (
+                <Link key={t.id} href={`/special-occasion?color=${encodeURIComponent(t.name)}`} className="group text-center">
+                  {t.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={t.cover} alt={t.name} className="mx-auto aspect-square w-full rounded-full border border-line object-cover shadow-soft transition-transform duration-300 ease-luxe group-hover:scale-105 group-hover:shadow-card" />
+                  ) : (
+                    <div className="mx-auto flex aspect-square w-full items-center justify-center rounded-full border border-line bg-muted shadow-soft transition-transform duration-300 ease-luxe group-hover:scale-105 group-hover:shadow-card">
+                      <span className="px-1 text-[10px] uppercase tracking-luxe text-ink-soft">{t.name}</span>
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs font-medium">{t.name}</p>
+                  {typeof t.productCount === 'number' && <p className="text-[11px] text-ink-faint">{t.productCount} styles</p>}
+                </Link>
+              ))
+            : palette.map((c) => (
+                <Link key={c.name} href={`/special-occasion?color=${encodeURIComponent(c.name)}`} className="group text-center">
+                  <div className="mx-auto aspect-square w-full rounded-full border border-line shadow-soft transition-transform duration-300 ease-luxe group-hover:scale-105 group-hover:shadow-card" style={{ backgroundColor: c.hex }} />
+                  <p className="mt-3 text-xs font-medium">{c.name}</p>
+                  <p className="text-[11px] text-ink-faint">{c.count} styles</p>
+                </Link>
+              ))}
         </div>
       </section>
 
-      {/* OUTDOOR THEMES */}
+      {/* OUTDOOR THEMES（静态编辑区块） */}
       <section className="bg-muted py-16 lg:py-24">
         <div className="container-luxe">
           <SectionHeading eyebrow="By setting" title="Where will you say I do?" />
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {themeCards.map((t) => (
-              <Link key={t.theme} href={`/outdoor-weddings?theme=${t.theme}`} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
+              <Link key={t.theme} href={`/outdoor-weddings`} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={t.image} alt={t.theme} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
@@ -81,18 +125,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* NEW ARRIVALS */}
-      <section className="container-luxe py-16 lg:py-24">
-        <div className="flex items-end justify-between">
-          <SectionHeading align="left" eyebrow="Just landed" title="New Arrivals" />
-          <TextLink href="/wedding-dresses?sort=newest" className="hidden sm:inline-flex">Shop all</TextLink>
-        </div>
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
-          {newArrivals.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </section>
+      {/* NEW ARRIVALS（E-CAT-03 block=new_arrivals，空不渲染） */}
+      <RecommendationRail
+        block="new_arrivals"
+        eyebrow="Just landed"
+        title="New Arrivals"
+        href="/wedding-dresses?sort=newest"
+        hrefLabel="Shop all"
+      />
 
-      {/* LOOKBOOK / EDITORIAL */}
+      {/* LOOKBOOK / EDITORIAL（静态） */}
       <section className="relative overflow-hidden bg-ink py-20 text-canvas lg:py-28">
         <div className="container-luxe grid items-center gap-12 lg:grid-cols-2">
           <div className="relative">
@@ -105,12 +147,12 @@ export default function HomePage() {
             <Eyebrow className="text-gold-light">The Bridesmaid Edit</Eyebrow>
             <h2 className="mt-3 font-display text-4xl font-medium leading-tight lg:text-5xl">Dress your whole party in one palette</h2>
             <p className="mt-4 max-w-md text-canvas/75">Eighteen shades, every size from US 00 to Plus, and a luxe knit your bridesmaids will actually re-wear. Order swatches to find your perfect match before you commit.</p>
-            <Link href="/special-occasion?occasion=Bridesmaid" className="mt-8 inline-block btn-gold">Shop Bridesmaids</Link>
+            <Link href="/special-occasion" className="mt-8 inline-block btn-gold">Shop Bridesmaids</Link>
           </div>
         </div>
       </section>
 
-      {/* COLOR PALETTE TOOL teaser */}
+      {/* COLOR PALETTE TOOL teaser（静态） */}
       <section className="container-luxe py-16 lg:py-24">
         <div className="grid items-center gap-10 rounded-sm bg-gradient-to-br from-muted to-blush-light/40 p-8 lg:grid-cols-2 lg:p-14">
           <div>
@@ -133,38 +175,40 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WEDDING DRESSES preview */}
-      <section className="container-luxe pb-16 lg:pb-24">
-        <div className="flex items-end justify-between">
-          <SectionHeading align="left" eyebrow="The Bridal Collection" title="Gowns for the modern bride" />
-          <TextLink href="/wedding-dresses" className="hidden sm:inline-flex">View all gowns</TextLink>
-        </div>
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
-          {dresses.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </section>
+      {/* BEST SELLERS preview（E-CAT-03 block=best_sellers，空不渲染） */}
+      <RecommendationRail
+        block="best_sellers"
+        eyebrow="The Bridal Collection"
+        title="Gowns for the modern bride"
+        href="/wedding-dresses"
+        hrefLabel="View all gowns"
+      />
 
-      {/* REAL WEDDINGS */}
-      <section className="bg-muted py-16 lg:py-24">
-        <div className="container-luxe">
-          <SectionHeading eyebrow="Real love stories" title="Real Dreamy Weddings" description="See how real couples styled their outdoor celebrations — and shop the looks." />
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            {realWeddings.map((w) => (
-              <Link key={w.id} href={`/real-weddings/${w.slug}`} className="group">
-                <div className="aspect-[4/3] overflow-hidden rounded-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={w.cover} alt={`${w.couple} wedding`} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
-                </div>
-                <p className="eyebrow mt-4">{w.theme} · {w.location}</p>
-                <h3 className="mt-1 font-display text-2xl font-medium">{w.couple}</h3>
-                <p className="mt-1 text-sm text-ink-soft line-clamp-2">{w.excerpt}</p>
-              </Link>
-            ))}
+      {/* REAL WEDDINGS（E-MKT-04，空不渲染） */}
+      {weddings.length > 0 && (
+        <section className="bg-muted py-16 lg:py-24">
+          <div className="container-luxe">
+            <SectionHeading eyebrow="Real love stories" title="Real Dreamy Weddings" description="See how real couples styled their outdoor celebrations — and shop the looks." />
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+              {weddings.map((w) => (
+                <Link key={w.id} href={`/real-weddings/${w.id}`} className="group">
+                  <div className="aspect-[4/3] overflow-hidden rounded-sm bg-canvas">
+                    {w.cover && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={w.cover} alt={`${w.couple} wedding`} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
+                    )}
+                  </div>
+                  <p className="eyebrow mt-4">{w.theme}{w.location ? ` · ${w.location}` : ''}</p>
+                  <h3 className="mt-1 font-display text-2xl font-medium">{w.couple}</h3>
+                  {w.title && <p className="mt-1 text-sm text-ink-soft line-clamp-2">{w.title}</p>}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* VALUE PROPS */}
+      {/* VALUE PROPS（静态） */}
       <section className="container-luxe py-16">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {[

@@ -1,79 +1,97 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+/**
+ * CollectionView（COMP-CAT-S02，layout-keep + data-swap）：
+ * 接收 RSC 传入的 Paginated 数据；筛选/排序控件改为路由 searchParams 驱动
+ * （color/size/price/sort/cat/page → URL → RSC refetch，FORM-CAT-S03 单一事实源）。
+ * 侧栏/排序/子 tab/移动抽屉布局结构保持；facet 维度按 API 契约收敛为 颜色/尺码/价格（E-CAT-01 筛选参数）。
+ */
+
+import { useState, type ReactNode } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react'
-import type { Product } from '@/data/types'
+import type { Paginated, StoreProductCard } from '@/lib/api/store-types'
 import { ProductCard } from '@/components/product/product-card'
 import { QuickViewModal } from '@/components/product/quick-view-modal'
 import { cn } from '@/lib/utils'
 
-type FilterKey = 'colors' | 'silhouette' | 'fabric' | 'neckline' | 'length' | 'occasion'
+const SORTS = [
+  { label: 'Featured', value: 'recommended' },
+  { label: 'Newest', value: 'newest' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' }
+] as const
 
-const SORTS = ['Featured', 'Newest', 'Price: Low to High', 'Price: High to Low', 'Best Selling', 'Top Rated'] as const
+const SIZE_OPTIONS = ['US 0', 'US 2', 'US 4', 'US 6', 'US 8', 'US 10', 'US 12', 'US 14']
 
-function unique(products: Product[], pick: (p: Product) => (string | undefined)[]) {
-  const set = new Set<string>()
-  products.forEach((p) => pick(p).forEach((v) => v && set.add(v)))
-  return [...set]
-}
+const PRICE_RANGES = [
+  { label: 'Under $200', min: undefined, max: 200 },
+  { label: '$200 – $500', min: 200, max: 500 },
+  { label: '$500 – $1,000', min: 500, max: 1000 },
+  { label: '$1,000 & up', min: 1000, max: undefined }
+] as const
 
 export function CollectionView({
   title,
   description,
-  products,
+  data,
   heroImage,
-  subTabs
+  colorOptions = [],
+  subTabs,
+  basePath
 }: {
   title: string
   description?: string
-  products: Product[]
+  data: Paginated<StoreProductCard> | null
   heroImage?: string
+  /** Shop by Color 色板标签名（E-CAT-07 派生；空则不渲染颜色组） */
+  colorOptions?: string[]
+  /** 子分类 tab（value=category id 字符串，cat searchParam 驱动） */
   subTabs?: { label: string; value: string }[]
+  basePath: string
 }) {
-  const [filters, setFilters] = useState<Record<FilterKey, string[]>>({ colors: [], silhouette: [], fabric: [], neckline: [], length: [], occasion: [] })
-  const [sort, setSort] = useState<(typeof SORTS)[number]>('Featured')
+  const router = useRouter()
+  const params = useSearchParams()
   const [mobileFilter, setMobileFilter] = useState(false)
-  const [activeTab, setActiveTab] = useState<string>('All')
-  const [quickView, setQuickView] = useState<Product | null>(null)
+  const [quickView, setQuickView] = useState<StoreProductCard | null>(null)
 
-  const facets = useMemo(() => ({
-    colors: unique(products, (p) => p.colors.map((c) => c.name)),
-    silhouette: unique(products, (p) => [p.silhouette]),
-    fabric: unique(products, (p) => [p.fabric]),
-    neckline: unique(products, (p) => [p.neckline]),
-    length: unique(products, (p) => [p.length]),
-    occasion: unique(products, (p) => p.occasion)
-  }), [products])
+  const color = params.get('color') ?? ''
+  const size = params.get('size') ?? ''
+  const price = params.get('price') ?? ''
+  const sort = params.get('sort') ?? 'recommended'
+  const cat = params.get('cat') ?? ''
+  const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
-  const toggle = (key: FilterKey, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: prev[key].includes(value) ? prev[key].filter((v) => v !== value) : [...prev[key], value] }))
+  const navigate = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString())
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === '') next.delete(k)
+      else next.set(k, v)
+    }
+    // 任何筛选变化重置页码
+    if (!('page' in patch)) next.delete('page')
+    const qs = next.toString()
+    router.push(qs ? `${basePath}?${qs}` : basePath)
   }
 
-  const clearAll = () => setFilters({ colors: [], silhouette: [], fabric: [], neckline: [], length: [], occasion: [] })
-  const activeCount = Object.values(filters).flat().length
+  const activeCount = [color, size, price].filter(Boolean).length
+  const clearAll = () => navigate({ color: null, size: null, price: null })
 
-  const filtered = useMemo(() => {
-    let list = products
-    if (subTabs && activeTab !== 'All') list = list.filter((p) => p.subCategory === activeTab || p.occasion.includes(activeTab))
-    list = list.filter((p) => {
-      if (filters.colors.length && !p.colors.some((c) => filters.colors.includes(c.name))) return false
-      if (filters.silhouette.length && !filters.silhouette.includes(p.silhouette ?? '')) return false
-      if (filters.fabric.length && !filters.fabric.includes(p.fabric ?? '')) return false
-      if (filters.neckline.length && !filters.neckline.includes(p.neckline ?? '')) return false
-      if (filters.length.length && !filters.length.includes(p.length ?? '')) return false
-      if (filters.occasion.length && !p.occasion.some((o) => filters.occasion.includes(o))) return false
-      return true
-    })
-    const sorted = [...list]
-    switch (sort) {
-      case 'Newest': sorted.sort((a, b) => Number(b.isNew ?? 0) - Number(a.isNew ?? 0)); break
-      case 'Price: Low to High': sorted.sort((a, b) => a.price - b.price); break
-      case 'Price: High to Low': sorted.sort((a, b) => b.price - a.price); break
-      case 'Best Selling': sorted.sort((a, b) => b.reviewCount - a.reviewCount); break
-      case 'Top Rated': sorted.sort((a, b) => b.rating - a.rating); break
-    }
-    return sorted
-  }, [products, filters, sort, activeTab, subTabs])
+  const items = data?.data ?? []
+  const total = data?.totalElements ?? 0
+  const totalPages = data?.totalPages ?? 1
+
+  const filterGroups = (
+    <FilterGroups
+      colorOptions={colorOptions}
+      color={color}
+      size={size}
+      price={price}
+      onColor={(v) => navigate({ color: v === color ? null : v })}
+      onSize={(v) => navigate({ size: v === size ? null : v })}
+      onPrice={(v) => navigate({ price: v === price ? null : v })}
+    />
+  )
 
   return (
     <div>
@@ -94,14 +112,14 @@ export function CollectionView({
       </div>
 
       <div className="container-luxe py-10">
-        {/* Sub tabs */}
-        {subTabs && (
+        {/* Sub tabs（子分类，cat searchParam 驱动） */}
+        {subTabs && subTabs.length > 0 && (
           <div className="mb-8 flex flex-wrap justify-center gap-2 border-b border-line pb-6">
-            {[{ label: 'All', value: 'All' }, ...subTabs].map((t) => (
+            {[{ label: 'All', value: '' }, ...subTabs].map((t) => (
               <button
-                key={t.value}
-                onClick={() => setActiveTab(t.value)}
-                className={cn('cursor-pointer rounded-full px-5 py-2 text-[13px] font-medium uppercase tracking-luxe transition-colors', activeTab === t.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}
+                key={t.value || 'all'}
+                onClick={() => navigate({ cat: t.value || null })}
+                className={cn('cursor-pointer rounded-full px-5 py-2 text-[13px] font-medium uppercase tracking-luxe transition-colors', cat === t.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}
               >
                 {t.label}
               </button>
@@ -117,38 +135,70 @@ export function CollectionView({
                 <p className="eyebrow">Filter</p>
                 {activeCount > 0 && <button onClick={clearAll} className="cursor-pointer text-xs text-gold-deep underline">Clear all ({activeCount})</button>}
               </div>
-              <FilterGroups facets={facets} filters={filters} toggle={toggle} />
+              {filterGroups}
             </div>
           </aside>
 
           {/* 商品区 */}
           <div className="flex-1">
             <div className="mb-6 flex items-center justify-between">
-              <p className="text-sm text-ink-soft">{filtered.length} {filtered.length === 1 ? 'style' : 'styles'}</p>
+              <p className="text-sm text-ink-soft">{total} {total === 1 ? 'style' : 'styles'}</p>
               <div className="flex items-center gap-3">
                 <button onClick={() => setMobileFilter(true)} className="flex cursor-pointer items-center gap-2 rounded-sm border border-line px-4 py-2 text-xs uppercase tracking-luxe lg:hidden">
                   <SlidersHorizontal className="h-3.5 w-3.5" /> Filter {activeCount > 0 && `(${activeCount})`}
                 </button>
                 <div className="relative">
                   <label htmlFor="sort" className="sr-only">Sort by</label>
-                  <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as any)} className="cursor-pointer appearance-none rounded-sm border border-line bg-surface py-2 pl-4 pr-9 text-xs uppercase tracking-luxe outline-none focus:border-gold">
-                    {SORTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  <select
+                    id="sort"
+                    value={sort}
+                    onChange={(e) => navigate({ sort: e.target.value === 'recommended' ? null : e.target.value })}
+                    className="cursor-pointer appearance-none rounded-sm border border-line bg-surface py-2 pl-4 pr-9 text-xs uppercase tracking-luxe outline-none focus:border-gold"
+                  >
+                    {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
                 </div>
               </div>
             </div>
 
-            {filtered.length === 0 ? (
+            {data === null ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+                <p className="font-display text-2xl">We couldn&apos;t load this collection</p>
+                <p className="text-sm text-ink-soft">Please check your connection and try again.</p>
+                <button onClick={() => router.refresh()} className="btn-outline">Try Again</button>
+              </div>
+            ) : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
                 <p className="font-display text-2xl">No styles match your filters</p>
                 <p className="text-sm text-ink-soft">Try removing a filter or exploring another color.</p>
                 <button onClick={clearAll} className="btn-outline">Clear Filters</button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
-                {filtered.map((p) => <ProductCard key={p.id} product={p} onQuickView={setQuickView} />)}
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
+                  {items.map((p) => <ProductCard key={p.id} product={p} onQuickView={setQuickView} />)}
+                </div>
+                {totalPages > 1 && (
+                  <div className="mt-12 flex items-center justify-center gap-4 text-sm">
+                    <button
+                      disabled={page <= 1}
+                      onClick={() => navigate({ page: page <= 2 ? null : String(page - 1) })}
+                      className="btn-outline px-5 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-ink-soft">Page {page} of {totalPages}</span>
+                    <button
+                      disabled={page >= totalPages}
+                      onClick={() => navigate({ page: String(page + 1) })}
+                      className="btn-outline px-5 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -163,10 +213,10 @@ export function CollectionView({
               <p className="font-display text-2xl">Filter</p>
               <button onClick={() => setMobileFilter(false)} className="cursor-pointer p-1"><X className="h-5 w-5" /></button>
             </div>
-            <FilterGroups facets={facets} filters={filters} toggle={toggle} />
+            {filterGroups}
             <div className="mt-8 flex gap-3">
               <button onClick={clearAll} className="btn-outline flex-1">Clear</button>
-              <button onClick={() => setMobileFilter(false)} className="btn-primary flex-1">Show {filtered.length}</button>
+              <button onClick={() => setMobileFilter(false)} className="btn-primary flex-1">Show {total}</button>
             </div>
           </div>
         </div>
@@ -177,46 +227,72 @@ export function CollectionView({
   )
 }
 
-function FilterGroups({ facets, filters, toggle }: { facets: Record<FilterKey, string[]>; filters: Record<FilterKey, string[]>; toggle: (k: FilterKey, v: string) => void }) {
-  const groups: { key: FilterKey; label: string }[] = [
-    { key: 'colors', label: 'Color' },
-    { key: 'occasion', label: 'Occasion' },
-    { key: 'silhouette', label: 'Silhouette' },
-    { key: 'fabric', label: 'Fabric' },
-    { key: 'neckline', label: 'Neckline' },
-    { key: 'length', label: 'Length' }
-  ]
+function priceValue(r: (typeof PRICE_RANGES)[number]): string {
+  return `${r.min ?? ''}-${r.max ?? ''}`
+}
+
+function FilterGroups({
+  colorOptions,
+  color,
+  size,
+  price,
+  onColor,
+  onSize,
+  onPrice
+}: {
+  colorOptions: string[]
+  color: string
+  size: string
+  price: string
+  onColor: (v: string) => void
+  onSize: (v: string) => void
+  onPrice: (v: string) => void
+}) {
   return (
     <div className="space-y-6">
-      {groups.map((g) => facets[g.key].length > 0 && (
-        <FilterAccordion key={g.key} label={g.label}>
-          {g.key === 'colors' ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {facets.colors.map((c) => (
-                <button key={c} onClick={() => toggle('colors', c)} className={cn('cursor-pointer rounded-full border px-3 py-1.5 text-xs transition-colors', filters.colors.includes(c) ? 'border-gold bg-gold/10 text-gold-deep' : 'border-line text-ink-soft hover:border-ink')}>{c}</button>
-              ))}
-            </div>
-          ) : (
-            <ul className="space-y-1.5 pt-1">
-              {facets[g.key].map((v) => (
-                <li key={v}>
-                  <button onClick={() => toggle(g.key, v)} className="flex w-full cursor-pointer items-center gap-2.5 text-sm text-ink-soft hover:text-ink">
-                    <span className={cn('flex h-4 w-4 items-center justify-center rounded-sm border transition-colors', filters[g.key].includes(v) ? 'border-gold bg-gold text-white' : 'border-line')}>
-                      {filters[g.key].includes(v) && <Check className="h-3 w-3" />}
-                    </span>
-                    {v}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+      {colorOptions.length > 0 && (
+        <FilterAccordion label="Color">
+          <div className="flex flex-wrap gap-2 pt-1">
+            {colorOptions.map((c) => (
+              <button key={c} onClick={() => onColor(c)} className={cn('cursor-pointer rounded-full border px-3 py-1.5 text-xs transition-colors', color === c ? 'border-gold bg-gold/10 text-gold-deep' : 'border-line text-ink-soft hover:border-ink')}>{c}</button>
+            ))}
+          </div>
         </FilterAccordion>
-      ))}
+      )}
+      <FilterAccordion label="Size">
+        <ul className="space-y-1.5 pt-1">
+          {SIZE_OPTIONS.map((v) => (
+            <li key={v}>
+              <CheckRow checked={size === v} onClick={() => onSize(v)}>{v}</CheckRow>
+            </li>
+          ))}
+        </ul>
+      </FilterAccordion>
+      <FilterAccordion label="Price">
+        <ul className="space-y-1.5 pt-1">
+          {PRICE_RANGES.map((r) => (
+            <li key={r.label}>
+              <CheckRow checked={price === priceValue(r)} onClick={() => onPrice(priceValue(r))}>{r.label}</CheckRow>
+            </li>
+          ))}
+        </ul>
+      </FilterAccordion>
     </div>
   )
 }
 
-function FilterAccordion({ label, children }: { label: string; children: React.ReactNode }) {
+function CheckRow({ checked, onClick, children }: { checked: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button onClick={onClick} className="flex w-full cursor-pointer items-center gap-2.5 text-sm text-ink-soft hover:text-ink">
+      <span className={cn('flex h-4 w-4 items-center justify-center rounded-sm border transition-colors', checked ? 'border-gold bg-gold text-white' : 'border-line')}>
+        {checked && <Check className="h-3 w-3" />}
+      </span>
+      {children}
+    </button>
+  )
+}
+
+function FilterAccordion({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(true)
   return (
     <div className="border-b border-line/60 pb-4">
