@@ -1,71 +1,167 @@
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+// PAGE-TRD-A04 / COMP-TRD-A07~A08：汇率管理 + 结算配置（权限 /settings；复用 tab+panel+data-table 风格）
+import { onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
-import StatusBadge from '@/components/StatusBadge.vue'
-import { adminUsers, roleMatrix, auditLogs } from '@/data/mock'
-import { PlusIcon, PencilSquareIcon, CheckIcon, XMarkIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import { useTradingSettingsStore } from '@/stores/tradingSettings'
+import { useToastStore } from '@/stores/toast'
+import { BizError } from '@/api/client'
+import { extractFieldErrors, validateCheckoutConfig, validateExchangeRate, type FieldErrors } from '@/utils/validators'
+import { formatDateTime } from '@/utils/format'
+import { PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 
-const tab = ref('admins')
-const permIcon = { full: { c: 'text-ok', i: 'full' }, read: { c: 'text-info', i: 'read' }, none: { c: 'text-ink-faint', i: 'none' } }
+const store = useTradingSettingsStore()
+const toast = useToastStore()
+
+const tab = ref<'rates' | 'checkout'>('rates')
+
+// ===== COMP-TRD-A07 汇率管理（USD 行只读恒 1；EUR/CAD/AUD/GBP 行内编辑） =====
+const editingCurrency = ref<string | null>(null)
+const rateDraft = ref('')
+const rateError = ref('')
+const savingRate = ref(false)
+
+function startEditRate(currency: string, rate: number) {
+  editingCurrency.value = currency
+  rateDraft.value = String(rate)
+  rateError.value = ''
+}
+
+async function saveRate() {
+  if (!editingCurrency.value) return
+  // FORM-TRD-A04：rate>0 数值预校验
+  const err = validateExchangeRate(rateDraft.value)
+  if (err) {
+    rateError.value = err
+    return
+  }
+  savingRate.value = true
+  try {
+    await store.saveRate(editingCurrency.value, rateDraft.value)
+    toast.success('汇率已更新（仅影响新订单锁汇）')
+    editingCurrency.value = null
+  } catch (e) {
+    // 422605/422601 错误回显
+    if (e instanceof BizError && (e.code === 422605 || e.code === 422601)) {
+      rateError.value = e.message
+    } else {
+      toast.error(e instanceof BizError ? e.message : '保存失败')
+    }
+  } finally {
+    savingRate.value = false
+  }
+}
+
+// ===== COMP-TRD-A08 结算配置 =====
+const configForm = ref({ giftWrapFeeUsd: '', customRefundGraceHours: 24 })
+const configErrors = ref<FieldErrors>({})
+const savingConfig = ref(false)
+
+async function loadAll() {
+  try {
+    await Promise.all([store.fetchRates(), store.fetchCheckoutConfig()])
+    if (store.checkoutConfig) {
+      configForm.value = {
+        giftWrapFeeUsd: String(store.checkoutConfig.giftWrapFeeUsd),
+        customRefundGraceHours: store.checkoutConfig.customRefundGraceHours,
+      }
+    }
+  } catch (e) {
+    toast.error(e instanceof BizError ? e.message : '加载配置失败')
+  }
+}
+
+async function saveConfig() {
+  // FORM-TRD-A05：fee≥0、grace 1..168 区间预校验 → 422 inline 兜底
+  configErrors.value = validateCheckoutConfig(configForm.value)
+  if (Object.keys(configErrors.value).length) return
+  savingConfig.value = true
+  try {
+    await store.saveCheckoutConfig({
+      giftWrapFeeUsd: configForm.value.giftWrapFeeUsd,
+      customRefundGraceHours: Number(configForm.value.customRefundGraceHours),
+    })
+    toast.success('结算配置已保存')
+  } catch (e) {
+    const fields = extractFieldErrors(e)
+    if (Object.keys(fields).length) configErrors.value = fields
+    else toast.error(e instanceof BizError ? e.message : '保存失败')
+  } finally {
+    savingConfig.value = false
+  }
+}
+
+onMounted(loadAll)
 </script>
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="System" title="系统设置" subtitle="管理员账号、角色权限矩阵与操作日志">
-      <template #actions><button class="btn-primary"><PlusIcon class="h-4 w-4" />新增管理员</button></template>
-    </PageHeader>
+    <PageHeader eyebrow="Settings" title="汇率与结算配置" subtitle="多币种汇率维护与结算费用配置（仅影响新订单）" />
+
     <div class="mb-4 flex gap-1 border-b border-line">
-      <button v-for="t in [['admins','管理员账号'],['roles','角色权限矩阵'],['logs','操作日志']]" :key="t[0]" @click="tab = t[0]" class="border-b-2 px-4 py-2.5 text-[13px] transition-colors" :class="tab === t[0] ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'">{{ t[1] }}</button>
+      <button
+        v-for="t in [['rates', '汇率管理'], ['checkout', '结算配置']] as const"
+        :key="t[0]"
+        class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
+        :class="tab === t[0] ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
+        @click="tab = t[0]"
+      >{{ t[1] }}</button>
     </div>
 
-    <!-- 管理员 -->
-    <div v-show="tab === 'admins'" class="panel overflow-hidden">
+    <!-- 汇率管理 tab -->
+    <div v-show="tab === 'rates'" class="panel overflow-hidden">
       <table class="data-table">
-        <thead><tr><th>管理员</th><th>角色</th><th>最近登录</th><th>状态</th><th class="text-right">操作</th></tr></thead>
+        <thead><tr><th>币种</th><th class="text-right">汇率（1 USD =）</th><th>更新人</th><th>更新时间</th><th class="text-right">操作</th></tr></thead>
         <tbody>
-          <tr v-for="u in adminUsers" :key="u.id">
-            <td><div><p class="font-medium text-ink">{{ u.name }}</p><p class="text-[11px] text-ink-faint">{{ u.email }}</p></div></td>
-            <td><span class="rounded-full bg-gold/12 px-2.5 py-0.5 text-[12px] text-gold-deep">{{ u.role }}</span></td>
-            <td class="text-[12px] text-ink-faint">{{ u.lastLogin }}</td>
-            <td><StatusBadge :tone="u.status === 1 ? 'ok' : 'danger'" :label="u.status === 1 ? '正常' : '已禁用'" /></td>
-            <td class="text-right"><button class="btn-ghost"><PencilSquareIcon class="h-4 w-4" />编辑</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 角色权限矩阵 -->
-    <div v-show="tab === 'roles'" class="panel overflow-x-auto">
-      <table class="data-table">
-        <thead><tr><th>角色 \ 模块</th><th v-for="m in roleMatrix.modules" :key="m" class="text-center">{{ m }}</th></tr></thead>
-        <tbody>
-          <tr v-for="r in roleMatrix.roles" :key="r.role">
-            <td class="font-medium text-ink">{{ r.role }}</td>
-            <td v-for="(p, i) in r.perms" :key="i" class="text-center">
-              <span v-if="p === 'full'" class="inline-flex items-center gap-0.5 text-[11px] text-ok"><CheckIcon class="h-4 w-4" /></span>
-              <span v-else-if="p === 'read'" class="inline-flex items-center gap-0.5 text-[11px] text-info"><EyeIcon class="h-3.5 w-3.5" />只读</span>
-              <span v-else class="text-ink-faint"><XMarkIcon class="mx-auto h-3.5 w-3.5" /></span>
+          <tr v-if="store.loadingRates"><td colspan="5" class="py-10 text-center text-ink-faint">加载中…</td></tr>
+          <tr v-for="r in store.rates" v-else :key="r.currency">
+            <td class="font-medium text-ink">{{ r.currency }}</td>
+            <td class="text-right">
+              <template v-if="editingCurrency === r.currency">
+                <div class="flex items-center justify-end gap-2">
+                  <input v-model="rateDraft" type="number" min="0" step="0.0001" class="field w-28 px-2 py-1 text-right text-[12px]" />
+                  <button class="btn-ghost text-ok" :disabled="savingRate" @click="saveRate"><CheckIcon class="h-4 w-4" /></button>
+                  <button class="btn-ghost" @click="editingCurrency = null"><XMarkIcon class="h-4 w-4" /></button>
+                </div>
+                <p v-if="rateError" class="mt-1 text-right text-[11px] text-danger">{{ rateError }}</p>
+              </template>
+              <span v-else class="font-mono text-[13px] text-ink">{{ Number(r.rate).toFixed(4) }}</span>
+            </td>
+            <td class="text-[12px] text-ink-faint">{{ r.updatedBy ? `#${r.updatedBy}` : '—' }}</td>
+            <td class="text-[12px] text-ink-faint">{{ formatDateTime(r.updatedAt) }}</td>
+            <td class="text-right">
+              <!-- USD 行只读（恒 1，编辑按钮禁用） -->
+              <button
+                class="btn-ghost disabled:opacity-40"
+                :disabled="r.currency === 'USD'"
+                :title="r.currency === 'USD' ? 'USD 为基准币种，恒为 1' : '编辑汇率'"
+                @click="startEditRate(r.currency, r.rate)"
+              ><PencilSquareIcon class="h-4 w-4" />编辑</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <p class="px-4 py-3 text-[12px] text-ink-faint">✓ 完全权限 · 只读 仅查看 · ✕ 无权限。点击单元格可调整（原型演示）。</p>
+      <p class="border-t border-line px-4 py-3 text-[12px] text-ink-faint">汇率仅影响新订单锁汇；既有订单按下单时锁定汇率结算。</p>
     </div>
 
-    <!-- 操作日志 -->
-    <div v-show="tab === 'logs'" class="panel overflow-hidden">
-      <table class="data-table">
-        <thead><tr><th>时间</th><th>操作人</th><th>操作</th><th>对象</th><th>IP</th></tr></thead>
-        <tbody>
-          <tr v-for="(l, i) in auditLogs" :key="i">
-            <td class="font-mono text-[12px] text-ink-faint">{{ l.time }}</td>
-            <td class="text-ink">{{ l.user }}</td>
-            <td><span class="rounded bg-canvas-warm px-2 py-0.5 text-[12px] text-ink-soft">{{ l.action }}</span></td>
-            <td class="text-ink-soft">{{ l.target }}</td>
-            <td class="font-mono text-[12px] text-ink-faint">{{ l.ip }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- 结算配置 tab -->
+    <div v-show="tab === 'checkout'" class="panel max-w-xl p-6">
+      <div class="space-y-5">
+        <div>
+          <label class="field-label">礼品包装费（USD）</label>
+          <input v-model="configForm.giftWrapFeeUsd" type="number" min="0" step="0.01" class="field" />
+          <p v-if="configErrors.giftWrapFeeUsd" class="mt-1 text-[11px] text-danger">{{ configErrors.giftWrapFeeUsd }}</p>
+          <p class="mt-1 text-[11px] text-ink-faint">结算页 Gift Wrapping 勾选项费用（决策 28 金额拆分行）。</p>
+        </div>
+        <div>
+          <label class="field-label">定制商品退款宽限期（小时，1~168）</label>
+          <input v-model.number="configForm.customRefundGraceHours" type="number" min="1" max="168" class="field" />
+          <p v-if="configErrors.customRefundGraceHours" class="mt-1 text-[11px] text-danger">{{ configErrors.customRefundGraceHours }}</p>
+          <p class="mt-1 text-[11px] text-ink-faint">定制单付款后超过宽限期视为已投产，不再支持退款（决策 24）。</p>
+        </div>
+        <div class="flex justify-end">
+          <button class="btn-gold" :disabled="savingConfig" @click="saveConfig">{{ savingConfig ? '保存中…' : '保存配置' }}</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

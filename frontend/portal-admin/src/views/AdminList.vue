@@ -31,7 +31,7 @@ const editingAdmin = ref<Admin | null>(null)
 const submitting = ref(false)
 
 // 表单
-const form = ref({ name: '', email: '', password: '', roleId: '', status: 1 })
+const form = ref<{ name: string; email: string; password: string; roleId: number | ''; status: number }>({ name: '', email: '', password: '', roleId: '', status: 1 })
 const formErrors = ref<Record<string, string>>({})
 const showPassword = ref(false)
 const newPassword = ref('')
@@ -107,14 +107,14 @@ async function submit() {
   submitting.value = true
   try {
     if (editingAdmin.value) {
-      await store.update(editingAdmin.value.id, { name: form.value.name.trim(), roleId: form.value.roleId })
+      await store.update(editingAdmin.value.id, { name: form.value.name.trim(), roleId: Number(form.value.roleId) })
       toast.success('管理员已更新')
     } else {
       await store.create({
         name: form.value.name.trim(),
         email: form.value.email.trim(),
         password: form.value.password,
-        roleId: form.value.roleId,
+        roleId: Number(form.value.roleId),
       })
       toast.success('管理员已创建')
     }

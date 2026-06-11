@@ -16,14 +16,14 @@ export function getUserDetail(id: number): Promise<UserDetail> {
   return get<UserDetail>(`/api/admin/users/${id}`)
 }
 
-export function toggleUserStatus(id: number, status: string): Promise<UserListItem> {
+export function toggleUserStatus(id: number, status: string | number): Promise<UserListItem> {
   return patch<UserListItem>(`/api/admin/users/${id}/status`, { status })
 }
 
 // scope: 'single' | 'all'；single 时需 sessionId
 export function forceLogout(
   id: number,
-  payload: { scope: 'single' | 'all'; sessionId?: string },
+  payload: { scope: 'single' | 'all'; sessionId?: string | number },
 ): Promise<void> {
   return post<void>(`/api/admin/users/${id}/sessions/force-logout`, payload)
 }

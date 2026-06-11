@@ -192,3 +192,753 @@ export interface OperationLog {
   changes: string | null
   createdAt: string | null
 }
+
+// ============================================================================
+// portal-api-integration：六域 DTO（camelCase；snake_case 由 client 拦截器转换）
+// 来源 = specs/architecture/api-contracts/*.openapi.yml + backend DTO record
+// ============================================================================
+
+// ===== 通用（六域） =====
+
+/** 三语翻译行 locale 枚举（EN 写主字段，ES/FR 进 translations[]——决策 13） */
+export type TranslationLocale = 'es' | 'fr'
+
+// ===== catalog（PAGE-CAT-A01~A04 / STORE-CAT-A01~A05） =====
+
+export type ProductStatus = 'draft' | 'published'
+
+export interface ProductTranslation {
+  locale: TranslationLocale
+  name?: string | null
+  subtitle?: string | null
+  description?: string | null
+  seoTitle?: string | null
+  seoDescription?: string | null
+}
+
+export interface ProductImage {
+  id?: number | null
+  url: string
+  kind: string
+  colorName?: string | null
+  sort?: number | null
+}
+
+export interface Sku {
+  id?: number | null
+  skuCode: string
+  color: string
+  size: string
+  stock: number
+  version?: number | null
+}
+
+export interface SizeChartRow {
+  id?: number | null
+  us?: string | null
+  uk?: string | null
+  au?: string | null
+  bust?: number | string | null
+  waist?: number | string | null
+  hips?: number | string | null
+  hollowToFloor?: number | string | null
+}
+
+export interface AdminProductListItem {
+  id: number
+  name: string
+  slug: string
+  styleNo?: string | null
+  categoryId: number | null
+  categoryName?: string | null
+  price: number
+  compareAt?: number | null
+  status: ProductStatus
+  isNew?: boolean | null
+  isBest?: boolean | null
+  recommend?: boolean | null
+  sort?: number | null
+  stockTotal?: number | null
+  imageUrl?: string | null
+}
+
+export interface AdminProductUpsert {
+  name: string
+  slug: string
+  subtitle?: string | null
+  categoryId: number | null
+  productType?: string | null
+  description?: string | null
+  designerNote?: string | null
+  price: number | string
+  compareAt?: number | string | null
+  installment?: boolean | null
+  multiCurrencyPrices?: Record<string, number | string> | null
+  status: ProductStatus
+  isNew?: boolean | null
+  isBest?: boolean | null
+  recommend?: boolean | null
+  sort?: number | null
+  leadTimeDays?: number | null
+  rushAvailable?: boolean | null
+  customSizeAvailable?: boolean | null
+  silhouette?: string | null
+  neckline?: string | null
+  sleeve?: string | null
+  backStyle?: string | null
+  waistline?: string | null
+  train?: string | null
+  length?: string | null
+  fabric?: string | null
+  fabricComposition?: string | null
+  support?: string | null
+  season?: string | null
+  embellishments?: string[] | null
+  occasions?: string[] | null
+  styleTags?: string[] | null
+  modelHeight?: string | null
+  modelSize?: string | null
+  modelBodyType?: string | null
+  careInstructions?: string | null
+  countryOfOrigin?: string | null
+  styleNo?: string | null
+  seoTitle?: string | null
+  seoDesc?: string | null
+  images?: ProductImage[]
+  skus?: Sku[]
+  sizeChart?: SizeChartRow[]
+  tagIds?: number[]
+  translations?: ProductTranslation[]
+  updatedAt?: string | null
+}
+
+export interface AdminProductDetail extends Omit<AdminProductUpsert, 'updatedAt'> {
+  id: number
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface CategoryTranslation {
+  locale: TranslationLocale
+  name?: string | null
+}
+
+/** 三态可见性 */
+export type AttrVisibility = 'visible' | 'optional' | 'hidden'
+
+export interface AdminCategoryNode {
+  id: number
+  name: string
+  parentId: number | null
+  attributeSetId: number | null
+  attrOverrides?: Record<string, AttrVisibility> | null
+  sort?: number | null
+  level?: number | null
+  productCount?: number | null
+  children?: AdminCategoryNode[] | null
+  translations?: CategoryTranslation[] | null
+}
+
+export interface AdminCategoryUpsert {
+  name: string
+  parentId?: number | null
+  attributeSetId?: number | null
+  attrOverrides?: Record<string, AttrVisibility> | null
+  sort?: number | null
+  translations?: CategoryTranslation[] | null
+}
+
+export interface AttributeSetItem {
+  attributeId: number
+  visibility: AttrVisibility
+}
+
+export interface AttributeSet {
+  id: number
+  label: string
+  items: AttributeSetItem[]
+  categoryCount?: number | null
+}
+
+export interface AttributeSetUpsert {
+  label: string
+  items: AttributeSetItem[]
+}
+
+export type AttributeDefType = 'select' | 'multiselect' | 'text' | 'toggle'
+
+export interface AttributeDefTranslation {
+  locale: TranslationLocale
+  label?: string | null
+  options?: string[] | null
+}
+
+export interface AttributeDef {
+  id: number
+  key: string
+  label: string
+  type: AttributeDefType
+  options?: string[] | null
+  translations?: AttributeDefTranslation[] | null
+}
+
+export interface AttributeDefUpsert {
+  key: string
+  label: string
+  type: AttributeDefType
+  options?: string[] | null
+  translations?: AttributeDefTranslation[] | null
+}
+
+export interface TagDimensionTranslation {
+  locale: TranslationLocale
+  name?: string | null
+}
+
+export interface TagDimension {
+  id: number
+  name: string
+  description?: string | null
+  tagCount?: number | null
+  translations?: TagDimensionTranslation[] | null
+}
+
+export interface TagDimensionUpsert {
+  name: string
+  description?: string | null
+  translations?: TagDimensionTranslation[] | null
+}
+
+export interface TagTranslation {
+  locale: TranslationLocale
+  label?: string | null
+}
+
+export type TagStatus = 'enabled' | 'disabled'
+
+export interface Tag {
+  id: number
+  dimensionId: number
+  name: string
+  cover?: string | null
+  status: TagStatus
+  productCount?: number | null
+  translations?: TagTranslation[] | null
+}
+
+export interface TagUpsert {
+  dimensionId: number
+  name: string
+  cover?: string | null
+  status: TagStatus
+  translations?: TagTranslation[] | null
+}
+
+export type PresignScope = 'product' | 'category' | 'tag' | 'banner' | 'content'
+
+export interface PresignRequest {
+  fileName: string
+  contentType: string
+  scope?: PresignScope
+}
+
+export interface PresignResponse {
+  uploadUrl: string
+  objectKey: string
+  publicUrl: string
+  expiresAt?: string | null
+}
+
+// ===== trading（PAGE-TRD-A01~A04 / STORE-TRD-A01~A03） =====
+
+export type OrderStatus =
+  | 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunding' | 'refunded'
+
+export interface CustomSizeData {
+  bust?: number | null
+  waist?: number | null
+  hips?: number | null
+  hollowToFloor?: number | null
+  height?: number | null
+}
+
+export interface OrderLine {
+  id: number
+  productId: number | null
+  skuId: number | null
+  productName: string
+  skuCode?: string | null
+  color?: string | null
+  size?: string | null
+  qty: number
+  unitPrice: number
+  img?: string | null
+  customSizeData?: CustomSizeData | null
+  refundable?: boolean | null
+}
+
+export interface PaymentSummary {
+  provider?: string | null
+  paymentIntentId?: string | null
+  amount?: number | null
+  currency?: string | null
+  status?: string | null
+  cardSummary?: string | null
+  paidAt?: string | null
+}
+
+export interface AdminOrderListItem {
+  id: number
+  orderNo: string
+  status: OrderStatus
+  currency: string
+  exchangeRate?: number | null
+  weddingDate?: string | null
+  subtotal?: number | null
+  shippingFee?: number | null
+  giftWrap?: boolean | null
+  giftWrapFee?: number | null
+  discountAmount?: number | null
+  totalAmount: number
+  couponId?: number | null
+  paymentMethod?: string | null
+  carrier?: string | null
+  trackingNo?: string | null
+  expiresAt?: string | null
+  paidAt?: string | null
+  shippedAt?: string | null
+  completedAt?: string | null
+  createdAt?: string | null
+  customerId?: number | null
+  customerName?: string | null
+  customerEmail?: string | null
+}
+
+export type RefundStatus = 'pending' | 'approved' | 'rejected'
+
+export interface AdminRefund {
+  id: number
+  refundNo: string
+  orderId: number
+  amount: number
+  currency: string
+  reason?: string | null
+  rejectReason?: string | null
+  status: RefundStatus
+  appliedAt?: string | null
+  orderNo?: string | null
+  customerId?: number | null
+  customerName?: string | null
+  customerEmail?: string | null
+  stripeRefundId?: string | null
+  returnTrackingNo?: string | null
+}
+
+export interface AdminOrderDetail extends AdminOrderListItem {
+  customerPhone?: string | null
+  lines: OrderLine[]
+  addressSnapshot?: Record<string, unknown> | null
+  payment?: PaymentSummary | null
+  refunds?: AdminRefund[] | null
+}
+
+export interface ExchangeRate {
+  id: number
+  currency: string
+  rate: number
+  updatedBy?: number | null
+  updatedAt?: string | null
+}
+
+export interface CheckoutConfig {
+  giftWrapFeeUsd: number | string
+  customRefundGraceHours: number
+}
+
+// ===== marketing（PAGE-MKT-A01~A05 / STORE-MKT-A01~A06） =====
+
+export type CouponStatus = 'draft' | 'scheduled' | 'active' | 'expiring' | 'expired'
+export type CouponType = 'discount' | 'fixed_amount' | 'free_shipping'
+
+export interface CouponTranslation {
+  locale: TranslationLocale
+  name?: string | null
+  description?: string | null
+}
+
+export interface Coupon {
+  id: number
+  code: string
+  name: string
+  type: CouponType
+  value: string
+  minAmount?: number | null
+  totalLimit?: number | null
+  usedCount?: number | null
+  startAt?: string | null
+  endAt?: string | null
+  status: CouponStatus
+  description?: string | null
+  translations?: CouponTranslation[] | null
+}
+
+export interface CouponUpsert {
+  code: string
+  name: string
+  type: CouponType
+  value: string
+  minAmount?: number | string | null
+  totalLimit?: number | null
+  startAt?: string | null
+  endAt?: string | null
+  status: CouponStatus
+  description?: string | null
+  translations?: CouponTranslation[] | null
+}
+
+export type FlashSaleStatus = 'draft' | 'scheduled' | 'active' | 'ended'
+
+export interface FlashSaleTranslation {
+  locale: TranslationLocale
+  name?: string | null
+}
+
+export interface FlashSale {
+  id: number
+  name: string
+  discount: string
+  startAt?: string | null
+  endAt?: string | null
+  status: FlashSaleStatus
+  productIds?: number[] | null
+  translations?: FlashSaleTranslation[] | null
+}
+
+export interface FlashSaleUpsert {
+  name: string
+  discount: string
+  startAt: string
+  endAt: string
+  status: FlashSaleStatus
+  productIds?: number[] | null
+  translations?: FlashSaleTranslation[] | null
+}
+
+export type BannerStatus = 'draft' | 'published' | 'archived'
+export type BannerPosition = 'hero' | 'featured' | 'topbar'
+
+export interface BannerTranslation {
+  locale: TranslationLocale
+  title?: string | null
+  subtitle?: string | null
+  ctaText?: string | null
+}
+
+export interface Banner {
+  id: number
+  name: string
+  imageUrl: string
+  position: BannerPosition
+  startTime?: string | null
+  endTime?: string | null
+  status: BannerStatus
+  sort?: number | null
+  clicks?: number | null
+  title?: string | null
+  subtitle?: string | null
+  ctaText?: string | null
+  translations?: BannerTranslation[] | null
+}
+
+export interface BannerUpsert {
+  name: string
+  imageUrl: string
+  position: BannerPosition
+  startTime?: string | null
+  endTime?: string | null
+  status: BannerStatus
+  sort?: number | null
+  title?: string | null
+  subtitle?: string | null
+  ctaText?: string | null
+  translations?: BannerTranslation[] | null
+}
+
+export type ContentStatus = 'draft' | 'published' | 'archived'
+export type PublishStatus = 'draft' | 'published'
+
+export interface BlogPostTranslation {
+  locale: TranslationLocale
+  title?: string | null
+  excerpt?: string | null
+  body?: string | null
+  seoTitle?: string | null
+  seoDescription?: string | null
+}
+
+export interface BlogPost {
+  id: number
+  title: string
+  cover?: string | null
+  category?: string | null
+  author?: string | null
+  content?: string | null
+  slug?: string | null
+  status: ContentStatus
+  publishedAt?: string | null
+  views?: number | null
+  translations?: BlogPostTranslation[] | null
+}
+
+export interface BlogPostUpsert {
+  title: string
+  cover?: string | null
+  category?: string | null
+  author?: string | null
+  content?: string | null
+  slug?: string | null
+  status: ContentStatus
+  translations?: BlogPostTranslation[] | null
+}
+
+export interface RealWeddingTranslation {
+  locale: TranslationLocale
+  title?: string | null
+  story?: string | null
+}
+
+export interface RealWedding {
+  id: number
+  couple: string
+  location?: string | null
+  theme?: string | null
+  weddingDate?: string | null
+  cover?: string | null
+  status: PublishStatus
+  title?: string | null
+  story?: string | null
+  productIds?: number[] | null
+  translations?: RealWeddingTranslation[] | null
+}
+
+export interface RealWeddingUpsert {
+  couple: string
+  location?: string | null
+  theme?: string | null
+  weddingDate?: string | null
+  cover?: string | null
+  status: PublishStatus
+  title?: string | null
+  story?: string | null
+  productIds?: number[] | null
+  translations?: RealWeddingTranslation[] | null
+}
+
+export interface LookbookTranslation {
+  locale: TranslationLocale
+  title?: string | null
+  description?: string | null
+}
+
+export interface Lookbook {
+  id: number
+  title: string
+  theme?: string | null
+  status: PublishStatus
+  description?: string | null
+  productIds?: number[] | null
+  translations?: LookbookTranslation[] | null
+}
+
+export interface LookbookUpsert {
+  title: string
+  theme?: string | null
+  status: PublishStatus
+  description?: string | null
+  productIds?: number[] | null
+  translations?: LookbookTranslation[] | null
+}
+
+export interface GuideTranslation {
+  locale: TranslationLocale
+  title?: string | null
+  body?: string | null
+}
+
+export interface Guide {
+  id: number
+  phase: string
+  timeframe?: string | null
+  title: string
+  tasksCount?: number | null
+  status: PublishStatus
+  body?: string | null
+  translations?: GuideTranslation[] | null
+}
+
+export interface GuideUpsert {
+  phase: string
+  timeframe?: string | null
+  title: string
+  tasksCount?: number | null
+  status: PublishStatus
+  body?: string | null
+  translations?: GuideTranslation[] | null
+}
+
+// ===== review（PAGE-REV-A01 / STORE-REV-A01~A03） =====
+
+export type ReviewModerationStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ReviewImage {
+  id: number
+  url: string
+  rejected: boolean
+}
+
+export interface AdminReview {
+  id: number
+  productId: number
+  userId?: number | null
+  productName?: string | null
+  customerName?: string | null
+  rating: number
+  content?: string | null
+  status: ReviewModerationStatus
+  featured?: boolean | null
+  submittedAt?: string | null
+  images: ReviewImage[]
+  replyAuthor?: string | null
+  replyContent?: string | null
+  replyTime?: string | null
+}
+
+/** MAP-REV-007：Paginated 子类 + pending_count 平铺同层 */
+export interface AdminReviewPage extends PageResult<AdminReview> {
+  pendingCount: number
+}
+
+export interface BatchResult {
+  updatedIds: number[]
+  skippedIds: number[]
+}
+
+export type QuestionVisible = 'visible' | 'hidden'
+
+export interface AdminQuestion {
+  id: number
+  productId: number
+  productName?: string | null
+  asker?: string | null
+  question: string
+  askedAt?: string | null
+  answer?: string | null
+  answerTime?: string | null
+  visible: QuestionVisible
+}
+
+// ===== shipping（PAGE-SHP-01 / STORE-SHP-01） =====
+
+export type CarrierStatus = 'enabled' | 'disabled'
+
+export interface Carrier {
+  id: number
+  name: string
+  zones?: string | null
+  leadTime?: string | null
+  status: CarrierStatus
+}
+
+export interface CarrierUpsert {
+  name: string
+  zones?: string | null
+  leadTime?: string | null
+  status: CarrierStatus
+}
+
+export interface ShippingRate {
+  id: number
+  zone: string
+  feeUnder?: number | null
+  feeOver?: number | null
+  threshold?: number | null
+}
+
+export interface ShippingRateUpsert {
+  zone: string
+  feeUnder?: number | string | null
+  feeOver?: number | string | null
+  threshold?: number | string | null
+}
+
+// ===== analytics（PAGE-ANA-A01~A02 / STORE-ANA-01~02） =====
+
+export interface Kpis {
+  gmvMonth: number
+  orderCount: number
+  avgOrderValue: number
+  refundRate: number
+}
+
+export interface Todos {
+  pendingRefundCount: number
+  pendingReviewCount: number
+  unshippedOrderCount: number
+}
+
+export interface TrendSeries {
+  labels: string[]
+  values: number[]
+}
+
+export interface DashboardResponse {
+  kpis: Kpis
+  todos: Todos
+  gmvTrend: TrendSeries
+}
+
+export interface CategorySalesItem {
+  categoryId: number
+  categoryName: string
+  amount: number
+  share: number
+}
+
+export interface TopProductItem {
+  productId: number
+  name: string
+  imageUrl?: string | null
+  sales: number
+  amount: number
+}
+
+export interface AnalyticsOverviewResponse {
+  kpis: Kpis
+  gmvTrend: TrendSeries
+  categorySales: CategorySalesItem[]
+  topProducts: TopProductItem[]
+}
+
+export interface TrafficSourceItem {
+  source: string
+  sessions: number
+  share: number
+}
+
+export interface DeviceShareItem {
+  device: string
+  share: number
+}
+
+export interface FunnelStage {
+  stage: string
+  value: number
+}
+
+export interface AnalyticsTrafficResponse {
+  sourceStatus: 'ok' | 'unavailable'
+  fetchedAt?: string | null
+  trafficSources?: TrafficSourceItem[] | null
+  deviceShare?: DeviceShareItem[] | null
+  funnel?: FunnelStage[] | null
+}

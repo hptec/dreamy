@@ -7,13 +7,16 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { bare: true } },
   { path: '/403', name: 'forbidden', component: () => import('@/views/Forbidden.vue'), meta: { title: '无权限', group: '系统' } },
 
-  { path: '/', name: 'dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '工作台', group: '工作台', permission: '/' } },
+  // DEC-ANA-FE-1：meta.permission 由 '/' 修正为 '/dashboard'（对齐契约权限点与 identity 字典种子）
+  { path: '/', name: 'dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '工作台', group: '工作台', permission: '/dashboard' } },
 
   // 商品（占位）
   { path: '/products', name: 'products', component: () => import('@/views/Products.vue'), meta: { title: '商品列表', group: '商品管理', permission: '/products' } },
   { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true, permission: '/products' } },
   { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true, permission: '/products' } },
-  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与主题', group: '商品管理', permission: '/categories' } },
+  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与标签', group: '商品管理', permission: '/categories' } },
+  // PAGE-CAT-A04：属性集（真实工程缺页，按原型新建）
+  { path: '/attribute-sets', name: 'attribute-sets', component: () => import('@/views/AttributeSets.vue'), meta: { title: '属性集', group: '商品管理', permission: '/attribute-sets' } },
 
   // 订单（占位）
   { path: '/orders', name: 'orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单列表', group: '订单管理', permission: '/orders' } },
@@ -27,16 +30,23 @@ const routes: RouteRecordRaw[] = [
   // 站点装修（占位）
   { path: '/site/home', name: 'home-builder', component: () => import('@/views/HomeBuilder.vue'), meta: { title: '首页装修', group: '站点装修', permission: '/site/home' } },
   { path: '/site/navigation', name: 'navigation-config', component: () => import('@/views/NavigationConfig.vue'), meta: { title: '导航与页脚', group: '站点装修', permission: '/site/navigation' } },
-  { path: '/site/banners', name: 'banners', component: () => import('@/views/Banners.vue'), meta: { title: 'Banner 管理', group: '站点装修', permission: '/site/banners' } },
+  // PAGE-MKT-A02：Banner 路由对齐契约权限点 /banners（旧 /site/banners 重定向兼容）
+  { path: '/banners', name: 'banners', component: () => import('@/views/Banners.vue'), meta: { title: 'Banner 管理', group: '站点装修', permission: '/banners' } },
+  { path: '/site/banners', redirect: '/banners' },
 
   // 营销（占位）
-  { path: '/marketing/promotions', name: 'promotions', component: () => import('@/views/Promotions.vue'), meta: { title: '优惠券与促销', group: '营销活动', permission: '/marketing/promotions' } },
+  // PAGE-MKT-A01：促销路由对齐契约权限点 /promotions（旧 /marketing/promotions 重定向兼容）
+  { path: '/promotions', name: 'promotions', component: () => import('@/views/Promotions.vue'), meta: { title: '优惠券与促销', group: '营销活动', permission: '/promotions' } },
+  { path: '/marketing/promotions', redirect: '/promotions' },
   { path: '/marketing/email', name: 'email', component: () => import('@/views/EmailMarketing.vue'), meta: { title: '邮件营销', group: '营销活动', permission: '/marketing/email' } },
 
   // 内容（占位）
   { path: '/content/blog', name: 'content-blog', component: () => import('@/views/ContentBlog.vue'), meta: { title: 'Blog 文章', group: '内容管理', permission: '/content/blog' } },
   { path: '/content/weddings', name: 'content-weddings', component: () => import('@/views/ContentWeddings.vue'), meta: { title: 'Real Weddings', group: '内容管理', permission: '/content/weddings' } },
   { path: '/content/lookbook', name: 'content-lookbook', component: () => import('@/views/ContentLookbook.vue'), meta: { title: 'Lookbook 与指南', group: '内容管理', permission: '/content/lookbook' } },
+
+  // PAGE-REV-A01：评价与 Q&A（本变更新增权限点 /reviews）
+  { path: '/reviews', name: 'reviews', component: () => import('@/views/Reviews.vue'), meta: { title: '评价与 Q&A', group: '内容管理', permission: '/reviews' } },
 
   // 数据（占位）
   { path: '/analytics', name: 'analytics', component: () => import('@/views/Analytics.vue'), meta: { title: '数据看板', group: '数据分析', permission: '/analytics' } },
@@ -51,7 +61,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/system/auth', name: 'system-auth', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录与认证', group: '系统管理', permission: '/system/auth' } },
   { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理', permission: '/system/logs' } },
 
-  { path: '/settings', redirect: '/system/admins' },
+  // PAGE-TRD-A04：汇率与结算配置（权限点 /settings，trading 域种子）
+  { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '汇率与结算配置', group: '发布与系统', permission: '/settings' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 

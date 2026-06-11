@@ -77,3 +77,33 @@ export function initialsOf(name?: string | null, fallback = '?'): string {
   if (!name) return fallback
   return name.trim().charAt(0).toUpperCase()
 }
+
+// ===== portal-api-integration 增补：金额 / 币种 / datetime-local =====
+
+/** 币种符号（决策 14 五币种） */
+export const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  CAD: 'C$',
+  AUD: 'A$',
+  GBP: '£',
+}
+
+export function currencySymbol(currency?: string | null): string {
+  if (!currency) return '$'
+  return CURRENCY_SYMBOL[currency] ?? currency + ' '
+}
+
+/** 金额（千分位 + 两位小数），cur 缺省 USD */
+export function formatMoney(amount?: number | string | null, currency?: string | null): string {
+  if (amount == null || amount === '') return '—'
+  const n = Number(amount)
+  if (Number.isNaN(n)) return '—'
+  return currencySymbol(currency) + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** ISO（LocalDateTime）→ datetime-local 控件值（YYYY-MM-DDTHH:mm） */
+export function toDatetimeLocal(iso?: string | null): string {
+  if (!iso) return ''
+  return iso.slice(0, 16)
+}

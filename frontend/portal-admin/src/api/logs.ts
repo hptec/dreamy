@@ -22,7 +22,7 @@ export async function exportOperationLogs(
   const base = import.meta.env.VITE_API_BASE_URL || ''
   const query = new URLSearchParams()
   if (params.action) query.set('action', params.action)
-  if (params.operatorId) query.set('operator_id', params.operatorId)
+  if (params.operatorId) query.set('operator_id', String(params.operatorId))
   if (params.from) query.set('from', params.from)
   if (params.to) query.set('to', params.to)
   const url = `${base}/api/admin/operation-logs/export?${query.toString()}`

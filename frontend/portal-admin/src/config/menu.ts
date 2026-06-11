@@ -17,6 +17,8 @@ import type { FunctionalComponent } from 'vue'
 export interface MenuItem {
   title: string
   to: string
+  /** 菜单过滤所用权限 key（缺省 = to；工作台 to='/' 而权限点为 '/dashboard'——DEC-ANA-FE-1） */
+  permission?: string
 }
 export interface MenuGroup {
   label: string
@@ -29,7 +31,7 @@ export const menuGroups: MenuGroup[] = [
   {
     label: '工作台',
     icon: Squares2X2Icon,
-    items: [{ title: '工作台', to: '/' }],
+    items: [{ title: '工作台', to: '/', permission: '/dashboard' }],
   },
   {
     label: '站点装修',
@@ -38,7 +40,7 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { title: '首页装修', to: '/site/home' },
       { title: '导航与页脚', to: '/site/navigation' },
-      { title: 'Banner 管理', to: '/site/banners' },
+      { title: 'Banner 管理', to: '/banners' },
     ],
   },
   {
@@ -46,7 +48,8 @@ export const menuGroups: MenuGroup[] = [
     icon: ShoppingBagIcon,
     items: [
       { title: '商品列表', to: '/products' },
-      { title: '品类与主题', to: '/categories' },
+      { title: '品类与标签', to: '/categories' },
+      { title: '属性集', to: '/attribute-sets' },
     ],
   },
   {
@@ -66,7 +69,7 @@ export const menuGroups: MenuGroup[] = [
     label: '营销活动',
     icon: MegaphoneIcon,
     items: [
-      { title: '优惠券与促销', to: '/marketing/promotions' },
+      { title: '优惠券与促销', to: '/promotions' },
       { title: '邮件营销', to: '/marketing/email' },
     ],
   },
@@ -77,6 +80,7 @@ export const menuGroups: MenuGroup[] = [
       { title: 'Blog 文章', to: '/content/blog' },
       { title: 'Real Weddings', to: '/content/weddings' },
       { title: 'Lookbook 与指南', to: '/content/lookbook' },
+      { title: '评价与 Q&A', to: '/reviews' },
     ],
   },
   {
@@ -90,6 +94,7 @@ export const menuGroups: MenuGroup[] = [
     items: [
       { title: '发布中心', to: '/publish' },
       { title: '物流配置', to: '/shipping' },
+      { title: '汇率与结算配置', to: '/settings' },
     ],
   },
   {

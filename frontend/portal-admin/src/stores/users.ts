@@ -56,12 +56,12 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function toggleStatus(id: number, status: string) {
+  async function toggleStatus(id: number, status: string | number) {
     await usersApi.toggleUserStatus(id, status)
     await fetchDetail(id)
   }
 
-  async function forceLogout(id: number, scope: 'single' | 'all', sessionId?: string) {
+  async function forceLogout(id: number, scope: 'single' | 'all', sessionId?: string | number) {
     await usersApi.forceLogout(id, { scope, sessionId })
     await fetchDetail(id)
   }

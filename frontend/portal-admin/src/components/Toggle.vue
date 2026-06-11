@@ -6,6 +6,8 @@ const emit = defineEmits(['update:modelValue'])
 
 <template>
   <Switch
+    as="button"
+    type="button"
     :model-value="modelValue"
     @update:model-value="emit('update:modelValue', $event)"
     :class="modelValue ? 'bg-gold' : 'bg-line'"

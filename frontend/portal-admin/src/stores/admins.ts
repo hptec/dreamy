@@ -57,7 +57,7 @@ export const useAdminsStore = defineStore('admins', () => {
     await fetchList()
   }
 
-  async function toggleStatus(id: number, status: string) {
+  async function toggleStatus(id: number, status: string | number) {
     await adminsApi.toggleAdminStatus(id, status)
     await fetchList()
   }

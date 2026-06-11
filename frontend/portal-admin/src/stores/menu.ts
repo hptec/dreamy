@@ -12,7 +12,7 @@ export const useMenuStore = defineStore('menu', () => {
     if (auth.isSuper) return menuGroups
     const keys = new Set(auth.permissionKeys)
     return menuGroups
-      .map((g) => ({ ...g, items: g.items.filter((item) => keys.has(item.to)) }))
+      .map((g) => ({ ...g, items: g.items.filter((item) => keys.has(item.permission ?? item.to)) }))
       .filter((g) => g.items.length > 0)
   })
 

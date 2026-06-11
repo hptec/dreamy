@@ -12,7 +12,7 @@ import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline
 const store = useRolesStore()
 const toast = useToastStore()
 
-const selectedRoleId = ref<string | null>(null)
+const selectedRoleId = ref<number | null>(null)
 // 本地编辑副本：当前角色的权限 key 集合
 const editingKeys = ref<string[]>([])
 const hasUnsavedChanges = ref(false)
@@ -47,7 +47,7 @@ async function load() {
   }
 }
 
-function selectRole(id: string) {
+function selectRole(id: number) {
   if (hasUnsavedChanges.value) {
     const ok = window.confirm('你有未保存的权限变更，确定放弃并切换角色？')
     if (!ok) return
@@ -167,7 +167,7 @@ async function doDeleteRole() {
     await store.remove(deleteTarget.value.id)
     toast.success('角色已删除')
     if (selectedRoleId.value === deleteTarget.value.id) {
-      selectedRoleId.value = store.roles[0]?.id || null
+      selectedRoleId.value = store.roles[0]?.id ?? null
       syncEditingKeys()
     }
     showDeleteRoleConfirm.value = false

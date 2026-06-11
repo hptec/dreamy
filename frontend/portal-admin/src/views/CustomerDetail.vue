@@ -22,7 +22,7 @@ const router = useRouter()
 const store = useUsersStore()
 const toast = useToastStore()
 
-const userId = computed(() => String(route.params.id))
+const userId = computed(() => Number(route.params.id))
 const detail = computed(() => store.detail)
 const user = computed(() => store.detail?.user || null)
 const identities = computed(() => store.detail?.identities || [])
@@ -32,7 +32,7 @@ const loginHistory = computed(() => store.detail?.loginHistory || [])
 // 二次确认弹窗状态
 const showForceLogout = ref(false)
 const forceScope = ref<'single' | 'all'>('all')
-const forceSessionId = ref<string | undefined>(undefined)
+const forceSessionId = ref<string | number | undefined>(undefined)
 const showToggleStatus = ref(false)
 const acting = ref(false)
 
@@ -51,7 +51,7 @@ function askForceLogoutAll() {
   forceSessionId.value = undefined
   showForceLogout.value = true
 }
-function askRevokeSession(id: string) {
+function askRevokeSession(id: number | string) {
   forceScope.value = 'single'
   forceSessionId.value = id
   showForceLogout.value = true
@@ -89,7 +89,7 @@ onMounted(load)
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader :eyebrow="user?.id || userId" title="用户详情">
+    <PageHeader :eyebrow="String(user?.id ?? userId)" title="用户详情">
       <template #actions>
         <button class="btn-ghost" @click="router.push('/customers')"><ArrowLeftIcon class="h-4 w-4" />返回</button>
         <button class="btn-outline" :disabled="!sessions.length" @click="askForceLogoutAll"><ArrowRightOnRectangleIcon class="h-4 w-4" />强制下线</button>

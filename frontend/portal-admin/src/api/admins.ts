@@ -23,7 +23,7 @@ export function deleteAdmin(id: number): Promise<void> {
   return del<void>(`/api/admin/admins/${id}`)
 }
 
-export function toggleAdminStatus(id: number, status: string): Promise<Admin> {
+export function toggleAdminStatus(id: number, status: string | number): Promise<Admin> {
   return patch<Admin>(`/api/admin/admins/${id}/status`, { status })
 }
 
