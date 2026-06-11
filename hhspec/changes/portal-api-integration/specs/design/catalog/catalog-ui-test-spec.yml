@@ -1,0 +1,220 @@
+# catalog UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: catalog
+# 约束：只看原型不看代码；穷举操作路径；与 catalog-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 对齐：ui-verification-checklist.md 本域条目 —— products(OP-012)/product-edit(OP-010/OP-011 + 文本"保存草稿")/categories/attribute-sets 四页视觉基线截图
+# 原型源：hhspec/prototype/portal-admin/src/views/{Products,ProductEdit,Categories,AttributeSets}.vue
+#         hhspec/prototype/app/product/[slug]/page.tsx + components/product/find-my-size-modal.tsx + app/search + 聚合列表页
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: catalog
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav]
+  conformance_note: "原型强对照：token/布局零偏离；loading/error/empty 态复用既有组件风格；headless-ui 根组件 class 必配 as（CP-072）"
+
+pages:
+  # ===== portal-admin（Vue3, 中文, 5174）=====
+  - id: UIS-CAT-A01
+    page: /products
+    prototype: portal-admin/src/views/Products.vue
+    checklist_refs: ["OP-012 [navigation] 新增商品(/products/new)", "screenshots/products-full-desktop.png"]
+    visual_baseline: [products-full-desktop, products-more-filters-open, products-empty-state]
+    interactions:
+      - path: 点击「新增商品」按钮（OP-012）
+        assert: [跳转 /products/new, ProductEdit 空白表单渲染]
+      - path: 搜索框输入商品名/货号（防抖）
+        assert: [列表按服务端结果更新, 总数徽章同步, 无结果显示 EmptyState]
+      - path: 品类下拉 + 状态下拉筛选
+        assert: [列表更新, 筛选项宽度固定不抖动]
+      - path: 展开「更多筛选」面板
+        assert: [productType/库存档/标记/价格区间/标签五区渲染, 激活计数徽章正确, 重置按钮清空]
+      - path: 行内 Toggle 上架/下架
+        assert: [Toggle 即时翻转(乐观), 失败回滚并 toast, StatusBadge published/draft 同步]
+      - path: 行内 Toggle isNew/recommend 与排序输入 blur
+        assert: [PATCH 请求发出, 失败回滚]
+      - path: 删除已发布商品
+        assert: [确认弹窗, 确认后 toast「已发布商品需先下架」(409509), 行保留]
+      - path: 删除草稿商品
+        assert: [确认弹窗, 行移除, 总数减一]
+      - path: 翻页
+        assert: [Pagination 页码切换发起新请求, 滚动回表格顶部]
+    field_assertions: [复选列, 商品(主图+名称+货号), 品类, 价格, 库存合计, 状态, 营销标记, 排序输入, 操作列]
+    state_transitions: [published<->draft 行内切换, 行删除 draft->gone]
+    accessibility: [表格 th 语义, Toggle aria-checked, 删除确认 dialog role]
+
+  - id: UIS-CAT-A02
+    page: /products/new 与 /products/:id/edit
+    prototype: portal-admin/src/views/ProductEdit.vue
+    checklist_refs: ["OP-010 [api_call] 返回列表", "OP-011 [navigation] 保存并生成静态页", "文本断言：保存草稿", "screenshots/product-edit-full-desktop.png"]
+    visual_baseline: [product-edit-full-desktop, product-edit-sku-matrix, product-edit-lang-tabs, product-edit-attr-section]
+    interactions:
+      - path: 点击「返回列表」（OP-010）
+        assert: [未保存变更时确认提示, 返回 /products]
+      - path: 左侧锚点导航点击 sec-basic/attrs/media/sku/size/price/content/seo
+        assert: [平滑滚动到对应 section, 滚动时当前锚点高亮跟随]
+      - path: 选择两级品类级联
+        assert: [子级选项联动, sec-attrs 区按属性集显隐重渲染, 切换父级时 train 等字段重置]
+      - path: 属性区渲染（绑定属性集后）
+        assert: [visible 属性带必填星号, optional 无星号, hidden 不渲染, select/multiselect/text/toggle 四控件形态正确]
+      - path: 标签选择器按维度分组多选
+        assert: [维度分组标题, chip 选中态, 无标签维度显示「暂无，请在分类管理添加」]
+      - path: 媒体四区块上传（图廊/Lifestyle/视频/色样）
+        assert: [presign 直传进度条, 成功出预览图, 拖拽排序第一张标记主图, 对象存储失败显示「稍后重试」卡片且表单可继续编辑]
+      - path: SKU 矩阵：勾选颜色与尺码
+        assert: [矩阵行列生成, 单元格库存输入, sku_code 自动生成可改]
+      - path: 价格区输入 compare_at < price
+        assert: [即时 inline 错误提示, 提交按钮可点但提交后 422 字段红框]
+      - path: 三语 tab 切换 EN/ES/FR
+        assert: [EN 写主字段, ES/FR 独立输入, 完整度圆点显示]
+      - path: 点击「保存草稿」
+        assert: [按钮文本=保存草稿, 成功 toast, 停留当前页, status=draft]
+      - path: 点击「保存并生成静态页」（OP-011）
+        assert: [成功 toast 提示失效链已触发, 跳转或停留按原型行为]
+      - path: 编辑冲突（他人已改）
+        assert: [409508 弹窗「商品已被他人修改，请刷新后重试」+ 重新加载按钮]
+      - path: slug 重复提交
+        assert: [slug 字段 inline「商品 slug 已存在」(409501)]
+    field_assertions: [name/slug/subtitle 必填星标, price/lead_time_days 数值输入, custom_size_available/rush_available 开关, SEO 字数提示]
+    state_transitions: [draft 保存->draft, 保存并发布->published, 冲突->刷新重载]
+    accessibility: [全表单 label-for, 锚点导航 keyboard-nav, 上传按钮可聚焦]
+
+  - id: UIS-CAT-A03
+    page: /categories
+    prototype: portal-admin/src/views/Categories.vue
+    checklist_refs: ["screenshots/categories-full-desktop.png"]
+    visual_baseline: [categories-full-desktop, categories-drawer-open, categories-tag-tab]
+    interactions:
+      - path: 品类树渲染（三层缩进）
+        assert: [根/二级/三级缩进层级, 每节点件数徽章, 拖拽手柄渲染]
+      - path: 添加一级品类（必填名称+绑定属性集）
+        assert: [未选属性集提交报「根分类必须绑定属性集」422 提示, 成功后树新增节点]
+      - path: 三级节点下尝试再添加子级
+        assert: [入口隐藏或提交后 toast「分类层级超过 3 层」(409505)]
+      - path: 打开编辑抽屉（saveDrawer）
+        assert: [Dialog 渲染(as prop 正确无级联崩溃), 子分类显示属性 delta 三态覆盖, 根分类显示属性集下拉, 三语 name tab]
+      - path: 删除有商品的分类
+        assert: [删除按钮 disabled（canDelete js_guard）, tooltip 说明; 绕过预判时 toast「分类下仍有商品」(409502)]
+      - path: 切到标签维度 tab → confirmAddDim
+        assert: [维度名必填, 成功新增维度卡片]
+      - path: 维度下 confirmAddTag（name 空白）
+        assert: [确认按钮 disabled（!newTagName.trim()）]
+      - path: 标签封面上传与 Toggle 启用/禁用
+        assert: [封面预览或纯文字态, Toggle 翻转映射 enabled/disabled]
+      - path: 删除仍有标签的维度
+        assert: [toast「维度下仍有标签，不可删除」(409506)]
+    field_assertions: [品类名称必填星标, 件数徽章只读, 标签 cover 可空]
+    state_transitions: [tag enabled<->disabled, 节点增删, 抽屉 delta 保存]
+    accessibility: [tree 缩进语义, drawer aria-role-dialog focus-trap]
+
+  - id: UIS-CAT-A04
+    page: /attribute-sets
+    prototype: portal-admin/src/views/AttributeSets.vue
+    checklist_refs: ["screenshots/attribute-sets-full-desktop.png"]
+    visual_baseline: [attribute-sets-full-desktop, attribute-sets-matrix-states, attribute-dict-edit]
+    interactions:
+      - path: 可见性矩阵单元格点击循环
+        assert: [visible→optional→hidden→visible 三态徽章循环, 未保存变更提示出现]
+      - path: 点击「保存」整单提交
+        assert: [成功 toast, hasUnsavedChanges 清除; 离开页未保存弹确认]
+      - path: 属性字典 confirmAddOption/removeOption/confirmEdit
+        assert: [options 行内增删改, type=text/toggle 时 options 区不渲染（js_guard）]
+      - path: 新增属性定义 type=select 无选项提交
+        assert: [422 字段提示「select 类型需至少一个选项」]
+      - path: 删除被属性集引用的属性定义
+        assert: [toast「属性定义被属性集引用，不可删除」(409507)]
+      - path: 删除被分类引用的属性集
+        assert: [toast「属性集被分类引用，不可删除」(409503)]
+    field_assertions: [set label 必填, 矩阵三态徽章色彩区分（token 内）, 字典 type 徽章]
+    state_transitions: [矩阵态循环-整单保存, 字典 options 增删]
+    accessibility: [矩阵单元格 button 语义 + aria-label 当前态, keyboard 循环切换]
+
+  # ===== portal-store（Next.js 15, EN/ES/FR, 5173）=====
+  - id: UIS-CAT-S01
+    page: /product/[slug]（含 /es /fr 前缀）
+    prototype: app/product/[slug]/page.tsx
+    visual_baseline: [pdp-full-desktop, pdp-full-mobile, pdp-es-locale]
+    interactions:
+      - path: 访问已发布商品 PDP
+        assert: [图廊/buy box/尺码表入口/评价区渲染, 价格 USD 基准+币种切换换算, swatch 色样切换]
+      - path: 访问不存在/未发布 slug
+        assert: [Next 404 页（notFound）, 非白屏]
+      - path: /es 前缀访问含西语翻译商品
+        assert: [name/description 为 ES 文案, 缺翻译字段回退 EN, hreflang 标注存在]
+      - path: SKU 选择：现货 stock=0 的尺码
+        assert: [选项置灰不可选]
+      - path: custom_size_available=true 商品
+        assert: [Custom Size 表单入口渲染, 交期 lead_time_days 文案显示]
+      - path: You May Also Like / Complete the Look 区块
+        assert: [卡片轨渲染, 空数据时整段不渲染（无空壳）]
+    field_assertions: [面包屑 分类名 locale 解析, 价格/划线价排版, rating 星值与计数]
+    state_transitions: [色样切换->图廊联动, 尺码选择->加购可用]
+    accessibility: [图廊 alt, buy box 控件 label, 色样 aria-label]
+
+  - id: UIS-CAT-S02
+    page: /wedding-dresses 等聚合列表页（×3 locale）
+    prototype: app/wedding-dresses/page.tsx + components/product/collection-view.tsx
+    visual_baseline: [collection-full-desktop, collection-filtered, collection-empty]
+    interactions:
+      - path: 首屏加载
+        assert: [商品卡网格渲染, 卡片含主图/名称/价格/New·Best 徽章/swatches]
+      - path: 筛选 color/size/价格区间 与排序 newest/price
+        assert: [URL searchParams 更新, 列表刷新, 筛选可分享（直链还原状态）]
+      - path: 分页加载更多
+        assert: [追加不重复, 总数提示正确]
+      - path: 筛选无结果
+        assert: [EmptyState 风格空态, 清除筛选按钮]
+    accessibility: [筛选控件 label, 卡片链接语义]
+
+  - id: UIS-CAT-S03
+    page: /search
+    prototype: app/search/page.tsx
+    visual_baseline: [search-results, search-empty]
+    interactions:
+      - path: 输入关键词（防抖）/回车
+        assert: [结果网格更新, ?q= 同步]
+      - path: 空白/纯空格提交
+        assert: [不发请求, 保持初始态]
+      - path: 无结果关键词
+        assert: [空态文案（三语字典）, 不报错]
+      - path: /es 路径搜索西语词
+        assert: [命中 ES 翻译商品]
+    accessibility: [search input role=searchbox, 结果区 aria-live]
+
+  - id: UIS-CAT-S04
+    page: PDP Find My Size 弹窗
+    prototype: components/product/find-my-size-modal.tsx
+    visual_baseline: [find-my-size-form, find-my-size-result, find-my-size-unmatched]
+    interactions:
+      - path: 打开弹窗
+        assert: [height/bust/waist/hips 输入 + fit 三选渲染, dialog focus-trap]
+      - path: 缺必填提交
+        assert: [前端红框提示, 不发请求]
+      - path: 合法输入提交（命中）
+        assert: [推荐码 US 值高亮, 区间说明话术渲染（无买家占比话术）, dimension_notes 列表, 一键选中尺码联动 buy box]
+      - path: 合法但超出尺码表覆盖
+        assert: [matched=false 建议话术 + 联系客服链接, 无错误红框]
+      - path: 体征越界输入（如 bust=10）
+        assert: [422502 文案按 locale 渲染, 对应字段红框]
+      - path: 商品无尺码表
+        assert: [matched=false 话术, 弹窗不崩溃]
+    accessibility: [aria-role-dialog, 输入 label-for, 结果 aria-live]
+
+self_check:
+  pages_covered: 8
+  admin_pages: 4          # products / product-edit / categories / attribute-sets —— 与 ui-verification-checklist 本域四页一一对应
+  store_pages: 4          # pdp / collection / search / find-my-size
+  checklist_alignment: [OP-010, OP-012, OP-011, "文本断言：保存草稿", products-full-desktop.png, product-edit-full-desktop.png, categories-full-desktop.png, attribute-sets-full-desktop.png]
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  locale_variants: [en, es, fr]
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true   # 仅基于原型

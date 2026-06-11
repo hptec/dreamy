@@ -1,0 +1,455 @@
+openapi: 3.0.3
+info:
+  title: Shipping API (portal-api-integration)
+  description: |
+    shipping 限界上下文 API 契约，覆盖后台（/api/admin/shipping/*）。
+    实体：Carrier / ShippingRate（决策 2）。
+
+    消费端无独立 REST 端点：结算运费计算由 trading 域**进程内同步直调**本域领域服务
+    （决策 2/3，"结算运费计算由 trading 同步调用"），对外契约见 trading-api 的
+    POST /api/store/checkout/quote（shipping_options / shipping_fee 字段）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**；本域列表为全量返回不分页
+    （承运商/规则行均为小配置集），如后续分页则采用 huihao.page.Paginated 形状
+    `{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`。
+
+    ## 运费计算与多承运商报价规则（ALIGN-015 + F-036）
+    结算页（portal-store/app/checkout/page.tsx）为 FedEx/UPS/DHL 三个不同价格与时效的可选项，
+    多承运商报价由「地理分区 × 承运商」的 ShippingRate 规则行产出，**不新增实体字段**：
+    1. **规则行组织**：ShippingRate.zone 为自由文本，约定 `<地理区域> / <承运商名>`（如
+       `North America / FedEx International Priority`）——同一地理区域为每个承运商各配一行，
+       即可表达三档差异化价格；若某地理区域仅配置一行**不含承运商后缀**的规则（如 `Rest of World`），
+       则该行价格对全部 enabled 承运商生效（兜底行，时效仍取各 Carrier.lead_time）。
+    2. **单行计费**：subtotal < threshold 时收 fee_under，>= threshold 时收 fee_over（fee_over=0 即满额包邮）。
+    3. **报价产出**：trading 报价时按收货国家映射地理区域 → 对每个 status=enabled 的 Carrier 取其规则行
+       计费，组装 trading-api 的 ShippingOption{carrier, fee, lead_time}[]；无匹配地理区域时回退兜底行。
+    4. Carrier.lead_time 即报价项时效描述；仅 enabled 承运商出现在结算选项与发货面板
+       （订单 carrier 为字段快照，不强外键）。
+
+    ## 鉴权约定（与 identity-api 一致）
+    后台端点 AdminBearerAuth + RBAC 菜单权限 key（/shipping）。本域无消费端公开端点，
+    不涉及 StoreJwtFilter 公开路径白名单。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（shipping=9）+ 序号。
+
+    ### shipping 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 404901 | CARRIER_NOT_FOUND 承运方不存在 | 404 |
+    | 404902 | SHIPPING_RATE_NOT_FOUND 运费规则不存在 | 404 |
+    | 409901 | ZONE_EXISTS 同名规则行已存在（zone 文本唯一，含「地理区域 / 承运商」维度） | 409 |
+    | 409902 | LAST_ENABLED_CARRIER 至少保留一个启用的承运方（全部禁用则订单无法发货） | 409 |
+    | 422901 | FIELD_VALIDATION_FAILED 字段校验失败（费用/门槛 >= 0 等） | 422 |
+
+    ## 缓存标注（BE-DIM-8）
+    - 运费规则为结算同步调用的数据源：JetCache 两级（key shipping:rates，TTL 600s）供 trading 报价直调读取；
+      失效触发者：本域写操作 @CacheInvalidate（进程内，无需 MQ——消费端无直接读端点）。
+    - 后台列表端点不缓存。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-015，carrier_status 场景集）
+    - v1.1.0 (2026-06-10): feasibility 修复——R 包络映射声明；多承运商报价规则（F-036，分区×承运商规则行约定）
+  version: 1.0.0
+  contact:
+    name: shipping domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: admin-carriers
+    description: 承运方管理（ALIGN-015）
+  - name: admin-shipping-rates
+    description: 国际邮费分区运费规则（ALIGN-015，结算运费计算数据源）
+
+paths:
+  # ============ ADMIN CARRIERS ============
+  /api/admin/shipping/carriers:
+    get:
+      summary: 承运方列表
+      operationId: listAdminCarriers
+      tags: [admin-carriers]
+      security:
+        - AdminBearerAuth: [/shipping]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Carrier'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增承运方
+      description: ALIGN-015。写 OperationLog（action=创建承运方）。
+      operationId: createAdminCarrier
+      tags: [admin-carriers]
+      security:
+        - AdminBearerAuth: [/shipping]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarrierUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Carrier'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/shipping/carriers/{id}:
+    put:
+      summary: 编辑承运方
+      description: 写 OperationLog（action=编辑承运方）。
+      operationId: updateAdminCarrier
+      tags: [admin-carriers]
+      security:
+        - AdminBearerAuth: [/shipping]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarrierUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Carrier'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404901
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409902
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除承运方
+      description: 订单 carrier 为枚举快照不受影响；最后一个启用承运方不可删（409902）。写 OperationLog（action=删除承运方）。
+      operationId: deleteAdminCarrier
+      tags: [admin-carriers]
+      security:
+        - AdminBearerAuth: [/shipping]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409902
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/shipping/carriers/{id}/status:
+    patch:
+      summary: 启用/禁用承运方（行内 Toggle）
+      description: |
+        carrier_status 场景集。Toggle enabled 映射 status 枚举（enabled/disabled）；
+        最后一个 enabled 承运方禁用被拒（409902）。写 OperationLog（action=承运方状态变更）。
+      operationId: toggleAdminCarrierStatus
+      tags: [admin-carriers]
+      security:
+        - AdminBearerAuth: [/shipping]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [enabled, disabled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Carrier'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409902
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN SHIPPING RATES ============
+  /api/admin/shipping/rates:
+    get:
+      summary: 运费规则列表
+      operationId: listAdminShippingRates
+      tags: [admin-shipping-rates]
+      security:
+        - AdminBearerAuth: [/shipping]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShippingRate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增运费规则
+      description: ALIGN-015。zone 唯一（409901）。写失效 shipping:rates 缓存 + OperationLog（action=创建运费规则）。
+      operationId: createAdminShippingRate
+      tags: [admin-shipping-rates]
+      security:
+        - AdminBearerAuth: [/shipping]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingRateUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingRate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409901
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/shipping/rates/{id}:
+    put:
+      summary: 编辑运费规则
+      description: 写失效 shipping:rates 缓存（结算报价即时生效；已创建订单 shipping_fee 为快照不变）+ OperationLog（action=编辑运费规则）。
+      operationId: updateAdminShippingRate
+      tags: [admin-shipping-rates]
+      security:
+        - AdminBearerAuth: [/shipping]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingRateUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingRate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404902
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除运费规则
+      description: 写失效 shipping:rates 缓存 + OperationLog（action=删除运费规则）。
+      operationId: deleteAdminShippingRate
+      tags: [admin-shipping-rates]
+      security:
+        - AdminBearerAuth: [/shipping]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 shipping=9，见 info 码表）
+          example: 404901
+        message:
+          type: string
+          description: 后台中文文案
+        details:
+          type: object
+          additionalProperties: true
+
+    CarrierUpsert:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        zones:
+          type: string
+          description: 覆盖区域描述
+        lead_time:
+          type: string
+          description: 时效描述
+        status:
+          type: string
+          enum: [enabled, disabled]
+    Carrier:
+      allOf:
+        - $ref: '#/components/schemas/CarrierUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+
+    ShippingRateUpsert:
+      type: object
+      required: [zone]
+      properties:
+        zone:
+          type: string
+          description: 规则行标识（唯一，409901）；约定 `<地理区域> / <承运商名>`，不含承运商后缀的行为该区域全承运商兜底行（见 info 报价规则）
+        fee_under:
+          type: number
+          minimum: 0
+          description: 基础邮费（subtotal < threshold 时，USD 基准）
+        fee_over:
+          type: number
+          minimum: 0
+          description: 满额邮费（subtotal >= threshold 时；0 即包邮）
+        threshold:
+          type: number
+          minimum: 0
+          description: 满额门槛（USD 基准）
+    ShippingRate:
+      allOf:
+        - $ref: '#/components/schemas/ShippingRateUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+
+  responses:
+    ValidationError:
+      description: 参数校验失败（422901）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（40100 系列沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限（RBAC 菜单权限 key 校验失败，40300）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在（404901~404902）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409901~409902）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域新增权限点：/shipping，BE-DIM-6），由 RBAC 守卫校验。
+
+security: []

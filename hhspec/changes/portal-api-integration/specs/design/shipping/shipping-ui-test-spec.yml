@@ -1,0 +1,69 @@
+# shipping UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: shipping
+# 约束：只看原型不看代码；穷举操作路径；与 shipping-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 原型源：hhspec/prototype/portal-admin/src/views/Shipping.vue
+# 偏离声明（设计决策，断言按改造后形态）：「保存配置」按钮移除（DEC-SHP-FE-1）；行内编辑/删除与「添加规则」入口为数据行为补齐（DEC-SHP-FE-2）
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: shipping
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav]
+  conformance_note: "原型强对照：token/双 panel 栅格零偏离；loading/error/empty 态复用既有组件风格；headless-ui Dialog 根组件 class 必配 as（CP-072）"
+
+pages:
+  - id: UIS-SHP-A01
+    page: /shipping
+    prototype: portal-admin/src/views/Shipping.vue
+    checklist_refs: ["screenshots/shipping-full-desktop.png"]
+    visual_baseline: [shipping-two-panels, shipping-carrier-drawer, shipping-rate-drawer, shipping-empty-state]
+    interactions:
+      - path: 首屏渲染（种子数据）
+        assert: [PageHeader eyebrow=Settings/标题=物流配置, 双 panel lg 栅格 1:1, 承运方面板 4 行（FedEx/UPS/DHL enabled Toggle 亮起 + USPS disabled Toggle 熄灭）, 邮费表 10 行含 'Rest of World' 兜底行, header 无「保存配置」按钮（DEC-SHP-FE-1）]
+      - path: 承运方行结构
+        assert: [name 13px font-medium text-ink, zones·时效 副行 12px text-ink-faint, Toggle 右对齐, rounded-luxe border-line 行容器保持]
+      - path: Toggle 禁用承运方（非最后一个）
+        assert: [乐观切换即时熄灭, 成功后状态保持, 失败时回滚 + toast]
+      - path: 仅剩一个启用承运方时
+        assert: [该行 Toggle 置灰 + tooltip「至少保留一个启用的承运方」, 该行删除按钮同置灰; 强制触发后端 → toast 409902 文案]
+      - path: 点击「添加承运方」打开 CarrierFormDrawer
+        assert: [Dialog 渲染（as prop 正确无级联崩溃）, 字段 name*/zones/lead_time/status, name 空提交 inline「字段校验失败」类文案且抽屉不关闭]
+      - path: 行 hover 编辑承运方改名保存
+        assert: [200 后行内 name 即时更新, 追加运营提示 toast（同步检查邮费规则行后缀）]
+      - path: 删除 disabled 承运方
+        assert: [二次确认弹窗（role=dialog）, 确认后行移除, 文案含「历史订单不受影响」]
+      - path: 邮费表渲染
+        assert: [四数据列 + 操作列, 区域列 font-medium text-ink, fee_over=0 渲染「免邮」text-ok, null 费用渲染 '—', 千分位/两位小数格式]
+      - path: 「添加规则」打开 RateFormDrawer 提交重复 zone
+        assert: [zone 字段 inline「同名规则行已存在」(409901), 抽屉不关闭]
+      - path: 编辑规则行改价保存
+        assert: [200 后表格行即时更新, toast「已保存」]
+      - path: 删除 'Rest of World' 兜底行
+        assert: [确认弹窗追加全局兜底警示文案; 普通行确认弹窗无该警示]
+      - path: 接口 500 / 列表加载失败
+        assert: [toast「操作失败」, 表单现场保留, 列表区错误占位复用既有风格]
+      - path: 无 /shipping 权限访问
+        assert: [路由守卫跳 /403, 侧边菜单不渲染「物流配置」项]
+    field_assertions:
+      - 承运方 name ≤64 超长前端拦截 inline
+      - fee 输入框 min=0 step=0.01，负数与 3 位小数被拦截
+      - zone 输入说明灰字（区域 / 承运商名 约定提示）可见
+    state_transitions:
+      - carrier enabled->disabled（Toggle 乐观 + 回滚路径）
+      - carrier disabled->enabled
+      - rate 行 create->visible / edit->updated / delete->gone
+    loading_empty_error:
+      - 首载两面板骨架行（复用既有骨架风格，无新 token）
+      - 清空数据后 EmptyState（承运方/邮费表各自文案）
+    accessibility:
+      - Toggle 可键盘操作（Space 切换）且有 aria-label
+      - 两 FormDrawer aria-role-dialog + focus-trap + Esc 关闭
+      - 删除确认 dialog role 与焦点回归触发按钮

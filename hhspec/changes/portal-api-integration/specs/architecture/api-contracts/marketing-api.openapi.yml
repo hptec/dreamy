@@ -1,0 +1,2207 @@
+openapi: 3.0.3
+info:
+  title: Marketing API (portal-api-integration)
+  description: |
+    marketing 限界上下文 API 契约，覆盖消费端（/api/store/content·promotions·newsletter·contact）与后台
+    （/api/admin/promotions·banners·content）。
+    实体：Coupon / FlashSale / Banner / BlogPost / Lookbook / Guide / RealWedding / NewsletterSubscriber /
+    ContactMessage 及 CouponTranslation / FlashSaleTranslation / BannerTranslation / BlogPostTranslation /
+    LookbookTranslation / GuideTranslation / RealWeddingTranslation（决策 2/13/26/30）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。分页载荷统一为 huihao.page.Paginated 形状
+    （snake_case：`{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`，
+    与 backend UserOpsController R<Paginated<T>> / portal-admin PageResult 消费习惯一致）。
+
+    ## 鉴权约定（与 identity-api 一致）
+    - 消费端内容/订阅/联系端点公开（security: []）；写端点（newsletter/contact）限流靠 Cloudflare WAF（决策 11/26/30）。
+    - 后台端点 AdminBearerAuth + RBAC 菜单权限 key。
+    - **鉴权基建提示（L2 明确设计）**：现有 StoreJwtFilter 对 /api/store/* 默认强制鉴权。本域全部消费端
+      内容读端点与 newsletter/contact 提交端点为匿名公开，需纳入 filter 的**配置化公开路径白名单**
+      （与 catalog/review/trading/showroom 公开端点共用同一机制，勿逐端点硬编码）。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（marketing=7）+ 序号。
+
+    ### marketing 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 404701 | CONTENT_NOT_FOUND 内容不存在或未发布（Banner/Blog/Lookbook/Guide/Wedding） | 404 |
+    | 404702 | COUPON_NOT_FOUND 优惠券不存在 | 404 |
+    | 404703 | FLASH_SALE_NOT_FOUND 闪购活动不存在 | 404 |
+    | 409701 | COUPON_CODE_EXISTS 券码已存在 | 409 |
+    | 409702 | SLUG_EXISTS 文章 slug 已存在 | 409 |
+    | 409703 | CONTENT_STATE_INVALID 当前发布状态不允许该操作（发布状态机 guard） | 409 |
+    | 422701 | COUPON_INVALID 券不可用（不存在/未开始/已过期/已停用） | 422 |
+    | 422702 | COUPON_MIN_AMOUNT_NOT_MET 未达券门槛金额 | 422 |
+    | 422703 | COUPON_EXHAUSTED 券已领完/用完（used_count >= total_limit，js_guard） | 422 |
+    | 422704 | FIELD_VALIDATION_FAILED 字段校验失败（含 end_at > start_at 等 js_guard） | 422 |
+
+    注：结算校验券时（trading 调用 /coupons/validate），无效不抛错而是 200 + valid=false + reason_code（上表 4227xx），
+    便于结算页就地提示；仅下单事务内核销失败才抛 422。
+
+    ## 缓存标注（BE-DIM-8）
+    - 消费端内容读端点（banners/blogs/weddings/lookbooks/guides/flash-sales）：CDN s-maxage + JetCache 两级
+      （key 含 locale 维度，决策 13）；失效触发者：后台对应写操作 @CacheInvalidate → RabbitMQ → revalidatePath + Cloudflare purge（s-758）。
+    - 定时投放与到期下线（Banner start/end、Coupon/FlashSale endAt）由 @Scheduled 扫描状态翻转并触发同一失效链（ALIGN-008/009）。
+    - newsletter/contact/coupons/validate 写或校验端点不缓存。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-008/009/010/011/012/016/030/034）
+    - v1.1.0 (2026-06-10): feasibility 修复——分页包络对齐 huihao Paginated；R 包络映射声明；公开路径白名单提示
+  version: 1.0.0
+  contact:
+    name: marketing domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: store-content
+    description: 消费端内容读取（Banner/Blog/Weddings/Lookbook/Guide）
+  - name: store-promotions
+    description: 消费端促销（闪购展示、券校验）
+  - name: store-newsletter
+    description: Newsletter 订阅落表（ALIGN-030，决策 26）
+  - name: store-contact
+    description: 联系表单落表（ALIGN-034，决策 30）
+  - name: admin-coupons
+    description: 后台优惠券管理（ALIGN-008）
+  - name: admin-flash-sales
+    description: 后台闪购管理（ALIGN-008）
+  - name: admin-banners
+    description: 后台 Banner 管理（ALIGN-009）
+  - name: admin-blogs
+    description: 后台博客管理（ALIGN-010）
+  - name: admin-weddings
+    description: 后台真实婚礼案例管理（ALIGN-011）
+  - name: admin-lookbooks
+    description: 后台 Lookbook 管理（ALIGN-012）
+  - name: admin-guides
+    description: 后台备婚指南管理（ALIGN-012）
+
+paths:
+  # ============ STORE CONTENT ============
+  /api/store/content/banners:
+    get:
+      summary: 在线 Banner（按位置）
+      description: |
+        返回 status=published 且当前时间落于投放窗口（start_time/end_time）的 Banner，按 sort 排序；
+        文案按 locale 解析（BannerTranslation）。
+        缓存：CDN s-maxage + JetCache 两级（key 含 position + locale）；失效：后台 Banner 写/定时投放翻转 → MQ → revalidatePath + purge。
+      operationId: listStoreBanners
+      tags: [store-content]
+      security: []
+      parameters:
+        - name: position
+          in: query
+          schema:
+            type: string
+            enum: [hero, featured, topbar]
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreBanner'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/blogs:
+    get:
+      summary: 博客文章列表
+      description: |
+        status=published 文章，按 published_at 倒序；支持栏目筛选；按 locale 解析（BlogPostTranslation）。
+        缓存：CDN s-maxage + JetCache 两级（key 含 category + 分页 + locale）；失效：后台博客写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreBlogs
+      tags: [store-content]
+      security: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/LocaleParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: huihao.page.Paginated 形状（线上为 R<Paginated<StoreBlogPostCard>>）
+                required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreBlogPostCard'
+                  total_elements:
+                    type: integer
+                    description: 总记录数
+                  page_number:
+                    type: integer
+                    description: 当前页码（从 1 开始）
+                  page_size:
+                    type: integer
+                  number_of_elements:
+                    type: integer
+                    description: 本页实际条数
+                  total_pages:
+                    type: integer
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/blogs/{slug}:
+    get:
+      summary: 博客文章详情
+      description: |
+        按 slug 读取 published 文章（阅读数 views 异步累加，不阻塞读路径）。
+        缓存：CDN s-maxage（ISR 文章页同源）+ JetCache 两级（key 含 slug + locale）；失效：后台博客写操作 → MQ → revalidatePath + purge。
+      operationId: getStoreBlog
+      tags: [store-content]
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreBlogPostDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404701
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/weddings:
+    get:
+      summary: 真实婚礼案例列表
+      description: |
+        status=published 案例；按 locale 解析（RealWeddingTranslation）。
+        缓存：CDN s-maxage + JetCache 两级（key 含分页 + locale）；失效：后台案例写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreWeddings
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: huihao.page.Paginated 形状（线上为 R<Paginated<StoreRealWedding>>）
+                required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreRealWedding'
+                  total_elements:
+                    type: integer
+                    description: 总记录数
+                  page_number:
+                    type: integer
+                    description: 当前页码（从 1 开始）
+                  page_size:
+                    type: integer
+                  number_of_elements:
+                    type: integer
+                    description: 本页实际条数
+                  total_pages:
+                    type: integer
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/weddings/{id}:
+    get:
+      summary: 真实婚礼案例详情（Shop the Look）
+      description: |
+        含关联商品卡片（nm 关系，catalog 域联表派生）。
+        缓存：CDN s-maxage + JetCache 两级（key 含 id + locale）；失效：后台案例写操作 → MQ → revalidatePath + purge。
+      operationId: getStoreWedding
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreRealWedding'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/lookbooks:
+    get:
+      summary: Lookbook 列表
+      description: |
+        status=published；按 locale 解析（LookbookTranslation）。
+        缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台 Lookbook 写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreLookbooks
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreLookbook'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/lookbooks/{id}:
+    get:
+      summary: Lookbook 详情（关联商品）
+      description: 缓存：CDN s-maxage + JetCache 两级（key 含 id + locale）；失效：后台 Lookbook 写操作 → MQ → revalidatePath + purge。
+      operationId: getStoreLookbook
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreLookbook'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/guides:
+    get:
+      summary: 备婚指南列表（按阶段）
+      description: |
+        status=published，按 phase 排序；按 locale 解析（GuideTranslation）。
+        缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台 Guide 写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreGuides
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreGuide'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE PROMOTIONS ============
+  /api/store/promotions/flash-sales:
+    get:
+      summary: 进行中的闪购活动
+      description: |
+        status=active 活动及关联商品卡片；到期由 @Scheduled 自动下线（ALIGN-008）。按 locale 解析（FlashSaleTranslation）。
+        缓存：CDN s-maxage（短）+ JetCache 两级（key 含 locale，TTL 60s 兜底倒计时新鲜度）；失效：后台闪购写/到期下线 → MQ → revalidatePath + purge。
+      operationId: listStoreFlashSales
+      tags: [store-promotions]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreFlashSale'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/promotions/coupons/validate:
+    post:
+      summary: 优惠券校验（结算页就地校验）
+      description: |
+        ALIGN-008。校验券码可用性与门槛并返回减免金额（USD 基准，trading 报价时按汇率换算）；
+        不可用返回 200 + valid=false + reason_code（4227xx），不抛错。核销（used_count+1）发生在下单事务内（trading 域进程内直调）。不缓存。
+      operationId: validateStoreCoupon
+      tags: [store-promotions]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, subtotal]
+              properties:
+                code:
+                  type: string
+                  maxLength: 32
+                  pattern: '^[A-Z0-9]+$'
+                subtotal:
+                  type: number
+                  minimum: 0
+                  description: 当前购物车小计（USD 基准，门槛判定）
+      responses:
+        '200':
+          description: 校验结果（含不可用场景）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponValidateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422704 格式校验
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE NEWSLETTER（决策 26） ============
+  /api/store/newsletter:
+    post:
+      summary: Newsletter 订阅
+      description: |
+        ALIGN-030。仅落表收集：email 唯一，重复订阅幂等返回成功（js_guard）；不发码不发邮件（弹窗文案为纯订阅确认）。
+        记录 source（footer/modal/exit_intent）与 locale。限流靠 WAF（决策 11）。不缓存。
+      operationId: subscribeNewsletter
+      tags: [store-newsletter]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, source, locale]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                source:
+                  type: string
+                  enum: [footer, modal, exit_intent]
+                locale:
+                  type: string
+                  enum: [en, es, fr]
+      responses:
+        '200':
+          description: 已订阅（含重复订阅幂等返回）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscribed]
+                properties:
+                  subscribed:
+                    type: boolean
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422704 邮箱格式
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE CONTACT（决策 30） ============
+  /api/store/contact:
+    post:
+      summary: 联系表单提交
+      description: ALIGN-034。落表 ContactMessage（管理端本期不做查看页，运营直查库）。限流靠 WAF（决策 11）。不缓存。
+      operationId: submitContactMessage
+      tags: [store-contact]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, message]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                subject:
+                  type: string
+                  maxLength: 200
+                message:
+                  type: string
+                  maxLength: 5000
+      responses:
+        '201':
+          description: 已提交
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [submitted]
+                properties:
+                  submitted:
+                    type: boolean
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN COUPONS ============
+  /api/admin/promotions/coupons:
+    get:
+      summary: 优惠券列表
+      operationId: listAdminCoupons
+      tags: [admin-coupons]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, scheduled, active, expiring, expired]
+            default: all
+        - name: search
+          in: query
+          description: 券码/名称模糊搜索
+          schema:
+            type: string
+            maxLength: 64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: huihao.page.Paginated 形状（线上为 R<Paginated<Coupon>>）
+                required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Coupon'
+                  total_elements:
+                    type: integer
+                    description: 总记录数
+                  page_number:
+                    type: integer
+                    description: 当前页码（从 1 开始）
+                  page_size:
+                    type: integer
+                  number_of_elements:
+                    type: integer
+                    description: 本页实际条数
+                  total_pages:
+                    type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增优惠券
+      description: ALIGN-008（s-760）。code 唯一（409701）；end_at > start_at（422704）。写 OperationLog（action=创建优惠券）。
+      operationId: createAdminCoupon
+      tags: [admin-coupons]
+      security:
+        - AdminBearerAuth: [/promotions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409701
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/promotions/coupons/{id}:
+    put:
+      summary: 编辑优惠券
+      description: used_count 只读不可改；已 active 券改 code 被拒（409703）。写 OperationLog（action=编辑优惠券）。
+      operationId: updateAdminCoupon
+      tags: [admin-coupons]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404702
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409701 / 409703
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除优惠券
+      description: 仅 draft/expired 可删（409703）；已核销过的券（used_count > 0）不可删。写 OperationLog（action=删除优惠券）。
+      operationId: deleteAdminCoupon
+      tags: [admin-coupons]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409703
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN FLASH SALES ============
+  /api/admin/promotions/flash-sales:
+    get:
+      summary: 闪购活动列表
+      operationId: listAdminFlashSales
+      tags: [admin-flash-sales]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, scheduled, active, ended]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FlashSale'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增闪购活动
+      description: ALIGN-008（s-761）。end_at > start_at（422704）；到期 @Scheduled 自动转 ended 并触发缓存失效链。写 OperationLog（action=创建闪购）。
+      operationId: createAdminFlashSale
+      tags: [admin-flash-sales]
+      security:
+        - AdminBearerAuth: [/promotions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashSaleUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSale'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/promotions/flash-sales/{id}:
+    put:
+      summary: 编辑闪购活动
+      description: ended 活动不可编辑（409703）。写 OperationLog（action=编辑闪购）。
+      operationId: updateAdminFlashSale
+      tags: [admin-flash-sales]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashSaleUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSale'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404703
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409703
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除闪购活动
+      description: 仅 draft 可删（409703）。写 OperationLog（action=删除闪购）。
+      operationId: deleteAdminFlashSale
+      tags: [admin-flash-sales]
+      security:
+        - AdminBearerAuth: [/promotions]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN BANNERS ============
+  /api/admin/banners:
+    get:
+      summary: Banner 列表
+      operationId: listAdminBanners
+      tags: [admin-banners]
+      security:
+        - AdminBearerAuth: [/banners]
+      parameters:
+        - name: position
+          in: query
+          schema:
+            type: string
+            enum: [hero, featured, topbar]
+      responses:
+        '200':
+          description: 成功（按 sort 排序）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Banner'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增 Banner
+      description: ALIGN-009。end_time > start_time（422704）；image_url 来自预签名上传（catalog 域 /api/admin/uploads/presign，scope=banner）。写 OperationLog（action=创建Banner）。
+      operationId: createAdminBanner
+      tags: [admin-banners]
+      security:
+        - AdminBearerAuth: [/banners]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BannerUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Banner'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/banners/{id}:
+    put:
+      summary: 编辑 Banner（含排序与定时投放）
+      description: 保存并发布语义：写成功触发 @CacheInvalidate → MQ → revalidatePath + purge。写 OperationLog（action=编辑Banner）。
+      operationId: updateAdminBanner
+      tags: [admin-banners]
+      security:
+        - AdminBearerAuth: [/banners]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BannerUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Banner'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404701
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除 Banner
+      description: 写 OperationLog（action=删除Banner）并触发缓存失效链。
+      operationId: deleteAdminBanner
+      tags: [admin-banners]
+      security:
+        - AdminBearerAuth: [/banners]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/banners/{id}/status:
+    patch:
+      summary: 上线/下线 Banner（行内 Toggle）
+      description: Toggle online 映射 status published/archived（草稿首次上线转 published）。触发缓存失效链。
+      operationId: toggleAdminBannerStatus
+      tags: [admin-banners]
+      security:
+        - AdminBearerAuth: [/banners]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Banner'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN BLOGS ============
+  /api/admin/content/blogs:
+    get:
+      summary: 博客文章列表（后台）
+      operationId: listAdminBlogs
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, published, archived]
+            default: all
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: huihao.page.Paginated 形状（线上为 R<Paginated<BlogPost>>）
+                required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlogPost'
+                  total_elements:
+                    type: integer
+                    description: 总记录数
+                  page_number:
+                    type: integer
+                    description: 当前页码（从 1 开始）
+                  page_size:
+                    type: integer
+                  number_of_elements:
+                    type: integer
+                    description: 本页实际条数
+                  total_pages:
+                    type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增文章
+      description: ALIGN-010。slug 唯一（409702，发布时生成静态文章页路径）。写 OperationLog（action=创建文章）。
+      operationId: createAdminBlog
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogPostUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogPost'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409702
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/blogs/{id}:
+    get:
+      summary: 文章编辑详情
+      operationId: getAdminBlog
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogPost'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 编辑文章
+      description: 已发布文章保存即触发失效链（s-758）。写 OperationLog（action=编辑文章）。
+      operationId: updateAdminBlog
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogPostUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogPost'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除文章
+      description: 写 OperationLog（action=删除文章）并触发缓存失效链。
+      operationId: deleteAdminBlog
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/blogs/{id}/status:
+    patch:
+      summary: 发布/下线文章
+      description: draft→published（记 published_at）/ published→archived（发布状态机 guard，409703）。触发缓存失效链。写 OperationLog（action=文章发布状态变更）。
+      operationId: patchAdminBlogStatus
+      tags: [admin-blogs]
+      security:
+        - AdminBearerAuth: [/content/blog]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogPost'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409703
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN WEDDINGS ============
+  /api/admin/content/weddings:
+    get:
+      summary: 真实婚礼案例列表（后台）
+      operationId: listAdminWeddings
+      tags: [admin-weddings]
+      security:
+        - AdminBearerAuth: [/content/weddings]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, published]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                description: huihao.page.Paginated 形状（线上为 R<Paginated<RealWedding>>）
+                required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RealWedding'
+                  total_elements:
+                    type: integer
+                    description: 总记录数
+                  page_number:
+                    type: integer
+                    description: 当前页码（从 1 开始）
+                  page_size:
+                    type: integer
+                  number_of_elements:
+                    type: integer
+                    description: 本页实际条数
+                  total_pages:
+                    type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增案例
+      description: ALIGN-011。Shop the Look 关联商品（product_ids）。写 OperationLog（action=创建婚礼案例）。
+      operationId: createAdminWedding
+      tags: [admin-weddings]
+      security:
+        - AdminBearerAuth: [/content/weddings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RealWeddingUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealWedding'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/weddings/{id}:
+    put:
+      summary: 编辑案例
+      description: 写 OperationLog（action=编辑婚礼案例）并触发缓存失效链。
+      operationId: updateAdminWedding
+      tags: [admin-weddings]
+      security:
+        - AdminBearerAuth: [/content/weddings]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RealWeddingUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealWedding'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除案例
+      operationId: deleteAdminWedding
+      tags: [admin-weddings]
+      security:
+        - AdminBearerAuth: [/content/weddings]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/weddings/{id}/status:
+    patch:
+      summary: 发布/下线案例
+      description: real_wedding_publish 场景集。触发缓存失效链。写 OperationLog（action=案例发布状态变更）。
+      operationId: patchAdminWeddingStatus
+      tags: [admin-weddings]
+      security:
+        - AdminBearerAuth: [/content/weddings]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealWedding'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN LOOKBOOKS ============
+  /api/admin/content/lookbooks:
+    get:
+      summary: Lookbook 列表（后台）
+      operationId: listAdminLookbooks
+      tags: [admin-lookbooks]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, published]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lookbook'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增 Lookbook
+      description: ALIGN-012。写 OperationLog（action=创建Lookbook）。
+      operationId: createAdminLookbook
+      tags: [admin-lookbooks]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookbookUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lookbook'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/lookbooks/{id}:
+    put:
+      summary: 编辑 Lookbook
+      operationId: updateAdminLookbook
+      tags: [admin-lookbooks]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookbookUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lookbook'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除 Lookbook
+      operationId: deleteAdminLookbook
+      tags: [admin-lookbooks]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/lookbooks/{id}/status:
+    patch:
+      summary: 发布/下线 Lookbook
+      description: lookbook publish 场景集。触发缓存失效链。
+      operationId: patchAdminLookbookStatus
+      tags: [admin-lookbooks]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lookbook'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN GUIDES ============
+  /api/admin/content/guides:
+    get:
+      summary: 备婚指南列表（后台）
+      operationId: listAdminGuides
+      tags: [admin-guides]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, draft, published]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Guide'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增指南
+      description: ALIGN-012。写 OperationLog（action=创建指南）。
+      operationId: createAdminGuide
+      tags: [admin-guides]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuideUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/guides/{id}:
+    put:
+      summary: 编辑指南
+      operationId: updateAdminGuide
+      tags: [admin-guides]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuideUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除指南
+      operationId: deleteAdminGuide
+      tags: [admin-guides]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/content/guides/{id}/status:
+    patch:
+      summary: 发布/下线指南
+      description: guide publish 场景集。触发缓存失效链。
+      operationId: patchAdminGuideStatus
+      tags: [admin-guides]
+      security:
+        - AdminBearerAuth: [/content/lookbook]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, published]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    LocaleParam:
+      name: locale
+      in: query
+      description: 内容语言（决策 13：EN 存主表，ES/FR 存 translation 附表，缺翻译回退 EN）；缓存 key 含此维度
+      schema:
+        type: string
+        enum: [en, es, fr]
+        default: en
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 marketing=7，见 info 码表）
+          example: 422701
+        message:
+          type: string
+          description: 当前语言默认文案（store EN/ES/FR；admin 中文）
+        details:
+          type: object
+          additionalProperties: true
+
+    ProductRef:
+      type: object
+      description: 内容关联商品卡片（catalog 域联表派生）
+      required: [id, slug, name, price]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+          description: USD 基准现价
+        image_url:
+          type: string
+
+    # ---- 翻译附表（决策 13） ----
+    CouponTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        name:
+          type: string
+        description:
+          type: string
+    FlashSaleTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        name:
+          type: string
+    BannerTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        title:
+          type: string
+        subtitle:
+          type: string
+        cta_text:
+          type: string
+    BlogPostTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        title:
+          type: string
+        excerpt:
+          type: string
+        body:
+          type: string
+        seo_title:
+          type: string
+        seo_description:
+          type: string
+    LookbookTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        title:
+          type: string
+        description:
+          type: string
+    GuideTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        title:
+          type: string
+        body:
+          type: string
+    RealWeddingTranslation:
+      type: object
+      required: [locale]
+      properties:
+        locale:
+          type: string
+          enum: [es, fr]
+        title:
+          type: string
+        story:
+          type: string
+
+    # ---- 消费端内容 ----
+    StoreBanner:
+      type: object
+      required: [id, name, image_url, position, sort]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        image_url:
+          type: string
+        position:
+          type: string
+          enum: [hero, featured, topbar]
+        sort:
+          type: integer
+        title:
+          type: string
+          description: 文案（BannerTranslation，已按 locale 解析）
+        subtitle:
+          type: string
+        cta_text:
+          type: string
+    StoreBlogPostCard:
+      type: object
+      required: [id, title, slug]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+          description: 已按 locale 解析
+        slug:
+          type: string
+        cover:
+          type: string
+        category:
+          type: string
+        author:
+          type: string
+        excerpt:
+          type: string
+          description: 摘要（BlogPostTranslation.excerpt；EN 取 content 截断派生）
+        published_at:
+          type: string
+          format: date-time
+        views:
+          type: integer
+    StoreBlogPostDetail:
+      allOf:
+        - $ref: '#/components/schemas/StoreBlogPostCard'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: string
+              description: 正文（locale=es/fr 时取 translation.body，缺翻译回退 EN content）
+            seo_title:
+              type: string
+            seo_description:
+              type: string
+    StoreRealWedding:
+      type: object
+      required: [id, couple, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        couple:
+          type: string
+        location:
+          type: string
+        theme:
+          type: string
+        wedding_date:
+          type: string
+          maxLength: 16
+          description: 如 "2025-06"
+        cover:
+          type: string
+        status:
+          type: string
+          enum: [published]
+        title:
+          type: string
+          description: RealWeddingTranslation，已按 locale 解析
+        story:
+          type: string
+        products:
+          type: array
+          description: Shop the Look 关联商品（详情返回）
+          items:
+            $ref: '#/components/schemas/ProductRef'
+    StoreLookbook:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+          description: 已按 locale 解析
+        theme:
+          type: string
+        description:
+          type: string
+        products:
+          type: array
+          description: 关联商品（详情返回）
+          items:
+            $ref: '#/components/schemas/ProductRef'
+    StoreGuide:
+      type: object
+      required: [id, phase, title]
+      properties:
+        id:
+          type: integer
+          format: int64
+        phase:
+          type: string
+        timeframe:
+          type: string
+        title:
+          type: string
+          description: 已按 locale 解析
+        body:
+          type: string
+        tasks_count:
+          type: integer
+    StoreFlashSale:
+      type: object
+      required: [id, name, discount, start_at, end_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: 已按 locale 解析
+        discount:
+          type: string
+          maxLength: 32
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+          description: 前端倒计时依据；到期后端自动下线
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductRef'
+
+    # ---- 券校验 ----
+    CouponValidateResponse:
+      type: object
+      required: [valid]
+      properties:
+        valid:
+          type: boolean
+        reason_code:
+          type: integer
+          description: valid=false 时的原因码（422701/422702/422703）
+        discount_amount:
+          type: number
+          minimum: 0
+          description: USD 基准减免金额（type=free_shipping 时为 0 且 free_shipping=true）
+        free_shipping:
+          type: boolean
+        coupon:
+          type: object
+          properties:
+            code:
+              type: string
+            name:
+              type: string
+              description: 已按 locale 解析
+            type:
+              type: string
+              enum: [discount, fixed_amount, free_shipping]
+            value:
+              type: string
+            min_amount:
+              type: number
+
+    # ---- 后台促销 ----
+    CouponUpsert:
+      type: object
+      required: [code, name, type, value, status]
+      properties:
+        code:
+          type: string
+          maxLength: 32
+          pattern: '^[A-Z0-9]+$'
+        name:
+          type: string
+          maxLength: 64
+        type:
+          type: string
+          enum: [discount, fixed_amount, free_shipping]
+        value:
+          type: string
+          maxLength: 32
+          description: 如 "15% OFF" / "$50 OFF"
+        min_amount:
+          type: number
+          minimum: 0
+        total_limit:
+          type: integer
+          minimum: 0
+          description: 限量发放（>9999 视为不限）
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+          description: js_guard：end_at > start_at（422704）
+        status:
+          type: string
+          enum: [draft, scheduled, active, expiring, expired]
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CouponTranslation'
+    Coupon:
+      allOf:
+        - $ref: '#/components/schemas/CouponUpsert'
+        - type: object
+          required: [id, used_count]
+          properties:
+            id:
+              type: integer
+              format: int64
+            used_count:
+              type: integer
+              minimum: 0
+              description: 只读核销计数；js_guard used_count <= total_limit
+    FlashSaleUpsert:
+      type: object
+      required: [name, discount, start_at, end_at, status]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        discount:
+          type: string
+          maxLength: 32
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+          description: js_guard：end_at > start_at；到期定时任务自动下线
+        status:
+          type: string
+          enum: [draft, scheduled, active, ended]
+        product_ids:
+          type: array
+          description: 参与商品（nm 关系）
+          items:
+            type: integer
+            format: int64
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashSaleTranslation'
+    FlashSale:
+      allOf:
+        - $ref: '#/components/schemas/FlashSaleUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+
+    # ---- 后台 Banner / 内容 ----
+    BannerUpsert:
+      type: object
+      required: [name, image_url, position, status, sort]
+      properties:
+        name:
+          type: string
+        image_url:
+          type: string
+        position:
+          type: string
+          enum: [hero, featured, topbar]
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          description: js_guard：end_time > start_time（422704）
+        status:
+          type: string
+          enum: [draft, published, archived]
+        sort:
+          type: integer
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/BannerTranslation'
+    Banner:
+      allOf:
+        - $ref: '#/components/schemas/BannerUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+            clicks:
+              type: integer
+              minimum: 0
+              description: 点击统计只读
+    BlogPostUpsert:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+        cover:
+          type: string
+        category:
+          type: string
+          description: 文章栏目
+        author:
+          type: string
+        content:
+          type: string
+        slug:
+          type: string
+          maxLength: 128
+          description: 发布后静态文章页路径；唯一（409702）
+        status:
+          type: string
+          enum: [draft, published, archived]
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogPostTranslation'
+    BlogPost:
+      allOf:
+        - $ref: '#/components/schemas/BlogPostUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+            published_at:
+              type: string
+              format: date-time
+            views:
+              type: integer
+              minimum: 0
+              description: 阅读数只读
+    RealWeddingUpsert:
+      type: object
+      required: [couple, status]
+      properties:
+        couple:
+          type: string
+          maxLength: 64
+        location:
+          type: string
+          maxLength: 128
+        theme:
+          type: string
+          maxLength: 32
+        wedding_date:
+          type: string
+          maxLength: 16
+        cover:
+          type: string
+          maxLength: 512
+        status:
+          type: string
+          enum: [draft, published]
+        product_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RealWeddingTranslation'
+    RealWedding:
+      allOf:
+        - $ref: '#/components/schemas/RealWeddingUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+    LookbookUpsert:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+          maxLength: 128
+        theme:
+          type: string
+          maxLength: 32
+        status:
+          type: string
+          enum: [draft, published]
+        product_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/LookbookTranslation'
+    Lookbook:
+      allOf:
+        - $ref: '#/components/schemas/LookbookUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+    GuideUpsert:
+      type: object
+      required: [phase, title, status]
+      properties:
+        phase:
+          type: string
+          maxLength: 32
+        timeframe:
+          type: string
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 128
+        tasks_count:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [draft, published]
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuideTranslation'
+    Guide:
+      allOf:
+        - $ref: '#/components/schemas/GuideUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+
+  responses:
+    ValidationError:
+      description: 参数/业务校验失败（422701~422704）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（40100 系列沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限（RBAC 菜单权限 key 校验失败，40300）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在（404701~404703）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409701~409703）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（与 identity-api 同基建）。marketing 域仅券校验端点需要登录态（结算前提）。
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域新增权限点：/promotions、/banners、/content/blog、/content/weddings、/content/lookbook，BE-DIM-6），由 RBAC 守卫校验。
+
+security: []

@@ -1,0 +1,146 @@
+# 任务分配表 — portal-api-integration / review 域
+# 由 l2_design_coordinator 下属 review 域设计师产出：本域承载的实现单元映射
+# task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-027/028/029 实体 + TASK-047/048/049 状态机 + TASK-055 流程 + TASK-056 本域生产者侧）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/review
+change_name: portal-api-integration
+domain_code: review
+
+artifacts:
+  api_detail: specs/design/review/review-api-detail.md          # E-REV-01~15, V-REV-001~037, STEP-REV(端点段), TX 引用
+  data_detail: specs/design/review/review-data-detail.md        # RM-REV-001~035, MAP-REV-001~009, IDX-REV-001~005, TX-REV-001~010, CV-REV-001~010, EVT-REV-001~002+双向端口, CACHE-REV-001~002, DDL×3 表
+  frontend_detail: specs/design/review/review-frontend-detail.md # PAGE-REV-A01/S01, COMP-REV-A01~A06/S01~S06, STORE-REV-A01~A03/S01~S04, FORM-REV-A01~A07/S01~S05
+  test_detail: specs/design/review/review-test-detail.md        # TC-REV-001~054
+  ui_test_spec: specs/design/review/review-ui-test-spec.yml     # UIS-REV-A01~A02 / UIS-REV-S01~S03
+
+# ===== 本域 task → 设计章节 → 约束 ID 范围 =====
+task_mappings:
+  - task_id: TASK-027            # entity:Review 数据模型
+    design_sections:
+      - review-data-detail.md §1.2/§9(DDL review)
+      - review-data-detail.md §2(RM-REV-001~014)
+    constraint_ids: [IDX-REV-001, IDX-REV-002, IDX-REV-003, CV-REV-001, CV-REV-003, CV-REV-004, CV-REV-006, CV-REV-007, CV-REV-010, MAP-REV-001, MAP-REV-002, MAP-REV-003, MAP-REV-006, MAP-REV-007]
+    related_endpoints: [E-REV-01, E-REV-02, E-REV-06, E-REV-07, E-REV-08, E-REV-09, E-REV-10, E-REV-11]
+    tests: [TC-REV-004, TC-REV-006, TC-REV-008, TC-REV-010, TC-REV-030, TC-REV-033]
+    notes: "官方回复内嵌主表（reply 三字段不拆表）；StoreReviewListResponse 聚合字段定稿为 Paginated 子类平铺（MAP-REV-006，L1 悬置项闭环）"
+
+  - task_id: TASK-028            # entity:ReviewImage
+    design_sections:
+      - review-data-detail.md §1.2/§9(DDL review_image)
+      - review-data-detail.md §2(RM-REV-020~023)
+    constraint_ids: [IDX-REV-004, CV-REV-005, CV-REV-008, MAP-REV-008]
+    related_endpoints: [E-REV-01, E-REV-02, E-REV-05, E-REV-12]
+    tests: [TC-REV-005, TC-REV-015, TC-REV-017, TC-REV-021]
+
+  - task_id: TASK-029            # entity:ProductQuestion
+    design_sections:
+      - review-data-detail.md §1.2/§9(DDL product_question)
+      - review-data-detail.md §2(RM-REV-030~035)
+    constraint_ids: [IDX-REV-005, CV-REV-002, CV-REV-009, MAP-REV-004, MAP-REV-005]
+    related_endpoints: [E-REV-03, E-REV-04, E-REV-13, E-REV-14, E-REV-15]
+    tests: [TC-REV-006, TC-REV-016, TC-REV-017, TC-REV-035]
+    notes: "user_id 为唯一设计派生列（BE-DIM-6 溯源显式标注，er-diagram 无此字段）"
+
+  - task_id: TASK-047            # state_machine:review_moderation（6 转换）
+    design_sections:
+      - review-api-detail.md E-REV-07(CAS 409802)/E-REV-08(409803)/E-REV-09(batchSet 不限当前状态+skipped 语义)
+      - review-data-detail.md TX-REV-002/003/004 + RM-REV-008/009/010/012 + CV-REV-007
+    constraint_ids: [V-REV-020, V-REV-021, V-REV-022, V-REV-023, V-REV-024, V-REV-025, CV-REV-007]
+    tests: [TC-REV-002, TC-REV-011, TC-REV-012, TC-REV-013, TC-REV-024, TC-REV-025, TC-REV-026, TC-REV-036]
+
+  - task_id: TASK-048            # state_machine:review_image_visibility（2 转换）
+    design_sections:
+      - review-api-detail.md E-REV-12(双向翻转+幂等短路)
+      - review-data-detail.md TX-REV-007 + RM-REV-022/023
+    constraint_ids: [V-REV-029, V-REV-030]
+    tests: [TC-REV-015, TC-REV-027]
+
+  - task_id: TASK-049            # state_machine:question_answer_flow（2 转换）
+    design_sections:
+      - review-api-detail.md E-REV-14(save_answer 首答自动 visible / edit_answer)/E-REV-15
+      - review-data-detail.md TX-REV-008/009 + RM-REV-034/035
+    constraint_ids: [V-REV-034, V-REV-035, V-REV-036, V-REV-037, CV-REV-006]
+    tests: [TC-REV-016, TC-REV-028, TC-REV-035]
+
+  - task_id: TASK-055            # flow:review_moderation_flow（FLOW-P14 全链）
+    design_sections:
+      - review-api-detail.md E-REV-02(403801 越权防护+409801)/E-REV-07(审核+失效链)
+      - review-data-detail.md §8(EVT-REV-001 review.moderated 发布 + ReviewQueryPort 提供) + §7(CACHE-REV-001)
+      - review-frontend-detail.md FORM-REV-S01~S03(写评价三态)/FORM-REV-A01(审核)
+    constraint_ids: [V-REV-004, V-REV-005, V-REV-006, V-REV-007, CV-REV-004, CV-REV-005, EVT-REV-001, CACHE-REV-001]
+    tests: [TC-REV-009, TC-REV-019, TC-REV-034, TC-REV-042]
+    notes: "rating 回写消费者归 catalog（EVT-CAT-002/q.catalog.rating）；本域职责=事件发布 + approvedRatingSummary 回查接口提供（口径与展示聚合同源 RM-REV-002）"
+
+  - task_id: TASK-056            # flow:content_publish_invalidate —— 本域生产者侧（消费者 q.invalidate 归基建分册）
+    design_sections:
+      - review-api-detail.md E-REV-07/08/09/10/11/12/14/15(STEP 失效链)
+      - review-data-detail.md §8.1(EVT-REV-002 content.invalidated type=review_changed|question_changed) + §7(CACHE-REV-001/002)
+    constraint_ids: [EVT-REV-002, CACHE-REV-001, CACHE-REV-002]
+    tests: [TC-REV-018, TC-REV-020, TC-REV-042]
+    shared_with: [catalog(同事件其他 type 生产者), marketing(消费者 q.invalidate 归属), trading(order.paid 生产者)]
+
+# ===== 端点/前端/基建补充单元（task-manifest 未单列、由本域设计衍生的实现单元）=====
+supplementary_units:
+  - id: REV-IMPL-API
+    summary: "15 端点 Controller+Service+DTO（com.dreamy.review 包；含 Paginated 子类 StoreReviewListDTO/AdminReviewListDTO）"
+    design_sections: [review-api-detail.md E-REV-01~15 全部, review-data-detail.md MAP-REV-006/007]
+    constraint_ids: [V-REV-001~037, TX-REV-001~010]
+    tests: [TC-REV-029, TC-REV-030, TC-REV-031, TC-REV-033~042]
+  - id: REV-IMPL-FILTER
+    summary: "StoreJwtFilter 公开白名单 method-aware 升级（METHOD:pattern 条目形式，向后兼容）+ review 登记 2 条（GET:/api/store/reviews、GET:/api/store/questions）"
+    design_sections: [review-api-detail.md §0.1]
+    tests: [TC-REV-039, TC-REV-054]
+    shared_with: [catalog(白名单机制首定义方，3 条 pattern), trading(2 条), showroom/marketing(后续登记)]
+  - id: REV-IMPL-PORT
+    summary: "跨域端口：消费 TradingPurchaseQueryPort(403801)/CatalogSnapshotPort/IdentityQueryPort/StoragePresignPort；提供 ReviewQueryPort.approvedRatingSummary（catalog EVT-CAT-002 消费）"
+    design_sections: [review-api-detail.md §0 跨域端口, review-data-detail.md §8.2/§8.3]
+    tests: [TC-REV-009, TC-REV-019, TC-REV-023]
+    notes: "TradingPurchaseQueryPort 接口声明归本域 port 包，实现归 trading 域（completed 订单 EXISTS 查询）"
+  - id: REV-IMPL-MQ
+    summary: "review.moderated + content.invalidated(review_changed/question_changed) 事件发布器（事务提交后发布，EC-REV-002 降级）"
+    design_sections: [review-data-detail.md §8.1(EVT-REV-001/002)]
+    tests: [TC-REV-019, TC-REV-020, TC-REV-050]
+  - id: REV-IMPL-PRESIGN
+    summary: "买家秀预签名端点（scope=review 固定、MIME 仅图片三类，复用 catalog 代管 StoragePresignPort）"
+    design_sections: [review-api-detail.md E-REV-05]
+    tests: [TC-REV-007, TC-REV-041, TC-REV-049]
+  - id: REV-IMPL-ADMIN-FE
+    summary: "portal-admin Reviews.vue copy-adapt 新建（双 tab+抽屉+Lightbox）+ 路由/权限点 /reviews + src/api/reviews.ts + 2 个 Pinia store"
+    design_sections: [review-frontend-detail.md §A 全部]
+    tests: [TC-REV-043, TC-REV-044, TC-REV-045, UIS-REV-A01, UIS-REV-A02]
+  - id: REV-IMPL-STORE-FE
+    summary: "portal-store product-reviews.tsx data-swap + WriteReviewModal/AskQuestionModal/ReviewImageStrip 新增 + lib/api/review-api.ts + PDP RSC 首屏接入"
+    design_sections: [review-frontend-detail.md §B 全部]
+    tests: [TC-REV-046, TC-REV-047, TC-REV-048, UIS-REV-S01~S03]
+  - id: REV-IMPL-SEED
+    summary: "本域种子数据（mock.js reviews/productQuestions → 3 表种子行，三态/精选/带图/带回复/已答未答变体；dev/staging 限定，决策 21）"
+    design_sections: [review-data-detail.md §9 备注②]
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 数据底座（依赖 catalog product / identity user / trading orders 表已存在）
+    - TASK-027   # review
+    - TASK-028   # review_image
+    - TASK-029   # product_question
+  wave_2:   # 跨域端口与过滤器（端点联调前置）
+    - REV-IMPL-PORT      # 含 trading 侧 hasCompletedOrderContaining 实现协同
+    - REV-IMPL-FILTER    # method-aware 白名单升级（与 catalog/trading 共用机制协同）
+  wave_3:   # 行为与状态机（依赖实体+端口就绪）
+    - REV-IMPL-API       # 15 端点（含 TASK-047/048/049 状态机 guard 内嵌实现）
+    - TASK-047
+    - TASK-048
+    - TASK-049
+    - REV-IMPL-PRESIGN
+  wave_4:   # 失效链与事件（依赖端点 + MQ 基建 + catalog q.catalog.rating 消费者就绪）
+    - TASK-055
+    - TASK-056
+    - REV-IMPL-MQ
+  wave_5:   # 前端接入与种子（依赖后端可联调）
+    - REV-IMPL-SEED
+    - REV-IMPL-ADMIN-FE
+    - REV-IMPL-STORE-FE
+
+cycle_check: pass        # wave 内无互依赖；跨 wave 单向；跨域协同点（trading 端口实现/catalog 消费者）以 shared_with/notes 显式声明
+no_overlap_check: pass   # 每 task/实现单元唯一归属；TASK-056 仅承载本域生产者侧、rating 回写消费归 catalog（TASK-055 notes 边界声明）
+no_gap_check: pass       # 本域 task-manifest 条目（027/028/029/047/048/049/055/056-本域侧）全覆盖；15 端点/3 表/10 错误码/3 状态机均有承载单元

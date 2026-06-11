@@ -1,0 +1,994 @@
+openapi: 3.0.3
+info:
+  title: Review API (portal-api-integration)
+  description: |
+    review 限界上下文 API 契约，覆盖消费端（/api/store/reviews·questions·uploads）与后台（/api/admin/reviews·questions）。
+    实体：Review / ReviewImage / ProductQuestion（决策 2）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。分页载荷统一为 huihao.page.Paginated 形状
+    （snake_case：`{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`，
+    与 backend UserOpsController R<Paginated<T>> / portal-admin PageResult 消费习惯一致）；
+    本域评价/Q&A 列表带聚合附加字段（rating_avg 等），后端以 Paginated 扩展包装 DTO 实现（字段平铺同层）。
+
+    ## 鉴权约定（与 identity-api 一致）
+    - 消费端读端点公开（仅返回 approved/visible 内容）；提交端点 StoreBearerAuth，按 user_id 强隔离（BE-DIM-6）。
+    - 评价提交越权防护（s-756/s-762）：仅当前用户存在含该商品的 completed 订单才可提交（403801）。
+    - 后台端点 AdminBearerAuth + RBAC 菜单权限 key（/reviews）。
+    - **鉴权基建提示（L2 明确设计）**：现有 StoreJwtFilter 对 /api/store/* 默认强制鉴权。本域两个消费端
+      读端点（GET /api/store/reviews、GET /api/store/questions）为匿名公开，需纳入 filter 的
+      **配置化公开路径白名单**（与 catalog/marketing/trading/showroom 公开端点共用同一机制）。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（review=8）+ 序号。
+
+    ### review 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 403801 | REVIEW_NOT_ALLOWED 非 completed 订单购买者不可评价（越权防护，s-756） | 403 |
+    | 404801 | REVIEW_NOT_FOUND 评价不存在 | 404 |
+    | 404802 | QUESTION_NOT_FOUND 提问不存在 | 404 |
+    | 404803 | REVIEW_IMAGE_NOT_FOUND 评价图片不存在 | 404 |
+    | 409801 | ALREADY_REVIEWED 该商品已评价（同用户同商品唯一） | 409 |
+    | 409802 | REVIEW_STATE_INVALID 非 pending 不可审核（js_guard：status === 'pending' 才显示通过/拒绝） | 409 |
+    | 409803 | FEATURED_REQUIRES_APPROVED 仅 approved 可精选（js_guard；reject/batch 时强制 featured=false） | 409 |
+    | 409804 | REPLY_REQUIRES_APPROVED 仅 approved 可创建/编辑官方回复（js_guard） | 409 |
+    | 422801 | FIELD_VALIDATION_FAILED 字段校验失败（rating 1-5、回复/回答非空 trim 等 js_guard） | 422 |
+    | 502801 | OBJECT_STORAGE_UNAVAILABLE 买家秀预签名服务不可用（决策 9） | 502 |
+
+    ## 缓存标注（BE-DIM-8）
+    - GET /api/store/reviews、/api/store/questions：JetCache 两级（key 含 product_id + 分页 + 排序；评价内容不做多语翻译，
+      key 不含 locale），TTL 300s；失效触发者：后台审核/回复/图片驳回/问答写操作 @CacheInvalidate → MQ → revalidatePath + purge（PDP 同步刷新）。
+      CDN s-maxage 短缓存（60s）。
+    - 提交/审核端点不缓存。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-014，s-756/s-762）
+    - v1.1.0 (2026-06-10): feasibility 修复——分页包络对齐 huihao Paginated（聚合字段以扩展包装 DTO 平铺）；
+      R 包络映射声明；公开路径白名单提示
+  version: 1.0.0
+  contact:
+    name: review domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: store-reviews
+    description: 消费端评价读取与提交（ALIGN-014）
+  - name: store-questions
+    description: 消费端商品 Q&A
+  - name: store-uploads
+    description: 买家秀图片预签名上传（决策 9）
+  - name: admin-reviews
+    description: 后台评价审核/精选/官方回复/图片驳回（ALIGN-014）
+  - name: admin-questions
+    description: 后台 Q&A 回答与可见性
+
+paths:
+  # ============ STORE REVIEWS ============
+  /api/store/reviews:
+    get:
+      summary: 商品评价列表（仅 approved）
+      description: |
+        PDP 评价区。仅返回 status=approved 评价；图片排除 rejected=true（js_guard）；含评分聚合。
+        缓存：CDN s-maxage 60s + JetCache 两级 TTL 300s（key 含 product_id + sort + 分页）；失效：后台审核/回复写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreReviews
+      tags: [store-reviews]
+      security: []
+      parameters:
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, rating_desc, rating_asc, featured_first]
+            default: featured_first
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreReviewListResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 提交评价
+      description: |
+        ALIGN-014（s-756/s-762）。守卫：当前用户存在包含该商品的 completed 订单（否则 403801）；同用户同商品已评价返回 409801。
+        提交后 status=pending 进入审核队列，前台不展示。customer_name 取用户资料姓名快照。
+      operationId: createStoreReview
+      tags: [store-reviews]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreReviewCreate'
+      responses:
+        '201':
+          description: 已提交（pending 待审核）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreReview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 403801
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 商品不存在
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409801
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE QUESTIONS ============
+  /api/store/questions:
+    get:
+      summary: 商品 Q&A 列表（仅 visible 且已回答）
+      description: |
+        PDP 问答区。仅返回 visible=visible 且 answer 非空的提问。
+        缓存：CDN s-maxage 60s + JetCache 两级 TTL 300s（key 含 product_id + 分页）；失效：后台回答/可见性写操作 → MQ → revalidatePath + purge。
+      operationId: listStoreQuestions
+      tags: [store-questions]
+      security: []
+      parameters:
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreQuestionListResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 提交商品提问
+      description: 登录用户提交；asker 取用户资料姓名快照；默认 hidden 待后台回答后置 visible。
+      operationId: createStoreQuestion
+      tags: [store-questions]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, question]
+              properties:
+                product_id:
+                  type: integer
+                  format: int64
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '201':
+          description: 已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreQuestion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE UPLOADS（买家秀） ============
+  /api/store/uploads/presign:
+    post:
+      summary: 买家秀图片预签名上传
+      description: |
+        决策 9。仅用于评价图片直传（scope 固定 review，对象 key 归类 review/ 前缀）；
+        上传完成后将 public_url 放入评价提交的 images。对象存储不可用返回 502801。
+      operationId: presignStoreUpload
+      tags: [store-uploads]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_name, content_type]
+              properties:
+                file_name:
+                  type: string
+                  maxLength: 255
+                content_type:
+                  type: string
+                  description: 仅允许 image/jpeg、image/png、image/webp
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [upload_url, object_key, public_url, expires_at]
+                properties:
+                  upload_url:
+                    type: string
+                  object_key:
+                    type: string
+                  public_url:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'   # 502801
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN REVIEWS ============
+  /api/admin/reviews:
+    get:
+      summary: 评价审核列表
+      description: ALIGN-014。状态 chips（pending/approved/rejected）+ 评分 + 商品 + 关键词筛选。不缓存。
+      operationId: listAdminReviews
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, approved, rejected]
+            default: all
+        - name: rating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - name: featured
+          in: query
+          schema:
+            type: boolean
+        - name: product_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: search
+          in: query
+          description: 客户名/评价内容模糊搜索
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/reviews/{id}/status:
+    patch:
+      summary: 审核通过/拒绝
+      description: |
+        ALIGN-014。js_guard：status=pending 才可审核（409802）；拒绝时强制 featured=false。
+        通过后触发消费端评价缓存失效链；写 OperationLog（action=评价审核）。
+      operationId: patchAdminReviewStatus
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404801
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409802
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/reviews/{id}/featured:
+    patch:
+      summary: 设置/取消精选
+      description: js_guard：featured 仅 status=approved 可为 true（409803）。触发消费端评价缓存失效链。
+      operationId: patchAdminReviewFeatured
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [featured]
+              properties:
+                featured:
+                  type: boolean
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409803
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/reviews/batch:
+    post:
+      summary: 批量审核/精选（batchSet）
+      description: |
+        ALIGN-014 Reviews.vue batchSet。action=approve/reject/feature/unfeature；
+        reject 强制 featured=false；feature 仅作用于 approved（不满足项跳过并在 skipped_ids 返回）。
+        写 OperationLog（action=评价批量操作）。
+      operationId: batchAdminReviews
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids, action]
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: integer
+                    format: int64
+                action:
+                  type: string
+                  enum: [approve, reject, feature, unfeature]
+      responses:
+        '200':
+          description: 批量结果
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated_ids, skipped_ids]
+                properties:
+                  updated_ids:
+                    type: array
+                    items:
+                      type: integer
+                      format: int64
+                  skipped_ids:
+                    type: array
+                    description: 状态 guard 不满足被跳过的评价 id
+                    items:
+                      type: integer
+                      format: int64
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/reviews/{id}/reply:
+    put:
+      summary: 创建/编辑官方回复
+      description: |
+        js_guard：status=approved 且 reply_content trim 非空（409804 / 422801）。
+        reply_author 固定写入操作者展示名（如 "Dreamy Team"），reply_time 服务端生成。触发消费端评价缓存失效链。
+      operationId: putAdminReviewReply
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reply_content]
+              properties:
+                reply_content:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409804
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除官方回复
+      description: Reviews.vue deleteReply。清空 reply_author/reply_content/reply_time。触发消费端评价缓存失效链。
+      operationId: deleteAdminReviewReply
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 已删除
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/reviews/{id}/images/{imageId}:
+    patch:
+      summary: 驳回/恢复买家秀图片
+      description: Reviews.vue rejectImage/restoreImage。rejected=true 时前台不展示该图（js_guard）。触发消费端评价缓存失效链。
+      operationId: patchAdminReviewImage
+      tags: [admin-reviews]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rejected]
+              properties:
+                rejected:
+                  type: boolean
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewImage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404801 / 404803
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN QUESTIONS ============
+  /api/admin/questions:
+    get:
+      summary: Q&A 列表（后台）
+      description: 含未回答提问；answered 筛选。不缓存。
+      operationId: listAdminQuestions
+      tags: [admin-questions]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: product_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: answered
+          in: query
+          schema:
+            type: string
+            enum: [all, answered, unanswered]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestionListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/questions/{id}/answer:
+    put:
+      summary: 回答提问（saveAnswer）
+      description: js_guard：answer trim 非空（422801）。answer_time 服务端生成；首次回答自动置 visible=visible。触发消费端 Q&A 缓存失效链。写 OperationLog（action=回答提问）。
+      operationId: putAdminQuestionAnswer
+      tags: [admin-questions]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer]
+              properties:
+                answer:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestion'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404802
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/questions/{id}/visibility:
+    patch:
+      summary: 切换前台可见性（Toggle）
+      description: Reviews.vue Toggle q.visible 映射 visible/hidden 枚举。触发消费端 Q&A 缓存失效链。
+      operationId: patchAdminQuestionVisibility
+      tags: [admin-questions]
+      security:
+        - AdminBearerAuth: [/reviews]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [visible]
+              properties:
+                visible:
+                  type: string
+                  enum: [visible, hidden]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestion'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 review=8，见 info 码表）
+          example: 403801
+        message:
+          type: string
+          description: 当前语言默认文案（store EN/ES/FR；admin 中文）
+        details:
+          type: object
+          additionalProperties: true
+
+    ReviewImage:
+      type: object
+      required: [id, url, rejected]
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+        rejected:
+          type: boolean
+          description: js_guard：true 时前台不展示
+
+    # ---- 消费端 ----
+    StoreReviewCreate:
+      type: object
+      required: [product_id, rating]
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        content:
+          type: string
+          maxLength: 5000
+        images:
+          type: array
+          maxItems: 9
+          description: 预签名上传后的 public_url 列表
+          items:
+            type: object
+            required: [url]
+            properties:
+              url:
+                type: string
+    StoreReview:
+      type: object
+      required: [id, product_id, rating, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        customer_name:
+          type: string
+          description: 提交时用户资料姓名快照（前台脱敏展示）
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        content:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: 列表读取时恒为 approved；提交回执为 pending
+        featured:
+          type: boolean
+        submitted_at:
+          type: string
+          format: date-time
+        images:
+          type: array
+          description: 前台仅含 rejected=false 图片
+          items:
+            $ref: '#/components/schemas/ReviewImage'
+        reply_author:
+          type: string
+          description: 官方回复署名（如 "Dreamy Team"）
+        reply_content:
+          type: string
+        reply_time:
+          type: string
+          format: date-time
+    StoreReviewListResponse:
+      type: object
+      description: huihao.page.Paginated 扩展形状（线上为 R<包装 DTO>：Paginated 字段 + 评分聚合字段平铺同层）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages, rating_avg, rating_count]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreReview'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+        rating_avg:
+          type: number
+          description: approved 评价均分（聚合派生）
+        rating_count:
+          type: integer
+          description: approved 评价总数（聚合派生）
+        rating_breakdown:
+          type: object
+          description: 1~5 星各档数量（聚合派生，key 为星级）
+          additionalProperties:
+            type: integer
+    StoreQuestion:
+      type: object
+      required: [id, product_id, question]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        asker:
+          type: string
+          description: 提问者姓名快照（前台脱敏展示）
+        question:
+          type: string
+        asked_at:
+          type: string
+          format: date-time
+        answer:
+          type: string
+        answer_time:
+          type: string
+          format: date-time
+    StoreQuestionListResponse:
+      type: object
+      description: huihao.page.Paginated 形状（线上为 R<Paginated<StoreQuestion>>）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreQuestion'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+
+    # ---- 后台 ----
+    AdminReview:
+      allOf:
+        - $ref: '#/components/schemas/StoreReview'
+        - type: object
+          required: [user_id]
+          properties:
+            user_id:
+              type: integer
+              format: int64
+            product_name:
+              type: string
+              description: 商品名（catalog 联表派生）
+            images:
+              type: array
+              description: 后台返回全部图片（含 rejected=true）
+              items:
+                $ref: '#/components/schemas/ReviewImage'
+    AdminReviewListResponse:
+      type: object
+      description: huihao.page.Paginated 扩展形状（线上为 R<包装 DTO>：Paginated 字段 + pending_count 平铺同层）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReview'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+        pending_count:
+          type: integer
+          description: 待审核总数（状态 chips 角标派生）
+    AdminQuestion:
+      allOf:
+        - $ref: '#/components/schemas/StoreQuestion'
+        - type: object
+          required: [visible]
+          properties:
+            visible:
+              type: string
+              enum: [visible, hidden]
+            product_name:
+              type: string
+              description: 商品名（catalog 联表派生）
+    AdminQuestionListResponse:
+      type: object
+      description: huihao.page.Paginated 形状（线上为 R<Paginated<AdminQuestion>>）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminQuestion'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+
+  responses:
+    ValidationError:
+      description: 参数校验失败（422801）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（40100 系列沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限或业务禁止（40300 / 403801 REVIEW_NOT_ALLOWED）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在（404801~404803）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409801~409804）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamError:
+      description: 外部服务不可用（502801 OBJECT_STORAGE_UNAVAILABLE）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（与 identity-api 同基建）。评价/提问提交按 subject=user_id 强隔离与购买校验（BE-DIM-6）。
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域新增权限点：/reviews，BE-DIM-6），由 RBAC 守卫校验。
+
+security: []

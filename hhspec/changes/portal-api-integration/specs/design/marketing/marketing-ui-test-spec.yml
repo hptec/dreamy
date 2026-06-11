@@ -1,0 +1,287 @@
+# marketing UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: marketing
+# 约束：只看原型不看代码；穷举操作路径；与 marketing-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 对齐：ui-verification-checklist.md 本域条目 —— promotions/banners/content-blog/content-weddings/content-lookbook 五页视觉基线截图
+# 原型源：hhspec/prototype/portal-admin/src/views/{Promotions,Banners,ContentBlog,ContentWeddings,ContentLookbook}.vue
+#         hhspec/prototype/app/{page,blog,real-weddings,inspiration,wedding-guides,contact}.tsx + components/marketing/newsletter-modal.tsx + components/layout/site-footer.tsx
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: marketing
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav]
+  conformance_note: "原型强对照：token/布局零偏离；loading/error/empty 态复用既有组件风格；headless-ui 根组件 class 必配 as（CP-072）；newsletter 折扣码话术移除为决策 26 显式降级"
+
+pages:
+  # ===== portal-admin（Vue3, 中文, 5174）=====
+  - id: UIS-MKT-A01
+    page: /promotions
+    prototype: portal-admin/src/views/Promotions.vue
+    checklist_refs: ["screenshots/promotions-full-desktop.png"]
+    visual_baseline: [promotions-coupon-tab, promotions-flash-tab, promotions-coupon-drawer, promotions-empty-state]
+    interactions:
+      - path: 双 tab 切换（优惠券 / Flash Sale 秒杀）
+        assert: [tab 下划线 gold 高亮迁移, 面板切换无闪烁]
+      - path: 券卡片渲染
+        assert: [票券造型（渐变头部+虚线码框+左右圆缺口）保持, value/name/StatusBadge tone 映射（active=ok/expiring=warn/draft=neutral/scheduled=info/expired=neutral）, 门槛与已用进度文案, total>9999 显示「不限」]
+      - path: 状态筛选 + 券码/名称搜索（防抖）
+        assert: [列表服务端更新, 无结果 EmptyState]
+      - path: 点击「新建」打开 CouponFormDrawer
+        assert: [Dialog 渲染（as prop 正确无级联崩溃）, code 输入自动大写, value 占位随 type 切换（15% OFF / $50 OFF）, 三语 tab EN/ES/FR 渲染]
+      - path: 提交 end_at 早于 start_at
+        assert: [end_at 字段 inline「结束时间须晚于开始时间」, 不关闭抽屉]
+      - path: 提交重复券码
+        assert: [code 字段 inline「券码已存在」(409701)]
+      - path: 删除 active 券
+        assert: [删除按钮置灰 + tooltip（前端预判）; 绕过预判时 toast「当前发布状态不允许该操作」(409703), 卡片保留]
+      - path: 删除 draft 券
+        assert: [二次确认弹窗, 确认后卡片移除]
+      - path: 闪购表格行渲染
+        assert: [ClockIcon+名称/商品数/折扣 gold 色/起止时间/StatusBadge/编辑按钮列结构保持]
+      - path: 编辑 ended 闪购
+        assert: [编辑按钮置灰 + tooltip「已结束活动不可编辑」]
+      - path: 新建闪购挂商品
+        assert: [商品选择器搜索下拉 + 选中 chip, 移除 chip 即时生效]
+    field_assertions: [券码 mono 字体虚线框, 有效期区间文案, used/total 千分位, 闪购倒计时列为起止时间静态文案]
+    state_transitions: [coupon draft->scheduled/active（表单 status）, flash draft 行删除->gone]
+    accessibility: [tab role=tablist, drawer aria-role-dialog focus-trap, 删除确认 dialog role]
+
+  - id: UIS-MKT-A02
+    page: /banners
+    prototype: portal-admin/src/views/Banners.vue
+    checklist_refs: ["screenshots/banners-full-desktop.png"]
+    visual_baseline: [banners-full-desktop, banners-drawer-open, banners-empty-state]
+    interactions:
+      - path: 表格渲染
+        assert: [缩略图 h-12 w-20 圆角/名称/position badge/投放时间两行/Toggle/clicks 千分位/排序输入/操作列结构保持]
+      - path: 行内 Toggle 上线（draft 行）
+        assert: [Toggle 即时翻转(乐观), StatusBadge 同步, 失败回滚并 toast]
+      - path: 行内 Toggle 下线（published 行）
+        assert: [翻转为 archived 语义, 再次开启回 published（republish）]
+      - path: 排序输入 blur 提交
+        assert: [PUT 请求发出, 失败回滚原值]
+      - path: 「新增 Banner」打开 BannerFormDrawer
+        assert: [图片上传卡（presign 直传进度条）, position 三选, 投放时间区间选择, EN 文案区（title/subtitle/cta）+ ES/FR tab, 对象存储失败显示「稍后重试」卡片且其余字段可保存]
+      - path: end_time 早于 start_time 提交
+        assert: [inline「结束时间须晚于开始时间」(422704)]
+      - path: 删除 Banner
+        assert: [二次确认, 行移除]
+      - path: 已过投放窗口的 published 行
+        assert: [灰色「已过窗」角标渲染（前端按 end_time 派生）, Toggle 仍可操作]
+    field_assertions: [name 必填星标, image_url 必填（无图不可提交）, sort 数值输入]
+    state_transitions: [draft->published->archived->published 循环, 任意态删除->gone]
+    accessibility: [Toggle aria-checked, 缩略图 alt, drawer focus-trap]
+
+  - id: UIS-MKT-A03
+    page: /content/blog
+    prototype: portal-admin/src/views/ContentBlog.vue
+    checklist_refs: ["screenshots/content-blog-full-desktop.png"]
+    visual_baseline: [content-blog-grid, content-blog-edit-drawer, content-blog-lang-tabs]
+    interactions:
+      - path: filter tabs（全部/已发布/草稿/已归档）
+        assert: [服务端筛选生效, tab 样式沿用（archived 为 API 枚举对齐补充 tab，样式同构）]
+      - path: 卡片渲染
+        assert: [16:10 封面+左上 StatusBadge, category 金色 uppercase, 标题 display 字体, author·date·views 千分位行, 操作行（编辑/预览/发布/删除）]
+      - path: 「写文章」打开 BlogEditDrawer
+        assert: [title/slug/category/author/cover 上传/正文 textarea/status 渲染, 三语 tab（EN 主字段, ES/FR 独立输入, 完整度圆点）]
+      - path: draft 卡片点「发布」（无 slug）
+        assert: [提示「发布前需填写 slug」(422704) 并打开编辑抽屉定位 slug 字段]
+      - path: draft 点「发布」（有 slug）
+        assert: [StatusBadge 变已发布, toast 附注「已触发缓存失效链」]
+      - path: published 卡片「下线」/ archived「重新发布」
+        assert: [状态流转正确, 阅读数保持]
+      - path: slug 重复提交
+        assert: [slug 字段 inline「文章 slug 已存在」(409702)]
+      - path: 「预览」点击
+        assert: ["新窗口打开店面 /blog/<slug>", "slug 空时按钮置灰"]
+      - path: 删除文章
+        assert: [二次确认, 卡片移除]
+    field_assertions: [title 必填星标, slug pattern 即时提示, views/published_at 只读展示]
+    state_transitions: [draft->published（记发布时间）, published->archived, archived->published]
+    accessibility: [filter tab keyboard-nav, 抽屉 aria-role-dialog, 封面 img alt]
+
+  - id: UIS-MKT-A04
+    page: /content/weddings
+    prototype: portal-admin/src/views/ContentWeddings.vue
+    checklist_refs: ["screenshots/content-weddings-full-desktop.png"]
+    visual_baseline: [content-weddings-grid, content-weddings-drawer]
+    interactions:
+      - path: 案例卡片渲染
+        assert: [140px 封面+右侧信息双列网格, theme sage 圆角标签, couple display 字体, MapPin+location, Shop the Look 件数行]
+      - path: 「新增婚礼故事」打开 WeddingFormDrawer
+        assert: [couple/location/theme/wedding_date/cover 上传/status 渲染, EN 文案区（title/story）, ES/FR tab, Shop the Look 商品选择器]
+      - path: 商品选择器添加/移除
+        assert: [搜索防抖下拉, chip 含缩略图+名称, 移除即时, 重复选择去重]
+      - path: 发布/下线切换
+        assert: [StatusBadge ok/neutral 切换, 重复点击同态无请求（幂等预判）]
+      - path: 提交含已删除商品的 product_ids
+        assert: [选择器区 inline「包含已删除商品，请移除」(422704)]
+      - path: 删除案例
+        assert: [二次确认, 卡片移除]
+    field_assertions: [couple 必填星标, wedding_date 如 2025-06 格式占位]
+    state_transitions: [draft<->published 双向]
+    accessibility: [封面 alt, 选择器 listbox 语义, drawer focus-trap]
+
+  - id: UIS-MKT-A05
+    page: /content/lookbook
+    prototype: portal-admin/src/views/ContentLookbook.vue
+    checklist_refs: ["screenshots/content-lookbook-full-desktop.png"]
+    visual_baseline: [content-lookbook-tab, content-guides-tab, lookbook-drawer, guide-drawer]
+    interactions:
+      - path: 双 tab 切换（Lookbook 画册 / Wedding Guides 指南）
+        assert: [tab 高亮迁移, 面板内容正确]
+      - path: lookbook 卡片渲染
+        assert: [PhotoIcon+StatusBadge 头行, 标题 display 字体, theme·商品锚点数行, 编辑/删除操作行]
+      - path: LookbookFormDrawer 编辑
+        assert: [title/theme/description(EN)/status + ES/FR tab + 商品选择器渲染]
+      - path: guide 行渲染
+        assert: [序号圆徽章 gold, 标题+timeframe 圆角标签, phase·任务数行, StatusBadge, 操作按钮]
+      - path: GuideFormDrawer 编辑
+        assert: [phase/timeframe/title/tasks_count/body(EN)/status + ES/FR tab]
+      - path: 发布/下线与删除（两类各）
+        assert: [状态徽章切换, 删除二次确认后移除]
+    field_assertions: [lookbook title 必填, guide phase+title 必填, tasks_count 数值 ≥0]
+    state_transitions: [draft<->published 双向（两实体）]
+    accessibility: [tab role, drawer dialog role, 序号徽章 aria-hidden]
+
+  # ===== portal-store（Next.js 15, EN/ES/FR, 5173）=====
+  - id: UIS-MKT-S01
+    page: /（首页营销区块，含 /es /fr）
+    prototype: app/page.tsx + components/layout/site-header.tsx
+    visual_baseline: [home-hero-banner, home-flash-rail, home-real-weddings, home-topbar]
+    interactions:
+      - path: 首屏 hero 渲染（有 hero banner 数据）
+        assert: [图/标题/副题/CTA 来自 API, 版式与现有 hero 零偏差, kenburns 动画保持]
+      - path: hero banner 数据为空
+        assert: [回退既有静态 hero（冷启动安全, 无空白区）]
+      - path: topbar 公告轮播
+        assert: [topbar banners title 轮播 4s 间隔, 空数据回退静态文案]
+      - path: FlashSaleRail（有 active 活动）
+        assert: [SectionHeading + 倒计时徽章每秒递减, ProductCard 横轨, token 同源无新色值]
+      - path: FlashSaleRail（无活动）
+        assert: [整段不渲染（无空壳）]
+      - path: 倒计时到期
+        assert: [区块本地隐藏, 无报错]
+      - path: Real Weddings 区块
+        assert: ["API 前 3 条案例卡渲染", "链接指向 /real-weddings/<id>"]
+      - path: /es 前缀访问
+        assert: [banner 文案 ES（缺翻译回退 EN）, hreflang 标注存在]
+    accessibility: [hero img alt, 倒计时 aria-live=polite, 轮播 aria-label]
+
+  - id: UIS-MKT-S02
+    page: /blog 与 /blog/[slug]（×3 locale）
+    prototype: app/blog/page.tsx + app/blog/[slug]/page.tsx
+    visual_baseline: [blog-list, blog-detail, blog-detail-es]
+    interactions:
+      - path: 列表加载
+        assert: [文章卡（封面/栏目/标题/作者/日期）网格渲染, 分页控件, 空态 EmptyState 风格]
+      - path: 点击卡片进详情
+        assert: [标题/封面/正文段落渲染, seo meta（title/description）注入]
+      - path: 访问不存在/草稿 slug
+        assert: [Next 404 页（notFound）, 非白屏]
+      - path: /es 详情
+        assert: [title/正文 ES 文案, 缺翻译回退 EN]
+    accessibility: [文章语义 article, 封面 alt, 分页 nav 语义]
+
+  - id: UIS-MKT-S03
+    page: /real-weddings 与 /real-weddings/[id]（×3 locale）
+    prototype: app/real-weddings/page.tsx + [slug]/page.tsx
+    visual_baseline: [weddings-list, wedding-detail-shop-the-look]
+    interactions:
+      - path: 列表加载
+        assert: [案例卡（cover/couple/location/theme/date）渲染, 链接参数为数字 id]
+      - path: 详情 Shop the Look
+        assert: [story 段落渲染, products ProductCard 轨, 空 products 区块不渲染, 卡片链接至 PDP]
+      - path: 详情图区
+        assert: [cover 主图渲染（gallery 多图降级单图——显式偏离已标注, 无破损图）]
+      - path: 不存在 id
+        assert: [notFound 页]
+    accessibility: [couple 标题层级, 商品卡链接语义]
+
+  - id: UIS-MKT-S04
+    page: /inspiration 与 /wedding-guides（×3 locale）
+    prototype: app/inspiration/page.tsx + app/wedding-guides/page.tsx
+    visual_baseline: [inspiration-lookbooks, wedding-guides-timeline]
+    interactions:
+      - path: lookbook 网格加载
+        assert: [画册卡（title/theme/description）渲染, 关联商品区（详情拉取）卡片轨]
+      - path: guides 时间轴加载
+        assert: [按 phase 顺序渲染, timeframe 标签, tasks_count 文案, body 内容]
+      - path: 空数据
+        assert: [EmptyState 风格空态（两页各）]
+      - path: /fr 访问
+        assert: [title/body FR 文案, 缺翻译回退 EN]
+    accessibility: [时间轴 ol 语义, 卡片 heading 层级]
+
+  - id: UIS-MKT-S05
+    page: Newsletter（footer + 弹窗 + exit-intent，全站）
+    prototype: components/marketing/newsletter-modal.tsx + components/layout/site-footer.tsx
+    visual_baseline: [newsletter-modal, newsletter-modal-done, footer-newsletter]
+    interactions:
+      - path: 首访 4s 弹窗
+        assert: [双栏弹窗渲染, 文案为纯订阅确认话术（无「10% off / Reveal My Code」字样——决策 26）, 关闭后 sessionStorage 防重弹]
+      - path: 弹窗提交合法邮箱
+        assert: [确认文案面板（sage 信息条）, 无「check your inbox for your code」字样]
+      - path: 提交非法邮箱
+        assert: [email 红框 + 三语字典文案, 不发请求（前端预校验）]
+      - path: 重复邮箱提交
+        assert: [UI 与首次完全一致（不泄露已订阅）]
+      - path: exit-intent（鼠标移出顶缘）
+        assert: [同弹窗复用触发一次, 已见标记后不再触发]
+      - path: footer 输入框提交
+        assert: [行内确认文案, 输入清空]
+    accessibility: [modal aria-role-dialog + focus-trap, email label sr-only 保持, 关闭按钮 aria-label]
+
+  - id: UIS-MKT-S06
+    page: /contact（×3 locale）
+    prototype: app/contact/page.tsx
+    visual_baseline: [contact-form, contact-sent, contact-field-errors]
+    interactions:
+      - path: 表单渲染
+        assert: [左联系信息/右表单双栏布局保持, Name/Email/Subject 下拉/Message 字段]
+      - path: 缺必填提交
+        assert: [name/email/message 红框, 不发请求]
+      - path: 合法提交
+        assert: [「Thank you!」成功面板切换（既有视觉）]
+      - path: 服务端 422704
+        assert: [details.fields 对应字段红框 + 三语文案]
+      - path: 5xx
+        assert: [通用错误态 + 重试按钮（既有组件风格）]
+    accessibility: [label-for 全字段, 成功面板 aria-live]
+
+  - id: UIS-MKT-S07
+    page: /checkout 券码切面（登录态）
+    prototype: app/checkout/page.tsx（coupon 输入区）
+    visual_baseline: [checkout-coupon-valid, checkout-coupon-invalid]
+    interactions:
+      - path: 输入合法券码点 Apply
+        assert: [输入自动大写, 减免金额绿色行渲染, Review 步 Discount 行同步（quote 复核）]
+      - path: 无效/过期券
+        assert: [行内提示「优惠券不可用」(422701 文案三语), 结算流程不阻断]
+      - path: 未达门槛券
+        assert: [提示含门槛金额 (422702), 不阻断]
+      - path: 已领完券
+        assert: [提示 (422703), 不阻断]
+      - path: 未登录点 Apply
+        assert: ["跳转 /account/login?returnTo=/checkout"]
+    accessibility: [coupon input label, 结果行 aria-live]
+
+self_check:
+  pages_covered: 12
+  admin_pages: 5          # promotions / banners / content-blog / content-weddings / content-lookbook —— 与 ui-verification-checklist 本域五页一一对应
+  store_pages: 7          # home营销区块 / blog / real-weddings / inspiration+guides / newsletter / contact / checkout券码切面
+  checklist_alignment: [promotions-full-desktop.png, banners-full-desktop.png, content-blog-full-desktop.png, content-weddings-full-desktop.png, content-lookbook-full-desktop.png]
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  locale_variants: [en, es, fr]
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true   # 仅基于原型

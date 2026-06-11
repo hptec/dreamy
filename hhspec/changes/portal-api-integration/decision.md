@@ -260,3 +260,7 @@
 2. **布局结构保持**：仅替换数据源（mock → API），不得改动既有组件结构、栅格布局与交互形态；新增的 loading/error/empty 态必须复用既有 EmptyState/骨架组件风格
 3. **消费端同理**：portal-store 替换 data/products.ts 等 mock 时不得改动页面视觉，新增状态组件遵循同源 token
 4. **L2/L3/L4 约束**：L2 前端详设以现有实现文件为基线产出 diff 级设计；L3 实现遵循「复制+适配」模式仅动数据层；L4 验收含 UI 回归比对（关键页面截图对照）
+
+## 裁决记录（L3 修复轮）
+
+- **裁决（L3 修复轮）**：acceptance.yml s-760 「取消订单不回补 usedCount」与 L2 设计 RM-TRD-113 回补语义冲突，实现随 L2（回补，GREATEST 防负），理由：用户公平性与库存型资源一致语义；L0 断言以本裁决为准（2026-06-10，functional-review warning 项裁决归一；按 AC-06 不修改 acceptance.yml）

@@ -1,0 +1,76 @@
+# 任务分配表 — portal-api-integration / analytics 域
+# 由 l2_design_coordinator 下属 analytics 域设计师产出：本域承载的实现单元映射
+# task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-009/058）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/analytics
+change_name: portal-api-integration
+domain_code: analytics
+
+artifacts:
+  api_detail: specs/design/analytics/analytics-api-detail.md          # E-ANA-01~03, V-ANA-001~003, STEP-ANA(端点段), DEC-ANA-1~8, GA4 三级降级链
+  data_detail: specs/design/analytics/analytics-data-detail.md        # RM-ANA-001~009, MAP-ANA-001~008, IDX-ANA-001~004(依赖核对), TX-ANA-001/002, CACHE-ANA-001~005, SVC-ANA(GA4 客户端), 无 DDL(虚拟视图)
+  frontend_detail: specs/design/analytics/analytics-frontend-detail.md # PAGE-ANA-A01/A02, STORE-ANA-01/02, COMP-ANA-A01~A11, FORM-ANA(空集声明), DEC-ANA-FE-1~8
+  test_detail: specs/design/analytics/analytics-test-detail.md        # TC-ANA-001~038
+  ui_test_spec: specs/design/analytics/analytics-ui-test-spec.yml     # UIS-ANA-A01/A02
+
+# ===== 本域 task → 设计章节 → 约束 ID 范围 =====
+task_mappings:
+  - task_id: TASK-009            # entity:AnalyticsDashboard 数据模型
+    design_sections:
+      - analytics-data-detail.md §0(DEC-ANA-1 虚拟聚合视图显式声明：不建表/无 DDL/无迁移)
+      - analytics-data-detail.md §1(RM-ANA-001~009 只读跨域聚合查询) + §2(MAP-ANA-001~008 readmodel/响应 DTO)
+    constraint_ids: [RM-ANA-001, RM-ANA-002, RM-ANA-003, RM-ANA-004, RM-ANA-005, RM-ANA-006, RM-ANA-007, RM-ANA-008, RM-ANA-009, MAP-ANA-001, MAP-ANA-002, MAP-ANA-003, MAP-ANA-004, TX-ANA-001, TX-ANA-002]
+    related_endpoints: [E-ANA-01, E-ANA-02]
+    tests: [TC-ANA-001, TC-ANA-002, TC-ANA-003, TC-ANA-004, TC-ANA-005, TC-ANA-006, TC-ANA-011, TC-ANA-012, TC-ANA-013, TC-ANA-014, TC-ANA-027]
+    notes: "task 名义为 modify_schema，按 er-diagram desc「不落库不可写」+ 决策 10 重定义交付物=聚合 DTO+只读查询（DEC-ANA-1），非建表；er 十字段→端点承载映射见 data-detail §0"
+
+  - task_id: TASK-058            # flow:dashboard_analytics_read（看板实时聚合读取）
+    design_sections:
+      - analytics-api-detail.md E-ANA-01~03 全部（含 DEC-ANA-5 GA4 三级降级链）
+      - analytics-data-detail.md §4(CACHE-ANA-001~005) + §5(SVC-ANA GA4 客户端/stub/脱敏) + §7(权限种子 + IDX-ANA-001 协同索引)
+      - analytics-frontend-detail.md §3/§4(两页接入 + 降级 UI)
+    constraint_ids: [V-ANA-001, V-ANA-002, V-ANA-003, CACHE-ANA-001, CACHE-ANA-002, CACHE-ANA-003, CACHE-ANA-004, CACHE-ANA-005, IDX-ANA-001]
+    related_endpoints: [E-ANA-01, E-ANA-02, E-ANA-03]
+    tests: [TC-ANA-015, TC-ANA-016, TC-ANA-017, TC-ANA-018, TC-ANA-019, TC-ANA-020, TC-ANA-023, TC-ANA-024, TC-ANA-025, TC-ANA-026, TC-ANA-036]
+    notes: "验收准则「看板实时聚合读取」落 TC-ANA-011/015/023；GA4 降级与交易指标隔离落 TC-ANA-036（决策 19 验收语句直译）"
+
+# ===== 端点/前端/基建补充单元（task-manifest 未单列、由本域设计衍生的实现单元）=====
+supplementary_units:
+  - id: ANA-IMPL-API
+    summary: "3 端点 Controller+AnalyticsQueryService+DTO（com.dreamy.analytics 包；RBAC /dashboard + /analytics；无审计无写）"
+    design_sections: [analytics-api-detail.md E-ANA-01~03 + §4 总表]
+    constraint_ids: [V-ANA-001~003]
+    tests: [TC-ANA-023~027]
+  - id: ANA-IMPL-GA4
+    summary: "Ga4TrafficPort + Ga4Client(real)/Ga4StubClient(stub) 防腐层（batchRunReports/超时预算/归一化/脱敏/降级分类）"
+    design_sections: [analytics-data-detail.md §5, analytics-api-detail.md E-ANA-03 STEP-ANA-02~06]
+    constraint_ids: [MAP-ANA-005, MAP-ANA-006, MAP-ANA-007, MAP-ANA-008, CACHE-ANA-003, CACHE-ANA-004, CACHE-ANA-005]
+    tests: [TC-ANA-007, TC-ANA-008, TC-ANA-009, TC-ANA-016~021, TC-ANA-038]
+    shared_with: [portal-store(消费端 gtag 埋点 + Consent Mode v2 前端直连 GA4 不经后端——决策 19 连带约束，归 store 横切层，本域仅声明不承载)]
+  - id: ANA-IMPL-ADMIN-FE
+    summary: "portal-admin Dashboard.vue + Analytics.vue 接入（data-swap + 非契约面板空态收敛 + GA4 降级 UI + 路由 meta /dashboard 修正）+ src/api/analytics.ts + 2 个 Pinia store"
+    design_sections: [analytics-frontend-detail.md §0~§7 全部]
+    constraint_ids: [PAGE-ANA-A01, PAGE-ANA-A02, STORE-ANA-01, STORE-ANA-02, COMP-ANA-A01~A11]
+    tests: [TC-ANA-028~035, UIS-ANA-A01, UIS-ANA-A02]
+  - id: ANA-IMPL-SEED-COORD
+    summary: "权限字典幂等补登（/dashboard、/analytics）+ orders 协同索引 idx_order_status_paid（归 trading 表，L3 协同提交）；本域无自有种子"
+    design_sections: [analytics-data-detail.md §7, IDX-ANA-001]
+    shared_with: [identity(permission 字典表归属), trading(orders 表索引归属——仅增列不改语义)]
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 只读模型与聚合（依赖 trading/review/catalog 表已建——各域 wave_1 数据底座先行）
+    - TASK-009
+    - ANA-IMPL-SEED-COORD
+  wave_2:   # 端点与缓存
+    - ANA-IMPL-API
+  wave_3:   # GA4 防腐层（stub 先行可与 wave_2 并测，real 凭证仅 staging+）
+    - ANA-IMPL-GA4
+    - TASK-058
+  wave_4:   # 前端接入（依赖后端可联调 + trading 种子订单产生看板数值）
+    - ANA-IMPL-ADMIN-FE
+
+cycle_check: pass        # 对 trading/review/catalog 仅只读 SELECT 依赖（决策 3 例外，单向）；无域依赖本域
+no_overlap_check: pass   # 每 task/实现单元唯一归属；gtag 埋点与权限/索引归属以 shared_with 显式声明边界
+no_gap_check: pass       # 本域 task-manifest 条目（009/058）全覆盖；3 端点/3 错误码/5 缓存 key/GA4 降级链/两页前端/虚拟实体处置均有承载单元；本域无状态机（state-machine.yml 无 analytics 条目，显式声明）

@@ -1,0 +1,189 @@
+# 任务分配表 — portal-api-integration / catalog 域
+# 由 l2_design_coordinator 下属 catalog 域设计师产出：本域承载的实现单元映射
+# task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-001~006 / 010~013 / 026 / 034~037 / 040 + TASK-056 本域触发侧）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/catalog
+change_name: portal-api-integration
+domain_code: catalog
+
+artifacts:
+  api_detail: specs/design/catalog/catalog-api-detail.md        # E-CAT-01~35, V-CAT-001~071, STEP-CAT(端点段), TX 引用
+  data_detail: specs/design/catalog/catalog-data-detail.md      # RM-CAT-001~146, MAP-CAT-001~014, IDX-CAT-001~019, TX-CAT-001~022, CV-CAT-001~011, EVT-CAT-001~003, CACHE-CAT-001~006, DDL×16 表
+  frontend_detail: specs/design/catalog/catalog-frontend-detail.md  # PAGE-CAT-A01~A04/S01~S05, COMP-CAT-A01~A06/S01~S07, STORE-CAT-A01~A05/S01~S04, FORM-CAT-A01~A06/S01~S03
+  test_detail: specs/design/catalog/catalog-test-detail.md      # TC-CAT-001~081
+  ui_test_spec: specs/design/catalog/catalog-ui-test-spec.yml   # UIS-CAT-A01~A04 / UIS-CAT-S01~S04
+
+# ===== 本域 task → 设计章节 → 约束 ID 范围 =====
+task_mappings:
+  - task_id: TASK-001            # entity:Category 数据模型
+    design_sections:
+      - catalog-data-detail.md §1.2/§9(DDL category+category_translation)
+      - catalog-data-detail.md §2(RM-CAT-001~012)
+    constraint_ids: [IDX-CAT-011, IDX-CAT-012, CV-CAT-005, CV-CAT-008, MAP-CAT-005, MAP-CAT-006]
+    related_endpoints: [E-CAT-06, E-CAT-15, E-CAT-16, E-CAT-17, E-CAT-18]
+    tests: [TC-CAT-008, TC-CAT-019, TC-CAT-020, TC-CAT-036, TC-CAT-055, TC-CAT-056, TC-CAT-057]
+
+  - task_id: TASK-002            # entity:AttributeDef
+    design_sections: [catalog-data-detail.md §1.2/§9(attribute_def+translation), §2(RM-CAT-020~032)]
+    constraint_ids: [IDX-CAT-013, IDX-CAT-014, CV-CAT-007, MAP-CAT-009]
+    related_endpoints: [E-CAT-23, E-CAT-24, E-CAT-25, E-CAT-26]
+    tests: [TC-CAT-012, TC-CAT-058]
+
+  - task_id: TASK-003            # entity:AttributeSet
+    design_sections: [catalog-data-detail.md §1.2/§9(attribute_set), §2(RM-CAT-040~044)]
+    constraint_ids: [MAP-CAT-008, CV-CAT-006]
+    related_endpoints: [E-CAT-19, E-CAT-20, E-CAT-21, E-CAT-22]
+    tests: [TC-CAT-031, TC-CAT-058]
+
+  - task_id: TASK-004            # entity:AttributeSetItem
+    design_sections: [catalog-data-detail.md §1.2/§9(attribute_set_item), §2(RM-CAT-045~047)]
+    constraint_ids: [IDX-CAT-015, CV-CAT-001]
+    related_endpoints: [E-CAT-19, E-CAT-21, E-CAT-26]
+    tests: [TC-CAT-039, TC-CAT-040, TC-CAT-058]
+
+  - task_id: TASK-005            # entity:TagDimension
+    design_sections: [catalog-data-detail.md §1.2/§9(tag_dimension+translation), §2(RM-CAT-050~056)]
+    constraint_ids: [IDX-CAT-018, CV-CAT-006, CV-CAT-009]
+    related_endpoints: [E-CAT-27, E-CAT-28, E-CAT-29, E-CAT-30]
+    tests: [TC-CAT-038, TC-CAT-059]
+
+  - task_id: TASK-006            # entity:Tag
+    design_sections: [catalog-data-detail.md §1.2/§9(tag+tag_translation+product_tag), §2(RM-CAT-060~070, RM-CAT-140~146)]
+    constraint_ids: [IDX-CAT-016, IDX-CAT-017, IDX-CAT-019, MAP-CAT-007, MAP-CAT-010]
+    related_endpoints: [E-CAT-07, E-CAT-31, E-CAT-32, E-CAT-33, E-CAT-34]
+    tests: [TC-CAT-021, TC-CAT-037, TC-CAT-059]
+
+  - task_id: TASK-010            # entity:Product
+    design_sections: [catalog-data-detail.md §1.2/§9(product+product_translation), §2(RM-CAT-080~103)]
+    constraint_ids: [IDX-CAT-001, IDX-CAT-002, IDX-CAT-003, IDX-CAT-004, IDX-CAT-005, IDX-CAT-010, CV-CAT-002, CV-CAT-003, CV-CAT-004, MAP-CAT-001, MAP-CAT-002, MAP-CAT-003, MAP-CAT-004]
+    related_endpoints: [E-CAT-01, E-CAT-02, E-CAT-03, E-CAT-04, E-CAT-08, E-CAT-09, E-CAT-10, E-CAT-11, E-CAT-12, E-CAT-13, E-CAT-14]
+    tests: [TC-CAT-013, TC-CAT-016, TC-CAT-017, TC-CAT-022, TC-CAT-052, TC-CAT-053, TC-CAT-060]
+    notes: "含冗余回写列 sales_30d/sales_refreshed_at/rating_avg/rating_count（L1 悬置项定稿为冗余列方案）"
+
+  - task_id: TASK-011            # entity:ProductImage
+    design_sections: [catalog-data-detail.md §1.2/§9(product_image), §2(RM-CAT-110~113)]
+    constraint_ids: [IDX-CAT-008, CV-CAT-010]
+    related_endpoints: [E-CAT-04, E-CAT-09, E-CAT-11, E-CAT-35]
+    tests: [TC-CAT-014, TC-CAT-054]
+
+  - task_id: TASK-012            # entity:Sku
+    design_sections: [catalog-data-detail.md §1.2/§9(sku), §2(RM-CAT-120~125)]
+    constraint_ids: [IDX-CAT-006, IDX-CAT-007, CV-CAT-011]
+    related_endpoints: [E-CAT-04, E-CAT-09, E-CAT-11]
+    tests: [TC-CAT-010, TC-CAT-018, TC-CAT-054, TC-CAT-060]
+    notes: "version 乐观锁双用途：本域编辑防丢失(409508) + trading 扣减防超卖(BE-DIM-4，跨域消费方为 trading)"
+
+  - task_id: TASK-013            # entity:SizeChartRow
+    design_sections: [catalog-data-detail.md §1.2/§9(size_chart_row), §2(RM-CAT-130~132)]
+    constraint_ids: [IDX-CAT-009, CV-CAT-003]
+    related_endpoints: [E-CAT-04, E-CAT-05, E-CAT-09, E-CAT-11]
+    tests: [TC-CAT-001~006, TC-CAT-050, TC-CAT-054]
+
+  - task_id: TASK-026            # entity:CustomTag —— 合并处置（不建表）
+    design_sections: [catalog-data-detail.md §1.2 表清单合并声明, catalog-api.openapi.yml info CustomTag 处置]
+    constraint_ids: []
+    related_endpoints: [E-CAT-07, E-CAT-31, E-CAT-32, E-CAT-33, E-CAT-34]
+    tests: [TC-CAT-059]
+    notes: "CustomTag/CustomTagTranslation 由 TagDimension/Tag/TagTranslation 合并承载；商品挂载统一走 AdminProductUpsert.tag_ids → product_tag；本 task 验收=确认无独立表/端点且 ProductEdit tagsByDimension 数据通路可用"
+
+  - task_id: TASK-034            # state_machine:category_lifecycle
+    design_sections: [catalog-api-detail.md E-CAT-16/17/18(STEP guard), catalog-data-detail.md TX-CAT-006~008]
+    constraint_ids: [V-CAT-045, CV-CAT-006]
+    tests: [TC-CAT-036, TC-CAT-040, TC-CAT-057]
+
+  - task_id: TASK-035            # state_machine:tag_lifecycle
+    design_sections: [catalog-api-detail.md E-CAT-32/33/34, catalog-data-detail.md TX-CAT-018~020]
+    constraint_ids: [V-CAT-065, V-CAT-067]
+    tests: [TC-CAT-037, TC-CAT-040, TC-CAT-059]
+
+  - task_id: TASK-036            # state_machine:tag_dimension_lifecycle
+    design_sections: [catalog-api-detail.md E-CAT-28/29/30, catalog-data-detail.md TX-CAT-015~017]
+    constraint_ids: [V-CAT-059, V-CAT-061]
+    tests: [TC-CAT-038, TC-CAT-040]
+
+  - task_id: TASK-037            # state_machine:attribute_visibility_cycle
+    design_sections: [catalog-api-detail.md E-CAT-21(整单覆盖承载循环态), catalog-frontend-detail.md COMP-CAT-A04(cycleState), catalog-data-detail.md TX-CAT-010]
+    constraint_ids: [V-CAT-050, V-CAT-051, V-CAT-052]
+    tests: [TC-CAT-039, TC-CAT-040, TC-CAT-069]
+
+  - task_id: TASK-040            # state_machine:product_lifecycle
+    design_sections: [catalog-api-detail.md E-CAT-12(409509 guard)/E-CAT-13(publish/unpublish), catalog-data-detail.md TX-CAT-003/004]
+    constraint_ids: [V-CAT-040, V-CAT-039]
+    tests: [TC-CAT-033, TC-CAT-034, TC-CAT-035, TC-CAT-040]
+
+  - task_id: TASK-056            # flow:content_publish_invalidate —— 本域承载触发侧（消费者侧归 marketing/基建分册）
+    design_sections:
+      - catalog-api-detail.md E-CAT-09/11/12/13/14/16/17/18/29/30/32/33/34(STEP 失效链)
+      - catalog-data-detail.md §7(CACHE-CAT-001~006) + §8.1(content.invalidated 事件)
+      - catalog-frontend-detail.md PAGE-CAT-S01/S02(ISR on-demand revalidate)
+    constraint_ids: [CACHE-CAT-001, CACHE-CAT-002, CACHE-CAT-004, CACHE-CAT-005, CACHE-CAT-006, EVT-CAT-001, EVT-CAT-002]
+    tests: [TC-CAT-023, TC-CAT-025, TC-CAT-026, TC-CAT-027, TC-CAT-065]
+    shared_with: [marketing(消费者 q.invalidate), trading(order.paid 生产者), review(review.moderated 生产者)]
+
+# ===== 端点/前端/基建补充单元（task-manifest 未单列、由本域设计衍生的实现单元）=====
+supplementary_units:
+  - id: CAT-IMPL-API
+    summary: "35 端点 Controller+Service+DTO（com.dreamy.catalog 包）"
+    design_sections: [catalog-api-detail.md E-CAT-01~35 全部]
+    constraint_ids: [V-CAT-001~071, TX-CAT-001~020]
+  - id: CAT-IMPL-FILTER
+    summary: "StoreJwtFilter 配置化公开路径白名单改造（七域共用机制，catalog 登记 3 条 pattern）"
+    design_sections: [catalog-api-detail.md §0.1]
+    tests: [TC-CAT-081]
+  - id: CAT-IMPL-MQ
+    summary: "q.catalog.sales / q.catalog.rating 消费者 + 每日窗口刷新任务"
+    design_sections: [catalog-data-detail.md §8(EVT-CAT-001~003)]
+    tests: [TC-CAT-026~029]
+  - id: CAT-IMPL-UPLOAD
+    summary: "S3 预签名端口 + presign 端点（媒体基建代管，五 scope 共用）"
+    design_sections: [catalog-api-detail.md E-CAT-35, FLOW-P17]
+    tests: [TC-CAT-064, TC-CAT-073~075]
+  - id: CAT-IMPL-ADMIN-FE
+    summary: "portal-admin 四页接入（Products data-swap / ProductEdit·Categories copy-adapt / AttributeSets 新建）+ src/api/catalog.ts + 4 个 Pinia store"
+    design_sections: [catalog-frontend-detail.md §A 全部]
+    tests: [TC-CAT-066~069, UIS-CAT-A01~A04]
+  - id: CAT-IMPL-STORE-FE
+    summary: "portal-store 列表/PDP/搜索/推荐位/FindMySize 接入 + lib/api/catalog-api.ts + ISR 策略落地"
+    design_sections: [catalog-frontend-detail.md §B 全部]
+    tests: [TC-CAT-070~072, UIS-CAT-S01~S04]
+  - id: CAT-IMPL-SEED
+    summary: "本域种子数据（商品/分类/属性集/标签 + 三语 translation，决策 21）"
+    design_sections: [catalog-data-detail.md §9 备注③]
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 数据底座（无依赖，可并行）
+    - TASK-002   # attribute_def
+    - TASK-003   # attribute_set
+    - TASK-005   # tag_dimension
+  wave_2:   # 依赖 wave_1 的实体
+    - TASK-004   # attribute_set_item（依赖 002/003）
+    - TASK-001   # category（依赖 003 绑定属性集）
+    - TASK-006   # tag + product_tag（依赖 005）
+    - TASK-026   # CustomTag 合并核验（依赖 005/006）
+  wave_3:   # 商品聚合
+    - TASK-010   # product（依赖 001 category / 006 tag）
+    - TASK-011   # product_image
+    - TASK-012   # sku
+    - TASK-013   # size_chart_row
+  wave_4:   # 行为与状态机（依赖实体就绪）
+    - CAT-IMPL-API      # 35 端点（含 TASK-034/035/036/037/040 状态机 guard 内嵌实现）
+    - TASK-034
+    - TASK-035
+    - TASK-036
+    - TASK-037
+    - TASK-040
+    - CAT-IMPL-FILTER   # 公开白名单（store 端点联调前置）
+    - CAT-IMPL-UPLOAD
+  wave_5:   # 失效链与回写（依赖端点 + MQ 基建 + trading/review 事件就绪）
+    - TASK-056
+    - CAT-IMPL-MQ
+  wave_6:   # 前端接入与种子（依赖后端可联调）
+    - CAT-IMPL-SEED
+    - CAT-IMPL-ADMIN-FE
+    - CAT-IMPL-STORE-FE
+
+cycle_check: pass        # wave 内无互依赖；跨 wave 单向
+no_overlap_check: pass   # 每 task/实现单元唯一归属；TASK-056 跨域部分以 shared_with 显式声明边界
+no_gap_check: pass       # 本域 task-manifest 条目（001~006/010~013/026/034~037/040/056-本域侧）全覆盖；35 端点/16 表/17 错误码/5 状态机均有承载单元

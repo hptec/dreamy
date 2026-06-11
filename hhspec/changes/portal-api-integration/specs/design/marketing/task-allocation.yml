@@ -1,0 +1,204 @@
+# 任务分配表 — portal-api-integration / marketing 域
+# 由 l2_design_coordinator 下属 marketing 域设计师产出：本域承载的实现单元映射
+# task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-007/008 + 021~025 + 032/033 + 042~046 + 056(消费者侧+本域触发侧) + 059/060）
+# 说明：TASK-055（flow:review_moderation_flow）归 review 域，不在本域分配（协调器侧 task 清单中曾与本域并列提及，经 task-manifest 核对 source_id=review_moderation_flow，显式声明不承载，防止双重归属）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/marketing
+change_name: portal-api-integration
+domain_code: marketing
+
+artifacts:
+  api_detail: specs/design/marketing/marketing-api-detail.md        # E-MKT-01~46, V-MKT-001~082, STEP-MKT(端点段), DEC-MKT-1~6, TX 引用
+  data_detail: specs/design/marketing/marketing-data-detail.md      # RM-MKT-001~141, MAP-MKT-001~014, IDX-MKT-001~022, TX-MKT-001~030 + EC-MKT-001/002, CV-MKT-001~012, SVC-MKT-01, EVT-MKT(发布+q.invalidate 消费者), SCHED-MKT-01/02, CACHE-MKT-001~009, DDL×19 表
+  frontend_detail: specs/design/marketing/marketing-frontend-detail.md  # PAGE-MKT-A01~A05/S01~S11, COMP-MKT-A01~A11/S01~S11, STORE-MKT-A01~A06/S01~S06, FORM-MKT-A01~A07/S01~S04
+  test_detail: specs/design/marketing/marketing-test-detail.md      # TC-MKT-001~080
+  ui_test_spec: specs/design/marketing/marketing-ui-test-spec.yml   # UIS-MKT-A01~A05 / UIS-MKT-S01~S07
+
+# ===== 本域 task → 设计章节 → 约束 ID 范围 =====
+task_mappings:
+  - task_id: TASK-007            # entity:Banner 数据模型
+    design_sections:
+      - marketing-data-detail.md §1.2/§11(DDL banner+banner_translation)
+      - marketing-data-detail.md §2(RM-MKT-001~012)
+    constraint_ids: [IDX-MKT-007, IDX-MKT-011, CV-MKT-004, CV-MKT-007, MAP-MKT-001, MAP-MKT-002]
+    related_endpoints: [E-MKT-01, E-MKT-21, E-MKT-22, E-MKT-23, E-MKT-24, E-MKT-25]
+    tests: [TC-MKT-008, TC-MKT-021, TC-MKT-056]
+    notes: "含 DEC-MKT-1 EN 文案列 title/subtitle/cta_text；clicks 只读保留列"
+
+  - task_id: TASK-008            # entity:BlogPost
+    design_sections: [marketing-data-detail.md §1.2/§11(blog_post+translation), §2(RM-MKT-020~032)]
+    constraint_ids: [IDX-MKT-004, IDX-MKT-005, IDX-MKT-006, IDX-MKT-012, CV-MKT-012, MAP-MKT-003, MAP-MKT-004, MAP-MKT-005]
+    related_endpoints: [E-MKT-02, E-MKT-03, E-MKT-26, E-MKT-27, E-MKT-28, E-MKT-29, E-MKT-30, E-MKT-31]
+    tests: [TC-MKT-007, TC-MKT-019, TC-MKT-030, TC-MKT-057]
+    notes: "views 近似计数（DEC-MKT-6 + SCHED-MKT-02）；slug 可空唯一索引（published 必填 CV-MKT-012）"
+
+  - task_id: TASK-021            # entity:Coupon
+    design_sections: [marketing-data-detail.md §1.2/§11(coupon+translation), §2(RM-MKT-100~112), §7(SVC-MKT-01)]
+    constraint_ids: [IDX-MKT-001, IDX-MKT-002, IDX-MKT-016, CV-MKT-008, CV-MKT-009, CV-MKT-010, CV-MKT-011, MAP-MKT-010]
+    related_endpoints: [E-MKT-10, E-MKT-13, E-MKT-14, E-MKT-15, E-MKT-16]
+    tests: [TC-MKT-001, TC-MKT-002, TC-MKT-003, TC-MKT-004, TC-MKT-014, TC-MKT-015, TC-MKT-016, TC-MKT-050, TC-MKT-053, TC-MKT-054]
+    notes: "used_count 仅核销 CAS 可写（RM-MKT-107/108=trading RM-TRD-112/113 权威定义点）；total_limit 缺省 100000=不限（DEC-MKT-5）"
+
+  - task_id: TASK-022            # entity:FlashSale
+    design_sections: [marketing-data-detail.md §1.2/§11(flash_sale+translation+flash_sale_product), §2(RM-MKT-120~133)]
+    constraint_ids: [IDX-MKT-003, IDX-MKT-017, IDX-MKT-018, CV-MKT-004, CV-MKT-005, MAP-MKT-011]
+    related_endpoints: [E-MKT-09, E-MKT-17, E-MKT-18, E-MKT-19, E-MKT-20]
+    tests: [TC-MKT-011, TC-MKT-018, TC-MKT-049, TC-MKT-055]
+
+  - task_id: TASK-023            # entity:Lookbook
+    design_sections: [marketing-data-detail.md §1.2/§11(lookbook+translation+lookbook_product), §2(RM-MKT-060~074)]
+    constraint_ids: [IDX-MKT-009, IDX-MKT-014, IDX-MKT-020, CV-MKT-005, CV-MKT-006, MAP-MKT-008]
+    related_endpoints: [E-MKT-06, E-MKT-07, E-MKT-37, E-MKT-38, E-MKT-39, E-MKT-40, E-MKT-41]
+    tests: [TC-MKT-013, TC-MKT-031, TC-MKT-058]
+    notes: "含 DEC-MKT-1 EN description 列"
+
+  - task_id: TASK-024            # entity:Guide
+    design_sections: [marketing-data-detail.md §1.2/§11(guide+translation), §2(RM-MKT-080~089)]
+    constraint_ids: [IDX-MKT-010, IDX-MKT-015, MAP-MKT-009]
+    related_endpoints: [E-MKT-08, E-MKT-42, E-MKT-43, E-MKT-44, E-MKT-45, E-MKT-46]
+    tests: [TC-MKT-058]
+    notes: "含 DEC-MKT-1 EN body 列；store 排序 phase ASC"
+
+  - task_id: TASK-025            # entity:RealWedding
+    design_sections: [marketing-data-detail.md §1.2/§11(real_wedding+translation+real_wedding_product), §2(RM-MKT-040~054)]
+    constraint_ids: [IDX-MKT-008, IDX-MKT-013, IDX-MKT-019, CV-MKT-005, CV-MKT-006, MAP-MKT-006, MAP-MKT-007]
+    related_endpoints: [E-MKT-04, E-MKT-05, E-MKT-32, E-MKT-33, E-MKT-34, E-MKT-35, E-MKT-36]
+    tests: [TC-MKT-033, TC-MKT-058]
+    notes: "含 DEC-MKT-1 EN title/story 列；Shop the Look 经 catalogQueryPort 装配（MAP-MKT-012）"
+
+  - task_id: TASK-032            # state_machine:banner_lifecycle
+    design_sections: [marketing-api-detail.md E-MKT-22(V-MKT-042)/E-MKT-25(STEP guard)/DEC-MKT-2, marketing-data-detail.md TX-MKT-007~010 + SCHED-MKT-01④]
+    constraint_ids: [V-MKT-042, V-MKT-047]
+    tests: [TC-MKT-009, TC-MKT-034, TC-MKT-035, TC-MKT-040]
+    notes: "schedule_expire 迁移按 DEC-MKT-2 收敛为窗口过滤+失效链（状态不翻转），验收落 TC-MKT-035"
+
+  - task_id: TASK-033            # state_machine:blog_post_lifecycle
+    design_sections: [marketing-api-detail.md E-MKT-27(V-MKT-053)/E-MKT-29/E-MKT-31(STEP guard), marketing-data-detail.md TX-MKT-011~014]
+    constraint_ids: [V-MKT-052, V-MKT-053, V-MKT-057, CV-MKT-012]
+    tests: [TC-MKT-010, TC-MKT-036, TC-MKT-040]
+
+  - task_id: TASK-042            # state_machine:coupon_lifecycle
+    design_sections: [marketing-api-detail.md E-MKT-14(V-MKT-026)/E-MKT-15/E-MKT-16(STEP guard)/DEC-MKT-3, marketing-data-detail.md RM-MKT-109 + TX-MKT-001~003/029]
+    constraint_ids: [V-MKT-026, CV-MKT-011]
+    tests: [TC-MKT-005, TC-MKT-023, TC-MKT-037, TC-MKT-040]
+
+  - task_id: TASK-043            # state_machine:flash_sale_lifecycle
+    design_sections: [marketing-api-detail.md E-MKT-18(V-MKT-034)/E-MKT-19/E-MKT-20(STEP guard), marketing-data-detail.md RM-MKT-126 + TX-MKT-004~006/029]
+    constraint_ids: [V-MKT-034, CV-MKT-011]
+    tests: [TC-MKT-011, TC-MKT-038, TC-MKT-040]
+
+  - task_id: TASK-044            # state_machine:lookbook_publish
+    design_sections: [marketing-api-detail.md E-MKT-41(幂等+双向迁移), marketing-data-detail.md TX-MKT-019~022]
+    constraint_ids: [V-MKT-069, V-MKT-073]
+    tests: [TC-MKT-039, TC-MKT-040]
+
+  - task_id: TASK-045            # state_machine:guide_publish
+    design_sections: [marketing-api-detail.md E-MKT-46, marketing-data-detail.md TX-MKT-023~026]
+    constraint_ids: [V-MKT-079, V-MKT-082]
+    tests: [TC-MKT-039, TC-MKT-040]
+
+  - task_id: TASK-046            # state_machine:real_wedding_publish
+    design_sections: [marketing-api-detail.md E-MKT-36, marketing-data-detail.md TX-MKT-015~018]
+    constraint_ids: [V-MKT-061, V-MKT-065]
+    tests: [TC-MKT-039, TC-MKT-040]
+
+  - task_id: TASK-056            # flow:content_publish_invalidate —— 本域承载【消费者侧 q.invalidate】+ 本域触发侧
+    design_sections:
+      - marketing-data-detail.md §9.2(EVT-MKT-002 q.invalidate 消费者：幂等/路径映射表×3 locale/重试/DLX)
+      - marketing-data-detail.md §8(CACHE-MKT-001~009) + §9.1(content.invalidated 发布)
+      - marketing-api-detail.md E-MKT-22/23/24/25/27/29/30/31/33~36/38~41/43~46(STEP 失效链)
+      - marketing-frontend-detail.md PAGE-MKT-S01~S08(ISR on-demand revalidate)
+    constraint_ids: [CACHE-MKT-001, CACHE-MKT-002, CACHE-MKT-003, CACHE-MKT-004, CACHE-MKT-005, CACHE-MKT-006, CACHE-MKT-007, CACHE-MKT-008, CACHE-MKT-009]
+    tests: [TC-MKT-019, TC-MKT-021, TC-MKT-026, TC-MKT-027, TC-MKT-060]
+    shared_with: [catalog(触发侧 content.invalidated 生产者，catalog task-allocation TASK-056 已声明消费者归本域)]
+
+  - task_id: TASK-059            # flow:coupon_redeem（优惠券领取与结算核销）
+    design_sections:
+      - marketing-api-detail.md E-MKT-10(校验端点 200+valid=false 口径)
+      - marketing-data-detail.md §7(SVC-MKT-01 CouponDomainService validate/redeem/rollbackRedeem) + RM-MKT-107/108 + EC-MKT-001
+      - marketing-frontend-detail.md STORE-MKT-S04/COMP-MKT-S11/FORM-MKT-S03(checkout 券码切面)
+    constraint_ids: [V-MKT-007, V-MKT-008, CV-MKT-009, CV-MKT-010]
+    tests: [TC-MKT-001, TC-MKT-002, TC-MKT-016, TC-MKT-017, TC-MKT-050, TC-MKT-062, TC-MKT-069]
+    shared_with: [trading(消费方：FLOW-P05 quote 直调 / FLOW-P06 下单事务内 redeem / FLOW-P08 取消回滚——trading TX-TRD-002/005 内执行)]
+
+  - task_id: TASK-060            # flow:flash_sale_auto_offline（闪购到期自动下线）
+    design_sections:
+      - marketing-data-detail.md §10(SCHED-MKT-01：分布式锁/RM-MKT-126 翻转/失效链触发) + TX-MKT-029
+      - marketing-api-detail.md E-MKT-09(active 读口径)/DEC-MKT-3
+      - marketing-frontend-detail.md STORE-MKT-S05(倒计时本地补偿)
+    constraint_ids: [IDX-MKT-003, CACHE-MKT-009]
+    tests: [TC-MKT-011, TC-MKT-022, TC-MKT-025, TC-MKT-038, TC-MKT-061]
+
+# ===== 端点/前端/基建补充单元（task-manifest 未单列、由本域设计衍生的实现单元）=====
+supplementary_units:
+  - id: MKT-IMPL-ENTITY-EXTRA
+    summary: "NewsletterSubscriber + ContactMessage 实体（决策 26/30 细化轮新增，task-manifest 无独立条目——本单元补登记防缺口）"
+    design_sections: [marketing-data-detail.md §1.2/§11(newsletter_subscriber/contact_message DDL), §2(RM-MKT-140/141)]
+    constraint_ids: [IDX-MKT-021, IDX-MKT-022, CV-MKT-008]
+    related_endpoints: [E-MKT-11, E-MKT-12]
+    tests: [TC-MKT-028, TC-MKT-029, TC-MKT-051, TC-MKT-052]
+  - id: MKT-IMPL-API
+    summary: "46 端点 Controller+Service+DTO（com.dreamy.marketing 包）"
+    design_sections: [marketing-api-detail.md E-MKT-01~46 全部]
+    constraint_ids: [V-MKT-001~082, TX-MKT-001~028]
+  - id: MKT-IMPL-FILTER
+    summary: "StoreJwtFilter 配置化公开路径白名单（七域共用机制，marketing 登记 4 条 pattern；coupons/validate 显式排除）"
+    design_sections: [marketing-api-detail.md §0.1]
+    tests: [TC-MKT-080]
+  - id: MKT-IMPL-SCHED
+    summary: "SCHED-MKT-01 营销定时投放/到期下线 + SCHED-MKT-02 views flush（分布式锁防双跑）"
+    design_sections: [marketing-data-detail.md §10, TX-MKT-029/030]
+    tests: [TC-MKT-022, TC-MKT-023, TC-MKT-024, TC-MKT-025, TC-MKT-030, TC-MKT-075]
+  - id: MKT-IMPL-MQ
+    summary: "content.invalidated 发布器 + q.invalidate 失效消费者（revalidatePath + Cloudflare purge，七域共用消费者归本域承载）"
+    design_sections: [marketing-data-detail.md §9]
+    tests: [TC-MKT-026, TC-MKT-027, TC-MKT-072, TC-MKT-073]
+  - id: MKT-IMPL-ADMIN-FE
+    summary: "portal-admin 五页接入（Promotions/Banners/ContentBlog/ContentWeddings/ContentLookbook data-swap + 七类 FormDrawer 三语 tab）+ src/api/marketing.ts + 5 个 Pinia store + useProductPicker"
+    design_sections: [marketing-frontend-detail.md §A 全部]
+    tests: [TC-MKT-063~066, UIS-MKT-A01~A05]
+  - id: MKT-IMPL-STORE-FE
+    summary: "portal-store 首页营销区块/blog/real-weddings/inspiration/wedding-guides/contact/newsletter/checkout 券码切面接入 + lib/api/marketing-api.ts + ISR 策略落地"
+    design_sections: [marketing-frontend-detail.md §B 全部]
+    tests: [TC-MKT-067~071, UIS-MKT-S01~S07]
+  - id: MKT-IMPL-SEED
+    summary: "本域种子数据（券/闪购/Banner/文章/案例/Lookbook/指南 + 三语 translation；newsletter/contact 空表起步，决策 21）"
+    design_sections: [marketing-data-detail.md §11 备注②]
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 数据底座（无依赖，可并行；nm 表依赖 catalog product 表已在 catalog wave_3 就绪）
+    - TASK-007   # banner
+    - TASK-008   # blog_post
+    - TASK-021   # coupon
+    - TASK-022   # flash_sale（+flash_sale_product）
+    - TASK-023   # lookbook（+lookbook_product）
+    - TASK-024   # guide
+    - TASK-025   # real_wedding（+real_wedding_product）
+    - MKT-IMPL-ENTITY-EXTRA
+  wave_2:   # 行为与状态机（依赖实体就绪）
+    - MKT-IMPL-API       # 46 端点（含状态机 guard 内嵌实现）
+    - TASK-032
+    - TASK-033
+    - TASK-042
+    - TASK-043
+    - TASK-044
+    - TASK-045
+    - TASK-046
+    - MKT-IMPL-FILTER    # 公开白名单（store 端点联调前置）
+  wave_3:   # 跨域服务与定时（依赖端点 + trading 下单流就绪做联测）
+    - TASK-059           # 券核销接口（trading 消费）
+    - TASK-060           # 闪购自动下线
+    - MKT-IMPL-SCHED
+  wave_4:   # 失效链（依赖 MQ 基建 + Next 内部 revalidate 端点 + 决策 22 standalone 改造）
+    - TASK-056
+    - MKT-IMPL-MQ
+  wave_5:   # 前端接入与种子（依赖后端可联调）
+    - MKT-IMPL-SEED
+    - MKT-IMPL-ADMIN-FE
+    - MKT-IMPL-STORE-FE
+
+cycle_check: pass        # wave 内无互依赖；跨 wave 单向；与 catalog 的依赖（product 表/catalogQueryPort/presign）单向指向 catalog
+no_overlap_check: pass   # 每 task/实现单元唯一归属；TASK-056/059 跨域部分以 shared_with 显式声明边界；TASK-055 归 review 域显式排除
+no_gap_check: pass       # 本域 task-manifest 条目（007/008/021~025/032/033/042~046/056-消费者侧/059/060）全覆盖；46 端点/19 表/10 错误码/7 状态机/Newsletter+Contact 增量实体均有承载单元

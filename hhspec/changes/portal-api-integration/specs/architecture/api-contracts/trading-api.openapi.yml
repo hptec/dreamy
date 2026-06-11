@@ -1,0 +1,2211 @@
+openapi: 3.0.3
+info:
+  title: Trading API (portal-api-integration)
+  description: |
+    trading 限界上下文 API 契约，覆盖消费端（/api/store/cart·addresses·checkout·orders·wishlists·browse-history·
+    payments·exchange-rates）与后台（/api/admin/orders·refunds·exchange-rates·checkout-config）。
+    实体：CartItem / Address / Order / OrderLine / Payment / Refund / WishlistItem / BrowseHistory /
+    ExchangeRate（决策 2/14/18/23）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。分页载荷统一为 huihao.page.Paginated 形状
+    （snake_case：`{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`，
+    与 backend UserOpsController R<Paginated<T>> / portal-admin PageResult 消费习惯一致）。
+
+    ## 鉴权约定（与 identity-api 一致）
+    - 消费端个人数据端点 StoreBearerAuth，服务端按 JWT subject（user_id）强隔离（BE-DIM-6）；
+      跨用户访问个人资源一律返回 404（防资源探测）。
+    - 后台端点 AdminBearerAuth + RBAC 菜单权限 key。
+    - Stripe webhook 为 server-to-server 端点，`security: []`，以 Stripe-Signature 头做签名验证（决策 7）。
+    - **鉴权基建提示（L2 明确设计）**：现有 StoreJwtFilter 对 /api/store/* 默认强制鉴权。本域两个匿名端点
+      （/api/store/exchange-rates、/api/store/payments/stripe/webhook）需纳入 filter 的**配置化公开路径白名单**；
+      webhook 在白名单豁免 JWT 后由专用 Stripe 签名校验拦截（401601），与各域公开端点共用同一白名单机制。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（trading=6）+ 序号。
+
+    ### trading 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 404601 | ORDER_NOT_FOUND 订单不存在或不属于当前用户 | 404 |
+    | 404602 | ADDRESS_NOT_FOUND 地址不存在或不属于当前用户 | 404 |
+    | 404603 | CART_ITEM_NOT_FOUND 购物车条目不存在或不属于当前用户 | 404 |
+    | 404604 | WISHLIST_ITEM_NOT_FOUND 收藏不存在 | 404 |
+    | 404605 | REFUND_NOT_FOUND 退款工单不存在 | 404 |
+    | 409601 | STOCK_INSUFFICIENT 现货库存不足（乐观锁扣减失败重试后仍不足，BE-DIM-4） | 409 |
+    | 409602 | ORDER_STATE_INVALID 当前订单状态不允许该操作（状态机 guard） | 409 |
+    | 409603 | DUPLICATE_SUBMISSION 幂等键重复（重复下单防护，返回已存在订单） | 409 |
+    | 409604 | REFUND_STATE_INVALID 退款工单非 pending 不可审核（js_guard） | 409 |
+    | 409605 | REFUND_ALREADY_EXISTS 该订单已有进行中的退款工单 | 409 |
+    | 410601 | ORDER_EXPIRED 待支付订单已超时取消（30 分钟，BE-DIM-4） | 410 |
+    | 422601 | FIELD_VALIDATION_FAILED 字段校验失败 | 422 |
+    | 422602 | CUSTOM_ITEM_NOT_REFUNDABLE 定制行已投产不可退（paid_at + 宽限期判定，决策 24） | 422 |
+    | 422603 | REFUND_AMOUNT_EXCEEDED 退款金额超出订单可退上限（amount <= Order.total_amount，含礼品包装费，决策 28） | 422 |
+    | 422604 | SKU_REQUIRED 现货商品必须携带 sku_id；定制款必须携带 custom_size_data（js_guard） | 422 |
+    | 422605 | CURRENCY_NOT_SUPPORTED 币种不在 USD/EUR/CAD/AUD/GBP 之内（决策 14） | 422 |
+    | 401601 | WEBHOOK_SIGNATURE_INVALID Stripe webhook 签名验证失败 | 401 |
+    | 502601 | STRIPE_UNAVAILABLE Stripe 调用失败（降级：提示稍后重试，订单保持 pending） | 502 |
+    | 504601 | STRIPE_TIMEOUT Stripe 调用超时 | 504 |
+
+    ## 缓存标注（BE-DIM-8）
+    - 购物车/下单/支付/订单/地址/收藏/浏览历史等个人与交易数据一律不缓存（决策 4 第 3 层）。
+    - GET /api/store/exchange-rates：CDN s-maxage + JetCache 两级（key 固定 trading:exchange-rates）；
+      失效：后台汇率维护写操作 @CacheInvalidate → MQ → purge。
+
+    ## 事务与幂等（BE-DIM-4）
+    - 下单原子事务：订单创建 + 现货库存乐观锁扣减 + 购物车清空；订单号预生成 + idempotency_key 防重提交。
+    - 退款审核原子事务：退款记录 + 订单状态 + 现货库存回补 + Stripe Refund。
+    - Stripe webhook 按 event_id 幂等消费（processed_event 存储）。
+    - 待支付订单 30 分钟超时自动取消并回补现货库存（@Scheduled）。
+    - 订单事件（支付成功/发货/取消/退款结果）发 RabbitMQ → 缓存失效、ISR revalidate、交易邮件（决策 16）、Showroom 指派状态推进（决策 20）。
+
+    ## 多币种与金额（决策 14/15/28）
+    - 定价 USD 基准；下单按当前汇率锁定 Order.exchange_rate，金额字段一律为订单币种金额。
+    - 含税价 + DDU：结算无 Tax 行（说明文案为前端 i18n 静态文案，决策 15）。
+    - total_amount === subtotal + shipping_fee + gift_wrap_fee - discount_amount（js_guard）。
+
+    ## 结算运输方式多承运商（F-036，原型强对照）
+    portal-store/app/checkout/page.tsx 物流步骤为 FedEx / UPS / DHL 三个不同价格与时效的可选项：
+    - 结算报价（POST /api/store/checkout/quote）返回 `shipping_options` 数组（每承运商一项：carrier + fee + lead_time），
+      由 trading 进程内直调 shipping 域按「地理分区 × enabled 承运商」规则行产出（规则见 shipping-api info）；
+    - 消费者所选项以 `carrier` 字段写入下单请求（OrderCreateRequest.carrier → Order.carrier 快照），
+      shipping_fee 取所选项报价；后台 OrderDetail 发货面板默认沿用该承运商。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-005/006/007/017/018/021/027/028/029/032/035）
+    - v1.1.0 (2026-06-10): feasibility 修复——分页包络对齐 huihao Paginated；R 包络映射声明；
+      结算多承运商 shipping_options（F-036）；StoreJwtFilter 公开路径白名单与 webhook 豁免提示
+  version: 1.0.0
+  contact:
+    name: trading domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: store-cart
+    description: 购物车（DB 持久化 + 匿名合并，决策 8）
+  - name: store-addresses
+    description: 地址簿
+  - name: store-checkout
+    description: 结算与下单（Stripe Payment Element，决策 7/25）
+  - name: store-orders
+    description: 消费端订单与退款申请（决策 24 退款政策）
+  - name: store-wishlist
+    description: 收藏清单（ALIGN-021，决策 18）
+  - name: store-browse-history
+    description: Recently Viewed 浏览历史（ALIGN-027，决策 23）
+  - name: store-payments
+    description: Stripe webhook（决策 7）
+  - name: store-exchange-rates
+    description: 汇率读取（决策 14，客户端展示换算）
+  - name: admin-orders
+    description: 后台订单管理（ALIGN-005/006）
+  - name: admin-refunds
+    description: 后台退款审核（ALIGN-007，决策 31）
+  - name: admin-exchange-rates
+    description: 后台汇率维护（决策 14）
+  - name: admin-checkout-config
+    description: 结算配置（礼品包装费/定制退款宽限期，决策 24/28）
+
+paths:
+  # ============ STORE CART ============
+  /api/store/cart:
+    get:
+      summary: 读取购物车
+      description: 登录用户 DB 购物车（按 user_id 隔离）。含商品/SKU 联表展示数据与 dye lot 提示（决策 20.4）。不缓存。
+      operationId: getCart
+      tags: [store-cart]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/cart/items:
+    post:
+      summary: 加入购物车
+      description: |
+        现货必填 sku_id；定制款 sku_id 可空并携带 custom_size_data（js_guard，422604）。
+        同 SKU（或同定制数据）条目存在时合并数量。
+      operationId: addCartItem
+      tags: [store-cart]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItemCreate'
+      responses:
+        '201':
+          description: 已加入
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 商品/SKU 不存在（404501 透传 catalog 域校验）
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409601 现货库存不足
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422601 / 422604
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/cart/items/{id}:
+    patch:
+      summary: 修改购物车条目数量
+      operationId: updateCartItem
+      tags: [store-cart]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qty]
+              properties:
+                qty:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404603
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409601
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 移除购物车条目
+      operationId: removeCartItem
+      tags: [store-cart]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 已移除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404603
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/cart/merge:
+    post:
+      summary: 登录时合并匿名购物车
+      description: |
+        决策 8：匿名购物车存 localStorage，登录成功后前端调用本端点把本地条目整批合并入 DB 购物车
+        （同 SKU 合并数量；现货超库存按库存截断并在 response 标记）。幂等：重复提交相同条目不重复累加（按提交批次 anon_token 去重）。
+      operationId: mergeCart
+      tags: [store-cart]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [anon_token, items]
+              properties:
+                anon_token:
+                  type: string
+                  maxLength: 64
+                  description: 匿名购物车标识（前端生成，合并幂等键）
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CartItemCreate'
+      responses:
+        '200':
+          description: 合并完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE ADDRESSES ============
+  /api/store/addresses:
+    get:
+      summary: 地址簿列表
+      description: 按 user_id 隔离。不缓存。
+      operationId: listAddresses
+      tags: [store-addresses]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增地址
+      description: is_default=true 时原默认地址自动取消默认。
+      operationId: createAddress
+      tags: [store-addresses]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/addresses/{id}:
+    put:
+      summary: 编辑地址
+      operationId: updateAddress
+      tags: [store-addresses]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404602
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除地址
+      description: 订单地址为下单快照（address_snapshot），删除地址不影响既有订单。
+      operationId: deleteAddress
+      tags: [store-addresses]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404602
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE CHECKOUT ============
+  /api/store/checkout/quote:
+    post:
+      summary: 结算报价（多承运商运费/礼品包装费/优惠/锁汇试算）
+      description: |
+        基于当前 DB 购物车试算：按收货国家映射地理分区，对每个 enabled 承运商产出一项运费报价
+        （shipping 域进程内直调，规则见 shipping-api，F-036 三承运商可选）；shipping_fee 取 carrier 所选项（未传取最低价项）；
+        礼品包装费取后台配置固定价按当前汇率换算（决策 28）；优惠券经 marketing 域校验（决策 2）；
+        汇率为当前 ExchangeRate（下单时才锁定）。含定制行交期复核（lead_time 与 wedding_date 对比提示，决策 20.6）
+        与 dye lot 提示（决策 20.4）。不缓存。
+      operationId: quoteCheckout
+      tags: [store-checkout]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutQuoteRequest'
+      responses:
+        '200':
+          description: 报价成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutQuoteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404602 地址不存在
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422601 / 422605
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/checkout/orders:
+    post:
+      summary: 提交订单（创建 PaymentIntent）
+      description: |
+        FUNC-001 下单全链路。原子事务：订单创建（订单号预生成 DRM-YYYYMMDD-NNNN）+ 现货 SKU 乐观锁扣减（定制款不扣减，决策 6）
+        + 购物车清空；锁定 exchange_rate 生成订单币种金额（决策 14）；创建 Stripe PaymentIntent（订单币种，决策 25）。
+        幂等：idempotency_key 重复提交返回 409603 + details.order_id（已存在订单）。
+        待支付 30 分钟超时自动取消并回补库存（expires_at）。
+      operationId: createOrder
+      tags: [store-checkout]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: 订单已创建（status=pending），返回支付凭据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404602
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409601 STOCK_INSUFFICIENT / 409603 DUPLICATE_SUBMISSION
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422601 / 422604 / 422605 / 优惠券失效透传 marketing 校验结果
+        '502':
+          $ref: '#/components/responses/UpstreamError'   # 502601 STRIPE_UNAVAILABLE
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout' # 504601 STRIPE_TIMEOUT
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE PAYMENTS（Stripe webhook） ============
+  /api/store/payments/stripe/webhook:
+    post:
+      summary: Stripe webhook 回调
+      description: |
+        决策 7/25。签名验证（Stripe-Signature，失败 401601）+ event_id 幂等消费（重复 event 返回 200 不重复处理）。
+        payment_intent.succeeded → 订单 paid + Payment succeeded + MQ 订单支付事件（邮件/缓存失效/Showroom ordered 推进）；
+        payment_intent.payment_failed → Payment failed（订单保持 pending 可重试）；
+        charge.refunded → Refund 关联订单状态推进。BNPL（Klarna/Afterpay）异步确认沿用同一链路。
+      operationId: stripeWebhook
+      tags: [store-payments]
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe Event 原始负载（按 Stripe API 版本解析，后端仅消费 id/type/data.object）
+              additionalProperties: true
+      responses:
+        '200':
+          description: 已受理（含幂等重复事件）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received]
+                properties:
+                  received:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 401601 WEBHOOK_SIGNATURE_INVALID
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE ORDERS ============
+  /api/store/orders:
+    get:
+      summary: 我的订单列表
+      description: 按 user_id 隔离；status 筛选。不缓存。
+      operationId: listStoreOrders
+      tags: [store-orders]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, paid, shipped, completed, cancelled, refunding, refunded]
+            default: all
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreOrderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/orders/{id}:
+    get:
+      summary: 订单详情（消费端）
+      description: |
+        按 user_id 隔离（跨用户 404601）。含订单行（定制明细透出 custom_size_data）、支付摘要、物流跟踪、
+        行级退款资格（决策 24：定制行 paid_at + 宽限期判定 refundable，不可退时入口置灰 + 三语说明文案 key）。不缓存。
+      operationId: getStoreOrder
+      tags: [store-orders]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreOrderDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404601
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/orders/{id}/cancel:
+    post:
+      summary: 取消待支付订单
+      description: 仅 status=pending 可取消（否则 409602）；取消即回补现货库存并作废 PaymentIntent。
+      operationId: cancelStoreOrder
+      tags: [store-orders]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 已取消
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreOrderDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/orders/{id}/payment-intent:
+    post:
+      summary: 获取/重建支付凭据（重试支付）
+      description: 仅 pending 且未超时订单；返回现有或重建的 PaymentIntent client_secret（订单币种）。超时订单返回 410601。
+      operationId: retryOrderPayment
+      tags: [store-orders]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCredential'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602 非 pending
+        '410':
+          $ref: '#/components/responses/Gone'            # 410601 ORDER_EXPIRED
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/orders/{id}/refunds:
+    post:
+      summary: 申请退款
+      description: |
+        决策 24/31：现货未发货全额退、已发货退货后退（审核制）；定制行支付后宽限期（默认 24h，可配置）内可退，
+        超时 422602 CUSTOM_ITEM_NOT_REFUNDABLE。订单含已投产定制行时整单退款被拒（前端入口已置灰，后端双重校验）。
+        已有进行中工单返回 409605。成功创建 pending 工单（refund_no 生成），订单转 refunding。
+      operationId: applyStoreRefund
+      tags: [store-orders]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  maxLength: 255
+      responses:
+        '201':
+          description: 工单已创建（pending）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreRefund'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404601
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602 状态不允许 / 409605 已有工单
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422602
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE WISHLIST（决策 18） ============
+  /api/store/wishlists:
+    get:
+      summary: 收藏清单
+      description: ALIGN-021。按 user_id 隔离，返回商品卡片数据。不缓存。
+      operationId: listWishlist
+      tags: [store-wishlist]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WishlistItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 添加收藏（幂等）
+      description: customer_id + product_id 唯一；重复收藏幂等返回 200 已收藏（js_guard）。未登录由前端引导登录（决策 18）。
+      operationId: addWishlistItem
+      tags: [store-wishlist]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: 已收藏（首次）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '200':
+          description: 已收藏（重复请求幂等返回）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 商品不存在
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/wishlists/{productId}:
+    delete:
+      summary: 移除收藏
+      operationId: removeWishlistItem
+      tags: [store-wishlist]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductIdParam'
+      responses:
+        '204':
+          description: 已移除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404604
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/wishlists/{productId}/move-to-cart:
+    post:
+      summary: 收藏移入购物车
+      description: ALIGN-021。加入购物车（需 sku 选择参数）并移除收藏，单事务。
+      operationId: moveWishlistToCart
+      tags: [store-wishlist]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sku_id:
+                  type: integer
+                  format: int64
+                  description: 现货必填；定制款可空并携带 custom_size_data（js_guard，422604）
+                qty:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                custom_size_data:
+                  $ref: '#/components/schemas/CustomSizeData'
+      responses:
+        '200':
+          description: 已移入购物车
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404604
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409601
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422604
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE BROWSE HISTORY（决策 23） ============
+  /api/store/browse-history:
+    get:
+      summary: 浏览历史（Recently Viewed）
+      description: ALIGN-027 / F-048。按 viewed_at 倒序，每用户最多 50 条。不缓存。
+      operationId: listBrowseHistory
+      tags: [store-browse-history]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrowseHistoryItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 记录浏览（upsert）
+      description: |
+        登录用户浏览 PDP 时上报；customer_id + product_id 唯一，重复浏览 upsert 更新 viewed_at（js_guard）；
+        超过 50 条滚动清理最旧记录。匿名用户不记录（前端不调用）。
+      operationId: recordBrowseHistory
+      tags: [store-browse-history]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id:
+                  type: integer
+                  format: int64
+      responses:
+        '204':
+          description: 已记录
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE EXCHANGE RATES（决策 14） ============
+  /api/store/exchange-rates:
+    get:
+      summary: 汇率表（展示换算用）
+      description: |
+        决策 14 L1 定夺：商品读接口仅返回 USD 基准价，展示换算放客户端，本端点提供当前汇率（USD 恒为 1）。
+        下单锁汇以服务端为准，本端点仅用于展示。
+        缓存：CDN s-maxage + JetCache 两级（key trading:exchange-rates）；失效：后台汇率维护 @CacheInvalidate → MQ → purge。
+      operationId: listStoreExchangeRates
+      tags: [store-exchange-rates]
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExchangeRate'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN ORDERS ============
+  /api/admin/orders:
+    get:
+      summary: 订单列表（后台）
+      description: ALIGN-005。状态 tab + 订单号/客户邮箱搜索 + 币种/时间筛选。不缓存。
+      operationId: listAdminOrders
+      tags: [admin-orders]
+      security:
+        - AdminBearerAuth: [/orders]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, paid, shipped, completed, cancelled, refunding, refunded]
+            default: all
+        - name: search
+          in: query
+          description: 订单号 / 客户邮箱模糊搜索
+          schema:
+            type: string
+            maxLength: 80
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [USD, EUR, CAD, AUD, GBP]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/orders/{id}:
+    get:
+      summary: 订单详情（后台）
+      description: ALIGN-006。含客户信息、订单行（定制明细）、支付信息（Stripe）、地址快照、状态时间线、礼品包装标记（决策 28）、关联退款工单。不缓存。
+      operationId: getAdminOrder
+      tags: [admin-orders]
+      security:
+        - AdminBearerAuth: [/orders]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/orders/{id}/ship:
+    post:
+      summary: 标记发货
+      description: |
+        ALIGN-006 / OP-009（s-752）。仅 status=paid 可发货（409602）。写入 carrier + tracking_no（物流单号手填，BE-DIM-5），
+        订单转 shipped、记 shipped_at；发 MQ 发货事件（发货通知邮件，决策 16）；写 OperationLog（action=订单发货）。
+      operationId: shipAdminOrder
+      tags: [admin-orders]
+      security:
+        - AdminBearerAuth: [/orders]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [carrier, tracking_no]
+              properties:
+                carrier:
+                  type: string
+                  enum: [FedEx International Priority, UPS Worldwide Express, DHL Express]
+                tracking_no:
+                  type: string
+                  maxLength: 64
+      responses:
+        '200':
+          description: 已发货
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/orders/{id}/status:
+    patch:
+      summary: 订单状态流转（完成/取消）
+      description: |
+        状态机 guard（409602）：shipped → completed（确认完成，解锁评价提交，s-756）；
+        pending/paid → cancelled（取消并回补现货库存；paid 取消需先走退款流程，仅未发货且全额退款完成后系统流转）。
+        写 OperationLog（action=订单状态变更）。
+      operationId: patchAdminOrderStatus
+      tags: [admin-orders]
+      security:
+        - AdminBearerAuth: [/orders]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [completed, cancelled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/orders/{id}/refunds:
+    post:
+      summary: 后台代客发起退款工单
+      description: ALIGN-006 OrderDetail「发起退款」按钮。校验同消费端（决策 24 投产判定后台同样生效，可在 details 提示原因）；创建 pending 工单。写 OperationLog（action=发起退款）。
+      operationId: createAdminRefund
+      tags: [admin-orders]
+      security:
+        - AdminBearerAuth: [/orders]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, reason]
+              properties:
+                amount:
+                  type: number
+                  minimum: 0
+                  description: 订单币种金额；js_guard amount <= Order.total_amount（422603）
+                reason:
+                  type: string
+                  maxLength: 255
+      responses:
+        '201':
+          description: 工单已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefund'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409602 / 409605
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422602 / 422603
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN REFUNDS ============
+  /api/admin/refunds:
+    get:
+      summary: 退款工单列表
+      description: ALIGN-007 / OP-013。状态 tab（pending/approved/rejected）筛选。不缓存。
+      operationId: listAdminRefunds
+      tags: [admin-refunds]
+      security:
+        - AdminBearerAuth: [/refunds]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, approved, rejected]
+            default: all
+        - name: search
+          in: query
+          description: 工单号 / 订单号 / 客户邮箱模糊搜索
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefundListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/refunds/{id}/approve:
+    post:
+      summary: 审核通过（执行 Stripe 退款）
+      description: |
+        ALIGN-007（s-755）。js_guard：status=pending 才可审核（409604）。原子事务：Refund approved + Stripe Refund
+        （原币种原金额，决策 14）+ 订单状态 refunded + 现货库存回补（BE-DIM-4）；记录 stripe_refund_id；
+        发 MQ 退款结果事件（退款结果邮件，决策 16）；写 OperationLog（action=退款审核通过）。
+        已发货订单为审核制：管理员线下确认收到退货后才点通过（决策 31），可同时登记 return_tracking_no。
+        Stripe 失败整体回滚（502601/504601），工单保持 pending 可重试。
+      operationId: approveAdminRefund
+      tags: [admin-refunds]
+      security:
+        - AdminBearerAuth: [/refunds]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                return_tracking_no:
+                  type: string
+                  maxLength: 64
+                  description: 退货物流单号（选填登记，决策 31）
+      responses:
+        '200':
+          description: 已通过并完成 Stripe 退款
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefund'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404605
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409604
+        '502':
+          $ref: '#/components/responses/UpstreamError'   # 502601
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout' # 504601
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/refunds/{id}/reject:
+    post:
+      summary: 审核拒绝
+      description: js_guard：status=pending 才可拒绝（409604）。订单回到原状态（paid/shipped）；发 MQ 退款结果事件（邮件）；写 OperationLog（action=退款审核拒绝）。
+      operationId: rejectAdminRefund
+      tags: [admin-refunds]
+      security:
+        - AdminBearerAuth: [/refunds]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  maxLength: 255
+                  description: 拒绝原因（回执给消费端与邮件）
+      responses:
+        '200':
+          description: 已拒绝
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefund'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409604
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/refunds/{id}:
+    patch:
+      summary: 登记退货物流单号
+      description: 决策 31。pending 工单可单独登记/更新 return_tracking_no（不触发状态变化）。
+      operationId: patchAdminRefund
+      tags: [admin-refunds]
+      security:
+        - AdminBearerAuth: [/refunds]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [return_tracking_no]
+              properties:
+                return_tracking_no:
+                  type: string
+                  maxLength: 64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefund'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409604 非 pending
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN EXCHANGE RATES（决策 14） ============
+  /api/admin/exchange-rates:
+    get:
+      summary: 汇率列表（后台维护）
+      operationId: listAdminExchangeRates
+      tags: [admin-exchange-rates]
+      security:
+        - AdminBearerAuth: [/settings]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExchangeRate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/exchange-rates/{currency}:
+    put:
+      summary: 维护汇率
+      description: |
+        决策 14。USD 恒为 1 不可改（422605 details 说明）；更新记录 updated_by/updated_at。
+        写失效消费端汇率缓存 @CacheInvalidate → MQ → purge + OperationLog（action=汇率变更）。
+        仅影响新订单锁汇，既有订单 exchange_rate 不变。
+      operationId: updateAdminExchangeRate
+      tags: [admin-exchange-rates]
+      security:
+        - AdminBearerAuth: [/settings]
+      parameters:
+        - name: currency
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [EUR, CAD, AUD, GBP]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rate]
+              properties:
+                rate:
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+                  description: 相对 USD 的汇率
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExchangeRate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422601 / 422605
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN CHECKOUT CONFIG（决策 24/28） ============
+  /api/admin/checkout-config:
+    get:
+      summary: 读取结算配置
+      operationId: getAdminCheckoutConfig
+      tags: [admin-checkout-config]
+      security:
+        - AdminBearerAuth: [/settings]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutConfig'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 保存结算配置
+      description: 礼品包装固定费（USD 基准，下单按锁汇换算并快照，决策 28）与定制款退款宽限期小时数（决策 24"宽限期可配置"）。写 OperationLog（action=结算配置变更）。
+      operationId: updateAdminCheckoutConfig
+      tags: [admin-checkout-config]
+      security:
+        - AdminBearerAuth: [/settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutConfig'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutConfig'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+    ProductIdParam:
+      name: productId
+      in: path
+      required: true
+      description: 商品 id（Long）
+      schema:
+        type: integer
+        format: int64
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    LocaleParam:
+      name: locale
+      in: query
+      description: 商品展示文案语言（决策 13）
+      schema:
+        type: string
+        enum: [en, es, fr]
+        default: en
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 trading=6，见 info 码表）
+          example: 409601
+        message:
+          type: string
+          description: 当前语言默认文案（store EN/ES/FR；admin 中文）
+        details:
+          type: object
+          additionalProperties: true
+
+    CustomSizeData:
+      type: object
+      description: 定制尺寸数据（PDP Custom Size 表单，决策 20.6；快照透出至购物车/结算/订单）
+      required: [bust, waist, hips, hollow_to_floor]
+      properties:
+        bust:
+          type: number
+          minimum: 0
+          description: 胸围(in)
+        waist:
+          type: number
+          minimum: 0
+          description: 腰围(in)
+        hips:
+          type: number
+          minimum: 0
+          description: 臀围(in)
+        hollow_to_floor:
+          type: number
+          minimum: 0
+          description: 中空到地(in)
+        height:
+          type: number
+          minimum: 0
+          description: 身高(in)
+
+    ProductBrief:
+      type: object
+      description: 购物车/收藏/浏览历史内嵌的商品展示数据（catalog 域联表派生，文案已按 locale 解析）
+      required: [id, slug, name, price]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        subtitle:
+          type: string
+        price:
+          type: number
+          description: USD 基准现价
+        compare_at:
+          type: number
+        multi_currency_prices:
+          type: object
+          additionalProperties:
+            type: number
+        image_url:
+          type: string
+          description: 主图（派生）
+        lead_time_days:
+          type: integer
+        rush_available:
+          type: boolean
+        custom_size_available:
+          type: boolean
+        status:
+          type: string
+          enum: [draft, published]
+          description: 下架商品在购物车/收藏中标记不可购买
+
+    # ---- 购物车 ----
+    CartItemCreate:
+      type: object
+      required: [product_id, qty]
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        sku_id:
+          type: integer
+          format: int64
+          description: js_guard：现货必填；定制款可空并携带 custom_size_data（422604）
+        qty:
+          type: integer
+          minimum: 1
+        custom_size_data:
+          $ref: '#/components/schemas/CustomSizeData'
+    CartItem:
+      type: object
+      required: [id, product_id, qty, product]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        sku_id:
+          type: integer
+          format: int64
+        qty:
+          type: integer
+          minimum: 1
+        custom_size_data:
+          $ref: '#/components/schemas/CustomSizeData'
+        product:
+          $ref: '#/components/schemas/ProductBrief'
+        sku:
+          type: object
+          description: 现货 SKU 展示数据（派生）
+          properties:
+            id:
+              type: integer
+              format: int64
+            sku_code:
+              type: string
+            color:
+              type: string
+            size:
+              type: string
+            stock:
+              type: integer
+              description: 当前可售库存（前端超量提示）
+    CartResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        dye_lot_product_ids:
+          type: array
+          description: 命中 dye lot 提示的商品 id（决策 20.4：所属 Showroom 内 24h 窗口存在同款式已付订单）
+          items:
+            type: integer
+            format: int64
+        merged_truncated_item_ids:
+          type: array
+          description: 仅 merge 场景返回：因现货库存不足被截断数量的条目 id
+          items:
+            type: integer
+            format: int64
+
+    # ---- 地址 ----
+    AddressUpsert:
+      type: object
+      required: [receiver, line, city, zip, country]
+      properties:
+        receiver:
+          type: string
+          maxLength: 64
+        phone:
+          type: string
+          maxLength: 32
+        line:
+          type: string
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 64
+        state:
+          type: string
+          maxLength: 64
+        zip:
+          type: string
+          maxLength: 16
+        country:
+          type: string
+          maxLength: 64
+        is_default:
+          type: boolean
+    Address:
+      allOf:
+        - $ref: '#/components/schemas/AddressUpsert'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              format: int64
+
+    # ---- 结算 ----
+    CheckoutQuoteRequest:
+      type: object
+      required: [currency]
+      properties:
+        address_id:
+          type: integer
+          format: int64
+          description: 收货地址（用于运费分区计算）；未选地址时可传 country 估算
+        country:
+          type: string
+          maxLength: 64
+          description: address_id 为空时的运费估算国家
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        carrier:
+          type: string
+          enum: [FedEx International Priority, UPS Worldwide Express, DHL Express]
+          description: 所选运输方式（F-036；未传时 shipping_fee/total_amount 按最低价选项试算）
+        coupon_code:
+          type: string
+          maxLength: 32
+        gift_wrap:
+          type: boolean
+          default: false
+        wedding_date:
+          type: string
+          format: date
+          description: 选填婚期（交期复核，决策 20.6；Showroom 婚期由前端自动带入）
+    ShippingOption:
+      type: object
+      description: 单承运商运费报价项（F-036 结算物流步骤可选项；shipping 域分区×承运商规则行产出）
+      required: [carrier, fee, selected]
+      properties:
+        carrier:
+          type: string
+          enum: [FedEx International Priority, UPS Worldwide Express, DHL Express]
+          description: 承运商（Carrier.name，与 Order.carrier 枚举一致）
+        fee:
+          type: number
+          minimum: 0
+          description: 订单币种运费（满额包邮命中时为 0）
+        lead_time:
+          type: string
+          description: 时效描述（Carrier.lead_time 派生）
+        selected:
+          type: boolean
+          description: 是否为本次报价选中项（与请求 carrier 对应；未传 carrier 时最低价项为 true）
+    CheckoutQuoteResponse:
+      type: object
+      required: [currency, exchange_rate, subtotal, shipping_options, shipping_fee, gift_wrap_fee, discount_amount, total_amount]
+      properties:
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        exchange_rate:
+          type: number
+          description: 当前汇率（试算口径；下单时刻才锁定）
+        subtotal:
+          type: number
+          minimum: 0
+          description: 订单币种行小计求和
+        shipping_options:
+          type: array
+          minItems: 1
+          description: 各 enabled 承运商运费报价（F-036 三选项；前端按数组渲染物流步骤）
+          items:
+            $ref: '#/components/schemas/ShippingOption'
+        shipping_fee:
+          type: number
+          minimum: 0
+          description: 所选（或默认最低价）承运商选项的运费，= shipping_options 中 selected=true 项的 fee
+        gift_wrap_fee:
+          type: number
+          minimum: 0
+          description: gift_wrap=false 时为 0（决策 28）
+        discount_amount:
+          type: number
+          minimum: 0
+          description: 优惠减免（coupon 校验通过时；派生金额）
+        total_amount:
+          type: number
+          minimum: 0
+          description: js_guard：=== subtotal + shipping_fee + gift_wrap_fee - discount_amount
+        coupon_valid:
+          type: boolean
+          description: 提交了 coupon_code 时返回校验结果（无效不阻断报价）
+        coupon_reason_code:
+          type: integer
+          description: 券无效原因（marketing 域错误码，如 422701）
+        lead_time_warning:
+          type: boolean
+          description: 决策 20.6：含定制/现货交期晚于 wedding_date 时为 true（前端透出交期复核提示）
+        max_lead_time_days:
+          type: integer
+          description: 本单最长交期（派生）
+        dye_lot_product_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+    OrderCreateRequest:
+      type: object
+      required: [idempotency_key, address_id, currency, carrier, payment_method]
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 64
+          description: 客户端生成 UUID；重复提交返回 409603 + details.order_id（BE-DIM-4 防重）
+        address_id:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        carrier:
+          type: string
+          enum: [FedEx International Priority, UPS Worldwide Express, DHL Express]
+          description: 结算所选运输方式（F-036；服务端按该选项重算 shipping_fee 写入订单，并快照入 Order.carrier，后台发货面板默认沿用）
+        coupon_code:
+          type: string
+          maxLength: 32
+        gift_wrap:
+          type: boolean
+          default: false
+        wedding_date:
+          type: string
+          format: date
+        payment_method:
+          type: string
+          maxLength: 32
+          enum: [Stripe, Apple Pay, Google Pay, Klarna, Afterpay]
+          description: 决策 25：Payment Element 承载；PayPal 本期置灰不产生数据
+        locale:
+          type: string
+          enum: [en, es, fr]
+          default: en
+          description: 交易邮件渲染语言（决策 16）
+    PaymentCredential:
+      type: object
+      required: [payment_intent_id, client_secret]
+      properties:
+        payment_intent_id:
+          type: string
+          maxLength: 64
+        client_secret:
+          type: string
+          description: Stripe Payment Element 初始化凭据（按订单币种创建，决策 25）
+    OrderCreateResponse:
+      type: object
+      required: [order, payment]
+      properties:
+        order:
+          $ref: '#/components/schemas/StoreOrderDetail'
+        payment:
+          $ref: '#/components/schemas/PaymentCredential'
+
+    # ---- 订单 ----
+    OrderLine:
+      type: object
+      required: [id, product_id, product_name, qty, unit_price]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        sku_id:
+          type: integer
+          format: int64
+          description: 定制款可空
+        product_name:
+          type: string
+          maxLength: 128
+          description: 下单快照
+        sku_code:
+          type: string
+          maxLength: 64
+        color:
+          type: string
+          maxLength: 32
+        size:
+          type: string
+          maxLength: 16
+        qty:
+          type: integer
+          minimum: 1
+        unit_price:
+          type: number
+          minimum: 0
+          description: 订单币种单价（快照）
+        img:
+          type: string
+          maxLength: 512
+          description: 快照图
+        custom_size_data:
+          $ref: '#/components/schemas/CustomSizeData'
+        refundable:
+          type: boolean
+          description: 派生（决策 24）：定制行（custom_size_data 非空）按 paid_at + 宽限期判定；现货行按未发货/已发货政策判定
+    PaymentSummary:
+      type: object
+      required: [provider, amount, currency, status]
+      properties:
+        provider:
+          type: string
+          enum: [stripe]
+        payment_intent_id:
+          type: string
+          maxLength: 64
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        status:
+          type: string
+          enum: [created, processing, succeeded, failed, refunded]
+        card_summary:
+          type: string
+          maxLength: 64
+          description: 如 "Stripe · Visa ···4242"
+        paid_at:
+          type: string
+          format: date-time
+    OrderBase:
+      type: object
+      required: [id, order_no, status, currency, subtotal, total_amount, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        order_no:
+          type: string
+          pattern: '^DRM-\d{8}-\d{4}$'
+        status:
+          type: string
+          enum: [pending, paid, shipped, completed, cancelled, refunding, refunded]
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        exchange_rate:
+          type: number
+          description: 下单锁定的 USD→订单币种汇率（决策 14）
+        wedding_date:
+          type: string
+          format: date
+        subtotal:
+          type: number
+          minimum: 0
+        shipping_fee:
+          type: number
+          minimum: 0
+        gift_wrap:
+          type: boolean
+        gift_wrap_fee:
+          type: number
+          minimum: 0
+          description: 下单快照（决策 28；金额拆分展示含 Gift Wrapping 行）
+        discount_amount:
+          type: number
+          minimum: 0
+          description: 优惠减免（派生展示）
+        total_amount:
+          type: number
+          minimum: 0
+        coupon_id:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+          maxLength: 32
+        carrier:
+          type: string
+          enum: [FedEx International Priority, UPS Worldwide Express, DHL Express]
+        tracking_no:
+          type: string
+          maxLength: 64
+        expires_at:
+          type: string
+          format: date-time
+          description: 待支付超时时刻（created_at + 30min，BE-DIM-4）
+        paid_at:
+          type: string
+          format: date-time
+        shipped_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    StoreOrderListItem:
+      allOf:
+        - $ref: '#/components/schemas/OrderBase'
+        - type: object
+          properties:
+            line_count:
+              type: integer
+              description: 行数（派生）
+            first_line_img:
+              type: string
+              description: 首行快照图（列表卡片派生）
+    StoreOrderListResponse:
+      type: object
+      description: huihao.page.Paginated 形状（线上为 R<Paginated<StoreOrderListItem>>）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreOrderListItem'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+    StoreOrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderBase'
+        - type: object
+          required: [lines, address_snapshot]
+          properties:
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderLine'
+            address_snapshot:
+              $ref: '#/components/schemas/AddressUpsert'
+            payment:
+              $ref: '#/components/schemas/PaymentSummary'
+            refund_eligible:
+              type: boolean
+              description: 派生（决策 24）：整单是否可申请退款（含已投产定制行时 false，前端入口置灰）
+            refund_block_reason_code:
+              type: integer
+              description: 不可退原因错误码（如 422602，前端映射三语说明文案）
+            refunds:
+              type: array
+              description: 关联退款工单
+              items:
+                $ref: '#/components/schemas/StoreRefund'
+    StoreRefund:
+      type: object
+      required: [id, refund_no, order_id, amount, currency, status, applied_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        refund_no:
+          type: string
+          maxLength: 32
+        order_id:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        reason:
+          type: string
+          maxLength: 255
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        applied_at:
+          type: string
+          format: date-time
+
+    # ---- 收藏 / 浏览历史 ----
+    WishlistItem:
+      type: object
+      required: [product_id, product]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        product:
+          $ref: '#/components/schemas/ProductBrief'
+    BrowseHistoryItem:
+      type: object
+      required: [product_id, viewed_at, product]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        viewed_at:
+          type: string
+          format: date-time
+        product:
+          $ref: '#/components/schemas/ProductBrief'
+
+    # ---- 汇率 / 配置 ----
+    ExchangeRate:
+      type: object
+      required: [currency, rate]
+      properties:
+        id:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          enum: [USD, EUR, CAD, AUD, GBP]
+        rate:
+          type: number
+          description: 相对 USD（USD 恒为 1）
+        updated_by:
+          type: integer
+          format: int64
+          description: 后台维护人（仅 admin 端返回）
+        updated_at:
+          type: string
+          format: date-time
+    CheckoutConfig:
+      type: object
+      required: [gift_wrap_fee_usd, custom_refund_grace_hours]
+      properties:
+        gift_wrap_fee_usd:
+          type: number
+          minimum: 0
+          description: 礼品包装固定费（USD 基准价，决策 28）
+        custom_refund_grace_hours:
+          type: integer
+          minimum: 1
+          maximum: 168
+          default: 24
+          description: 定制款支付后退款宽限期小时数（决策 24）
+
+    # ---- 后台订单 / 退款 ----
+    AdminOrderListItem:
+      allOf:
+        - $ref: '#/components/schemas/OrderBase'
+        - type: object
+          required: [customer_id]
+          properties:
+            customer_id:
+              type: integer
+              format: int64
+            customer_name:
+              type: string
+              description: 客户姓名（Customer 联表派生）
+            customer_email:
+              type: string
+              description: 客户邮箱（Customer 联表派生）
+    AdminOrderListResponse:
+      type: object
+      description: huihao.page.Paginated 形状（线上为 R<Paginated<AdminOrderListItem>>）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderListItem'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+    AdminOrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminOrderListItem'
+        - type: object
+          required: [lines, address_snapshot]
+          properties:
+            customer_phone:
+              type: string
+              maxLength: 32
+            lines:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderLine'
+            address_snapshot:
+              $ref: '#/components/schemas/AddressUpsert'
+            payment:
+              $ref: '#/components/schemas/PaymentSummary'
+            refunds:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminRefund'
+    AdminRefund:
+      allOf:
+        - $ref: '#/components/schemas/StoreRefund'
+        - type: object
+          required: [customer_id]
+          properties:
+            order_no:
+              type: string
+              description: 关联订单号（派生）
+            customer_id:
+              type: integer
+              format: int64
+            customer_name:
+              type: string
+              description: 派生
+            customer_email:
+              type: string
+              description: 派生
+            stripe_refund_id:
+              type: string
+              description: 审核通过后写入
+            return_tracking_no:
+              type: string
+              maxLength: 64
+              description: 退货物流单号（选填登记，决策 31）
+    AdminRefundListResponse:
+      type: object
+      description: huihao.page.Paginated 形状（线上为 R<Paginated<AdminRefund>>）
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRefund'
+        total_elements:
+          type: integer
+          description: 总记录数
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+        page_size:
+          type: integer
+        number_of_elements:
+          type: integer
+          description: 本页实际条数
+        total_pages:
+          type: integer
+
+  responses:
+    ValidationError:
+      description: 参数/业务校验失败（422601~422605）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证、token 无效或 webhook 签名失败（40100 系列 / 401601）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限（RBAC 菜单权限 key 校验失败，40300）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在或不属于当前用户（404601~404605；user_id 隔离防探测）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409601~409605）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Gone:
+      description: 资源失效（410601 ORDER_EXPIRED）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamError:
+      description: 外部服务不可用（502601 STRIPE_UNAVAILABLE）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamTimeout:
+      description: 外部服务超时（504601 STRIPE_TIMEOUT）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（与 identity-api 同基建，access 2h + refresh 30d）。
+        trading 域全部个人数据端点按 subject=user_id 强隔离（BE-DIM-6）；仅可访问 /api/store/*。
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域新增权限点：/orders、/refunds、/settings 下汇率与结算配置，BE-DIM-6），由 RBAC 守卫校验。
+
+security: []

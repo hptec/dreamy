@@ -1,0 +1,157 @@
+# review UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: review
+# 约束：只看原型不看代码；穷举操作路径；与 review-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 对齐：ui-verification-checklist.md 本域条目 —— 页面：reviews（screenshots/reviews-full-desktop.png 视觉基线）
+# 原型源：hhspec/prototype/portal-admin/src/views/Reviews.vue
+#         hhspec/prototype/components/product/product-reviews.tsx（PDP 评价/Q&A 区，嵌于 app/product/[slug]/page.tsx）
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: review
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav]
+  conformance_note: "原型强对照：token/布局零偏离；loading/error/empty 态复用既有组件风格；headless-ui 根组件 class 必配 as（CP-072）；显式偏离 5 处见 review-frontend-detail §C"
+
+pages:
+  # ===== portal-admin（Vue3, 中文, 5174）=====
+  - id: UIS-REV-A01
+    page: /reviews（评价审核 tab）
+    prototype: portal-admin/src/views/Reviews.vue
+    checklist_refs: ["screenshots/reviews-full-desktop.png"]
+    visual_baseline: [reviews-full-desktop, reviews-drawer-open, reviews-lightbox-open, reviews-batch-bar, reviews-empty-state]
+    interactions:
+      - path: 页面首载（默认 全部 chip）
+        assert: [PageHeader 眉题 Content·UGC 与待审核/待回答角标渲染, 双主 tab（评价审核/Q&A 管理）, 表格九列齐全, 服务端分页 Pagination]
+      - path: 状态 chips 点击（全部/待审核/已通过/精选/已拒绝）
+        assert: [选中 chip 金色高亮态, 列表按 status/featured 参数刷新, 仅「待审核」chip 带计数角标（显式偏离已标注）]
+      - path: 星级下拉 + 搜索框输入（防抖）
+        assert: [列表按 rating/search 服务端刷新, 共 N 条统计同步, 无结果显示 EmptyState「暂无匹配的评价」]
+      - path: 勾选若干行 / 全选
+        assert: [批量操作条出现（已选 N 条评价）, 批量通过/批量拒绝按钮渲染, 取消选择清空]
+      - path: 批量通过（含混合状态选集）
+        assert: [toast 汇总文案含已处理与跳过条数, 行状态徽章刷新, 选择清空]
+      - path: pending 行点击「通过」/「拒绝」
+        assert: [行内按钮仅 pending 行显示（js_guard）, 成功 toast「已通过/已拒绝…已记入操作日志」, StatusBadge 翻转, 待审核角标减一]
+      - path: approved 行「设为精选」/「取消精选」
+        assert: [仅 approved 行显示精选按钮, 精选后 StatusBadge 变 info「精选」, 409803 时 toast「仅已通过评价可精选」且回滚]
+      - path: 点击行打开评价详情抽屉
+        assert: [右侧抽屉滑入, 商品+买家信息卡, 五星组件实心数=rating, 买家秀九宫格（驳回图灰度+已驳回角标）, 官方回复区按状态三态渲染]
+      - path: 抽屉内 pending 评价审核操作
+        assert: [通过审核/拒绝 双按钮全宽渲染, 操作后抽屉内状态徽章同步]
+      - path: 非 approved 评价的回复区
+        assert: [虚线占位「评价通过审核后才可追加官方回复」, 无输入框]
+      - path: approved 评价发布/编辑/删除官方回复
+        assert: [发布按钮 trim 空 disabled, 成功后金底回复卡（Dreamy Team 署名+时间）, 编辑回显原文, 删除后回输入态]
+      - path: 点击买家秀图打开 Lightbox
+        assert: [遮罩+大图渲染, 序号「i / N · 买家 的买家秀」, 驳回此图红色按钮]
+      - path: Lightbox 驳回图片 → 恢复展示
+        assert: [驳回后灰度+「已驳回 · 前台不展示」徽标+按钮切换为恢复展示, toast 文案沿用原型, 抽屉九宫格同步灰度]
+      - path: 翻页
+        assert: [Pagination 切页发起新请求, 滚动回表格顶部]
+    field_assertions: [复选列, 商品（主图+名称 truncate）, 买家, 星级五星组件, 评价摘要 truncate, 图片计数+驳N红字, 状态徽章四态色, 提交时间, 操作列右对齐]
+    state_transitions: [pending->approved/rejected 行内, approved 精选自环, 图片 shown<->rejected]
+    accessibility: [表格 th 语义, chips button 语义, 抽屉 dialog role + focus-trap, Lightbox Esc 关闭, 五星 aria-label]
+
+  - id: UIS-REV-A02
+    page: /reviews（Q&A 管理 tab）
+    prototype: portal-admin/src/views/Reviews.vue
+    checklist_refs: ["screenshots/reviews-full-desktop.png"]
+    visual_baseline: [reviews-qa-tab, reviews-qa-drawer-open]
+    interactions:
+      - path: 切换到 Q&A 管理 tab
+        assert: [tab 金色下边框高亮, 表格七列渲染（商品/提问/提问人/时间/回答状态/前台可见/操作）, chips（全部/待回答/已回答）]
+      - path: chips 切换（待回答/已回答）
+        assert: [列表按 answered 参数刷新, 回答状态徽章 warn/ok 对应]
+      - path: 行内「前台可见」Toggle 切换
+        assert: [Toggle 即时翻转（乐观）, toast「该问答已上线/已隐藏」, 失败回滚]
+      - path: 点击行/「回答」打开问答抽屉
+        assert: [抽屉渲染商品卡+可见性 Toggle+买家提问原文, 未答显示 textarea, 发布按钮 trim 空 disabled]
+      - path: 发布回答（首次）
+        assert: [toast「官方回答已保存，已记入操作日志」, 金底回答卡（Dreamy Team 署名+时间）, 行内回答状态变已回答, 前台可见 Toggle 自动置开（首答自动 visible）]
+      - path: 编辑回答
+        assert: [编辑回答按钮回显原文, 保存修改后卡片内容更新, 可见性不变]
+      - path: 搜索提问人/内容
+        assert: [当前页内存过滤生效, tooltip 标注「当前页过滤」（显式偏离已标注）]
+    field_assertions: [提问 truncate 280px, 时间 12px 弱色, Toggle 居中列]
+    state_transitions: [unanswered->answered, answered 编辑自环, visible<->hidden]
+    accessibility: [Toggle aria-checked, 抽屉 dialog role, textarea label-for]
+
+  # ===== portal-store（Next.js 15, EN/ES/FR, 5173）=====
+  - id: UIS-REV-S01
+    page: /product/[slug] 评价区（#reviews 锚点，×3 locale）
+    prototype: components/product/product-reviews.tsx
+    visual_baseline: [pdp-reviews-desktop, pdp-reviews-mobile, pdp-reviews-empty, pdp-reviews-es-locale]
+    interactions:
+      - path: PDP 滚动至评价区首屏
+        assert: [双 tab Reviews(N)/Q&A(M) 计数来自 API, 左栏大字均分=rating_avg、Stars、N reviews, 星级分布条按 rating_breakdown 百分比渲染（非硬编码）, 右栏评价列表渲染]
+      - path: 评价行渲染
+        assert: [Stars 实心数=rating, 日期=submitted_at 格式化, 内容文本, 脱敏姓名（名+姓首字母.）, 原型 title/fit/Verified 行不渲染（显式偏离）, 带图评价显示缩略图行（≤9）]
+      - path: 官方回复存在的评价
+        assert: [回复小卡渲染署名+时间+内容, 复用 Q&A 答案排版风格]
+      - path: 点击买家秀缩略图
+        assert: [Lightbox 放大, 已驳回图不出现在前台（后端过滤）]
+      - path: 排序下拉切换（featured_first/newest/rating_desc/rating_asc）
+        assert: [列表客户端刷新且顺序变化, 精选优先时 featured 行置顶]
+      - path: Load more 翻页
+        assert: [追加渲染不重复, 全量加载后按钮消失]
+      - path: 零评价商品
+        assert: [空态文案（Be the first…字典三语）, 评分汇总区 0 值不崩, Write a Review 按钮仍渲染]
+      - path: /es 与 /fr 前缀访问
+        assert: [评价内容三 locale 一致（不翻译）, 区块标题/按钮/空态走对应语言字典]
+    field_assertions: [均分保留小数, 分布条五行 5..1 序, reviews 计数=rating_count]
+    state_transitions: [tab reviews<->qa, 排序切换列表重载]
+    accessibility: [tab button 语义, Stars aria-label, 分布条 aria-hidden 装饰, 缩略图 alt]
+
+  - id: UIS-REV-S02
+    page: PDP 写评价弹窗（WriteReviewModal，新增组件）
+    prototype: components/product/product-reviews.tsx（Write a Review 按钮，表单为新增——复用既有 modal/token 风格）
+    visual_baseline: [write-review-form, write-review-uploading, write-review-success]
+    interactions:
+      - path: 未登录点击 Write a Review
+        assert: [跳转 /account/login 带 returnTo 回跳锚点, 不打开弹窗]
+      - path: 登录后打开弹窗
+        assert: [星级选择器+textarea(计数 ≤5000)+图片上传区+提交按钮渲染, dialog focus-trap]
+      - path: 未选星级提交
+        assert: [前端红框提示, 不发请求]
+      - path: 上传图片（合法/超 9 张/服务不可用）
+        assert: [逐张进度态与预览, 第 10 张被阻止, 502801 时卡片错误态「图片服务暂不可用…」且评价仍可提交（降级）]
+      - path: 合法提交
+        assert: [弹窗关闭, 确认条「评价已提交，审核通过后展示」（三语字典）, 列表不插入新行（pending 不可见）]
+      - path: 重复评价提交（已评过该商品）
+        assert: [409801 toast「您已评价过该商品」按 locale 渲染]
+      - path: 非购买者提交
+        assert: [403801 后弹窗关闭, Write a Review 入口替换为提示文案「仅已完成订单的购买者可评价」（入口隐藏+提示约定）]
+    accessibility: [aria-role-dialog, 星级 radiogroup 语义, 上传按钮可聚焦, 错误 aria-live]
+
+  - id: UIS-REV-S03
+    page: PDP Q&A 区 + 提问弹窗（AskQuestionModal，新增组件）
+    prototype: components/product/product-reviews.tsx（Q&A tab + Ask a Question 按钮）
+    visual_baseline: [pdp-qa-tab, ask-question-form, ask-question-success]
+    interactions:
+      - path: 切换 Q&A tab
+        assert: [仅已回答且 visible 的问答渲染（Q/A 排版保真）, 署名行不渲染（显式偏离）, 空态文案]
+      - path: 未登录点击 Ask a Question
+        assert: [跳登录带 returnTo]
+      - path: 登录提交提问（空白/超 1000/合法）
+        assert: [trim 空禁用提交, 超长计数红字, 成功后确认态「提问已提交，回答后将展示在此处」且列表不插行（hidden 待答语义）]
+    accessibility: [aria-role-dialog, textarea label-for, 确认态 aria-live]
+
+self_check:
+  pages_covered: 5
+  admin_pages: 2          # reviews 评价审核 tab / Q&A 管理 tab —— 与 ui-verification-checklist「页面：reviews」视觉基线对应
+  store_pages: 3          # PDP 评价区 / 写评价弹窗 / Q&A 区+提问弹窗
+  checklist_alignment: ["screenshots/reviews-full-desktop.png"]
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  locale_variants: [en, es, fr]
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true   # 仅基于原型

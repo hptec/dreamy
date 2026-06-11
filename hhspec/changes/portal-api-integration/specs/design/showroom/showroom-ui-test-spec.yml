@@ -1,0 +1,160 @@
+# showroom UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: showroom
+# 约束：只看原型不看代码；穷举操作路径；与 showroom-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 对齐：ui-verification-checklist-portal-api-integration.md —— 本域无清单条目（清单仅覆盖 portal-admin 页面与 14 条
+#       admin 操作路径；showroom 为纯消费端域），视觉基线为本规格自定义命名，显式声明不缺漏
+# 原型源：hhspec/prototype/app/showroom/page.tsx
+#         hhspec/prototype/app/showroom/[id]/page.tsx
+#         hhspec/prototype/components/showroom/showroom-detail.tsx
+#         hhspec/prototype/components/showroom/add-to-showroom-modal.tsx
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: showroom
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav, aria-pressed-vote, status-role-toast]
+  conformance_note: "原型强对照：token/布局零偏离；loading/error/empty 态复用既有组件风格（skeleton/EmptyState/toast 同源）；显式偏离 9 处见 showroom-frontend-detail §6（①封面占位 ②婚期可选 ③视图切换按钮移除 ④persona 下拉→昵称加入 ⑤owner 可投票 ⑥成员表 email 输入 ⑦Reminded 四态 ⑧Saved 容错 ⑨Reset link 按钮）"
+
+pages:
+  # ===== portal-store（Next.js 15, EN/ES/FR, 5173）=====
+  - id: UIS-SHR-S01
+    page: /showroom（我的 Showroom 列表，登录态）
+    prototype: app/showroom/page.tsx
+    checklist_refs: []   # 本域无 ui-verification-checklist 条目（清单仅 portal-admin），显式声明
+    visual_baseline: [showroom-list-desktop, showroom-list-mobile, showroom-list-empty, showroom-create-modal]
+    interactions:
+      - path: 未登录访问 /showroom
+        assert: [跳转 /account/login 且 returnTo=/showroom, 不渲染列表骨架后内容]
+      - path: 登录后首载（有数据）
+        assert: [eyebrow "Bridal Party Collaboration" 与标题 My Showrooms 渲染, 卡片栅格 sm:2/lg:3 列, 卡片含名称/婚期+days to go/styles·members 计数, 计数来自 API（item_count/member_count）, 封面区为占位态（显式偏离①已标注）]
+      - path: 登录后首载（无数据）
+        assert: [PartyPopper 空态虚线框, "Start your first Showroom" 文案, Create a Showroom 与 Browse Bridesmaid Dresses 双按钮]
+      - path: 点击 New Showroom 打开创建弹窗
+        assert: [遮罩+modal 渲染（aria-role-dialog, focus-trap）, Showroom name 输入（placeholder "Sarah's Bridal Party"）, Wedding date 日期输入, name 空提交行内红字（婚期可选——显式偏离②）, 合法提交后弹窗关闭且新卡片置顶]
+      - path: 卡片删除（Trash 图标 → Delete/Keep 行内确认）
+        assert: [确认态行内切换（非弹窗，原型保真）, Delete 后卡片消失, Keep 还原图标态]
+      - path: 点击卡片/Open Showroom
+        assert: [跳转 /showroom/{id}]
+      - path: /es 与 /fr 前缀访问
+        assert: [区块 chrome 文案走对应语言字典, 数据（房名/昵称）三 locale 一致不翻译]
+    field_assertions: [婚期 formatDateLong 长格式, days to go 仅未来婚期显示, 计数单复数（style/styles, member/members）]
+    state_transitions: [empty->grid（创建后）, grid 行删除]
+    accessibility: [删除按钮 aria-label 含房名, modal label-for, 卡片链接键盘可达]
+
+  - id: UIS-SHR-S02
+    page: /showroom/[id]（owner 视图）
+    prototype: components/showroom/showroom-detail.tsx
+    checklist_refs: []
+    visual_baseline: [showroom-detail-owner-desktop, showroom-detail-owner-mobile, showroom-invite-bar, showroom-members-table, showroom-dyelot-banner, showroom-edit-modal]
+    interactions:
+      - path: owner 登录访问详情
+        assert: [返回链接 My Showrooms, 标题/婚期/成员数头部, 邀请条渲染（仅 owner）, 成员表渲染（仅 owner）, 视图切换按钮组不存在（显式偏离③）, 款式网格渲染]
+      - path: 邀请条 Copy Link
+        assert: [输入框值为 /showroom/{id}?invite={真实 token} 形态, 点击后按钮变 Copied（2s 回弹）, toast "Invite link copied…" role=status]
+      - path: 邀请条 Reset link（显式偏离⑨）
+        assert: [按钮 btn-outline 同源样式, 点击出二次确认（旧链接与访客会话将失效文案）, 确认后输入框 token 即时更新, toast 提示]
+      - path: 款式卡片（owner 态）
+        assert: [商品图 3:4、名称、色点+色名+价格, 投票双按钮可点（owner 可投——显式偏离⑤）且票数徽章渲染, 留言计数按钮 aria-expanded, 移除 Trash 按钮渲染]
+      - path: owner 投票/留言
+        assert: [投票点击高亮态（sage/blush 选中色）且计数+1, 留言展开输入框 Enter 发送, 新留言行含昵称+日期]
+      - path: 移除款式
+        assert: [款式卡消失, 被指派该款式的成员行 Status 回 Browsing, 指派下拉回 Unassigned]
+      - path: 成员表指派（select + email 输入——显式偏离⑥）
+        assert: [下拉枚举=房内款式（name — color）, email 输入框渲染（首次指派必出）, 选择后 toast "{name} assigned {style} · {color}", 行 Status 变 Awaiting order, 价格小字渲染]
+      - path: Send reminder（assigned 且有 email 的行）
+        assert: [按钮仅在 assigned/reminded 且 email 非空行渲染, 点击后 toast "提醒邮件已发送至 {email}"（真发文案，原型 simulated 字样不存在）, Status 徽章变 Reminded（四态——显式偏离⑦）]
+      - path: 成员已下单行
+        assert: [Status 徽章 Ordered（sage 底+Check 图标，原型保真）, 指派下拉与 reminder 按钮不可操作（ordered 终态）]
+      - path: dye lot 提示条
+        assert: [任一款式 dye_lot_notice=true 时金底 gold/10 提示条出现（Clock 图标+24h 文案三语）, 全 false 时不渲染]
+      - path: 编辑名称/婚期（新增入口）
+        assert: [编辑弹窗复用创建弹窗结构与 token, 保存后头部名称/婚期即时更新]
+      - path: 访问他人 showroom id
+        assert: [通用「不存在或无权访问」页（复用原型 Showroom not found 结构：PartyPopper+标题+Back 按钮）, 不泄露存在性差异]
+    field_assertions: [头部婚期 + days to go, 成员数, Assigned to 徽标 uppercase tracking-luxe 金字]
+    state_transitions: [unassigned->assigned->reminded 行内徽章流转, item 移除级联回退]
+    accessibility: [view 区无废弃 role=group 切换器, 表格 th 语义, 指派 select sr-only label, toast role=status]
+
+  - id: UIS-SHR-S03
+    page: /showroom/[id]?invite={token}（guest 加入与参与视图）
+    prototype: components/showroom/showroom-detail.tsx（访客身份条 + guest 态卡片）
+    checklist_refs: []
+    visual_baseline: [showroom-guest-join, showroom-guest-view, showroom-guest-assigned-banner, showroom-invite-revoked, showroom-guest-expired]
+    interactions:
+      - path: 匿名打开邀请链接（首次）
+        assert: [加入态渲染（muted 底身份条改造——昵称输入 + Join，显式偏离④）, "You're invited by …" 文案保留, 昵称输入 label-for]
+      - path: 提交昵称加入
+        assert: [成功后进入 guest 视图, 邀请条不渲染（owner 专属）, 成员管理表不渲染, 款式网格可见, 欢迎 toast]
+      - path: 昵称被占用（已绑定身份）
+        assert: [409101 行内文案「该昵称已被使用，请换一个」按 locale 渲染, 输入框保留现场]
+      - path: 已重置链接打开（旧 token）
+        assert: [410101 专属提示卡「邀请链接已失效，请向新娘索取新链接」, 无加入表单]
+      - path: 非法 token 打开
+        assert: [401101 提示卡「链接无效」语义文案, 防探测不区分更多细节]
+      - path: guest 投票
+        assert: [like/dislike 按钮 aria-pressed 状态, 点击高亮+计数即时更新, 重复点击同值无重复计数（幂等覆盖）, 改投切换高亮]
+      - path: guest 留言
+        assert: [展开留言区, trim 空不可发, 发送后新行含本人昵称, Send 按钮 aria-label]
+      - path: guest 被指派后回访
+        assert: [金框 "Your assigned look, {nickname}" 横幅（图/名/色/价）, Order This Dress 主按钮跳 /product/{slug}]
+      - path: guest 会话过期后操作
+        assert: [自动静默 rejoin 一次（无感）, 仍失败回加入态且提示重新加入]
+      - path: guest 视图无管理能力
+        assert: [无移除款式 Trash, 无成员表, 无编辑入口, 无邀请条（视觉断言与 403102 逻辑层互补）]
+    field_assertions: [身份条 "I am" 标签, 留言 placeholder "Leave a comment…", 票数徽章数值=API 聚合]
+    state_transitions: [join-gate->guest-view, 投票 like<->dislike 高亮切换, 过期->rejoin->恢复]
+    accessibility: [加入输入 label-for, 投票按钮 aria-pressed, 留言输入 sr-only label, 提示卡 aria-live]
+
+  - id: UIS-SHR-S04
+    page: PDP / 商品卡片 Add to Showroom 弹窗
+    prototype: components/showroom/add-to-showroom-modal.tsx
+    checklist_refs: []
+    visual_baseline: [add-to-showroom-modal, add-to-showroom-create-inline, add-to-showroom-added]
+    interactions:
+      - path: 未登录点击 Add to Showroom 入口
+        assert: [跳转登录带 returnTo 回 PDP, 不打开弹窗]
+      - path: 登录打开弹窗
+        assert: [aria-role-dialog + focus-trap, 商品名小字, 多色商品渲染色板（选中 gold ring 态）, 房列表卡片（名称/婚期/成员数）, 无房时虚线提示 "No showrooms yet…"]
+      - path: 选择已有 Showroom 添加
+        assert: [成功后 sage 底 "Added to {name}" 确认态（role=status）, 1.1s 自动关闭（原型节奏保真）]
+      - path: 重复添加同款同色（409102）
+        assert: [toast「已在该协作空间中」容错（显式偏离⑧已标注）, 弹窗不崩溃]
+      - path: New Showroom 内联创建
+        assert: [虚线金框按钮展开 muted 内联表单（name+date）, name 空提交行内红字, Create & Add 串联成功后确认态]
+    field_assertions: [色板 title/aria-label=色名, 房卡片婚期/成员数小字图标行]
+    state_transitions: [列表态<->创建态, 提交->added 确认态]
+    accessibility: [色板按钮 aria-label, 关闭按钮 aria-label=Close, 内联表单 label-for]
+
+  - id: UIS-SHR-S05
+    page: 跨页联动（购物车/结算 dye lot 与婚期带入——视觉断言归属本域的部分）
+    prototype: components/showroom/showroom-detail.tsx（dye lot 条）+ app/checkout/page.tsx（wedding date 字段）
+    checklist_refs: []
+    visual_baseline: [cart-dyelot-banner, checkout-wedding-prefill]
+    interactions:
+      - path: Showroom 同款式 24h 内有已付订单后打开购物车（含同款）
+        assert: [行上方 sage 风格 dye lot 信息条渲染（trading COMP-TRD-S01 承载，文案与 Showroom 视图同源三语）, 窗口外不渲染]
+      - path: 进入结算（用户有带婚期的 Showroom）
+        assert: [wedding date 字段预填最新 Showroom 婚期（F-077）, 可手改, 无 Showroom 时为空]
+    field_assertions: [dye lot 文案含 24h 与 dye lot 关键词三语]
+    state_transitions: [窗口内->窗口外条隐藏]
+    accessibility: [信息条非 alert（纯展示 aria-live 不需）, 日期输入 label-for]
+
+self_check:
+  pages_covered: 5
+  admin_pages: 0          # 本域无后台端点，portal-admin 零改动（显式声明）
+  store_pages: 5          # 列表 / 详情 owner / 详情 guest（含加入态）/ Add to Showroom 弹窗 / 跨页联动
+  checklist_alignment: []  # ui-verification-checklist 无本域条目（仅 admin 页面），视觉基线自定义命名，显式核对不缺漏
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  locale_variants: [en, es, fr]
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true   # 仅基于原型

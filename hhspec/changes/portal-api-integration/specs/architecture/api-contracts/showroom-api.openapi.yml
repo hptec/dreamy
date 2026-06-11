@@ -1,0 +1,829 @@
+openapi: 3.0.3
+info:
+  title: Showroom API (portal-api-integration)
+  description: |
+    showroom 限界上下文 API 契约（决策 20 新增第 7 域），仅消费端（/api/store/showrooms*）。
+    实体：Showroom / ShowroomItem / ShowroomMember / ShowroomVote / ShowroomComment（F-066~071）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**；本域列表为全量返回不分页（单用户 Showroom 数量小），
+    如后续分页则采用 huihao.page.Paginated 形状 `{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`。
+
+    ## 鉴权约定（决策 20.2 双态鉴权）
+    - **新娘（owner）**：StoreBearerAuth（登录消费者），仅可操作自己创建的 Showroom（user_id 强隔离，跨用户 404）。
+    - **免注册访客（guest）**：邀请链接含不可猜 UUID invite_token；访客凭 token + 昵称经
+      POST /api/store/showrooms/guest-session 换取**短期受限 guest JWT**（ShowroomGuestAuth，复用现有 JWT 基建）：
+      仅可读所绑定的单个 Showroom + 对其款式投票/留言；不可改 Showroom/款式/成员；下单才要求注册登录。
+    - 新娘可重置邀请链接：旧 invite_token 作废，已签发的 guest JWT 同时失效（token 内嵌 invite 版本号校验）。
+    - 写操作限流靠 Cloudflare WAF（决策 11）。
+    - 标注 `StoreBearerAuth 或 ShowroomGuestAuth` 的端点两种身份均可访问（owner 以 member 身份投票/留言时按其 member 记录去重）。
+    - **鉴权基建提示（L2 明确设计）**：现有 StoreJwtFilter 对 /api/store/* 默认强制鉴权且仅识别 store JWT。
+      本域需要两项 filter 扩展，由 L2 给出设计：
+      1. POST /api/store/showrooms/guest-session 为匿名端点，纳入**配置化公开路径白名单**（与各域公开端点共用机制）；
+      2. **guest token 旁路**：filter 对 /api/store/showrooms/** 需识别 guest JWT（独立 scope/claims：
+         showroom_id、member_id、invite 版本号），校验通过后注入受限 guest 主体，越权访问按 403102 拦截。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（showroom=1，决策 12 号段顺延）+ 序号。
+
+    ### showroom 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 401101 | GUEST_TOKEN_INVALID guest JWT 无效/过期/已随邀请链接重置失效 | 401 |
+    | 403101 | NOT_SHOWROOM_OWNER 仅创建者可执行该操作 | 403 |
+    | 403102 | GUEST_SCOPE_EXCEEDED guest 越权访问非绑定 Showroom 或受限操作 | 403 |
+    | 404101 | SHOWROOM_NOT_FOUND Showroom 不存在或无权访问 | 404 |
+    | 404102 | SHOWROOM_ITEM_NOT_FOUND 款式不存在 | 404 |
+    | 404103 | SHOWROOM_MEMBER_NOT_FOUND 成员不存在 | 404 |
+    | 409101 | NICKNAME_TAKEN 同 Showroom 内昵称已被占用（js_guard：昵称唯一作投票/留言去重身份） | 409 |
+    | 409102 | ITEM_ALREADY_EXISTS 同 Showroom 内 product_id+color 已存在（js_guard） | 409 |
+    | 409103 | MEMBER_STATE_INVALID 成员指派状态不允许该操作（如 ordered 后不可再指派，showroom_member_assignment 状态机） | 409 |
+    | 410101 | INVITE_TOKEN_REVOKED 邀请链接已被重置作废 | 410 |
+    | 422101 | FIELD_VALIDATION_FAILED 字段校验失败（昵称/留言长度、email 格式等） | 422 |
+
+    ## 缓存标注（BE-DIM-8）
+    协作数据强一致（投票/留言/指派需即时可见），全部端点**不缓存**（决策 4 第 3 层个人数据口径）。
+
+    ## 跨域协作
+    - 提醒/指派邮件复用决策 16 基建：MQ 事件 → MailRecord（新增 showroom_invite / showroom_assign 邮件类型由 L1.3
+      error-strategy/data-flow 扩展 MailRecord.type 枚举登记，本契约端点仅触发）。
+    - dye lot 提示（决策 20.4）：本域提供 24h 窗口同款式已付订单判定（订单支付事件由 trading MQ 同步），
+      在 Showroom 详情 items[].dye_lot_notice 透出；购物车/结算侧字段见 trading-api（dye_lot_product_ids）。
+    - 成员下单：访客登录下单后 linked_customer_id 回填、assign_status → ordered（trading 订单支付事件驱动）。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-023，决策 20，s-1041）
+    - v1.1.0 (2026-06-10): feasibility 修复——R 包络映射声明；StoreJwtFilter 公开路径白名单 + guest token 旁路扩展提示
+  version: 1.0.0
+  contact:
+    name: showroom domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: showrooms
+    description: Showroom 创建/列表/详情/邀请管理（F-066/F-068）
+  - name: showroom-items
+    description: 款式收藏与移除（F-067）
+  - name: showroom-votes
+    description: 投票与留言（F-069）
+  - name: showroom-members
+    description: 成员指派与提醒（F-070/F-071）
+  - name: showroom-guest
+    description: 免注册访客会话（决策 20.2）
+
+paths:
+  # ============ SHOWROOMS ============
+  /api/store/showrooms:
+    post:
+      summary: 创建 Showroom
+      description: F-066。新娘创建（owner_id=当前用户）；invite_token 服务端生成不可猜 UUID。
+      operationId: createShowroom
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowroomUpsert'
+      responses:
+        '201':
+          description: 创建成功（含 invite_token，仅 owner 可见）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      summary: 我的 Showroom 列表
+      description: 仅返回当前用户创建的 Showroom（含成员/款式计数摘要）。不缓存。
+      operationId: listShowrooms
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShowroomSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/showrooms/{id}:
+    get:
+      summary: Showroom 详情（款式/投票/留言/成员）
+      description: |
+        F-068/F-069。owner 或绑定本 Showroom 的 guest 可读（guest 越权 403102）；
+        invite_token 仅 owner 返回；成员 email 仅 owner 返回。
+        items 含票数聚合、my_vote（按当前 member 去重态）、留言列表与 dye_lot_notice（决策 20.4）。不缓存。
+      operationId: getShowroom
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+        - ShowroomGuestAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 401101
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 403102
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404101
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 编辑 Showroom（改名/婚期）
+      description: 仅 owner（403101）。婚期变更后结算自动带入值随之更新（F-077）。
+      operationId: updateShowroom
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowroomUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 403101
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除 Showroom
+      description: 仅 owner（403101）。级联删除款式/成员/投票/留言；已签发 guest JWT 即时失效。
+      operationId: deleteShowroom
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/showrooms/{id}/invite/reset:
+    post:
+      summary: 重置邀请链接
+      description: 决策 20.2。仅 owner（403101）。生成新 invite_token，旧 token 作废（410101），旧 guest JWT 同时失效（401101）。
+      operationId: resetShowroomInvite
+      tags: [showrooms]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功（返回新 token）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite_token]
+                properties:
+                  invite_token:
+                    type: string
+                    maxLength: 64
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ GUEST SESSION（决策 20.2） ============
+  /api/store/showrooms/guest-session:
+    post:
+      summary: 访客换取受限 guest JWT
+      description: |
+        F-068 免注册参与。invite_token 校验（无效 401101 / 已重置 410101）+ 昵称：
+        - 昵称在该 Showroom 内已存在 → 复用该 member 身份（再次进入）；
+        - 新昵称 → 创建 ShowroomMember（assign_status=unassigned）。
+        返回短期受限 guest JWT（仅可读该 Showroom + 投票/留言）。限流靠 WAF。
+      operationId: createShowroomGuestSession
+      tags: [showroom-guest]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite_token, nickname]
+              properties:
+                invite_token:
+                  type: string
+                  maxLength: 64
+                nickname:
+                  type: string
+                  minLength: 1
+                  maxLength: 32
+      responses:
+        '200':
+          description: 成功（首次创建成员或复用既有成员）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 401101 token 无效
+        '410':
+          $ref: '#/components/responses/Gone'            # 410101 已重置
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422101
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ITEMS（F-067） ============
+  /api/store/showrooms/{id}/items:
+    post:
+      summary: 添加款式到 Showroom（Add to Showroom）
+      description: F-067。仅 owner（403101）。同 Showroom 内 product_id+color 唯一（409102，js_guard）。
+      operationId: addShowroomItem
+      tags: [showroom-items]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id:
+                  type: integer
+                  format: int64
+                color:
+                  type: string
+                  maxLength: 64
+                  description: 加入时选择的颜色
+      responses:
+        '201':
+          description: 已添加
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404101 / 商品不存在
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409102
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/showrooms/{id}/items/{itemId}:
+    delete:
+      summary: 移除款式
+      description: 仅 owner（403101）。被指派给成员的款式移除时，对应成员回到 unassigned。
+      operationId: removeShowroomItem
+      tags: [showroom-items]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/ItemIdParam'
+      responses:
+        '204':
+          description: 已移除
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404102
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ VOTES & COMMENTS（F-069） ============
+  /api/store/showrooms/{id}/items/{itemId}/vote:
+    put:
+      summary: 投票（喜欢/不喜欢，按成员去重）
+      description: |
+        F-069 / 决策 20.2。owner 与 guest 均可投；member_id + showroom_item_id 唯一，
+        重复投票覆盖原票（js_guard，PUT 幂等语义）。
+      operationId: voteShowroomItem
+      tags: [showroom-votes]
+      security:
+        - StoreBearerAuth: []
+        - ShowroomGuestAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/ItemIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vote]
+              properties:
+                vote:
+                  type: string
+                  enum: [like, dislike]
+      responses:
+        '200':
+          description: 已投票（返回该款式最新票数聚合）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [like_count, dislike_count, my_vote]
+                properties:
+                  like_count:
+                    type: integer
+                  dislike_count:
+                    type: integer
+                  my_vote:
+                    type: string
+                    enum: [like, dislike]
+        '401':
+          $ref: '#/components/responses/Unauthorized'   # 401101
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 403102
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404102
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/showrooms/{id}/items/{itemId}/comments:
+    post:
+      summary: 款式留言
+      description: F-069。owner 与 guest 均可留言；留言带昵称展示。限流靠 WAF。
+      operationId: commentShowroomItem
+      tags: [showroom-votes]
+      security:
+        - StoreBearerAuth: []
+        - ShowroomGuestAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/ItemIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '201':
+          description: 已留言
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomComment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422101
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ MEMBERS（F-070/F-071） ============
+  /api/store/showrooms/{id}/members/{memberId}/assign:
+    post:
+      summary: 指派款式给成员
+      description: |
+        F-070 / 决策 20.5。仅 owner（403101）。指派款式（assigned_item_id）+ 填写成员 email（提醒邮件收件地址）；
+        assign_status: unassigned/assigned/reminded → assigned（重新指派允许覆盖）；ordered 后不可再指派（409103，
+        showroom_member_assignment 状态机）。
+      operationId: assignShowroomMember
+      tags: [showroom-members]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/MemberIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigned_item_id]
+              properties:
+                assigned_item_id:
+                  type: integer
+                  format: int64
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                  description: 成员邮箱（新娘指派时填写，用于提醒邮件，决策 20.5）
+      responses:
+        '200':
+          description: 已指派
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'       # 403101
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404102 / 404103
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409103
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/showrooms/{id}/members/{memberId}/remind:
+    post:
+      summary: 发送提醒（真发邮件）
+      description: |
+        F-070 升级真发（决策 20.5）。仅 owner（403101）。前置：assign_status=assigned 或 reminded 且成员 email 已填
+        （未指派/无邮箱 409103，details 说明）。发 MQ 邮件事件 → MailRecord（showroom 提醒类型，按 locale 渲染）幂等防重发 + 失败重试；
+        成功后 assign_status → reminded。
+      operationId: remindShowroomMember
+      tags: [showroom-members]
+      security:
+        - StoreBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/MemberIdParam'
+      responses:
+        '200':
+          description: 提醒已入队发送
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowroomMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404103
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409103
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: Showroom id（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+    ItemIdParam:
+      name: itemId
+      in: path
+      required: true
+      description: ShowroomItem id
+      schema:
+        type: integer
+        format: int64
+    MemberIdParam:
+      name: memberId
+      in: path
+      required: true
+      description: ShowroomMember id
+      schema:
+        type: integer
+        format: int64
+    LocaleParam:
+      name: locale
+      in: query
+      description: 内嵌商品卡片文案语言（决策 13）
+      schema:
+        type: string
+        enum: [en, es, fr]
+        default: en
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 showroom=1，见 info 码表）
+          example: 404101
+        message:
+          type: string
+          description: 消费端按 locale 返回 EN/ES/FR 文案
+        details:
+          type: object
+          additionalProperties: true
+
+    ProductRef:
+      type: object
+      description: 款式内嵌商品卡片（catalog 域联表派生，文案已按 locale 解析）
+      required: [id, slug, name, price]
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+          description: USD 基准现价
+        image_url:
+          type: string
+        custom_size_available:
+          type: boolean
+        lead_time_days:
+          type: integer
+
+    ShowroomUpsert:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 如 "Sarah's Bridal Party"
+        wedding_date:
+          type: string
+          format: date
+          description: 婚期（结算 wedding date 自动带入，F-077）
+    ShowroomSummary:
+      type: object
+      required: [id, owner_id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        owner_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        wedding_date:
+          type: string
+          format: date
+        item_count:
+          type: integer
+          description: 款式数（派生）
+        member_count:
+          type: integer
+          description: 成员数（派生）
+    ShowroomDetail:
+      allOf:
+        - $ref: '#/components/schemas/ShowroomSummary'
+        - type: object
+          required: [items, members, is_owner]
+          properties:
+            invite_token:
+              type: string
+              maxLength: 64
+              description: 仅 owner 返回（guest 视图不含此字段）
+            is_owner:
+              type: boolean
+              description: 当前身份是否为创建者（前端渲染管理操作）
+            my_member_id:
+              type: integer
+              format: int64
+              description: 当前身份对应的 member id（投票/留言去重身份；owner 首次互动时自动建 member）
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShowroomItem'
+            members:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShowroomMember'
+    ShowroomItem:
+      type: object
+      required: [id, product_id, product, like_count, dislike_count]
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        color:
+          type: string
+          maxLength: 64
+        product:
+          $ref: '#/components/schemas/ProductRef'
+        like_count:
+          type: integer
+          description: ShowroomVote 聚合（派生）
+        dislike_count:
+          type: integer
+          description: ShowroomVote 聚合（派生）
+        my_vote:
+          type: string
+          enum: [like, dislike]
+          description: 当前 member 的投票（未投为空）
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShowroomComment'
+        dye_lot_notice:
+          type: boolean
+          description: 决策 20.4：本 Showroom 内 24h 窗口存在同款式已付订单时 true（"同染色批次保证"提示条，纯展示）
+    ShowroomComment:
+      type: object
+      required: [id, showroom_item_id, member_id, nickname, content]
+      properties:
+        id:
+          type: integer
+          format: int64
+        showroom_item_id:
+          type: integer
+          format: int64
+        member_id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+          description: 留言成员昵称（ShowroomMember 联表派生）
+        content:
+          type: string
+          maxLength: 500
+        created_at:
+          type: string
+          format: date-time
+    ShowroomMember:
+      type: object
+      required: [id, showroom_id, nickname, assign_status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        showroom_id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+          maxLength: 32
+          description: 同 Showroom 内唯一（js_guard）
+        email:
+          type: string
+          maxLength: 254
+          description: 仅 owner 视图返回（决策 20.5 指派时填写）
+        assigned_item_id:
+          type: integer
+          format: int64
+        assign_status:
+          type: string
+          enum: [unassigned, assigned, reminded, ordered]
+          description: showroom_member_assignment 状态机（ordered 由 trading 订单支付事件驱动）
+        linked_customer_id:
+          type: integer
+          format: int64
+          description: 访客下单登录后回填（决策 20.2；仅 owner 视图返回）
+    GuestSession:
+      type: object
+      required: [guest_token, showroom_id, member]
+      properties:
+        guest_token:
+          type: string
+          description: 短期受限 guest JWT（仅可读绑定 Showroom + 投票/留言；随邀请重置失效）
+        expires_at:
+          type: string
+          format: date-time
+        showroom_id:
+          type: integer
+          format: int64
+        member:
+          $ref: '#/components/schemas/ShowroomMember'
+
+  responses:
+    ValidationError:
+      description: 参数校验失败（422101）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证 / guest token 无效（40100 系列 / 401101）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 非 owner 或 guest 越权（403101 / 403102）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在或无权访问（404101~404103，防探测）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409101~409103）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Gone:
+      description: 邀请链接已重置作废（410101）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（与 identity-api 同基建）。owner 操作按 subject=user_id 强隔离；
+        owner 亦可凭此身份在自己的 Showroom 内投票/留言。
+    ShowroomGuestAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        受限 guest JWT（决策 20.2，复用现有 JWT 基建、独立 scope）：claims 含 showroom_id、member_id、invite 版本号；
+        仅可读绑定 Showroom 及对其款式投票/留言；invite_token 重置后即失效（401101）；下单需转正式登录。
+
+security: []

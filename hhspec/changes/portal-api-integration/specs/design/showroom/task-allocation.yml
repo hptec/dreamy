@@ -1,0 +1,100 @@
+# 任务分配表 — portal-api-integration / showroom 域
+# 由 l2_design_coordinator 下属 showroom 域设计师产出：本域承载的实现单元映射
+# 【设计来源声明】本域在 hhspec/changes/portal-api-integration/task-manifest.yml（TASK-001~060）中
+# 无直属 task：清单按原六域基线生成，决策 20（细化轮三）新增的第七限界上下文 showroom
+# （Showroom/ShowroomItem/ShowroomMember/ShowroomVote/ShowroomComment 五实体、
+# showroom_member_assignment 状态机、FLOW-P12 协作流程）未登记其中。
+# 本域实现单元全部为「补充实现单元」（SHR-IMPL-*），设计来源 =
+# decision.md 决策 20 七子决策 + showroom-api.openapi.yml v1.1.0（L1 契约）+ er-diagram.yml 五实体
+# + state-machine.yml showroom_member_assignment + data-flow.md FLOW-P11/P12 + error-strategy showroom 域段。
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/showroom
+change_name: portal-api-integration
+domain_code: showroom
+
+artifacts:
+  api_detail: specs/design/showroom/showroom-api-detail.md          # E-SHR-01~13, V-SHR-001~023, STEP-SHR(端点段), 0.1/0.2 过滤器设计
+  data_detail: specs/design/showroom/showroom-data-detail.md        # RM-SHR-001~062, MAP-SHR-001~008, IDX-SHR-001~011, TX-SHR-001~012, CV-SHR-001~011, EVT-SHR-001~003+双向端口, CACHE-SHR-001, DDL×5 表
+  frontend_detail: specs/design/showroom/showroom-frontend-detail.md # PAGE-SHR-S01~S03, STORE-SHR-S01~S04, COMP-SHR-S01~S10, FORM-SHR-S01~S11
+  test_detail: specs/design/showroom/showroom-test-detail.md        # TC-SHR-001~060
+  ui_test_spec: specs/design/showroom/showroom-ui-test-spec.yml     # UIS-SHR-S01~S05
+
+# ===== 本域直属 task-manifest task =====
+task_mappings: []   # 无（见顶部设计来源声明；不占用 TASK-001~060 任何编号，不与他域重叠）
+
+# ===== 补充实现单元（task-manifest 未单列、由本域设计派生的全部实现单元）=====
+supplementary_units:
+  - id: SHR-IMPL-ENTITY
+    summary: "5 实体（showroom/showroom_item/showroom_member/showroom_vote/showroom_comment）Entity+Repository+DDL（含设计派生列 invite_version/invite_token_prev/last_ordered_at）"
+    design_sections: [showroom-data-detail.md §1/§2/§4/§9]
+    constraint_ids: [IDX-SHR-001~011, CV-SHR-001, CV-SHR-003, CV-SHR-004, CV-SHR-005, CV-SHR-006, CV-SHR-008, MAP-SHR-001~008]
+    related_endpoints: [E-SHR-01~13]
+    tests: [TC-SHR-006, TC-SHR-009, TC-SHR-010, TC-SHR-014, TC-SHR-016, TC-SHR-032, TC-SHR-033]
+    notes: "er-diagram 五实体全承载；3 个设计派生列显式溯源（data-detail §1.2）"
+
+  - id: SHR-IMPL-FILTER-GUEST
+    summary: "StoreJwtFilter guest 旁路（四段裁决：guest 作用域/操作白名单 method-aware/showroom_id 等值/invite_version 校验/过期分型 401101）+ JwtTokenProvider.issueShowroomGuestToken + ShowroomGuestValidator + 公开白名单登记 1 条（POST:/api/store/showrooms/guest-session，principal 可选注入）"
+    design_sections: [showroom-api-detail.md §0.1/§0.2]
+    constraint_ids: [CV-SHR-007, CV-SHR-008]
+    tests: [TC-SHR-001, TC-SHR-002, TC-SHR-013, TC-SHR-036, TC-SHR-039, TC-SHR-058, TC-SHR-059]
+    shared_with: [identity(StoreJwtFilter/JwtTokenProvider 宿主文件), review(method-aware METHOD:pattern 白名单机制定稿方 REV-IMPL-FILTER——同一匹配器实现), catalog/trading(白名单既有条目向后兼容)]
+    notes: "与 review 域 method-aware 白名单兼容性显式声明（api-detail 0.2-3）；guest JWT 复用 storeKey + typ claim 体系，无新密钥"
+
+  - id: SHR-IMPL-API
+    summary: "13 端点 Controller+Service+DTO（com.dreamy.showroom 包；双态鉴权矩阵/owner 强隔离 404101/投票 UPSERT 幂等/guest-session 复用裁决与 409101/邀请重置级联失效 410101+401101）"
+    design_sections: [showroom-api-detail.md E-SHR-01~13 全部, showroom-data-detail.md §3/§5]
+    constraint_ids: [V-SHR-001~023, TX-SHR-001~011, CV-SHR-002, CV-SHR-009, CV-SHR-010]
+    tests: [TC-SHR-011, TC-SHR-012, TC-SHR-013, TC-SHR-015, TC-SHR-017, TC-SHR-018, TC-SHR-022, TC-SHR-027~029, TC-SHR-031, TC-SHR-034, TC-SHR-036~043]
+    notes: "状态机 assign/reassign/send_reminder 三组 CAS 内嵌实现（RM-SHR-035/036）；reminded 重发自环口径定稿（契约优先）"
+
+  - id: SHR-IMPL-PORT
+    summary: "跨域端口：消费 CatalogSnapshotPort.getProductCards(404501 透传+ProductRef 装配)/IdentityQueryPort.getUserName(owner 自动建 member)；提供 DyeLotPort.hintProductIds（trading cart/quote 消费，决策 20.4）"
+    design_sections: [showroom-api-detail.md §0 跨域端口, showroom-data-detail.md §8.3/§8.4 + RM-SHR-010/025 + CV-SHR-011]
+    tests: [TC-SHR-004, TC-SHR-021, TC-SHR-024]
+    shared_with: [catalog(getProductCards 扩展签名提供方), identity(getUserName 既有), trading(DyeLotPort 消费方——trading-api-detail §0 已声明接口)]
+    notes: "DyeLotPort 接口声明归 trading port 包（消费方先例），实现归本域；dye lot 窗口与详情 dye_lot_notice 同源同口径"
+
+  - id: SHR-IMPL-MQ-PUBLISHER
+    summary: "showroom.invite / showroom.remind 事件发布器（事务提交后发布，EC-SHR-002 降级；MailRecord type=showroom_invite/showroom_assign 映射 + event_id 幂等键口径向 q.mail 分册登记；invite_url 日志脱敏）"
+    design_sections: [showroom-data-detail.md §8.1(EVT-SHR-001/002)]
+    tests: [TC-SHR-007, TC-SHR-008, TC-SHR-023, TC-SHR-053, TC-SHR-054]
+    shared_with: [trading(q.mail 消费者宿主——FLOW-P11 基建，MailRecord 枚举扩展 showroom_invite/showroom_assign)]
+
+  - id: SHR-IMPL-MQ-CONSUMER
+    summary: "q.showroom 消费者（order.paid → casOrder 推进 assign_status=ordered + last_ordered_at dye lot 回写；Redis SETNX event_id 幂等；队列参数 durable/prefetch=8/重试 5s/30s/180s×3/DLX dreamy.dlx→dreamy.dlq）"
+    design_sections: [showroom-data-detail.md §8.2(EVT-SHR-003) + TX-SHR-012 + RM-SHR-024/037/038]
+    tests: [TC-SHR-019, TC-SHR-020, TC-SHR-021, TC-SHR-030, TC-SHR-055, TC-SHR-056]
+    shared_with: [trading(order.paid 生产者 EVT-TRD-001——最小依赖面 event_id+customer_id+lines[].product_id 兼容基线)]
+
+  - id: SHR-IMPL-STORE-FE
+    summary: "portal-store 全量新建：app/showroom 双页（force-dynamic）+ components/showroom 组件组（copy-adapt+9 处显式偏离）+ GuestJoinGate + lib/api/showroom-api.ts + client.ts authTokenOverride + guest 会话 localStorage 存储/路由守卫/登录绑定重放 + PDP Add to Showroom 切面 + showroom i18n 命名空间三语 + 结算婚期带入 selector"
+    design_sections: [showroom-frontend-detail.md §1~§6 全部]
+    tests: [TC-SHR-044~052, UIS-SHR-S01~S05]
+    shared_with: [trading(checkout wedding date 预填 COMP-TRD-S02 + 购物车 dye lot 条 COMP-TRD-S01 消费本域数据), identity(登录 returnTo 链路复用)]
+
+  - id: SHR-IMPL-SEED
+    summary: "本域种子数据（prototype data/showrooms.ts → 5 表种子行：成员四态/款式/投票/留言变体；invite_token 重新生成；dev/staging 限定——协作 UGC 类口径，决策 21）"
+    design_sections: [showroom-data-detail.md §9 备注②]
+    tests: []
+    notes: "依赖 identity/catalog 种子先行（owner_id/product_id 关联）"
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 数据底座（依赖 catalog product / identity user 表已存在）
+    - SHR-IMPL-ENTITY
+  wave_2:   # 鉴权基建与跨域端口（端点联调前置；与 review REV-IMPL-FILTER 协同同一次过滤器升级）
+    - SHR-IMPL-FILTER-GUEST
+    - SHR-IMPL-PORT
+  wave_3:   # 端点行为与状态机（依赖实体+过滤器+端口就绪）
+    - SHR-IMPL-API
+  wave_4:   # MQ 双向（依赖端点 + MQ 基建 + trading order.paid 生产者就绪）
+    - SHR-IMPL-MQ-PUBLISHER
+    - SHR-IMPL-MQ-CONSUMER
+  wave_5:   # 前端接入与种子（依赖后端可联调）
+    - SHR-IMPL-SEED
+    - SHR-IMPL-STORE-FE
+
+cycle_check: pass        # wave 内无互依赖；跨 wave 单向；跨域协同点（identity 过滤器宿主/review 白名单机制/trading 事件与端口/catalog 端口扩展）以 shared_with 显式声明
+no_overlap_check: pass   # 不占用 task-manifest TASK-001~060 任何编号；q.mail 消费者归 trading/基建（本域仅发布）、DyeLotPort 接口声明归 trading（本域实现）边界显式
+no_gap_check: pass       # 13 端点/5 表/11 错误码/1 状态机（6 转换）/2 发布事件+1 消费/dye lot/guest 旁路/前端双页+弹窗 均有唯一承载单元；本域无 task-manifest 直属 task 已声明设计来源

@@ -1,0 +1,84 @@
+# 任务分配表 — portal-api-integration / shipping 域
+# 由 l2_design_coordinator 下属 shipping 域设计师产出：本域承载的实现单元映射
+# task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-030/031/050）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/shipping
+change_name: portal-api-integration
+domain_code: shipping
+
+artifacts:
+  api_detail: specs/design/shipping/shipping-api-detail.md          # E-SHP-01~09, V-SHP-001~011, STEP-SHP(端点段), DEC-SHP-1~6, SVC-SHP-01(ShippingQuotePort 提供侧权威)
+  data_detail: specs/design/shipping/shipping-data-detail.md        # RM-SHP-001~015, MAP-SHP-001~004, IDX-SHP-001/002, TX-SHP-001~007 + EC-SHP-001, CV-SHP-001~007, CACHE-SHP-001/002, DDL×2 表 + 种子
+  frontend_detail: specs/design/shipping/shipping-frontend-detail.md # PAGE-SHP-01, STORE-SHP-01, COMP-SHP-01~05, FORM-SHP-01~04, DEC-SHP-FE-1/2
+  test_detail: specs/design/shipping/shipping-test-detail.md        # TC-SHP-001~041
+  ui_test_spec: specs/design/shipping/shipping-ui-test-spec.yml     # UIS-SHP-A01
+
+# ===== 本域 task → 设计章节 → 约束 ID 范围 =====
+task_mappings:
+  - task_id: TASK-030            # entity:Carrier 数据模型
+    design_sections:
+      - shipping-data-detail.md §1(RM-SHP-001~008) / §8.1(carrier DDL) / §8.2(种子 4 行)
+      - shipping-api-detail.md E-SHP-01~05
+    constraint_ids: [IDX-SHP-002, CV-SHP-001, CV-SHP-002, CV-SHP-005, CV-SHP-007, MAP-SHP-001, MAP-SHP-004, TX-SHP-001, TX-SHP-002, TX-SHP-003, TX-SHP-004, EC-SHP-001, CACHE-SHP-001]
+    related_endpoints: [E-SHP-01, E-SHP-02, E-SHP-03, E-SHP-04, E-SHP-05]
+    tests: [TC-SHP-012, TC-SHP-014, TC-SHP-015, TC-SHP-018, TC-SHP-020, TC-SHP-022, TC-SHP-023, TC-SHP-024, TC-SHP-025]
+    notes: "name 为 Order.carrier 枚举快照取值源（三值逐字一致）；改名不联动规则行（DEC-SHP-2）"
+
+  - task_id: TASK-031            # entity:ShippingRate 数据模型
+    design_sections:
+      - shipping-data-detail.md §1(RM-SHP-010~015) / §8.1(shipping_rate DDL) / §8.2(种子 10 行含兜底行)
+      - shipping-api-detail.md E-SHP-06~09 + §10(报价规则行消费)
+    constraint_ids: [IDX-SHP-001, CV-SHP-003, CV-SHP-004, CV-SHP-006, MAP-SHP-002, MAP-SHP-003, TX-SHP-005, TX-SHP-006, TX-SHP-007, CACHE-SHP-002]
+    related_endpoints: [E-SHP-06, E-SHP-07, E-SHP-08, E-SHP-09]
+    tests: [TC-SHP-013, TC-SHP-016, TC-SHP-021, TC-SHP-026, TC-SHP-027, TC-SHP-028, TC-SHP-003, TC-SHP-004]
+    notes: "zone 规范化唯一（DEC-SHP-1，409901）；「区域 / 承运商」约定 + 无后缀兜底行（F-036，不新增实体字段）"
+
+  - task_id: TASK-050            # state_machine:carrier_status（2 个转换）
+    design_sections:
+      - shipping-api-detail.md E-SHP-05(STEP-SHP-02 幂等短路 / STEP-SHP-03 迁移 guard) + E-SHP-03/04(409902 同源 guard)
+      - shipping-data-detail.md TX-SHP-004 + EC-SHP-001(锁内 guard) + CV-SHP-005
+    constraint_ids: [V-SHP-008, CV-SHP-005, EC-SHP-001]
+    tests: [TC-SHP-011, TC-SHP-014, TC-SHP-019, TC-SHP-025]
+    notes: "enabled→disabled 迁移叠加 LAST_ENABLED_CARRIER 业务 guard（409902）；disabled→enabled 无 guard；验收准则（双向流转）落 TC-SHP-011/025"
+
+# ===== 端点/前端/基建补充单元（task-manifest 未单列、由本域设计衍生的实现单元）=====
+supplementary_units:
+  - id: SHP-IMPL-API
+    summary: "9 端点 Controller+Service+DTO（com.dreamy.shipping 包；RBAC /shipping + 审计 7 action）"
+    design_sections: [shipping-api-detail.md E-SHP-01~09 全部 + §11 总表]
+    constraint_ids: [V-SHP-001~011, TX-SHP-001~007]
+    tests: [TC-SHP-021~030]
+  - id: SHP-IMPL-QUOTE-PORT
+    summary: "ShippingQuotePort + ShippingQuoteService + GeoZoneResolver（提供侧权威；trading FLOW-P05 直调消费）"
+    design_sections: [shipping-api-detail.md §10, shipping-data-detail.md §6/§7]
+    constraint_ids: [MAP-SHP-003, CACHE-SHP-001, CACHE-SHP-002]
+    tests: [TC-SHP-001~010, TC-SHP-031, TC-SHP-032, TC-SHP-033, TC-SHP-040, TC-SHP-041]
+    shared_with: [trading(消费方：trading-api-detail §0 ShippingQuotePort / quoteCheckout.STEP-TRD-03~04——签名以本域 §10.1 为权威，已逐字对齐)]
+  - id: SHP-IMPL-ADMIN-FE
+    summary: "portal-admin Shipping.vue 接入（data-swap + CRUD 行为补齐 + 双 FormDrawer）+ src/api/shipping.ts + useShippingStore"
+    design_sections: [shipping-frontend-detail.md §1~§7 全部]
+    constraint_ids: [PAGE-SHP-01, STORE-SHP-01, COMP-SHP-01~05, FORM-SHP-01~04]
+    tests: [TC-SHP-034~039, UIS-SHP-A01]
+  - id: SHP-IMPL-SEED
+    summary: "本域种子（4 承运商 + 10 规则行 + /shipping 权限字典幂等补登，决策 21）"
+    design_sections: [shipping-data-detail.md §8.2/§8.3]
+    tests: [TC-SHP-020]
+
+# ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
+implementation_order:
+  wave_1:   # 数据底座（无外域依赖）
+    - TASK-030   # carrier
+    - TASK-031   # shipping_rate
+    - SHP-IMPL-SEED
+  wave_2:   # 行为与状态机
+    - SHP-IMPL-API
+    - TASK-050
+  wave_3:   # 跨域报价端口（trading FLOW-P05 联测前置）
+    - SHP-IMPL-QUOTE-PORT
+  wave_4:   # 前端接入（依赖后端可联调）
+    - SHP-IMPL-ADMIN-FE
+
+cycle_check: pass        # wave 内无互依赖；跨 wave 单向；对 trading 仅被消费（trading→shipping 单向依赖端口包）
+no_overlap_check: pass   # 每 task/实现单元唯一归属；ShippingQuotePort 提供/消费边界以 shared_with 显式声明（消费侧组装与币种换算归 trading）
+no_gap_check: pass       # 本域 task-manifest 条目（030/031/050）全覆盖；9 端点/2 表/5 错误码/1 状态机/报价领域服务/种子均有承载单元

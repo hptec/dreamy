@@ -1,0 +1,246 @@
+# trading UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: trading
+# 约束：只看原型不看代码；穷举操作路径；与 trading-test-detail.md 平行（视觉/交互断言，不重叠业务逻辑测试）
+# 原型源：hhspec/prototype/portal-admin/src/views/{Orders,OrderDetail,Refunds}.vue +
+#         hhspec/prototype/app/{cart,checkout,order-success}/page.tsx +
+#         hhspec/prototype/app/account/{orders,wishlist,addresses}/page.tsx
+# 注意：checkout 物流步骤承运商文案以 API 返回为准（FedEx International Priority / UPS Worldwide
+#       Express / DHL Express），原型 mock 标签（FedEx International / UPS Worldwide Saver）有出入勿照抄。
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain: trading
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, aria-role-dialog, color-contrast-4.5, keyboard-nav, radio-group-aria]
+
+pages:
+  # ===== portal-store（Next.js 15, EN/ES/FR）=====
+  - id: UIS-TRD-S01
+    page: /cart
+    prototype: app/cart/page.tsx
+    visual_baseline: [cart-filled, cart-empty, cart-stock-warning]
+    interactions:
+      - path: 已登录有车访问
+        assert: [行渲染 图/名/颜色·尺码/单价, qty stepper 可增减, 小计与合计随 qty 联动]
+      - path: qty 增至超过库存
+        assert: [行内库存提示出现（409601 文案三语 key）, stepper 不再上增]
+      - path: 删除条目
+        assert: [行移除, 合计刷新, 全删后空态（Your bag is empty + Continue Shopping）]
+      - path: 命中 dye lot 提示商品
+        assert: [行上方出现同染色批次提示条（sage 信息条风格, 决策 20.4）]
+      - path: 含已下架商品
+        assert: [行置灰 No longer available, 不可调量, 不计入结算]
+      - path: 匿名加车后登录
+        assert: [合并后数量正确, 被库存截断条目出现调整提示]
+    field_assertions: [qty 为数字 stepper, 价格按所选币种符号渲染]
+    state_transitions: [cart filled→empty, anonymous→merged]
+    accessibility: [stepper 按钮 aria-label, 删除按钮可聚焦]
+
+  - id: UIS-TRD-S02
+    page: /checkout
+    prototype: app/checkout/page.tsx
+    visual_baseline: [checkout-step-address, checkout-step-shipping, checkout-step-payment, checkout-step-review]
+    interactions:
+      - path: 未登录访问 /checkout
+        assert: ["重定向 /account/login?returnTo=/checkout"]
+      - path: Address 步：选择既有地址 / 新增地址
+        assert: [地址卡片单选高亮, 新增表单字段（receiver/line/city/state/zip/country）校验必填, Continue 进入 Shipping]
+      - path: Shipping 步：渲染三承运商 radio
+        assert: [恰 3 个选项, label 文案与 API shipping_options.carrier 完全一致（不出现原型 mock 标签）, 各选项价格与时效来自 API, 默认选中 selected=true 项]
+      - path: 切换承运商
+        assert: [Summary 的 Shipping 行与 Total 即时更新为所选项 fee]
+      - path: 勾选 gift wrapping
+        assert: [费用文案为 API giftWrapFee 动态金额（非硬编码 +$15）, Summary 出现 Gift Wrapping 行, Total 联动]
+      - path: 填写 wedding date 且交期不足
+        assert: [交期复核提示条出现（lead_time_warning, 决策 20.6）]
+      - path: 输入无效优惠券
+        assert: [行内提示券不可用（reason_code 映射文案）, 不阻断继续结算]
+      - path: Payment 步：六支付选项卡
+        assert: [PayPal 卡片置灰带 Coming soon 徽章不可选, 其余五项可选, 选卡后出现 Stripe Payment Element 容器（替代原手填卡号表单）]
+      - path: Review 步：金额拆分
+        assert: [Subtotal/Shipping/Gift Wrapping/Discount/Total 行与 quote 一致, DDU 关税说明行存在（决策 15 静态 i18n）, Place Order 按钮金额=Total]
+      - path: Place Order → Payment Element 确认
+        assert: [下单后支付面板挂载 clientSecret, "确认成功跳 /order-success?order_id="]
+      - path: 重复双击 Place Order
+        assert: [仅产生一次下单（按钮 pending 态禁用）, 后端 409603 时静默跳转既有订单支付]
+      - path: 库存不足下单失败
+        assert: [引导回购物车调整数量提示（409601）]
+    field_assertions: [stepper 四步指示（Address/Shipping/Payment/Review）状态着色, radio name=ship 分组]
+    state_transitions: [step 0→1→2→3 前进后退, 下单成功→order-success]
+    accessibility: [radio-group aria, 支付 iframe 聚焦顺序, 步骤指示 aria-current]
+
+  - id: UIS-TRD-S03
+    page: /order-success
+    prototype: app/order-success/page.tsx
+    visual_baseline: [order-success-paid, order-success-confirming]
+    interactions:
+      - path: webhook 已落账（status=paid）
+        assert: [成功态展示订单号/金额/邮件确认提示]
+      - path: BNPL 异步未确认（轮询超时仍 pending）
+        assert: [Payment is being confirmed 中间态 + 查看订单链接, 不显示失败]
+    accessibility: [状态文案 aria-live]
+
+  - id: UIS-TRD-S04
+    page: /account/orders
+    prototype: app/account/orders/page.tsx
+    visual_baseline: [orders-list, orders-empty]
+    interactions:
+      - path: 状态 chips 筛选
+        assert: [chips 与 API 状态枚举对齐（All/Pending/Paid/Shipped/Completed/Cancelled/Refunding/Refunded 三语文案）, 列表服务端过滤刷新]
+      - path: 列表卡片
+        assert: [首行快照图叠图, item 数, 金额按订单币种, 状态徽章 tone 正确, Details 链接指向 /account/orders/:id]
+      - path: 空结果
+        assert: [空态文案出现]
+    state_transitions: [filter 切换→列表刷新]
+
+  - id: UIS-TRD-S05
+    page: /account/orders/[id]
+    prototype: app/account/orders/page.tsx（卡片风格延展；原型无详情页，同源 token 新增）
+    visual_baseline: [order-detail-pending, order-detail-paid, order-detail-refund-blocked, order-detail-expired]
+    interactions:
+      - path: pending 订单
+        assert: [Pay now 与 Cancel order 按钮可见, 时间线仅 created 节点点亮]
+      - path: Pay now
+        assert: [支付面板（Payment Element）挂载, 超时订单显示 Order expired 提示态（410601）]
+      - path: Cancel order
+        assert: [二次确认弹窗, 确认后状态徽章变 Cancelled]
+      - path: paid 订单申请退款
+        assert: [Request refund 弹窗 reason 必填, 提交后状态变 Refunding 且工单状态条出现]
+      - path: 含已投产定制行订单
+        assert: [退款入口置灰, 三语政策说明文案展示（422602 映射, 决策 24）]
+      - path: 定制行明细
+        assert: [customSizeData 四围（bust/waist/hips/hollow_to_floor）展示, 定制徽章]
+      - path: 金额拆分
+        assert: [Gift Wrapping 行（giftWrap=true 时）/Discount/Total 与下单快照一致]
+    state_transitions: [pending→cancelled, paid→refunding]
+    accessibility: [dialog role + focus-trap, 置灰按钮 aria-disabled + 说明可读]
+
+  - id: UIS-TRD-S06
+    page: /account/wishlist
+    prototype: app/account/wishlist/page.tsx
+    visual_baseline: [wishlist-grid, wishlist-empty, wishlist-recently-viewed]
+    interactions:
+      - path: 收藏网格渲染
+        assert: [ProductCard 网格 2/3 列响应式, 心形实心态]
+      - path: 移除收藏
+        assert: [卡片移除, 全空显示空态（Heart 图标 + Start Browsing）]
+      - path: Move to bag（现货）
+        assert: [SKU 选择弹层（颜色/尺码）, 确认后购物车徽标 +1 且卡片从收藏消失]
+      - path: Move to bag（定制款）
+        assert: [跳转 PDP 定制表单（不可直接入车, 422604 预判）]
+      - path: Recently Viewed 区块
+        assert: [按 viewed_at 倒序最多 4 卡, 匿名/无记录时区块不渲染]
+    accessibility: [心形按钮 aria-pressed, 弹层 dialog role]
+
+  - id: UIS-TRD-S07
+    page: /account/addresses
+    prototype: app/account/addresses/page.tsx
+    visual_baseline: [addresses-list, address-form]
+    interactions:
+      - path: 列表与默认徽章
+        assert: [默认地址徽章恒至多一个, 卡片含收件人/地址行/国家]
+      - path: 新增/编辑表单
+        assert: [必填字段 inline 校验（receiver/line/city/zip/country）, 保存后列表刷新]
+      - path: 设为默认
+        assert: [原默认徽章移除, 新卡片获得徽章]
+      - path: 删除地址
+        assert: [二次确认, 删除后列表减一（既有订单地址快照不受影响——详情页核验）]
+    accessibility: [form labels, 删除确认 focus-trap]
+
+  # ===== portal-admin（Vue3, 中文）=====
+  - id: UIS-TRD-A01
+    page: /orders
+    prototype: portal-admin/src/views/Orders.vue
+    visual_baseline: [admin-orders-list, admin-orders-empty, admin-orders-filter]
+    interactions:
+      - path: 状态 tab 切换（全部/待付款/待发货/已发货/已完成/退款中/已取消/已退款）
+        assert: [tab 高亮金色下划线, 列表服务端过滤, Pagination 总数=total_elements]
+      - path: 订单号/客户邮箱搜索
+        assert: [防抖后服务端搜索, 命中行订单号等宽字体金色链接]
+      - path: 币种/时间范围筛选
+        assert: [币种下拉含 USD/EUR/CAD/AUD/GBP, 金额列符号随订单币种（含 €）]
+      - path: 空结果
+        assert: [EmptyState「暂无该状态的订单」]
+      - path: 点击订单号/详情
+        assert: [跳 /orders/:id]
+      - path: 无 /orders 权限管理员访问
+        assert: [菜单不渲染该项, 直链重定向 403 页]
+    field_assertions: [列：订单号/客户(姓名+邮箱)/地区/商品数/金额/支付方式/状态/下单时间/操作]
+    accessibility: [搜索 input label, tab 可键盘切换]
+
+  - id: UIS-TRD-A02
+    page: /orders/:id
+    prototype: portal-admin/src/views/OrderDetail.vue
+    visual_baseline: [admin-order-detail, admin-order-ship-panel, admin-order-refund-modal, admin-order-timeline]
+    interactions:
+      - path: 详情面板渲染
+        assert: [客户信息（姓名/邮箱/电话）, 商品明细行（定制行展示定制尺寸+徽章）, 金额拆分含礼品包装行（gift_wrap=true）, 支付信息 Stripe·卡摘要, 地址快照, 状态时间线节点随状态点亮, 关联退款工单区]
+      - path: status=paid 点击「标记发货」
+        assert: [发货面板展开, 承运方 select 选项为 API 枚举三值且默认=结算所选 carrier, 运单号必填]
+      - path: 确认发货
+        assert: [状态徽章变已发货, 时间线 shipped 节点点亮, 面板收起]
+      - path: status!=paid 时
+        assert: [标记发货按钮不可见或禁用]
+      - path: 「发起退款」
+        assert: [弹窗金额默认=订单合计且上限校验提示（422603）, 原因必填; 定制已投产订单提交显示「定制商品已投产不可退款」(422602)]
+      - path: status=shipped 「确认完成」/ status=pending 「取消订单」
+        assert: [二次确认, 状态流转后徽章与时间线刷新; paid 状态无取消按钮]
+    state_transitions: [paid→shipped→completed, pending→cancelled, paid/shipped→refunding]
+    accessibility: [发货面板 form labels, 弹窗 dialog role + focus-trap]
+
+  - id: UIS-TRD-A03
+    page: /refunds
+    prototype: portal-admin/src/views/Refunds.vue
+    visual_baseline: [admin-refunds-list, admin-refunds-approve-modal, admin-refunds-reject-modal]
+    interactions:
+      - path: 状态 tab（全部/待审批/已同意/已拒绝）+ 搜索（工单号/订单号/邮箱）
+        assert: [列表过滤刷新, 金额符号随币种]
+      - path: pending 行「同意」
+        assert: [审批弹窗含选填退货物流单号输入（决策 31）, 确认后行状态变已同意且展示 stripe_refund_id]
+      - path: pending 行「拒绝」
+        assert: [拒绝原因必填弹窗, 确认后行状态变已拒绝]
+      - path: 已处理行
+        assert: [操作列显示「已处理」, 无同意/拒绝按钮（js_guard 409604 前端预判）]
+      - path: pending 行「登记退货单号」
+        assert: [行内登记入口, 保存后展示 return_tracking_no, 状态不变]
+      - path: Stripe 失败（502601 stub）
+        assert: [弹窗提示支付服务暂不可用可重试, 行保持待审批]
+    field_assertions: [列：工单号/关联订单/客户/退款金额/退款原因/申请时间/状态/操作]
+    accessibility: [弹窗 dialog role, 拒绝原因 textarea label]
+
+  - id: UIS-TRD-A04
+    page: /settings（汇率/结算配置 tab）
+    prototype: portal-admin/src/views/Settings.vue（tab+panel 风格延展；汇率/结算为决策 14/24/28 新增落点）
+    visual_baseline: [admin-settings-rates, admin-settings-checkout-config]
+    interactions:
+      - path: 汇率 tab 渲染
+        assert: [五行（USD/EUR/CAD/AUD/GBP）, USD 行编辑禁用且 rate 恒 1, 更新人/更新时间列存在]
+      - path: 编辑 EUR 汇率保存
+        assert: [行内编辑数值, 保存 toast 成功, 提示文案「仅影响新订单锁汇」可见]
+      - path: 输入 0 或负数
+        assert: [字段级错误回显（422601 前端预判）]
+      - path: 结算配置 tab
+        assert: [礼品包装费 USD 数值输入（≥0）与定制退款宽限期小时（1..168）两字段, 越界 inline 错误, 保存成功 toast]
+      - path: 无 /settings 权限
+        assert: [tab 不可见/403]
+    accessibility: [数值输入 label, 禁用行 aria-disabled]
+
+self_check:
+  pages_covered: 11
+  store_pages: 7
+  admin_pages: 4
+  endpoints_exercised: 36   # 37 端点中 stripeWebhook 为 server-to-server 无 UI 面（由 TC-TRD-064 API 层覆盖）；其余 36 端点均有 UI 触达路径
+  visual_baselines: true
+  interaction_paths_exhaustive: true
+  carrier_label_from_api: true   # 原型 mock 承运商标签不作为断言基线
+  accessibility_rules: true
+  performance_budget: true
+  no_code_inspection: true

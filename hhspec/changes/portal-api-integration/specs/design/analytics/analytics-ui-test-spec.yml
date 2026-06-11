@@ -1,0 +1,77 @@
+# analytics UI 测试规格 — Playwright 期望
+# 角色: l2_ui_test_designer ｜ change: portal-api-integration ｜ domain: analytics
+# 约束：只看原型不看代码；穷举操作路径；与 analytics-test-detail（业务逻辑层）平行不重叠（本文件=视觉/交互断言）
+# 原型源：hhspec/prototype/portal-admin/src/views/Dashboard.vue + Analytics.vue
+# 偏离声明（设计决策，断言按改造后形态）：KPI 本月口径/delta 移除（DEC-ANA-FE-2）；待办 8→3（DEC-ANA-FE-3）；
+#   非契约面板空态/入口收敛（DEC-ANA-FE-4）；商品热度列调整（DEC-ANA-FE-7）；GA4 降级占位（DEC-ANA-FE-8）
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: portal-api-integration
+domain_code: analytics
+
+global:
+  performance_budget:
+    fcp_ms: 1800
+    lcp_ms: 2500
+    tti_ms: 3500
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [focus-visible, color-contrast-4.5, keyboard-nav, aria-role-tablist]
+  conformance_note: "原型强对照：token/栅格零偏离；空态/降级占位复用 EmptyState 风格；SparkArea/donut/漏斗视觉组件不动"
+
+pages:
+  - id: UIS-ANA-A01
+    page: /
+    prototype: portal-admin/src/views/Dashboard.vue
+    checklist_refs: ["screenshots/dashboard-full-desktop.png"]
+    visual_baseline: [dashboard-kpi-row, dashboard-trend-donut-row, dashboard-todo-quick-row, dashboard-empty-panels]
+    interactions:
+      - path: 首屏渲染（种子订单数据）
+        assert: [PageHeader eyebrow=Overview/标题=工作台, actions 仅「查看完整看板」无「发布站点」(DEC-ANA-FE-4④), KPI 4 卡 label=本月 GMV/订单数/客单价/退款率 且无「较昨日」行(DEC-ANA-FE-2), 金额千分位/$ 前缀/退款率 % 后缀]
+      - path: GMV 趋势窗口切换
+        assert: [默认 14 天选中态（bg-ink 白字）, 点击 30 天 → SparkArea 横轴 30 标签且无网络请求, 选中态样式互换]
+      - path: 品类销售占比 donut
+        assert: [SVG 扇形渲染 + 中心白圆, 图例行=品类名+share%, 色板取既有 token 色序无新色值]
+      - path: donut 无 /analytics 权限
+        assert: [donut 卡主体 EmptyState「暂无权限查看」, KPI/待办/趋势正常渲染（页面不整体报错）]
+      - path: 待办瓦片
+        assert: [恰 3 瓦片（待发货订单/退款待审批/待审核评价）(DEC-ANA-FE-3), 计数 tone 色（danger/danger/info）, 点击跳转 /orders?status=paid、/refunds、/reviews, hover border-gold 效果保持]
+      - path: 快捷入口
+        assert: [3 项（新增商品/新建优惠券/写一篇文章）, 指向 /products/new、/marketing/promotions、/content/blog]
+      - path: 商品/用户总览与最近发布卡片
+        assert: [卡片壳与标题保留, 主体 EmptyState 占位（无 mock 数字）(DEC-ANA-FE-4③)]
+      - path: 看板接口 500
+        assert: [页面级错误态 + 重试按钮, 重试成功后恢复渲染]
+      - path: 加载中
+        assert: [KPI/趋势/瓦片骨架态复用既有骨架风格, 无布局抖动（CLS 近 0）]
+    field_assertions: [gmv 两位小数, refund_rate 一位小数, 趋势 label `M-D` 格式, 待办计数为非负整数]
+    state_transitions: [trendWindow 14<->30（纯客户端）, donut ok/forbidden/error 三态]
+    accessibility: [瓦片为可聚焦链接, 趋势切换按钮可键盘操作, donut 图例文本对比度达标]
+
+  - id: UIS-ANA-A02
+    page: /analytics
+    prototype: portal-admin/src/views/Analytics.vue
+    checklist_refs: ["screenshots/analytics-full-desktop.png"]
+    visual_baseline: [analytics-sales-tab, analytics-traffic-tab, analytics-funnel-tab, analytics-hot-tab, analytics-traffic-degraded]
+    interactions:
+      - path: 四 tab 切换
+        assert: [tab=销售分析/流量分析/转化漏斗/商品热度, 选中态 border-gold 下划线迁移, 面板 v-show 切换无闪烁]
+      - path: 销售 tab 渲染（E-ANA-02 数据）
+        assert: [KPI 4 卡同 Dashboard 口径且无环比小字, GMV 趋势 SparkArea 30 桶, 品类占比条形列表（名称+share%+条宽=share%）]
+      - path: 流量 tab（source_status=ok）
+        assert: [访客来源条形列表 source 中文映射（自然搜索/直接访问/社交/外链/付费/邮件）按 sessions 降序, 设备占比三数值（移动端/桌面端/平板）share% 与 token 色（gold-deep/sage/blush）保持, 角标「数据时间 HH:mm」可见]
+      - path: 流量 tab 降级（source_status=unavailable 或 502/504）
+        assert: [访客来源与设备占比卡主体 EmptyState「数据暂不可用」+ 重试按钮, 点击重试触发 refetch, 销售 tab 数据不受影响（切回正常）, 502 失败时出现 toast]
+      - path: 漏斗 tab
+        assert: [五层漏斗 stage 中文（商品浏览/商品详情/加入购物车/进入结算/完成支付）, 层宽递减居中, 首层 100% 末层转化率小字, 全 0 数据不出现 NaN]
+      - path: 商品热度 tab
+        assert: [列=排名/商品/销量/销售额（无库存/状态列, DEC-ANA-FE-7）, 前 3 名金底圆徽章, 商品图 h-10 w-8 圆角保持, 图缺失渲染占位底图, 空数据 EmptyState]
+      - path: 导出报表
+        assert: [触发浏览器下载（CSV, 文件名含当前 tab）, 无新页面跳转]
+      - path: 无 /analytics 权限访问
+        assert: [路由守卫跳 /403, 菜单不渲染「数据看板」项]
+    field_assertions: [share Σ≈100（±0.1 容差）, sessions 千分位, 漏斗 value 千分位, 金额 $ 千分位两位小数]
+    state_transitions: [tab sales->traffic 首次激活触发 traffic 懒加载, traffic ok->unavailable->retry->ok]
+    loading_empty_error: [各 tab 首载骨架, 降级占位与空数据 EmptyState 风格一致, 5xx toast「操作失败」]
+    accessibility: [tab role=tablist + aria-selected, 重试按钮可聚焦, 漏斗色块文字对比度达标]

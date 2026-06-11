@@ -1,0 +1,123 @@
+# 任务分配表 — portal-api-integration / trading 域
+# 由 pd:l2_design_coordinator 下属 trading 域设计师产出：本域 task-manifest 映射 + 设计产物分配
+# 上游：hhspec/changes/portal-api-integration/task-manifest.yml（TASK 编号权威）
+version: "1.0"
+layer: L2
+role: l2_design_coordinator/trading
+change_name: portal-api-integration
+domain_code: trading
+
+# ===== 本域 task 映射（task-manifest.yml → trading 设计产物锚点）=====
+task_mapping:
+  # —— 实体建模（modify_schema）——
+  - task_id: TASK-014
+    target: "entity:Customer"
+    note: "identity 域既有 user 表，本域仅 customer_id 逻辑外键引用，不建表（trading-data-detail §0）；列表客户姓名/邮箱经 identity 进程内接口联取"
+    design_refs: [trading-data-detail.md#0, trading-data-detail.md#RM-TRD-025]
+  - task_id: TASK-015
+    target: "entity:Address"
+    design_refs: [trading-data-detail.md#DDL-address, trading-data-detail.md#RM-TRD-010~016, trading-api-detail.md#2]
+  - task_id: TASK-016
+    target: "entity:CartItem"
+    design_refs: [trading-data-detail.md#DDL-cart_item, trading-data-detail.md#RM-TRD-001~008, trading-api-detail.md#1]
+  - task_id: TASK-017
+    target: "entity:Order"
+    design_refs: [trading-data-detail.md#DDL-orders, trading-data-detail.md#RM-TRD-020~028, trading-data-detail.md#IDX-TRD-001~005]
+  - task_id: TASK-018
+    target: "entity:OrderLine"
+    design_refs: [trading-data-detail.md#DDL-order_line, trading-data-detail.md#RM-TRD-030~034]
+  - task_id: TASK-019
+    target: "entity:Payment"
+    design_refs: [trading-data-detail.md#DDL-payment, trading-data-detail.md#RM-TRD-040~044, trading-data-detail.md#IDX-TRD-008]
+  - task_id: TASK-020
+    target: "entity:Refund"
+    design_refs: [trading-data-detail.md#DDL-refund, trading-data-detail.md#RM-TRD-050~057]
+
+  # —— 状态机（modify_logic）——
+  - task_id: TASK-038
+    target: "state_machine:order_lifecycle"
+    note: "9 转换 + guard 拒绝，全部以条件更新 CAS 落地（RM-TRD-026）；guard 失败 → 409602"
+    design_refs: [trading-api-detail.md#5.3, trading-api-detail.md#9.3~9.4, trading-data-detail.md#TX-TRD-004~005, trading-test-detail.md#TC-TRD-006]
+  - task_id: TASK-039
+    target: "state_machine:payment_lifecycle"
+    note: "webhook 驱动 processing→succeeded/failed；retry_payment 复建 PI；succeeded→refunded 随退款审核"
+    design_refs: [trading-api-detail.md#4, trading-api-detail.md#5.4, trading-data-detail.md#RM-TRD-043, trading-test-detail.md#TC-TRD-007]
+  - task_id: TASK-041
+    target: "state_machine:refund_lifecycle"
+    note: "pending→approved/rejected（409604 js_guard）；approved 与 Stripe 退款同事务收敛（TX-TRD-003，契约工单三态）"
+    design_refs: [trading-api-detail.md#10, trading-data-detail.md#TX-TRD-003/TX-TRD-009, trading-test-detail.md#TC-TRD-008]
+
+  # —— 业务流程（new_feature）——
+  - task_id: TASK-051
+    target: "flow:checkout_order"
+    note: "FLOW-P05/P06：报价（多承运商/券/锁汇试算）+ 下单原子事务 + PaymentIntent + Payment Element"
+    design_refs: [trading-api-detail.md#3, trading-data-detail.md#TX-TRD-001, trading-frontend-detail.md#COMP-TRD-S02~S04, trading-test-detail.md#TC-TRD-060]
+  - task_id: TASK-052
+    target: "flow:order_timeout_cancel"
+    note: "FLOW-P08：每分钟扫描 + 单单事务取消回补 + 迟到支付补偿"
+    design_refs: [trading-data-detail.md#SCHED-TRD-001, trading-data-detail.md#TX-TRD-005/TX-TRD-010, trading-test-detail.md#TC-TRD-032~033]
+  - task_id: TASK-053
+    target: "flow:admin_ship_complete"
+    note: "FLOW-P09：发货（carrier+tracking_no）→ 完成；MQ order.shipped + 审计"
+    design_refs: [trading-api-detail.md#9.3~9.4, trading-data-detail.md#TX-TRD-004, trading-frontend-detail.md#COMP-TRD-A03/A05]
+  - task_id: TASK-054
+    target: "flow:refund_flow"
+    note: "FLOW-P10：申请（消费端/代客）→ 审核（approve 原子含 Stripe Refund / reject 还原）→ MQ refund.resolved"
+    design_refs: [trading-api-detail.md#5.5, trading-api-detail.md#9.5, trading-api-detail.md#10, trading-data-detail.md#TX-TRD-003/TX-TRD-009, trading-test-detail.md#TC-TRD-061]
+  - task_id: TASK-057
+    target: "flow:order_event_dispatch"
+    note: "MQ 拓扑：order.paid/shipped/cancelled + refund.resolved 发布与扇出（邮件/Showroom/销量回写/缓存失效）"
+    design_refs: [trading-data-detail.md#EVT-TRD-001~005, trading-test-detail.md#TC-TRD-070~073]
+
+# task-manifest 未单列、由本域设计派生的增量范围（挂靠宿主 task 实施）
+derived_scope:
+  - item: "entity:WishlistItem（决策 18）+ /api/store/wishlists 四端点"
+    host_task: TASK-051
+    design_refs: [trading-data-detail.md#DDL-wishlist_item, trading-api-detail.md#6]
+  - item: "entity:BrowseHistory（决策 23）+ /api/store/browse-history 两端点"
+    host_task: TASK-051
+    design_refs: [trading-data-detail.md#DDL-browse_history, trading-api-detail.md#7]
+  - item: "entity:ExchangeRate（决策 14）+ 汇率读取/维护端点 + JetCache 失效链"
+    host_task: TASK-051
+    design_refs: [trading-data-detail.md#DDL-exchange_rate, trading-api-detail.md#8/#11, trading-data-detail.md#CACHE-TRD-001]
+  - item: "entity:CheckoutConfig（决策 24/28）+ 结算配置端点"
+    host_task: TASK-054
+    design_refs: [trading-data-detail.md#DDL-checkout_config, trading-api-detail.md#12]
+  - item: "entity:processed_event（BE-DIM-4 webhook 幂等，90 天保留）+ cart_merge_record（决策 8 合并幂等）"
+    host_task: TASK-057
+    design_refs: [trading-data-detail.md#DDL-processed_event, trading-data-detail.md#SCHED-TRD-002~003]
+  - item: "StoreJwtFilter 公开路径白名单纳入 exchange-rates 与 stripe webhook + StripeSignatureFilter"
+    host_task: TASK-057
+    design_refs: [trading-api-detail.md#0, trading-api-detail.md#4]
+
+# ===== 域内专家分配（产物 → 覆盖面）=====
+allocations:
+  api_designer:
+    artifact: trading-api-detail.md
+    scope: "37 operations 四部分方法论（V-TRD-001~061 / STEP-TRD 端点内编号 / 出参 / 错误码映射）"
+    operations_count: 37
+    depends_on: []
+  data_designer:
+    artifact: trading-data-detail.md
+    scope: "12 表 DDL + RM/MAP/IDX/TX/CV/EVT/SCHED/CACHE-TRD（事务边界为本域核心：TX-TRD-001~012 含隔离级别与回滚点）"
+    entities: [cart_item, cart_merge_record, address, orders, order_line, payment, refund, wishlist_item, browse_history, exchange_rate, checkout_config, processed_event]
+    depends_on: []
+  frontend_designer:
+    artifact: trading-frontend-detail.md
+    scope: "portal-admin（Orders/OrderDetail/Refunds/Settings 增量 tab）+ portal-store（cart/checkout 四步/order-success/订单中心/Wishlist/浏览历史/地址簿 + Stripe Payment Element）diff 级设计"
+    depends_on: [api_designer]
+  test_designer:
+    artifact: trading-test-detail.md
+    scope: "TC-TRD-001~105 八层骨架（幂等/并发 CAS/webhook 重放/超时取消回补/迟到支付补偿/退款原子回滚 关键场景全覆盖）"
+    depends_on: [api_designer, data_designer]
+  ui_test_designer:
+    artifact: trading-ui-test-spec.yml
+    scope: "11 页 Playwright 期望（store 7 + admin 4；只看原型；carrier 文案以 API 为准）"
+    depends_on: []
+
+dependency_order:
+  wave_1: [api_designer, data_designer, ui_test_designer]
+  wave_2: [frontend_designer, test_designer]
+cycle_check: pass        # api→{}; data→{}; frontend→{api}; test→{api,data}; ui_test→{}; 无环
+no_overlap_check: pass   # 每端点/实体/事务/用例仅一个主负责产物
+no_gap_check: pass       # 37 操作 + 12 表 + 3 状态机 + 5 业务流 task 全映射；Wishlist/BrowseHistory/ExchangeRate/CheckoutConfig/processed_event 增量挂靠宿主 task

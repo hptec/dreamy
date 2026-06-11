@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: Analytics API (portal-api-integration)
+  description: |
+    analytics 限界上下文 API 契约，仅后台（/api/admin/dashboard·analytics）。
+    无自有实体：交易指标为只读跨域 SQL 聚合（决策 3 例外条款 + 决策 10，实时聚合不建预聚合表）；
+    流量指标经后端 GA4 Data API 代理拉取（决策 19）。聚合视图字段以 er-diagram AnalyticsDashboard 为准。
+
+    消费端埋点（gtag 标准电商事件 page_view/view_item/add_to_cart/begin_checkout/purchase + Cookie consent
+    Consent Mode v2）为前端直连 GA4，不经过本域 API；GA4 service account 凭证仅后端配置（决策 19）。
+
+    ## R 包络映射（与线上基座一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**；本域为聚合视图端点无分页，
+    如后续分页则采用 huihao.page.Paginated 形状 `{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`。
+
+    ## 鉴权约定（与 identity-api 一致）
+    后台端点 AdminBearerAuth + RBAC 菜单权限 key（/dashboard、/analytics，BE-DIM-6 新增权限点）。
+    本域无消费端公开端点，不涉及 StoreJwtFilter 公开路径白名单。
+
+    ## 错误响应（决策 12，格式与 identity-api 一致）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（analytics=0，决策 12 号段顺延回绕）+ 序号。
+
+    ### analytics 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 422001 | INVALID_RANGE 时间范围参数非法 | 422 |
+    | 502001 | GA4_UNAVAILABLE GA4 Data API 不可用（仅缓存彻底缺失且拉取失败时；常规降级走 200 + source_status=unavailable） | 502 |
+    | 504001 | GA4_TIMEOUT GA4 Data API 超时（降级口径同上） | 504 |
+
+    ## 降级策略（决策 19）
+    流量端点 GA4 拉取失败时**优先返回 200 + traffic.source_status=unavailable + 各流量字段 null**
+    （前端展示"数据暂不可用"），交易指标聚合不受影响；仅当独立流量端点连缓存兜底都不可用时才返回 502001/504001。
+
+    ## 缓存标注（BE-DIM-8）
+    - GET /api/admin/dashboard、/api/admin/analytics/overview：JetCache 两级 TTL 60s
+      （key 含 range；决策 10 / ALIGN-001 实时聚合 + 60s 缓存）；失效触发者：TTL 自然过期（聚合数据无主动失效）。
+    - GET /api/admin/analytics/traffic：JetCache 两级 TTL 5min（key 含 range，决策 19）；失效触发者：TTL 自然过期。
+    - 不经 CDN（管理端带鉴权数据）。
+
+    ## 版本历史
+    - v1.0.0 (2026-06-10): 初始版本（ALIGN-001/013/022，s-759/s-1043）
+    - v1.1.0 (2026-06-10): feasibility 修复——R 包络映射声明
+  version: 1.0.0
+  contact:
+    name: analytics domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: admin-dashboard
+    description: 工作台 KPI/待办/趋势（ALIGN-001，s-759）
+  - name: admin-analytics
+    description: 数据看板 GMV/品类/漏斗/流量（ALIGN-013/022）
+
+paths:
+  /api/admin/dashboard:
+    get:
+      summary: 工作台聚合（KPI + 待办 + 趋势）
+      description: |
+        ALIGN-001（s-759）。KPI（本月 GMV/订单数/客单价/退款率）与 GMV 趋势实时聚合自 Order/Refund；
+        待办计数聚合自 Refund(pending)/Review(pending)/Order(paid 未发货)。
+        缓存：JetCache 两级 TTL 60s（key analytics:dashboard）；失效：TTL 兜底。
+      operationId: getAdminDashboard
+      tags: [admin-dashboard]
+      security:
+        - AdminBearerAuth: [/dashboard]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/analytics/overview:
+    get:
+      summary: 数据看板交易指标（GMV 趋势/品类占比/Top 商品）
+      description: |
+        ALIGN-013（s-759）。实时 SQL 聚合（决策 10）：gmv_trend（按日序列）、category_sales（品类销售占比）、
+        top_products（按销量取前 6）、KPI 同 dashboard 口径。
+        缓存：JetCache 两级 TTL 60s（key 含 range）；失效：TTL 兜底。
+      operationId: getAdminAnalyticsOverview
+      tags: [admin-analytics]
+      security:
+        - AdminBearerAuth: [/analytics]
+      parameters:
+        - $ref: '#/components/parameters/RangeParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsOverviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422001
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/analytics/traffic:
+    get:
+      summary: 数据看板流量指标（GA4 代理）
+      description: |
+        ALIGN-022 / 决策 19（s-1043）。后端经 GA4 Data API 拉取 traffic_sources（访客来源）、device_share（设备占比）、
+        funnel（标准电商事件转化漏斗），渲染进现有图表保持原型视觉。
+        缓存：JetCache 两级 TTL 5min（key 含 range）；失效：TTL 兜底。
+        降级：GA4 失败返回 200 + source_status=unavailable + 字段 null（前端"数据暂不可用"），交易指标不受影响。
+      operationId: getAdminAnalyticsTraffic
+      tags: [admin-analytics]
+      security:
+        - AdminBearerAuth: [/analytics]
+      parameters:
+        - $ref: '#/components/parameters/RangeParam'
+      responses:
+        '200':
+          description: 成功（含 source_status=unavailable 的降级形态）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsTrafficResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'   # 502001（缓存兜底亦失效时）
+        '504':
+          $ref: '#/components/responses/UpstreamTimeout' # 504001
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    RangeParam:
+      name: range
+      in: query
+      description: 统计时间范围（缓存 key 维度）
+      schema:
+        type: string
+        enum: [7d, 30d, 90d]
+        default: 30d
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 analytics=0，见 info 码表）
+          example: 502001
+        message:
+          type: string
+          description: 后台中文文案
+        details:
+          type: object
+          additionalProperties: true
+
+    TrendSeries:
+      type: object
+      description: 趋势序列（SparkArea 图表数据，AnalyticsDashboard.gmv_trend 结构）
+      required: [labels, values]
+      properties:
+        labels:
+          type: array
+          description: 横轴标签（按日）
+          items:
+            type: string
+        values:
+          type: array
+          items:
+            type: number
+
+    Kpis:
+      type: object
+      description: KPI 卡片（聚合自 Order/Refund，er-diagram AnalyticsDashboard 字段）
+      required: [gmv_month, order_count, avg_order_value, refund_rate]
+      properties:
+        gmv_month:
+          type: number
+          description: 本月 GMV（USD 基准口径汇总：各订单金额按锁汇 exchange_rate 折回 USD）
+        order_count:
+          type: integer
+          minimum: 0
+        avg_order_value:
+          type: number
+          description: 客单价（派生）
+        refund_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 退款率 %（Refund/Order 聚合派生）
+
+    DashboardResponse:
+      type: object
+      required: [kpis, todos, gmv_trend]
+      properties:
+        kpis:
+          $ref: '#/components/schemas/Kpis'
+        todos:
+          type: object
+          description: 待办计数（实时聚合派生，ALIGN-001）
+          required: [pending_refund_count, pending_review_count, unshipped_order_count]
+          properties:
+            pending_refund_count:
+              type: integer
+              description: 待审核退款工单数（Refund status=pending）
+            pending_review_count:
+              type: integer
+              description: 待审核评价数（Review status=pending）
+            unshipped_order_count:
+              type: integer
+              description: 已支付待发货订单数（Order status=paid）
+        gmv_trend:
+          $ref: '#/components/schemas/TrendSeries'
+
+    AnalyticsOverviewResponse:
+      type: object
+      required: [kpis, gmv_trend, category_sales, top_products]
+      properties:
+        kpis:
+          $ref: '#/components/schemas/Kpis'
+        gmv_trend:
+          $ref: '#/components/schemas/TrendSeries'
+        category_sales:
+          type: array
+          description: 品类销售占比（聚合自 Category/Order，AnalyticsDashboard.category_sales）
+          items:
+            type: object
+            required: [category_id, category_name, amount, share]
+            properties:
+              category_id:
+                type: integer
+                format: int64
+              category_name:
+                type: string
+              amount:
+                type: number
+                description: 销售额（USD 基准口径）
+              share:
+                type: number
+                minimum: 0
+                maximum: 100
+                description: 占比 %
+        top_products:
+          type: array
+          description: 按销量排序取前 6（AnalyticsDashboard.top_products）
+          maxItems: 6
+          items:
+            type: object
+            required: [product_id, name, sales]
+            properties:
+              product_id:
+                type: integer
+                format: int64
+              name:
+                type: string
+              image_url:
+                type: string
+              sales:
+                type: integer
+                description: 已支付销量
+              amount:
+                type: number
+                description: 销售额（USD 基准口径）
+
+    AnalyticsTrafficResponse:
+      type: object
+      required: [source_status]
+      properties:
+        source_status:
+          type: string
+          enum: [ok, unavailable]
+          description: 决策 19 降级标记；unavailable 时以下字段为 null，前端展示"数据暂不可用"
+        fetched_at:
+          type: string
+          format: date-time
+          description: GA4 数据拉取时刻（缓存命中时为缓存生成时刻）
+        traffic_sources:
+          type: array
+          nullable: true
+          description: 访客来源（AnalyticsDashboard.traffic_sources，GA4 sessionSource 维度）
+          items:
+            type: object
+            required: [source, sessions, share]
+            properties:
+              source:
+                type: string
+                description: 如 organic / direct / social / referral / paid
+              sessions:
+                type: integer
+              share:
+                type: number
+                minimum: 0
+                maximum: 100
+        device_share:
+          type: array
+          nullable: true
+          description: 设备占比（AnalyticsDashboard.device_share，移动端/桌面端/平板）
+          items:
+            type: object
+            required: [device, share]
+            properties:
+              device:
+                type: string
+                enum: [mobile, desktop, tablet]
+              share:
+                type: number
+                minimum: 0
+                maximum: 100
+        funnel:
+          type: array
+          nullable: true
+          description: 转化漏斗（AnalyticsDashboard.funnel，GA4 标准电商事件 stage/value）
+          items:
+            type: object
+            required: [stage, value]
+            properties:
+              stage:
+                type: string
+                enum: [page_view, view_item, add_to_cart, begin_checkout, purchase]
+              value:
+                type: integer
+
+  responses:
+    ValidationError:
+      description: 参数校验失败（422001 INVALID_RANGE）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（40100 系列沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限（RBAC 菜单权限 key 校验失败，40300）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamError:
+      description: GA4 Data API 不可用（502001；常规降级返回 200 + source_status=unavailable）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UpstreamTimeout:
+      description: GA4 Data API 超时（504001）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域新增权限点：/dashboard、/analytics，BE-DIM-6），由 RBAC 守卫校验。
+
+security: []
