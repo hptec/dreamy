@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // PAGE-ANA-A02 / COMP-ANA-A07~A11：数据看板（四 tab 结构零改动；销售/热度 ← E-ANA-02；流量/漏斗 ← E-ANA-03）
 // DEC-ANA-FE-6 range 固定 30d；FE-7 热度表列调整；FE-8 GA4 降级占位 + fetchedAt 角标；A11 导出 CSV 前端本地序列化
+// COMP-ANA-A01（ALIGN-017）：来源/漏斗标签中文化 ← @/utils/analyticsLabels（admin-prototype-alignment）
 import { computed, onMounted, ref, watch } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SparkArea from '@/components/SparkArea.vue'
@@ -8,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { useAnalyticsStore } from '@/stores/analytics'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
+import { sourceLabel, stageLabel } from '@/utils/analyticsLabels'
 import { ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 
 const store = useAnalyticsStore()
@@ -15,22 +17,7 @@ const toast = useToastStore()
 
 const tab = ref<'sales' | 'traffic' | 'funnel' | 'hot'>('sales')
 
-const SOURCE_LABEL: Record<string, string> = {
-  organic: '自然搜索',
-  direct: '直接访问',
-  social: '社交',
-  referral: '外链',
-  paid: '付费',
-  email: '邮件',
-}
 const DEVICE_LABEL: Record<string, string> = { mobile: '移动端', desktop: '桌面端', tablet: '平板' }
-const STAGE_LABEL: Record<string, string> = {
-  page_view: '商品浏览',
-  view_item: '商品详情',
-  add_to_cart: '加入购物车',
-  begin_checkout: '进入结算',
-  purchase: '完成支付',
-}
 const BAR_COLORS = ['#C19A6B', '#8B9D83', '#D8A7A0', '#9C8E7E', '#6B7280']
 
 const kpiCards = computed(() => {
@@ -156,7 +143,7 @@ onMounted(() => {
           <div v-else class="space-y-3">
             <div v-for="s in store.traffic?.trafficSources ?? []" :key="s.source">
               <div class="mb-1 flex justify-between text-[13px]">
-                <span class="text-ink-soft">{{ SOURCE_LABEL[s.source] || s.source }}</span>
+                <span class="text-ink-soft">{{ sourceLabel(s.source) }}</span>
                 <span class="font-medium text-ink">{{ Number(s.share).toFixed(1) }}%</span>
               </div>
               <div class="h-2.5 overflow-hidden rounded-full bg-line"><div class="h-full rounded-full bg-gold" :style="{ width: Number(s.share) + '%' }"></div></div>
@@ -190,7 +177,7 @@ onMounted(() => {
       </div>
       <div v-else class="mx-auto max-w-2xl space-y-2">
         <div v-for="(f, i) in store.traffic?.funnel ?? []" :key="f.stage" class="flex items-center gap-4">
-          <span class="w-24 text-right text-[13px] text-ink-soft">{{ STAGE_LABEL[f.stage] || f.stage }}</span>
+          <span class="w-24 text-right text-[13px] text-ink-soft">{{ stageLabel(f.stage) }}</span>
           <div class="relative flex-1">
             <div
               class="flex h-12 items-center justify-center rounded-luxe text-[13px] font-medium text-white"

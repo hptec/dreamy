@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { catalogApi } from '@/api'
-import type { AdminProductListItem, ProductStatus } from '@/api/types'
+import type { AdminProductListItem, ProductBatchAction, ProductBatchResult, ProductStatus } from '@/api/types'
 import { normalizeFilter } from '@/utils/validators'
 
 export const useProductsStore = defineStore('products', () => {
@@ -78,12 +78,42 @@ export const useProductsStore = defineStore('products', () => {
     await fetchList()
   }
 
+  /**
+   * STORE-CAT-P01 / FORM-CAT-P01（ALIGN-007）：批量操作（逐条容错语义）。
+   * 透传 { successIds, failures }，失败明细展示与整页刷新由视图层负责。
+   */
+  function batchOperate(action: ProductBatchAction, ids: number[]): Promise<ProductBatchResult> {
+    return catalogApi.batchProducts(action, ids)
+  }
+
+  const exporting = ref(false)
+
+  /**
+   * STORE-CAT-P01 / FORM-CAT-P02（ALIGN-007）：导出当前服务端筛选的商品 CSV。
+   * 仅 search/categoryId/status 口径（「更多筛选」当前页过滤不参与导出）；
+   * exporting 防重复提交；返回截断标记供视图 toast.warn。
+   */
+  async function exportCsv(): Promise<{ truncated: boolean }> {
+    if (exporting.value) return { truncated: false }
+    exporting.value = true
+    try {
+      return await catalogApi.exportProducts({
+        status: normalizeFilter(filterStatus.value),
+        categoryId: filterCategoryId.value === 'all' ? undefined : filterCategoryId.value,
+        search: search.value.trim() || undefined,
+      })
+    } finally {
+      exporting.value = false
+    }
+  }
+
   return {
     list,
     totalElements,
     page,
     pageSize,
     loading,
+    exporting,
     filterStatus,
     filterCategoryId,
     search,
@@ -93,5 +123,7 @@ export const useProductsStore = defineStore('products', () => {
     toggleStatus,
     patchFlags,
     remove,
+    batchOperate,
+    exportCsv,
   }
 })

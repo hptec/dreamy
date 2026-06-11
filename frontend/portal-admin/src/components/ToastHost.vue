@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// 全局 toast 容器（成功/错误/信息），挂在 App 根，统一展示 BizError 中文 message
+// 全局 toast 容器（成功/错误/信息/警告），挂在 App 根，统一展示 BizError 中文 message
 import { useToastStore } from '@/stores/toast'
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
+  ExclamationTriangleIcon,
   InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -13,6 +14,7 @@ const toneClass: Record<string, string> = {
   success: 'bg-ink text-canvas',
   error: 'bg-danger text-white',
   info: 'bg-info text-white',
+  warn: 'bg-warn text-white',
 }
 </script>
 
@@ -37,6 +39,7 @@ const toneClass: Record<string, string> = {
         >
           <CheckCircleIcon v-if="t.type === 'success'" class="h-4 w-4 shrink-0" />
           <ExclamationCircleIcon v-else-if="t.type === 'error'" class="h-4 w-4 shrink-0" />
+          <ExclamationTriangleIcon v-else-if="t.type === 'warn'" class="h-4 w-4 shrink-0" />
           <InformationCircleIcon v-else class="h-4 w-4 shrink-0" />
           <span>{{ t.message }}</span>
         </div>

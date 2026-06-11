@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// PAGE-TRD-A01 / COMP-TRD-A01：订单列表（mock → listAdminOrders；tabs 补 cancelled/refunded；
-// 搜索防抖 300ms 服务端；新增币种/时间范围筛选；服务端分页）
+// PAGE-TRD-A01 / COMP-TRD-O01：订单列表（mock → listAdminOrders；tabs 补 cancelled/refunded；
+// 搜索防抖 300ms 服务端；币种/时间范围筛选为超集保留（决策 9）；服务端分页）
+// admin-prototype-alignment：ALIGN-012 导出订单 / ALIGN-013 地区+商品数列 / ALIGN-015 搜索回对客户名
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
@@ -11,7 +12,7 @@ import { useOrdersStore } from '@/stores/orders'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { currencySymbol, formatDateTime } from '@/utils/format'
-import { MagnifyingGlassIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, ArrowDownTrayIcon, EyeIcon } from '@heroicons/vue/24/outline'
 
 const store = useOrdersStore()
 const toast = useToastStore()
@@ -64,6 +65,17 @@ function gotoPage(p: number) {
   store.setPage(p).catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
 }
 
+/** FORM-TRD-O01（ALIGN-012）：导出当前筛选订单 CSV；X-Export-Truncated → toast.warn 截断提示 */
+async function onExport() {
+  if (store.exporting) return
+  try {
+    const { truncated } = await store.exportList()
+    if (truncated) toast.warn('已达 10000 行上限，结果已截断')
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : '导出失败，请稍后重试')
+  }
+}
+
 onMounted(() => {
   // 待办瓦片 /orders?status=paid 直达
   const qsStatus = route.query.status
@@ -76,9 +88,16 @@ onMounted(() => {
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Orders" title="订单列表" subtitle="管理全平台订单与履约状态" />
+    <!-- COMP-TRD-O02（ALIGN-012）：PageHeader actions 导出订单（原型 L28 btn-outline + ArrowDownTrayIcon） -->
+    <PageHeader eyebrow="Orders" title="订单列表" subtitle="管理全平台订单与履约状态">
+      <template #actions>
+        <button class="btn-outline" :disabled="store.exporting" @click="onExport">
+          <ArrowDownTrayIcon class="h-4 w-4" />{{ store.exporting ? '导出中…' : '导出订单' }}
+        </button>
+      </template>
+    </PageHeader>
 
-    <!-- 状态 Tab（补 cancelled/refunded，与 API status 枚举对齐） -->
+    <!-- 状态 Tab：8 状态（含 cancelled/refunded）为实现超集，ALIGN-014 EXEMPT（决策 9）保留 -->
     <div class="mb-4 flex flex-wrap gap-1 border-b border-line">
       <button
         v-for="t in tabs"
@@ -89,12 +108,12 @@ onMounted(() => {
       >{{ t.label }}</button>
     </div>
 
-    <!-- 筛选栏：搜索（订单号/客户邮箱）+ 币种 + 时间范围 -->
+    <!-- 筛选栏：搜索（订单号/客户名，FORM-TRD-O02/ALIGN-015；服务端 search 兼容邮箱为超集）+ 币种 + 时间范围（超集保留，决策 9） -->
     <div class="panel mb-4 p-4">
       <div class="flex flex-wrap items-center gap-3">
         <div class="relative min-w-[220px] flex-1">
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-          <input v-model="store.search" class="field pl-9" placeholder="搜索订单号 / 客户邮箱…" @input="onSearchInput" />
+          <input v-model="store.search" class="field pl-9" placeholder="搜索订单号 / 客户名…" @input="onSearchInput" />
         </div>
         <select v-model="store.currency" class="field w-32 shrink-0" @change="applyFilters">
           <option value="all">全部币种</option>
@@ -110,8 +129,8 @@ onMounted(() => {
       <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
-            <!-- 列调整（数据驱动）：admin 列表契约无 address_snapshot/line_count → 地区/商品数列改 币种/承运（详情页保留地址/明细） -->
-            <tr><th>订单号</th><th>客户</th><th>币种</th><th>承运</th><th class="text-right">金额</th><th>支付方式</th><th>状态</th><th>下单时间</th><th class="text-right">操作</th></tr>
+            <!-- COMP-TRD-O01（ALIGN-013）：列回对原型 L48 —— 地区（country）/商品数（item_count）；币种留金额符号与筛选下拉，承运留详情页 -->
+            <tr><th>订单号</th><th>客户</th><th>地区</th><th class="text-right">商品数</th><th class="text-right">金额</th><th>支付方式</th><th>状态</th><th>下单时间</th><th class="text-right">操作</th></tr>
           </thead>
           <tbody>
             <tr v-if="store.loading">
@@ -123,8 +142,8 @@ onMounted(() => {
                 <span class="font-medium text-ink">{{ o.customerName || '—' }}</span><br />
                 <span class="text-[11px] text-ink-faint">{{ o.customerEmail || '—' }}</span>
               </td>
-              <td class="text-ink-soft">{{ o.currency }}</td>
-              <td class="text-[12px] text-ink-soft">{{ o.carrier || '—' }}</td>
+              <td>{{ o.country || '—' }}</td>
+              <td class="text-right">{{ o.itemCount ?? '—' }}</td>
               <td class="text-right font-medium text-ink">{{ currencySymbol(o.currency) }}{{ Number(o.totalAmount).toLocaleString() }}</td>
               <td class="text-ink-soft">{{ o.paymentMethod || '—' }}</td>
               <td><StatusBadge :tone="ORDER_STATUS[o.status]?.tone || 'neutral'" :label="ORDER_STATUS[o.status]?.label || o.status" /></td>

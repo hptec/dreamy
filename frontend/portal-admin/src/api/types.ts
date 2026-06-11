@@ -259,7 +259,26 @@ export interface AdminProductListItem {
   recommend?: boolean | null
   sort?: number | null
   stockTotal?: number | null
+  /** 累计销量派生列（wire: sales_total；ALIGN-007 / API-CAT-03，缺省按 0 展示） */
+  salesTotal?: number | null
   imageUrl?: string | null
+}
+
+// ===== 商品批量操作（ALIGN-007 / API-CAT-01，STORE-CAT-P01） =====
+
+export type ProductBatchAction = 'publish' | 'unpublish' | 'recommend' | 'delete'
+
+/** 行级失败明细（wire: { id, error_code, message }；409509=已发布需先下架，500500=行级内部错误） */
+export interface ProductBatchFailure {
+  id: number
+  errorCode: number
+  message: string
+}
+
+/** 批量结果（逐条容错语义：部分/全部失败仍 200，wire: { success_ids, failures }） */
+export interface ProductBatchResult {
+  successIds: number[]
+  failures: ProductBatchFailure[]
 }
 
 export interface AdminProductUpsert {
@@ -512,6 +531,9 @@ export interface AdminOrderListItem {
   customerId?: number | null
   customerName?: string | null
   customerEmail?: string | null
+  // API-TRD-01（ALIGN-013）：DTO 末尾追加 地区/商品数（snake: country / item_count，非 breaking）
+  country?: string | null
+  itemCount?: number | null
 }
 
 export type RefundStatus = 'pending' | 'approved' | 'rejected'

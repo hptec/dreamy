@@ -50,6 +50,28 @@ export const useOrdersStore = defineStore('orders', () => {
     return fetchList()
   }
 
+  const exporting = ref(false)
+
+  /**
+   * FORM-TRD-O01（ALIGN-012）：导出当前筛选订单 CSV。
+   * 筛选参数与 fetchList 完全一致（不含分页）；exporting 防重复提交；返回截断标记供视图 toast.warn。
+   */
+  async function exportList(): Promise<{ truncated: boolean }> {
+    if (exporting.value) return { truncated: false }
+    exporting.value = true
+    try {
+      return await ordersApi.exportOrders({
+        status: normalizeFilter(status.value),
+        search: search.value.trim() || undefined,
+        currency: normalizeFilter(currency.value),
+        from: dateToStartOfDay(from.value),
+        to: dateToEndOfDay(to.value),
+      })
+    } finally {
+      exporting.value = false
+    }
+  }
+
   async function fetchDetail(id: number) {
     detailLoading.value = true
     try {
@@ -92,9 +114,11 @@ export const useOrdersStore = defineStore('orders', () => {
     to,
     detail,
     detailLoading,
+    exporting,
     fetchList,
     setPage,
     applyFilters,
+    exportList,
     fetchDetail,
     ship,
     patchStatus,

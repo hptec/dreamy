@@ -66,7 +66,8 @@ function openShip() {
 }
 
 async function doShip() {
-  shipErrors.value = validateShipForm(shipForm.value)
+  // COMP-TRD-D02：carriers 空列表 → 提交校验「请先在物流配置启用承运方」（ALIGN-022 兜底）
+  shipErrors.value = validateShipForm(shipForm.value, carriers.value.length > 0)
   if (Object.keys(shipErrors.value).length) return
   shipping.value = true
   try {

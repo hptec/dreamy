@@ -48,8 +48,8 @@ export const menuGroups: MenuGroup[] = [
     icon: ShoppingBagIcon,
     items: [
       { title: '商品列表', to: '/products' },
+      // FORM-CAT-M01（ALIGN-004）：「属性集」菜单项移除，功能迁入「品类与标签」Tab 2；后端权限点不动（决策 10）
       { title: '品类与标签', to: '/categories' },
-      { title: '属性集', to: '/attribute-sets' },
     ],
   },
   {

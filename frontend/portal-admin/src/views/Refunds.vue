@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PAGE-TRD-A03 / COMP-TRD-A06：退款工单（mock → listAdminRefunds；审批弹窗/拒绝原因/登记退货单号——决策 24/31）
+// PAGE-TRD-A03 / FORM-TRD-R01 / COMP-TRD-R01：退款工单（行内同意/拒绝审批——决策 7；已处理行展示退款/退货单号——ALIGN-025；登记退货单号弹窗保留——决策 31）
 import { onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -45,55 +45,102 @@ function gotoPage(p: number) {
   store.setPage(p).catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
 }
 
-// ===== 审批弹窗（同意：选填退货物流单号；拒绝：原因必填；登记：补录单号）=====
-type ModalKind = 'approve' | 'reject' | 'track'
-const modal = ref<{ kind: ModalKind; refund: AdminRefund } | null>(null)
-const trackingDraft = ref('')
+// ===== 行内审批状态机（FORM-TRD-R01 / ALIGN-024：决策 7 行内同意/拒绝，拒绝按钮原地展开原因输入）=====
+const rejectingId = ref<number | null>(null) // 当前展开拒绝输入的工单 id（同一时刻仅一行展开）
 const reasonDraft = ref('')
-const modalError = ref('')
-const stripeError = ref('')
-const busy = ref(false)
+const inlineError = ref('')
+const busyId = ref<number | null>(null)
 
-function openModal(kind: ModalKind, refund: AdminRefund) {
-  modal.value = { kind, refund }
-  trackingDraft.value = refund.returnTrackingNo || ''
-  reasonDraft.value = ''
-  modalError.value = ''
-  stripeError.value = ''
+/** 审批共用错误兜底：409604 已审工单 → toast + 行刷新；502601/504601 Stripe 不可用 → 工单保持待审批可重试 */
+function handleApprovalError(e: unknown) {
+  if (e instanceof BizError && e.code === 409604) {
+    toast.error('工单已审核，不可重复操作')
+    load()
+  } else if (e instanceof BizError && (e.code === 502601 || e.code === 504601)) {
+    toast.error('Stripe 暂不可用，工单保持待审批，可稍后重试')
+  } else {
+    toast.error(e instanceof BizError ? e.message : '操作失败')
+  }
 }
 
-async function submitModal() {
-  if (!modal.value) return
-  const { kind, refund } = modal.value
-  if (kind === 'reject' && !reasonDraft.value.trim()) {
-    modalError.value = '拒绝原因必填'
-    return
-  }
-  if (kind === 'track' && !trackingDraft.value.trim()) {
-    modalError.value = '退货物流单号必填'
-    return
-  }
-  busy.value = true
+/** 同意不弹窗（决策 7）；退货物流单号改为事后登记（见已同意行「登记退货单号」入口） */
+async function approve(r: AdminRefund) {
+  if (busyId.value !== null) return
+  busyId.value = r.id
   try {
-    if (kind === 'approve') await store.approve(refund.id, trackingDraft.value.trim() || undefined)
-    else if (kind === 'reject') await store.reject(refund.id, reasonDraft.value.trim())
-    else await store.patchTracking(refund.id, trackingDraft.value.trim())
-    toast.success(kind === 'approve' ? '已同意退款，Stripe 退款已发起' : kind === 'reject' ? '已拒绝该工单' : '退货单号已登记')
-    modal.value = null
+    await store.approve(r.id)
+    toast.success('已同意退款，Stripe 退款已发起')
+  } catch (e) {
+    handleApprovalError(e)
+  } finally {
+    busyId.value = null
+  }
+}
+
+function startReject(r: AdminRefund) {
+  rejectingId.value = r.id
+  reasonDraft.value = ''
+  inlineError.value = ''
+}
+
+function cancelReject() {
+  rejectingId.value = null
+  reasonDraft.value = ''
+  inlineError.value = ''
+}
+
+async function confirmReject(r: AdminRefund) {
+  if (!reasonDraft.value.trim()) {
+    inlineError.value = '拒绝原因必填' // 前端预判（后端必填约束不变，422 兜底）
+    return
+  }
+  if (busyId.value !== null) return
+  busyId.value = r.id
+  inlineError.value = ''
+  try {
+    await store.reject(r.id, reasonDraft.value.trim())
+    toast.success('已拒绝该工单')
+    cancelReject()
   } catch (e) {
     if (e instanceof BizError && e.code === 409604) {
-      // FORM-TRD-A03：已审工单 → toast + 行刷新
       toast.error('工单已审核，不可重复操作')
-      modal.value = null
+      cancelReject()
       load()
-    } else if (e instanceof BizError && (e.code === 502601 || e.code === 504601)) {
-      // 弹窗保留可重试（error-strategy admin 呈现）
-      stripeError.value = 'Stripe 暂不可用，工单保持待审批，可稍后重试'
     } else {
-      toast.error(e instanceof BizError ? e.message : '操作失败')
+      inlineError.value = e instanceof BizError ? e.message : '操作失败'
     }
   } finally {
-    busy.value = false
+    busyId.value = null
+  }
+}
+
+// ===== 登记退货单号弹窗（决策 31 兼容：已同意未登记行事后补录，单字段表单弹窗，不属于审批二次确认范畴）=====
+const trackModal = ref<AdminRefund | null>(null)
+const trackingDraft = ref('')
+const trackError = ref('')
+const trackBusy = ref(false)
+
+function openTrackModal(r: AdminRefund) {
+  trackModal.value = r
+  trackingDraft.value = r.returnTrackingNo || ''
+  trackError.value = ''
+}
+
+async function submitTrack() {
+  if (!trackModal.value) return
+  if (!trackingDraft.value.trim()) {
+    trackError.value = '退货物流单号必填'
+    return
+  }
+  trackBusy.value = true
+  try {
+    await store.patchTracking(trackModal.value.id, trackingDraft.value.trim())
+    toast.success('退货单号已登记')
+    trackModal.value = null
+  } catch (e) {
+    trackError.value = e instanceof BizError ? e.message : '操作失败'
+  } finally {
+    trackBusy.value = false
   }
 }
 
@@ -136,16 +183,37 @@ onMounted(load)
             <td class="text-[12px] text-ink-faint">{{ formatDateTime(r.appliedAt) }}</td>
             <td><StatusBadge :tone="tone[r.status]" :label="label[r.status]" /></td>
             <td>
-              <div v-if="r.status === 'pending'" class="flex items-center justify-end gap-1">
-                <button class="btn-ghost text-ok" @click="openModal('approve', r)"><CheckIcon class="h-4 w-4" />同意</button>
-                <button class="btn-danger-ghost" @click="openModal('reject', r)"><XMarkIcon class="h-4 w-4" />拒绝</button>
-              </div>
-              <div v-else class="flex flex-col items-end gap-0.5 text-[11px] text-ink-faint">
-                <span>已处理</span>
-                <span v-if="r.stripeRefundId" class="font-mono">{{ r.stripeRefundId }}</span>
-                <span v-if="r.returnTrackingNo" class="font-mono">退货 {{ r.returnTrackingNo }}</span>
-                <!-- 决策 31：登记退货单号入口（已同意未登记） -->
-                <button v-if="r.status === 'approved' && !r.returnTrackingNo" class="btn-ghost" @click="openModal('track', r)">
+              <!-- FORM-TRD-R01 / ALIGN-024：行内审批（1:1 原型 L37-40） -->
+              <template v-if="r.status === 'pending'">
+                <div v-if="rejectingId !== r.id" class="flex items-center justify-end gap-1">
+                  <button class="btn-ghost text-ok" :disabled="busyId === r.id" @click="approve(r)"><CheckIcon class="h-4 w-4" />同意</button>
+                  <button class="btn-danger-ghost" :disabled="busyId === r.id" @click="startReject(r)"><XMarkIcon class="h-4 w-4" />拒绝</button>
+                </div>
+                <!-- 行内展开态：按钮位置原地替换为原因输入区（不弹层，行高自然增高） -->
+                <template v-else>
+                  <div class="flex items-center justify-end gap-1">
+                    <input
+                      v-model="reasonDraft"
+                      class="field w-44"
+                      maxlength="255"
+                      placeholder="拒绝原因（必填，将向买家展示）"
+                      autofocus
+                      @keyup.enter="confirmReject(r)"
+                      @keyup.esc="cancelReject"
+                    />
+                    <button class="btn-danger-ghost" :disabled="!reasonDraft.trim() || busyId === r.id" @click="confirmReject(r)">确认拒绝</button>
+                    <button class="btn-ghost" @click="cancelReject">取消</button>
+                  </div>
+                  <p v-if="inlineError" class="mt-1 text-right text-[11px] text-danger">{{ inlineError }}</p>
+                </template>
+              </template>
+              <!-- COMP-TRD-R01 / ALIGN-025：已处理 + 退款单号/退货单号 -->
+              <div v-else class="text-right">
+                <span class="text-[12px] text-ink-faint">已处理</span>
+                <p v-if="r.status === 'approved' && r.stripeRefundId" class="font-mono text-[11px] text-ink-faint">退款单号 {{ r.stripeRefundId }}</p>
+                <p v-if="r.returnTrackingNo" class="font-mono text-[11px] text-ink-faint">退货单号 {{ r.returnTrackingNo }}</p>
+                <!-- 决策 31：登记退货单号入口（已同意未登记，事后补录） -->
+                <button v-if="r.status === 'approved' && !r.returnTrackingNo" class="btn-ghost text-[12px]" @click="openTrackModal(r)">
                   <TruckIcon class="h-3.5 w-3.5" />登记退货单号
                 </button>
               </div>
@@ -157,38 +225,27 @@ onMounted(load)
       <Pagination :total="store.total" :page="store.page" :per-page="store.pageSize" @change="gotoPage" />
     </div>
 
-    <!-- 审批 / 拒绝 / 登记弹窗（FORM-TRD-A03 二次确认语义由弹窗承载） -->
+    <!-- 登记退货物流单号弹窗（决策 31：单字段补录表单，保留） -->
     <Teleport to="body">
-      <div v-if="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (modal = null)">
+      <div v-if="trackModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (trackModal = null)">
         <div class="panel w-[26rem] p-6">
           <div class="mb-5 flex items-center justify-between">
             <h3 class="text-[15px] font-medium text-ink">
-              {{ modal.kind === 'approve' ? '同意退款' : modal.kind === 'reject' ? '拒绝退款' : '登记退货物流单号' }}
-              <span class="ml-1 font-mono text-[12px] text-ink-faint">{{ modal.refund.refundNo }}</span>
+              登记退货物流单号
+              <span class="ml-1 font-mono text-[12px] text-ink-faint">{{ trackModal.refundNo }}</span>
             </h3>
-            <button class="btn-ghost" @click="modal = null"><XMarkIcon class="h-4 w-4" /></button>
+            <button class="btn-ghost" @click="trackModal = null"><XMarkIcon class="h-4 w-4" /></button>
           </div>
           <div class="space-y-4">
-            <p v-if="modal.kind === 'approve'" class="text-[13px] text-ink-soft">
-              确认同意退款 {{ currencySymbol(modal.refund.currency) }}{{ Number(modal.refund.amount).toLocaleString() }}？
-              将立即发起 Stripe 原路退款。
-            </p>
-            <div v-if="modal.kind !== 'reject'">
-              <label class="field-label">退货物流单号{{ modal.kind === 'approve' ? '（选填）' : ' *' }}</label>
-              <input v-model="trackingDraft" class="field" placeholder="买家退货物流单号" />
+            <div>
+              <label class="field-label">退货物流单号 *</label>
+              <input v-model="trackingDraft" class="field" placeholder="买家退货物流单号" @keyup.enter="submitTrack" />
             </div>
-            <div v-if="modal.kind === 'reject'">
-              <label class="field-label">拒绝原因 *</label>
-              <textarea v-model="reasonDraft" rows="3" class="field resize-none" maxlength="255" placeholder="将向买家展示该原因"></textarea>
-            </div>
-            <p v-if="modalError" class="text-[11px] text-danger">{{ modalError }}</p>
-            <p v-if="stripeError" class="rounded-luxe border border-warn/40 bg-warn/8 px-3 py-2 text-[12px] text-warn">{{ stripeError }}</p>
+            <p v-if="trackError" class="text-[11px] text-danger">{{ trackError }}</p>
           </div>
           <div class="mt-6 flex justify-end gap-2">
-            <button class="btn-outline" @click="modal = null">取消</button>
-            <button class="btn-gold" :disabled="busy" @click="submitModal">
-              {{ busy ? '处理中…' : modal.kind === 'approve' ? '确认同意' : modal.kind === 'reject' ? '确认拒绝' : '保存' }}
-            </button>
+            <button class="btn-outline" @click="trackModal = null">取消</button>
+            <button class="btn-gold" :disabled="trackBusy" @click="submitTrack">{{ trackBusy ? '处理中…' : '保存' }}</button>
           </div>
         </div>
       </div>

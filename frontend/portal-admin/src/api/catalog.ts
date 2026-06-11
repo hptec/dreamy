@@ -1,6 +1,7 @@
 // catalog 域 API（PAGE-CAT-A01~A04 消费端点 E-CAT-08~35；复用 client.ts 拦截器：
 // R 解包 / snake↔camel / admin JWT / 401 跳登录）
 import { get, post, put, patch, del } from './client'
+import { downloadCsv } from '@/utils/download'
 import type {
   AdminCategoryNode,
   AdminCategoryUpsert,
@@ -14,6 +15,8 @@ import type {
   PageResult,
   PresignRequest,
   PresignResponse,
+  ProductBatchAction,
+  ProductBatchResult,
   ProductStatus,
   Tag,
   TagDimension,
@@ -58,6 +61,34 @@ export function patchProductFlags(
   partial: { isNew?: boolean; isBest?: boolean; recommend?: boolean; sort?: number },
 ): Promise<AdminProductListItem> {
   return patch<AdminProductListItem>(`/api/admin/products/${id}/flags`, partial)
+}
+
+/**
+ * FORM-CAT-P01（ALIGN-007，API-CAT-01）：批量操作（上架/下架/推荐/删除）。
+ * 逐条容错语义：部分/全部失败仍 200，由调用方按 failures 展示明细（409509→已发布需先下架）。
+ */
+export function batchProducts(action: ProductBatchAction, ids: number[]): Promise<ProductBatchResult> {
+  return post<ProductBatchResult>('/api/admin/products/batch', { action, ids })
+}
+
+export interface ProductExportQuery {
+  status?: string
+  categoryId?: number
+  search?: string
+}
+
+/**
+ * FORM-CAT-P02（ALIGN-007，API-CAT-02）：导出商品 CSV。
+ * 走原生下载（需带 Authorization，统一委托 utils/download.ts downloadCsv，FND-REUSE-001）；
+ * 仅服务端筛选口径（search/category_id/status，不含「更多筛选」当前页过滤、不含分页）。
+ * 文件名优先取后端 Content-Disposition（products-{yyyyMMdd}.csv），返回 X-Export-Truncated 截断标记。
+ */
+export function exportProducts(params: ProductExportQuery): Promise<{ truncated: boolean }> {
+  const query = new URLSearchParams()
+  if (params.status) query.set('status', params.status)
+  if (params.categoryId != null) query.set('category_id', String(params.categoryId))
+  if (params.search) query.set('search', params.search)
+  return downloadCsv('/api/admin/products/export', query, 'products')
 }
 
 // ===== 分类 E-CAT-15~18 =====

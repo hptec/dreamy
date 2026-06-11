@@ -9,17 +9,23 @@ import EmptyState from '@/components/EmptyState.vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { PlusIcon, ShoppingBagIcon, TicketIcon, DocumentPlusIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
+import {
+  PlusIcon, ShoppingBagIcon, SwatchIcon, TicketIcon, DocumentPlusIcon,
+  RocketLaunchIcon, ArrowPathIcon,
+} from '@heroicons/vue/24/outline'
 
 const store = useDashboardStore()
 const auth = useAuthStore()
 const toast = useToastStore()
 
-// DEC-ANA-FE-4 ②：快捷入口 3 项（剔除被推迟 CMS 范围的 /site/home、/publish）
+// ALIGN-009 / COMP-ANA-D02（决策 5，推翻 DEC-ANA-FE-4 ②）：快捷入口恢复原型 5 项（顺序逐字对照原型 L13-19）；
+// 「新建优惠券」走 impl 路由 /promotions（原型 /marketing/promotions 为旧路径，以 impl 路由为准）
 const quickActions = [
   { label: '新增商品', icon: ShoppingBagIcon, to: '/products/new' },
+  { label: '编辑首页', icon: SwatchIcon, to: '/site/home' },
   { label: '新建优惠券', icon: TicketIcon, to: '/promotions' },
   { label: '写一篇文章', icon: DocumentPlusIcon, to: '/content/blog' },
+  { label: '发布站点', icon: RocketLaunchIcon, to: '/publish' },
 ]
 
 // KPI 卡（DEC-ANA-FE-2：本月口径，delta 行移除）
@@ -68,10 +74,11 @@ onMounted(load)
 
 <template>
   <div class="animate-fadeup">
-    <!-- DEC-ANA-FE-4 ④：actions 仅「查看完整看板」（「发布站点」移除——Publish 范围外） -->
+    <!-- ALIGN-009 / COMP-ANA-D01（决策 5）：actions 恢复「发布站点」按钮（对照原型 L40-43；路由 /publish 已存在，权限随现有菜单权限点） -->
     <PageHeader eyebrow="Overview" title="工作台" :subtitle="todayText">
       <template #actions>
         <RouterLink to="/analytics" class="btn-outline">查看完整看板</RouterLink>
+        <RouterLink to="/publish" class="btn-gold"><RocketLaunchIcon class="h-4 w-4" />发布站点</RouterLink>
       </template>
     </PageHeader>
 
@@ -157,7 +164,7 @@ onMounted(load)
           </div>
         </div>
 
-        <!-- 快捷入口（COMP-ANA-A05：静态 3 项） -->
+        <!-- 快捷入口（COMP-ANA-A05 / ALIGN-009：静态 5 项，对照原型） -->
         <div class="panel p-6">
           <p class="eyebrow">Quick Actions</p>
           <h3 class="mb-4 font-display text-lg font-semibold text-ink">快捷入口</h3>

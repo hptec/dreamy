@@ -15,6 +15,7 @@ import { useTagsStore } from '@/stores/tags'
 import { useToastStore } from '@/stores/toast'
 import { catalogApi } from '@/api'
 import { BizError } from '@/api/client'
+import { PRODUCT_COLORS, FALLBACK_SWATCH_HEX, colorHexOf, isPresetColor } from '@/constants/productColors'
 import { extractFieldErrors, validateProductForm, type FieldErrors } from '@/utils/validators'
 import {
   PlusIcon, XMarkIcon, RocketLaunchIcon, ArrowLeftIcon, InformationCircleIcon, TrashIcon,
@@ -270,6 +271,18 @@ function addColor() {
   if (v && !skuColors.value.includes(v)) skuColors.value.push(v)
   newColorInput.value = ''
 }
+// COMP-CAT-E01（ALIGN-018）：预设 swatch 点击切换（已选→移除，未选→追加）；skuColors 仍为 string[]
+function toggleColor(name: string) {
+  const i = skuColors.value.indexOf(name)
+  if (i >= 0) skuColors.value.splice(i, 1)
+  else skuColors.value.push(name)
+}
+// 编辑已有商品时 SKU 中不在预设表的颜色名 → 渲染为自定义 chip，不丢失（ALIGN-018 约束）
+const customColors = computed(() => skuColors.value.filter((c) => !isPresetColor(c)))
+// SKU 矩阵行色点：预设 hex，无则灰点占位（对照原型 L548-549）
+function swatchHexOf(name: string): string {
+  return colorHexOf(name) ?? FALLBACK_SWATCH_HEX
+}
 function toggleSize(s: string) {
   const i = skuSizes.value.indexOf(s)
   if (i >= 0) skuSizes.value.splice(i, 1)
@@ -518,8 +531,15 @@ async function save(status: 'draft' | 'published') {
       ? await catalogApi.createProduct(payload)
       : await catalogApi.updateProduct(productId.value, payload)
     serverUpdatedAt.value = saved.updatedAt ?? null
-    if (status === 'published') toast.success('已保存，静态页失效链已触发')
-    else toast.success('草稿已保存')
+    if (status === 'published') {
+      // FORM-CAT-E01（ALIGN-020 合并方案）：API 保存成功（静态页失效链已触发）→
+      // 跳转 /publish 查看发布进度，回对原型 OP-006 navigation 语义
+      toast.success('已保存，静态页失效链已触发')
+      router.push('/publish')
+      return
+    }
+    // 「保存草稿」不跳转（维持现状）
+    toast.success('草稿已保存')
     if (productId.value == null) {
       router.replace(`/products/${saved.id}/edit`)
     } else {
@@ -907,14 +927,27 @@ onMounted(async () => {
 
             <div class="mb-4 flex flex-wrap gap-6">
               <div>
-                <p class="field-label">颜色（输入添加，可多个）</p>
+                <!-- COMP-CAT-E01（ALIGN-018）：预设 swatch 选择（原型 L515-523）+ 自定义颜色输入（实现增强保留） -->
+                <p class="field-label">颜色 swatch（可选多个）</p>
                 <div class="flex flex-wrap items-center gap-2">
-                  <span v-for="c in skuColors" :key="c" class="flex items-center gap-1.5 rounded-full border border-gold px-2.5 py-1 text-[12px]">
+                  <button
+                    v-for="c in PRODUCT_COLORS"
+                    :key="c.name"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors"
+                    :class="skuColors.includes(c.name) ? 'border-gold' : 'border-line'"
+                    @click="toggleColor(c.name)"
+                  >
+                    <span class="h-3.5 w-3.5 rounded-full border border-line" :style="{ background: c.hex }"></span>{{ c.name }}
+                  </button>
+                  <!-- 自定义颜色 chips（不在预设表的已有 SKU 颜色不丢失；灰点占位） -->
+                  <span v-for="c in customColors" :key="c" class="flex items-center gap-1.5 rounded-full border border-gold px-2.5 py-1 text-[12px]">
+                    <span class="h-3.5 w-3.5 rounded-full border border-line" :style="{ background: FALLBACK_SWATCH_HEX }"></span>
                     {{ c }}
                     <button type="button" class="text-ink-faint hover:text-danger" @click="removeColor(c)"><XMarkIcon class="h-3 w-3" /></button>
                   </span>
-                  <input v-model="newColorInput" class="field w-32" placeholder="如 Ivory" @keyup.enter="addColor" />
-                  <button type="button" class="btn-ghost text-[12px]" @click="addColor"><PlusIcon class="h-3 w-3" />添加颜色</button>
+                  <input v-model="newColorInput" class="field w-32" placeholder="自定义颜色" @keyup.enter="addColor" />
+                  <button type="button" class="btn-ghost text-[12px]" @click="addColor"><PlusIcon class="h-3 w-3" />添加</button>
                 </div>
               </div>
               <div>
@@ -942,7 +975,13 @@ onMounted(async () => {
                 </thead>
                 <tbody>
                   <tr v-for="c in skuColors" :key="c">
-                    <td class="font-medium text-ink">{{ c }}</td>
+                    <td class="font-medium text-ink">
+                      <!-- SKU 矩阵行色点（ALIGN-018：预设 hex / 自定义灰点占位，原型 L548-549） -->
+                      <div class="flex items-center gap-2">
+                        <span class="h-3.5 w-3.5 shrink-0 rounded-full border border-line" :style="{ background: swatchHexOf(c) }"></span>
+                        {{ c }}
+                      </div>
+                    </td>
                     <td v-for="s in skuSizes" :key="s" class="text-center">
                       <input v-model="cellOf(c, s).stock" type="number" min="0" class="field w-20 px-2 py-1 text-center text-[12px]" placeholder="0" />
                     </td>

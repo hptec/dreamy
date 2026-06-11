@@ -155,9 +155,14 @@ export function validateBlogForm(form: {
 
 // ===== trading（FORM-TRD-A01~A05） =====
 
-export function validateShipForm(form: { carrier?: string | null; trackingNo?: string | null }): FieldErrors {
+export function validateShipForm(
+  form: { carrier?: string | null; trackingNo?: string | null },
+  hasCarriers = true,
+): FieldErrors {
   const errors: FieldErrors = {}
-  if (!form.carrier) errors.carrier = '请选择承运方'
+  // COMP-TRD-D02 空列表兜底（ALIGN-022，关联 s-879 前置条件）：未配置启用承运方时给出可操作指引
+  if (!hasCarriers) errors.carrier = '请先在物流配置启用承运方'
+  else if (!form.carrier) errors.carrier = '请选择承运方'
   const trackingNo = (form.trackingNo || '').trim()
   if (!trackingNo) errors.trackingNo = '运单号必填'
   else if (trackingNo.length > 64) errors.trackingNo = '运单号不超过 64 字符'

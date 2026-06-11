@@ -46,9 +46,9 @@ export const useRefundsStore = defineStore('refunds', () => {
     if (idx >= 0) list.value[idx] = updated
   }
 
-  /** FORM-TRD-A03：同意（选填退货物流单号——决策 31）；502601/504601 由视图弹窗可重试 */
-  async function approve(id: number, returnTrackingNo?: string) {
-    const updated = await refundsApi.approveRefund(id, returnTrackingNo)
+  /** STORE-TRD-R01：同意（行内审批——决策 7）；退货物流单号改为事后登记，不再随同意提交；502601/504601 由视图 toast 提示可重试 */
+  async function approve(id: number) {
+    const updated = await refundsApi.approveRefund(id)
     replaceRow(updated)
     return updated
   }

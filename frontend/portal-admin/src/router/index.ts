@@ -15,8 +15,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true, permission: '/products' } },
   { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true, permission: '/products' } },
   { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与标签', group: '商品管理', permission: '/categories' } },
-  // PAGE-CAT-A04：属性集（真实工程缺页，按原型新建）
-  { path: '/attribute-sets', name: 'attribute-sets', component: () => import('@/views/AttributeSets.vue'), meta: { title: '属性集', group: '商品管理', permission: '/attribute-sets' } },
+  // FORM-CAT-M01（ALIGN-004，决策 1）：独立属性集页废弃，内容已迁入 /categories Tab 2「属性集与字典」；
+  // 保留 redirect 以兼容书签/操作日志旧链接，permission 校验随 /categories
+  { path: '/attribute-sets', redirect: { path: '/categories', query: { tab: 'attributes' } } },
 
   // 订单（占位）
   { path: '/orders', name: 'orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单列表', group: '订单管理', permission: '/orders' } },

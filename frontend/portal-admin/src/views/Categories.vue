@@ -1,13 +1,20 @@
 <script setup lang="ts">
-// PAGE-CAT-A03 / COMP-CAT-A03/A05：品类与标签（按原型 618 行版 copy-adapt：三层模型 + 属性 delta 抽屉 +
-// 标签维度/标签 tab；数据层接 E-CAT-15~18 / 27~34；维度删除收紧为 409506 引导——E-CAT-30 显式偏离）
+// PAGE-CAT-A03 / COMP-CAT-A03/A05 + COMP-CAT-M01（admin-prototype-alignment ALIGN-001/005）：
+// 品类与标签 3-Tab（标准品类 / 属性集与字典 / 自定义标签——对照原型 Categories.vue L250-257）；
+// Tab 2 自独立 AttributeSets 页迁入（dict/「品类×属性矩阵」sub-tab + 子品类覆盖卡片区），
+// 矩阵整单保存 E-CAT-21 豁免沿用（ALIGN-006）；三语 name tab 增强保留（ALIGN-002 豁免）；
+// 数据层接 E-CAT-15~18 / 27~34；维度删除收紧为 409506 引导——E-CAT-30 显式偏离（ALIGN-003 豁免）
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import Toggle from '@/components/Toggle.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
+import AttributeDictPanel from '@/components/AttributeDictPanel.vue'
+import AttributeMatrixPanel from '@/components/AttributeMatrixPanel.vue'
+import { useAttributeMatrix } from '@/composables/useAttributeMatrix'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -24,7 +31,32 @@ const attributes = useAttributeStore()
 const tags = useTagsStore()
 const toast = useToastStore()
 
-const mainTab = ref<'taxonomy' | 'tags'>('taxonomy')
+// COMP-CAT-M01：主 Tab 由 2 值扩为 3 值（标准品类 / 属性集与字典 / 自定义标签，顺序文案对照原型）
+const mainTab = ref<'taxonomy' | 'attributes' | 'tags'>('taxonomy')
+// COMP-CAT-M01：Tab 2 内层 sub-tab（默认 dict；matrix 文案为「品类×属性矩阵」——ALIGN-005）
+const attrSubTab = ref<'dict' | 'matrix'>('dict')
+// COMP-CAT-M02-1：矩阵可编辑副本（composable；hasUnsavedChanges 供 Tab 切换 guard 共享）
+const matrixCtl = useAttributeMatrix()
+
+const route = useRoute()
+
+/** STORE-CAT-M01：Tab 切换防丢失——矩阵有未保存变更时确认后才允许离开 */
+function guardMatrixLeave(): boolean {
+  if (mainTab.value === 'attributes' && attrSubTab.value === 'matrix' && matrixCtl.hasUnsavedChanges) {
+    return window.confirm('有未保存的矩阵变更，离开将丢失，确认切换？')
+  }
+  return true
+}
+
+function switchMainTab(next: 'taxonomy' | 'attributes' | 'tags') {
+  if (next === mainTab.value || !guardMatrixLeave()) return
+  mainTab.value = next
+}
+
+function switchAttrSubTab(next: 'dict' | 'matrix') {
+  if (next === attrSubTab.value || !guardMatrixLeave()) return
+  attrSubTab.value = next
+}
 
 function bizMsg(e: unknown, fallback: string): string {
   return e instanceof BizError ? e.message : fallback
@@ -226,7 +258,7 @@ async function doDeleteCat() {
   }
 }
 
-/* ===================== Tab 2：标签维度 / 标签 ===================== */
+/* ===================== Tab 3：标签维度 / 标签 ===================== */
 
 const activeTagDim = ref<number | ''>('')
 const tagsByActiveDim = computed(() => (activeTagDim.value === '' ? [] : tags.tagsByDimension(activeTagDim.value)))
@@ -336,21 +368,27 @@ async function doDeleteTag() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  // COMP-CAT-M01：深链支持 /categories?tab=attributes[&sub=matrix]（ALIGN-004 redirect 落点）
+  const t = route.query.tab
+  if (t === 'attributes' || t === 'tags') mainTab.value = t
+  if (route.query.sub === 'matrix') attrSubTab.value = 'matrix'
+  load()
+})
 </script>
 
 <template>
   <div class="animate-fadeup">
     <PageHeader eyebrow="Catalog" title="品类与标签" subtitle="管理商品品类树和自定义营销标签" />
 
-    <!-- Main Tabs（属性集与字典已拆分至独立「属性集」页——PAGE-CAT-A04） -->
+    <!-- Main Tabs（COMP-CAT-M01：3-Tab，顺序文案严格对照原型 Categories.vue L250-257——ALIGN-001） -->
     <div class="mb-4 flex items-center gap-1 border-b border-line">
       <button
-        v-for="[key, label] in [['taxonomy', '标准品类'], ['tags', '自定义标签']] as const"
+        v-for="[key, label] in [['taxonomy', '标准品类'], ['attributes', '属性集与字典'], ['tags', '自定义标签']] as const"
         :key="key"
         class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
         :class="mainTab === key ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-        @click="mainTab = key"
+        @click="switchMainTab(key)"
       >{{ label }}</button>
     </div>
 
@@ -423,7 +461,23 @@ onMounted(load)
       </div>
     </div>
 
-    <!-- ==================== Tab 2: 自定义标签 ==================== -->
+    <!-- ==================== Tab 2: 属性集与字典（COMP-CAT-M02：自 AttributeSets 页迁入——ALIGN-001） ==================== -->
+    <div v-show="mainTab === 'attributes'">
+      <!-- sub-tab 切换条（样式同主 Tab 条；矩阵文案「品类×属性矩阵」——ALIGN-005/COMP-CAT-M02-5） -->
+      <div class="mb-4 flex items-center gap-1 border-b border-line">
+        <button
+          v-for="[key, label] in [['dict', '属性字典'], ['matrix', '品类×属性矩阵']] as const"
+          :key="key"
+          class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
+          :class="attrSubTab === key ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
+          @click="switchAttrSubTab(key)"
+        >{{ label }}</button>
+      </div>
+      <AttributeDictPanel v-show="attrSubTab === 'dict'" />
+      <AttributeMatrixPanel v-show="attrSubTab === 'matrix'" :ctl="matrixCtl" />
+    </div>
+
+    <!-- ==================== Tab 3: 自定义标签 ==================== -->
     <div v-show="mainTab === 'tags'">
       <div class="mb-4 flex items-start gap-2 rounded-luxe border border-line bg-canvas-warm/60 px-4 py-2.5 text-[12px] text-ink-soft">
         <TagIcon class="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />

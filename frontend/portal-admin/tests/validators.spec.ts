@@ -117,6 +117,12 @@ describe('trading 校验（FORM-TRD-A01/A02/A04/A05）', () => {
     expect(validateShipForm({ carrier: 'DHL Express', trackingNo: 'x'.repeat(65) }).trackingNo).toBeTruthy()
   })
 
+  it('发货 承运方空列表兜底提示（COMP-TRD-D02，ALIGN-022）', () => {
+    expect(validateShipForm({ carrier: '', trackingNo: 'TRK123' }, false).carrier).toBe('请先在物流配置启用承运方')
+    expect(validateShipForm({ carrier: '', trackingNo: '' }, true).carrier).toBe('请选择承运方')
+    expect(validateShipForm({ carrier: 'DHL Express', trackingNo: 'TRK123' }, true)).toEqual({})
+  })
+
   it('代客退款 amount>0 且 ≤totalAmount、reason 必填 ≤255', () => {
     expect(validateAdminRefundForm({ amount: 0, reason: '' }, 100)).toMatchObject({ amount: expect.any(String), reason: expect.any(String) })
     expect(validateAdminRefundForm({ amount: 150, reason: 'r' }, 100).amount).toBe('超出可退上限')

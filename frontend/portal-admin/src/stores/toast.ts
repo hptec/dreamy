@@ -1,10 +1,10 @@
-// 全局 toast 反馈（成功/错误提示，统一展示 BizError 中文 message）
+// 全局 toast 反馈（成功/错误/警告提示，统一展示 BizError 中文 message）
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export interface ToastItem {
   id: number
-  type: 'success' | 'error' | 'info'
+  type: 'success' | 'error' | 'info' | 'warn'
   message: string
 }
 
@@ -26,6 +26,7 @@ export const useToastStore = defineStore('toast', () => {
   const success = (m: string) => push('success', m)
   const error = (m: string) => push('error', m)
   const info = (m: string) => push('info', m)
+  const warn = (m: string) => push('warn', m)
 
-  return { items, push, dismiss, success, error, info }
+  return { items, push, dismiss, success, error, info, warn }
 })
