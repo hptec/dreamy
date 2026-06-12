@@ -12,6 +12,7 @@ import { useShippingStore } from '@/stores/shipping'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { PlusIcon, TruckIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CarrierStatus } from '@/api/types'
 import type { Carrier, ShippingRate } from '@/api/types'
 
 const store = useShippingStore()
@@ -33,7 +34,7 @@ onMounted(load)
 
 /** 预判：仅剩 1 个启用承运方时禁用其 Toggle/删除（后端 409902 兜底） */
 function lastEnabled(c: Carrier): boolean {
-  return c.status === 'enabled' && store.enabledCount <= 1
+  return c.status === CarrierStatus.ENABLED && store.enabledCount <= 1
 }
 
 async function onToggleCarrier(c: Carrier, on: boolean) {
@@ -42,7 +43,7 @@ async function onToggleCarrier(c: Carrier, on: boolean) {
     return
   }
   try {
-    await store.toggleCarrier(c, on ? 'enabled' : 'disabled')
+    await store.toggleCarrier(c, on ? CarrierStatus.ENABLED : CarrierStatus.DISABLED)
   } catch (e) {
     if (e instanceof BizError && e.code === 404901) {
       toast.error('数据已变更，列表已刷新')
@@ -153,7 +154,7 @@ function thresholdText(r: ShippingRate): string {
               ><TrashIcon class="h-4 w-4" /></button>
             </div>
             <span :title="lastEnabled(c) ? '至少保留一个启用的承运方' : ''" :class="lastEnabled(c) ? 'opacity-60' : ''">
-              <Toggle :model-value="c.status === 'enabled'" @update:model-value="onToggleCarrier(c, $event)" />
+              <Toggle :model-value="c.status === CarrierStatus.ENABLED" @update:model-value="onToggleCarrier(c, $event)" />
             </span>
           </div>
           <button class="btn-ghost" @click="openCarrier()"><PlusIcon class="h-4 w-4" />添加承运方</button>

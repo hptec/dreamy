@@ -14,6 +14,7 @@ import { BizError } from '@/api/client'
 import {
   PlusIcon, PencilSquareIcon, TrashIcon, PhotoIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon,
 } from '@heroicons/vue/24/outline'
+import { PublishStatus } from '@/api/types'
 import type { Guide, Lookbook } from '@/api/types'
 
 const store = useLookbookStore()
@@ -43,20 +44,20 @@ function openNew() {
 }
 
 async function toggleLookbook(l: Lookbook) {
-  const next = l.status === 'published' ? 'draft' : 'published'
+  const next = l.status === PublishStatus.PUBLISHED ? PublishStatus.DRAFT : PublishStatus.PUBLISHED
   try {
     await store.patchLookbookStatus(l.id, next)
-    toast.success(next === 'published' ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
+    toast.success(next === PublishStatus.PUBLISHED ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
   }
 }
 
 async function toggleGuide(g: Guide) {
-  const next = g.status === 'published' ? 'draft' : 'published'
+  const next = g.status === PublishStatus.PUBLISHED ? PublishStatus.DRAFT : PublishStatus.PUBLISHED
   try {
     await store.patchGuideStatus(g.id, next)
-    toast.success(next === 'published' ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
+    toast.success(next === PublishStatus.PUBLISHED ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
   }
@@ -106,15 +107,15 @@ onMounted(load)
         <div v-for="l in store.lookbooks" :key="l.id" class="panel p-5">
           <div class="flex items-center justify-between">
             <PhotoIcon class="h-8 w-8 text-gold-deep" />
-            <StatusBadge :tone="l.status === 'published' ? 'ok' : 'neutral'" :label="l.status === 'published' ? '已发布' : '草稿'" />
+            <StatusBadge :tone="l.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="l.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
           </div>
           <h3 class="mt-3 font-display text-lg font-medium text-ink">{{ l.title }}</h3>
           <p class="text-[12px] text-ink-faint">{{ l.theme || '—' }} · {{ l.productIds?.length ?? 0 }} 件商品锚点</p>
           <div class="mt-3 flex gap-1 border-t border-line pt-3">
             <button class="btn-ghost" @click="editingLookbook = l; lookbookDrawer = true"><PencilSquareIcon class="h-4 w-4" />编辑</button>
-            <button class="btn-ghost" :title="l.status === 'published' ? '下线' : '发布'" @click="toggleLookbook(l)">
-              <component :is="l.status === 'published' ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
-              {{ l.status === 'published' ? '下线' : '发布' }}
+            <button class="btn-ghost" :title="l.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleLookbook(l)">
+              <component :is="l.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
+              {{ l.status === PublishStatus.PUBLISHED ? '下线' : '发布' }}
             </button>
             <button class="btn-danger-ghost ml-auto" @click="confirm = { kind: 'lookbook', id: l.id, name: l.title }"><TrashIcon class="h-4 w-4" /></button>
           </div>
@@ -137,10 +138,10 @@ onMounted(load)
           </div>
           <p class="text-[12px] text-ink-soft">{{ g.phase }} · {{ g.tasksCount ?? 0 }} 个待办任务</p>
         </div>
-        <StatusBadge :tone="g.status === 'published' ? 'ok' : 'neutral'" :label="g.status === 'published' ? '已发布' : '草稿'" />
+        <StatusBadge :tone="g.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="g.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
         <div class="flex gap-1">
-          <button class="btn-ghost" :title="g.status === 'published' ? '下线' : '发布'" @click="toggleGuide(g)">
-            <component :is="g.status === 'published' ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
+          <button class="btn-ghost" :title="g.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleGuide(g)">
+            <component :is="g.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
           </button>
           <button class="btn-ghost" @click="editingGuide = g; guideDrawer = true"><PencilSquareIcon class="h-4 w-4" /></button>
           <button class="btn-danger-ghost" @click="confirm = { kind: 'guide', id: g.id, name: g.title }"><TrashIcon class="h-4 w-4" /></button>

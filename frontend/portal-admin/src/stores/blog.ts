@@ -2,15 +2,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { marketingApi } from '@/api'
-import type { BlogPost, BlogPostUpsert } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import type { BlogPost, BlogPostUpsert, ContentStatus } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 export const useBlogStore = defineStore('blog', () => {
   const list = ref<BlogPost[]>([])
   const totalElements = ref(0)
   const page = ref(1)
   const pageSize = ref(9)
-  const filterStatus = ref('all')
+  const filterStatus = ref<ContentStatus | 'all'>('all')
   const search = ref('')
   const loading = ref(false)
   const editing = ref<BlogPost | null>(null)
@@ -22,7 +22,7 @@ export const useBlogStore = defineStore('blog', () => {
       const res = await marketingApi.listBlogs({
         page: page.value,
         pageSize: pageSize.value,
-        status: normalizeFilter(filterStatus.value),
+        status: normalizeEnumFilter(filterStatus.value),
         search: search.value.trim() || undefined,
       })
       list.value = res.data
@@ -69,7 +69,7 @@ export const useBlogStore = defineStore('blog', () => {
   }
 
   /** 发布 / 下线 / 重新发布（FORM-MKT-A04：slug 空 422704 由视图预判 + 兜底） */
-  async function patchStatus(id: number, status: string) {
+  async function patchStatus(id: number, status: ContentStatus) {
     const updated = await marketingApi.patchBlogStatus(id, status)
     const idx = list.value.findIndex((b) => b.id === id)
     if (idx >= 0) list.value[idx] = updated

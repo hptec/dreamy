@@ -205,7 +205,8 @@ export type TranslationLocale = 'es' | 'fr'
 
 // ===== catalog（PAGE-CAT-A01~A04 / STORE-CAT-A01~A05） =====
 
-export type ProductStatus = 'draft' | 'published'
+export const ProductStatus = { DRAFT: 1, PUBLISHED: 2 } as const
+export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus]
 
 export interface ProductTranslation {
   locale: TranslationLocale
@@ -216,10 +217,13 @@ export interface ProductTranslation {
   seoDescription?: string | null
 }
 
+export const ImageKind = { GALLERY: 1, LIFESTYLE: 2, VIDEO: 3, SWATCH: 4 } as const
+export type ImageKind = typeof ImageKind[keyof typeof ImageKind]
+
 export interface ProductImage {
   id?: number | null
   url: string
-  kind: string
+  kind: ImageKind
   colorName?: string | null
   sort?: number | null
 }
@@ -337,8 +341,9 @@ export interface CategoryTranslation {
   name?: string | null
 }
 
-/** 三态可见性 */
-export type AttrVisibility = 'visible' | 'optional' | 'hidden'
+/** 三态可见性（后端 AttributeVisibility IntEnum） */
+export const AttrVisibility = { VISIBLE: 1, OPTIONAL: 2, HIDDEN: 3 } as const
+export type AttrVisibility = typeof AttrVisibility[keyof typeof AttrVisibility]
 
 export interface AdminCategoryNode {
   id: number
@@ -379,7 +384,8 @@ export interface AttributeSetUpsert {
   items: AttributeSetItem[]
 }
 
-export type AttributeDefType = 'select' | 'multiselect' | 'text' | 'toggle'
+export const AttributeDefType = { SELECT: 1, MULTISELECT: 2, TEXT: 3, TOGGLE: 4 } as const
+export type AttributeDefType = typeof AttributeDefType[keyof typeof AttributeDefType]
 
 export interface AttributeDefTranslation {
   locale: TranslationLocale
@@ -428,7 +434,8 @@ export interface TagTranslation {
   label?: string | null
 }
 
-export type TagStatus = 'enabled' | 'disabled'
+export const TagStatus = { ENABLED: 1, DISABLED: 2 } as const
+export type TagStatus = typeof TagStatus[keyof typeof TagStatus]
 
 export interface Tag {
   id: number
@@ -465,8 +472,19 @@ export interface PresignResponse {
 
 // ===== trading（PAGE-TRD-A01~A04 / STORE-TRD-A01~A03） =====
 
-export type OrderStatus =
-  | 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunding' | 'refunded'
+export const OrderStatus = {
+  PENDING: 1,
+  PAID: 2,
+  SHIPPED: 3,
+  COMPLETED: 4,
+  CANCELLED: 5,
+  REFUNDING: 6,
+  REFUNDED: 7,
+} as const
+export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus]
+
+export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5 } as const
+export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus]
 
 export interface CustomSizeData {
   bust?: number | null
@@ -496,7 +514,7 @@ export interface PaymentSummary {
   paymentIntentId?: string | null
   amount?: number | null
   currency?: string | null
-  status?: string | null
+  status?: PaymentStatus | null
   cardSummary?: string | null
   paidAt?: string | null
 }
@@ -531,7 +549,8 @@ export interface AdminOrderListItem {
   itemCount?: number | null
 }
 
-export type RefundStatus = 'pending' | 'approved' | 'rejected'
+export const RefundStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
+export type RefundStatus = typeof RefundStatus[keyof typeof RefundStatus]
 
 export interface AdminRefund {
   id: number
@@ -574,8 +593,11 @@ export interface CheckoutConfig {
 
 // ===== marketing（PAGE-MKT-A01~A05 / STORE-MKT-A01~A06） =====
 
-export type CouponStatus = 'draft' | 'scheduled' | 'active' | 'expiring' | 'expired'
-export type CouponType = 'discount' | 'fixed_amount' | 'free_shipping'
+export const CouponStatus = { DRAFT: 1, SCHEDULED: 2, ACTIVE: 3, EXPIRING: 4, EXPIRED: 5 } as const
+export type CouponStatus = typeof CouponStatus[keyof typeof CouponStatus]
+
+export const CouponType = { DISCOUNT: 1, FIXED_AMOUNT: 2, FREE_SHIPPING: 3 } as const
+export type CouponType = typeof CouponType[keyof typeof CouponType]
 
 export interface CouponTranslation {
   locale: TranslationLocale
@@ -613,7 +635,8 @@ export interface CouponUpsert {
   translations?: CouponTranslation[] | null
 }
 
-export type FlashSaleStatus = 'draft' | 'scheduled' | 'active' | 'ended'
+export const FlashSaleStatus = { DRAFT: 1, SCHEDULED: 2, ACTIVE: 3, ENDED: 4 } as const
+export type FlashSaleStatus = typeof FlashSaleStatus[keyof typeof FlashSaleStatus]
 
 export interface FlashSaleTranslation {
   locale: TranslationLocale
@@ -641,8 +664,12 @@ export interface FlashSaleUpsert {
   translations?: FlashSaleTranslation[] | null
 }
 
-export type BannerStatus = 'draft' | 'published' | 'archived'
-export type BannerPosition = 'hero' | 'featured' | 'topbar'
+/** Banner 状态复用后端 ContentStatus IntEnum */
+export const BannerStatus = { DRAFT: 1, PUBLISHED: 2, ARCHIVED: 3 } as const
+export type BannerStatus = typeof BannerStatus[keyof typeof BannerStatus]
+
+export const BannerPosition = { HERO: 1, FEATURED: 2, TOPBAR: 3 } as const
+export type BannerPosition = typeof BannerPosition[keyof typeof BannerPosition]
 
 export interface BannerTranslation {
   locale: TranslationLocale
@@ -681,8 +708,11 @@ export interface BannerUpsert {
   translations?: BannerTranslation[] | null
 }
 
-export type ContentStatus = 'draft' | 'published' | 'archived'
-export type PublishStatus = 'draft' | 'published'
+export const ContentStatus = { DRAFT: 1, PUBLISHED: 2, ARCHIVED: 3 } as const
+export type ContentStatus = typeof ContentStatus[keyof typeof ContentStatus]
+
+export const PublishStatus = { DRAFT: 1, PUBLISHED: 2 } as const
+export type PublishStatus = typeof PublishStatus[keyof typeof PublishStatus]
 
 export interface BlogPostTranslation {
   locale: TranslationLocale
@@ -805,7 +835,9 @@ export interface GuideUpsert {
 
 // ===== review（PAGE-REV-A01 / STORE-REV-A01~A03） =====
 
-export type ReviewModerationStatus = 'pending' | 'approved' | 'rejected'
+/** 评价审核状态（后端 ReviewStatus IntEnum） */
+export const ReviewModerationStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
+export type ReviewModerationStatus = typeof ReviewModerationStatus[keyof typeof ReviewModerationStatus]
 
 export interface ReviewImage {
   id: number
@@ -840,7 +872,9 @@ export interface BatchResult {
   skippedIds: number[]
 }
 
-export type QuestionVisible = 'visible' | 'hidden'
+/** Q&A 可见性（后端 QuestionVisibility IntEnum） */
+export const QuestionVisible = { VISIBLE: 1, HIDDEN: 2 } as const
+export type QuestionVisible = typeof QuestionVisible[keyof typeof QuestionVisible]
 
 export interface AdminQuestion {
   id: number
@@ -856,7 +890,8 @@ export interface AdminQuestion {
 
 // ===== shipping（PAGE-SHP-01 / STORE-SHP-01） =====
 
-export type CarrierStatus = 'enabled' | 'disabled'
+export const CarrierStatus = { ENABLED: 1, DISABLED: 2 } as const
+export type CarrierStatus = typeof CarrierStatus[keyof typeof CarrierStatus]
 
 export interface Carrier {
   id: number

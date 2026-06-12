@@ -7,6 +7,7 @@
 import { cache } from 'react'
 import { serverGet, serverGetWithStatus, type ServerResult } from './server-fetch'
 import type {
+  BannerPosition,
   Paginated,
   StoreBanner,
   StoreBlogPostCard,
@@ -19,9 +20,9 @@ import type {
 
 // ===== 服务端（RSC） =====
 
-/** E-MKT-01 在线 Banner（position=hero/featured/topbar；PAGE-MKT-S01/S02） */
+/** E-MKT-01 在线 Banner（position=BannerPosition 整数枚举；PAGE-MKT-S01/S02） */
 export async function fetchStoreBanners(
-  position: 'hero' | 'featured' | 'topbar',
+  position: BannerPosition,
   revalidate = 300
 ): Promise<StoreBanner[]> {
   const res = await serverGet<{ items: StoreBanner[] }>('/api/store/content/banners', {

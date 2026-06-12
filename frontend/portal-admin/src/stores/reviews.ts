@@ -2,8 +2,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { reviewsApi } from '@/api'
-import type { AdminReview, ReviewModerationStatus } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import { ReviewModerationStatus } from '@/api/types'
+import type { AdminReview } from '@/api/types'
 
 export const useReviewsStore = defineStore('reviews', () => {
   const list = ref<AdminReview[]>([])
@@ -15,6 +15,12 @@ export const useReviewsStore = defineStore('reviews', () => {
 
   // chips 映射：全部=all、待审核=pending、已通过=approved、精选=all&featured、已拒绝=rejected
   const chip = ref<'all' | 'pending' | 'approved' | 'featured' | 'rejected'>('all')
+  /** chip（UI 态）→ 后端 ReviewStatus 整数（all/featured 不传 status） */
+  const CHIP_STATUS: Record<string, ReviewModerationStatus | undefined> = {
+    pending: ReviewModerationStatus.PENDING,
+    approved: ReviewModerationStatus.APPROVED,
+    rejected: ReviewModerationStatus.REJECTED,
+  }
   const rating = ref('all')
   const search = ref('')
   const selectedIds = ref<number[]>([])
@@ -25,7 +31,7 @@ export const useReviewsStore = defineStore('reviews', () => {
       const res = await reviewsApi.listReviews({
         page: page.value,
         pageSize: pageSize.value,
-        status: chip.value === 'featured' ? undefined : normalizeFilter(chip.value),
+        status: CHIP_STATUS[chip.value],
         featured: chip.value === 'featured' ? true : undefined,
         rating: rating.value === 'all' ? undefined : Number(rating.value),
         search: search.value.trim() || undefined,
@@ -58,7 +64,7 @@ export const useReviewsStore = defineStore('reviews', () => {
   async function moderate(row: AdminReview, status: ReviewModerationStatus) {
     const updated = await reviewsApi.patchReviewStatus(row.id, status)
     replaceRow(updated)
-    if (row.status === 'pending' && status !== 'pending') {
+    if (row.status === ReviewModerationStatus.PENDING && status !== ReviewModerationStatus.PENDING) {
       pendingCount.value = Math.max(0, pendingCount.value - 1)
     }
     return updated

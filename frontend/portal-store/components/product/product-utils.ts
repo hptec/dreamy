@@ -4,6 +4,7 @@
  */
 
 import type { ProductImage, Sku, StoreProductDetail } from '@/lib/api/store-types'
+import { ImageKind } from '@/lib/api/store-types'
 
 export interface ColorOptionVM {
   name: string
@@ -13,16 +14,16 @@ export interface ColorOptionVM {
 
 export function galleryOf(detail: StoreProductDetail): ProductImage[] {
   return detail.images
-    .filter((img) => img.kind === 'gallery')
+    .filter((img) => img.kind === ImageKind.GALLERY)
     .sort((a, b) => a.sort - b.sort)
 }
 
 export function lifestyleOf(detail: StoreProductDetail): string | undefined {
-  return detail.images.find((img) => img.kind === 'lifestyle')?.url
+  return detail.images.find((img) => img.kind === ImageKind.LIFESTYLE)?.url
 }
 
 export function hasVideoOf(detail: StoreProductDetail): boolean {
-  return detail.images.some((img) => img.kind === 'video')
+  return detail.images.some((img) => img.kind === ImageKind.VIDEO)
 }
 
 export function primaryImageOf(detail: StoreProductDetail): string | undefined {
@@ -30,7 +31,7 @@ export function primaryImageOf(detail: StoreProductDetail): string | undefined {
 }
 
 export function swatchImageOf(detail: StoreProductDetail, colorName: string): string | undefined {
-  return detail.images.find((img) => img.kind === 'swatch' && img.colorName === colorName)?.url
+  return detail.images.find((img) => img.kind === ImageKind.SWATCH && img.colorName === colorName)?.url
 }
 
 export function colorOptionsOf(detail: StoreProductDetail): ColorOptionVM[] {
@@ -38,7 +39,7 @@ export function colorOptionsOf(detail: StoreProductDetail): ColorOptionVM[] {
   if (names.length === 0) {
     // 无 SKU（纯定制款）时以色样图为颜色源
     return detail.images
-      .filter((img) => img.kind === 'swatch' && img.colorName)
+      .filter((img) => img.kind === ImageKind.SWATCH && img.colorName)
       .map((img) => ({ name: img.colorName as string, image: img.url }))
   }
   return names.map((name) => ({ name, image: swatchImageOf(detail, name) ?? primaryImageOf(detail) }))

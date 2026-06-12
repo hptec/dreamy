@@ -10,7 +10,8 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, toIsoDateTime, validateBannerForm, type FieldErrors } from '@/utils/validators'
 import { toDatetimeLocal } from '@/utils/format'
-import type { Banner, BannerPosition, BannerStatus, BannerTranslation } from '@/api/types'
+import { BannerPosition, BannerStatus } from '@/api/types'
+import type { Banner, BannerTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: Banner | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -22,10 +23,10 @@ const locale = ref<'en' | 'es' | 'fr'>('en')
 const form = ref({
   name: '',
   imageUrl: '',
-  position: 'hero' as BannerPosition,
+  position: BannerPosition.HERO as BannerPosition,
   startTime: '',
   endTime: '',
-  status: 'draft' as BannerStatus,
+  status: BannerStatus.DRAFT as BannerStatus,
   sort: 0,
   title: '',
   subtitle: '',
@@ -64,7 +65,7 @@ watch(
           subtitle: e.subtitle || '',
           ctaText: e.ctaText || '',
         }
-      : { name: '', imageUrl: '', position: 'hero', startTime: '', endTime: '', status: 'draft', sort: 0, title: '', subtitle: '', ctaText: '' }
+      : { name: '', imageUrl: '', position: BannerPosition.HERO, startTime: '', endTime: '', status: BannerStatus.DRAFT, sort: 0, title: '', subtitle: '', ctaText: '' }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
       es: { title: byLocale('es')?.title || '', subtitle: byLocale('es')?.subtitle || '', ctaText: byLocale('es')?.ctaText || '' },
@@ -143,9 +144,9 @@ async function submit() {
         <div>
           <label class="field-label">广告位置 *</label>
           <select v-model="form.position" class="field">
-            <option value="hero">首页 Hero</option>
-            <option value="featured">推荐位</option>
-            <option value="topbar">顶部通告条</option>
+            <option :value="BannerPosition.HERO">首页 Hero</option>
+            <option :value="BannerPosition.FEATURED">推荐位</option>
+            <option :value="BannerPosition.TOPBAR">顶部通告条</option>
           </select>
         </div>
         <div>
@@ -167,9 +168,9 @@ async function submit() {
       <div>
         <label class="field-label">状态</label>
         <select v-model="form.status" class="field">
-          <option value="draft">草稿</option>
-          <option value="published">已发布</option>
-          <option value="archived">已下线</option>
+          <option :value="BannerStatus.DRAFT">草稿</option>
+          <option :value="BannerStatus.PUBLISHED">已发布</option>
+          <option :value="BannerStatus.ARCHIVED">已下线</option>
         </select>
       </div>
       <div class="rounded-luxe border border-line p-4">

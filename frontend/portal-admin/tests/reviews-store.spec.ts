@@ -19,6 +19,7 @@ vi.mock('@/api', () => ({
 }))
 
 import { useReviewsStore } from '@/stores/reviews'
+import { ReviewModerationStatus } from '@/api/types'
 import type { AdminReview } from '@/api/types'
 
 const page = (data: AdminReview[] = [], pendingCount = 0) => ({
@@ -31,7 +32,7 @@ const page = (data: AdminReview[] = [], pendingCount = 0) => ({
   pendingCount,
 })
 
-const review = (id: number, status: AdminReview['status'] = 'approved'): AdminReview => ({
+const review = (id: number, status: AdminReview['status'] = ReviewModerationStatus.APPROVED): AdminReview => ({
   id,
   productId: 1,
   rating: 5,
@@ -61,7 +62,7 @@ describe('useReviewsStore', () => {
     const store = useReviewsStore()
     store.chip = 'pending'
     await store.fetch()
-    expect(listReviews).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', featured: undefined }))
+    expect(listReviews).toHaveBeenCalledWith(expect.objectContaining({ status: ReviewModerationStatus.PENDING, featured: undefined }))
     expect(store.pendingCount).toBe(7)
   })
 

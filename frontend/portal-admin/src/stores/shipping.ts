@@ -2,7 +2,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { shippingApi } from '@/api'
-import type { Carrier, CarrierStatus, CarrierUpsert, ShippingRate, ShippingRateUpsert } from '@/api/types'
+import { CarrierStatus } from '@/api/types'
+import type { Carrier, CarrierUpsert, ShippingRate, ShippingRateUpsert } from '@/api/types'
 
 export const useShippingStore = defineStore('shipping', () => {
   const carriers = ref<Carrier[]>([])
@@ -12,7 +13,7 @@ export const useShippingStore = defineStore('shipping', () => {
   const saving = ref(false)
 
   /** 前端预判：仅剩 1 个 enabled 时 Toggle/删除置灰（后端 409902 兜底） */
-  const enabledCount = computed(() => carriers.value.filter((c) => c.status === 'enabled').length)
+  const enabledCount = computed(() => carriers.value.filter((c) => c.status === CarrierStatus.ENABLED).length)
 
   async function fetchAll() {
     loadingCarriers.value = true

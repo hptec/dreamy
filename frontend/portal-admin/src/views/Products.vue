@@ -22,6 +22,7 @@ import {
   PlusIcon, MagnifyingGlassIcon, FunnelIcon, ArrowDownTrayIcon,
   PencilSquareIcon, TrashIcon, XMarkIcon, ChevronDownIcon, ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline'
+import { ProductStatus } from '@/api/types'
 import type { AdminProductListItem, ProductBatchAction, ProductBatchFailure } from '@/api/types'
 
 const store = useProductsStore()
@@ -227,7 +228,7 @@ function applyFilters() {
 // FORM-CAT-A02：行内 Toggle 乐观更新（失败回滚 + toast；同态幂等）
 async function onToggleStatus(p: AdminProductListItem, on: boolean) {
   try {
-    await store.toggleStatus(p, on ? 'published' : 'draft')
+    await store.toggleStatus(p, on ? ProductStatus.PUBLISHED : ProductStatus.DRAFT)
   } catch (e) {
     toast.error(bizMsg(e, '操作失败'))
   }
@@ -312,8 +313,8 @@ onMounted(() => {
         </select>
         <select v-model="store.filterStatus" class="field w-auto" @change="applyFilters">
           <option value="all">全部状态</option>
-          <option value="published">已上架</option>
-          <option value="draft">草稿</option>
+          <option :value="ProductStatus.PUBLISHED">已上架</option>
+          <option :value="ProductStatus.DRAFT">草稿</option>
         </select>
         <button class="btn-ghost" :class="showMoreFilters && 'text-gold'" @click="showMoreFilters = !showMoreFilters">
           <FunnelIcon class="h-4 w-4" />
@@ -446,7 +447,7 @@ onMounted(() => {
               </td>
               <td>
                 <div class="flex items-center justify-center gap-3">
-                  <Toggle :model-value="p.status === 'published'" @update:model-value="onToggleStatus(p, $event)" />
+                  <Toggle :model-value="p.status === ProductStatus.PUBLISHED" @update:model-value="onToggleStatus(p, $event)" />
                   <Toggle :model-value="!!p.isNew" @update:model-value="onFlagToggle(p, 'isNew', $event)" />
                   <Toggle :model-value="!!p.recommend" @update:model-value="onFlagToggle(p, 'recommend', $event)" />
                 </div>
@@ -457,14 +458,14 @@ onMounted(() => {
               <!-- COMP-CAT-P01（ALIGN-007）：销量列（sales_total 派生字段，缺省显示 0，原型 L255） -->
               <td class="text-right text-ink-soft">{{ p.salesTotal ?? 0 }}</td>
               <td><input class="field w-16 px-2 py-1 text-center text-[12px]" type="number" :value="p.sort ?? 0" @blur="onSortBlur(p, $event)" /></td>
-              <td><StatusBadge :tone="p.status === 'published' ? 'ok' : 'neutral'" :label="p.status === 'published' ? '已上架' : '草稿'" /></td>
+              <td><StatusBadge :tone="p.status === ProductStatus.PUBLISHED ? 'ok' : 'neutral'" :label="p.status === ProductStatus.PUBLISHED ? '已上架' : '草稿'" /></td>
               <td>
                 <div class="flex items-center justify-end gap-1">
                   <RouterLink :to="`/products/${p.id}/edit`" class="btn-ghost"><PencilSquareIcon class="h-4 w-4" />编辑</RouterLink>
                   <button
                     class="btn-danger-ghost disabled:opacity-40"
-                    :disabled="p.status === 'published'"
-                    :title="p.status === 'published' ? '已发布商品需先下架' : '删除'"
+                    :disabled="p.status === ProductStatus.PUBLISHED"
+                    :title="p.status === ProductStatus.PUBLISHED ? '已发布商品需先下架' : '删除'"
                     @click="confirmDelete = p"
                   ><TrashIcon class="h-4 w-4" /></button>
                 </div>

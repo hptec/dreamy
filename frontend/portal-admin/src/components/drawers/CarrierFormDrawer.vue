@@ -7,7 +7,8 @@ import { useShippingStore } from '@/stores/shipping'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, validateCarrierForm, type FieldErrors } from '@/utils/validators'
-import type { Carrier, CarrierStatus } from '@/api/types'
+import { CarrierStatus } from '@/api/types'
+import type { Carrier } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: Carrier | null }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()
@@ -15,7 +16,7 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()
 const store = useShippingStore()
 const toast = useToastStore()
 
-const form = ref({ name: '', zones: '', leadTime: '', status: 'enabled' as CarrierStatus })
+const form = ref({ name: '', zones: '', leadTime: '', status: CarrierStatus.ENABLED as CarrierStatus })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
 
@@ -31,7 +32,7 @@ watch(
           leadTime: props.editing.leadTime || '',
           status: props.editing.status,
         }
-      : { name: '', zones: '', leadTime: '', status: 'enabled' }
+      : { name: '', zones: '', leadTime: '', status: CarrierStatus.ENABLED }
   },
 )
 
@@ -93,10 +94,10 @@ async function submit() {
         <label class="field-label">状态 *</label>
         <div class="flex gap-4 text-[13px] text-ink-soft">
           <label class="flex items-center gap-1.5">
-            <input v-model="form.status" type="radio" value="enabled" class="accent-gold" />启用
+            <input v-model="form.status" type="radio" :value="CarrierStatus.ENABLED" class="accent-gold" />启用
           </label>
           <label class="flex items-center gap-1.5">
-            <input v-model="form.status" type="radio" value="disabled" class="accent-gold" />停用
+            <input v-model="form.status" type="radio" :value="CarrierStatus.DISABLED" class="accent-gold" />停用
           </label>
         </div>
         <p v-if="errors.status" class="mt-1 text-[11px] text-danger">{{ errors.status }}</p>

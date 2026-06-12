@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { catalogApi } from '@/api'
 import type { AdminProductListItem, ProductBatchAction, ProductBatchResult, ProductStatus } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 export const useProductsStore = defineStore('products', () => {
   const list = ref<AdminProductListItem[]>([])
@@ -13,7 +13,7 @@ export const useProductsStore = defineStore('products', () => {
   const loading = ref(false)
 
   // 服务端筛选（status / categoryId / search）
-  const filterStatus = ref('all')
+  const filterStatus = ref<ProductStatus | 'all'>('all')
   const filterCategoryId = ref<number | 'all'>('all')
   const search = ref('')
 
@@ -23,7 +23,7 @@ export const useProductsStore = defineStore('products', () => {
       const res = await catalogApi.listProducts({
         page: page.value,
         pageSize: pageSize.value,
-        status: normalizeFilter(filterStatus.value),
+        status: normalizeEnumFilter(filterStatus.value),
         categoryId: filterCategoryId.value === 'all' ? undefined : filterCategoryId.value,
         search: search.value.trim() || undefined,
       })
@@ -98,7 +98,7 @@ export const useProductsStore = defineStore('products', () => {
     exporting.value = true
     try {
       return await catalogApi.exportProducts({
-        status: normalizeFilter(filterStatus.value),
+        status: normalizeEnumFilter(filterStatus.value),
         categoryId: filterCategoryId.value === 'all' ? undefined : filterCategoryId.value,
         search: search.value.trim() || undefined,
       })

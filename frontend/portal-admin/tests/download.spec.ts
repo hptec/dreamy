@@ -67,10 +67,10 @@ describe('downloadCsv', () => {
       }),
     )
     const query = new URLSearchParams()
-    query.set('status', 'published')
+    query.set('status', '2')
     const result = await downloadCsv('/api/admin/products/export', query, 'products')
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/admin/products/export?status=published', {
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/products/export?status=2', {
       headers: { Authorization: 'Bearer tok-123', 'Accept-Language': 'zh' },
     })
     expect(anchor.download).toBe('products-20260611.csv')

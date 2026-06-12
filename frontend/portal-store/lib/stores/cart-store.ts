@@ -12,6 +12,7 @@
 import { create } from 'zustand'
 import * as tradingApi from '../api/trading-api'
 import type { CartItemCreate, CartResponse, CustomSizeData } from '../api/store-types'
+import { ProductStatus } from '../api/store-types'
 import { useAuthStore } from './auth-store'
 
 const ANON_KEY = 'dreamy.cart.anon'
@@ -140,7 +141,7 @@ function serverToVM(res: CartResponse): CartLineVM[] {
     color: it.sku?.color ?? (it.customSizeData ? undefined : undefined),
     size: it.sku?.size ?? (it.customSizeData ? 'Custom' : undefined),
     stock: it.sku?.stock,
-    unavailable: it.product.status === 'draft'
+    unavailable: it.product.status === ProductStatus.DRAFT
   }))
 }
 

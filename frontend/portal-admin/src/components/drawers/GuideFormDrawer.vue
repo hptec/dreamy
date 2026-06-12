@@ -7,7 +7,8 @@ import { useLookbookStore } from '@/stores/lookbook'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, type FieldErrors } from '@/utils/validators'
-import type { Guide, GuideTranslation, PublishStatus } from '@/api/types'
+import { PublishStatus } from '@/api/types'
+import type { Guide, GuideTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: Guide | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -22,7 +23,7 @@ const form = ref({
   title: '',
   tasksCount: 0,
   body: '',
-  status: 'draft' as PublishStatus,
+  status: PublishStatus.DRAFT as PublishStatus,
 })
 const trans = ref<Record<'es' | 'fr', { title: string; body: string }>>({
   es: { title: '', body: '' },
@@ -53,7 +54,7 @@ watch(
           body: e.body || '',
           status: e.status,
         }
-      : { phase: '', timeframe: '', title: '', tasksCount: 0, body: '', status: 'draft' }
+      : { phase: '', timeframe: '', title: '', tasksCount: 0, body: '', status: PublishStatus.DRAFT }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
       es: { title: byLocale('es')?.title || '', body: byLocale('es')?.body || '' },
@@ -140,8 +141,8 @@ async function submit() {
         <div>
           <label class="field-label">状态</label>
           <select v-model="form.status" class="field">
-            <option value="draft">草稿</option>
-            <option value="published">已发布</option>
+            <option :value="PublishStatus.DRAFT">草稿</option>
+            <option :value="PublishStatus.PUBLISHED">已发布</option>
           </select>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { ArrowRight, Truck, Sparkles, Globe, Heart } from 'lucide-react'
 import { palette } from '@/data/products'
 import { fetchStoreTags } from '@/lib/api/catalog-server'
 import { fetchStoreBanners, fetchStoreFlashSales, fetchStoreWeddings } from '@/lib/api/marketing-server'
+import { BannerPosition } from '@/lib/api/store-types'
 import { RecommendationRail } from '@/components/product/recommendation-rail'
 import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
@@ -27,7 +28,7 @@ const themeCards = [
 
 export default async function HomePage() {
   const [heroBanners, flashSales, tagGroups, weddingsPage] = await Promise.all([
-    fetchStoreBanners('hero'),
+    fetchStoreBanners(BannerPosition.HERO),
     fetchStoreFlashSales(),
     fetchStoreTags(),
     fetchStoreWeddings({ page: 1, pageSize: 3 })

@@ -20,6 +20,7 @@ import { extractFieldErrors, validateProductForm, type FieldErrors } from '@/uti
 import {
   PlusIcon, XMarkIcon, RocketLaunchIcon, ArrowLeftIcon, InformationCircleIcon, TrashIcon,
 } from '@heroicons/vue/24/outline'
+import { AttrVisibility, AttributeDefType, ImageKind, ProductStatus } from '@/api/types'
 import type { AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow } from '@/api/types'
 
 const route = useRoute()
@@ -95,7 +96,7 @@ const form = ref({
   price: '' as number | string,
   compareAt: '' as number | string,
   installment: true,
-  status: 'draft' as 'draft' | 'published',
+  status: ProductStatus.DRAFT as ProductStatus,
   isNew: false,
   isBest: false,
   recommend: false,
@@ -151,11 +152,11 @@ function syncCascadeFromCategoryId() {
 /* ===================== 属性配置（STORE-CAT-A03.resolveAttributeConfig） ===================== */
 
 const attrSet = computed(() => attributes.resolveAttributeConfig(form.value.categoryId))
-const show = (key: string) => (attrSet.value.attrs[key] ?? 'hidden') !== 'hidden'
-const required = (key: string) => attrSet.value.attrs[key] === 'visible'
+const show = (key: string) => (attrSet.value.attrs[key] ?? AttrVisibility.HIDDEN) !== AttrVisibility.HIDDEN
+const required = (key: string) => attrSet.value.attrs[key] === AttrVisibility.VISIBLE
 const isOverridden = (key: string) => Object.prototype.hasOwnProperty.call(attrSet.value.overrides, key)
 const overrideCount = computed(() => Object.keys(attrSet.value.overrides).length)
-const visibleFieldCount = computed(() => Object.values(attrSet.value.attrs).filter((v) => v !== 'hidden').length)
+const visibleFieldCount = computed(() => Object.values(attrSet.value.attrs).filter((v) => v !== AttrVisibility.HIDDEN).length)
 
 function optionsFor(key: string): string[] {
   return attributes.defByKey(key)?.options ?? []
@@ -177,7 +178,7 @@ const PSEUDO_GATE_KEYS = new Set(['custom_size', 'model_info', 'care_instruction
 /** 动态渲染行：生效配置非 hidden 行 × 字典 def（保持属性集顺序） */
 const dynamicAttrs = computed(() =>
   attrSet.value.items
-    .filter((it) => it.visibility !== 'hidden' && !PSEUDO_GATE_KEYS.has(it.key))
+    .filter((it) => it.visibility !== AttrVisibility.HIDDEN && !PSEUDO_GATE_KEYS.has(it.key))
     .map((it) => ({ ...it, def: attributes.defByKey(it.key)! }))
     .filter((it) => !!it.def),
 )
@@ -235,25 +236,25 @@ const newSwatchColor = ref('')
 
 watch(newUploadUrl, (url) => {
   if (url) {
-    gallery.value.push({ url, kind: 'gallery' })
+    gallery.value.push({ url, kind: ImageKind.GALLERY })
     newUploadUrl.value = ''
   }
 })
 watch(newLifestyleUrl, (url) => {
   if (url) {
-    lifestyle.value.push({ url, kind: 'lifestyle' })
+    lifestyle.value.push({ url, kind: ImageKind.LIFESTYLE })
     newLifestyleUrl.value = ''
   }
 })
 watch(newVideoUrl, (url) => {
   if (url) {
-    videos.value.push({ url, kind: 'video' })
+    videos.value.push({ url, kind: ImageKind.VIDEO })
     newVideoUrl.value = ''
   }
 })
 watch(newSwatchUrl, (url) => {
   if (url) {
-    swatches.value.push({ url, kind: 'swatch', colorName: newSwatchColor.value.trim() || null })
+    swatches.value.push({ url, kind: ImageKind.SWATCH, colorName: newSwatchColor.value.trim() || null })
     newSwatchUrl.value = ''
     newSwatchColor.value = ''
   }
@@ -429,10 +430,10 @@ async function loadProduct() {
 
     // 媒体分区
     const imgs = (p.images || []).slice().sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-    gallery.value = imgs.filter((i) => i.kind === 'gallery')
-    lifestyle.value = imgs.filter((i) => i.kind === 'lifestyle')
-    videos.value = imgs.filter((i) => i.kind === 'video')
-    swatches.value = imgs.filter((i) => i.kind === 'swatch')
+    gallery.value = imgs.filter((i) => i.kind === ImageKind.GALLERY)
+    lifestyle.value = imgs.filter((i) => i.kind === ImageKind.LIFESTYLE)
+    videos.value = imgs.filter((i) => i.kind === ImageKind.VIDEO)
+    swatches.value = imgs.filter((i) => i.kind === ImageKind.SWATCH)
 
     // SKU 矩阵回读（携带 id+version 防并发——V-CAT-038）
     const colors: string[] = []
@@ -483,14 +484,14 @@ function buildTranslations(): ProductTranslation[] {
 
 function buildImages(): ProductImage[] {
   const all: ProductImage[] = []
-  gallery.value.forEach((img, i) => all.push({ ...img, kind: 'gallery', sort: i })) // 第一张 gallery 即 sort=0 主图
-  lifestyle.value.forEach((img, i) => all.push({ ...img, kind: 'lifestyle', sort: i }))
-  videos.value.forEach((img, i) => all.push({ ...img, kind: 'video', sort: i }))
-  swatches.value.forEach((img, i) => all.push({ ...img, kind: 'swatch', sort: i }))
+  gallery.value.forEach((img, i) => all.push({ ...img, kind: ImageKind.GALLERY, sort: i })) // 第一张 gallery 即 sort=0 主图
+  lifestyle.value.forEach((img, i) => all.push({ ...img, kind: ImageKind.LIFESTYLE, sort: i }))
+  videos.value.forEach((img, i) => all.push({ ...img, kind: ImageKind.VIDEO, sort: i }))
+  swatches.value.forEach((img, i) => all.push({ ...img, kind: ImageKind.SWATCH, sort: i }))
   return all
 }
 
-function buildPayload(status: 'draft' | 'published'): AdminProductUpsert {
+function buildPayload(status: ProductStatus): AdminProductUpsert {
   const mcp: Record<string, string> = {}
   for (const cur of CURRENCIES) {
     if (multiCurrency.value[cur] !== '') mcp[cur] = multiCurrency.value[cur]
@@ -536,7 +537,7 @@ function buildPayload(status: 'draft' | 'published'): AdminProductUpsert {
   }
 }
 
-async function save(status: 'draft' | 'published') {
+async function save(status: ProductStatus) {
   // 前端预校验（name/slug/category/price/lead_time 必填、compare_at>=price、SKU 码非空唯一）
   errors.value = validateProductForm({ ...form.value, skus: buildSkus() })
   if (Object.keys(errors.value).length) {
@@ -556,7 +557,7 @@ async function save(status: 'draft' | 'published') {
       ? await catalogApi.createProduct(payload)
       : await catalogApi.updateProduct(productId.value, payload)
     serverUpdatedAt.value = saved.updatedAt ?? null
-    if (status === 'published') {
+    if (status === ProductStatus.PUBLISHED) {
       // FORM-CAT-E01（ALIGN-020 合并方案）：API 保存成功（静态页失效链已触发）→
       // 跳转 /publish 查看发布进度，回对原型 OP-006 navigation 语义
       toast.success('已保存，静态页失效链已触发')
@@ -630,8 +631,8 @@ onMounted(async () => {
     >
       <template #actions>
         <button class="btn-ghost" @click="router.push('/products')"><ArrowLeftIcon class="h-4 w-4" />返回列表</button>
-        <button class="btn-outline" :disabled="saving" @click="save('draft')">保存草稿</button>
-        <button class="btn-gold" :disabled="saving" @click="save('published')">
+        <button class="btn-outline" :disabled="saving" @click="save(ProductStatus.DRAFT)">保存草稿</button>
+        <button class="btn-gold" :disabled="saving" @click="save(ProductStatus.PUBLISHED)">
           <RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存并生成静态页' }}
         </button>
       </template>
@@ -756,10 +757,10 @@ onMounted(async () => {
             <div v-else class="grid grid-cols-2 gap-4">
               <template v-for="row in dynamicAttrs" :key="row.key">
                 <!-- select -->
-                <div v-if="row.def.type === 'select'">
+                <div v-if="row.def.type === AttributeDefType.SELECT">
                   <label class="field-label">
                     {{ row.def.label }}
-                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </label>
                   <select class="field" :value="attrSingle(row.key)" @change="setAttrSingle(row.key, ($event.target as HTMLSelectElement).value)">
@@ -770,20 +771,20 @@ onMounted(async () => {
                 </div>
 
                 <!-- text -->
-                <div v-else-if="row.def.type === 'text'">
+                <div v-else-if="row.def.type === AttributeDefType.TEXT">
                   <label class="field-label">
                     {{ row.def.label }}
-                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </label>
                   <input class="field" :value="attrSingle(row.key)" maxlength="255" :placeholder="row.def.label" @input="setAttrSingle(row.key, ($event.target as HTMLInputElement).value)" />
                 </div>
 
                 <!-- toggle -->
-                <div v-else-if="row.def.type === 'toggle'" class="flex items-center justify-between rounded-luxe border border-line px-4 py-3">
+                <div v-else-if="row.def.type === AttributeDefType.TOGGLE" class="flex items-center justify-between rounded-luxe border border-line px-4 py-3">
                   <p class="text-[13px] font-medium text-ink">
                     {{ row.def.label }}
-                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </p>
                   <Toggle :model-value="attrToggle(row.key)" @update:model-value="setAttrToggle(row.key, $event)" />
@@ -793,7 +794,7 @@ onMounted(async () => {
                 <div v-else class="col-span-2">
                   <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">
                     {{ row.def.label }}（可多选）
-                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </p>
                   <div class="flex flex-wrap gap-2">
@@ -1188,8 +1189,8 @@ onMounted(async () => {
         <div class="panel flex items-center justify-between px-6 py-4">
           <p class="text-[12px] text-ink-faint">所有区块已展开，可任意编辑后一次保存。</p>
           <div class="flex items-center gap-2">
-            <button class="btn-outline" :disabled="saving" @click="save('draft')">保存草稿</button>
-            <button class="btn-gold" :disabled="saving" @click="save('published')">
+            <button class="btn-outline" :disabled="saving" @click="save(ProductStatus.DRAFT)">保存草稿</button>
+            <button class="btn-gold" :disabled="saving" @click="save(ProductStatus.PUBLISHED)">
               <RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存并生成静态页' }}
             </button>
           </div>

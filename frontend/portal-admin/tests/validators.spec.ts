@@ -18,6 +18,8 @@ import {
   dateToStartOfDay,
   dateToEndOfDay,
 } from '@/utils/validators'
+import { CarrierStatus, ContentStatus, CouponType, ProductStatus } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 describe('validateProductForm（FORM-CAT-A01 预校验）', () => {
   const valid = {
@@ -61,18 +63,18 @@ describe('validateProductForm（FORM-CAT-A01 预校验）', () => {
 
 describe('validateCouponForm（FORM-MKT-A01 / DEC-MKT-4）', () => {
   it('value 按 type 校验', () => {
-    expect(validateCouponValue('discount', '15% OFF')).toBeNull()
-    expect(validateCouponValue('discount', '$50 OFF')).toBeTruthy()
-    expect(validateCouponValue('fixed_amount', '$50 OFF')).toBeNull()
-    expect(validateCouponValue('fixed_amount', '50 OFF')).toBeTruthy()
-    expect(validateCouponValue('free_shipping', 'Free Shipping')).toBeNull()
+    expect(validateCouponValue(CouponType.DISCOUNT, '15% OFF')).toBeNull()
+    expect(validateCouponValue(CouponType.DISCOUNT, '$50 OFF')).toBeTruthy()
+    expect(validateCouponValue(CouponType.FIXED_AMOUNT, '$50 OFF')).toBeNull()
+    expect(validateCouponValue(CouponType.FIXED_AMOUNT, '50 OFF')).toBeTruthy()
+    expect(validateCouponValue(CouponType.FREE_SHIPPING, 'Free Shipping')).toBeNull()
   })
 
   it('end > start js_guard', () => {
     const errors = validateCouponForm({
       code: 'WELCOME15',
       name: 'n',
-      type: 'discount',
+      type: CouponType.DISCOUNT,
       value: '15% OFF',
       startAt: '2026-06-10T10:00',
       endAt: '2026-06-09T10:00',
@@ -81,10 +83,10 @@ describe('validateCouponForm（FORM-MKT-A01 / DEC-MKT-4）', () => {
   })
 
   it('券码 pattern（大写/数字/-_，2~32；小写输入自动归一不报错）', () => {
-    expect(validateCouponForm({ code: 'BAD CODE!', name: 'n', type: 'discount', value: '15% OFF' }).code).toBeTruthy()
-    expect(validateCouponForm({ code: 'X', name: 'n', type: 'discount', value: '15% OFF' }).code).toBeTruthy()
-    expect(validateCouponForm({ code: 'ok-code', name: 'n', type: 'discount', value: '15% OFF' }).code).toBeUndefined()
-    expect(validateCouponForm({ code: 'OK-CODE_1', name: 'n', type: 'discount', value: '15% OFF' }).code).toBeUndefined()
+    expect(validateCouponForm({ code: 'BAD CODE!', name: 'n', type: CouponType.DISCOUNT, value: '15% OFF' }).code).toBeTruthy()
+    expect(validateCouponForm({ code: 'X', name: 'n', type: CouponType.DISCOUNT, value: '15% OFF' }).code).toBeTruthy()
+    expect(validateCouponForm({ code: 'ok-code', name: 'n', type: CouponType.DISCOUNT, value: '15% OFF' }).code).toBeUndefined()
+    expect(validateCouponForm({ code: 'OK-CODE_1', name: 'n', type: CouponType.DISCOUNT, value: '15% OFF' }).code).toBeUndefined()
   })
 })
 
@@ -105,8 +107,8 @@ describe('validateFlashSaleForm / validateBannerForm / validateBlogForm', () => 
   })
 
   it('Blog published 时 slug 必填（FORM-MKT-A04 预判）', () => {
-    expect(validateBlogForm({ title: 't', slug: '', status: 'published' }).slug).toBe('发布前需填写 slug')
-    expect(validateBlogForm({ title: 't', slug: '', status: 'draft' }).slug).toBeUndefined()
+    expect(validateBlogForm({ title: 't', slug: '', status: ContentStatus.PUBLISHED }).slug).toBe('发布前需填写 slug')
+    expect(validateBlogForm({ title: 't', slug: '', status: ContentStatus.DRAFT }).slug).toBeUndefined()
   })
 })
 
@@ -144,9 +146,9 @@ describe('trading 校验（FORM-TRD-A01/A02/A04/A05）', () => {
 
 describe('shipping 校验（V-SHP-003~010 镜像）', () => {
   it('承运方 name ≤64 必填、status 枚举', () => {
-    expect(validateCarrierForm({ name: '', status: 'enabled' }).name).toBeTruthy()
-    expect(validateCarrierForm({ name: 'FedEx', status: 'bad' }).status).toBeTruthy()
-    expect(validateCarrierForm({ name: 'FedEx', status: 'enabled' })).toEqual({})
+    expect(validateCarrierForm({ name: '', status: CarrierStatus.ENABLED }).name).toBeTruthy()
+    expect(validateCarrierForm({ name: 'FedEx', status: 99 }).status).toBeTruthy()
+    expect(validateCarrierForm({ name: 'FedEx', status: CarrierStatus.ENABLED })).toEqual({})
   })
 
   it('规则行 zone 必填、费用两位小数', () => {
@@ -161,7 +163,15 @@ describe('分页/筛选参数纯函数', () => {
     expect(normalizeFilter('all')).toBeUndefined()
     expect(normalizeFilter('')).toBeUndefined()
     expect(normalizeFilter(null)).toBeUndefined()
-    expect(normalizeFilter('published')).toBe('published')
+    expect(normalizeFilter('USD')).toBe('USD')
+  })
+
+  it("normalizeEnumFilter：'all'/空 → undefined（不传参=后端全部语义），整数透传", () => {
+    expect(normalizeEnumFilter('all')).toBeUndefined()
+    expect(normalizeEnumFilter('')).toBeUndefined()
+    expect(normalizeEnumFilter(null)).toBeUndefined()
+    expect(normalizeEnumFilter(undefined)).toBeUndefined()
+    expect(normalizeEnumFilter(ProductStatus.PUBLISHED)).toBe(ProductStatus.PUBLISHED)
   })
 
   it('datetime-local 补秒 / date 起止扩展', () => {

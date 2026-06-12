@@ -2,6 +2,7 @@
 // 纯函数无副作用，Vitest 可测（任务产出要求：表单校验单测）
 
 import { BizError } from '@/api/client'
+import { CarrierStatus, ContentStatus, CouponType } from '@/api/types'
 
 export type FieldErrors = Record<string, string>
 
@@ -81,19 +82,19 @@ export function validateProductForm(form: {
 export const COUPON_CODE_PATTERN = /^[A-Z0-9_-]{2,32}$/
 
 /** value 按 type 校验（DEC-MKT-4：discount→'15% OFF' 型，fixed_amount→'$50 OFF' 型，free_shipping 任意 ≤32） */
-export function validateCouponValue(type: string, value: string): string | null {
+export function validateCouponValue(type: number | null | undefined, value: string): string | null {
   const v = (value || '').trim()
   if (!v) return '面额必填'
   if (v.length > 32) return '不超过 32 字符'
-  if (type === 'discount' && !/^\d{1,2}%/.test(v)) return "折扣类格式如 '15% OFF'"
-  if (type === 'fixed_amount' && !/^\$\d+/.test(v)) return "满减类格式如 '$50 OFF'"
+  if (type === CouponType.DISCOUNT && !/^\d{1,2}%/.test(v)) return "折扣类格式如 '15% OFF'"
+  if (type === CouponType.FIXED_AMOUNT && !/^\$\d+/.test(v)) return "满减类格式如 '$50 OFF'"
   return null
 }
 
 export function validateCouponForm(form: {
   code?: string | null
   name?: string | null
-  type?: string | null
+  type?: number | null
   value?: string | null
   startAt?: string | null
   endAt?: string | null
@@ -104,7 +105,7 @@ export function validateCouponForm(form: {
   else if (!COUPON_CODE_PATTERN.test(code)) errors.code = '仅支持大写字母、数字、-、_（2~32 位）'
   if (!form.name?.trim()) errors.name = '名称必填'
   if (!form.type) errors.type = '请选择类型'
-  const valueError = validateCouponValue(form.type || '', form.value || '')
+  const valueError = validateCouponValue(form.type, form.value || '')
   if (valueError) errors.value = valueError
   if (form.startAt && form.endAt && form.endAt <= form.startAt) errors.endAt = '结束时间需晚于开始时间'
   return errors
@@ -128,7 +129,7 @@ export function validateFlashSaleForm(form: {
 export function validateBannerForm(form: {
   name?: string | null
   imageUrl?: string | null
-  position?: string | null
+  position?: number | null
   startTime?: string | null
   endTime?: string | null
 }): FieldErrors {
@@ -146,13 +147,13 @@ export function validateBannerForm(form: {
 export function validateBlogForm(form: {
   title?: string | null
   slug?: string | null
-  status?: string | null
+  status?: number | null
 }): FieldErrors {
   const errors: FieldErrors = {}
   if (!form.title?.trim()) errors.title = '标题必填'
   const slug = (form.slug || '').trim()
   if (slug && !SLUG_PATTERN.test(slug)) errors.slug = 'slug 仅支持小写字母、数字与中划线'
-  if (form.status === 'published' && !slug) errors.slug = '发布前需填写 slug'
+  if (form.status === ContentStatus.PUBLISHED && !slug) errors.slug = '发布前需填写 slug'
   return errors
 }
 
@@ -217,7 +218,7 @@ export function validateCarrierForm(form: {
   name?: string | null
   zones?: string | null
   leadTime?: string | null
-  status?: string | null
+  status?: number | null
 }): FieldErrors {
   const errors: FieldErrors = {}
   const name = (form.name || '').trim()
@@ -225,7 +226,7 @@ export function validateCarrierForm(form: {
   else if (name.length > 64) errors.name = '不超过 64 字符'
   if ((form.zones || '').length > 255) errors.zones = '不超过 255 字符'
   if ((form.leadTime || '').length > 64) errors.leadTime = '不超过 64 字符'
-  if (form.status !== 'enabled' && form.status !== 'disabled') errors.status = '请选择状态'
+  if (form.status !== CarrierStatus.ENABLED && form.status !== CarrierStatus.DISABLED) errors.status = '请选择状态'
   return errors
 }
 
@@ -260,6 +261,12 @@ export function normalizeFilter(value: string | number | null | undefined): stri
   const s = String(value).trim()
   if (!s || s === 'all') return undefined
   return s
+}
+
+/** 整数枚举筛选：'all' 哨兵/空值转 undefined（后端 null=全部语义，「全部」不传该参数） */
+export function normalizeEnumFilter<T extends number>(value: T | 'all' | '' | null | undefined): T | undefined {
+  if (value == null || value === '' || value === 'all') return undefined
+  return value
 }
 
 /** datetime-local（YYYY-MM-DDTHH:mm）→ 后端 LocalDateTime ISO（补秒） */

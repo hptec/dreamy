@@ -2,8 +2,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ordersApi } from '@/api'
-import type { AdminOrderDetail, AdminOrderListItem } from '@/api/types'
-import { dateToEndOfDay, dateToStartOfDay, normalizeFilter } from '@/utils/validators'
+import type { AdminOrderDetail, AdminOrderListItem, OrderStatus } from '@/api/types'
+import { dateToEndOfDay, dateToStartOfDay, normalizeEnumFilter, normalizeFilter } from '@/utils/validators'
 
 export const useOrdersStore = defineStore('orders', () => {
   const list = ref<AdminOrderListItem[]>([])
@@ -12,7 +12,7 @@ export const useOrdersStore = defineStore('orders', () => {
   const pageSize = ref(10)
   const loading = ref(false)
 
-  const status = ref('all')
+  const status = ref<OrderStatus | 'all'>('all')
   const search = ref('')
   const currency = ref('all')
   const from = ref('')
@@ -27,7 +27,7 @@ export const useOrdersStore = defineStore('orders', () => {
       const res = await ordersApi.listOrders({
         page: page.value,
         pageSize: pageSize.value,
-        status: normalizeFilter(status.value),
+        status: normalizeEnumFilter(status.value),
         search: search.value.trim() || undefined,
         currency: normalizeFilter(currency.value),
         from: dateToStartOfDay(from.value),
@@ -61,7 +61,7 @@ export const useOrdersStore = defineStore('orders', () => {
     exporting.value = true
     try {
       return await ordersApi.exportOrders({
-        status: normalizeFilter(status.value),
+        status: normalizeEnumFilter(status.value),
         search: search.value.trim() || undefined,
         currency: normalizeFilter(currency.value),
         from: dateToStartOfDay(from.value),
@@ -89,7 +89,7 @@ export const useOrdersStore = defineStore('orders', () => {
   }
 
   /** COMP-TRD-A05：确认完成 / 取消订单 */
-  async function patchStatus(id: number, statusValue: string) {
+  async function patchStatus(id: number, statusValue: OrderStatus) {
     detail.value = await ordersApi.patchOrderStatus(id, statusValue)
     return detail.value
   }

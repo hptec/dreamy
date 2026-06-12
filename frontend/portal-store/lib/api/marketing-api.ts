@@ -4,7 +4,7 @@
  */
 
 import { request } from './client'
-import type { CouponValidateResponse, StoreLookbook } from './store-types'
+import type { CouponValidateResponse, NewsletterSource, StoreLookbook } from './store-types'
 
 /** E-MKT-07 Lookbook 详情（COMP-MKT-S07 卡片展开取关联商品） */
 export function getStoreLookbook(id: number): Promise<StoreLookbook> {
@@ -20,10 +20,10 @@ export function validateCoupon(code: string, subtotal: number): Promise<CouponVa
   })
 }
 
-/** E-MKT-11 Newsletter 订阅（决策 26 纯订阅确认；source=footer/modal/exit_intent） */
+/** E-MKT-11 Newsletter 订阅（决策 26 纯订阅确认；source=NewsletterSource 整数枚举） */
 export async function subscribeNewsletter(
   email: string,
-  source: 'footer' | 'modal' | 'exit_intent',
+  source: NewsletterSource,
   locale: 'en' | 'es' | 'fr'
 ): Promise<boolean> {
   const res = await request<{ subscribed: boolean }>('/api/store/newsletter', {

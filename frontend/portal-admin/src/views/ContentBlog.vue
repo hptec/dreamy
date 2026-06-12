@@ -15,6 +15,7 @@ import { formatDate } from '@/utils/format'
 import {
   PlusIcon, PencilSquareIcon, TrashIcon, RocketLaunchIcon, EyeIcon, ArchiveBoxArrowDownIcon, MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline'
+import { ContentStatus } from '@/api/types'
 import type { BlogPost } from '@/api/types'
 
 const store = useBlogStore()
@@ -28,19 +29,19 @@ const STORE_BASE = import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173
 
 const tabs = [
   ['all', '全部'],
-  ['published', '已发布'],
-  ['draft', '草稿'],
-  ['archived', '已归档'], // 与 API status 枚举对齐（显式标注）
+  [ContentStatus.PUBLISHED, '已发布'],
+  [ContentStatus.DRAFT, '草稿'],
+  [ContentStatus.ARCHIVED, '已归档'], // 与 API status 枚举对齐（显式标注）
 ] as const
 
-const statusTone: Record<string, string> = { published: 'ok', draft: 'neutral', archived: 'neutral' }
-const statusLabel: Record<string, string> = { published: '已发布', draft: '草稿', archived: '已归档' }
+const statusTone: Record<number, string> = { [ContentStatus.PUBLISHED]: 'ok', [ContentStatus.DRAFT]: 'neutral', [ContentStatus.ARCHIVED]: 'neutral' }
+const statusLabel: Record<number, string> = { [ContentStatus.PUBLISHED]: '已发布', [ContentStatus.DRAFT]: '草稿', [ContentStatus.ARCHIVED]: '已归档' }
 
 function load() {
   store.fetch().catch((e) => toast.error(e instanceof BizError ? e.message : '加载文章失败'))
 }
 
-function selectTab(k: string) {
+function selectTab(k: ContentStatus | 'all') {
   store.filterStatus = k
   store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
 }
@@ -81,7 +82,7 @@ async function publish(p: BlogPost) {
     return
   }
   try {
-    await store.patchStatus(p.id, 'published')
+    await store.patchStatus(p.id, ContentStatus.PUBLISHED)
     toast.success('文章已发布，已触发缓存失效链')
   } catch (e) {
     if (e instanceof BizError && e.code === 422704) {
@@ -95,7 +96,7 @@ async function publish(p: BlogPost) {
 
 async function archive(p: BlogPost) {
   try {
-    await store.patchStatus(p.id, 'archived')
+    await store.patchStatus(p.id, ContentStatus.ARCHIVED)
     toast.success('文章已下线，已触发缓存失效链')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
@@ -159,8 +160,8 @@ onMounted(load)
           <div class="mt-3 flex items-center gap-1 border-t border-line pt-3">
             <button class="btn-ghost" @click="openEdit(p)"><PencilSquareIcon class="h-4 w-4" />编辑</button>
             <button class="btn-ghost disabled:opacity-40" :disabled="!p.slug" :title="p.slug ? '前台预览' : '需先填写 slug'" @click="preview(p)"><EyeIcon class="h-4 w-4" />预览</button>
-            <button v-if="p.status === 'draft'" class="btn-ghost text-gold-deep" @click="publish(p)"><RocketLaunchIcon class="h-4 w-4" />发布</button>
-            <button v-else-if="p.status === 'published'" class="btn-ghost" @click="archive(p)"><ArchiveBoxArrowDownIcon class="h-4 w-4" />下线</button>
+            <button v-if="p.status === ContentStatus.DRAFT" class="btn-ghost text-gold-deep" @click="publish(p)"><RocketLaunchIcon class="h-4 w-4" />发布</button>
+            <button v-else-if="p.status === ContentStatus.PUBLISHED" class="btn-ghost" @click="archive(p)"><ArchiveBoxArrowDownIcon class="h-4 w-4" />下线</button>
             <button v-else class="btn-ghost text-gold-deep" @click="publish(p)"><RocketLaunchIcon class="h-4 w-4" />重新发布</button>
             <button class="btn-danger-ghost ml-auto" @click="confirm = p"><TrashIcon class="h-4 w-4" /></button>
           </div>

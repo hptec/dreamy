@@ -22,6 +22,7 @@ vi.mock('@/api', () => ({
 }))
 
 import { useProductsStore } from '@/stores/products'
+import { ProductStatus } from '@/api/types'
 import type { AdminProductListItem } from '@/api/types'
 
 function pageOf(data: AdminProductListItem[], total = data.length) {
@@ -34,7 +35,7 @@ const row = (): AdminProductListItem => ({
   slug: 'gown',
   categoryId: 1,
   price: 100,
-  status: 'draft',
+  status: ProductStatus.DRAFT,
   isNew: false,
   recommend: false,
   sort: 0,
@@ -76,14 +77,14 @@ describe('useProductsStore', () => {
     const r = row()
     store.list = [r]
     toggleProductStatus.mockRejectedValue(new Error('boom'))
-    await expect(store.toggleStatus(r, 'published')).rejects.toThrow('boom')
-    expect(r.status).toBe('draft') // 回滚
+    await expect(store.toggleStatus(r, ProductStatus.PUBLISHED)).rejects.toThrow('boom')
+    expect(r.status).toBe(ProductStatus.DRAFT) // 回滚
   })
 
   it('toggleStatus 同态幂等：不再发请求', async () => {
     const store = useProductsStore()
     const r = row()
-    await store.toggleStatus(r, 'draft')
+    await store.toggleStatus(r, ProductStatus.DRAFT)
     expect(toggleProductStatus).not.toHaveBeenCalled()
   })
 
@@ -135,12 +136,12 @@ describe('useProductsStore', () => {
   it('exportCsv 带筛选条件透传 + 截断标记透传（FORM-CAT-P02/ALIGN-007）', async () => {
     exportProducts.mockResolvedValue({ truncated: true })
     const store = useProductsStore()
-    store.filterStatus = 'published'
+    store.filterStatus = ProductStatus.PUBLISHED
     store.filterCategoryId = 7
     store.search = ' Grace '
     const res = await store.exportCsv()
     expect(exportProducts).toHaveBeenCalledWith({
-      status: 'published',
+      status: ProductStatus.PUBLISHED,
       categoryId: 7,
       search: 'Grace',
     })

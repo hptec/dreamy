@@ -13,7 +13,8 @@ import type {
   ShowroomMember,
   ShowroomSummary,
   ShowroomUpsert,
-  VoteResult
+  VoteResult,
+  VoteValue
 } from './store-types'
 
 export async function listShowrooms(): Promise<ShowroomSummary[]> {
@@ -76,7 +77,7 @@ export function removeShowroomItem(id: number, itemId: number): Promise<void> {
 export function voteShowroomItem(
   id: number,
   itemId: number,
-  vote: 'like' | 'dislike',
+  vote: VoteValue,
   opts: { guestToken?: string } = {}
 ): Promise<VoteResult> {
   return request<VoteResult>(`/api/store/showrooms/${id}/items/${itemId}/vote`, {

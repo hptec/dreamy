@@ -23,7 +23,8 @@ import {
   PlusIcon, Bars3Icon, PencilSquareIcon, TrashIcon, ChevronRightIcon, TagIcon, XMarkIcon,
   ExclamationTriangleIcon, SwatchIcon,
 } from '@heroicons/vue/24/outline'
-import type { AdminCategoryNode, AttrVisibility, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
+import { AttrVisibility, AttributeDefType, TagStatus } from '@/api/types'
+import type { AdminCategoryNode, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
 
 const categories = useCategoriesStore()
 const attributes = useAttributeStore()
@@ -49,19 +50,23 @@ function load() {
 
 /* ===================== Tab 1：品类树 ===================== */
 
-const STATES: AttrVisibility[] = ['visible', 'optional', 'hidden']
-const STATE_LABELS: Record<AttrVisibility, string> = { visible: '必填', optional: '可选', hidden: '隐藏' }
+const STATES: AttrVisibility[] = [AttrVisibility.VISIBLE, AttrVisibility.OPTIONAL, AttrVisibility.HIDDEN]
+const STATE_LABELS: Record<AttrVisibility, string> = {
+  [AttrVisibility.VISIBLE]: '必填',
+  [AttrVisibility.OPTIONAL]: '可选',
+  [AttrVisibility.HIDDEN]: '隐藏',
+}
 const STATE_CLASSES: Record<AttrVisibility, string> = {
-  visible: 'bg-gold/15 text-gold-deep',
-  optional: 'bg-info/10 text-info',
-  hidden: 'bg-canvas-warm text-ink-faint',
+  [AttrVisibility.VISIBLE]: 'bg-gold/15 text-gold-deep',
+  [AttrVisibility.OPTIONAL]: 'bg-info/10 text-info',
+  [AttrVisibility.HIDDEN]: 'bg-canvas-warm text-ink-faint',
 }
 
 function attrSetInfo(setId: number | null) {
   if (setId == null) return null
   const set = attributes.sets.find((s) => s.id === setId)
   if (!set) return null
-  return { label: set.label, count: set.items.filter((i) => i.visibility !== 'hidden').length }
+  return { label: set.label, count: set.items.filter((i) => i.visibility !== AttrVisibility.HIDDEN).length }
 }
 
 /** FORM-CAT-A03：canDelete 预判（product_count===0 且无子级；后端 409502 兜底） */
@@ -86,7 +91,7 @@ const drawerFilled = computed(() => ({
 }))
 
 /** 仅展示有选项/toggle 的属性（原型同口径） */
-const editableAttrs = computed(() => attributes.defs.filter((a) => a.type !== 'text'))
+const editableAttrs = computed(() => attributes.defs.filter((a) => a.type !== AttributeDefType.TEXT))
 
 function openDrawer(node: AdminCategoryNode, parent: AdminCategoryNode | null) {
   drawer.value = { node, parent }
@@ -106,7 +111,7 @@ function openDrawer(node: AdminCategoryNode, parent: AdminCategoryNode | null) {
 }
 
 function cycleDrawerState(key: string) {
-  const cur = drawerAttrs.value[key] || 'hidden'
+  const cur = drawerAttrs.value[key] || AttrVisibility.HIDDEN
   drawerAttrs.value = { ...drawerAttrs.value, [key]: STATES[(STATES.indexOf(cur) + 1) % STATES.length] }
 }
 
@@ -115,7 +120,7 @@ function isInherited(key: string): boolean {
   const parent = drawer.value?.parent
   if (!node || !parent) return true
   const base = attributes.setAttrs(parent.attributeSetId)
-  return (drawerAttrs.value[key] || 'hidden') === (base[key] || 'hidden')
+  return (drawerAttrs.value[key] || AttrVisibility.HIDDEN) === (base[key] || AttrVisibility.HIDDEN)
 }
 
 function buildDrawerTranslations(): CategoryTranslation[] {
@@ -140,7 +145,7 @@ async function saveDrawer() {
       const base = attributes.setAttrs(parent.attributeSetId)
       const delta: Record<string, AttrVisibility> = {}
       for (const key of Object.keys(drawerAttrs.value)) {
-        if ((drawerAttrs.value[key] || 'hidden') !== (base[key] || 'hidden')) delta[key] = drawerAttrs.value[key]
+        if ((drawerAttrs.value[key] || AttrVisibility.HIDDEN) !== (base[key] || AttrVisibility.HIDDEN)) delta[key] = drawerAttrs.value[key]
       }
       await categories.update(node.id, {
         name: drawerName.value.trim(),
@@ -270,7 +275,7 @@ function openCatSetDrawer(cat: AdminCategoryNode) {
 }
 
 function cycleSetDrawerState(key: string) {
-  const cur = setDrawerAttrs.value[key] || 'hidden'
+  const cur = setDrawerAttrs.value[key] || AttrVisibility.HIDDEN
   setDrawerAttrs.value = { ...setDrawerAttrs.value, [key]: STATES[(STATES.indexOf(cur) + 1) % STATES.length] }
 }
 
@@ -287,7 +292,7 @@ async function saveSetDrawer() {
     const editableIds = new Set(editableAttrs.value.map((d) => d.id))
     const preserved = (setDrawer.value.set?.items || []).filter((i) => !editableIds.has(i.attributeId))
     const edited = editableAttrs.value
-      .filter((d) => (setDrawerAttrs.value[d.key] || 'hidden') !== 'hidden')
+      .filter((d) => (setDrawerAttrs.value[d.key] || AttrVisibility.HIDDEN) !== AttrVisibility.HIDDEN)
       .map((d) => ({ attributeId: d.id, visibility: setDrawerAttrs.value[d.key] }))
     await attributes.saveSet({ label, items: [...preserved, ...edited] }, setDrawer.value.set?.id)
     toast.success('属性集已保存')
@@ -398,7 +403,7 @@ async function confirmSaveTag() {
         dimensionId: editing?.dimensionId ?? activeTagDim.value,
         name: v,
         cover: tagCover.value || null,
-        status: editing?.status ?? 'enabled',
+        status: editing?.status ?? TagStatus.ENABLED,
         translations: editing?.translations || [],
       },
       editing?.id,
@@ -420,7 +425,7 @@ async function toggleTag(t: Tag, on: boolean) {
         dimensionId: t.dimensionId,
         name: t.name,
         cover: t.cover,
-        status: on ? 'enabled' : 'disabled',
+        status: on ? TagStatus.ENABLED : TagStatus.DISABLED,
         translations: t.translations || [],
       },
       t.id,
@@ -614,7 +619,7 @@ onMounted(() => {
           <div class="flex items-center justify-between p-3">
             <span class="text-[12px] text-ink-faint">{{ t.productCount ?? 0 }} 件</span>
             <div class="flex items-center gap-2">
-              <Toggle :model-value="t.status === 'enabled'" @update:model-value="toggleTag(t, $event)" />
+              <Toggle :model-value="t.status === TagStatus.ENABLED" @update:model-value="toggleTag(t, $event)" />
               <button class="btn-ghost" @click="openTagModal(t)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
               <button class="btn-danger-ghost" @click="confirmDeleteTag = t"><TrashIcon class="h-3.5 w-3.5" /></button>
             </div>
@@ -766,9 +771,9 @@ onMounted(() => {
                     </div>
                     <button
                       class="min-w-[3.5rem] rounded px-2.5 py-1 text-[11px] font-medium transition-colors"
-                      :class="STATE_CLASSES[drawerAttrs[attr.key] || 'hidden']"
+                      :class="STATE_CLASSES[drawerAttrs[attr.key] || AttrVisibility.HIDDEN]"
                       @click="cycleDrawerState(attr.key)"
-                    >{{ STATE_LABELS[drawerAttrs[attr.key] || 'hidden'] }}</button>
+                    >{{ STATE_LABELS[drawerAttrs[attr.key] || AttrVisibility.HIDDEN] }}</button>
                   </div>
                 </div>
               </template>
@@ -832,9 +837,9 @@ onMounted(() => {
                 <span class="text-[13px] text-ink">{{ attr.label }}</span>
                 <button
                   class="min-w-[3.5rem] rounded px-2.5 py-1 text-[11px] font-medium transition-colors"
-                  :class="STATE_CLASSES[setDrawerAttrs[attr.key] || 'hidden']"
+                  :class="STATE_CLASSES[setDrawerAttrs[attr.key] || AttrVisibility.HIDDEN]"
                   @click="cycleSetDrawerState(attr.key)"
-                >{{ STATE_LABELS[setDrawerAttrs[attr.key] || 'hidden'] }}</button>
+                >{{ STATE_LABELS[setDrawerAttrs[attr.key] || AttrVisibility.HIDDEN] }}</button>
               </div>
             </div>
             <p v-if="setDrawerError" class="mt-3 text-[11px] text-danger">{{ setDrawerError }}</p>

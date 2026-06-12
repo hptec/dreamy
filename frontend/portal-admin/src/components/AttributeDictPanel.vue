@@ -12,10 +12,19 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { ATTR_KEY_PATTERN, extractFieldErrors, type FieldErrors } from '@/utils/validators'
 import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import type { AttributeDef, AttributeDefTranslation, AttributeDefType } from '@/api/types'
+import { AttributeDefType } from '@/api/types'
+import type { AttributeDef, AttributeDefTranslation } from '@/api/types'
 
 const store = useAttributeStore()
 const toast = useToastStore()
+
+/** 类型徽章/提示文案（整数契约后由前端映射回可读名） */
+const TYPE_LABELS: Record<number, string> = {
+  [AttributeDefType.SELECT]: 'select',
+  [AttributeDefType.MULTISELECT]: 'multiselect',
+  [AttributeDefType.TEXT]: 'text',
+  [AttributeDefType.TOGGLE]: 'toggle',
+}
 
 function bizMsg(e: unknown, fallback: string): string {
   return e instanceof BizError ? e.message : fallback
@@ -76,7 +85,7 @@ function confirmEdit(def: AttributeDef) {
 const defDrawer = ref(false)
 const editingDef = ref<AttributeDef | null>(null)
 const defLocale = ref<'en' | 'es' | 'fr'>('en')
-const defForm = ref({ key: '', label: '', type: 'select' as AttributeDefType, optionsText: '' })
+const defForm = ref({ key: '', label: '', type: AttributeDefType.SELECT as AttributeDefType, optionsText: '' })
 const defTrans = ref<Record<'es' | 'fr', { label: string; optionsText: string }>>({
   es: { label: '', optionsText: '' },
   fr: { label: '', optionsText: '' },
@@ -96,7 +105,7 @@ function openDefDrawer(def?: AttributeDef) {
   defErrors.value = {}
   defForm.value = def
     ? { key: def.key, label: def.label, type: def.type, optionsText: (def.options || []).join('\n') }
-    : { key: '', label: '', type: 'select', optionsText: '' }
+    : { key: '', label: '', type: AttributeDefType.SELECT, optionsText: '' }
   const byLocale = (l: 'es' | 'fr') => def?.translations?.find((t) => t.locale === l)
   defTrans.value = {
     es: { label: byLocale('es')?.label || '', optionsText: (byLocale('es')?.options || []).join('\n') },
@@ -199,19 +208,19 @@ async function doDeleteDef() {
             <span class="text-[13px] font-medium text-ink">{{ attr.label }}</span>
             <span
               class="ml-2 rounded px-1.5 py-0.5 text-[10px]"
-              :class="attr.type === 'select' ? 'bg-gold/10 text-gold-deep' : attr.type === 'multiselect' ? 'bg-info/10 text-info' : 'bg-canvas-warm text-ink-faint'"
-            >{{ attr.type }}</span>
+              :class="attr.type === AttributeDefType.SELECT ? 'bg-gold/10 text-gold-deep' : attr.type === AttributeDefType.MULTISELECT ? 'bg-info/10 text-info' : 'bg-canvas-warm text-ink-faint'"
+            >{{ TYPE_LABELS[attr.type] }}</span>
             <span class="ml-2 font-mono text-[10px] text-ink-faint">{{ attr.key }}</span>
           </div>
           <span v-if="optionsOf(attr).length" class="text-[12px] text-ink-faint">{{ optionsOf(attr).length }} 个选项</span>
-          <span v-else class="text-[12px] italic text-ink-faint">无选项（{{ attr.type }}）</span>
+          <span v-else class="text-[12px] italic text-ink-faint">无选项（{{ TYPE_LABELS[attr.type] }}）</span>
           <button class="btn-ghost" @click.stop="openDefDrawer(attr)"><PencilSquareIcon class="h-4 w-4" /></button>
           <button class="btn-danger-ghost" @click.stop="confirmDeleteDef = attr"><TrashIcon class="h-4 w-4" /></button>
           <svg class="h-4 w-4 text-ink-faint transition-transform" :class="expanded === attr.id ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor"><path d="M5 7l5 5 5-5" /></svg>
         </div>
 
         <!-- 选项展开区 -->
-        <div v-if="expanded === attr.id && (optionsOf(attr).length || attr.type === 'select' || attr.type === 'multiselect')" class="border-t border-line px-4 pb-4 pt-3">
+        <div v-if="expanded === attr.id && (optionsOf(attr).length || attr.type === AttributeDefType.SELECT || attr.type === AttributeDefType.MULTISELECT)" class="border-t border-line px-4 pb-4 pt-3">
           <div class="flex flex-wrap gap-2">
             <span
               v-for="(opt, i) in optionsOf(attr)"
@@ -232,7 +241,7 @@ async function doDeleteDef() {
           <p class="mt-2 text-[11px] text-ink-faint">双击选项可编辑；回车确认，Esc 取消。变更即时保存。</p>
         </div>
         <div v-else-if="expanded === attr.id" class="border-t border-line px-4 py-3 text-[12px] italic text-ink-faint">
-          该属性类型（{{ attr.type }}）无预设选项。
+          该属性类型（{{ TYPE_LABELS[attr.type] }}）无预设选项。
         </div>
       </div>
     </div>
@@ -250,10 +259,10 @@ async function doDeleteDef() {
           <div>
             <label class="field-label">类型</label>
             <select v-model="defForm.type" class="field" :disabled="!!editingDef">
-              <option value="select">select（单选）</option>
-              <option value="multiselect">multiselect（多选）</option>
-              <option value="text">text（文本）</option>
-              <option value="toggle">toggle（开关）</option>
+              <option :value="AttributeDefType.SELECT">select（单选）</option>
+              <option :value="AttributeDefType.MULTISELECT">multiselect（多选）</option>
+              <option :value="AttributeDefType.TEXT">text（文本）</option>
+              <option :value="AttributeDefType.TOGGLE">toggle（开关）</option>
             </select>
           </div>
         </div>
@@ -262,7 +271,7 @@ async function doDeleteDef() {
           <input v-model="defForm.label" class="field" placeholder="如 廓形 / Silhouette" />
           <p v-if="defErrors.label" class="mt-1 text-[11px] text-danger">{{ defErrors.label }}</p>
         </div>
-        <div v-if="defForm.type === 'select' || defForm.type === 'multiselect'">
+        <div v-if="defForm.type === AttributeDefType.SELECT || defForm.type === AttributeDefType.MULTISELECT">
           <label class="field-label">选项（每行一项）</label>
           <textarea v-model="defForm.optionsText" rows="6" class="field resize-y font-mono text-[12px]"></textarea>
         </div>
@@ -272,7 +281,7 @@ async function doDeleteDef() {
           <label class="field-label">名称 label（{{ l.toUpperCase() }}）</label>
           <input v-model="defTrans[l].label" class="field" />
         </div>
-        <div v-if="defForm.type === 'select' || defForm.type === 'multiselect'">
+        <div v-if="defForm.type === AttributeDefType.SELECT || defForm.type === AttributeDefType.MULTISELECT">
           <label class="field-label">选项翻译（每行一项，需与主表等长）</label>
           <textarea v-model="defTrans[l].optionsText" rows="6" class="field resize-y font-mono text-[12px]"></textarea>
           <p v-if="defErrors[l + 'Options']" class="mt-1 text-[11px] text-danger">{{ defErrors[l + 'Options'] }}</p>

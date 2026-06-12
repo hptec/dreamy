@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
+import { NewsletterSource } from '@/lib/api/store-types'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 
@@ -24,13 +25,13 @@ export function NewsletterModal() {
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const sourceRef = useRef<'modal' | 'exit_intent'>('modal')
+  const sourceRef = useRef<NewsletterSource>(NewsletterSource.MODAL)
 
   useEffect(() => {
     if (sessionStorage.getItem(SEEN_KEY)) return
     const t = setTimeout(() => {
       if (!sessionStorage.getItem(SEEN_KEY)) {
-        sourceRef.current = 'modal'
+        sourceRef.current = NewsletterSource.MODAL
         setOpen(true)
       }
     }, 4000)
@@ -38,7 +39,7 @@ export function NewsletterModal() {
     const onLeave = (e: MouseEvent) => {
       if (e.clientY > 8) return
       if (sessionStorage.getItem(SEEN_KEY)) return
-      sourceRef.current = 'exit_intent'
+      sourceRef.current = NewsletterSource.EXIT_INTENT
       setOpen(true)
     }
     document.addEventListener('mouseleave', onLeave)

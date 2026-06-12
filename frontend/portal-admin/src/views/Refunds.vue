@@ -10,6 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { currencySymbol, formatDateTime } from '@/utils/format'
 import { CheckIcon, XMarkIcon, MagnifyingGlassIcon, TruckIcon } from '@heroicons/vue/24/outline'
+import { RefundStatus } from '@/api/types'
 import type { AdminRefund } from '@/api/types'
 
 const store = useRefundsStore()
@@ -17,18 +18,18 @@ const toast = useToastStore()
 
 const tabs = [
   ['all', '全部'],
-  ['pending', '待审批'],
-  ['approved', '已同意'],
-  ['rejected', '已拒绝'],
+  [RefundStatus.PENDING, '待审批'],
+  [RefundStatus.APPROVED, '已同意'],
+  [RefundStatus.REJECTED, '已拒绝'],
 ] as const
-const tone: Record<string, string> = { pending: 'warn', approved: 'ok', rejected: 'danger' }
-const label: Record<string, string> = { pending: '待审批', approved: '已同意', rejected: '已拒绝' }
+const tone: Record<number, string> = { [RefundStatus.PENDING]: 'warn', [RefundStatus.APPROVED]: 'ok', [RefundStatus.REJECTED]: 'danger' }
+const label: Record<number, string> = { [RefundStatus.PENDING]: '待审批', [RefundStatus.APPROVED]: '已同意', [RefundStatus.REJECTED]: '已拒绝' }
 
 function load() {
   store.fetchList().catch((e) => toast.error(e instanceof BizError ? e.message : '加载退款工单失败'))
 }
 
-function selectTab(k: string) {
+function selectTab(k: RefundStatus | 'all') {
   store.status = k
   store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
 }
@@ -184,7 +185,7 @@ onMounted(load)
             <td><StatusBadge :tone="tone[r.status]" :label="label[r.status]" /></td>
             <td>
               <!-- FORM-TRD-R01 / ALIGN-024：行内审批（1:1 原型 L37-40） -->
-              <template v-if="r.status === 'pending'">
+              <template v-if="r.status === RefundStatus.PENDING">
                 <div v-if="rejectingId !== r.id" class="flex items-center justify-end gap-1">
                   <button class="btn-ghost text-ok" :disabled="busyId === r.id" @click="approve(r)"><CheckIcon class="h-4 w-4" />同意</button>
                   <button class="btn-danger-ghost" :disabled="busyId === r.id" @click="startReject(r)"><XMarkIcon class="h-4 w-4" />拒绝</button>
@@ -210,10 +211,10 @@ onMounted(load)
               <!-- COMP-TRD-R01 / ALIGN-025：已处理 + 退款单号/退货单号 -->
               <div v-else class="text-right">
                 <span class="text-[12px] text-ink-faint">已处理</span>
-                <p v-if="r.status === 'approved' && r.stripeRefundId" class="font-mono text-[11px] text-ink-faint">退款单号 {{ r.stripeRefundId }}</p>
+                <p v-if="r.status === RefundStatus.APPROVED && r.stripeRefundId" class="font-mono text-[11px] text-ink-faint">退款单号 {{ r.stripeRefundId }}</p>
                 <p v-if="r.returnTrackingNo" class="font-mono text-[11px] text-ink-faint">退货单号 {{ r.returnTrackingNo }}</p>
                 <!-- 决策 31：登记退货单号入口（已同意未登记，事后补录） -->
-                <button v-if="r.status === 'approved' && !r.returnTrackingNo" class="btn-ghost text-[12px]" @click="openTrackModal(r)">
+                <button v-if="r.status === RefundStatus.APPROVED && !r.returnTrackingNo" class="btn-ghost text-[12px]" @click="openTrackModal(r)">
                   <TruckIcon class="h-3.5 w-3.5" />登记退货单号
                 </button>
               </div>

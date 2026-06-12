@@ -10,6 +10,7 @@ import { useOrdersStore } from '@/stores/orders'
 import { useToastStore } from '@/stores/toast'
 import { shippingApi } from '@/api'
 import { BizError } from '@/api/client'
+import { CarrierStatus, OrderStatus, RefundStatus } from '@/api/types'
 import { extractFieldErrors, validateAdminRefundForm, validateShipForm, type FieldErrors } from '@/utils/validators'
 import { currencySymbol, formatDateTime, formatMoney } from '@/utils/format'
 import {
@@ -25,19 +26,19 @@ const orderId = computed(() => Number(route.params.id))
 const o = computed(() => store.detail)
 const sym = computed(() => currencySymbol(o.value?.currency))
 
-const ORDER_STATUS: Record<string, { tone: string; label: string }> = {
-  pending: { tone: 'warn', label: '待付款' },
-  paid: { tone: 'info', label: '待发货' },
-  shipped: { tone: 'info', label: '已发货' },
-  completed: { tone: 'ok', label: '已完成' },
-  cancelled: { tone: 'neutral', label: '已取消' },
-  refunding: { tone: 'danger', label: '退款中' },
-  refunded: { tone: 'neutral', label: '已退款' },
+const ORDER_STATUS: Record<number, { tone: string; label: string }> = {
+  [OrderStatus.PENDING]: { tone: 'warn', label: '待付款' },
+  [OrderStatus.PAID]: { tone: 'info', label: '待发货' },
+  [OrderStatus.SHIPPED]: { tone: 'info', label: '已发货' },
+  [OrderStatus.COMPLETED]: { tone: 'ok', label: '已完成' },
+  [OrderStatus.CANCELLED]: { tone: 'neutral', label: '已取消' },
+  [OrderStatus.REFUNDING]: { tone: 'danger', label: '退款中' },
+  [OrderStatus.REFUNDED]: { tone: 'neutral', label: '已退款' },
 }
-const REFUND_STATUS: Record<string, { tone: string; label: string }> = {
-  pending: { tone: 'warn', label: '待审批' },
-  approved: { tone: 'ok', label: '已同意' },
-  rejected: { tone: 'danger', label: '已拒绝' },
+const REFUND_STATUS: Record<number, { tone: string; label: string }> = {
+  [RefundStatus.PENDING]: { tone: 'warn', label: '待审批' },
+  [RefundStatus.APPROVED]: { tone: 'ok', label: '已同意' },
+  [RefundStatus.REJECTED]: { tone: 'danger', label: '已拒绝' },
 }
 
 // ===== COMP-TRD-A03 发货面板（carrier 选项 = API 启用承运方枚举） =====
@@ -50,7 +51,7 @@ const shipping = ref(false)
 async function loadCarriers() {
   try {
     const res = await shippingApi.listCarriers()
-    carriers.value = res.items.filter((c) => c.status === 'enabled').map((c) => c.name)
+    carriers.value = res.items.filter((c) => c.status === CarrierStatus.ENABLED).map((c) => c.name)
   } catch {
     carriers.value = []
   }
@@ -129,14 +130,14 @@ async function doRefund() {
 }
 
 // ===== COMP-TRD-A05 完成 / 取消 =====
-const confirmAction = ref<{ status: string; title: string; message: string } | null>(null)
+const confirmAction = ref<{ status: OrderStatus; title: string; message: string } | null>(null)
 const confirmBusy = ref(false)
 
 function askComplete() {
-  confirmAction.value = { status: 'completed', title: '确认完成', message: '确认买家已收货并完成本订单？' }
+  confirmAction.value = { status: OrderStatus.COMPLETED, title: '确认完成', message: '确认买家已收货并完成本订单？' }
 }
 function askCancel() {
-  confirmAction.value = { status: 'cancelled', title: '取消订单', message: '确认取消该待付款订单？取消后买家将无法继续支付。' }
+  confirmAction.value = { status: OrderStatus.CANCELLED, title: '取消订单', message: '确认取消该待付款订单？取消后买家将无法继续支付。' }
 }
 
 async function doStatusPatch() {
@@ -144,7 +145,7 @@ async function doStatusPatch() {
   confirmBusy.value = true
   try {
     await store.patchStatus(orderId.value, confirmAction.value.status)
-    toast.success(confirmAction.value.status === 'completed' ? '订单已完成' : '订单已取消')
+    toast.success(confirmAction.value.status === OrderStatus.COMPLETED ? '订单已完成' : '订单已取消')
     confirmAction.value = null
   } catch (e) {
     if (e instanceof BizError && e.code === 409602) {
@@ -184,11 +185,11 @@ onMounted(() => {
       <template #actions>
         <button class="btn-ghost" @click="router.push('/orders')"><ArrowLeftIcon class="h-4 w-4" />返回</button>
         <!-- COMP-TRD-A05：pending → 取消；paid 不出取消（须走退款） -->
-        <button v-if="o?.status === 'pending'" class="btn-outline" @click="askCancel"><XMarkIcon class="h-4 w-4" />取消订单</button>
-        <button v-if="o && ['paid', 'shipped'].includes(o.status)" class="btn-outline" @click="openRefund"><ArrowUturnLeftIcon class="h-4 w-4" />发起退款</button>
-        <button v-if="o?.status === 'shipped'" class="btn-primary" @click="askComplete"><CheckIcon class="h-4 w-4" />确认完成</button>
+        <button v-if="o?.status === OrderStatus.PENDING" class="btn-outline" @click="askCancel"><XMarkIcon class="h-4 w-4" />取消订单</button>
+        <button v-if="o && ([OrderStatus.PAID, OrderStatus.SHIPPED] as number[]).includes(o.status)" class="btn-outline" @click="openRefund"><ArrowUturnLeftIcon class="h-4 w-4" />发起退款</button>
+        <button v-if="o?.status === OrderStatus.SHIPPED" class="btn-primary" @click="askComplete"><CheckIcon class="h-4 w-4" />确认完成</button>
         <!-- 仅 status=paid 显示「标记发货」（前端预判 + 后端 409602 兜底） -->
-        <button v-if="o?.status === 'paid'" class="btn-primary" @click="openShip"><TruckIcon class="h-4 w-4" />标记发货</button>
+        <button v-if="o?.status === OrderStatus.PAID" class="btn-primary" @click="openShip"><TruckIcon class="h-4 w-4" />标记发货</button>
       </template>
     </PageHeader>
 
@@ -290,7 +291,7 @@ onMounted(() => {
                 <td class="font-mono text-[12px] text-gold-deep">{{ r.refundNo }}</td>
                 <td class="text-right font-medium text-ink">{{ formatMoney(r.amount, r.currency) }}</td>
                 <td class="text-ink-soft">{{ r.reason || '—' }}</td>
-                <td><StatusBadge :tone="REFUND_STATUS[r.status]?.tone || 'neutral'" :label="REFUND_STATUS[r.status]?.label || r.status" /></td>
+                <td><StatusBadge :tone="REFUND_STATUS[r.status]?.tone || 'neutral'" :label="REFUND_STATUS[r.status]?.label || String(r.status)" /></td>
                 <td class="text-[12px] text-ink-faint">{{ formatDateTime(r.appliedAt) }}</td>
               </tr>
             </tbody>
@@ -303,9 +304,9 @@ onMounted(() => {
         <div class="panel p-5">
           <div class="mb-1 flex items-center justify-between">
             <h3 class="font-display text-base font-semibold text-ink">订单状态</h3>
-            <StatusBadge :tone="(ORDER_STATUS[o.status]?.tone as any) || 'neutral'" :label="ORDER_STATUS[o.status]?.label || o.status" />
+            <StatusBadge :tone="(ORDER_STATUS[o.status]?.tone as any) || 'neutral'" :label="ORDER_STATUS[o.status]?.label || String(o.status)" />
           </div>
-          <p v-if="o.status === 'paid'" class="text-[11px] text-ink-faint">已支付订单不可直接取消，如需取消请走退款流程。</p>
+          <p v-if="o.status === OrderStatus.PAID" class="text-[11px] text-ink-faint">已支付订单不可直接取消，如需取消请走退款流程。</p>
           <p v-if="o.weddingDate" class="mt-1 text-[12px] text-ink-soft">婚期：{{ o.weddingDate }}</p>
           <p v-if="o.carrier" class="mt-1 text-[12px] text-ink-soft">承运：{{ o.carrier }}<template v-if="o.trackingNo"> · {{ o.trackingNo }}</template></p>
         </div>
@@ -366,9 +367,9 @@ onMounted(() => {
       :open="!!confirmAction"
       :title="confirmAction?.title || ''"
       :message="confirmAction?.message || ''"
-      :danger="confirmAction?.status === 'cancelled'"
+      :danger="confirmAction?.status === OrderStatus.CANCELLED"
       :busy="confirmBusy"
-      :confirm-text="confirmAction?.status === 'completed' ? '确认完成' : '确认取消'"
+      :confirm-text="confirmAction?.status === OrderStatus.COMPLETED ? '确认完成' : '确认取消'"
       @confirm="doStatusPatch"
       @cancel="confirmAction = null"
     />

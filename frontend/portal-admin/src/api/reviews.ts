@@ -13,7 +13,7 @@ import type {
 export function listReviews(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: ReviewModerationStatus
   rating?: number
   featured?: boolean
   productId?: number

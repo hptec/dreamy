@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Check, Package, Clock } from 'lucide-react'
 import type { StoreOrderDetail } from '@/lib/api/store-types'
+import { OrderStatus } from '@/lib/api/store-types'
 import { getStoreOrder } from '@/lib/api/trading-api'
 import { useCartStore } from '@/lib/stores/cart-store'
 import { trackPurchase } from '@/lib/analytics/gtag'
@@ -43,7 +44,7 @@ function OrderSuccessInner() {
         const o = await getStoreOrder(orderId)
         if (cancelled) return
         setOrder(o)
-        if (o.status !== 'pending') {
+        if (o.status !== OrderStatus.PENDING) {
           setState('paid')
           return
         }

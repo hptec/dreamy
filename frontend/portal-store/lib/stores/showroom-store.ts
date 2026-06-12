@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import * as showroomApi from '../api/showroom-api'
 import { ApiError } from '../api/client'
-import type { ShowroomDetail, ShowroomSummary } from '../api/store-types'
+import type { ShowroomDetail, ShowroomSummary, VoteValue } from '../api/store-types'
 import {
   clearGuestSession,
   isGuestSessionExpired,
@@ -97,7 +97,7 @@ interface ShowroomDetailState {
   resolve: (id: number, inviteToken: string | null) => Promise<void>
   join: (id: number, inviteToken: string, nickname: string) => Promise<void>
   refetch: (id: number) => Promise<void>
-  vote: (itemId: number, vote: 'like' | 'dislike') => Promise<void>
+  vote: (itemId: number, vote: VoteValue) => Promise<void>
   comment: (itemId: number, content: string) => Promise<void>
   addItem: (productId: number, color?: string) => Promise<void>
   removeItem: (itemId: number) => Promise<void>

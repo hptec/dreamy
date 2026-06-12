@@ -14,6 +14,7 @@ import { BizError } from '@/api/client'
 import {
   PlusIcon, PencilSquareIcon, TrashIcon, ShoppingBagIcon, MapPinIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon,
 } from '@heroicons/vue/24/outline'
+import { PublishStatus } from '@/api/types'
 import type { RealWedding } from '@/api/types'
 
 const store = useWeddingsStore()
@@ -30,10 +31,10 @@ function load() {
 
 /** draft↔published 双向流转 */
 async function toggleStatus(w: RealWedding) {
-  const next = w.status === 'published' ? 'draft' : 'published'
+  const next = w.status === PublishStatus.PUBLISHED ? PublishStatus.DRAFT : PublishStatus.PUBLISHED
   try {
     await store.patchStatus(w.id, next)
-    toast.success(next === 'published' ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
+    toast.success(next === PublishStatus.PUBLISHED ? '已发布，已触发缓存失效链' : '已下线，已触发缓存失效链')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '操作失败')
   }
@@ -62,8 +63,8 @@ onMounted(load)
       <template #actions>
         <select v-model="store.statusFilter" class="field w-32" @change="load">
           <option value="all">全部状态</option>
-          <option value="published">已发布</option>
-          <option value="draft">草稿</option>
+          <option :value="PublishStatus.PUBLISHED">已发布</option>
+          <option :value="PublishStatus.DRAFT">草稿</option>
         </select>
         <button class="btn-primary" @click="editing = null; drawer = true"><PlusIcon class="h-4 w-4" />新增婚礼故事</button>
       </template>
@@ -88,15 +89,15 @@ onMounted(load)
                 <p class="flex items-center gap-1 text-[12px] text-ink-soft"><MapPinIcon class="h-3.5 w-3.5" />{{ w.location || '—' }}</p>
                 <p class="text-[11px] text-ink-faint">{{ w.weddingDate || '—' }}</p>
               </div>
-              <StatusBadge :tone="w.status === 'published' ? 'ok' : 'neutral'" :label="w.status === 'published' ? '已发布' : '草稿'" />
+              <StatusBadge :tone="w.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="w.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
             </div>
             <div class="mt-3 flex items-center gap-1 border-t border-line pt-3">
               <span class="flex items-center gap-1 text-[12px] text-ink-faint">
                 <ShoppingBagIcon class="h-3.5 w-3.5" />Shop the Look · {{ w.productIds?.length ?? 0 }} 件
               </span>
               <div class="ml-auto flex gap-1">
-                <button class="btn-ghost" :title="w.status === 'published' ? '下线' : '发布'" @click="toggleStatus(w)">
-                  <component :is="w.status === 'published' ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
+                <button class="btn-ghost" :title="w.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleStatus(w)">
+                  <component :is="w.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
                 </button>
                 <button class="btn-ghost" @click="editing = w; drawer = true"><PencilSquareIcon class="h-4 w-4" /></button>
                 <button class="btn-danger-ghost" @click="confirm = w"><TrashIcon class="h-4 w-4" /></button>

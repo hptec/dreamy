@@ -14,15 +14,19 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { formatDateTime } from '@/utils/format'
 import { PlusIcon, PencilSquareIcon, TrashIcon, ClockIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { CouponStatus, CouponType, FlashSaleStatus } from '@/api/types'
 import type { Coupon, FlashSale } from '@/api/types'
 
 const store = usePromotionsStore()
 const toast = useToastStore()
 
 const tab = ref<'coupon' | 'flash'>('coupon')
-// tone/label 映射沿用 + 补 expired→neutral『已过期』
-const tone: Record<string, string> = { active: 'ok', expiring: 'warn', draft: 'neutral', scheduled: 'info', expired: 'neutral', ended: 'neutral' }
-const label: Record<string, string> = { active: '进行中', expiring: '即将到期', draft: '草稿', scheduled: '已排期', expired: '已过期', ended: '已结束' }
+// tone/label 映射（整数契约后券/闪购各自独立——CouponStatus 与 FlashSaleStatus 数值空间不同）
+const couponTone: Record<number, string> = { [CouponStatus.ACTIVE]: 'ok', [CouponStatus.EXPIRING]: 'warn', [CouponStatus.DRAFT]: 'neutral', [CouponStatus.SCHEDULED]: 'info', [CouponStatus.EXPIRED]: 'neutral' }
+const couponLabel: Record<number, string> = { [CouponStatus.ACTIVE]: '进行中', [CouponStatus.EXPIRING]: '即将到期', [CouponStatus.DRAFT]: '草稿', [CouponStatus.SCHEDULED]: '已排期', [CouponStatus.EXPIRED]: '已过期' }
+const flashTone: Record<number, string> = { [FlashSaleStatus.ACTIVE]: 'ok', [FlashSaleStatus.DRAFT]: 'neutral', [FlashSaleStatus.SCHEDULED]: 'info', [FlashSaleStatus.ENDED]: 'neutral' }
+const flashLabel: Record<number, string> = { [FlashSaleStatus.ACTIVE]: '进行中', [FlashSaleStatus.DRAFT]: '草稿', [FlashSaleStatus.SCHEDULED]: '已排期', [FlashSaleStatus.ENDED]: '已结束' }
+const couponTypeLabel: Record<number, string> = { [CouponType.DISCOUNT]: '折扣', [CouponType.FIXED_AMOUNT]: '满减', [CouponType.FREE_SHIPPING]: '包邮' }
 
 const couponDrawer = ref(false)
 const editingCoupon = ref<Coupon | null>(null)
@@ -64,7 +68,7 @@ function openNew() {
 
 /** js_guard 前端预判（draft/expired 以外置灰 + tooltip） */
 function couponDeletable(c: Coupon): boolean {
-  return c.status === 'draft' || c.status === 'expired'
+  return c.status === CouponStatus.DRAFT || c.status === CouponStatus.EXPIRED
 }
 
 async function doDelete() {
@@ -118,11 +122,11 @@ onMounted(load)
           </div>
           <select v-model="store.couponStatus" class="field w-36 shrink-0" @change="applyCouponFilters">
             <option value="all">全部状态</option>
-            <option value="draft">草稿</option>
-            <option value="scheduled">已排期</option>
-            <option value="active">进行中</option>
-            <option value="expiring">即将到期</option>
-            <option value="expired">已过期</option>
+            <option :value="CouponStatus.DRAFT">草稿</option>
+            <option :value="CouponStatus.SCHEDULED">已排期</option>
+            <option :value="CouponStatus.ACTIVE">进行中</option>
+            <option :value="CouponStatus.EXPIRING">即将到期</option>
+            <option :value="CouponStatus.EXPIRED">已过期</option>
           </select>
         </div>
       </div>
@@ -139,14 +143,14 @@ onMounted(load)
                 <p class="font-display text-2xl font-semibold text-gold-deep">{{ c.value }}</p>
                 <p class="mt-1 text-[13px] text-ink">{{ c.name }}</p>
               </div>
-              <StatusBadge :tone="tone[c.status]" :label="label[c.status]" />
+              <StatusBadge :tone="couponTone[c.status]" :label="couponLabel[c.status]" />
             </div>
             <div class="mt-3 inline-block rounded-luxe border border-dashed border-gold bg-white/60 px-3 py-1 font-mono text-[13px] font-medium text-ink">{{ c.code }}</div>
             <span class="absolute -left-2 top-1/2 h-4 w-4 rounded-full bg-canvas"></span>
             <span class="absolute -right-2 top-1/2 h-4 w-4 rounded-full bg-canvas"></span>
           </div>
           <div class="p-4 text-[12px] text-ink-soft">
-            <p>门槛：{{ Number(c.minAmount) > 0 ? '满 $' + Number(c.minAmount) : '无门槛' }} · 类型：{{ c.type }}</p>
+            <p>门槛：{{ Number(c.minAmount) > 0 ? '满 $' + Number(c.minAmount) : '无门槛' }} · 类型：{{ couponTypeLabel[c.type] || c.type }}</p>
             <p v-if="c.startAt">有效期：{{ formatDateTime(c.startAt) }} → {{ formatDateTime(c.endAt) }}</p>
             <div class="mt-2 flex items-center justify-between">
               <span>已用 {{ (c.usedCount ?? 0).toLocaleString() }} / {{ fmtLimit(c) }}</span>
@@ -173,10 +177,10 @@ onMounted(load)
       <div class="panel mb-4 p-4">
         <select v-model="store.flashStatus" class="field w-36" @change="applyFlashFilters">
           <option value="all">全部状态</option>
-          <option value="draft">草稿</option>
-          <option value="scheduled">已排期</option>
-          <option value="active">进行中</option>
-          <option value="ended">已结束</option>
+          <option :value="FlashSaleStatus.DRAFT">草稿</option>
+          <option :value="FlashSaleStatus.SCHEDULED">已排期</option>
+          <option :value="FlashSaleStatus.ACTIVE">进行中</option>
+          <option :value="FlashSaleStatus.ENDED">已结束</option>
         </select>
       </div>
       <div class="panel overflow-hidden">
@@ -190,17 +194,17 @@ onMounted(load)
               <td class="text-gold-deep">{{ f.discount }}</td>
               <td class="text-[12px] text-ink-soft">{{ formatDateTime(f.startAt) }}</td>
               <td class="text-[12px] text-ink-soft">{{ formatDateTime(f.endAt) }}</td>
-              <td><StatusBadge :tone="tone[f.status]" :label="label[f.status]" /></td>
+              <td><StatusBadge :tone="flashTone[f.status]" :label="flashLabel[f.status]" /></td>
               <td>
                 <div class="flex items-center justify-end gap-1">
                   <button
                     class="btn-ghost disabled:opacity-40"
-                    :disabled="f.status === 'ended'"
-                    :title="f.status === 'ended' ? '已结束活动不可编辑' : '编辑'"
+                    :disabled="f.status === FlashSaleStatus.ENDED"
+                    :title="f.status === FlashSaleStatus.ENDED ? '已结束活动不可编辑' : '编辑'"
                     @click="editingFlash = f; flashDrawer = true"
                   ><PencilSquareIcon class="h-4 w-4" />编辑</button>
                   <button
-                    v-if="f.status === 'draft'"
+                    v-if="f.status === FlashSaleStatus.DRAFT"
                     class="btn-danger-ghost"
                     @click="confirm = { kind: 'flash', id: f.id, name: f.name }"
                   ><TrashIcon class="h-4 w-4" /></button>

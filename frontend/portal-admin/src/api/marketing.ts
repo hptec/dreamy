@@ -2,18 +2,24 @@
 import { get, post, put, patch, del } from './client'
 import type {
   Banner,
+  BannerPosition,
+  BannerStatus,
   BannerUpsert,
   BlogPost,
   BlogPostUpsert,
+  ContentStatus,
   Coupon,
+  CouponStatus,
   CouponUpsert,
   FlashSale,
+  FlashSaleStatus,
   FlashSaleUpsert,
   Guide,
   GuideUpsert,
   Lookbook,
   LookbookUpsert,
   PageResult,
+  PublishStatus,
   RealWedding,
   RealWeddingUpsert,
 } from './types'
@@ -23,7 +29,7 @@ import type {
 export function listCoupons(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: CouponStatus
   search?: string
 }): Promise<PageResult<Coupon>> {
   return get<PageResult<Coupon>>('/api/admin/promotions/coupons', { params })
@@ -43,7 +49,7 @@ export function deleteCoupon(id: number): Promise<void> {
 
 // ===== 闪购 E-MKT-17~20 =====
 
-export function listFlashSales(status?: string): Promise<{ items: FlashSale[] }> {
+export function listFlashSales(status?: FlashSaleStatus): Promise<{ items: FlashSale[] }> {
   return get<{ items: FlashSale[] }>('/api/admin/promotions/flash-sales', { params: { status } })
 }
 
@@ -61,7 +67,7 @@ export function deleteFlashSale(id: number): Promise<void> {
 
 // ===== Banner E-MKT-21~25 =====
 
-export function listBanners(position?: string): Promise<{ items: Banner[] }> {
+export function listBanners(position?: BannerPosition): Promise<{ items: Banner[] }> {
   return get<{ items: Banner[] }>('/api/admin/banners', { params: { position } })
 }
 
@@ -77,7 +83,7 @@ export function deleteBanner(id: number): Promise<void> {
   return del<void>(`/api/admin/banners/${id}`)
 }
 
-export function toggleBannerStatus(id: number, status: string): Promise<Banner> {
+export function toggleBannerStatus(id: number, status: BannerStatus): Promise<Banner> {
   return patch<Banner>(`/api/admin/banners/${id}/status`, { status })
 }
 
@@ -86,7 +92,7 @@ export function toggleBannerStatus(id: number, status: string): Promise<Banner> 
 export function listBlogs(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: ContentStatus
   search?: string
 }): Promise<PageResult<BlogPost>> {
   return get<PageResult<BlogPost>>('/api/admin/content/blogs', { params })
@@ -108,7 +114,7 @@ export function deleteBlog(id: number): Promise<void> {
   return del<void>(`/api/admin/content/blogs/${id}`)
 }
 
-export function patchBlogStatus(id: number, status: string): Promise<BlogPost> {
+export function patchBlogStatus(id: number, status: ContentStatus): Promise<BlogPost> {
   return patch<BlogPost>(`/api/admin/content/blogs/${id}/status`, { status })
 }
 
@@ -117,7 +123,7 @@ export function patchBlogStatus(id: number, status: string): Promise<BlogPost> {
 export function listWeddings(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: PublishStatus
 }): Promise<PageResult<RealWedding>> {
   return get<PageResult<RealWedding>>('/api/admin/content/weddings', { params })
 }
@@ -134,13 +140,13 @@ export function deleteWedding(id: number): Promise<void> {
   return del<void>(`/api/admin/content/weddings/${id}`)
 }
 
-export function patchWeddingStatus(id: number, status: string): Promise<RealWedding> {
+export function patchWeddingStatus(id: number, status: PublishStatus): Promise<RealWedding> {
   return patch<RealWedding>(`/api/admin/content/weddings/${id}/status`, { status })
 }
 
 // ===== Lookbook E-MKT-37~41 =====
 
-export function listLookbooks(status?: string): Promise<{ items: Lookbook[] }> {
+export function listLookbooks(status?: PublishStatus): Promise<{ items: Lookbook[] }> {
   return get<{ items: Lookbook[] }>('/api/admin/content/lookbooks', { params: { status } })
 }
 
@@ -156,13 +162,13 @@ export function deleteLookbook(id: number): Promise<void> {
   return del<void>(`/api/admin/content/lookbooks/${id}`)
 }
 
-export function patchLookbookStatus(id: number, status: string): Promise<Lookbook> {
+export function patchLookbookStatus(id: number, status: PublishStatus): Promise<Lookbook> {
   return patch<Lookbook>(`/api/admin/content/lookbooks/${id}/status`, { status })
 }
 
 // ===== Guide E-MKT-42~46 =====
 
-export function listGuides(status?: string): Promise<{ items: Guide[] }> {
+export function listGuides(status?: PublishStatus): Promise<{ items: Guide[] }> {
   return get<{ items: Guide[] }>('/api/admin/content/guides', { params: { status } })
 }
 
@@ -178,6 +184,6 @@ export function deleteGuide(id: number): Promise<void> {
   return del<void>(`/api/admin/content/guides/${id}`)
 }
 
-export function patchGuideStatus(id: number, status: string): Promise<Guide> {
+export function patchGuideStatus(id: number, status: PublishStatus): Promise<Guide> {
   return patch<Guide>(`/api/admin/content/guides/${id}/status`, { status })
 }

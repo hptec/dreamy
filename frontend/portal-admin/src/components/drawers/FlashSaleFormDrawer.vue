@@ -10,7 +10,8 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, toIsoDateTime, validateFlashSaleForm, type FieldErrors } from '@/utils/validators'
 import { toDatetimeLocal } from '@/utils/format'
-import type { FlashSale, FlashSaleStatus, FlashSaleTranslation } from '@/api/types'
+import { FlashSaleStatus } from '@/api/types'
+import type { FlashSale, FlashSaleTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: FlashSale | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -24,7 +25,7 @@ const form = ref({
   discount: '',
   startAt: '',
   endAt: '',
-  status: 'draft' as FlashSaleStatus,
+  status: FlashSaleStatus.DRAFT as FlashSaleStatus,
   productIds: [] as number[],
 })
 const trans = ref<Record<'es' | 'fr', { name: string }>>({ es: { name: '' }, fr: { name: '' } })
@@ -53,7 +54,7 @@ watch(
           status: e.status,
           productIds: [...(e.productIds || [])],
         }
-      : { name: '', discount: '', startAt: '', endAt: '', status: 'draft', productIds: [] }
+      : { name: '', discount: '', startAt: '', endAt: '', status: FlashSaleStatus.DRAFT, productIds: [] }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = { es: { name: byLocale('es')?.name || '' }, fr: { name: byLocale('fr')?.name || '' } }
   },
@@ -140,10 +141,10 @@ async function submit() {
       <div>
         <label class="field-label">状态</label>
         <select v-model="form.status" class="field">
-          <option value="draft">草稿</option>
-          <option value="scheduled">已排期</option>
-          <option value="active">进行中</option>
-          <option value="ended" :disabled="!editing || editing.status !== 'ended'">已结束</option>
+          <option :value="FlashSaleStatus.DRAFT">草稿</option>
+          <option :value="FlashSaleStatus.SCHEDULED">已排期</option>
+          <option :value="FlashSaleStatus.ACTIVE">进行中</option>
+          <option :value="FlashSaleStatus.ENDED" :disabled="!editing || editing.status !== FlashSaleStatus.ENDED">已结束</option>
         </select>
       </div>
       <div>

@@ -19,13 +19,14 @@ vi.mock('@/api', () => ({
 
 import { useBannersStore } from '@/stores/banners'
 import { BizError } from '@/api/client'
-import type { Banner, BannerStatus } from '@/api/types'
+import { BannerPosition, BannerStatus } from '@/api/types'
+import type { Banner } from '@/api/types'
 
-const banner = (id: number, status: BannerStatus = 'draft'): Banner => ({
+const banner = (id: number, status: BannerStatus = BannerStatus.DRAFT): Banner => ({
   id,
   name: `B${id}`,
   imageUrl: `https://cdn.example.com/b${id}.jpg`,
-  position: 'hero',
+  position: BannerPosition.HERO,
   startTime: '2026-06-01T00:00:00Z',
   endTime: '2026-06-30T23:59:59Z',
   status,
@@ -40,55 +41,55 @@ describe('useBannersStore.toggleStatus（E-MKT-25 三态映射）', () => {
 
   it('draft 开启 Toggle → published（开启即发布，成功路径合并服务端返回）', async () => {
     const store = useBannersStore()
-    const b = banner(1, 'draft')
+    const b = banner(1, BannerStatus.DRAFT)
     store.list = [b]
-    toggleBannerStatus.mockResolvedValue({ ...b, status: 'published' })
-    await store.toggleStatus(b, 'published')
-    expect(toggleBannerStatus).toHaveBeenCalledWith(1, 'published')
-    expect(b.status).toBe('published')
+    toggleBannerStatus.mockResolvedValue({ ...b, status: BannerStatus.PUBLISHED })
+    await store.toggleStatus(b, BannerStatus.PUBLISHED)
+    expect(toggleBannerStatus).toHaveBeenCalledWith(1, BannerStatus.PUBLISHED)
+    expect(b.status).toBe(BannerStatus.PUBLISHED)
   })
 
   it('published 关闭 Toggle → archived（下线成功路径）', async () => {
     const store = useBannersStore()
-    const b = banner(2, 'published')
-    toggleBannerStatus.mockResolvedValue({ ...b, status: 'archived' })
-    await store.toggleStatus(b, 'archived')
-    expect(toggleBannerStatus).toHaveBeenCalledWith(2, 'archived')
-    expect(b.status).toBe('archived')
+    const b = banner(2, BannerStatus.PUBLISHED)
+    toggleBannerStatus.mockResolvedValue({ ...b, status: BannerStatus.ARCHIVED })
+    await store.toggleStatus(b, BannerStatus.ARCHIVED)
+    expect(toggleBannerStatus).toHaveBeenCalledWith(2, BannerStatus.ARCHIVED)
+    expect(b.status).toBe(BannerStatus.ARCHIVED)
   })
 
   it('409703 失败 → 回滚 b.status 不变并抛 BizError（失败路径）', async () => {
     const store = useBannersStore()
-    const b = banner(3, 'published')
+    const b = banner(3, BannerStatus.PUBLISHED)
     toggleBannerStatus.mockRejectedValue(new BizError(409703, '当前发布状态不允许该操作'))
-    await expect(store.toggleStatus(b, 'archived')).rejects.toMatchObject({ code: 409703 })
-    expect(b.status).toBe('published')
+    await expect(store.toggleStatus(b, BannerStatus.ARCHIVED)).rejects.toMatchObject({ code: 409703 })
+    expect(b.status).toBe(BannerStatus.PUBLISHED)
   })
 
   it('draft → published 失败同样回滚为 draft（Toggle 视觉态还原 off）', async () => {
     const store = useBannersStore()
-    const b = banner(4, 'draft')
+    const b = banner(4, BannerStatus.DRAFT)
     toggleBannerStatus.mockRejectedValue(new BizError(409703, '当前发布状态不允许该操作'))
-    await expect(store.toggleStatus(b, 'published')).rejects.toBeInstanceOf(BizError)
-    expect(b.status).toBe('draft')
+    await expect(store.toggleStatus(b, BannerStatus.PUBLISHED)).rejects.toBeInstanceOf(BizError)
+    expect(b.status).toBe(BannerStatus.DRAFT)
   })
 
   it('乐观更新：请求挂起期间 status 已切到目标态，失败后才还原', async () => {
     const store = useBannersStore()
-    const b = banner(5, 'published')
+    const b = banner(5, BannerStatus.PUBLISHED)
     let reject!: (e: unknown) => void
     toggleBannerStatus.mockReturnValue(new Promise((_, r) => { reject = r }))
-    const pending = store.toggleStatus(b, 'archived')
-    expect(b.status).toBe('archived') // 乐观态
+    const pending = store.toggleStatus(b, BannerStatus.ARCHIVED)
+    expect(b.status).toBe(BannerStatus.ARCHIVED) // 乐观态
     reject(new BizError(409703, '当前发布状态不允许该操作'))
     await expect(pending).rejects.toBeInstanceOf(BizError)
-    expect(b.status).toBe('published') // 回滚态
+    expect(b.status).toBe(BannerStatus.PUBLISHED) // 回滚态
   })
 
   it('同态幂等：目标态与当前态一致时不发请求', async () => {
     const store = useBannersStore()
-    const b = banner(6, 'published')
-    await store.toggleStatus(b, 'published')
+    const b = banner(6, BannerStatus.PUBLISHED)
+    await store.toggleStatus(b, BannerStatus.PUBLISHED)
     expect(toggleBannerStatus).not.toHaveBeenCalled()
   })
 })

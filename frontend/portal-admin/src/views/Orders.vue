@@ -11,6 +11,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { useOrdersStore } from '@/stores/orders'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
+import { OrderStatus } from '@/api/types'
 import { currencySymbol, formatDateTime } from '@/utils/format'
 import { MagnifyingGlassIcon, ArrowDownTrayIcon, EyeIcon } from '@heroicons/vue/24/outline'
 
@@ -18,33 +19,33 @@ const store = useOrdersStore()
 const toast = useToastStore()
 const route = useRoute()
 
-const tabs = [
+const tabs: { k: OrderStatus | 'all'; label: string }[] = [
   { k: 'all', label: '全部' },
-  { k: 'pending', label: '待付款' },
-  { k: 'paid', label: '待发货' },
-  { k: 'shipped', label: '已发货' },
-  { k: 'completed', label: '已完成' },
-  { k: 'refunding', label: '退款中' },
-  { k: 'cancelled', label: '已取消' },
-  { k: 'refunded', label: '已退款' },
+  { k: OrderStatus.PENDING, label: '待付款' },
+  { k: OrderStatus.PAID, label: '待发货' },
+  { k: OrderStatus.SHIPPED, label: '已发货' },
+  { k: OrderStatus.COMPLETED, label: '已完成' },
+  { k: OrderStatus.REFUNDING, label: '退款中' },
+  { k: OrderStatus.CANCELLED, label: '已取消' },
+  { k: OrderStatus.REFUNDED, label: '已退款' },
 ]
 
 type OrderTone = 'ok' | 'warn' | 'danger' | 'info' | 'neutral'
-const ORDER_STATUS: Record<string, { tone: OrderTone; label: string }> = {
-  pending: { tone: 'warn', label: '待付款' },
-  paid: { tone: 'info', label: '待发货' },
-  shipped: { tone: 'info', label: '已发货' },
-  completed: { tone: 'ok', label: '已完成' },
-  cancelled: { tone: 'neutral', label: '已取消' },
-  refunding: { tone: 'danger', label: '退款中' },
-  refunded: { tone: 'neutral', label: '已退款' },
+const ORDER_STATUS: Record<number, { tone: OrderTone; label: string }> = {
+  [OrderStatus.PENDING]: { tone: 'warn', label: '待付款' },
+  [OrderStatus.PAID]: { tone: 'info', label: '待发货' },
+  [OrderStatus.SHIPPED]: { tone: 'info', label: '已发货' },
+  [OrderStatus.COMPLETED]: { tone: 'ok', label: '已完成' },
+  [OrderStatus.CANCELLED]: { tone: 'neutral', label: '已取消' },
+  [OrderStatus.REFUNDING]: { tone: 'danger', label: '退款中' },
+  [OrderStatus.REFUNDED]: { tone: 'neutral', label: '已退款' },
 }
 
 function load() {
   store.fetchList().catch((e) => toast.error(e instanceof BizError ? e.message : '加载订单失败'))
 }
 
-function selectTab(k: string) {
+function selectTab(k: OrderStatus | 'all') {
   store.status = k
   store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
 }
@@ -77,10 +78,11 @@ async function onExport() {
 }
 
 onMounted(() => {
-  // 待办瓦片 /orders?status=paid 直达
+  // 待办瓦片 /orders?status=2（paid）直达（整数契约：query 串转数字后匹配 tab）
   const qsStatus = route.query.status
-  if (typeof qsStatus === 'string' && tabs.some((t) => t.k === qsStatus)) {
-    store.status = qsStatus
+  if (typeof qsStatus === 'string' && qsStatus) {
+    const parsed = Number(qsStatus)
+    if (tabs.some((t) => t.k === parsed)) store.status = parsed as OrderStatus
   }
   load()
 })
@@ -146,7 +148,7 @@ onMounted(() => {
               <td class="text-right">{{ o.itemCount ?? '—' }}</td>
               <td class="text-right font-medium text-ink">{{ currencySymbol(o.currency) }}{{ Number(o.totalAmount).toLocaleString() }}</td>
               <td class="text-ink-soft">{{ o.paymentMethod || '—' }}</td>
-              <td><StatusBadge :tone="ORDER_STATUS[o.status]?.tone || 'neutral'" :label="ORDER_STATUS[o.status]?.label || o.status" /></td>
+              <td><StatusBadge :tone="ORDER_STATUS[o.status]?.tone || 'neutral'" :label="ORDER_STATUS[o.status]?.label || String(o.status)" /></td>
               <td class="text-[12px] text-ink-faint">{{ formatDateTime(o.createdAt) }}</td>
               <td class="text-right"><RouterLink :to="`/orders/${o.id}`" class="btn-ghost"><EyeIcon class="h-4 w-4" />详情</RouterLink></td>
             </tr>

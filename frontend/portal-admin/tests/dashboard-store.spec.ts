@@ -51,7 +51,7 @@ describe('useDashboardStore（ALIGN-011 豁免断言 / DEC-ANA-FE-3）', () => {
     getAnalyticsOverview.mockResolvedValue(overviewPayload())
     const store = useDashboardStore()
     await store.fetch()
-    expect(store.todoTiles[0].to).toBe('/orders?status=paid')
+    expect(store.todoTiles[0].to).toBe('/orders?status=2')
     expect(store.todoTiles[1].to).toBe('/refunds')
     expect(store.todoTiles[2].to).toBe('/reviews')
   })

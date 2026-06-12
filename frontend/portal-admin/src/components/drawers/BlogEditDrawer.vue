@@ -11,7 +11,8 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, validateBlogForm, type FieldErrors } from '@/utils/validators'
 import { formatDateTime } from '@/utils/format'
-import type { BlogPost, BlogPostTranslation, ContentStatus } from '@/api/types'
+import { ContentStatus } from '@/api/types'
+import type { BlogPost, BlogPostTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: BlogPost | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -27,7 +28,7 @@ const form = ref({
   author: '',
   cover: '',
   content: '',
-  status: 'draft' as ContentStatus,
+  status: ContentStatus.DRAFT as ContentStatus,
 })
 type TransRow = { title: string; excerpt: string; body: string; seoTitle: string; seoDescription: string }
 const emptyTrans = (): TransRow => ({ title: '', excerpt: '', body: '', seoTitle: '', seoDescription: '' })
@@ -58,7 +59,7 @@ watch(
           content: e.content || '',
           status: e.status,
         }
-      : { title: '', slug: '', category: '', author: '', cover: '', content: '', status: 'draft' }
+      : { title: '', slug: '', category: '', author: '', cover: '', content: '', status: ContentStatus.DRAFT }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     const toRow = (l: 'es' | 'fr'): TransRow => {
       const t = byLocale(l)
@@ -144,7 +145,7 @@ async function submit() {
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="field-label">URL Slug<span v-if="form.status === 'published'" class="text-danger"> *</span></label>
+          <label class="field-label">URL Slug<span v-if="form.status === ContentStatus.PUBLISHED" class="text-danger"> *</span></label>
           <input v-model="form.slug" class="field font-mono" placeholder="how-to-choose-veil" />
           <p v-if="errors.slug" class="mt-1 text-[11px] text-danger">{{ errors.slug }}</p>
         </div>
@@ -161,9 +162,9 @@ async function submit() {
         <div>
           <label class="field-label">状态</label>
           <select v-model="form.status" class="field">
-            <option value="draft">草稿</option>
-            <option value="published">已发布</option>
-            <option value="archived">已归档</option>
+            <option :value="ContentStatus.DRAFT">草稿</option>
+            <option :value="ContentStatus.PUBLISHED">已发布</option>
+            <option :value="ContentStatus.ARCHIVED">已归档</option>
           </select>
         </div>
       </div>

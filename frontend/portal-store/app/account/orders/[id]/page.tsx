@@ -13,12 +13,13 @@ import { useCallback, useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { Check, Truck, Clock, X } from 'lucide-react'
 import type { StoreOrderDetail } from '@/lib/api/store-types'
+import { OrderStatus, RefundStatus } from '@/lib/api/store-types'
 import { getStoreOrder, cancelStoreOrder, retryOrderPayment, applyStoreRefund } from '@/lib/api/trading-api'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { PaymentElementPanel } from '@/components/cart/payment-element-panel'
 import { formatAmount, formatDateTimeLong, cn } from '@/lib/utils'
-import { statusBadgeClass } from '@/lib/order-ui'
+import { statusBadgeClass, orderStatusLabel, paymentStatusLabel, refundStatusLabel } from '@/lib/order-ui'
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -121,7 +122,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="font-display text-3xl font-medium">Order {order.orderNo}</h1>
           <p className="text-sm text-ink-soft">Placed {formatDateTimeLong(order.createdAt)}</p>
         </div>
-        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))}>{order.status}</span>
+        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))}>{orderStatusLabel(order.status)}</span>
       </div>
 
       {expired && (
@@ -132,7 +133,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {actionError && <p className="mt-4 rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">{actionError}</p>}
 
       {/* 状态时间线 */}
-      {order.status !== 'cancelled' && (
+      {order.status !== OrderStatus.CANCELLED && (
         <div className="mt-8 rounded-sm border border-line bg-surface p-6">
           {order.carrier && (
             <div className="mb-5 flex items-center gap-2">
@@ -158,7 +159,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* 动作区（按状态渲染） */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        {order.status === 'pending' && !paySecret && (
+        {order.status === OrderStatus.PENDING && !paySecret && (
           <>
             <button onClick={() => void payNow()} disabled={payLoading} className="btn-primary disabled:opacity-60">{payLoading ? 'Loading…' : 'Pay now'}</button>
             {confirmCancel ? (
@@ -172,7 +173,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </>
         )}
-        {(order.status === 'paid' || order.status === 'shipped' || order.status === 'completed') && (
+        {(order.status === OrderStatus.PAID || order.status === OrderStatus.SHIPPED || order.status === OrderStatus.COMPLETED) && (
           order.refundEligible ? (
             <button onClick={() => setRefundOpen(true)} className="btn-outline">Request refund</button>
           ) : (
@@ -198,7 +199,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <span className="text-ink-soft">Refund {r.refundNo} · {formatDateTimeLong(r.appliedAt)}</span>
               <span className="flex items-center gap-3">
                 <span className="font-medium">{formatAmount(r.amount, r.currency)}</span>
-                <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === 'approved' ? 'bg-sage/15 text-sage-deep' : r.status === 'rejected' ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{r.status}</span>
+                <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === RefundStatus.APPROVED ? 'bg-sage/15 text-sage-deep' : r.status === RefundStatus.REJECTED ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{refundStatusLabel(r.status)}</span>
               </span>
             </div>
           ))}
@@ -255,7 +256,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <h2 className="mb-4 mt-8 font-display text-xl font-medium">Payment</h2>
               <div className="rounded-sm border border-line bg-surface p-5 text-sm text-ink-soft">
                 <p>{order.payment.cardSummary ?? order.paymentMethod ?? 'Stripe'}</p>
-                <p className="mt-1 capitalize">Status: {order.payment.status}</p>
+                <p className="mt-1 capitalize">Status: {paymentStatusLabel(order.payment.status)}</p>
                 {order.payment.paidAt && <p className="mt-1">Paid {formatDateTimeLong(order.payment.paidAt)}</p>}
               </div>
             </>

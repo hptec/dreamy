@@ -10,7 +10,8 @@ import { useWeddingsStore } from '@/stores/weddings'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { extractFieldErrors, type FieldErrors } from '@/utils/validators'
-import type { PublishStatus, RealWedding, RealWeddingTranslation } from '@/api/types'
+import { PublishStatus } from '@/api/types'
+import type { RealWedding, RealWeddingTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: RealWedding | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -25,7 +26,7 @@ const form = ref({
   theme: '',
   weddingDate: '',
   cover: '',
-  status: 'draft' as PublishStatus,
+  status: PublishStatus.DRAFT as PublishStatus,
   title: '',
   story: '',
   productIds: [] as number[],
@@ -62,7 +63,7 @@ watch(
           story: e.story || '',
           productIds: [...(e.productIds || [])],
         }
-      : { couple: '', location: '', theme: '', weddingDate: '', cover: '', status: 'draft', title: '', story: '', productIds: [] }
+      : { couple: '', location: '', theme: '', weddingDate: '', cover: '', status: PublishStatus.DRAFT, title: '', story: '', productIds: [] }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
       es: { title: byLocale('es')?.title || '', story: byLocale('es')?.story || '' },
@@ -157,8 +158,8 @@ async function submit() {
         <div>
           <label class="field-label">状态</label>
           <select v-model="form.status" class="field">
-            <option value="draft">草稿</option>
-            <option value="published">已发布</option>
+            <option :value="PublishStatus.DRAFT">草稿</option>
+            <option :value="PublishStatus.PUBLISHED">已发布</option>
           </select>
         </div>
       </div>

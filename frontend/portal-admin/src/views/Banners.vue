@@ -12,6 +12,7 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { formatDateTime } from '@/utils/format'
 import { PlusIcon, PencilSquareIcon, TrashIcon, RocketLaunchIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/outline'
+import { BannerPosition, BannerStatus } from '@/api/types'
 import type { Banner } from '@/api/types'
 
 const store = useBannersStore()
@@ -22,7 +23,7 @@ const editing = ref<Banner | null>(null)
 const confirm = ref<Banner | null>(null)
 const confirmBusy = ref(false)
 
-const positionLabel: Record<string, string> = { hero: '首页 Hero', featured: '推荐位', topbar: '顶部通告条' }
+const positionLabel: Record<number, string> = { [BannerPosition.HERO]: '首页 Hero', [BannerPosition.FEATURED]: '推荐位', [BannerPosition.TOPBAR]: '顶部通告条' }
 
 function load() {
   store.fetch().catch((e) => toast.error(e instanceof BizError ? e.message : '加载 Banner 失败'))
@@ -31,7 +32,7 @@ function load() {
 /** Toggle on → published（publish/republish）；off → archived（take_offline）；409703 回滚 + toast */
 async function onToggle(b: Banner, on: boolean) {
   try {
-    await store.toggleStatus(b, on ? 'published' : 'archived')
+    await store.toggleStatus(b, on ? BannerStatus.PUBLISHED : BannerStatus.ARCHIVED)
   } catch (e) {
     if (e instanceof BizError && e.code === 409703) toast.error('当前发布状态不允许该操作')
     else toast.error(e instanceof BizError ? e.message : '操作失败')
@@ -88,9 +89,9 @@ onMounted(load)
     <div class="panel mb-4 p-4">
       <select v-model="store.positionFilter" class="field w-44" @change="load">
         <option value="all">全部广告位</option>
-        <option value="hero">首页 Hero</option>
-        <option value="featured">推荐位</option>
-        <option value="topbar">顶部通告条</option>
+        <option :value="BannerPosition.HERO">首页 Hero</option>
+        <option :value="BannerPosition.FEATURED">推荐位</option>
+        <option :value="BannerPosition.TOPBAR">顶部通告条</option>
       </select>
     </div>
 
@@ -114,7 +115,7 @@ onMounted(load)
               </td>
               <td><span class="badge bg-ink/8 text-ink-soft">{{ positionLabel[b.position] || b.position }}</span></td>
               <td class="text-[12px] text-ink-soft">{{ formatDateTime(b.startTime) }}<br />→ {{ formatDateTime(b.endTime) }}</td>
-              <td class="text-center"><Toggle :model-value="b.status === 'published'" @update:model-value="onToggle(b, $event)" /></td>
+              <td class="text-center"><Toggle :model-value="b.status === BannerStatus.PUBLISHED" @update:model-value="onToggle(b, $event)" /></td>
               <td class="text-right text-ink-soft">{{ (b.clicks ?? 0).toLocaleString() }}</td>
               <td><input class="field w-16 px-2 py-1 text-center text-[12px]" type="number" :value="b.sort ?? 0" @blur="onSortBlur(b, $event)" /></td>
               <td>

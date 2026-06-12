@@ -1,11 +1,11 @@
 // trading 域退款工单 API（PAGE-TRD-A03；行内审批 approve/reject——决策 7；patch returnTrackingNo 事后登记——决策 31）
 import { get, post, patch } from './client'
-import type { AdminRefund, PageResult } from './types'
+import type { AdminRefund, PageResult, RefundStatus } from './types'
 
 export function listRefunds(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: RefundStatus
   search?: string
 }): Promise<PageResult<AdminRefund>> {
   return get<PageResult<AdminRefund>>('/api/admin/refunds', { params })

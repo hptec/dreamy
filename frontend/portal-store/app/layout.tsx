@@ -7,6 +7,7 @@ import { CookieConsent } from '@/components/marketing/cookie-consent'
 import { StoreProvider } from '@/components/store-provider'
 import { I18nProvider } from '@/lib/i18n/i18n-context'
 import { fetchStoreBanners } from '@/lib/api/marketing-server'
+import { BannerPosition } from '@/lib/api/store-types'
 
 export const metadata: Metadata = {
   title: {
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // PAGE-MKT-S02：layout 级 topbar 公告条（E-MKT-01 position=topbar，revalidate 300；空回退静态文案）
-  const topbarBanners = await fetchStoreBanners('topbar')
+  const topbarBanners = await fetchStoreBanners(BannerPosition.TOPBAR)
   const announcements = topbarBanners.map((b) => b.title).filter((t): t is string => !!t)
 
   return (

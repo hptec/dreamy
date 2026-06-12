@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { footerNav } from '@/data/navigation'
 import { Instagram, Facebook, Twitter } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
+import { NewsletterSource } from '@/lib/api/store-types'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { cn } from '@/lib/utils'
@@ -35,7 +36,7 @@ export function SiteFooter() {
     setSubmitting(true)
     setError(null)
     try {
-      await subscribeNewsletter(trimmed, 'footer', locale)
+      await subscribeNewsletter(trimmed, NewsletterSource.FOOTER, locale)
       setDone(true)
     } catch (err) {
       setError(err instanceof ApiError ? te(err.code) : te(50000))

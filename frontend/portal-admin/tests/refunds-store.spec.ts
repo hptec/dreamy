@@ -17,11 +17,12 @@ vi.mock('@/api', () => ({
 }))
 
 import { useRefundsStore } from '@/stores/refunds'
+import { RefundStatus } from '@/api/types'
 import type { AdminRefund } from '@/api/types'
 
 const refund = (
   id: number,
-  status: AdminRefund['status'] = 'pending',
+  status: AdminRefund['status'] = RefundStatus.PENDING,
   extra: Partial<AdminRefund> = {},
 ): AdminRefund => ({
   id,
@@ -40,31 +41,31 @@ describe('useRefundsStore', () => {
   })
 
   it('approve(id) 仅传工单 id，不再随同提交退货单号（STORE-TRD-R01 / ALIGN-024）', async () => {
-    approveRefund.mockResolvedValue(refund(1, 'approved', { stripeRefundId: 're_abc123' }))
+    approveRefund.mockResolvedValue(refund(1, RefundStatus.APPROVED, { stripeRefundId: 're_abc123' }))
     const store = useRefundsStore()
     store.list = [refund(1)]
     const updated = await store.approve(1)
     expect(approveRefund).toHaveBeenCalledWith(1)
     expect(approveRefund.mock.calls[0]).toHaveLength(1) // 签名收窄：无第二个 returnTrackingNo 参数
-    expect(updated.status).toBe('approved')
+    expect(updated.status).toBe(RefundStatus.APPROVED)
     // replaceRow 行内刷新：已同意行带回 stripe_refund_id（COMP-TRD-R01 / ALIGN-025 数据来源）
-    expect(store.list[0]).toMatchObject({ id: 1, status: 'approved', stripeRefundId: 're_abc123' })
+    expect(store.list[0]).toMatchObject({ id: 1, status: RefundStatus.APPROVED, stripeRefundId: 're_abc123' })
   })
 
   it('reject(id, reason) 原因透传 + 仅替换目标行（FORM-TRD-R01）', async () => {
-    rejectRefund.mockResolvedValue(refund(2, 'rejected', { rejectReason: '不符合退款政策' }))
+    rejectRefund.mockResolvedValue(refund(2, RefundStatus.REJECTED, { rejectReason: '不符合退款政策' }))
     const store = useRefundsStore()
     store.list = [refund(1), refund(2)]
     await store.reject(2, '不符合退款政策')
     expect(rejectRefund).toHaveBeenCalledWith(2, '不符合退款政策')
-    expect(store.list[0]).toMatchObject({ id: 1, status: 'pending' })
-    expect(store.list[1]).toMatchObject({ id: 2, status: 'rejected', rejectReason: '不符合退款政策' })
+    expect(store.list[0]).toMatchObject({ id: 1, status: RefundStatus.PENDING })
+    expect(store.list[1]).toMatchObject({ id: 2, status: RefundStatus.REJECTED, rejectReason: '不符合退款政策' })
   })
 
   it('patchTracking 事后登记退货单号并行内刷新（决策 31 / ALIGN-025）', async () => {
-    patchRefund.mockResolvedValue(refund(3, 'approved', { returnTrackingNo: 'SF1234567890' }))
+    patchRefund.mockResolvedValue(refund(3, RefundStatus.APPROVED, { returnTrackingNo: 'SF1234567890' }))
     const store = useRefundsStore()
-    store.list = [refund(3, 'approved')]
+    store.list = [refund(3, RefundStatus.APPROVED)]
     await store.patchTracking(3, 'SF1234567890')
     expect(patchRefund).toHaveBeenCalledWith(3, 'SF1234567890')
     expect(store.list[0]).toMatchObject({ id: 3, returnTrackingNo: 'SF1234567890' })

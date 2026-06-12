@@ -2,8 +2,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { refundsApi } from '@/api'
-import type { AdminRefund } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import type { AdminRefund, RefundStatus } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 export const useRefundsStore = defineStore('refunds', () => {
   const list = ref<AdminRefund[]>([])
@@ -12,7 +12,7 @@ export const useRefundsStore = defineStore('refunds', () => {
   const pageSize = ref(10)
   const loading = ref(false)
 
-  const status = ref('all')
+  const status = ref<RefundStatus | 'all'>('all')
   const search = ref('')
 
   async function fetchList() {
@@ -21,7 +21,7 @@ export const useRefundsStore = defineStore('refunds', () => {
       const res = await refundsApi.listRefunds({
         page: page.value,
         pageSize: pageSize.value,
-        status: normalizeFilter(status.value),
+        status: normalizeEnumFilter(status.value),
         search: search.value.trim() || undefined,
       })
       list.value = res.data

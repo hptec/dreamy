@@ -10,33 +10,35 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import type { StoreOrderListItem } from '@/lib/api/store-types'
+import { OrderStatus } from '@/lib/api/store-types'
 import { listStoreOrders } from '@/lib/api/trading-api'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { ApiError } from '@/lib/api/client'
-import { statusBadgeClass } from '@/lib/order-ui'
+import { statusBadgeClass, orderStatusLabel } from '@/lib/order-ui'
 import { formatAmount, formatDateTimeLong, cn } from '@/lib/utils'
 
-const filters = [
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Paid', value: 'paid' },
-  { label: 'Shipped', value: 'shipped' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Cancelled', value: 'cancelled' },
-  { label: 'Refunding', value: 'refunding' },
-  { label: 'Refunded', value: 'refunded' }
-] as const
+/** 状态筛选 chips（value=undefined 表示「全部」——请求不传 status 参数；其余为 IntEnum 数值） */
+const filters: { label: string; value: OrderStatus | undefined }[] = [
+  { label: 'All', value: undefined },
+  { label: 'Pending', value: OrderStatus.PENDING },
+  { label: 'Paid', value: OrderStatus.PAID },
+  { label: 'Shipped', value: OrderStatus.SHIPPED },
+  { label: 'Completed', value: OrderStatus.COMPLETED },
+  { label: 'Cancelled', value: OrderStatus.CANCELLED },
+  { label: 'Refunding', value: OrderStatus.REFUNDING },
+  { label: 'Refunded', value: OrderStatus.REFUNDED }
+]
 
 export default function OrdersPage() {
   const { te } = useI18n()
-  const [filter, setFilter] = useState<(typeof filters)[number]['value']>('all')
+  const [filter, setFilter] = useState<OrderStatus | undefined>(undefined)
   const [orders, setOrders] = useState<StoreOrderListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (status: string, pageNum: number, append: boolean) => {
+  const load = useCallback(async (status: OrderStatus | undefined, pageNum: number, append: boolean) => {
     setLoading(true)
     setError(null)
     try {
@@ -60,7 +62,7 @@ export default function OrdersPage() {
       <h1 className="font-display text-3xl font-medium">My Orders</h1>
       <div className="mt-6 flex flex-wrap gap-2">
         {filters.map((f) => (
-          <button key={f.value} onClick={() => setFilter(f.value)} className={cn('cursor-pointer rounded-full px-4 py-1.5 text-xs uppercase tracking-luxe transition-colors', filter === f.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}>{f.label}</button>
+          <button key={f.label} onClick={() => setFilter(f.value)} className={cn('cursor-pointer rounded-full px-4 py-1.5 text-xs uppercase tracking-luxe transition-colors', filter === f.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}>{f.label}</button>
         ))}
       </div>
 
@@ -77,7 +79,7 @@ export default function OrdersPage() {
           </div>
         )}
         {!error && !loading && orders.length === 0 ? (
-          <p className="py-16 text-center text-ink-soft">No {filter === 'all' ? '' : `${filter} `}orders.</p>
+          <p className="py-16 text-center text-ink-soft">No {filter === undefined ? '' : `${orderStatusLabel(filter).toLowerCase()} `}orders.</p>
         ) : (
           orders.map((o) => (
             <div key={o.id} className="rounded-sm border border-line bg-surface p-5">
@@ -86,7 +88,7 @@ export default function OrdersPage() {
                   <p className="text-sm font-medium">Order {o.orderNo}</p>
                   <p className="text-xs text-ink-soft">Placed {formatDateTimeLong(o.createdAt)}</p>
                 </div>
-                <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{o.status}</span>
+                <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{orderStatusLabel(o.status)}</span>
               </div>
               <div className="mt-3 flex items-center gap-4">
                 <div className="flex -space-x-3">

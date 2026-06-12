@@ -12,17 +12,18 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import type { MyReview } from '@/lib/api/store-types'
+import { ReviewStatus } from '@/lib/api/store-types'
 import { listMyReviews } from '@/lib/api/review-api'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { ApiError } from '@/lib/api/client'
 import { Stars } from '@/components/ui/primitives'
 import { formatDateTimeLong, cn } from '@/lib/utils'
 
-/** 审核状态徽标（沿用 order-ui 徽章 token 风格） */
+/** 审核状态徽标（沿用 order-ui 徽章 token 风格；key=ReviewStatus IntEnum） */
 const statusBadge: Record<MyReview['status'], { label: string; className: string }> = {
-  pending: { label: 'Pending review', className: 'bg-gold/15 text-gold-deep' },
-  approved: { label: 'Approved', className: 'bg-sage/15 text-sage-deep' },
-  rejected: { label: 'Rejected', className: 'bg-blush/15 text-blush' }
+  [ReviewStatus.PENDING]: { label: 'Pending review', className: 'bg-gold/15 text-gold-deep' },
+  [ReviewStatus.APPROVED]: { label: 'Approved', className: 'bg-sage/15 text-sage-deep' },
+  [ReviewStatus.REJECTED]: { label: 'Rejected', className: 'bg-blush/15 text-blush' }
 }
 
 export default function MyReviewsPage() {

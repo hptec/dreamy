@@ -29,13 +29,14 @@ vi.mock('@/stores/toast', () => ({
 
 import Shipping from '@/views/Shipping.vue'
 import { useShippingStore } from '@/stores/shipping'
+import { CarrierStatus } from '@/api/types'
 import type { ShippingRate } from '@/api/types'
 
 async function renderShipping(rates: ShippingRate[]): Promise<string> {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useShippingStore()
-  store.carriers = [{ id: 1, name: 'DHL Express', zones: 'US', leadTime: '3-5 日', status: 'enabled' }]
+  store.carriers = [{ id: 1, name: 'DHL Express', zones: 'US', leadTime: '3-5 日', status: CarrierStatus.ENABLED }]
   store.rates = rates
   const app = createSSRApp(Shipping)
   app.use(pinia)

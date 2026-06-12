@@ -2,15 +2,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { marketingApi } from '@/api'
-import type { RealWedding, RealWeddingUpsert } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import type { PublishStatus, RealWedding, RealWeddingUpsert } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 export const useWeddingsStore = defineStore('weddings', () => {
   const list = ref<RealWedding[]>([])
   const totalElements = ref(0)
   const page = ref(1)
   const pageSize = ref(10)
-  const statusFilter = ref('all')
+  const statusFilter = ref<PublishStatus | 'all'>('all')
   const loading = ref(false)
 
   async function fetch() {
@@ -19,7 +19,7 @@ export const useWeddingsStore = defineStore('weddings', () => {
       const res = await marketingApi.listWeddings({
         page: page.value,
         pageSize: pageSize.value,
-        status: normalizeFilter(statusFilter.value),
+        status: normalizeEnumFilter(statusFilter.value),
       })
       list.value = res.data
       totalElements.value = res.totalElements
@@ -44,7 +44,7 @@ export const useWeddingsStore = defineStore('weddings', () => {
     await fetch()
   }
 
-  async function patchStatus(id: number, status: string) {
+  async function patchStatus(id: number, status: PublishStatus) {
     const updated = await marketingApi.patchWeddingStatus(id, status)
     const idx = list.value.findIndex((w) => w.id === id)
     if (idx >= 0) list.value[idx] = updated

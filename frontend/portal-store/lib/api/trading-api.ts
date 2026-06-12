@@ -16,6 +16,7 @@ import type {
   ExchangeRate,
   OrderCreateRequest,
   OrderCreateResponse,
+  OrderStatus,
   Paginated,
   PaymentCredential,
   StoreOrderDetail,
@@ -82,7 +83,8 @@ export function createOrder(body: OrderCreateRequest): Promise<OrderCreateRespon
 
 // ===== orders（PAGE-TRD-S04/S05） =====
 
-export function listStoreOrders(params: { page?: number; pageSize?: number; status?: string } = {}): Promise<Paginated<StoreOrderListItem>> {
+/** 订单列表（status 整数枚举筛选；「全部」= 不传 status 参数） */
+export function listStoreOrders(params: { page?: number; pageSize?: number; status?: OrderStatus } = {}): Promise<Paginated<StoreOrderListItem>> {
   return request<Paginated<StoreOrderListItem>>('/api/store/orders', { auth: true, query: { ...params } })
 }
 

@@ -4,6 +4,47 @@
  * 域：catalog / trading / marketing / review / showroom。
  */
 
+// ===== 枚举常量（与后端 IntEnum 对齐，API JSON 中为整数值） =====
+
+export const ProductStatus = { DRAFT: 1, PUBLISHED: 2 } as const
+export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus]
+
+export const OrderStatus = { PENDING: 1, PAID: 2, SHIPPED: 3, COMPLETED: 4, CANCELLED: 5, REFUNDING: 6, REFUNDED: 7 } as const
+export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus]
+
+export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5 } as const
+export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus]
+
+export const RefundStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
+export type RefundStatus = typeof RefundStatus[keyof typeof RefundStatus]
+
+export const ReviewStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
+export type ReviewStatus = typeof ReviewStatus[keyof typeof ReviewStatus]
+
+export const ImageKind = { GALLERY: 1, LIFESTYLE: 2, VIDEO: 3, SWATCH: 4 } as const
+export type ImageKind = typeof ImageKind[keyof typeof ImageKind]
+
+export const AssignStatus = { UNASSIGNED: 1, ASSIGNED: 2, REMINDED: 3, ORDERED: 4 } as const
+export type AssignStatus = typeof AssignStatus[keyof typeof AssignStatus]
+
+export const VoteValue = { LIKE: 1, DISLIKE: 2 } as const
+export type VoteValue = typeof VoteValue[keyof typeof VoteValue]
+
+export const CouponType = { DISCOUNT: 1, FIXED_AMOUNT: 2, FREE_SHIPPING: 3 } as const
+export type CouponType = typeof CouponType[keyof typeof CouponType]
+
+export const BannerPosition = { HERO: 1, FEATURED: 2, TOPBAR: 3 } as const
+export type BannerPosition = typeof BannerPosition[keyof typeof BannerPosition]
+
+export const PublishStatus = { DRAFT: 1, PUBLISHED: 2 } as const
+export type PublishStatus = typeof PublishStatus[keyof typeof PublishStatus]
+
+export const NewsletterSource = { FOOTER: 1, MODAL: 2, EXIT_INTENT: 3 } as const
+export type NewsletterSource = typeof NewsletterSource[keyof typeof NewsletterSource]
+
+export const AttributeType = { SELECT: 1, MULTISELECT: 2, TEXT: 3, TOGGLE: 4 } as const
+export type AttributeType = typeof AttributeType[keyof typeof AttributeType]
+
 // ===== 通用 =====
 
 /** huihao.page.Paginated 形状（R<Paginated<T>> data 载荷） */
@@ -23,7 +64,7 @@ export type CurrencyCode = 'USD' | 'EUR' | 'CAD' | 'AUD' | 'GBP'
 export interface ProductImage {
   id?: number
   url: string
-  kind: 'gallery' | 'lifestyle' | 'video' | 'swatch'
+  kind: ImageKind
   colorName?: string | null
   sort: number
 }
@@ -75,7 +116,7 @@ export interface StoreAttributeOption {
 export interface StoreAttribute {
   key: string
   label: string
-  type: 'select' | 'multiselect' | 'text' | 'toggle'
+  type: AttributeType
   values: StoreAttributeOption[]
 }
 
@@ -83,7 +124,7 @@ export interface StoreAttribute {
 export interface StoreFilterDim {
   key: string
   label: string
-  type: 'select' | 'multiselect'
+  type: typeof AttributeType.SELECT | typeof AttributeType.MULTISELECT
   options: StoreAttributeOption[]
 }
 
@@ -174,7 +215,7 @@ export interface ProductBrief {
   leadTimeDays?: number
   rushAvailable?: boolean
   customSizeAvailable?: boolean
-  status?: 'draft' | 'published'
+  status?: ProductStatus
 }
 
 export interface CartItemCreate {
@@ -267,15 +308,6 @@ export interface PaymentCredential {
   clientSecret: string
 }
 
-export type OrderStatus =
-  | 'pending'
-  | 'paid'
-  | 'shipped'
-  | 'completed'
-  | 'cancelled'
-  | 'refunding'
-  | 'refunded'
-
 export interface OrderLine {
   id: number
   productId: number
@@ -296,7 +328,7 @@ export interface PaymentSummary {
   paymentIntentId?: string
   amount: number
   currency: CurrencyCode
-  status: 'created' | 'processing' | 'succeeded' | 'failed' | 'refunded'
+  status: PaymentStatus
   cardSummary?: string
   paidAt?: string
 }
@@ -337,7 +369,7 @@ export interface StoreRefund {
   amount: number
   currency: CurrencyCode
   reason?: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: RefundStatus
   appliedAt: string
 }
 
@@ -381,7 +413,7 @@ export interface StoreBanner {
   id: number
   name: string
   imageUrl: string
-  position: 'hero' | 'featured' | 'topbar'
+  position: BannerPosition
   sort: number
   title?: string
   subtitle?: string
@@ -423,7 +455,7 @@ export interface StoreRealWedding {
   theme?: string
   weddingDate?: string
   cover?: string
-  status: 'published'
+  status: typeof PublishStatus.PUBLISHED
   title?: string
   story?: string
   products?: ProductRef[]
@@ -463,7 +495,7 @@ export interface CouponValidateResponse {
   coupon?: {
     code?: string
     name?: string
-    type?: 'discount' | 'fixed_amount' | 'free_shipping'
+    type?: CouponType
     value?: string
     minAmount?: number
   }
@@ -483,7 +515,7 @@ export interface StoreReview {
   customerName?: string
   rating: number
   content?: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: ReviewStatus
   featured?: boolean
   submittedAt?: string
   images?: ReviewImage[]
@@ -510,7 +542,7 @@ export interface MyReview {
   productImg?: string
   rating: number
   content?: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: ReviewStatus
   submittedAt?: string
   images?: ReviewImage[]
   replyAuthor?: string
@@ -569,12 +601,10 @@ export interface ShowroomItem {
   product: ProductRef
   likeCount: number
   dislikeCount: number
-  myVote?: 'like' | 'dislike' | null
+  myVote?: VoteValue | null
   comments?: ShowroomComment[]
   dyeLotNotice?: boolean
 }
-
-export type AssignStatus = 'unassigned' | 'assigned' | 'reminded' | 'ordered'
 
 export interface ShowroomMember {
   id: number
@@ -604,5 +634,5 @@ export interface GuestSession {
 export interface VoteResult {
   likeCount: number
   dislikeCount: number
-  myVote: 'like' | 'dislike'
+  myVote: VoteValue
 }

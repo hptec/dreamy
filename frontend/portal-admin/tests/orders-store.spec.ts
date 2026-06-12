@@ -18,6 +18,7 @@ vi.mock('@/api', () => ({
 }))
 
 import { useOrdersStore } from '@/stores/orders'
+import { OrderStatus } from '@/api/types'
 
 describe('useOrdersStore', () => {
   beforeEach(() => {
@@ -31,7 +32,7 @@ describe('useOrdersStore', () => {
         {
           id: 1,
           orderNo: 'DRM-1',
-          status: 'paid',
+          status: OrderStatus.PAID,
           currency: 'USD',
           totalAmount: 100,
           country: 'United States',
@@ -49,7 +50,7 @@ describe('useOrdersStore', () => {
   it('exportList 筛选参数与列表完全一致且不含分页（FORM-TRD-O01/ALIGN-012）', async () => {
     exportOrders.mockResolvedValue({ truncated: false })
     const store = useOrdersStore()
-    store.status = 'paid'
+    store.status = OrderStatus.PAID
     store.search = '  Grace  '
     store.currency = 'USD'
     store.from = '2026-06-01'
@@ -57,7 +58,7 @@ describe('useOrdersStore', () => {
     const res = await store.exportList()
     expect(res.truncated).toBe(false)
     expect(exportOrders).toHaveBeenCalledWith({
-      status: 'paid',
+      status: OrderStatus.PAID,
       search: 'Grace',
       currency: 'USD',
       from: '2026-06-01T00:00:00',

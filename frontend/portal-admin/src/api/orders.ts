@@ -1,12 +1,12 @@
 // trading 域后台订单 API（PAGE-TRD-A01/A02；listAdminOrders/getAdminOrder/ship/patchStatus/createRefund/export）
 import { get, post, patch } from './client'
 import { downloadCsv } from '@/utils/download'
-import type { AdminOrderDetail, AdminOrderListItem, AdminRefund, PageResult } from './types'
+import type { AdminOrderDetail, AdminOrderListItem, AdminRefund, OrderStatus, PageResult } from './types'
 
 export function listOrders(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: OrderStatus
   search?: string
   currency?: string
   from?: string
@@ -23,7 +23,7 @@ export function shipOrder(id: number, body: { carrier: string; trackingNo: strin
   return post<AdminOrderDetail>(`/api/admin/orders/${id}/ship`, body)
 }
 
-export function patchOrderStatus(id: number, status: string): Promise<AdminOrderDetail> {
+export function patchOrderStatus(id: number, status: OrderStatus): Promise<AdminOrderDetail> {
   return patch<AdminOrderDetail>(`/api/admin/orders/${id}/status`, { status })
 }
 
@@ -32,7 +32,7 @@ export function createRefund(id: number, body: { amount: number | string; reason
 }
 
 export interface OrderExportQuery {
-  status?: string
+  status?: OrderStatus
   search?: string
   currency?: string
   from?: string
@@ -47,7 +47,7 @@ export interface OrderExportQuery {
  */
 export function exportOrders(params: OrderExportQuery): Promise<{ truncated: boolean }> {
   const query = new URLSearchParams()
-  if (params.status) query.set('status', params.status)
+  if (params.status != null) query.set('status', String(params.status))
   if (params.search) query.set('search', params.search)
   if (params.currency) query.set('currency', params.currency)
   if (params.from) query.set('from', params.from)

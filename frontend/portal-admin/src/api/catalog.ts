@@ -29,7 +29,7 @@ import type {
 export function listProducts(params: {
   page?: number
   pageSize?: number
-  status?: string
+  status?: ProductStatus
   categoryId?: number
   search?: string
 }): Promise<PageResult<AdminProductListItem>> {
@@ -72,7 +72,7 @@ export function batchProducts(action: ProductBatchAction, ids: number[]): Promis
 }
 
 export interface ProductExportQuery {
-  status?: string
+  status?: ProductStatus
   categoryId?: number
   search?: string
 }
@@ -85,7 +85,7 @@ export interface ProductExportQuery {
  */
 export function exportProducts(params: ProductExportQuery): Promise<{ truncated: boolean }> {
   const query = new URLSearchParams()
-  if (params.status) query.set('status', params.status)
+  if (params.status != null) query.set('status', String(params.status))
   if (params.categoryId != null) query.set('category_id', String(params.categoryId))
   if (params.search) query.set('search', params.search)
   return downloadCsv('/api/admin/products/export', query, 'products')

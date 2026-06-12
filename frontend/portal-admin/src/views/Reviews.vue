@@ -19,6 +19,7 @@ import {
   StarIcon, MagnifyingGlassIcon, XMarkIcon, CheckIcon, NoSymbolIcon, SparklesIcon,
   PhotoIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, TrashIcon, ArrowUturnLeftIcon,
 } from '@heroicons/vue/24/outline'
+import { QuestionVisible, ReviewModerationStatus } from '@/api/types'
 import type { AdminQuestion, AdminReview } from '@/api/types'
 
 const reviews = useReviewsStore()
@@ -64,8 +65,8 @@ function onRatingChange() {
 }
 
 function reviewBadge(r: AdminReview) {
-  if (r.status === 'pending') return { tone: 'warn', label: '待审核' }
-  if (r.status === 'rejected') return { tone: 'danger', label: '已拒绝' }
+  if (r.status === ReviewModerationStatus.PENDING) return { tone: 'warn', label: '待审核' }
+  if (r.status === ReviewModerationStatus.REJECTED) return { tone: 'danger', label: '已拒绝' }
   return r.featured ? { tone: 'info', label: '精选' } : { tone: 'ok', label: '已通过' }
 }
 
@@ -98,7 +99,7 @@ async function batchSet(action: 'approve' | 'reject') {
 // 单条状态流转（FORM-REV-A01）
 async function approveReview(r: AdminReview) {
   try {
-    await reviews.moderate(r, 'approved')
+    await reviews.moderate(r, ReviewModerationStatus.APPROVED)
     toast.success(`评价 ${r.id} 已通过，已记入操作日志`)
     syncDetail(r.id)
   } catch (e) {
@@ -107,7 +108,7 @@ async function approveReview(r: AdminReview) {
 }
 async function rejectReview(r: AdminReview) {
   try {
-    await reviews.moderate(r, 'rejected')
+    await reviews.moderate(r, ReviewModerationStatus.REJECTED)
     toast.success(`评价 ${r.id} 已拒绝，已记入操作日志`)
     syncDetail(r.id)
   } catch (e) {
@@ -241,7 +242,7 @@ const filteredQa = computed(() => {
 
 async function toggleQaVisible(q: AdminQuestion, val: boolean) {
   try {
-    await questions.toggleVisible(q, val ? 'visible' : 'hidden')
+    await questions.toggleVisible(q, val ? QuestionVisible.VISIBLE : QuestionVisible.HIDDEN)
     toast.success(val ? '该问答已上线，前台可见' : '该问答已隐藏')
     if (detailQa.value?.id === q.id) detailQa.value = questions.list.find((x) => x.id === q.id) || detailQa.value
   } catch (e) {
@@ -383,11 +384,11 @@ onMounted(() => {
               <td class="whitespace-nowrap text-[12px] text-ink-faint">{{ formatDateTime(r.submittedAt) }}</td>
               <td @click.stop>
                 <div class="flex items-center justify-end gap-1">
-                  <template v-if="r.status === 'pending'">
+                  <template v-if="r.status === ReviewModerationStatus.PENDING">
                     <button class="btn-ghost text-ok" @click="approveReview(r)"><CheckIcon class="h-4 w-4" />通过</button>
                     <button class="btn-danger-ghost" @click="rejectReview(r)"><NoSymbolIcon class="h-4 w-4" />拒绝</button>
                   </template>
-                  <template v-else-if="r.status === 'approved'">
+                  <template v-else-if="r.status === ReviewModerationStatus.APPROVED">
                     <button v-if="!r.featured" class="btn-ghost text-gold-deep" @click="setFeatured(r, true)"><SparklesIcon class="h-4 w-4" />设为精选</button>
                     <button v-else class="btn-ghost" @click="setFeatured(r, false)"><SparklesIcon class="h-4 w-4" />取消精选</button>
                   </template>
@@ -443,7 +444,7 @@ onMounted(() => {
               <td class="whitespace-nowrap text-[12px] text-ink-faint">{{ formatDateTime(q.askedAt) }}</td>
               <td><StatusBadge :tone="q.answer ? 'ok' : 'warn'" :label="q.answer ? '已回答' : '待回答'" /></td>
               <td class="text-center" @click.stop>
-                <Toggle :model-value="q.visible === 'visible'" @update:model-value="toggleQaVisible(q, $event)" />
+                <Toggle :model-value="q.visible === QuestionVisible.VISIBLE" @update:model-value="toggleQaVisible(q, $event)" />
               </td>
               <td class="text-right" @click.stop>
                 <button class="btn-ghost" @click="openQa(q)">
@@ -483,11 +484,11 @@ onMounted(() => {
             </div>
 
             <!-- 审核操作 -->
-            <div v-if="detailReview.status === 'pending'" class="mt-4 flex gap-2">
+            <div v-if="detailReview.status === ReviewModerationStatus.PENDING" class="mt-4 flex gap-2">
               <button class="btn-primary flex-1 justify-center" @click="approveReview(detailReview)"><CheckIcon class="h-4 w-4" />通过审核</button>
               <button class="btn-danger-ghost flex-1 justify-center" @click="rejectReview(detailReview)"><NoSymbolIcon class="h-4 w-4" />拒绝</button>
             </div>
-            <div v-else-if="detailReview.status === 'approved'" class="mt-4">
+            <div v-else-if="detailReview.status === ReviewModerationStatus.APPROVED" class="mt-4">
               <button v-if="!detailReview.featured" class="btn-outline w-full justify-center" @click="setFeatured(detailReview, true)"><SparklesIcon class="h-4 w-4" />设为精选 · 前台置顶展示</button>
               <button v-else class="btn-ghost w-full justify-center" @click="setFeatured(detailReview, false)"><SparklesIcon class="h-4 w-4" />取消精选</button>
             </div>
@@ -519,7 +520,7 @@ onMounted(() => {
             <!-- 官方回复（status≠approved → 占位 js_guard，409804 兜底） -->
             <div class="mt-6">
               <h4 class="mb-2 text-[13px] font-medium text-ink">官方回复</h4>
-              <template v-if="detailReview.status !== 'approved'">
+              <template v-if="detailReview.status !== ReviewModerationStatus.APPROVED">
                 <p class="rounded-lg border border-dashed border-line py-6 text-center text-[12px] text-ink-faint">评价通过审核后才可追加官方回复</p>
               </template>
               <template v-else-if="detailReview.replyContent && !replyEditing">
@@ -603,7 +604,7 @@ onMounted(() => {
               <div class="flex flex-col items-end gap-1.5">
                 <StatusBadge :tone="detailQa.answer ? 'ok' : 'warn'" :label="detailQa.answer ? '已回答' : '待回答'" />
                 <div class="flex items-center gap-1.5 text-[11px] text-ink-faint">
-                  前台可见 <Toggle :model-value="detailQa.visible === 'visible'" @update:model-value="toggleQaVisible(detailQa, $event)" />
+                  前台可见 <Toggle :model-value="detailQa.visible === QuestionVisible.VISIBLE" @update:model-value="toggleQaVisible(detailQa, $event)" />
                 </div>
               </div>
             </div>

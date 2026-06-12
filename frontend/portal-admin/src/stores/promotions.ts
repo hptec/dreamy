@@ -2,20 +2,20 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { marketingApi } from '@/api'
-import type { Coupon, CouponUpsert, FlashSale, FlashSaleUpsert } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import type { Coupon, CouponStatus, CouponUpsert, FlashSale, FlashSaleStatus, FlashSaleUpsert } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 export const usePromotionsStore = defineStore('promotions', () => {
   const coupons = ref<Coupon[]>([])
   const couponsTotal = ref(0)
   const couponPage = ref(1)
   const couponPageSize = ref(9)
-  const couponStatus = ref('all')
+  const couponStatus = ref<CouponStatus | 'all'>('all')
   const couponSearch = ref('')
   const loadingCoupons = ref(false)
 
   const flashSales = ref<FlashSale[]>([])
-  const flashStatus = ref('all')
+  const flashStatus = ref<FlashSaleStatus | 'all'>('all')
   const loadingFlash = ref(false)
 
   async function fetchCoupons() {
@@ -24,7 +24,7 @@ export const usePromotionsStore = defineStore('promotions', () => {
       const res = await marketingApi.listCoupons({
         page: couponPage.value,
         pageSize: couponPageSize.value,
-        status: normalizeFilter(couponStatus.value),
+        status: normalizeEnumFilter(couponStatus.value),
         search: couponSearch.value.trim() || undefined,
       })
       coupons.value = res.data
@@ -59,7 +59,7 @@ export const usePromotionsStore = defineStore('promotions', () => {
   async function fetchFlashSales() {
     loadingFlash.value = true
     try {
-      const res = await marketingApi.listFlashSales(normalizeFilter(flashStatus.value))
+      const res = await marketingApi.listFlashSales(normalizeEnumFilter(flashStatus.value))
       flashSales.value = res.items
     } finally {
       loadingFlash.value = false

@@ -10,7 +10,8 @@ import { BizError } from '@/api/client'
 import { extractFieldErrors, validateCouponForm, type FieldErrors } from '@/utils/validators'
 import { toDatetimeLocal } from '@/utils/format'
 import { toIsoDateTime } from '@/utils/validators'
-import type { Coupon, CouponStatus, CouponTranslation, CouponType } from '@/api/types'
+import { CouponStatus, CouponType } from '@/api/types'
+import type { Coupon, CouponTranslation } from '@/api/types'
 
 const props = defineProps<{ open: boolean; editing: Coupon | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -22,13 +23,13 @@ const locale = ref<'en' | 'es' | 'fr'>('en')
 const form = ref({
   code: '',
   name: '',
-  type: 'discount' as CouponType,
+  type: CouponType.DISCOUNT as CouponType,
   value: '',
   minAmount: '' as number | string,
   totalLimit: '' as number | string,
   startAt: '',
   endAt: '',
-  status: 'draft' as CouponStatus,
+  status: CouponStatus.DRAFT as CouponStatus,
   description: '',
 })
 const trans = ref<Record<'es' | 'fr', { name: string; description: string }>>({
@@ -39,14 +40,14 @@ const errors = ref<FieldErrors>({})
 const saving = ref(false)
 
 const valuePlaceholder = computed(() =>
-  form.value.type === 'discount' ? "如 '15% OFF'" : form.value.type === 'fixed_amount' ? "如 '$50 OFF'" : '如 Free Shipping',
+  form.value.type === CouponType.DISCOUNT ? "如 '15% OFF'" : form.value.type === CouponType.FIXED_AMOUNT ? "如 '$50 OFF'" : '如 Free Shipping',
 )
 const statusOptions: { value: CouponStatus; label: string; createDisabled: boolean }[] = [
-  { value: 'draft', label: '草稿', createDisabled: false },
-  { value: 'scheduled', label: '已排期', createDisabled: false },
-  { value: 'active', label: '进行中', createDisabled: false },
-  { value: 'expiring', label: '即将到期', createDisabled: true },
-  { value: 'expired', label: '已过期', createDisabled: true },
+  { value: CouponStatus.DRAFT, label: '草稿', createDisabled: false },
+  { value: CouponStatus.SCHEDULED, label: '已排期', createDisabled: false },
+  { value: CouponStatus.ACTIVE, label: '进行中', createDisabled: false },
+  { value: CouponStatus.EXPIRING, label: '即将到期', createDisabled: true },
+  { value: CouponStatus.EXPIRED, label: '已过期', createDisabled: true },
 ]
 
 const filled = computed(() => ({
@@ -75,7 +76,7 @@ watch(
           status: e.status,
           description: e.description || '',
         }
-      : { code: '', name: '', type: 'discount', value: '', minAmount: '', totalLimit: '', startAt: '', endAt: '', status: 'draft', description: '' }
+      : { code: '', name: '', type: CouponType.DISCOUNT, value: '', minAmount: '', totalLimit: '', startAt: '', endAt: '', status: CouponStatus.DRAFT, description: '' }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
       es: { name: byLocale('es')?.name || '', description: byLocale('es')?.description || '' },
@@ -154,7 +155,7 @@ async function submit() {
             v-model="form.code"
             class="field font-mono uppercase"
             placeholder="WELCOME15"
-            :disabled="!!editing && editing.status !== 'draft'"
+            :disabled="!!editing && editing.status !== CouponStatus.DRAFT"
             @input="form.code = form.code.toUpperCase()"
           />
           <p v-if="errors.code" class="mt-1 text-[11px] text-danger">{{ errors.code }}</p>
@@ -169,9 +170,9 @@ async function submit() {
         <div>
           <label class="field-label">类型 *</label>
           <select v-model="form.type" class="field">
-            <option value="discount">折扣（discount）</option>
-            <option value="fixed_amount">满减（fixed_amount）</option>
-            <option value="free_shipping">免邮（free_shipping）</option>
+            <option :value="CouponType.DISCOUNT">折扣（discount）</option>
+            <option :value="CouponType.FIXED_AMOUNT">满减（fixed_amount）</option>
+            <option :value="CouponType.FREE_SHIPPING">免邮（free_shipping）</option>
           </select>
         </div>
         <div>

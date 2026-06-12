@@ -20,6 +20,7 @@ import {
   Bell, Trash2, Clock, Crown, ShoppingBag, Send, PartyPopper, Pencil, RefreshCw, X
 } from 'lucide-react'
 import type { ShowroomDetail as ShowroomDetailDTO, ShowroomItem, ShowroomMember } from '@/lib/api/store-types'
+import { AssignStatus, VoteValue } from '@/lib/api/store-types'
 import { useShowroomDetailStore } from '@/lib/stores/showroom-store'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
@@ -138,7 +139,7 @@ export function ShowroomDetailView({ id }: { id: number }) {
     }
   }
 
-  const onVote = async (item: ShowroomItem, dir: 'like' | 'dislike') => {
+  const onVote = async (item: ShowroomItem, dir: VoteValue) => {
     try {
       await vote(item.id, dir)
     } catch (err) {
@@ -415,7 +416,7 @@ function ShowroomItemCard({
   currency: string
   expanded: boolean
   onToggleComments: () => void
-  onVote: (dir: 'like' | 'dislike') => void
+  onVote: (dir: VoteValue) => void
   onComment: (text: string) => void
   onRemove: () => void
 }) {
@@ -424,8 +425,8 @@ function ShowroomItemCard({
   const product = item.product
   const assignedTo = room.members.filter((m) => m.assignedItemId === item.id)
   const comments = item.comments ?? []
-  const votedUp = item.myVote === 'like'
-  const votedDown = item.myVote === 'dislike'
+  const votedUp = item.myVote === VoteValue.LIKE
+  const votedDown = item.myVote === VoteValue.DISLIKE
 
   const post = () => {
     if (!draft.trim()) return
@@ -472,14 +473,14 @@ function ShowroomItemCard({
         {/* 投票（owner 与 guest 均可投，显式偏离⑤） + 留言计数 */}
         <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
           <button
-            onClick={() => onVote('like')}
+            onClick={() => onVote(VoteValue.LIKE)}
             aria-pressed={votedUp}
             className={cn('flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs transition-colors', votedUp ? 'border-sage bg-sage/15 text-sage-deep' : 'border-line text-ink-soft hover:border-sage hover:text-sage-deep')}
           >
             <ThumbsUp className="h-3.5 w-3.5" /> {item.likeCount}
           </button>
           <button
-            onClick={() => onVote('dislike')}
+            onClick={() => onVote(VoteValue.DISLIKE)}
             aria-pressed={votedDown}
             className={cn('flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-xs transition-colors', votedDown ? 'border-blush bg-blush/15 text-blush' : 'border-line text-ink-soft hover:border-blush hover:text-blush')}
           >
@@ -594,7 +595,7 @@ function MembersTable({
             )}
             {members.map((m) => {
               const assigned = m.assignedItemId ? room.items.find((it) => it.id === m.assignedItemId) : null
-              const canRemind = (m.assignStatus === 'assigned' || m.assignStatus === 'reminded') && !!(m.email || emailDrafts[m.id])
+              const canRemind = (m.assignStatus === AssignStatus.ASSIGNED || m.assignStatus === AssignStatus.REMINDED) && !!(m.email || emailDrafts[m.id])
               return (
                 <tr key={m.id} className="border-b border-line/60 last:border-0">
                   <td className="px-4 py-3.5 font-medium">{m.nickname}</td>
@@ -604,7 +605,7 @@ function MembersTable({
                       <select
                         id={`assign-${m.id}`}
                         value={m.assignedItemId ?? ''}
-                        disabled={m.assignStatus === 'ordered'}
+                        disabled={m.assignStatus === AssignStatus.ORDERED}
                         onChange={(e) => void handleAssign(m, e.target.value)}
                         className="w-full max-w-[15rem] cursor-pointer rounded-sm border border-line bg-canvas px-3 py-2 text-sm outline-none focus:border-gold disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -618,7 +619,7 @@ function MembersTable({
                         id={`email-${m.id}`}
                         type="email"
                         value={emailOf(m)}
-                        disabled={m.assignStatus === 'ordered'}
+                        disabled={m.assignStatus === AssignStatus.ORDERED}
                         onChange={(e) => setEmailDrafts((p) => ({ ...p, [m.id]: e.target.value }))}
                         placeholder="member@email.com"
                         className="w-full max-w-[13rem] rounded-sm border border-line bg-canvas px-3 py-2 text-sm outline-none focus:border-gold disabled:opacity-60"
@@ -628,11 +629,11 @@ function MembersTable({
                     {emailHints[m.id] && <span className="mt-1 block text-xs text-gold-deep">{emailHints[m.id]}</span>}
                   </td>
                   <td className="px-4 py-3.5">
-                    {m.assignStatus === 'ordered' ? (
+                    {m.assignStatus === AssignStatus.ORDERED ? (
                       <span className="inline-flex items-center gap-1 rounded-sm bg-sage/15 px-2 py-1 text-xs text-sage-deep"><Check className="h-3 w-3" /> Ordered</span>
-                    ) : m.assignStatus === 'reminded' ? (
+                    ) : m.assignStatus === AssignStatus.REMINDED ? (
                       <span className="inline-flex items-center gap-1 rounded-sm bg-gold/15 px-2 py-1 text-xs text-gold-deep"><Bell className="h-3 w-3" /> Reminded</span>
-                    ) : m.assignStatus === 'assigned' ? (
+                    ) : m.assignStatus === AssignStatus.ASSIGNED ? (
                       <span className="inline-flex items-center rounded-sm bg-gold/10 px-2 py-1 text-xs text-gold-deep">Awaiting order</span>
                     ) : (
                       <span className="inline-flex items-center rounded-sm bg-muted px-2 py-1 text-xs text-ink-faint">Browsing</span>
@@ -644,7 +645,7 @@ function MembersTable({
                         onClick={() => void onRemind(m)}
                         className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-line px-3 py-1.5 text-xs transition-colors hover:border-gold hover:text-gold-deep"
                       >
-                        <Bell className="h-3.5 w-3.5" /> {m.assignStatus === 'reminded' ? 'Send again' : 'Send reminder'}
+                        <Bell className="h-3.5 w-3.5" /> {m.assignStatus === AssignStatus.REMINDED ? 'Send again' : 'Send reminder'}
                       </button>
                     )}
                   </td>

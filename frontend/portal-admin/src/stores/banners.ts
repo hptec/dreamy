@@ -2,8 +2,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { marketingApi } from '@/api'
-import type { Banner, BannerStatus, BannerUpsert } from '@/api/types'
-import { normalizeFilter } from '@/utils/validators'
+import type { Banner, BannerPosition, BannerStatus, BannerUpsert } from '@/api/types'
+import { normalizeEnumFilter } from '@/utils/validators'
 
 function toUpsert(row: Banner): BannerUpsert {
   return {
@@ -23,13 +23,13 @@ function toUpsert(row: Banner): BannerUpsert {
 
 export const useBannersStore = defineStore('banners', () => {
   const list = ref<Banner[]>([])
-  const positionFilter = ref('all')
+  const positionFilter = ref<BannerPosition | 'all'>('all')
   const loading = ref(false)
 
   async function fetch() {
     loading.value = true
     try {
-      const res = await marketingApi.listBanners(normalizeFilter(positionFilter.value))
+      const res = await marketingApi.listBanners(normalizeEnumFilter(positionFilter.value))
       list.value = res.items
     } finally {
       loading.value = false
