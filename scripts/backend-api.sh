@@ -20,11 +20,20 @@ if [ -d "/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home
 fi
 
 echo "[backend] 检查端口 ${PORT} 占用..."
-PID=$(lsof -t -i:"${PORT}" 2>/dev/null || true)
-if [ -n "${PID:-}" ]; then
-  echo "[backend] 端口 ${PORT} 被占用 (PID: ${PID})，正在终止..."
-  kill "${PID}" 2>/dev/null || true
-  sleep 1
+# 仅匹配 LISTEN 进程：lsof -t -i 会把连到该端口的客户端进程（浏览器/IM 等）也列出来，不能 kill
+PIDS=$(lsof -t -i:"${PORT}" -sTCP:LISTEN 2>/dev/null || true)
+if [ -n "${PIDS:-}" ]; then
+  echo "[backend] 端口 ${PORT} 被占用 (PID: ${PIDS})，正在终止..."
+  for P in ${PIDS}; do kill "${P}" 2>/dev/null || true; done
+  # 等待端口真正释放，避免新进程 EADDRINUSE 启动失败
+  for _ in $(seq 1 20); do
+    lsof -t -i:"${PORT}" -sTCP:LISTEN >/dev/null 2>&1 || break
+    sleep 1
+  done
+  if lsof -t -i:"${PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+    for P in $(lsof -t -i:"${PORT}" -sTCP:LISTEN 2>/dev/null); do kill -9 "${P}" 2>/dev/null || true; done
+    sleep 1
+  fi
 fi
 
 echo "[backend] 启动后端服务 (端口: ${PORT})..."

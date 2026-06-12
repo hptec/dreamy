@@ -4,7 +4,7 @@
 
 ## 概述
 
-双门户高保真可交互原型：消费者商城（Next.js，根目录）+ 运营管理后台（Vue3，`portal-admin/`，端口 5174）。基于 birdygrey / davidsbridal / kissprom 等竞品的深度结构分析与真实商品媒体素材构建。
+双门户高保真可交互原型：消费者商城（Next.js，根目录）+ 运营管理后台（Vue3，`portal-admin/`，端口 5176）。基于 birdygrey / davidsbridal / kissprom 等竞品的深度结构分析与真实商品媒体素材构建。
 
 ## 预览
 
@@ -19,7 +19,7 @@ pnpm run prototype:dev
 cd hhspec/prototype && pnpm dev
 ```
 
-访问：**http://localhost:5173**
+访问：**http://localhost:5175**
 
 修改任意 `.tsx` 文件后浏览器自动热更新。
 

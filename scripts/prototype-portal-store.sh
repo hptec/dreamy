@@ -14,5 +14,5 @@ if [[ ! -d "$PROTOTYPE_DIR/node_modules" ]]; then
     exit 1
   }
 fi
-echo "启动 Dreamy 原型开发服务器 → http://localhost:5173"
+echo "启动 Dreamy 原型开发服务器 → http://localhost:5175"
 cd "$PROTOTYPE_DIR" && pnpm dev

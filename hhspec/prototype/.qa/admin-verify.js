@@ -24,7 +24,7 @@ const routes = [
 
   for (const [name, path] of routes) {
     try {
-      await page.goto('http://localhost:5174' + path, { waitUntil: 'networkidle', timeout: 20000 })
+      await page.goto('http://localhost:5176' + path, { waitUntil: 'networkidle', timeout: 20000 })
       await page.waitForTimeout(700)
       await page.screenshot({ path: `${out}/${name}.png`, fullPage: false })
       console.log('OK', name)
@@ -32,7 +32,7 @@ const routes = [
   }
   // 触发发布动画截图
   try {
-    await page.goto('http://localhost:5174/publish', { waitUntil: 'networkidle' })
+    await page.goto('http://localhost:5176/publish', { waitUntil: 'networkidle' })
     await page.click('button:has-text("一键发布")')
     await page.waitForTimeout(6500)
     await page.screenshot({ path: `${out}/publish-done.png`, fullPage: false })

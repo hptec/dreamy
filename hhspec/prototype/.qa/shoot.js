@@ -26,7 +26,7 @@ const pages = [
       pg.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('status of 404')) errs.push(m.text()) })
       pg.on('pageerror', (e) => errs.push(e.message))
       pg.on('response', (r) => { if (r.status() === 404 && /\.(jpg|png|webp)/.test(r.url())) imageErrors.push(`${name}: ${r.url().split('/').pop()}`) })
-      await pg.goto('http://localhost:5173' + path, { waitUntil: 'networkidle', timeout: 20000 })
+      await pg.goto('http://localhost:5175' + path, { waitUntil: 'networkidle', timeout: 20000 })
       await pg.waitForTimeout(500)
       await pg.screenshot({ path: `.qa/${vpName}-${name}.png`, fullPage: vpName === 'desktop' })
       if (errs.length) realErrors.push({ vp: vpName, name, errs })

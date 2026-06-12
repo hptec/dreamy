@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 5173",
+    "dev": "next dev -p 5175",
     "build": "next build",
-    "start": "next start -p 5173",
+    "start": "next start -p 5175",
     "lint": "next lint",
     "admin:dev": "pnpm -C portal-admin dev",
     "admin:build": "pnpm -C portal-admin build"

@@ -15,7 +15,7 @@ pnpm -C hhspec/prototype/portal-admin dev
 cd hhspec/prototype/portal-admin && pnpm install && pnpm dev
 ```
 
-访问 http://localhost:5174 · 任意凭据即可登录（原型演示，无真实鉴权）。
+访问 http://localhost:5176 · 任意凭据即可登录（原型演示，无真实鉴权）。
 
 ## 定位
 
@@ -30,7 +30,7 @@ cd hhspec/prototype/portal-admin && pnpm install && pnpm dev
 | | 消费端 portal-store | 管理后台 portal-admin |
 |---|---|---|
 | 技术栈 | Next.js 15 + TS | Vue3 + Vite + Headless UI |
-| 端口 | 5173 | 5174 |
+| 端口 | 5175 | 5176 |
 | 设计 token | editorial-luxe-coastal | **同源**（canvas/ink/gold/sage/blush） |
 | 隔离 | 互不链接，独立鉴权 | 独立 RBAC |
 

@@ -15,5 +15,5 @@ if [[ ! -d "hhspec/prototype/node_modules" ]]; then
     exit 1
   }
 fi
-echo "启动 Dreamy 管理后台 → http://localhost:5174"
+echo "启动 Dreamy 管理后台 → http://localhost:5176"
 cd "$ADMIN_DIR" && pnpm dev
