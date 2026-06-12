@@ -1,5 +1,6 @@
 package com.dreamy.marketing.port;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
@@ -20,7 +21,7 @@ public interface CatalogQueryPort {
     /** 引用存在性校验（V-MKT-035/062/070：存在即可，不要求 published——草稿商品可被运营提前挂载） */
     List<Long> listExistingIds(Collection<Long> productIds);
 
-    /** 内容关联商品卡片（openapi ProductRef：id/slug/name/price/image_url，USD 基准价） */
-    record ProductRef(Long id, String slug, String name, BigDecimal price, String imageUrl) {
+    /** 内容关联商品卡片（openapi ProductRef：id/slug/name/price/image_url，USD 基准价）；Serializable——JetCache Redis 远端层 Java 序列化要求 */
+    record ProductRef(Long id, String slug, String name, BigDecimal price, String imageUrl) implements Serializable {
     }
 }

@@ -50,6 +50,8 @@ dependencies {
     // ── 缓存：JetCache（两级缓存，消费端只读接口）──────────────────
     implementation "com.alicp.jetcache:jetcache-starter-redis-lettuce:${jetcacheVersion}"
     implementation "com.alicp.jetcache:jetcache-anno:${jetcacheVersion}"
+    // kryo5 远端值编码（替代 java 序列化：DTO 无需 Serializable，且外部类 huihao.page.Paginated 不可改）
+    implementation 'com.esotericsoftware.kryo:kryo5:5.6.2'
 
     // ── Redis：spring-data-redis（OTP 频控/会话有效性缓存）──────────
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'

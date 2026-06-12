@@ -75,8 +75,9 @@ jetcache:
     default:
       type: redis.lettuce
       keyConvertor: fastjson2
-      valueEncoder: java
-      valueDecoder: java
+      # kryo5：值类型无需 Serializable（java 编码曾因 StoreProductCard/huihao.page.Paginated 等未实现 Serializable 持续 PUT error）
+      valueEncoder: kryo5
+      valueDecoder: kryo5
       expireAfterWriteInMillis: 300000
       uri: redis://localhost:6379
 
