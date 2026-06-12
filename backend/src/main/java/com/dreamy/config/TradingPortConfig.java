@@ -96,7 +96,7 @@ public class TradingPortConfig {
                             product.getMultiCurrencyPrices(), mainImages.get(product.getId()),
                             product.getLeadTimeDays(), product.getRushAvailable(),
                             product.getCustomSizeAvailable(),
-                            product.getStatus() == ProductStatus.PUBLISHED ? "published" : "draft"));
+                            product.getStatus() == null ? ProductStatus.DRAFT.getKey() : product.getStatus().getKey()));
                 }
                 return result;
             }

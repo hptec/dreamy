@@ -67,7 +67,7 @@ class StoreCartServiceTest {
         service = new StoreCartService(cartItemRepository, cartMergeRecordRepository, catalogSnapshotPort,
                 dyeLotPort, new TradingImmediateTxRunner());
         lenient().when(catalogSnapshotPort.getProductBrief(eq(PRODUCT), anyString()))
-                .thenReturn(product(true, "published"));
+                .thenReturn(product(true, 2));
         lenient().when(catalogSnapshotPort.getSku(SKU))
                 .thenReturn(new SkuBrief(SKU, PRODUCT, "AUR-IV-2", "Ivory", "2", 5, 0L));
         lenient().when(catalogSnapshotPort.getProductBriefs(anyCollection(), anyString())).thenReturn(Map.of());
@@ -76,7 +76,7 @@ class StoreCartServiceTest {
         lenient().when(cartItemRepository.listByCustomerId(CUSTOMER)).thenReturn(List.of());
     }
 
-    private ProductBrief product(boolean customAvailable, String status) {
+    private ProductBrief product(boolean customAvailable, Integer status) {
         return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
                 null, null, null, 30, false, customAvailable, status);
     }
@@ -107,7 +107,7 @@ class StoreCartServiceTest {
     @DisplayName("TC-TRD-003 [P0]: 商品未开放定制却携带定制数据 → 422604")
     void customNotAvailableRejected() {
         when(catalogSnapshotPort.getProductBrief(eq(PRODUCT), anyString()))
-                .thenReturn(product(false, "published"));
+                .thenReturn(product(false, 2));
         assertThatThrownBy(() -> service.addItem(CUSTOMER,
                 new CartItemCreate(PRODUCT, null, 1, customSize()), "en"))
                 .isInstanceOfSatisfying(TradingException.class,
@@ -117,7 +117,7 @@ class StoreCartServiceTest {
     @Test
     @DisplayName("V-TRD-002: 商品不存在/未发布 → 404501 透传 catalog")
     void productNotPublished() {
-        when(catalogSnapshotPort.getProductBrief(eq(PRODUCT), anyString())).thenReturn(product(true, "draft"));
+        when(catalogSnapshotPort.getProductBrief(eq(PRODUCT), anyString())).thenReturn(product(true, 1));
         assertThatThrownBy(() -> service.addItem(CUSTOMER, new CartItemCreate(PRODUCT, SKU, 1, null), "en"))
                 .isInstanceOf(CatalogException.class);
     }

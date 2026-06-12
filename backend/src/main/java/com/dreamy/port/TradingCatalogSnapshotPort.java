@@ -33,10 +33,10 @@ public interface TradingCatalogSnapshotPort {
     record ProductBrief(Long id, String slug, String name, String subtitle, BigDecimal price,
                         BigDecimal compareAt, Map<String, BigDecimal> multiCurrencyPrices, String imageUrl,
                         Integer leadTimeDays, Boolean rushAvailable, Boolean customSizeAvailable,
-                        String status) implements Serializable {
+                        Integer status) implements Serializable {
 
         public boolean published() {
-            return "published".equals(status);
+            return com.dreamy.enums.ProductStatus.PUBLISHED.getKey().equals(status);
         }
     }
 

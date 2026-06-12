@@ -94,7 +94,7 @@ class CheckoutQuoteServiceTest {
         item.setQty(2);
         lenient().when(cartItemRepository.listByCustomerId(CUSTOMER)).thenReturn(List.of(item));
         lenient().when(catalogSnapshotPort.getProductBriefs(anyCollection(), anyString()))
-                .thenReturn(Map.of(PRODUCT, product("published")));
+                .thenReturn(Map.of(PRODUCT, product(2)));
         lenient().when(catalogSnapshotPort.getSkus(anyCollection()))
                 .thenReturn(Map.of(SKU, new SkuBrief(SKU, PRODUCT, "AUR-IV-2", "Ivory", "2", 5, 0L)));
         lenient().when(shippingQuotePort.quoteOptions(anyString(), any())).thenReturn(List.of(
@@ -107,7 +107,7 @@ class CheckoutQuoteServiceTest {
         lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
     }
 
-    private ProductBrief product(String status) {
+    private ProductBrief product(Integer status) {
         return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
                 null, null, "https://img/aurelia.jpg", 30, false, true, status);
     }
@@ -155,7 +155,7 @@ class CheckoutQuoteServiceTest {
         when(exchangeRateRepository.findByCurrency("EUR")).thenReturn(eur);
         when(catalogSnapshotPort.getProductBriefs(anyCollection(), anyString())).thenReturn(Map.of(PRODUCT,
                 new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
-                        null, Map.of("EUR", new BigDecimal("90.00")), null, 30, false, true, "published")));
+                        null, Map.of("EUR", new BigDecimal("90.00")), null, 30, false, true, 2)));
         CheckoutQuoteResponse resp = service.quote(CUSTOMER, request("EUR", null, null, true, null), "en");
         // 行价覆盖价 90×2=180；运费 22×0.92=20.24；礼品包装 15×0.92=13.80
         assertThat(resp.subtotal()).isEqualByComparingTo("180.00");
@@ -227,7 +227,7 @@ class CheckoutQuoteServiceTest {
     @DisplayName("strict 口径：下架行 → 422601 details.unavailable_product_ids（V-TRD-026）；quote 口径剔除")
     void draftLineHandling() {
         when(catalogSnapshotPort.getProductBriefs(anyCollection(), anyString()))
-                .thenReturn(Map.of(PRODUCT, product("draft")));
+                .thenReturn(Map.of(PRODUCT, product(1)));
         assertThatThrownBy(() -> service.compute(CUSTOMER, ADDRESS, null, "USD", null, null, false, null,
                 "en", true))
                 .isInstanceOfSatisfying(TradingException.class, ex ->
