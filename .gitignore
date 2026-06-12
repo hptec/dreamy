@@ -25,6 +25,10 @@ hhspec/pd-sessions/
 
 # 测试截图
 tests/ui-verification/*.png
+tests/ui-verification/attr-eav-shots/
+
+# CCB 多 AI 协作会话目录（运行时产物）
+.ccb/
 
 # 运行时日志目录
 logs/
