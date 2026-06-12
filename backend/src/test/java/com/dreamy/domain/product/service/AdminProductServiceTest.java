@@ -117,7 +117,7 @@ class AdminProductServiceTest {
 
     private static AdminProductUpsert upsertWithSku(SkuDto sku) {
         return new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null, null,
-                new BigDecimal("1280"), null, null, null, "published", null, null, null, 0, 45, null, null,
+                new BigDecimal("1280"), null, null, null, 2, null, null, null, 0, 45, null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, List.of(sku), null, null, null, null);
     }
@@ -185,8 +185,8 @@ class AdminProductServiceTest {
         when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of());
         when(imageRepository.listByProductIds(anyCollection())).thenReturn(List.of());
         when(categoryRepository.listAll()).thenReturn(List.of());
-        var item = service.toggleStatus(10L, "published");
-        assertThat(item.status()).isEqualTo("published");
+        var item = service.toggleStatus(10L, 2);
+        assertThat(item.status()).isEqualTo(2);
         verify(transactionTemplate, never()).executeWithoutResult(any());
         verify(audit, never()).record(any(), any(), any());
         verify(invalidatedPublisher, never()).publish(any(), any(), any());
@@ -202,10 +202,10 @@ class AdminProductServiceTest {
         when(categoryRepository.listAll()).thenReturn(List.of());
         // RM-CAT-01b 一次聚合命中 → 合并到 DTO
         when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of(10L, 7));
-        assertThat(service.toggleStatus(10L, "published").salesTotal()).isEqualTo(7);
+        assertThat(service.toggleStatus(10L, 2).salesTotal()).isEqualTo(7);
         // RM-CAT-01c 缺失 product_id → sales_total = 0
         when(tradingQueryPort.sumSalesTotalByProductIds(anyCollection())).thenReturn(java.util.Map.of());
-        assertThat(service.toggleStatus(10L, "published").salesTotal()).isZero();
+        assertThat(service.toggleStatus(10L, 2).salesTotal()).isZero();
     }
 
     @Test
@@ -214,7 +214,7 @@ class AdminProductServiceTest {
         assertThatThrownBy(() -> service.toggleStatus(10L, null))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.FIELD_VALIDATION_FAILED));
-        assertThatThrownBy(() -> service.toggleStatus(10L, "archived"))
+        assertThatThrownBy(() -> service.toggleStatus(10L, 3))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.FIELD_VALIDATION_FAILED));
     }
@@ -261,7 +261,7 @@ class AdminProductServiceTest {
         when(categoryRepository.findById(1L)).thenReturn(new Category());
         when(productRepository.existsBySlugExcept("aurelia-gown", 10L)).thenReturn(false);
         AdminProductUpsert req = new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null,
-                null, new BigDecimal("1280"), null, null, null, "published", null, null, null, 0, 45,
+                null, new BigDecimal("1280"), null, null, null, 2, null, null, null, 0, 45,
                 null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, "2026-06-01T09:00:00");
         assertThatThrownBy(() -> service.update(10L, req))

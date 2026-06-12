@@ -33,7 +33,7 @@ public class Banner extends LongAuditableEntity {
     @Column(name = BannerDBConst.IMAGE_URL, definition = "varchar(512) NOT NULL COMMENT '预签名上传 public_url（scope=banner）'")
     private String imageUrl;
 
-    @Column(name = BannerDBConst.POSITION, definition = "varchar(16) NOT NULL COMMENT 'hero|featured|topbar'")
+    @Column(name = BannerDBConst.POSITION, definition = "tinyint NOT NULL COMMENT '位置：1=首屏大图 2=精选位 3=顶栏'")
     private BannerPosition position;
 
     @Column(name = BannerDBConst.START_TIME, definition = "datetime(3) NULL COMMENT '投放开始（空=立即）'")
@@ -42,7 +42,7 @@ public class Banner extends LongAuditableEntity {
     @Column(name = BannerDBConst.END_TIME, definition = "datetime(3) NULL COMMENT '投放结束（空=长期）；读路径窗口过滤（DEC-MKT-2）'")
     private LocalDateTime endTime;
 
-    @Column(name = BannerDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|published|archived'")
+    @Column(name = BannerDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布 3=已归档'")
     private ContentStatus status;
 
     @Column(name = BannerDBConst.SORT, definition = "int NOT NULL DEFAULT 0 COMMENT '排序'")

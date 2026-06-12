@@ -51,7 +51,7 @@ public class AdminOrderController {
     public ResponseEntity<R<Paginated<AdminOrderListItem>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String currency,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
@@ -73,7 +73,7 @@ public class AdminOrderController {
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/orders/export")
     public ResponseEntity<byte[]> export(
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String currency,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,

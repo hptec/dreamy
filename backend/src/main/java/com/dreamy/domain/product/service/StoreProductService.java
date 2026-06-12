@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.attribute.entity.AttributeDef;
 import com.dreamy.domain.attribute.entity.AttributeDefTranslation;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
@@ -177,7 +178,7 @@ public class StoreProductService {
         // 标签命中路径可能引入未发布商品 id——按 published 批查后按序回排
         Map<Long, Product> byId = new HashMap<>();
         for (Product p : productRepository.listByIds(pageIds)) {
-            if (p.getStatus() != null && "published".equals(p.getStatus().getKey())) {
+            if (p.getStatus() == ProductStatus.PUBLISHED) {
                 byId.put(p.getId(), p);
             }
         }

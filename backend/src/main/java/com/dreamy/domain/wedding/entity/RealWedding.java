@@ -37,7 +37,7 @@ public class RealWedding extends LongAuditableEntity {
     @Column(name = RealWeddingDBConst.COVER, definition = "varchar(512) NULL")
     private String cover;
 
-    @Column(name = RealWeddingDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|published'")
+    @Column(name = RealWeddingDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布'")
     private PublishStatus status;
 
     @Column(name = RealWeddingDBConst.TITLE, definition = "varchar(200) NULL COMMENT '案例标题(EN 基准，DEC-MKT-1)'")

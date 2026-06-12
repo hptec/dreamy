@@ -15,7 +15,7 @@ public final class AdminCatalogDtos {
     }
 
     /** openapi AttributeSetItem（visibility 字符串，V-CAT-050 校验三态） */
-    public record AttributeSetItemDto(Long attributeId, String visibility) {
+    public record AttributeSetItemDto(Long attributeId, Integer visibility) {
     }
 
     /** openapi AttributeSetUpsert（V-CAT-049~051） */
@@ -27,12 +27,12 @@ public final class AdminCatalogDtos {
     }
 
     /** openapi AttributeDefUpsert（V-CAT-053~058） */
-    public record AttributeDefUpsert(String key, String label, String type, List<String> options,
+    public record AttributeDefUpsert(String key, String label, Integer type, List<String> options,
                                      List<AttributeDefTranslationDto> translations) {
     }
 
     /** openapi AttributeDef（MAP-CAT-009） */
-    public record AttributeDefDto(Long id, String key, String label, String type, List<String> options,
+    public record AttributeDefDto(Long id, String key, String label, Integer type, List<String> options,
                                   List<AttributeDefTranslationDto> translations) {
     }
 
@@ -47,12 +47,12 @@ public final class AdminCatalogDtos {
     }
 
     /** openapi TagUpsert（V-CAT-063~066） */
-    public record TagUpsert(Long dimensionId, String name, String cover, String status,
+    public record TagUpsert(Long dimensionId, String name, String cover, Integer status,
                             List<TagTranslationDto> translations) {
     }
 
     /** openapi Tag（product_count 全量口径——MAP-CAT-010） */
-    public record TagDto(Long id, Long dimensionId, String name, String cover, String status,
+    public record TagDto(Long id, Long dimensionId, String name, String cover, Integer status,
                          Integer productCount, List<TagTranslationDto> translations) {
     }
 }

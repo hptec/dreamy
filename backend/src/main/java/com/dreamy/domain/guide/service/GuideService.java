@@ -36,7 +36,6 @@ import java.util.Set;
 @Service
 public class GuideService {
 
-    private static final List<String> STATUS_FILTER = List.of("all", "draft", "published");
 
     private final GuideRepository guideRepository;
     private final MarketingCacheService cache;
@@ -77,13 +76,13 @@ public class GuideService {
     }
 
     /** E-MKT-42：后台列表（status 筛选 + translations 原样） */
-    public List<GuideDto> listAdmin(String status) {
+    public List<GuideDto> listAdmin(Integer status) {
         // V-MKT-074 status ∈ {all, draft, published} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && PublishStatus.of(statusFilter) == null) {
             throw MarketingException.fieldValidation("status", "invalid_enum");
         }
-        PublishStatus statusEnum = "all".equals(statusFilter) ? null : PublishStatus.of(statusFilter);
+        PublishStatus statusEnum = statusFilter == null ? null : PublishStatus.of(statusFilter);
         List<Guide> guides = guideRepository.listAdmin(statusEnum);
         Map<Long, List<GuideTranslationDto>> translations = translationsByGuide(
                 guides.stream().map(Guide::getId).toList());
@@ -149,7 +148,7 @@ public class GuideService {
 
     /** E-MKT-46：发布状态变更（TX-MKT-026；双向合法 + 同态幂等短路 bs-887） */
     @Transactional
-    public GuideDto patchStatus(Long id, String statusRaw) {
+    public GuideDto patchStatus(Long id, Integer statusRaw) {
         // V-MKT-082 status 必填 ∈ {draft, published}
         PublishStatus target = PublishStatus.of(statusRaw);
         if (target == null) {

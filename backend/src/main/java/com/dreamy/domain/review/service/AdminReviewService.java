@@ -75,14 +75,14 @@ public class AdminReviewService {
 
     // ==================== E-REV-06 listAdminReviews ====================
 
-    public AdminReviewListDTO listAdminReviews(Integer page, Integer pageSize, String status, Integer rating,
+    public AdminReviewListDTO listAdminReviews(Integer page, Integer pageSize, Integer status, Integer rating,
                                                Boolean featured, Long productId, String search) {
         // V-REV-014~019
         ReviewFieldErrors errors = new ReviewFieldErrors();
         int parsedPage = ReviewParams.parsePage(page, errors);
         int parsedSize = ReviewParams.parsePageSize(pageSize, errors);
         ReviewStatus statusFilter = null;
-        if (status != null && !status.isBlank() && !"all".equals(status)) {
+        if (status != null) {
             statusFilter = ReviewStatus.of(status);
             if (statusFilter == null) {
                 errors.reject("status", "invalid_enum");
@@ -123,7 +123,7 @@ public class AdminReviewService {
 
     // ==================== E-REV-07 patchAdminReviewStatus（review_moderation, FLOW-P14） ====================
 
-    public AdminReviewDto moderate(Long id, String status) {
+    public AdminReviewDto moderate(Long id, Integer status) {
         // V-REV-020/021
         Review review = requireReview(id);
         ReviewStatus to = ReviewStatus.of(status);
@@ -257,7 +257,7 @@ public class AdminReviewService {
                     "skipped_ids", skippedIds)));
             // STEP-REV-05 updated 非空时提交后失效链 + 按 product_id 去重发事件
             if (!updatedIds.isEmpty()) {
-                String statusKey = batchAction == ReviewBatchAction.APPROVE ? ReviewStatus.APPROVED.getKey()
+                Integer statusKey = batchAction == ReviewBatchAction.APPROVE ? ReviewStatus.APPROVED.getKey()
                         : batchAction == ReviewBatchAction.REJECT ? ReviewStatus.REJECTED.getKey() : null;
                 List<Long> products = new ArrayList<>(touchedProducts);
                 Map<Long, Long> moderated = new LinkedHashMap<>(moderatedProducts);

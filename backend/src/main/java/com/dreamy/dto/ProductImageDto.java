@@ -7,7 +7,7 @@ package com.dreamy.dto;
 public record ProductImageDto(
         Long id,
         String url,
-        String kind,
+        Integer kind,
         String colorName,
         Integer sort
 ) {

@@ -57,11 +57,11 @@ public class StoreContentController {
     /** E-MKT-01 listStoreBanners（V-MKT-001/002） */
     @GetMapping("/api/store/content/banners")
     public ResponseEntity<R<Map<String, List<StoreBanner>>>> listBanners(
-            @RequestParam(required = false) String position,
+            @RequestParam(required = false) Integer position,
             @RequestParam(required = false) String locale) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         BannerPosition parsedPosition = null;
-        if (position != null && !position.isBlank()) {
+        if (position != null) {
             parsedPosition = BannerPosition.of(position);
             if (parsedPosition == null) {
                 errors.reject("position", "invalid_enum");

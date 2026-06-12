@@ -147,7 +147,7 @@ class RefundServiceTest {
                 isNull())).thenReturn(1);
         var dto = service.applyStoreRefund(7L, ORDER_ID, "wrong size");
         assertThat(dto.amount()).isEqualByComparingTo("237.00");
-        assertThat(dto.status()).isEqualTo("pending");
+        assertThat(dto.status()).isEqualTo(1);
         verify(refundRepository).insert(any(Refund.class));
     }
 

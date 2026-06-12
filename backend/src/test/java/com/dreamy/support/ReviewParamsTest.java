@@ -62,13 +62,13 @@ class ReviewParamsTest {
     @Test
     @DisplayName("TC-REV-006 [P0]: status/visible 枚举外拒绝（bs-510/511），合法值解析正确")
     void enumBoundaries() {
-        assertThat(ReviewStatus.of("approved")).isEqualTo(ReviewStatus.APPROVED);
-        assertThat(ReviewStatus.of("rejected")).isEqualTo(ReviewStatus.REJECTED);
-        assertThat(ReviewStatus.of("pending")).isEqualTo(ReviewStatus.PENDING);
-        assertThat(ReviewStatus.of("__invalid__")).isNull();
-        assertThat(QuestionVisibility.of("visible")).isEqualTo(QuestionVisibility.VISIBLE);
-        assertThat(QuestionVisibility.of("hidden")).isEqualTo(QuestionVisibility.HIDDEN);
-        assertThat(QuestionVisibility.of("__invalid__")).isNull();
+        assertThat(ReviewStatus.of(2)).isEqualTo(ReviewStatus.APPROVED);
+        assertThat(ReviewStatus.of(3)).isEqualTo(ReviewStatus.REJECTED);
+        assertThat(ReviewStatus.of(1)).isEqualTo(ReviewStatus.PENDING);
+        assertThat(ReviewStatus.of(99)).isNull();
+        assertThat(QuestionVisibility.of(1)).isEqualTo(QuestionVisibility.VISIBLE);
+        assertThat(QuestionVisibility.of(2)).isEqualTo(QuestionVisibility.HIDDEN);
+        assertThat(QuestionVisibility.of(99)).isNull();
     }
 
     @Test

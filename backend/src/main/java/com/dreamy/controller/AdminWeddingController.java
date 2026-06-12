@@ -40,7 +40,7 @@ public class AdminWeddingController {
     public ResponseEntity<R<Paginated<RealWeddingDto>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) Integer status) {
         return ResponseEntity.ok(R.ok(adminWeddingService.page(page, pageSize, status)));
     }
 

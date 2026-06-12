@@ -15,7 +15,7 @@ public record AdminCategoryNode(
         String name,
         Long parentId,
         Long attributeSetId,
-        Map<String, String> attrOverrides,
+        Map<String, Integer> attrOverrides,
         Integer sort,
         Integer level,
         Integer productCount,

@@ -35,7 +35,7 @@ public final class ReviewDtos {
             String customerName,
             Integer rating,
             String content,
-            String status,
+            Integer status,
             Boolean featured,
             LocalDateTime submittedAt,
             List<ReviewImageDto> images,
@@ -68,7 +68,7 @@ public final class ReviewDtos {
             ProductCardDto product,
             Integer rating,
             String content,
-            String status,
+            Integer status,
             Boolean featured,
             LocalDateTime submittedAt,
             List<ReviewImageDto> images,
@@ -93,7 +93,7 @@ public final class ReviewDtos {
             String customerName,
             Integer rating,
             String content,
-            String status,
+            Integer status,
             Boolean featured,
             LocalDateTime submittedAt,
             List<ReviewImageDto> images,
@@ -113,7 +113,7 @@ public final class ReviewDtos {
             LocalDateTime askedAt,
             String answer,
             LocalDateTime answerTime,
-            String visible
+            Integer visible
     ) {
     }
 
@@ -139,7 +139,7 @@ public final class ReviewDtos {
     }
 
     /** E-REV-07（V-REV-021） */
-    public record ReviewStatusPatch(String status) {
+    public record ReviewStatusPatch(Integer status) {
     }
 
     /** E-REV-08（V-REV-023） */
@@ -166,7 +166,7 @@ public final class ReviewDtos {
     }
 
     /** E-REV-15（V-REV-037） */
-    public record VisibilityPatch(String visible) {
+    public record VisibilityPatch(Integer visible) {
     }
 
     // ==================== 缓存快照（Serializable，JetCache remote java 编解码） ====================

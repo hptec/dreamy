@@ -65,16 +65,16 @@ public class StoreOrderService {
     }
 
     /** E-listStoreOrders（V-TRD-030/031 + STEP-TRD-01/02；Paginated 六字段） */
-    public Paginated<StoreOrderListItem> listOrders(Long customerId, Integer page, Integer pageSize, String status) {
+    public Paginated<StoreOrderListItem> listOrders(Long customerId, Integer page, Integer pageSize, Integer status) {
         TradingFieldErrors errors = new TradingFieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
         int parsedSize = TradingParams.parsePageSize(pageSize, errors);
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!TradingParams.ORDER_STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && OrderStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         errors.throwIfAny();
-        OrderStatus statusEnum = "all".equals(statusFilter) ? null : OrderStatus.of(statusFilter);
+        OrderStatus statusEnum = statusFilter == null ? null : OrderStatus.of(statusFilter);
         Page<Order> result = orderRepository.pageByCustomer(customerId, statusEnum, parsedPage, parsedSize);
         // STEP-TRD-02 line_count/first_line_img 一次聚合（RM-TRD-032，防 N+1）
         Map<Long, OrderLineRepository.LineAggregate> aggregates =

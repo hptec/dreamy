@@ -114,7 +114,7 @@ class ShowroomMemberServiceTest {
         ShowroomMemberDto dto = service.assign(OWNER, ROOM, MEMBER,
                 new AssignRequest(ITEM, "emma@example.com"));
 
-        assertThat(dto.assignStatus()).isEqualTo("assigned");
+        assertThat(dto.assignStatus()).isEqualTo(2);
         // owner 视图含 email
         assertThat(dto.email()).isEqualTo("emma@example.com");
         ArgumentCaptor<MailEventPayload> captor = ArgumentCaptor.forClass(MailEventPayload.class);
@@ -149,7 +149,7 @@ class ShowroomMemberServiceTest {
         assertThatThrownBy(() -> service.assign(OWNER, ROOM, MEMBER, new AssignRequest(ITEM, null)))
                 .isInstanceOfSatisfying(ShowroomException.class, ex -> {
                     assertThat(ex.getErrorCode()).isEqualTo(ShowroomErrorCode.MEMBER_STATE_INVALID);
-                    assertThat(ex.getDetails()).containsEntry("assign_status", "ordered");
+                    assertThat(ex.getDetails()).containsEntry("assign_status", 4);
                 });
     }
 
@@ -188,7 +188,7 @@ class ShowroomMemberServiceTest {
         when(memberRepository.findById(MEMBER)).thenReturn(member(AssignStatus.REMINDED, "emma@example.com"));
 
         ShowroomMemberDto dto = service.remind(OWNER, ROOM, MEMBER);
-        assertThat(dto.assignStatus()).isEqualTo("reminded");
+        assertThat(dto.assignStatus()).isEqualTo(3);
         verify(eventPublisher).publishRemind(any());
     }
 
@@ -203,7 +203,7 @@ class ShowroomMemberServiceTest {
                 .isInstanceOfSatisfying(ShowroomException.class, ex -> {
                     assertThat(ex.getErrorCode()).isEqualTo(ShowroomErrorCode.MEMBER_STATE_INVALID);
                     assertThat(ex.getDetails()).containsEntry("reason", "not_assigned")
-                            .containsEntry("assign_status", "unassigned");
+                            .containsEntry("assign_status", 1);
                 });
         verify(eventPublisher, never()).publishRemind(any());
     }
@@ -218,7 +218,7 @@ class ShowroomMemberServiceTest {
         assertThatThrownBy(() -> service.remind(OWNER, ROOM, MEMBER))
                 .isInstanceOfSatisfying(ShowroomException.class, ex ->
                         assertThat(ex.getDetails()).containsEntry("reason", "email_missing")
-                                .containsEntry("assign_status", "assigned"));
+                                .containsEntry("assign_status", 2));
     }
 
     @Test
@@ -230,7 +230,7 @@ class ShowroomMemberServiceTest {
         when(memberRepository.findById(MEMBER)).thenReturn(member(AssignStatus.REMINDED, "emma@example.com"));
 
         ShowroomMemberDto dto = service.remind(OWNER, ROOM, MEMBER);
-        assertThat(dto.assignStatus()).isEqualTo("reminded");
+        assertThat(dto.assignStatus()).isEqualTo(3);
         verify(eventPublisher).publishRemind(any());
     }
 }

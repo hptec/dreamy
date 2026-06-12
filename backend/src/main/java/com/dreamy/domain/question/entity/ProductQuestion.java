@@ -57,6 +57,6 @@ public class ProductQuestion extends LongAuditableEntity {
     private LocalDateTime answerTime;
 
     @Column(name = ProductQuestionDBConst.VISIBLE,
-            definition = "varchar(16) NOT NULL DEFAULT 'hidden' COMMENT 'visible|hidden；首次回答自动置 visible（E-REV-14）'")
+            definition = "tinyint NOT NULL DEFAULT 2 COMMENT '可见性：1=显示 2=隐藏；首次回答自动置显示（E-REV-14）'")
     private QuestionVisibility visible;
 }

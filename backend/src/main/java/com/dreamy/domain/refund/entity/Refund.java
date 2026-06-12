@@ -50,7 +50,7 @@ public class Refund extends LongAuditableEntity {
     @Column(name = RefundDBConst.REJECT_REASON, definition = "varchar(255) NULL COMMENT '拒绝原因（回执邮件与消费端）'")
     private String rejectReason;
 
-    @Column(name = RefundDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending/approved/rejected'")
+    @Column(name = RefundDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=待处理 2=已同意 3=已拒绝'")
     private RefundStatus status;
 
     @Column(name = RefundDBConst.STRIPE_REFUND_ID, definition = "varchar(64) NULL COMMENT '审核通过后写入'")

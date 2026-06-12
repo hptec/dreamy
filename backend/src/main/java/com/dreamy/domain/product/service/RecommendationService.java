@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
@@ -164,7 +165,7 @@ public class RecommendationService {
 
     private Product baselinePublished(Long productId) {
         Product base = productRepository.findById(productId);
-        if (base == null || base.getStatus() == null || !"published".equals(base.getStatus().getKey())) {
+        if (base == null || base.getStatus() != ProductStatus.PUBLISHED) {
             return null;
         }
         return base;

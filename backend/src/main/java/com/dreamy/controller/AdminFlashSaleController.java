@@ -38,7 +38,7 @@ public class AdminFlashSaleController {
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/promotions/flash-sales")
     public ResponseEntity<R<Map<String, List<FlashSaleDto>>>> list(
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) Integer status) {
         return ResponseEntity.ok(R.ok(Map.of("items", adminFlashSaleService.list(status))));
     }
 

@@ -41,7 +41,7 @@ public class Category extends LongAuditableEntity {
     /** 子分类属性可见性 delta {attrKey: visibility}（saveDrawer 语义，MAP-CAT-013 JacksonTypeHandler） */
     @Column(name = CategoryDBConst.ATTR_OVERRIDES, definition = "json NULL COMMENT '子分类属性可见性 delta {attrKey: visibility}'")
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private Map<String, String> attrOverrides;
+    private Map<String, Integer> attrOverrides;
 
     @Column(name = CategoryDBConst.SORT, definition = "int NOT NULL DEFAULT 0 COMMENT '同层排序（拖拽落库）'")
     private Integer sort;

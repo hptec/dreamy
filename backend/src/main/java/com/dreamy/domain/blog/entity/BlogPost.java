@@ -46,7 +46,7 @@ public class BlogPost extends LongAuditableEntity {
     @Column(name = BlogPostDBConst.SLUG, definition = "varchar(128) NULL COMMENT '静态文章页路径 ^[a-z0-9-]+$；published 必填（CV-MKT-012）'")
     private String slug;
 
-    @Column(name = BlogPostDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|published|archived'")
+    @Column(name = BlogPostDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布 3=已归档'")
     private ContentStatus status;
 
     @Column(name = BlogPostDBConst.PUBLISHED_AT, definition = "datetime(3) NULL COMMENT '首次发布时间（republish 不刷新）'")

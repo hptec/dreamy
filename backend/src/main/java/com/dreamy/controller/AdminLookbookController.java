@@ -39,7 +39,7 @@ public class AdminLookbookController {
     /** E-MKT-37 listAdminLookbooks */
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/content/lookbooks")
-    public ResponseEntity<R<Map<String, List<LookbookDto>>>> list(@RequestParam(required = false) String status) {
+    public ResponseEntity<R<Map<String, List<LookbookDto>>>> list(@RequestParam(required = false) Integer status) {
         return ResponseEntity.ok(R.ok(Map.of("items", adminLookbookService.list(status))));
     }
 

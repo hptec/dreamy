@@ -35,7 +35,7 @@ public class Coupon extends LongAuditableEntity {
     @Column(name = CouponDBConst.NAME, definition = "varchar(64) NOT NULL COMMENT '券名(EN 基准)'")
     private String name;
 
-    @Column(name = CouponDBConst.TYPE, definition = "varchar(16) NOT NULL COMMENT 'discount|fixed_amount|free_shipping'")
+    @Column(name = CouponDBConst.TYPE, definition = "tinyint NOT NULL COMMENT '类型：1=折扣 2=固定金额 3=免运费'")
     private CouponType type;
 
     @Column(name = CouponDBConst.VALUE, definition = "varchar(32) NOT NULL COMMENT '展示串，按 type pattern 可解析（DEC-MKT-4）'")
@@ -56,7 +56,7 @@ public class Coupon extends LongAuditableEntity {
     @Column(name = CouponDBConst.END_AT, definition = "datetime(3) NULL COMMENT 'js_guard end_at>start_at'")
     private LocalDateTime endAt;
 
-    @Column(name = CouponDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|scheduled|active|expiring|expired（SCHED 翻转）'")
+    @Column(name = CouponDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已排期 3=生效中 4=即将过期 5=已过期（SCHED 翻转）'")
     private CouponStatus status;
 
     @Column(name = CouponDBConst.DESCRIPTION, definition = "varchar(255) NULL COMMENT '券说明(EN 基准，DEC-MKT-1)'")

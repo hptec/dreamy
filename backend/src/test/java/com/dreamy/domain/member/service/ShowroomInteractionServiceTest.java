@@ -92,12 +92,12 @@ class ShowroomInteractionServiceTest {
                 .thenReturn(Map.of(ITEM, new VoteCounts(3, 1)));
 
         VoteResultDto dto = service.vote(Interactor.guest(GUEST_MEMBER), ROOM, ITEM,
-                new VoteRequest("like"));
+                new VoteRequest(1));
 
         verify(voteRepository).upsert(ITEM, GUEST_MEMBER, VoteValue.LIKE);
         assertThat(dto.likeCount()).isEqualTo(3);
         assertThat(dto.dislikeCount()).isEqualTo(1);
-        assertThat(dto.myVote()).isEqualTo("like");
+        assertThat(dto.myVote()).isEqualTo(1);
     }
 
     @Test
@@ -110,7 +110,7 @@ class ShowroomInteractionServiceTest {
         when(voteRepository.aggregateByItems(anyCollection()))
                 .thenReturn(Map.of(ITEM, new VoteCounts(1, 0)));
 
-        service.vote(Interactor.store(OWNER), ROOM, ITEM, new VoteRequest("dislike"));
+        service.vote(Interactor.store(OWNER), ROOM, ITEM, new VoteRequest(2));
         verify(voteRepository).upsert(ITEM, 99L, VoteValue.DISLIKE);
     }
 
@@ -118,7 +118,7 @@ class ShowroomInteractionServiceTest {
     @DisplayName("其他登录用户投票 → 404101 防探测（owner 强隔离）")
     void strangerVoteNotFound() {
         when(showroomRepository.findByIdAndOwner(ROOM, 666L)).thenReturn(null);
-        assertThatThrownBy(() -> service.vote(Interactor.store(666L), ROOM, ITEM, new VoteRequest("like")))
+        assertThatThrownBy(() -> service.vote(Interactor.store(666L), ROOM, ITEM, new VoteRequest(1)))
                 .isInstanceOfSatisfying(ShowroomException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ShowroomErrorCode.SHOWROOM_NOT_FOUND));
     }
@@ -129,7 +129,7 @@ class ShowroomInteractionServiceTest {
         stubRoomAndItem();
         when(itemRepository.findByIdAndShowroom(999L, ROOM)).thenReturn(null);
         assertThatThrownBy(() -> service.vote(Interactor.guest(GUEST_MEMBER), ROOM, 999L,
-                new VoteRequest("like")))
+                new VoteRequest(1)))
                 .isInstanceOfSatisfying(ShowroomException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ShowroomErrorCode.SHOWROOM_ITEM_NOT_FOUND));
     }

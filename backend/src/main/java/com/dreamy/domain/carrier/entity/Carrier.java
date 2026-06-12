@@ -31,6 +31,6 @@ public class Carrier extends LongAuditableEntity {
     @Column(name = CarrierDBConst.LEAD_TIME, definition = "varchar(64) NULL COMMENT '时效描述（进入报价项 lead_time）'")
     private String leadTime;
 
-    @Column(name = CarrierDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'enabled' COMMENT '状态：enabled/disabled'")
+    @Column(name = CarrierDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 2=禁用'")
     private CarrierStatus status;
 }

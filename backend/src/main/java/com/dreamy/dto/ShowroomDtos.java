@@ -34,7 +34,7 @@ public final class ShowroomDtos {
     }
 
     /** E-SHR-10 投票请求（vote 字符串承载以落 V-SHR-017 invalid_enum 口径） */
-    public record VoteRequest(String vote) {
+    public record VoteRequest(Integer vote) {
     }
 
     /** E-SHR-11 留言请求 */
@@ -68,14 +68,14 @@ public final class ShowroomDtos {
     /** ShowroomItem（MAP-SHR-004：color 空串省略；my_vote 未投省略；不暴露 last_ordered_at 原始值） */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ShowroomItemDto(Long id, Long productId, String color, ProductRefDto product,
-                                  Integer likeCount, Integer dislikeCount, String myVote,
+                                  Integer likeCount, Integer dislikeCount, Integer myVote,
                                   List<ShowroomCommentDto> comments, Boolean dyeLotNotice) {
     }
 
     /** ShowroomMember（MAP-SHR-006：email/linked_customer_id 仅 owner 视图非 null 输出） */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ShowroomMemberDto(Long id, Long showroomId, String nickname, String email,
-                                    Long assignedItemId, String assignStatus, Long linkedCustomerId) {
+                                    Long assignedItemId, Integer assignStatus, Long linkedCustomerId) {
     }
 
     /** ShowroomDetail（MAP-SHR-002 owner 视图 / MAP-SHR-003 guest 视图，allOf 平铺） */
@@ -101,6 +101,6 @@ public final class ShowroomDtos {
     }
 
     /** E-SHR-10 投票响应（实时聚合，FLOW-P12） */
-    public record VoteResultDto(Integer likeCount, Integer dislikeCount, String myVote) {
+    public record VoteResultDto(Integer likeCount, Integer dislikeCount, Integer myVote) {
     }
 }

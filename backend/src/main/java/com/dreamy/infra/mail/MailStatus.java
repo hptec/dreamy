@@ -1,7 +1,8 @@
 package com.dreamy.infra.mail;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-import huihao.enums.typeable.StrEnum;
+import huihao.enums.annotation.Enumable;
+import huihao.enums.typeable.Describable;
+import huihao.enums.typeable.IntEnum;
 import lombok.Getter;
 
 /**
@@ -11,17 +12,21 @@ import lombok.Getter;
  * - failed：单次发送失败（retry_count+1，nack → 重试阶梯重入再尝试）；
  * - dead：超重试上限（dreamy.mq.max-retries=3）→ 死信语义，告警人工补发（FLOW-P11）。
  */
-public enum MailStatus implements StrEnum {
-    PENDING("pending"),
-    SENT("sent"),
-    FAILED("failed"),
-    DEAD("dead");
+@Enumable
+public enum MailStatus implements IntEnum, Describable {
+    PENDING(1, "待发送"),
+    SENT(2, "已发送"),
+    FAILED(3, "发送失败"),
+    DEAD(4, "死信");
 
-    @JsonValue
     @Getter
-    private final String key;
+    private final Integer key;
 
-    MailStatus(String key) {
+    @Getter
+    private final String desc;
+
+    MailStatus(Integer key, String desc) {
         this.key = key;
+        this.desc = desc;
     }
 }

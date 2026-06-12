@@ -32,8 +32,6 @@ import java.util.Map;
 @Service
 public class AdminCouponService {
 
-    private static final List<String> STATUS_FILTER =
-            List.of("all", "draft", "scheduled", "active", "expiring", "expired");
 
     private final CouponRepository couponRepository;
     private final MarketingAuditRecorder audit;
@@ -44,20 +42,20 @@ public class AdminCouponService {
     }
 
     /** E-MKT-13：分页列表（status/search 筛选 + translations 三语 tab 原样） */
-    public Paginated<CouponDto> page(Integer page, Integer pageSize, String status, String search) {
+    public Paginated<CouponDto> page(Integer page, Integer pageSize, Integer status, String search) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         int parsedPage = MarketingParams.parsePage(page, errors);
         int parsedPageSize = MarketingParams.parsePageSize(pageSize, errors);
         // V-MKT-017 status ∈ {all,...} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && CouponStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         // V-MKT-018 search ≤64（trim 后空视为未提供）
         String parsedSearch = MarketingParams.checkMaxLength(search, 64, "search", errors);
         errors.throwIfAny();
 
-        CouponStatus statusEnum = "all".equals(statusFilter) ? null : CouponStatus.of(statusFilter);
+        CouponStatus statusEnum = statusFilter == null ? null : CouponStatus.of(statusFilter);
         Page<Coupon> result = couponRepository.pageAdmin(statusEnum, parsedSearch, parsedPage, parsedPageSize);
         Map<Long, List<CouponTranslationDto>> translations = translationsByCoupon(
                 result.getRecords().stream().map(Coupon::getId).toList());

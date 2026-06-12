@@ -30,7 +30,7 @@ public class NewsletterService {
     }
 
     /** E-MKT-11：订阅（恒 200 {subscribed:true}） */
-    public void subscribe(String email, String source, String locale) {
+    public void subscribe(String email, Integer source, String locale) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         // STEP-MKT-01 email 小写归一（trim+lowercase——幂等判重口径统一，CV-MKT-008）
         String normalized = email == null ? null : email.trim().toLowerCase();

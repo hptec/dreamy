@@ -129,7 +129,7 @@ public class AdminQuestionService {
 
     // ==================== E-REV-15 patchAdminQuestionVisibility（TX-REV-009） ====================
 
-    public AdminQuestionDto patchVisibility(Long id, String visible) {
+    public AdminQuestionDto patchVisibility(Long id, Integer visible) {
         ProductQuestion question = requireQuestion(id);
         // V-REV-037（bs-511）
         QuestionVisibility target = QuestionVisibility.of(visible);

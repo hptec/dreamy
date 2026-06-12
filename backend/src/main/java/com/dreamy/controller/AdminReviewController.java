@@ -46,7 +46,7 @@ public class AdminReviewController {
     public ResponseEntity<R<AdminReviewListDTO>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Boolean featured,
             @RequestParam(name = "product_id", required = false) Long productId,

@@ -27,7 +27,7 @@ public class StoreLeadController {
     }
 
     /** E-MKT-11 请求体（V-MKT-009~011） */
-    public record NewsletterRequest(String email, String source, String locale) {
+    public record NewsletterRequest(String email, Integer source, String locale) {
     }
 
     /** E-MKT-11 subscribeNewsletter：无论新增或重复一律 200 {subscribed:true}（不泄露存在性） */

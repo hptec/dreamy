@@ -30,7 +30,7 @@ class ProductUpsertValidatorTest {
 
     /** 35 字段构造器的命名工厂（仅暴露被测字段，其余 null） */
     private static AdminProductUpsert make(String name, String slug, Long categoryId, BigDecimal price,
-                                           BigDecimal compareAt, String status, Integer sort,
+                                           BigDecimal compareAt, Integer status, Integer sort,
                                            Integer leadTimeDays, List<ProductImageDto> images,
                                            List<SkuDto> skus, List<Long> tagIds,
                                            List<ProductTranslationDto> translations) {
@@ -48,7 +48,7 @@ class ProductUpsertValidatorTest {
 
     private static AdminProductUpsert valid(List<ProductImageDto> images, List<SkuDto> skus,
                                             BigDecimal compareAt) {
-        return make("Aurelia Gown", "aurelia-gown", 1L, new BigDecimal("1280"), compareAt, "draft",
+        return make("Aurelia Gown", "aurelia-gown", 1L, new BigDecimal("1280"), compareAt, 1,
                 0, 45, images, skus, null, null);
     }
 
@@ -126,17 +126,17 @@ class ProductUpsertValidatorTest {
     @DisplayName("TC-CAT-014 [P1]: 主图不变量——gallery sort=0 至多一张；swatch color_name 超长；kind 枚举外")
     void imageInvariants() {
         List<ProductImageDto> twoPrimary = List.of(
-                new ProductImageDto(null, "/a.jpg", "gallery", null, 0),
-                new ProductImageDto(null, "/b.jpg", "gallery", null, 0));
+                new ProductImageDto(null, "/a.jpg", 1, null, 0),
+                new ProductImageDto(null, "/b.jpg", 1, null, 0));
         assertThatThrownBy(() -> validateCompat(valid(twoPrimary, null, null), true,
                 Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("images", "multiple_primary"));
         List<ProductImageDto> longColor = List.of(
-                new ProductImageDto(null, "/a.jpg", "swatch", "x".repeat(33), 0));
+                new ProductImageDto(null, "/a.jpg", 4, "x".repeat(33), 0));
         assertThatThrownBy(() -> validateCompat(valid(longColor, null, null), true,
                 Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("images", "color_name_too_long"));
-        List<ProductImageDto> badKind = List.of(new ProductImageDto(null, "/a.jpg", "thumbnail", null, 0));
+        List<ProductImageDto> badKind = List.of(new ProductImageDto(null, "/a.jpg", 99, null, 0));
         assertThatThrownBy(() -> validateCompat(valid(badKind, null, null), true,
                 Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("images", "invalid_enum"));
@@ -147,7 +147,7 @@ class ProductUpsertValidatorTest {
     void referenceIntegrity() {
         assertThatThrownBy(() -> validateCompat(valid(null, null, null), false, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("category_id", "not_exists"));
-        AdminProductUpsert withTags = make("N", "n", 1L, BigDecimal.ONE, null, "draft", 0, 1,
+        AdminProductUpsert withTags = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1,
                 null, null, List.of(7L), null);
         assertThatThrownBy(() -> validateCompat(withTags, true, Set.of(1L, 2L), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("tag_ids", "not_exists"));
@@ -156,12 +156,12 @@ class ProductUpsertValidatorTest {
     @Test
     @DisplayName("V-CAT-035 [P0]: translations locale 仅 es/fr 且不重复（TC-CAT-013 写侧）")
     void translationRules() {
-        AdminProductUpsert dupLocale = make("N", "n", 1L, BigDecimal.ONE, null, "draft", 0, 1, null, null,
+        AdminProductUpsert dupLocale = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null,
                 null, List.of(new ProductTranslationDto("es", "A", null, null, null, null),
                         new ProductTranslationDto("es", "B", null, null, null, null)));
         assertThatThrownBy(() -> validateCompat(dupLocale, true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "invalid_locale"));
-        AdminProductUpsert enLocale = make("N", "n", 1L, BigDecimal.ONE, null, "draft", 0, 1, null, null,
+        AdminProductUpsert enLocale = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null,
                 null, List.of(new ProductTranslationDto("en", "A", null, null, null, null)));
         assertThatThrownBy(() -> validateCompat(enLocale, true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "invalid_locale"));
@@ -171,23 +171,23 @@ class ProductUpsertValidatorTest {
     @DisplayName("TC-CAT-053（单测面）[P0]: 极值——name129 / slug pattern / lead_time_days 0 / sort -1 / status 非法")
     void lengthAndNumericExtremes() {
         assertThatThrownBy(() -> validateCompat(
-                make("x".repeat(129), "slug-ok", 1L, BigDecimal.ONE, null, "draft", 0, 1, null, null, null, null),
+                make("x".repeat(129), "slug-ok", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null, null, null),
                 true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("name", "too_long"));
         assertThatThrownBy(() -> validateCompat(
-                make("N", "Bad Slug!", 1L, BigDecimal.ONE, null, "draft", 0, 1, null, null, null, null),
+                make("N", "Bad Slug!", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null, null, null),
                 true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("slug", "pattern"));
         assertThatThrownBy(() -> validateCompat(
-                make("N", "n", 1L, BigDecimal.ONE, null, "draft", 0, 0, null, null, null, null),
+                make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 0, null, null, null, null),
                 true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("lead_time_days", "range_invalid"));
         assertThatThrownBy(() -> validateCompat(
-                make("N", "n", 1L, BigDecimal.ONE, null, "draft", -1, 1, null, null, null, null),
+                make("N", "n", 1L, BigDecimal.ONE, null, 1, -1, 1, null, null, null, null),
                 true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("sort", "range_invalid"));
         assertThatThrownBy(() -> validateCompat(
-                make("N", "n", 1L, BigDecimal.ONE, null, "archived", 0, 1, null, null, null, null),
+                make("N", "n", 1L, BigDecimal.ONE, null, 3, 0, 1, null, null, null, null),
                 true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("status", "invalid_enum"));
     }
@@ -205,7 +205,7 @@ class ProductUpsertValidatorTest {
 
     private static AdminProductUpsert withAttrs(List<AttributeValueDto> attributes) {
         return new AdminProductUpsert("N", "n", null, 1L, null, null, null, BigDecimal.ONE, null,
-                null, null, "draft", null, null, null, 0, 1, null, null,
+                null, null, 1, null, null, null, 0, 1, null, null,
                 attributes, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null);
     }

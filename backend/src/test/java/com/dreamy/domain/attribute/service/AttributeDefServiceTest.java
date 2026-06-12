@@ -51,19 +51,19 @@ class AttributeDefServiceTest {
         lenient().when(defRepository.existsByKey("silhouette")).thenReturn(false);
         // select 缺 options
         assertThatThrownBy(() -> service.create(new AttributeDefUpsert("silhouette", "Silhouette",
-                "select", null, null)))
+                1, null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("options", "required"));
         // select options 重复
         assertThatThrownBy(() -> service.create(new AttributeDefUpsert("silhouette", "Silhouette",
-                "select", List.of("A-Line", "A-Line"), null)))
+                1, List.of("A-Line", "A-Line"), null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("options", "duplicated"));
         // text 提交 options
         assertThatThrownBy(() -> service.create(new AttributeDefUpsert("care", "Care",
-                "text", List.of("x"), null)))
+                3, List.of("x"), null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("options", "not_allowed"));
         // type 枚举外
         assertThatThrownBy(() -> service.create(new AttributeDefUpsert("care", "Care",
-                "checkbox", null, null)))
+                99, null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("type", "invalid_enum"));
     }
 
@@ -72,7 +72,7 @@ class AttributeDefServiceTest {
     void translationOptionsLengthMismatch() {
         lenient().when(defRepository.existsByKey("silhouette")).thenReturn(false);
         assertThatThrownBy(() -> service.create(new AttributeDefUpsert("silhouette", "Silhouette",
-                "select", List.of("A-Line", "Mermaid"),
+                1, List.of("A-Line", "Mermaid"),
                 List.of(new AttributeDefTranslationDto("es", "Silueta", List.of("Línea A"))))))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "options_length_mismatch"));
     }
@@ -80,12 +80,12 @@ class AttributeDefServiceTest {
     @Test
     @DisplayName("V-CAT-053 [P0]: key 必填/pattern/重复 → 422501（fields.key=exists，契约无 409）")
     void keyValidation() {
-        assertThatThrownBy(() -> service.create(new AttributeDefUpsert(null, "L", "text", null, null)))
+        assertThatThrownBy(() -> service.create(new AttributeDefUpsert(null, "L", 3, null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("key", "required"));
-        assertThatThrownBy(() -> service.create(new AttributeDefUpsert("Bad-Key", "L", "text", null, null)))
+        assertThatThrownBy(() -> service.create(new AttributeDefUpsert("Bad-Key", "L", 3, null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("key", "pattern"));
         when(defRepository.existsByKey("dup_key")).thenReturn(true);
-        assertThatThrownBy(() -> service.create(new AttributeDefUpsert("dup_key", "L", "text", null, null)))
+        assertThatThrownBy(() -> service.create(new AttributeDefUpsert("dup_key", "L", 3, null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("key", "exists"));
     }
 
@@ -98,14 +98,14 @@ class AttributeDefServiceTest {
         existing.setType(AttributeType.SELECT);
         existing.setLabel("Silhouette");
         when(defRepository.findById(1L)).thenReturn(existing);
-        assertThatThrownBy(() -> service.update(1L, new AttributeDefUpsert("renamed", "L", "select",
+        assertThatThrownBy(() -> service.update(1L, new AttributeDefUpsert("renamed", "L", 1,
                 List.of("A"), null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("key", "immutable"));
-        assertThatThrownBy(() -> service.update(1L, new AttributeDefUpsert("silhouette", "L", "text",
+        assertThatThrownBy(() -> service.update(1L, new AttributeDefUpsert("silhouette", "L", 3,
                 null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("type", "immutable"));
         when(defRepository.findById(9L)).thenReturn(null);
-        assertThatThrownBy(() -> service.update(9L, new AttributeDefUpsert("k", "L", "text", null, null)))
+        assertThatThrownBy(() -> service.update(9L, new AttributeDefUpsert("k", "L", 3, null, null)))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.ATTRIBUTE_DEF_NOT_FOUND));
     }

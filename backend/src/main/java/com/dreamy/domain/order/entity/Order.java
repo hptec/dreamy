@@ -42,7 +42,7 @@ public class Order extends LongAuditableEntity {
     @Column(name = OrderDBConst.CUSTOMER_ID, definition = "bigint NOT NULL")
     private Long customerId;
 
-    @Column(name = OrderDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'order_lifecycle 七态'")
+    @Column(name = OrderDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT 'order_lifecycle 七态：1=待支付 2=已支付 3=已发货 4=已完成 5=已取消 6=退款中 7=已退款'")
     private OrderStatus status;
 
     @Column(name = OrderDBConst.CURRENCY, definition = "char(3) NOT NULL COMMENT 'USD/EUR/CAD/AUD/GBP（决策14）'")

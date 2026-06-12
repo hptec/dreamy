@@ -96,10 +96,10 @@ public final class TradingDtos {
     }
 
     public record PaymentSummaryDto(String provider, String paymentIntentId, BigDecimal amount, String currency,
-                                    String status, String cardSummary, LocalDateTime paidAt) {
+                                    Integer status, String cardSummary, LocalDateTime paidAt) {
     }
 
-    public record StoreOrderListItem(Long id, String orderNo, String status, String currency,
+    public record StoreOrderListItem(Long id, String orderNo, Integer status, String currency,
                                      BigDecimal exchangeRate, LocalDate weddingDate, BigDecimal subtotal,
                                      BigDecimal shippingFee, Boolean giftWrap, BigDecimal giftWrapFee,
                                      BigDecimal discountAmount, BigDecimal totalAmount, Long couponId,
@@ -109,7 +109,7 @@ public final class TradingDtos {
                                      Integer lineCount, String firstLineImg) {
     }
 
-    public record StoreOrderDetail(Long id, String orderNo, String status, String currency,
+    public record StoreOrderDetail(Long id, String orderNo, Integer status, String currency,
                                    BigDecimal exchangeRate, LocalDate weddingDate, BigDecimal subtotal,
                                    BigDecimal shippingFee, Boolean giftWrap, BigDecimal giftWrapFee,
                                    BigDecimal discountAmount, BigDecimal totalAmount, Long couponId,
@@ -124,11 +124,11 @@ public final class TradingDtos {
     // ==================== 退款（MAP-TRD-007/008） ====================
 
     public record StoreRefundDto(Long id, String refundNo, Long orderId, BigDecimal amount, String currency,
-                                 String reason, String status, LocalDateTime appliedAt) {
+                                 String reason, Integer status, LocalDateTime appliedAt) {
     }
 
     public record AdminRefundDto(Long id, String refundNo, Long orderId, BigDecimal amount, String currency,
-                                 String reason, String rejectReason, String status, LocalDateTime appliedAt,
+                                 String reason, String rejectReason, Integer status, LocalDateTime appliedAt,
                                  String orderNo, Long customerId, String customerName, String customerEmail,
                                  String stripeRefundId, String returnTrackingNo) {
     }
@@ -151,7 +151,7 @@ public final class TradingDtos {
     // ==================== 后台订单（MAP-TRD-005） ====================
 
     /** API-TRD-01：追加 country（address_snapshot.country 提取，RM-TRD-01b）/ item_count（SUM(qty) 派生，RM-TRD-01c），非 breaking */
-    public record AdminOrderListItem(Long id, String orderNo, String status, String currency,
+    public record AdminOrderListItem(Long id, String orderNo, Integer status, String currency,
                                      BigDecimal exchangeRate, LocalDate weddingDate, BigDecimal subtotal,
                                      BigDecimal shippingFee, Boolean giftWrap, BigDecimal giftWrapFee,
                                      BigDecimal discountAmount, BigDecimal totalAmount, Long couponId,
@@ -162,7 +162,7 @@ public final class TradingDtos {
                                      String country, Integer itemCount) {
     }
 
-    public record AdminOrderDetail(Long id, String orderNo, String status, String currency,
+    public record AdminOrderDetail(Long id, String orderNo, Integer status, String currency,
                                    BigDecimal exchangeRate, LocalDate weddingDate, BigDecimal subtotal,
                                    BigDecimal shippingFee, Boolean giftWrap, BigDecimal giftWrapFee,
                                    BigDecimal discountAmount, BigDecimal totalAmount, Long couponId,
@@ -178,7 +178,7 @@ public final class TradingDtos {
     public record AdminOrderShipRequest(String carrier, String trackingNo) {
     }
 
-    public record AdminOrderStatusPatch(String status) {
+    public record AdminOrderStatusPatch(Integer status) {
     }
 
     // ==================== 收藏 / 浏览历史（MAP-TRD-009） ====================

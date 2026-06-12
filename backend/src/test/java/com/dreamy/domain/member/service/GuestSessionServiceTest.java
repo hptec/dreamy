@@ -116,7 +116,7 @@ class GuestSessionServiceTest {
         assertThat(dto.guestToken()).isEqualTo("jwt-token");
         assertThat(dto.showroomId()).isEqualTo(ROOM);
         assertThat(dto.member().id()).isEqualTo(77L);
-        assertThat(dto.member().assignStatus()).isEqualTo("unassigned");
+        assertThat(dto.member().assignStatus()).isEqualTo(1);
         // MAP-SHR-006 本人回执：不含 linked_customer_id
         assertThat(dto.member().linkedCustomerId()).isNull();
         verify(jwtTokenProvider).issueShowroomGuestToken(77L, ROOM, 3L);

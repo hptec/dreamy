@@ -2,6 +2,7 @@ package com.dreamy.domain.member.service;
 
 import com.dreamy.i18n.RequestLocaleContext;
 import com.dreamy.domain.member.entity.ShowroomMember;
+import com.dreamy.enums.AssignStatus;
 import com.dreamy.domain.member.repository.ShowroomMemberRepository;
 import com.dreamy.domain.showroom.entity.Showroom;
 import com.dreamy.domain.showroom.entity.ShowroomItem;
@@ -91,7 +92,7 @@ public class ShowroomMemberService {
                 ShowroomMember current = memberRepository.findById(memberId);
                 throw new ShowroomException(ShowroomErrorCode.MEMBER_STATE_INVALID, Map.of(
                         "assign_status", current == null || current.getAssignStatus() == null
-                                ? "ordered" : current.getAssignStatus().getKey()));
+                                ? AssignStatus.ORDERED.getKey() : current.getAssignStatus().getKey()));
             }
             // STEP-SHR-04 邀请/指派通知（仅当本次提供 email 且为首填/变更，防骚扰）→ 事务提交后发布
             if (email != null && !email.equals(oldEmail)) {
@@ -116,10 +117,11 @@ public class ShowroomMemberService {
             if (affected == 0) {
                 // 409103 details 二分（契约「details 说明」；bs-835 email 空 guard 落点）
                 ShowroomMember current = memberRepository.findById(memberId);
-                String status = current == null || current.getAssignStatus() == null
-                        ? "unassigned" : current.getAssignStatus().getKey();
+                AssignStatus assignStatus = current == null || current.getAssignStatus() == null
+                        ? AssignStatus.UNASSIGNED : current.getAssignStatus();
+                Integer status = assignStatus.getKey();
                 String reason = current != null && current.getEmail() == null
-                        && ("assigned".equals(status) || "reminded".equals(status))
+                        && (assignStatus == AssignStatus.ASSIGNED || assignStatus == AssignStatus.REMINDED)
                         ? "email_missing" : "not_assigned";
                 throw new ShowroomException(ShowroomErrorCode.MEMBER_STATE_INVALID,
                         Map.of("reason", reason, "assign_status", status));

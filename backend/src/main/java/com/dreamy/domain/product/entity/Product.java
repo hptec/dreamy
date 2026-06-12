@@ -69,7 +69,7 @@ public class Product extends LongAuditableEntity {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private Map<String, BigDecimal> multiCurrencyPrices;
 
-    @Column(name = ProductDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|published'")
+    @Column(name = ProductDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已上架'")
     private ProductStatus status;
 
     @Column(name = ProductDBConst.IS_NEW, definition = "tinyint(1) NOT NULL DEFAULT 0")

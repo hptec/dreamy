@@ -53,10 +53,10 @@ public class AdminBannerService {
     }
 
     /** E-MKT-21：列表（position 筛选 ORDER BY sort；「已过窗」标识前端按 end_time 自行派生——DEC-MKT-2） */
-    public List<BannerDto> list(String position) {
+    public List<BannerDto> list(Integer position) {
         // V-MKT-038 position 可选枚举
         BannerPosition parsed = null;
-        if (position != null && !position.isBlank()) {
+        if (position != null) {
             parsed = BannerPosition.of(position);
             if (parsed == null) {
                 throw MarketingException.fieldValidation("position", "invalid_enum");
@@ -129,7 +129,7 @@ public class AdminBannerService {
 
     /** E-MKT-25：行内 Toggle（TX-MKT-010；publish/take_offline/republish；幂等短路不开事务语义由同态直返承载） */
     @Transactional
-    public BannerDto toggleStatus(Long id, String statusRaw) {
+    public BannerDto toggleStatus(Long id, Integer statusRaw) {
         // V-MKT-047 status 必填枚举
         ContentStatus target = ContentStatus.of(statusRaw);
         if (target == null) {

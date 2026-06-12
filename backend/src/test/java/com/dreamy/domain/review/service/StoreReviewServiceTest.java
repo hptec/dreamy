@@ -108,7 +108,7 @@ class StoreReviewServiceTest {
         when(reviewRepository.existsByUserAndProduct(USER, PRODUCT)).thenReturn(false);
         when(identityPort.getUserName(USER)).thenReturn("Emma Johnson");
         StoreReviewDto dto = service.createReview(USER, req(5, "  lovely dress  ", null));
-        assertThat(dto.status()).isEqualTo("pending");
+        assertThat(dto.status()).isEqualTo(1);
         // MAP-REV-002 本人回执 customer_name 原样不脱敏
         assertThat(dto.customerName()).isEqualTo("Emma Johnson");
         verify(reviewRepository).insert(org.mockito.ArgumentMatchers.argThat((Review r) ->

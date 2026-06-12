@@ -36,6 +36,6 @@ public class FlashSale extends LongAuditableEntity {
     @Column(name = FlashSaleDBConst.END_AT, definition = "datetime(3) NOT NULL COMMENT 'js_guard end_at>start_at；到期 SCHED 自动 ended（s-761）'")
     private LocalDateTime endAt;
 
-    @Column(name = FlashSaleDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|scheduled|active|ended'")
+    @Column(name = FlashSaleDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已排期 3=进行中 4=已结束'")
     private FlashSaleStatus status;
 }

@@ -14,7 +14,7 @@ public record AdminCategoryUpsert(
         String name,
         Long parentId,
         Long attributeSetId,
-        Map<String, String> attrOverrides,
+        Map<String, Integer> attrOverrides,
         Integer sort,
         List<CategoryTranslationDto> translations
 ) {

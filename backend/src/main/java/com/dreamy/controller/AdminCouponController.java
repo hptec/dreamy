@@ -38,7 +38,7 @@ public class AdminCouponController {
     public ResponseEntity<R<Paginated<CouponDto>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String search) {
         return ResponseEntity.ok(R.ok(adminCouponService.page(page, pageSize, status, search)));
     }

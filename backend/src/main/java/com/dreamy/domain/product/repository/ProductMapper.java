@@ -19,7 +19,7 @@ import java.util.Map;
 public interface ProductMapper extends BaseMapper<Product> {
 
     /** RM-CAT-084 EN 主检索：MATCH(name, subtitle) AGAINST(? IN NATURAL LANGUAGE MODE) AND status=published */
-    @Select("SELECT id FROM product WHERE status = 'published' "
+    @Select("SELECT id FROM product WHERE status = 2 "
             + "AND MATCH(name, subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
             + "ORDER BY MATCH(name, subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) DESC "
             + "LIMIT 500")
@@ -27,7 +27,7 @@ public interface ProductMapper extends BaseMapper<Product> {
 
     /** RM-CAT-096 published 口径 product_count 聚合（消费端） */
     @Select("SELECT category_id AS category_id, COUNT(*) AS cnt FROM product "
-            + "WHERE status = 'published' GROUP BY category_id")
+            + "WHERE status = 2 GROUP BY category_id")
     List<Map<String, Object>> countGroupByCategoryPublished();
 
     /** RM-CAT-097 全量口径 product_count 聚合（后台含 draft） */

@@ -34,6 +34,6 @@ public class ShowroomVote extends LongAuditableEntity {
     private Long memberId;
 
     @Column(name = ShowroomVoteDBConst.VOTE,
-            definition = "varchar(8) NOT NULL COMMENT 'like|dislike（重复投票覆盖原票）'")
+            definition = "tinyint NOT NULL COMMENT '投票：1=赞 2=踩（重复投票覆盖原票）'")
     private VoteValue vote;
 }

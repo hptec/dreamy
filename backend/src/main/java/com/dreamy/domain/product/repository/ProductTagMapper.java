@@ -14,7 +14,7 @@ public interface ProductTagMapper extends BaseMapper<ProductTag> {
 
     /** RM-CAT-145 published 口径：product_tag JOIN product(status=published) GROUP BY tag_id */
     @Select("SELECT pt.tag_id AS tag_id, COUNT(*) AS cnt FROM product_tag pt "
-            + "JOIN product p ON p.id = pt.product_id AND p.status = 'published' "
+            + "JOIN product p ON p.id = pt.product_id AND p.status = 2 "
             + "GROUP BY pt.tag_id")
     List<Map<String, Object>> countGroupByTagPublished();
 

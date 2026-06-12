@@ -25,7 +25,7 @@ class CouponUpsertValidatorTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 6, 10, 12, 0);
 
-    private static CouponUpsert upsert(String type, String value, String status,
+    private static CouponUpsert upsert(Integer type, String value, Integer status,
                                        LocalDateTime startAt, LocalDateTime endAt) {
         return new CouponUpsert("WELCOME15", "Welcome", type, value, BigDecimal.ZERO, 100,
                 startAt, endAt, status, null, List.of());
@@ -40,21 +40,21 @@ class CouponUpsertValidatorTest {
     @DisplayName("TC-MKT-003 [P0]: value pattern 按 type——discount 拒绝 '$50 OFF'，fixed 拒绝 '15% OFF'，free_shipping 任意 ≤32 通过")
     void valuePatternByType() {
         assertThatThrownBy(() -> CouponUpsertValidator.validate(
-                upsert("discount", "$50 OFF", "draft", null, null), null, NOW))
+                upsert(1, "$50 OFF", 1, null, null), null, NOW))
                 .isInstanceOf(MarketingException.class)
                 .satisfies(ex -> assertThat(fieldsOf((MarketingException) ex)).containsEntry("value", "unparseable"));
 
         assertThatThrownBy(() -> CouponUpsertValidator.validate(
-                upsert("fixed_amount", "15% OFF", "draft", null, null), null, NOW))
+                upsert(2, "15% OFF", 1, null, null), null, NOW))
                 .isInstanceOf(MarketingException.class)
                 .satisfies(ex -> assertThat(fieldsOf((MarketingException) ex)).containsEntry("value", "unparseable"));
 
         var ok = CouponUpsertValidator.validate(
-                upsert("free_shipping", "Free Shipping", "draft", null, null), null, NOW);
+                upsert(3, "Free Shipping", 1, null, null), null, NOW);
         assertThat(ok.type()).isEqualTo(CouponType.FREE_SHIPPING);
 
         var pct = CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "draft", null, null), null, NOW);
+                upsert(1, "15% OFF", 1, null, null), null, NOW);
         assertThat(pct.value()).isEqualTo("15% OFF");
     }
 
@@ -63,26 +63,26 @@ class CouponUpsertValidatorTest {
     void statusWindowConsistency() {
         // scheduled 但 start_at 过去 → inconsistent
         assertThatThrownBy(() -> CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "scheduled", NOW.minusDays(1), NOW.plusDays(1)), null, NOW))
+                upsert(1, "15% OFF", 2, NOW.minusDays(1), NOW.plusDays(1)), null, NOW))
                 .satisfies(ex -> assertThat(fieldsOf((MarketingException) ex))
                         .containsEntry("status", "inconsistent_with_window"));
         // scheduled 合法
         var scheduled = CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "scheduled", NOW.plusDays(1), NOW.plusDays(2)), null, NOW);
+                upsert(1, "15% OFF", 2, NOW.plusDays(1), NOW.plusDays(2)), null, NOW);
         assertThat(scheduled.status()).isEqualTo(CouponStatus.SCHEDULED);
         // active 窗口内合法（空端开放）
         var active = CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "active", null, NOW.plusDays(1)), null, NOW);
+                upsert(1, "15% OFF", 3, null, NOW.plusDays(1)), null, NOW);
         assertThat(active.status()).isEqualTo(CouponStatus.ACTIVE);
         // active 但 end_at 过去 → inconsistent
         assertThatThrownBy(() -> CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "active", NOW.minusDays(2), NOW.minusDays(1)), null, NOW))
+                upsert(1, "15% OFF", 3, NOW.minusDays(2), NOW.minusDays(1)), null, NOW))
                 .satisfies(ex -> assertThat(fieldsOf((MarketingException) ex))
                         .containsEntry("status", "inconsistent_with_window"));
         // expiring/expired 创建禁入
-        for (String s : List.of("expiring", "expired")) {
+        for (Integer s : List.of(4, 5)) { // expiring=4 / expired=5
             assertThatThrownBy(() -> CouponUpsertValidator.validate(
-                    upsert("discount", "15% OFF", s, NOW.minusDays(1), NOW.plusDays(1)), null, NOW))
+                    upsert(1, "15% OFF", s, NOW.minusDays(1), NOW.plusDays(1)), null, NOW))
                     .satisfies(ex -> assertThat(fieldsOf((MarketingException) ex))
                             .containsEntry("status", "inconsistent_with_window"));
         }
@@ -95,21 +95,21 @@ class CouponUpsertValidatorTest {
         existing.setId(1L);
         existing.setStatus(CouponStatus.EXPIRED);
         var kept = CouponUpsertValidator.validate(
-                upsert("discount", "15% OFF", "expired", NOW.minusDays(10), NOW.minusDays(1)), existing, NOW);
+                upsert(1, "15% OFF", 5, NOW.minusDays(10), NOW.minusDays(1)), existing, NOW);
         assertThat(kept.status()).isEqualTo(CouponStatus.EXPIRED);
     }
 
     @Test
     @DisplayName("V-MKT-019/025 [P0]: code 大写归一 + pattern；end_at≤start_at → fields.end_at=before_start")
     void codeAndWindowValidation() {
-        var normalized = CouponUpsertValidator.validate(new CouponUpsert(" welcome15 ", "Welcome", "discount",
-                "15% OFF", null, null, null, null, "draft", null, null), null, NOW);
+        var normalized = CouponUpsertValidator.validate(new CouponUpsert(" welcome15 ", "Welcome", 1,
+                "15% OFF", null, null, null, null, 1, null, null), null, NOW);
         assertThat(normalized.code()).isEqualTo("WELCOME15");
         assertThat(normalized.minAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(normalized.totalLimit()).isEqualTo(100000);
 
         assertThatThrownBy(() -> CouponUpsertValidator.validate(new CouponUpsert("BAD CODE!", "Welcome",
-                "discount", "15% OFF", null, null, NOW.plusDays(2), NOW.plusDays(1), "draft", null, null),
+                1, "15% OFF", null, null, NOW.plusDays(2), NOW.plusDays(1), 1, null, null),
                 null, NOW))
                 .isInstanceOf(MarketingException.class)
                 .satisfies(ex -> {

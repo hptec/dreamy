@@ -37,7 +37,7 @@ public class StoreOrderController {
     public ResponseEntity<R<Paginated<StoreOrderListItem>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) Integer status) {
         return ResponseEntity.ok(R.ok(storeOrderService.listOrders(StoreAuth.customerId(), page, pageSize, status)));
     }
 

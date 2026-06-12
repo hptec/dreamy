@@ -172,7 +172,7 @@ class AdminOrderServiceTest {
     @Test
     @DisplayName("V-102：status 枚举外值 → 422601 字段校验失败（与 listAdminOrders 同口径，V-101）")
     void exportRejectsInvalidStatus() {
-        assertThatThrownBy(() -> service.export("bogus", null, null, null, null))
+        assertThatThrownBy(() -> service.export(99, null, null, null, null))
                 .isInstanceOfSatisfying(TradingException.class, ex ->
                         assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
         verify(audit, never()).record(any(), any(), any());
@@ -204,7 +204,7 @@ class AdminOrderServiceTest {
         when(orderRepository.listByAdminFilterAfterId(eq(OrderStatus.PAID), any(), any(), any(), any(), any(),
                 anyLong(), anyInt())).thenReturn(List.of());
 
-        service.export("paid", null, null, null, null);
+        service.export(2, null, null, null, null);
 
         verify(orderRepository).listByAdminFilterAfterId(eq(OrderStatus.PAID), any(), any(), any(), any(), any(),
                 eq(0L), eq(AdminOrderService.EXPORT_BATCH_SIZE));
@@ -226,7 +226,7 @@ class AdminOrderServiceTest {
                 + "order_no,customer_name,customer_email,country,item_count,total_amount,currency,payment_method,status,created_at\n");
         // CSV 转义：客户名含逗号 → 双引号包裹
         assertThat(export.csv()).contains(
-                "DRM-20260610-0001,\"Alice, Smith\",alice@example.com,US,3,237.00,USD,Stripe,paid,2026-06-10T12:00\n");
+                "DRM-20260610-0001,\"Alice, Smith\",alice@example.com,US,3,237.00,USD,Stripe,2,2026-06-10T12:00\n");
         verify(audit).record(eq(TradingAuditRecorder.ACTION_ORDER_EXPORT), eq("orders"),
                 contains("\"rows\":1"));
     }
@@ -267,7 +267,7 @@ class AdminOrderServiceTest {
         // customer_name/customer_email/country 三列前置 '（country 含逗号场景已由 csvCell 引号包裹兜底）
         assertThat(export.csv()).contains(
                 "DRM-20260610-0001,'=SUM(A1:A9),'+alice@example.com,\"'=HYPERLINK(\"\"http://evil\"\")\","
-                        + "3,237.00,USD,Stripe,paid,2026-06-10T12:00\n");
+                        + "3,237.00,USD,Stripe,2,2026-06-10T12:00\n");
         // 金额列（total_amount=237.00）与系统列未被中和：行内不出现 '237.00 / 'USD
         assertThat(export.csv()).doesNotContain("'237.00").doesNotContain("'USD");
         // 直接锁定中和函数行为：- 开头 / tab 开头 / 非触发字符 / null
@@ -308,13 +308,13 @@ class AdminOrderServiceTest {
                 anyLong(), anyInt())).thenReturn(List.of());
         when(refundService.findUserIdsByNameOrEmailLike("alice")).thenReturn(List.of());
 
-        AdminOrderService.OrderExport export = service.export("paid", "alice", "USD", null, null);
+        AdminOrderService.OrderExport export = service.export(2, "alice", "USD", null, null);
 
         assertThat(export.rowCount()).isZero();
         assertThat(export.truncated()).isFalse();
         assertThat(export.csv()).isEqualTo("\uFEFF"
                 + "order_no,customer_name,customer_email,country,item_count,total_amount,currency,payment_method,status,created_at\n");
         verify(audit).record(eq(TradingAuditRecorder.ACTION_ORDER_EXPORT), eq("orders"),
-                contains("\"status\":\"paid\",\"search\":\"alice\",\"currency\":\"USD\""));
+                contains("\"status\":\"2\",\"search\":\"alice\",\"currency\":\"USD\""));
     }
 }

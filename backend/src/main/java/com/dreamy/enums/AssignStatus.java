@@ -1,7 +1,8 @@
 package com.dreamy.enums;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-import huihao.enums.typeable.StrEnum;
+import huihao.enums.annotation.Enumable;
+import huihao.enums.typeable.Describable;
+import huihao.enums.typeable.IntEnum;
 import lombok.Getter;
 
 /**
@@ -9,22 +10,26 @@ import lombok.Getter;
  * 不接收任何客户端赋值——仅经状态机 CAS 推进（RM-SHR-035/036/037，CV-SHR-002）。
  * L2 TRACE: showroom-data-detail §1.1 枚举落地（CP-003 VARCHAR + Java enum 双保险）。
  */
-public enum AssignStatus implements StrEnum {
-    UNASSIGNED("unassigned"),
-    ASSIGNED("assigned"),
-    REMINDED("reminded"),
-    ORDERED("ordered");
+@Enumable
+public enum AssignStatus implements IntEnum, Describable {
+    UNASSIGNED(1, "未指派"),
+    ASSIGNED(2, "已指派"),
+    REMINDED(3, "已提醒"),
+    ORDERED(4, "已下单");
 
-    @JsonValue
     @Getter
-    private final String key;
+    private final Integer key;
 
-    AssignStatus(String key) {
+    @Getter
+    private final String desc;
+
+    AssignStatus(Integer key, String desc) {
         this.key = key;
+        this.desc = desc;
     }
 
-    /** 契约字符串 → 枚举；未知值返回 null */
-    public static AssignStatus of(String value) {
+    /** 契约整数码 → 枚举；未知值返回 null */
+    public static AssignStatus of(Integer value) {
         for (AssignStatus s : values()) {
             if (s.key.equals(value)) {
                 return s;

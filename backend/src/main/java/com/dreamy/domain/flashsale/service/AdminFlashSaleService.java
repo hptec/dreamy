@@ -37,7 +37,6 @@ import java.util.Set;
 @Service
 public class AdminFlashSaleService {
 
-    private static final List<String> STATUS_FILTER = List.of("all", "draft", "scheduled", "active", "ended");
 
     private final FlashSaleRepository flashSaleRepository;
     private final MarketingCacheService cache;
@@ -58,13 +57,13 @@ public class AdminFlashSaleService {
     }
 
     /** E-MKT-17：列表（status 筛选 + product_ids/translations 批查防 N+1） */
-    public List<FlashSaleDto> list(String status) {
+    public List<FlashSaleDto> list(Integer status) {
         // V-MKT-030 status ∈ {all, draft, scheduled, active, ended} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && FlashSaleStatus.of(statusFilter) == null) {
             throw MarketingException.fieldValidation("status", "invalid_enum");
         }
-        FlashSaleStatus statusEnum = "all".equals(statusFilter) ? null : FlashSaleStatus.of(statusFilter);
+        FlashSaleStatus statusEnum = statusFilter == null ? null : FlashSaleStatus.of(statusFilter);
         List<FlashSale> sales = flashSaleRepository.listAdmin(statusEnum);
         List<Long> ids = sales.stream().map(FlashSale::getId).toList();
         Map<Long, List<Long>> productIds = flashSaleRepository.listProductIdsByFlashIds(ids);

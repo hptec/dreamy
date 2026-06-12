@@ -129,14 +129,14 @@ public class AdminProductService {
     // ==================== E-CAT-08 listAdminProducts ====================
 
     /** E-CAT-08：后台列表（V-CAT-020~022；派生列批查防 N+1——STEP-CAT-03） */
-    public Paginated<AdminProductListItem> pageList(Integer pageParam, Integer pageSizeParam, String statusParam,
+    public Paginated<AdminProductListItem> pageList(Integer pageParam, Integer pageSizeParam, Integer statusParam,
                                                     Long categoryId, String search) {
         CatalogFieldErrors errors = new CatalogFieldErrors();
         int page = StoreParams.parsePage(pageParam, errors);
         int pageSize = StoreParams.parsePageSize(pageSizeParam, errors);
         // V-CAT-021 status ∈ {all, draft, published} 缺省 all
         ProductStatus status = null;
-        if (statusParam != null && !statusParam.isBlank() && !"all".equals(statusParam)) {
+        if (statusParam != null) {
             status = ProductStatus.of(statusParam);
             if (status == null) {
                 errors.reject("status", "invalid_enum");
@@ -298,10 +298,10 @@ public class AdminProductService {
     // ==================== E-CAT-13 toggleAdminProductStatus（TX-CAT-004） ====================
 
     /** 幂等短路不开事务（STEP-CAT-02）；变更走 TransactionTemplate 单事务 */
-    public AdminProductListItem toggleStatus(Long id, String statusParam) {
+    public AdminProductListItem toggleStatus(Long id, Integer statusParam) {
         // V-CAT-040 status 必填枚举
         ProductStatus target = ProductStatus.of(statusParam);
-        if (statusParam == null || statusParam.isBlank()) {
+        if (statusParam == null) {
             throw CatalogException.fieldValidation("status", "required");
         }
         if (target == null) {

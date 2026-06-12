@@ -17,7 +17,7 @@ public final class StoreMarketingDtos {
     }
 
     /** openapi StoreBanner（MAP-MKT-001：不暴露 clicks/status/start_time/end_time） */
-    public record StoreBanner(Long id, String name, String imageUrl, String position, Integer sort,
+    public record StoreBanner(Long id, String name, String imageUrl, Integer position, Integer sort,
                               String title, String subtitle, String ctaText) implements Serializable {
     }
 
@@ -34,7 +34,7 @@ public final class StoreMarketingDtos {
 
     /** openapi StoreRealWedding（MAP-MKT-006：status 恒 'published'；products 详情返回） */
     public record StoreRealWedding(Long id, String couple, String location, String theme, String weddingDate,
-                                   String cover, String status, String title, String story,
+                                   String cover, Integer status, String title, String story,
                                    List<ProductRef> products) implements Serializable {
     }
 
@@ -59,6 +59,6 @@ public final class StoreMarketingDtos {
     }
 
     /** CouponValidateResponse.coupon（MAP-MKT-010：不暴露 used_count/total_limit/状态） */
-    public record CouponBrief(String code, String name, String type, String value, BigDecimal minAmount) implements Serializable {
+    public record CouponBrief(String code, String name, Integer type, String value, BigDecimal minAmount) implements Serializable {
     }
 }

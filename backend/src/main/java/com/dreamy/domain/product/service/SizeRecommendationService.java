@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.enums.ProductStatus;
 import com.dreamy.enums.FitPreference;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.entity.SizeChartRow;
@@ -54,7 +55,7 @@ public class SizeRecommendationService {
         // STEP-CAT-01 商品存在且已发布（404501）
         Product product = productRepository.findById(productId);
         if (product == null || product.getStatus() == null
-                || !"published".equals(product.getStatus().getKey())) {
+                || product.getStatus() != ProductStatus.PUBLISHED) {
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_FOUND);
         }
         FitPreference fit = validate(req);

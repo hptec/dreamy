@@ -240,7 +240,7 @@ public class AdminCategoryService {
                 allowedKeys.add(def.getKey());
             }
         }
-        for (Map.Entry<String, String> entry : req.attrOverrides().entrySet()) {
+        for (Map.Entry<String, Integer> entry : req.attrOverrides().entrySet()) {
             if (!allowedKeys.contains(entry.getKey())) {
                 errors.reject("attr_overrides", "key_not_in_effective_set");
                 break;

@@ -32,6 +32,6 @@ public class Tag extends LongAuditableEntity {
     @Column(name = TagDBConst.COVER, definition = "varchar(512) NULL COMMENT '封面图 URL（预签名上传 public_url），空=纯文字'")
     private String cover;
 
-    @Column(name = TagDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'enabled' COMMENT 'enabled|disabled'")
+    @Column(name = TagDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 2=禁用'")
     private TagStatus status;
 }

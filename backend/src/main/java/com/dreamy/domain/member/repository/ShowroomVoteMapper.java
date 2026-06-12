@@ -17,5 +17,5 @@ public interface ShowroomVoteMapper extends BaseMapper<ShowroomVote> {
     @Insert("INSERT INTO showroom_vote (showroom_item_id, member_id, vote, created_at, updated_at) "
             + "VALUES (#{itemId}, #{memberId}, #{vote}, NOW(3), NOW(3)) "
             + "ON DUPLICATE KEY UPDATE vote = #{vote}, updated_at = NOW(3)")
-    int upsertVote(@Param("itemId") Long itemId, @Param("memberId") Long memberId, @Param("vote") String vote);
+    int upsertVote(@Param("itemId") Long itemId, @Param("memberId") Long memberId, @Param("vote") Integer vote);
 }

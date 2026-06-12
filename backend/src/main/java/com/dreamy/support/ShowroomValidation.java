@@ -123,12 +123,12 @@ public final class ShowroomValidation {
     }
 
     /** V-SHR-017 vote 必填 ∈ {like, dislike}（bs-541/370） */
-    public static VoteValue validateVote(String vote, ShowroomFieldErrors errors) {
-        if (vote == null || vote.isBlank()) {
+    public static VoteValue validateVote(Integer vote, ShowroomFieldErrors errors) {
+        if (vote == null) {
             errors.reject("vote", "required");
             return null;
         }
-        VoteValue value = VoteValue.of(vote.trim());
+        VoteValue value = VoteValue.of(vote);
         if (value == null) {
             errors.reject("vote", "invalid_enum");
             return null;

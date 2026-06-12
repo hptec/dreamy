@@ -37,7 +37,7 @@ public class AdminRefundController {
     public ResponseEntity<R<Paginated<AdminRefundDto>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String search) {
         return ResponseEntity.ok(R.ok(refundService.pageAdmin(page, pageSize, status, search)));
     }

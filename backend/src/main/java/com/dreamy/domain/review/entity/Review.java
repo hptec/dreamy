@@ -53,7 +53,7 @@ public class Review extends LongAuditableEntity {
     private String content;
 
     @Column(name = ReviewDBConst.STATUS,
-            definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending|approved|rejected（review_moderation）'")
+            definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=待审核 2=已通过 3=已拒绝（review_moderation）'")
     private ReviewStatus status;
 
     @Column(name = ReviewDBConst.FEATURED,

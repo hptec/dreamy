@@ -39,7 +39,7 @@ public class AdminBannerController {
     /** E-MKT-21 listAdminBanners */
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/banners")
-    public ResponseEntity<R<Map<String, List<BannerDto>>>> list(@RequestParam(required = false) String position) {
+    public ResponseEntity<R<Map<String, List<BannerDto>>>> list(@RequestParam(required = false) Integer position) {
         return ResponseEntity.ok(R.ok(Map.of("items", adminBannerService.list(position))));
     }
 

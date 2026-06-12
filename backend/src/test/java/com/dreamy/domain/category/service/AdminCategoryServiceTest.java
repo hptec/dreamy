@@ -109,7 +109,7 @@ class AdminCategoryServiceTest {
         // 根分类提交 attr_overrides → root_not_allowed
         when(attributeSetRepository.findById(1L)).thenReturn(new AttributeSet());
         assertThatThrownBy(() -> service.create(new AdminCategoryUpsert("Root", null, 1L,
-                Map.of("silhouette", "hidden"), null, null)))
+                Map.of("silhouette", 3), null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("attr_overrides", "root_not_allowed"));
     }
 
@@ -131,15 +131,15 @@ class AdminCategoryServiceTest {
         when(attributeDefRepository.listByIds(anyCollection())).thenReturn(List.of(def));
         // key 不在生效集
         assertThatThrownBy(() -> service.create(new AdminCategoryUpsert("Sub", 1L, null,
-                Map.of("unknown_key", "hidden"), null, null)))
+                Map.of("unknown_key", 3), null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("attr_overrides", "key_not_in_effective_set"));
         // value 枚举外
         assertThatThrownBy(() -> service.create(new AdminCategoryUpsert("Sub", 1L, null,
-                Map.of("silhouette", "mandatory"), null, null)))
+                Map.of("silhouette", 99), null, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("attr_overrides", "invalid_enum"));
         // 合法 delta（沿父链继承属性集）→ 通过并落库
         when(categoryRepository.maxSortOfSiblings(1L)).thenReturn(0);
-        service.create(new AdminCategoryUpsert("Sub", 1L, null, Map.of("silhouette", "hidden"), null, null));
+        service.create(new AdminCategoryUpsert("Sub", 1L, null, Map.of("silhouette", 3), null, null));
         verify(categoryRepository).insert(org.mockito.ArgumentMatchers.any(Category.class));
     }
 

@@ -102,7 +102,7 @@ class StoreMyReviewServiceTest {
 
         verify(reviewRepository).pageByUser(USER, 1, 20);
         assertThat(result.getData()).extracting(StoreMyReviewDto::status)
-                .containsExactly("pending", "rejected");
+                .containsExactly(1, 3);
         // product 卡片：命中简况 / 商品已删除容忍（仅 id，slug/name=null）
         assertThat(result.getData().get(0).product().name()).isEqualTo("Aurelia Gown");
         assertThat(result.getData().get(1).product().id()).isEqualTo(12L);

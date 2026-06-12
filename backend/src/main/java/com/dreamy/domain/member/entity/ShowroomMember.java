@@ -45,7 +45,7 @@ public class ShowroomMember extends LongAuditableEntity {
     private Long assignedItemId;
 
     @Column(name = ShowroomMemberDBConst.ASSIGN_STATUS,
-            definition = "varchar(16) NOT NULL DEFAULT 'unassigned' COMMENT 'unassigned|assigned|reminded|ordered（showroom_member_assignment 状态机，仅 CAS 推进）'")
+            definition = "tinyint NOT NULL DEFAULT 1 COMMENT '指派状态：1=未指派 2=已指派 3=已提醒 4=已下单（showroom_member_assignment 状态机，仅 CAS 推进）'")
     private AssignStatus assignStatus;
 
     @Column(name = ShowroomMemberDBConst.LINKED_CUSTOMER_ID,

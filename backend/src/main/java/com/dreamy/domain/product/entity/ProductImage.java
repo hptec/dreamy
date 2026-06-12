@@ -28,7 +28,7 @@ public class ProductImage extends LongAuditableEntity {
     @Column(name = ProductImageDBConst.URL, definition = "varchar(512) NOT NULL COMMENT '预签名上传 public_url'")
     private String url;
 
-    @Column(name = ProductImageDBConst.KIND, definition = "varchar(16) NOT NULL COMMENT 'gallery|lifestyle|video|swatch'")
+    @Column(name = ProductImageDBConst.KIND, definition = "tinyint NOT NULL COMMENT '类型：1=商品图 2=场景图 3=视频 4=色板'")
     private ImageKind kind;
 
     @Column(name = ProductImageDBConst.COLOR_NAME, definition = "varchar(32) NULL COMMENT 'kind=swatch 时颜色名'")

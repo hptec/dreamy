@@ -23,7 +23,7 @@ public record AdminProductUpsert(
         BigDecimal compareAt,
         Boolean installment,
         Map<String, BigDecimal> multiCurrencyPrices,
-        String status,
+        Integer status,
         Boolean isNew,
         Boolean isBest,
         Boolean recommend,

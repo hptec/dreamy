@@ -35,7 +35,6 @@ import java.util.Set;
 @Service
 public class AdminLookbookService {
 
-    private static final List<String> STATUS_FILTER = List.of("all", "draft", "published");
 
     private final LookbookRepository lookbookRepository;
     private final MarketingCacheService cache;
@@ -56,13 +55,13 @@ public class AdminLookbookService {
     }
 
     /** E-MKT-37：列表（status 筛选 + product_ids 件数派生 + translations） */
-    public List<LookbookDto> list(String status) {
+    public List<LookbookDto> list(Integer status) {
         // V-MKT-066 status ∈ {all, draft, published} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && PublishStatus.of(statusFilter) == null) {
             throw MarketingException.fieldValidation("status", "invalid_enum");
         }
-        PublishStatus statusEnum = "all".equals(statusFilter) ? null : PublishStatus.of(statusFilter);
+        PublishStatus statusEnum = statusFilter == null ? null : PublishStatus.of(statusFilter);
         List<Lookbook> lookbooks = lookbookRepository.listAdmin(statusEnum);
         List<Long> ids = lookbooks.stream().map(Lookbook::getId).toList();
         Map<Long, List<Long>> productIds = lookbookRepository.listProductIdsByLookbookIds(ids);
@@ -134,7 +133,7 @@ public class AdminLookbookService {
 
     /** E-MKT-41：发布状态变更（TX-MKT-022；publish/unpublish 双向合法 + 同态幂等短路 bs-885/886） */
     @Transactional
-    public LookbookDto patchStatus(Long id, String statusRaw) {
+    public LookbookDto patchStatus(Long id, Integer statusRaw) {
         // V-MKT-073 status 必填 ∈ {draft, published}
         PublishStatus target = PublishStatus.of(statusRaw);
         if (target == null) {

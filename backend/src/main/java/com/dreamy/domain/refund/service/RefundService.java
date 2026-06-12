@@ -265,17 +265,17 @@ public class RefundService {
     }
 
     /** E-listAdminRefunds（V-TRD-054 + STEP-TRD-01；联取 order_no / customer 派生） */
-    public Paginated<AdminRefundDto> pageAdmin(Integer page, Integer pageSize, String status, String search) {
+    public Paginated<AdminRefundDto> pageAdmin(Integer page, Integer pageSize, Integer status, String search) {
         TradingFieldErrors errors = new TradingFieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
         int parsedSize = TradingParams.parsePageSize(pageSize, errors);
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!TradingParams.REFUND_STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && RefundStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         String keyword = TradingParams.checkMaxLength(search, 80, "search", errors);
         errors.throwIfAny();
-        RefundStatus statusEnum = "all".equals(statusFilter) ? null : RefundStatus.of(statusFilter);
+        RefundStatus statusEnum = statusFilter == null ? null : RefundStatus.of(statusFilter);
         List<Long> orderIds = null;
         List<Long> customerIds = null;
         if (keyword != null) {

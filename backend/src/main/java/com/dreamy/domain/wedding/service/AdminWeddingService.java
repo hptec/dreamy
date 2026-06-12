@@ -38,7 +38,6 @@ import java.util.Set;
 @Service
 public class AdminWeddingService {
 
-    private static final List<String> STATUS_FILTER = List.of("all", "draft", "published");
 
     private final RealWeddingRepository weddingRepository;
     private final MarketingCacheService cache;
@@ -59,17 +58,17 @@ public class AdminWeddingService {
     }
 
     /** E-MKT-32：分页列表（product_ids 件数派生批查防 N+1——RM-MKT-052） */
-    public Paginated<RealWeddingDto> page(Integer page, Integer pageSize, String status) {
+    public Paginated<RealWeddingDto> page(Integer page, Integer pageSize, Integer status) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         int parsedPage = MarketingParams.parsePage(page, errors);
         int parsedPageSize = MarketingParams.parsePageSize(pageSize, errors);
         // V-MKT-058 status ∈ {all, draft, published} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && PublishStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         errors.throwIfAny();
-        PublishStatus statusEnum = "all".equals(statusFilter) ? null : PublishStatus.of(statusFilter);
+        PublishStatus statusEnum = statusFilter == null ? null : PublishStatus.of(statusFilter);
         Page<RealWedding> result = weddingRepository.pageAdmin(statusEnum, parsedPage, parsedPageSize);
         List<Long> ids = result.getRecords().stream().map(RealWedding::getId).toList();
         Map<Long, List<Long>> productIds = weddingRepository.listProductIdsByWeddingIds(ids);
@@ -141,7 +140,7 @@ public class AdminWeddingService {
 
     /** E-MKT-36：发布状态变更（TX-MKT-018；real_wedding_publish 双向合法 + 同态幂等短路） */
     @Transactional
-    public RealWeddingDto patchStatus(Long id, String statusRaw) {
+    public RealWeddingDto patchStatus(Long id, Integer statusRaw) {
         // V-MKT-065 status 必填 ∈ {draft, published}
         PublishStatus target = PublishStatus.of(statusRaw);
         if (target == null) {

@@ -89,7 +89,7 @@ class AdminProductExportServiceTest {
     @Test
     @DisplayName("V-011/V-012 [P0]: status 枚举外 / search 超 80 → 422501（与 listAdminProducts 同口径）")
     void filterValidation() {
-        assertThatThrownBy(() -> service.export("archived", null, null))
+        assertThatThrownBy(() -> service.export(3, null, null))
                 .isInstanceOf(CatalogException.class)
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.FIELD_VALIDATION_FAILED));
@@ -118,7 +118,7 @@ class AdminProductExportServiceTest {
         assertThat(lines[0]).isEqualTo("id,name,slug,style_no,category_name,price,compare_at,status,"
                 + "is_new,recommend,sort,stock_total,sales_total");
         assertThat(lines[1]).isEqualTo("1,\"Aurelia, \"\"Silk\"\"\nGown\",slug-1,STY-1,Wedding Dresses,"
-                + "1280,,published,true,false,0,12,34\n");
+                + "1280,,2,true,false,0,12,34\n");
         assertThat(result.truncated()).isFalse();
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.fileName()).matches("products-\\d{8}\\.csv");
@@ -195,7 +195,7 @@ class AdminProductExportServiceTest {
         when(productRepository.listAdminKeyset(any(AdminFilter.class), eq(0L), anyInt()))
                 .thenReturn(List.of());
         when(categoryRepository.listAll()).thenReturn(List.of());
-        service.export("published", 2L, "gown");
+        service.export(2, 2L, "gown");
         verify(audit).record(eq("导出商品"), eq("商品列表"), contains("\"rows\":0"));
     }
 

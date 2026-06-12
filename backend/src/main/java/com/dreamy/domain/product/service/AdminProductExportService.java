@@ -67,12 +67,12 @@ public class AdminProductExportService {
     }
 
     /** API-CAT-02 主流程 */
-    public ExportResult export(String statusParam, Long categoryId, String search) {
+    public ExportResult export(Integer statusParam, Long categoryId, String search) {
         // V-011 query 与 listAdminProducts 服务端筛选参数对齐（search/category_id/status，不含分页）
         // V-012 参数非法 → 422501（既有 4xx 参数错误口径，与 listAdminProducts V-CAT-021/022 同源）
         CatalogFieldErrors errors = new CatalogFieldErrors();
         ProductStatus status = null;
-        if (statusParam != null && !statusParam.isBlank() && !"all".equals(statusParam)) {
+        if (statusParam != null) {
             status = ProductStatus.of(statusParam);
             if (status == null) {
                 errors.reject("status", "invalid_enum");
@@ -163,7 +163,7 @@ public class AdminProductExportService {
         return s;
     }
 
-    private String detailJson(String status, Long categoryId, String search, int rows, boolean truncated) {
+    private String detailJson(Integer status, Long categoryId, String search, int rows, boolean truncated) {
         try {
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("status", status);

@@ -23,9 +23,6 @@ public final class TradingParams {
     /** 决策 25：PayPal 置灰不产生数据 */
     public static final List<String> PAYMENT_METHODS =
             List.of("Stripe", "Apple Pay", "Google Pay", "Klarna", "Afterpay");
-    public static final List<String> ORDER_STATUS_FILTER =
-            List.of("all", "pending", "paid", "shipped", "completed", "cancelled", "refunding", "refunded");
-    public static final List<String> REFUND_STATUS_FILTER = List.of("all", "pending", "approved", "rejected");
 
     private TradingParams() {
     }

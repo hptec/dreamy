@@ -121,7 +121,7 @@ class ShowroomDetailAssemblerTest {
 
         var item = dto.items().get(0);
         assertThat(item.likeCount()).isEqualTo(4);
-        assertThat(item.myVote()).isEqualTo("like");
+        assertThat(item.myVote()).isEqualTo(1);
         assertThat(item.comments()).hasSize(1);
         assertThat(item.comments().get(0).nickname()).isEqualTo("Emma");
         assertThat(item.dyeLotNotice()).isTrue();
@@ -139,7 +139,7 @@ class ShowroomDetailAssemblerTest {
         assertThat(dto.members().get(0).linkedCustomerId()).isNull();
         // 非敏感字段保留
         assertThat(dto.members().get(0).nickname()).isEqualTo("Emma");
-        assertThat(dto.members().get(0).assignStatus()).isEqualTo("assigned");
+        assertThat(dto.members().get(0).assignStatus()).isEqualTo(2);
     }
 
     @Test

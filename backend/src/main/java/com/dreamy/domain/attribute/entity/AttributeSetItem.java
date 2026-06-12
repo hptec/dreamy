@@ -29,6 +29,6 @@ public class AttributeSetItem extends LongAuditableEntity {
     @Column(name = AttributeSetItemDBConst.ATTRIBUTE_ID, definition = "bigint NOT NULL COMMENT '逻辑外键 attribute_def.id'")
     private Long attributeId;
 
-    @Column(name = AttributeSetItemDBConst.VISIBILITY, definition = "varchar(16) NOT NULL COMMENT 'visible|optional|hidden（必填/可选/隐藏）'")
+    @Column(name = AttributeSetItemDBConst.VISIBILITY, definition = "tinyint NOT NULL COMMENT '可见性：1=显示 2=可选 3=隐藏'")
     private AttributeVisibility visibility;
 }

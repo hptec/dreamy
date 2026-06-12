@@ -85,7 +85,7 @@ public final class ProductUpsertValidator {
             errors.reject("lead_time_days", "range_invalid");
         }
         // V-CAT-029 status 必填枚举
-        if (u.status() == null || u.status().isBlank()) {
+        if (u.status() == null) {
             errors.reject("status", "required");
         } else if (ProductStatus.of(u.status()) == null) {
             errors.reject("status", "invalid_enum");

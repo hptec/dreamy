@@ -34,7 +34,7 @@ public class Guide extends LongAuditableEntity {
     @Column(name = GuideDBConst.TASKS_COUNT, definition = "int NOT NULL DEFAULT 0 COMMENT '待办任务数'")
     private Integer tasksCount;
 
-    @Column(name = GuideDBConst.STATUS, definition = "varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|published'")
+    @Column(name = GuideDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布'")
     private PublishStatus status;
 
     @Column(name = GuideDBConst.BODY, definition = "text NULL COMMENT '指南正文(EN 基准，DEC-MKT-1)'")

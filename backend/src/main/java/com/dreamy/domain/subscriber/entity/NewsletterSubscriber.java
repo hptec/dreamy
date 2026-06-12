@@ -28,7 +28,7 @@ public class NewsletterSubscriber extends LongAuditableEntity {
     @Column(name = NewsletterSubscriberDBConst.EMAIL, definition = "varchar(255) NOT NULL COMMENT '小写归一，唯一（幂等判重）'")
     private String email;
 
-    @Column(name = NewsletterSubscriberDBConst.SOURCE, definition = "varchar(16) NOT NULL COMMENT 'footer|modal|exit_intent'")
+    @Column(name = NewsletterSubscriberDBConst.SOURCE, definition = "tinyint NOT NULL COMMENT '来源：1=页脚 2=弹窗 3=退出挽留'")
     private NewsletterSource source;
 
     @Column(name = NewsletterSubscriberDBConst.LOCALE, definition = "varchar(8) NOT NULL COMMENT 'en|es|fr'")

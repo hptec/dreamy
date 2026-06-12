@@ -38,7 +38,7 @@ public class ReviewEventPublisher {
     }
 
     /** EVT-REV-001 review.moderated（仅审核态变更：approve/reject；精选/回复/图片/可见性不发） */
-    public void publishModerated(Long productId, Long reviewId, String status) {
+    public void publishModerated(Long productId, Long reviewId, Integer status) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("product_id", productId);
         if (reviewId != null) {

@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 public class MailRecord extends LongAuditableEntity {
 
     @Column(name = MailRecordDBConst.TYPE,
-            definition = "varchar(32) NOT NULL COMMENT '邮件类型 order_confirmed|order_shipped|refund_resolved|showroom_invite|showroom_assign|showroom_remind（决策 20.5 扩展枚举）'")
+            definition = "tinyint NOT NULL COMMENT '邮件类型：1=订单确认 2=订单发货 3=退款处理结果 4=样品间邀请 5=样品间指派 6=样品间提醒（决策 20.5 扩展枚举）'")
     private MailType type;
 
     @Column(name = MailRecordDBConst.RECIPIENT,
@@ -45,7 +45,7 @@ public class MailRecord extends LongAuditableEntity {
     private String payload;
 
     @Column(name = MailRecordDBConst.STATUS,
-            definition = "varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending|sent|failed|dead（MailStatus 状态机）'")
+            definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=待发送 2=已发送 3=发送失败 4=死信（MailStatus 状态机）'")
     private MailStatus status;
 
     @Column(name = MailRecordDBConst.RETRY_COUNT,

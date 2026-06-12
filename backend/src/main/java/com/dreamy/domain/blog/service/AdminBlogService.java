@@ -41,7 +41,6 @@ import java.util.regex.Pattern;
 public class AdminBlogService {
 
     private static final Pattern SLUG_PATTERN = Pattern.compile("^[a-z0-9-]{1,128}$");
-    private static final List<String> STATUS_FILTER = List.of("all", "draft", "published", "archived");
 
     private final BlogPostRepository blogPostRepository;
     private final MarketingCacheService cache;
@@ -60,20 +59,20 @@ public class AdminBlogService {
     }
 
     /** E-MKT-26：分页列表（status/search 筛选） */
-    public Paginated<BlogPostDto> page(Integer page, Integer pageSize, String status, String search) {
+    public Paginated<BlogPostDto> page(Integer page, Integer pageSize, Integer status, String search) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         int parsedPage = MarketingParams.parsePage(page, errors);
         int parsedPageSize = MarketingParams.parsePageSize(pageSize, errors);
         // V-MKT-048 status ∈ {all, draft, published, archived} 缺省 all
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && ContentStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         // V-MKT-049 search ≤80（title LIKE）
         String parsedSearch = MarketingParams.checkMaxLength(search, 80, "search", errors);
         errors.throwIfAny();
 
-        ContentStatus statusEnum = "all".equals(statusFilter) ? null : ContentStatus.of(statusFilter);
+        ContentStatus statusEnum = statusFilter == null ? null : ContentStatus.of(statusFilter);
         Page<BlogPost> result = blogPostRepository.pageAdmin(statusEnum, parsedSearch, parsedPage, parsedPageSize);
         Map<Long, List<BlogPostTranslationDto>> translations = translationsByPost(
                 result.getRecords().stream().map(BlogPost::getId).toList());
@@ -176,7 +175,7 @@ public class AdminBlogService {
 
     /** E-MKT-31：发布状态变更（TX-MKT-014；blog_post_lifecycle publish/unpublish/republish） */
     @Transactional
-    public BlogPostDto patchStatus(Long id, String statusRaw) {
+    public BlogPostDto patchStatus(Long id, Integer statusRaw) {
         // V-MKT-057 status 必填枚举
         ContentStatus target = ContentStatus.of(statusRaw);
         if (target == null) {

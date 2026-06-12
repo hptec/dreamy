@@ -76,7 +76,7 @@ public class ProductAttributeConfigService {
         }
         // delta：子分类 attr_overrides（根分类不存 overrides——AdminCategoryService 写入约束）
         if (category.getParentId() != null && category.getAttrOverrides() != null) {
-            for (Map.Entry<String, String> entry : category.getAttrOverrides().entrySet()) {
+            for (Map.Entry<String, Integer> entry : category.getAttrOverrides().entrySet()) {
                 AttributeVisibility visibility = AttributeVisibility.of(entry.getValue());
                 AttributeDef def = defByKey.get(entry.getKey());
                 if (visibility == null || def == null) {

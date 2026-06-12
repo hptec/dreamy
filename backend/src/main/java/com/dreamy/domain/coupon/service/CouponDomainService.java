@@ -34,6 +34,6 @@ public interface CouponDomainService {
     }
 
     /** 券摘要（valid=false 时仅在券存在时返回——不泄露码表，E-MKT-10 STEP-MKT-05） */
-    record CouponBriefView(String code, String name, String type, String value, BigDecimal minAmount) {
+    record CouponBriefView(String code, String name, Integer type, String value, BigDecimal minAmount) {
     }
 }

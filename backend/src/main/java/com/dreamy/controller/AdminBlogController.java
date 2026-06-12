@@ -40,7 +40,7 @@ public class AdminBlogController {
     public ResponseEntity<R<Paginated<BlogPostDto>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String search) {
         return ResponseEntity.ok(R.ok(adminBlogService.page(page, pageSize, status, search)));
     }

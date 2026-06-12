@@ -16,10 +16,10 @@ public final class StoreAttributeDtos {
     }
 
     /** PDP 商品属性行（按生效属性集顺序，hidden 已排除） */
-    public record StoreAttributeDto(String key, String label, String type, List<OptionDto> values) {
+    public record StoreAttributeDto(String key, String label, Integer type, List<OptionDto> values) {
     }
 
     /** PLP 筛选维度（非 hidden 的 select/multiselect） */
-    public record StoreFilterDimDto(String key, String label, String type, List<OptionDto> options) {
+    public record StoreFilterDimDto(String key, String label, Integer type, List<OptionDto> options) {
     }
 }

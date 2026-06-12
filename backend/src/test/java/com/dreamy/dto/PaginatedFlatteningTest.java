@@ -31,7 +31,7 @@ class PaginatedFlatteningTest {
     @DisplayName("TC-REV-030 [P0]: StoreReviewListResponse——六分页字段与 rating_avg/rating_count/rating_breakdown 同层平铺")
     void storeReviewListFlattened() throws Exception {
         StoreReviewListDTO dto = new StoreReviewListDTO();
-        dto.setData(List.of(new StoreReviewDto(1L, 11L, "Madison R.", 5, "lovely", "approved", true,
+        dto.setData(List.of(new StoreReviewDto(1L, 11L, "Madison R.", 5, "lovely", 2, true,
                 LocalDateTime.of(2026, 6, 9, 21, 14), List.of(), null, null, null)));
         dto.setTotalElements(1L);
         dto.setPageNumber(1);

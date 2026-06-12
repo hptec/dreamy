@@ -75,9 +75,9 @@ class StateMachineTest {
     @Test
     @DisplayName("MAP-TRD-012: 契约字符串 ↔ 枚举双向（未知值 null → 422601）")
     void contractKeys() {
-        assertThat(OrderStatus.of("refunding")).isEqualTo(OrderStatus.REFUNDING);
-        assertThat(OrderStatus.of("unknown")).isNull();
-        assertThat(PaymentStatus.of("succeeded")).isEqualTo(PaymentStatus.SUCCEEDED);
-        assertThat(RefundStatus.of("rejected")).isEqualTo(RefundStatus.REJECTED);
+        assertThat(OrderStatus.of(6)).isEqualTo(OrderStatus.REFUNDING);
+        assertThat(OrderStatus.of(99)).isNull();
+        assertThat(PaymentStatus.of(3)).isEqualTo(PaymentStatus.SUCCEEDED);
+        assertThat(RefundStatus.of(3)).isEqualTo(RefundStatus.REJECTED);
     }
 }

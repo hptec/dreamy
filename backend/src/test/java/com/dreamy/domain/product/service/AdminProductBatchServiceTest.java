@@ -85,8 +85,8 @@ class AdminProductBatchServiceTest {
     @DisplayName("V-002 [P1]: ids 元素去重——重复 id 仅执行一次行级操作")
     void idsDeduplicated() {
         BatchResult result = service.execute("publish", List.of(1L, 1L, 2L));
-        verify(adminProductService, times(1)).toggleStatus(1L, "published");
-        verify(adminProductService, times(1)).toggleStatus(2L, "published");
+        verify(adminProductService, times(1)).toggleStatus(1L, 2);
+        verify(adminProductService, times(1)).toggleStatus(2L, 2);
         assertThat(result.successIds()).containsExactly(1L, 2L);
     }
 
@@ -94,7 +94,7 @@ class AdminProductBatchServiceTest {
     @DisplayName("STEP-02 [P0]: publish 逐条容错——部分失败仍 200，failures 含行级码（404501）")
     void publishPartialFailure() {
         lenient().doThrow(new CatalogException(CatalogErrorCode.PRODUCT_NOT_FOUND))
-                .when(adminProductService).toggleStatus(2L, "published");
+                .when(adminProductService).toggleStatus(2L, 2);
         when(messageResolver.resolve(eq(CatalogErrorCode.PRODUCT_NOT_FOUND), any())).thenReturn("商品不存在");
         BatchResult result = service.execute("publish", List.of(1L, 2L));
         assertThat(result.successIds()).containsExactly(1L);
@@ -123,7 +123,7 @@ class AdminProductBatchServiceTest {
     @DisplayName("STEP-01 [P1]: action → 单品操作函数映射（unpublish/recommend/unrecommend 委托面）")
     void actionDelegation() {
         service.execute("unpublish", List.of(1L));
-        verify(adminProductService).toggleStatus(1L, "draft");
+        verify(adminProductService).toggleStatus(1L, 1);
         service.execute("recommend", List.of(2L));
         verify(adminProductService).patchFlags(2L, null, null, true, null);
         service.execute("unrecommend", List.of(3L));
@@ -134,7 +134,7 @@ class AdminProductBatchServiceTest {
     @DisplayName("错误码映射 [P0]: 行级未知异常 → 500500（包内，message 脱敏）")
     void rowInternalError() {
         doThrow(new IllegalStateException("jdbc connection reset: secret-dsn"))
-                .when(adminProductService).toggleStatus(1L, "published");
+                .when(adminProductService).toggleStatus(1L, 2);
         when(messageResolver.resolve(eq("error.500500"), any())).thenReturn("服务器内部错误");
         BatchResult result = service.execute("publish", List.of(1L));
         assertThat(result.successIds()).isEmpty();
@@ -148,7 +148,7 @@ class AdminProductBatchServiceTest {
     @DisplayName("STEP-03 [P0]: 写 OperationLog 一条（action=批量{操作名}，detail 含总数/成功数/失败数）")
     void auditSummaryRecordedOnce() {
         lenient().doThrow(new CatalogException(CatalogErrorCode.PRODUCT_NOT_FOUND))
-                .when(adminProductService).toggleStatus(2L, "published");
+                .when(adminProductService).toggleStatus(2L, 2);
         when(messageResolver.resolve(eq(CatalogErrorCode.PRODUCT_NOT_FOUND), any())).thenReturn("商品不存在");
         service.execute("publish", List.of(1L, 2L));
         verify(audit, times(1)).record(eq("批量上架"), eq("商品×2"),

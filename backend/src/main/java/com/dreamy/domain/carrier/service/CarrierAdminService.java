@@ -72,7 +72,7 @@ public class CarrierAdminService implements IdLockSupport {
     }
 
     /** E-SHP-05 toggleAdminCarrierStatus（V-SHP-002/008 → TX-SHP-004 锁内） */
-    public CarrierDto toggleStatus(String rawId, String status) {
+    public CarrierDto toggleStatus(String rawId, Integer status) {
         Long id = ShippingValidation.parseId(rawId);
         var target = ShippingValidation.validateStatus(status);
         return locked(() -> txService.toggleStatus(id, target));

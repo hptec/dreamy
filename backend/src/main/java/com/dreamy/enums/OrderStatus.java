@@ -1,7 +1,8 @@
 package com.dreamy.enums;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-import huihao.enums.typeable.StrEnum;
+import huihao.enums.annotation.Enumable;
+import huihao.enums.typeable.Describable;
+import huihao.enums.typeable.IntEnum;
 import lombok.Getter;
 
 import java.util.Map;
@@ -14,21 +15,25 @@ import java.util.Set;
  * refunding→refunded/paid/shipped。
  * L2 TRACE: MAP-TRD-012 / CV-TRD-001 / TC-TRD-006。
  */
-public enum OrderStatus implements StrEnum {
-    PENDING("pending"),
-    PAID("paid"),
-    SHIPPED("shipped"),
-    COMPLETED("completed"),
-    CANCELLED("cancelled"),
-    REFUNDING("refunding"),
-    REFUNDED("refunded");
+@Enumable
+public enum OrderStatus implements IntEnum, Describable {
+    PENDING(1, "待支付"),
+    PAID(2, "已支付"),
+    SHIPPED(3, "已发货"),
+    COMPLETED(4, "已完成"),
+    CANCELLED(5, "已取消"),
+    REFUNDING(6, "退款中"),
+    REFUNDED(7, "已退款");
 
-    @JsonValue
     @Getter
-    private final String key;
+    private final Integer key;
 
-    OrderStatus(String key) {
+    @Getter
+    private final String desc;
+
+    OrderStatus(Integer key, String desc) {
         this.key = key;
+        this.desc = desc;
     }
 
     /** order_lifecycle 9 转换矩阵（TASK-038） */
@@ -47,8 +52,8 @@ public enum OrderStatus implements StrEnum {
         return target != null && TRANSITIONS.getOrDefault(this, Set.of()).contains(target);
     }
 
-    /** 契约字符串 → 枚举；未知值返回 null（调用方映射 422601） */
-    public static OrderStatus of(String value) {
+    /** 契约整数码 → 枚举；未知值返回 null（调用方映射 422601） */
+    public static OrderStatus of(Integer value) {
         for (OrderStatus s : values()) {
             if (s.key.equals(value)) {
                 return s;

@@ -73,7 +73,7 @@ public class AdminOrderService {
     }
 
     /** E-listAdminOrders（V-TRD-043~047 + STEP-TRD-01/02；API-TRD-03 搜索范围含客户名——ALIGN-015） */
-    public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, String status, String search,
+    public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, Integer status, String search,
                                               String currency, LocalDateTime from, LocalDateTime to) {
         TradingFieldErrors errors = new TradingFieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
@@ -107,7 +107,7 @@ public class AdminOrderService {
             "order_no,customer_name,customer_email,country,item_count,total_amount,currency,payment_method,status,created_at";
 
     /** E-exportAdminOrders（API-TRD-02：V-101/102 + STEP-01~04；CSV ≤10000 行） */
-    public OrderExport export(String status, String search, String currency,
+    public OrderExport export(Integer status, String search, String currency,
                               LocalDateTime from, LocalDateTime to) {
         // V-101 query 与 listAdminOrders 完全一致（不含分页）；V-102 枚举外值/from>to 非法（既有 422601 校验口径）
         AdminOrderFilter filter = parseFilter(status, search, currency, from, to, new TradingFieldErrors());
@@ -148,7 +148,7 @@ public class AdminOrderService {
         }
         // STEP-04 OperationLog（action=导出订单，detail 含筛选条件、行数；PII 导出审计——BE-DIM-8）
         audit.record(TradingAuditRecorder.ACTION_ORDER_EXPORT, "orders",
-                "{\"status\":\"" + (status == null || status.isBlank() ? "all" : status)
+                "{\"status\":\"" + (status == null ? "all" : String.valueOf(status))
                         + "\",\"search\":" + jsonText(filter.keyword())
                         + ",\"currency\":" + jsonText(filter.currency())
                         + ",\"from\":" + jsonText(from == null ? null : from.toString())
@@ -158,10 +158,10 @@ public class AdminOrderService {
     }
 
     /** V-TRD-043~047 / V-101~102：列表与导出共用筛选参数解析（导出不含分页） */
-    private AdminOrderFilter parseFilter(String status, String search, String currency,
+    private AdminOrderFilter parseFilter(Integer status, String search, String currency,
                                          LocalDateTime from, LocalDateTime to, TradingFieldErrors errors) {
-        String statusFilter = (status == null || status.isBlank()) ? "all" : status;
-        if (!TradingParams.ORDER_STATUS_FILTER.contains(statusFilter)) {
+        Integer statusFilter = status;
+        if (statusFilter != null && OrderStatus.of(statusFilter) == null) {
             errors.reject("status", "invalid_enum");
         }
         String keyword = TradingParams.checkMaxLength(search, 80, "search", errors);
@@ -173,7 +173,7 @@ public class AdminOrderService {
             errors.reject("from", "range_invalid");
         }
         errors.throwIfAny();
-        OrderStatus statusEnum = "all".equals(statusFilter) ? null : OrderStatus.of(statusFilter);
+        OrderStatus statusEnum = statusFilter == null ? null : OrderStatus.of(statusFilter);
         String currencyFilter = (currency == null || currency.isBlank()) ? null : currency;
         return new AdminOrderFilter(statusEnum, currencyFilter, from, to, keyword);
     }
@@ -200,7 +200,7 @@ public class AdminOrderService {
                 csvCell(order.getTotalAmount() == null ? null : order.getTotalAmount().toPlainString()),
                 csvCell(order.getCurrency()),
                 csvCell(order.getPaymentMethod()),
-                csvCell(order.getStatus().getKey()),
+                csvCell(String.valueOf(order.getStatus().getKey())),
                 csvCell(order.getCreatedAt() == null ? null : order.getCreatedAt().toString()));
     }
 
@@ -287,15 +287,15 @@ public class AdminOrderService {
     }
 
     /** E-patchAdminOrderStatus（V-TRD-051 + STEP-TRD-01~04；TX-TRD-004b） */
-    public AdminOrderDetail patchStatus(Long orderId, String status) {
-        if (!"completed".equals(status) && !"cancelled".equals(status)) {
+    public AdminOrderDetail patchStatus(Long orderId, Integer status) {
+        if (!OrderStatus.COMPLETED.getKey().equals(status) && !OrderStatus.CANCELLED.getKey().equals(status)) {
             throw TradingException.fieldValidation("status", "invalid_enum");
         }
         Order order = orderRepository.findById(orderId);
         if (order == null) {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
-        if ("completed".equals(status)) {
+        if (OrderStatus.COMPLETED.getKey().equals(status)) {
             // shipped→completed（解锁评价提交 s-756，review 域按 completed 订单校验购买资格）
             LocalDateTime now = LocalDateTime.now();
             txRunner.inTx(() -> {

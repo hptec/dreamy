@@ -39,7 +39,7 @@ public class AdminGuideController {
     /** E-MKT-42 listAdminGuides */
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/content/guides")
-    public ResponseEntity<R<Map<String, List<GuideDto>>>> list(@RequestParam(required = false) String status) {
+    public ResponseEntity<R<Map<String, List<GuideDto>>>> list(@RequestParam(required = false) Integer status) {
         return ResponseEntity.ok(R.ok(Map.of("items", guideService.listAdmin(status))));
     }
 

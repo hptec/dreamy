@@ -16,7 +16,7 @@ public record AdminProductListItem(
         String categoryName,
         BigDecimal price,
         BigDecimal compareAt,
-        String status,
+        Integer status,
         Boolean isNew,
         Boolean isBest,
         Boolean recommend,

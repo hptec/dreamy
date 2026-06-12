@@ -1,7 +1,8 @@
 package com.dreamy.enums;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-import huihao.enums.typeable.StrEnum;
+import huihao.enums.annotation.Enumable;
+import huihao.enums.typeable.Describable;
+import huihao.enums.typeable.IntEnum;
 import lombok.Getter;
 
 /**
@@ -9,17 +10,21 @@ import lombok.Getter;
  * pending→approved/rejected；非 pending 审核 → 409604（js_guard + casApprove/casReject 终防线）。
  * L2 TRACE: MAP-TRD-012 / CV-TRD-001 / TC-TRD-008。
  */
-public enum RefundStatus implements StrEnum {
-    PENDING("pending"),
-    APPROVED("approved"),
-    REJECTED("rejected");
+@Enumable
+public enum RefundStatus implements IntEnum, Describable {
+    PENDING(1, "待处理"),
+    APPROVED(2, "已同意"),
+    REJECTED(3, "已拒绝");
 
-    @JsonValue
     @Getter
-    private final String key;
+    private final Integer key;
 
-    RefundStatus(String key) {
+    @Getter
+    private final String desc;
+
+    RefundStatus(Integer key, String desc) {
         this.key = key;
+        this.desc = desc;
     }
 
     /** 仅 pending 可审（approve/reject/patch 登记） */
@@ -27,7 +32,7 @@ public enum RefundStatus implements StrEnum {
         return this == PENDING && (target == APPROVED || target == REJECTED);
     }
 
-    public static RefundStatus of(String value) {
+    public static RefundStatus of(Integer value) {
         for (RefundStatus s : values()) {
             if (s.key.equals(value)) {
                 return s;

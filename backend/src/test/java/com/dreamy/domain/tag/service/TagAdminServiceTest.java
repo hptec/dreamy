@@ -99,17 +99,17 @@ class TagAdminServiceTest {
     @DisplayName("V-CAT-063~065 [P0]: 维度不存在 → 404505；name 必填；status 枚举外 → 422501")
     void tagValidation() {
         when(dimensionRepository.findById(9L)).thenReturn(null);
-        assertThatThrownBy(() -> service.createTag(new TagUpsert(9L, "Sage", null, "enabled", null)))
+        assertThatThrownBy(() -> service.createTag(new TagUpsert(9L, "Sage", null, 1, null)))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.TAG_NOT_FOUND));
         TagDimension dim = new TagDimension();
         dim.setId(1L);
         when(dimensionRepository.findById(1L)).thenReturn(dim);
-        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "  ", null, "enabled", null)))
+        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "  ", null, 1, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("name", "required"));
-        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "Sage", null, "archived", null)))
+        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "Sage", null, 3, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("status", "invalid_enum"));
-        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "Sage", "x".repeat(513), "enabled", null)))
+        assertThatThrownBy(() -> service.createTag(new TagUpsert(1L, "Sage", "x".repeat(513), 1, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("cover", "too_long"));
     }
 
@@ -125,11 +125,11 @@ class TagAdminServiceTest {
         tag.setStatus(com.dreamy.enums.TagStatus.ENABLED);
         when(tagRepository.findById(7L)).thenReturn(tag);
         when(productTagRepository.countByTags(false)).thenReturn(Map.of());
-        var dto = service.updateTag(7L, new TagUpsert(1L, "Sage", null, "disabled", null));
-        assertThat(dto.status()).isEqualTo("disabled");
+        var dto = service.updateTag(7L, new TagUpsert(1L, "Sage", null, 2, null));
+        assertThat(dto.status()).isEqualTo(2);
         verify(audit).record(org.mockito.ArgumentMatchers.eq("编辑标签"),
                 org.mockito.ArgumentMatchers.eq("Sage"),
-                org.mockito.ArgumentMatchers.contains("disabled"));
+                org.mockito.ArgumentMatchers.contains("\"status\":2"));
     }
 
     @SuppressWarnings("unchecked")

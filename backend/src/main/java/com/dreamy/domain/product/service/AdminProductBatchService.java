@@ -1,6 +1,7 @@
 package com.dreamy.domain.product.service;
 
 import com.dreamy.dto.AdminProductBatchDtos.BatchFailure;
+import com.dreamy.enums.ProductStatus;
 import com.dreamy.dto.AdminProductBatchDtos.BatchResult;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
@@ -132,9 +133,9 @@ public class AdminProductBatchService {
     private void applyRow(BatchAction action, Long id) {
         switch (action) {
             // publish：draft→published（published 幂等成功——toggleStatus 同态短路，EC-CAT-01/RM-CAT-02d）
-            case PUBLISH -> adminProductService.toggleStatus(id, "published");
+            case PUBLISH -> adminProductService.toggleStatus(id, ProductStatus.PUBLISHED.getKey());
             // unpublish：published→draft（draft 幂等成功）
-            case UNPUBLISH -> adminProductService.toggleStatus(id, "draft");
+            case UNPUBLISH -> adminProductService.toggleStatus(id, ProductStatus.DRAFT.getKey());
             // recommend/unrecommend：recommend 置位（UPDATE 置位天然幂等）
             case RECOMMEND -> adminProductService.patchFlags(id, null, null, true, null);
             case UNRECOMMEND -> adminProductService.patchFlags(id, null, null, false, null);

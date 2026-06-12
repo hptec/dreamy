@@ -66,7 +66,7 @@ public final class ShippingValidation {
     }
 
     /** V-SHP-008 status 必填 ∈ {enabled, disabled}（E-SHP-05） */
-    public static CarrierStatus validateStatus(String status) {
+    public static CarrierStatus validateStatus(Integer status) {
         CarrierStatus parsed = CarrierStatus.of(status);
         if (parsed == null) {
             throw ShippingException.fieldValidation("status");

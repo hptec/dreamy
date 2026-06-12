@@ -157,12 +157,12 @@ class ShowroomValidationTest {
     @DisplayName("vote：like/dislike 过 / __invalid__ 拒 invalid_enum / 缺失拒 required")
     void voteBoundary() {
         ShowroomFieldErrors ok = new ShowroomFieldErrors();
-        assertThat(ShowroomValidation.validateVote("like", ok)).isEqualTo(VoteValue.LIKE);
-        assertThat(ShowroomValidation.validateVote("dislike", ok)).isEqualTo(VoteValue.DISLIKE);
+        assertThat(ShowroomValidation.validateVote(1, ok)).isEqualTo(VoteValue.LIKE);
+        assertThat(ShowroomValidation.validateVote(2, ok)).isEqualTo(VoteValue.DISLIKE);
         assertThat(ok.hasErrors()).isFalse();
 
         ShowroomFieldErrors invalid = new ShowroomFieldErrors();
-        ShowroomValidation.validateVote("__invalid__", invalid);
+        ShowroomValidation.validateVote(99, invalid);
         assertThat(invalid.fields()).containsEntry("vote", "invalid_enum");
 
         ShowroomFieldErrors required = new ShowroomFieldErrors();

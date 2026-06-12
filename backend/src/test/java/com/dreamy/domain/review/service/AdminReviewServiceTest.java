@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -97,9 +98,9 @@ class AdminReviewServiceTest {
     void moderateApprove() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.PENDING, false));
         when(reviewRepository.casModerate(1L, ReviewStatus.APPROVED)).thenReturn(1);
-        service.moderate(1L, "approved");
+        service.moderate(1L, 2);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_MODERATE), eq("review#1"), anyString());
-        verify(events).publishModerated(PRODUCT, 1L, "approved");
+        verify(events).publishModerated(PRODUCT, 1L, 2);
         verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
         verify(cache).invalidateProduct(ReviewCacheService.Family.REVIEWS, PRODUCT);
     }
@@ -109,23 +110,23 @@ class AdminReviewServiceTest {
     void moderateNonPendingRejected() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.REJECTED, false));
         when(reviewRepository.casModerate(1L, ReviewStatus.APPROVED)).thenReturn(0);
-        assertThatThrownBy(() -> service.moderate(1L, "approved"))
+        assertThatThrownBy(() -> service.moderate(1L, 2))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.REVIEW_STATE_INVALID));
-        verify(events, never()).publishModerated(anyLong(), anyLong(), anyString());
+        verify(events, never()).publishModerated(anyLong(), anyLong(), anyInt());
     }
 
     @Test
     @DisplayName("TC-REV-024 [P0]: status 枚举外/pending 目标值 → 422801；不存在 → 404801")
     void moderateValidation() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.PENDING, false));
-        assertThatThrownBy(() -> service.moderate(1L, "__invalid__"))
+        assertThatThrownBy(() -> service.moderate(1L, 99))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.FIELD_VALIDATION_FAILED));
-        assertThatThrownBy(() -> service.moderate(1L, "pending"))
+        assertThatThrownBy(() -> service.moderate(1L, 1))
                 .isInstanceOf(ReviewException.class);
         when(reviewRepository.findById(99L)).thenReturn(null);
-        assertThatThrownBy(() -> service.moderate(99L, "approved"))
+        assertThatThrownBy(() -> service.moderate(99L, 2))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.REVIEW_NOT_FOUND));
     }
@@ -144,7 +145,7 @@ class AdminReviewServiceTest {
         when(reviewRepository.findById(3L)).thenReturn(review(3L, ReviewStatus.APPROVED, false));
         when(reviewRepository.casSetFeatured(3L)).thenReturn(1);
         service.setFeatured(3L, true);
-        verify(events, never()).publishModerated(anyLong(), any(), anyString());
+        verify(events, never()).publishModerated(anyLong(), any(), anyInt());
         verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
     }
 
@@ -174,7 +175,7 @@ class AdminReviewServiceTest {
         assertThat(result.skippedIds()).containsExactly(3L, 404L);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_BATCH), eq("reviews/batch"), anyString());
         // approve → 按 product_id 去重发一次 review.moderated（该商品最后一条 review_id=2）
-        verify(events).publishModerated(PRODUCT, 2L, "approved");
+        verify(events).publishModerated(PRODUCT, 2L, 2);
     }
 
     @Test
@@ -206,7 +207,7 @@ class AdminReviewServiceTest {
         assertThat(result.updatedIds()).containsExactly(1L);
         assertThat(result.skippedIds()).containsExactly(2L, 3L, 4L);
         // feature 不发 review.moderated（rating 不变——TC-REV-020）
-        verify(events, never()).publishModerated(anyLong(), any(), anyString());
+        verify(events, never()).publishModerated(anyLong(), any(), anyInt());
         verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
 
         // unfeature：featured=1→更新，featured=0→skipped

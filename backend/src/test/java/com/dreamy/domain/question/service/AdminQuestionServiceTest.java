@@ -116,13 +116,13 @@ class AdminQuestionServiceTest {
     @DisplayName("E-REV-15 [P0]: 可见性切换——未回答允许置 visible（CV-REV-009 读路径兜底）；同值幂等短路")
     void visibilityToggleAndIdempotency() {
         when(questionRepository.findById(4L)).thenReturn(question(4L, null, QuestionVisibility.HIDDEN));
-        service.patchVisibility(4L, "visible");
+        service.patchVisibility(4L, 1);
         verify(questionRepository).updateVisible(4L, QuestionVisibility.VISIBLE);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_ANSWER), eq("question#4"), anyString());
 
         org.mockito.Mockito.clearInvocations(questionRepository, audit, events);
         when(questionRepository.findById(5L)).thenReturn(question(5L, null, QuestionVisibility.VISIBLE));
-        service.patchVisibility(5L, "visible");
+        service.patchVisibility(5L, 1);
         verify(questionRepository, never()).updateVisible(anyLong(), any());
         verify(audit, never()).record(anyString(), anyString(), any());
         verify(events, never()).publishContentInvalidated(anyString(), anyString(), anyLong());
@@ -132,11 +132,11 @@ class AdminQuestionServiceTest {
     @DisplayName("V-REV-034/037 [P0]: 不存在 → 404802；visible 枚举外 → 422801（bs-511）")
     void visibilityValidation() {
         when(questionRepository.findById(99L)).thenReturn(null);
-        assertThatThrownBy(() -> service.patchVisibility(99L, "visible"))
+        assertThatThrownBy(() -> service.patchVisibility(99L, 1))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.QUESTION_NOT_FOUND));
         when(questionRepository.findById(6L)).thenReturn(question(6L, null, QuestionVisibility.HIDDEN));
-        assertThatThrownBy(() -> service.patchVisibility(6L, "__invalid__"))
+        assertThatThrownBy(() -> service.patchVisibility(6L, 99))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.FIELD_VALIDATION_FAILED));
     }

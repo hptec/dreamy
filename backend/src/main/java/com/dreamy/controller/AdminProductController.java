@@ -55,7 +55,7 @@ public class AdminProductController {
     public ResponseEntity<R<Paginated<AdminProductListItem>>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer status,
             @RequestParam(name = "category_id", required = false) Long categoryId,
             @RequestParam(required = false) String search) {
         return ResponseEntity.ok(R.ok(adminProductService.pageList(page, pageSize, status, categoryId, search)));
@@ -85,7 +85,7 @@ public class AdminProductController {
      */
     @RequirePermission(PERMISSION)
     @GetMapping("/api/admin/products/export")
-    public ResponseEntity<byte[]> export(@RequestParam(required = false) String status,
+    public ResponseEntity<byte[]> export(@RequestParam(required = false) Integer status,
                                          @RequestParam(name = "category_id", required = false) Long categoryId,
                                          @RequestParam(required = false) String search) {
         ExportResult result = exportService.export(status, categoryId, search);
@@ -125,7 +125,7 @@ public class AdminProductController {
     @RequirePermission(PERMISSION)
     @PatchMapping("/api/admin/products/{id}/status")
     public ResponseEntity<R<AdminProductListItem>> toggleStatus(@PathVariable String id,
-                                                                @RequestBody Map<String, String> body) {
+                                                                @RequestBody Map<String, Integer> body) {
         return ResponseEntity.ok(R.ok(adminProductService.toggleStatus(parseId(id), body.get("status"))));
     }
 

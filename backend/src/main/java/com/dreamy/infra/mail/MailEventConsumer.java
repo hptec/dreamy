@@ -104,7 +104,7 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
 
         // ⑤ 渲染发送 → sent；⑥ 失败 → failed(retry_count+1) / dead（超上限）
         try {
-            mailSender.send(recipient, type.getKey(), locale, templateVars(payload));
+            mailSender.send(recipient, type.name().toLowerCase(), locale, templateVars(payload));
         } catch (RuntimeException ex) {
             int nextRetry = (record.getRetryCount() == null ? 0 : record.getRetryCount()) + 1;
             if (nextRetry > mqProperties.getMaxRetries()) {

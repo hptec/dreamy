@@ -23,7 +23,7 @@ import java.util.List;
 @Mapper
 public interface AnalyticsReadMapper {
 
-    String PAID_STATUSES = "('paid','shipped','completed','refunding','refunded')";
+    String PAID_STATUSES = "(2,3,4,6,7)"; // paid,shipped,completed,refunding,refunded
 
     /** RM-ANA-001 sumPaidGmvUsd —— 窗口内支付订单 GMV（USD 折算；IDX-ANA-001 idx_order_status_paid） */
     @Select("SELECT COALESCE(SUM(o.total_amount / COALESCE(o.exchange_rate, 1)), 0) "
@@ -40,7 +40,7 @@ public interface AnalyticsReadMapper {
 
     /** RM-ANA-003 countApprovedRefunds —— 窗口内 approved 退款工单数（DEC-ANA-3 refund_rate 分子） */
     @Select("SELECT COUNT(*) FROM refund r "
-            + "WHERE r.status = 'approved' AND r.applied_at >= #{from} AND r.applied_at < #{to}")
+            + "WHERE r.status = 2 AND r.applied_at >= #{from} AND r.applied_at < #{to}")
     long countApprovedRefunds(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     /** RM-ANA-004 gmvTrendDaily —— 按日 GROUP BY（缺日补零在 MAP-ANA-002 完成，SQL 不造日历表） */
@@ -53,15 +53,15 @@ public interface AnalyticsReadMapper {
     List<DailyGmvRow> gmvTrendDaily(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     /** RM-ANA-005 countPendingRefunds —— 待审核退款工单（idx_refund_order_status 前缀） */
-    @Select("SELECT COUNT(*) FROM refund WHERE status = 'pending'")
+    @Select("SELECT COUNT(*) FROM refund WHERE status = 1")
     long countPendingRefunds();
 
     /** RM-ANA-006 countPendingReviews —— 待审核评价（review 域 idx_review_status_submitted） */
-    @Select("SELECT COUNT(*) FROM review WHERE status = 'pending'")
+    @Select("SELECT COUNT(*) FROM review WHERE status = 1")
     long countPendingReviews();
 
     /** RM-ANA-007 countUnshippedOrders —— 已支付待发货（trading idx_order_status_created 前缀） */
-    @Select("SELECT COUNT(*) FROM orders WHERE status = 'paid'")
+    @Select("SELECT COUNT(*) FROM orders WHERE status = 2")
     long countUnshippedOrders();
 
     /**

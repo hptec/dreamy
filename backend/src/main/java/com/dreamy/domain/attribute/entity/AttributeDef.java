@@ -34,7 +34,7 @@ public class AttributeDef extends LongAuditableEntity {
     @Column(name = AttributeDefDBConst.LABEL, definition = "varchar(64) NOT NULL COMMENT '显示名(EN 基准)'")
     private String label;
 
-    @Column(name = AttributeDefDBConst.TYPE, definition = "varchar(16) NOT NULL COMMENT 'select|multiselect|text|toggle'")
+    @Column(name = AttributeDefDBConst.TYPE, definition = "tinyint NOT NULL COMMENT '类型：1=单选 2=多选 3=文本 4=开关'")
     private AttributeType type;
 
     /** 可选值列表（仅 select/multiselect，V-CAT-056；MAP-CAT-013） */
