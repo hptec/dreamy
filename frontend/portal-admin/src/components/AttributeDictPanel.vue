@@ -10,7 +10,7 @@ import LocaleTabs from '@/components/LocaleTabs.vue'
 import { useAttributeStore } from '@/stores/attributes'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { extractFieldErrors, type FieldErrors } from '@/utils/validators'
+import { ATTR_KEY_PATTERN, extractFieldErrors, type FieldErrors } from '@/utils/validators'
 import { PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import type { AttributeDef, AttributeDefTranslation, AttributeDefType } from '@/api/types'
 
@@ -114,7 +114,10 @@ function parseOptions(text: string): string[] {
 
 async function saveDef() {
   defErrors.value = {}
-  if (!defForm.value.key.trim()) defErrors.value.key = 'key 必填'
+  const keyTrimmed = defForm.value.key.trim()
+  if (!keyTrimmed) defErrors.value.key = 'key 必填'
+  else if (keyTrimmed.length > 64 || !ATTR_KEY_PATTERN.test(keyTrimmed))
+    defErrors.value.key = '仅允许小写字母开头，由小写字母/数字/下划线组成（≤64）'
   if (!defForm.value.label.trim()) defErrors.value.label = '名称必填'
   if (Object.keys(defErrors.value).length) {
     defLocale.value = 'en'

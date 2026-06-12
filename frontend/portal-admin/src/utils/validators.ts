@@ -43,6 +43,9 @@ export function isBizCode(e: unknown, code: number): boolean {
 
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/** V-CAT-053 镜像：属性定义 key（小写字母开头，仅小写字母/数字/下划线，≤64） */
+export const ATTR_KEY_PATTERN = /^[a-z][a-z0-9_]*$/
+
 export function validateProductForm(form: {
   name?: string | null
   slug?: string | null

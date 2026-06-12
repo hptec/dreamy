@@ -179,39 +179,43 @@ async function main() {
     return '3-Tab 文案与顺序对照原型'
   })
   await check('UI-CAT-02', 'Categories', async () => {
+    // 2026-06-12 对齐原型：矩阵 sub-tab 已移除——Tab 2 = 原型说明条 + 属性集 chips + 属性字典
     await page.getByRole('button', { name: '属性集与字典', exact: true }).click()
     await sleep(300)
-    ok(await page.getByRole('button', { name: '品类×属性矩阵' }).isVisible(), 'sub-tab 品类×属性矩阵缺失')
-    await page.getByRole('button', { name: '品类×属性矩阵' }).click()
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await sleep(500)
-    const matrixTable = page.locator('table').filter({ hasText: '属性' }).first()
-    ok(await matrixTable.isVisible(), '矩阵表不可见')
-    const ths = await matrixTable.locator('thead th').allInnerTexts()
-    ok(ths.length > 1, '矩阵列头为空')
-    return `矩阵表可见，列头 ${ths.length} 列: ${ths.map((t) => t.trim().replace(/\n/g, ' ')).join(' | ').slice(0, 160)}`
+    ok((await page.getByRole('button', { name: '品类×属性矩阵' }).count()) === 0, '矩阵 sub-tab 应已移除（原型无矩阵）')
+    ok(await page.getByText('属性字典维护全局可选值').isVisible(), 'Tab 2 原型说明条缺失')
+    ok(await page.getByRole('button', { name: '新增属性集' }).isVisible(), '「新增属性集」按钮缺失')
+    ok(await page.getByText('个分类引用').first().isVisible(), '属性集 chips 缺失')
+    ok(await page.getByRole('button', { name: '新增属性定义' }).isVisible(), '属性字典面板缺失')
+    return 'Tab 2 = 说明条 + 属性集 chips + 属性字典（矩阵已按原型移除）'
   })
-  {
-    const cnt = await page.getByText('子品类属性覆盖').count()
-    if (cnt > 0) rec('UI-CAT-03', 'Categories', 'PASS', '矩阵 tab 卡片区标题「子品类属性覆盖」可见')
-    else skip('UI-CAT-03', 'Categories', '卡片区 v-if 于存在子品类 delta 覆盖时渲染；当前库内所有分类 attr_overrides=null，无渲染前置（spec 注明「有 delta 数据前置」）')
-  }
+  await check('UI-CAT-03', 'Categories', async () => {
+    // 子品类覆盖状态在 Tab 1 子类目 chip 上呈现（「继承」/「N覆盖」徽章，点击开覆盖抽屉）
+    await page.getByRole('button', { name: '标准品类', exact: true }).click()
+    await sleep(300)
+    const ovBadge = page.locator('.group button').filter({ hasText: /^(继承|\d+覆盖)$/ }).first()
+    ok(await ovBadge.isVisible(), '子类目「继承/N覆盖」徽章缺失')
+    return `子类目覆盖徽章可见（首个=「${(await ovBadge.innerText()).trim()}」）`
+  })
   await check('UI-CAT-05', 'Categories', async () => {
-    // 豁免项 E-CAT-21：矩阵点格子 → 顶部按钮变「保存配置 *」（仅本地副本，不提交）
-    const saveBtn = page.getByRole('button', { name: /保存配置/ }).first()
-    ok(await saveBtn.isVisible(), '矩阵区无保存配置按钮')
-    ok(await saveBtn.isDisabled(), '初始未变更时保存配置按钮应为 disabled')
-    const cell = page.locator('table tbody td button').first()
-    ok(await cell.isVisible(), '矩阵格子按钮不可见')
-    await cell.click()
-    await sleep(200)
-    const txt = (await saveBtn.innerText()).trim()
-    ok(txt.includes('保存配置 *'), `按钮文案未变为保存配置 *，实际: ${txt}`)
-    ok(await saveBtn.isEnabled(), '按钮未变为可点击')
-    // 还原：再点一轮回到原态不可控（三态循环），直接离开页面丢弃本地副本，不提交
-    return '点格子后按钮=「保存配置 *」且 enabled（豁免现状一致，未提交保存）'
+    // 对齐原型（E-CAT-21 豁免已废除）：点徽章 → 属性集配置抽屉，三态循环点击即改，保存即提交
+    const badge = page.locator('button').filter({ hasText: '属性集 ·' }).first()
+    await badge.waitFor({ state: 'visible', timeout: 8000 })
+    await badge.click()
+    await sleep(400)
+    const dw = page.locator('.fixed.justify-end').last()
+    ok(await dw.locator('h3', { hasText: '· 属性配置' }).isVisible(), '属性集配置抽屉未打开')
+    ok(await dw.getByText('点击状态循环切换').isVisible(), '抽屉三态说明条缺失')
+    const stBtn = dw.locator('button.min-w-\\[3\\.5rem\\]').first()
+    const before = (await stBtn.innerText()).trim()
+    await stBtn.click()
+    const after = (await stBtn.innerText()).trim()
+    ok(before !== after, `三态循环点击未生效（${before} → ${after}）`)
+    await dw.getByRole('button', { name: '取消' }).click()
+    await sleep(300)
+    return `徽章 → 属性集抽屉三态循环（${before} → ${after}，取消未提交）`
   })
-  // CAT-04 / CAT-06：回到标准品类 tab，点属性集徽章 → 抽屉
+  // CAT-04 / CAT-06：标准品类 tab，点属性集徽章 → 抽屉
   await gotoPage(page, '/categories', 'Categories')
   await check('UI-CAT-04', 'Categories', async () => {
     const badge = page.locator('button').filter({ hasText: '项' }).filter({ hasText: '·' }).first()
@@ -221,10 +225,15 @@ async function main() {
     await sleep(400)
     const heading = page.locator('h3', { hasText: /配置/ }).first()
     ok(await heading.isVisible(), '点击徽章后未打开配置抽屉')
-    return `点击徽章「${badgeText}」→ 抽屉打开: ` + (await heading.innerText()).trim() + '（根品类=品类配置/绑定属性集；子分类=delta 三态）'
+    return `点击徽章「${badgeText}」→ 抽屉打开: ` + (await heading.innerText()).trim() + '（属性集三态配置——原型 openCatSetDrawer 同款）'
   })
   await check('UI-CAT-06', 'Categories', async () => {
-    // 豁免项（决策 9）：抽屉内 EN（主）/ES/FR 三语 tab
+    // 豁免项（决策 9）：三语 tab 在品类配置抽屉内（双击根品类名打开——徽章现开属性集抽屉）
+    const cancel0 = page.getByRole('button', { name: '取消' }).first()
+    if (await cancel0.isVisible()) await cancel0.click() // 关掉 CAT-04 留下的属性集抽屉
+    await sleep(300)
+    await page.locator('span.font-display.cursor-pointer').first().dblclick()
+    await sleep(400)
     ok((await page.getByRole('button', { name: 'EN（主）' }).count()) > 0, 'LocaleTab EN（主）缺失')
     for (const l of ['ES', 'FR']) {
       ok((await page.getByRole('button', { name: l, exact: true }).count()) > 0, `LocaleTab ${l} 缺失`)
@@ -234,7 +243,7 @@ async function main() {
     ok((await page.getByText('留空时消费端回退 EN').count()) > 0, 'ES tab 独立输入未渲染')
     await page.getByRole('button', { name: '取消' }).first().click()
     await sleep(300)
-    return '抽屉含 EN（主）/ES/FR 三语独立 name 输入（豁免现状一致）'
+    return '双击根品类名 → 品类配置抽屉含 EN（主）/ES/FR 三语独立 name 输入（豁免现状一致）'
   })
   await check('UI-CAT-07', 'Categories', async () => {
     // 豁免项 E-CAT-30：删除维度 → 仅验证确认弹窗出现后取消（不触发真实删除/409506）

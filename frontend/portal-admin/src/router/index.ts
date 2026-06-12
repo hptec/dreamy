@@ -14,7 +14,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/products', name: 'products', component: () => import('@/views/Products.vue'), meta: { title: '商品列表', group: '商品管理', permission: '/products' } },
   { path: '/products/new', name: 'product-new', component: () => import('@/views/ProductEdit.vue'), meta: { title: '新增商品', group: '商品管理', hidden: true, permission: '/products' } },
   { path: '/products/:id/edit', name: 'product-edit', component: () => import('@/views/ProductEdit.vue'), meta: { title: '编辑商品', group: '商品管理', hidden: true, permission: '/products' } },
-  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '品类与标签', group: '商品管理', permission: '/categories' } },
+  { path: '/categories', name: 'categories', component: () => import('@/views/Categories.vue'), meta: { title: '分类管理', group: '商品管理', permission: '/categories' } },
   // FORM-CAT-M01（ALIGN-004，决策 1）：独立属性集页废弃，内容已迁入 /categories Tab 2「属性集与字典」；
   // 保留 redirect 以兼容书签/操作日志旧链接，permission 校验随 /categories
   { path: '/attribute-sets', redirect: { path: '/categories', query: { tab: 'attributes' } } },

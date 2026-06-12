@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// PAGE-CAT-A03 / COMP-CAT-A03/A05 + COMP-CAT-M01（admin-prototype-alignment ALIGN-001/005）：
-// 品类与标签 3-Tab（标准品类 / 属性集与字典 / 自定义标签——对照原型 Categories.vue L250-257）；
-// Tab 2 自独立 AttributeSets 页迁入（dict/「品类×属性矩阵」sub-tab + 子品类覆盖卡片区），
-// 矩阵整单保存 E-CAT-21 豁免沿用（ALIGN-006）；三语 name tab 增强保留（ALIGN-002 豁免）；
+// PAGE-CAT-A03 / COMP-CAT-A03/A05（对照原型 Categories.vue「分类管理」）：
+// 品类与标签 3-Tab（标准品类 / 属性集与字典 / 自定义标签）；
+// 属性集三态配置走 Tab 1 品类卡片徽章 → 属性集配置抽屉（原型 openCatSetDrawer 同款交互），
+// Tab 2 仅保留属性字典 + 属性集管理入口（矩阵 sub-tab 已按原型移除）；
+// 三语 name tab 增强保留（收进抽屉内，交互入口按原型）；
 // 数据层接 E-CAT-15~18 / 27~34；维度删除收紧为 409506 引导——E-CAT-30 显式偏离（ALIGN-003 豁免）
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -13,8 +14,6 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import AttributeDictPanel from '@/components/AttributeDictPanel.vue'
-import AttributeMatrixPanel from '@/components/AttributeMatrixPanel.vue'
-import { useAttributeMatrix } from '@/composables/useAttributeMatrix'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -24,39 +23,17 @@ import {
   PlusIcon, Bars3Icon, PencilSquareIcon, TrashIcon, ChevronRightIcon, TagIcon, XMarkIcon,
   ExclamationTriangleIcon, SwatchIcon,
 } from '@heroicons/vue/24/outline'
-import type { AdminCategoryNode, AttrVisibility, CategoryTranslation, Tag, TagDimension } from '@/api/types'
+import type { AdminCategoryNode, AttrVisibility, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
 
 const categories = useCategoriesStore()
 const attributes = useAttributeStore()
 const tags = useTagsStore()
 const toast = useToastStore()
 
-// COMP-CAT-M01：主 Tab 由 2 值扩为 3 值（标准品类 / 属性集与字典 / 自定义标签，顺序文案对照原型）
+// 主 Tab：标准品类 / 属性集与字典 / 自定义标签（顺序文案对照原型）
 const mainTab = ref<'taxonomy' | 'attributes' | 'tags'>('taxonomy')
-// COMP-CAT-M01：Tab 2 内层 sub-tab（默认 dict；matrix 文案为「品类×属性矩阵」——ALIGN-005）
-const attrSubTab = ref<'dict' | 'matrix'>('dict')
-// COMP-CAT-M02-1：矩阵可编辑副本（composable；hasUnsavedChanges 供 Tab 切换 guard 共享）
-const matrixCtl = useAttributeMatrix()
 
 const route = useRoute()
-
-/** STORE-CAT-M01：Tab 切换防丢失——矩阵有未保存变更时确认后才允许离开 */
-function guardMatrixLeave(): boolean {
-  if (mainTab.value === 'attributes' && attrSubTab.value === 'matrix' && matrixCtl.hasUnsavedChanges) {
-    return window.confirm('有未保存的矩阵变更，离开将丢失，确认切换？')
-  }
-  return true
-}
-
-function switchMainTab(next: 'taxonomy' | 'attributes' | 'tags') {
-  if (next === mainTab.value || !guardMatrixLeave()) return
-  mainTab.value = next
-}
-
-function switchAttrSubTab(next: 'dict' | 'matrix') {
-  if (next === attrSubTab.value || !guardMatrixLeave()) return
-  attrSubTab.value = next
-}
 
 function bizMsg(e: unknown, fallback: string): string {
   return e instanceof BizError ? e.message : fallback
@@ -239,6 +216,106 @@ async function confirmAddChild(cat: AdminCategoryNode) {
   }
 }
 
+// 子类目双击行内改名（原型 startEditChild/confirmEditChild 同款交互）
+const editingChild = ref<{ catId: number | null; childId: number | null }>({ catId: null, childId: null })
+const editChildName = ref('')
+
+function startEditChild(cat: AdminCategoryNode, ch: AdminCategoryNode) {
+  editingChild.value = { catId: cat.id, childId: ch.id }
+  editChildName.value = ch.name
+}
+
+async function confirmEditChild(cat: AdminCategoryNode, ch: AdminCategoryNode) {
+  const v = editChildName.value.trim()
+  editingChild.value = { catId: null, childId: null }
+  if (!v || v === ch.name) return
+  try {
+    await categories.update(ch.id, {
+      name: v,
+      parentId: cat.id,
+      attrOverrides: ch.attrOverrides || {},
+      sort: ch.sort,
+      translations: ch.translations || [],
+    })
+    toast.success('已重命名')
+  } catch (e) {
+    toast.error(bizMsg(e, '保存失败'))
+  }
+}
+
+// ----- 属性集配置抽屉（原型 openCatSetDrawer/openSetDrawer 同款：三态循环 + 绑定品类 chips） -----
+const setDrawer = ref<{ set: AttributeSet | null } | null>(null)
+const setDrawerLabel = ref('')
+const setDrawerAttrs = ref<Record<string, AttrVisibility>>({})
+const setDrawerError = ref('')
+const setDrawerSaving = ref(false)
+
+const setDrawerCategories = computed(() => {
+  const set = setDrawer.value?.set
+  if (!set) return []
+  return categories.tree.filter((c) => c.attributeSetId === set.id).map((c) => c.name)
+})
+
+function openSetDrawer(set?: AttributeSet) {
+  setDrawer.value = { set: set ?? null }
+  setDrawerLabel.value = set?.label || ''
+  setDrawerAttrs.value = set ? { ...attributes.setAttrs(set.id) } : {}
+  setDrawerError.value = ''
+}
+
+/** 主品类卡片点徽章 → 解析绑定的属性集后打开抽屉（原型 openCatSetDrawer） */
+function openCatSetDrawer(cat: AdminCategoryNode) {
+  const set = attributes.sets.find((s) => s.id === cat.attributeSetId)
+  if (set) openSetDrawer(set)
+}
+
+function cycleSetDrawerState(key: string) {
+  const cur = setDrawerAttrs.value[key] || 'hidden'
+  setDrawerAttrs.value = { ...setDrawerAttrs.value, [key]: STATES[(STATES.indexOf(cur) + 1) % STATES.length] }
+}
+
+async function saveSetDrawer() {
+  if (!setDrawer.value) return
+  const label = setDrawerLabel.value.trim()
+  if (!label) {
+    setDrawerError.value = '名称必填'
+    return
+  }
+  setDrawerSaving.value = true
+  try {
+    // 抽屉只编辑可见属性（同原型 editableAttrs 口径）；text 类属性的既有配置原样保留
+    const editableIds = new Set(editableAttrs.value.map((d) => d.id))
+    const preserved = (setDrawer.value.set?.items || []).filter((i) => !editableIds.has(i.attributeId))
+    const edited = editableAttrs.value
+      .filter((d) => (setDrawerAttrs.value[d.key] || 'hidden') !== 'hidden')
+      .map((d) => ({ attributeId: d.id, visibility: setDrawerAttrs.value[d.key] }))
+    await attributes.saveSet({ label, items: [...preserved, ...edited] }, setDrawer.value.set?.id)
+    toast.success('属性集已保存')
+    setDrawer.value = null
+  } catch (e) {
+    setDrawerError.value = bizMsg(e, '保存失败')
+  } finally {
+    setDrawerSaving.value = false
+  }
+}
+
+// 删除属性集（409503：被分类引用时拒绝）
+const confirmDeleteSet = ref<AttributeSet | null>(null)
+async function doDeleteSet() {
+  if (!confirmDeleteSet.value) return
+  confirmBusy.value = true
+  try {
+    await attributes.removeSet(confirmDeleteSet.value.id)
+    toast.success('已删除')
+    confirmDeleteSet.value = null
+  } catch (e) {
+    if (e instanceof BizError && e.code === 409503) toast.error('该属性集被分类引用，不可删除')
+    else toast.error(bizMsg(e, '删除失败'))
+  } finally {
+    confirmBusy.value = false
+  }
+}
+
 // ----- 删除分类 -----
 const confirmDeleteCat = ref<AdminCategoryNode | null>(null)
 const confirmBusy = ref(false)
@@ -369,10 +446,9 @@ async function doDeleteTag() {
 }
 
 onMounted(() => {
-  // COMP-CAT-M01：深链支持 /categories?tab=attributes[&sub=matrix]（ALIGN-004 redirect 落点）
+  // 深链支持 /categories?tab=attributes|tags（/attribute-sets 旧路由 redirect 落点）
   const t = route.query.tab
   if (t === 'attributes' || t === 'tags') mainTab.value = t
-  if (route.query.sub === 'matrix') attrSubTab.value = 'matrix'
   load()
 })
 </script>
@@ -381,14 +457,14 @@ onMounted(() => {
   <div class="animate-fadeup">
     <PageHeader eyebrow="Catalog" title="品类与标签" subtitle="管理商品品类树和自定义营销标签" />
 
-    <!-- Main Tabs（COMP-CAT-M01：3-Tab，顺序文案严格对照原型 Categories.vue L250-257——ALIGN-001） -->
+    <!-- Main Tabs（3-Tab，顺序文案严格对照原型 Categories.vue L250-257） -->
     <div class="mb-4 flex items-center gap-1 border-b border-line">
       <button
         v-for="[key, label] in [['taxonomy', '标准品类'], ['attributes', '属性集与字典'], ['tags', '自定义标签']] as const"
         :key="key"
         class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
         :class="mainTab === key ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-        @click="switchMainTab(key)"
+        @click="mainTab = key"
       >{{ label }}</button>
     </div>
 
@@ -405,51 +481,60 @@ onMounted(() => {
       <EmptyState v-if="!categories.loading && !categories.tree.length" title="暂无品类" hint="添加根品类后才能创建商品。" />
       <div v-else class="flex flex-wrap gap-4">
         <div v-for="cat in categories.tree" :key="cat.id" class="panel flex w-72 shrink-0 flex-col p-4">
-          <!-- 品类头 -->
+          <!-- 品类头（对照原型：无独立编辑按钮，双击名称进入品类配置抽屉） -->
           <div class="flex items-center gap-2">
             <Bars3Icon class="h-4 w-4 cursor-grab text-ink-faint" />
-            <span class="font-display text-base font-medium text-ink">{{ cat.name }}</span>
-            <button class="btn-ghost ml-auto" @click="openDrawer(cat, null)"><PencilSquareIcon class="h-4 w-4" /></button>
+            <span class="cursor-pointer font-display text-base font-medium text-ink" title="双击编辑品类" @dblclick="openDrawer(cat, null)">{{ cat.name }}</span>
             <button
-              class="btn-danger-ghost disabled:opacity-40"
+              class="btn-danger-ghost ml-auto disabled:opacity-40"
               :disabled="!canDelete(cat)"
               :title="canDelete(cat) ? '删除' : '分类下仍有商品/子分类'"
               @click="confirmDeleteCat = cat"
             ><TrashIcon class="h-4 w-4" /></button>
           </div>
-          <!-- 属性集徽章 + 商品数 -->
+          <!-- 属性集徽章（点击打开属性集三态配置抽屉——原型 openCatSetDrawer）+ 商品数 -->
           <div class="mt-2 flex flex-wrap items-center gap-1.5">
             <button
               v-if="cat.attributeSetId && attrSetInfo(cat.attributeSetId)"
               class="inline-flex items-center gap-1 rounded-full bg-gold/14 px-2 py-0.5 text-[11px] text-gold-deep transition-colors hover:bg-gold/25"
-              @click="openDrawer(cat, null)"
+              @click="openCatSetDrawer(cat)"
             >
               <PencilSquareIcon class="h-3 w-3" />
-              {{ attrSetInfo(cat.attributeSetId)!.label }} · {{ attrSetInfo(cat.attributeSetId)!.count }} 项
+              {{ attrSetInfo(cat.attributeSetId)!.label }}属性集 · {{ attrSetInfo(cat.attributeSetId)!.count }} 项
             </button>
             <span v-else class="flex items-center gap-1 rounded-full bg-canvas-warm px-2 py-0.5 text-[11px] text-ink-faint">
               <ExclamationTriangleIcon class="h-3 w-3" />未配置属性集
             </span>
             <span class="rounded-full bg-canvas-warm px-2 py-0.5 text-[11px] text-ink-faint">{{ cat.productCount ?? 0 }} 件商品</span>
           </div>
-          <!-- 子类目 chips -->
+          <!-- 子类目 chips（双击行内改名；「继承/N覆盖」开属性覆盖抽屉——原型同款） -->
           <div class="mt-3 flex flex-1 flex-col gap-2 border-t border-line pt-3">
             <p class="text-[11px] font-medium uppercase tracking-wider text-ink-faint">子类目 ({{ cat.children?.length ?? 0 }})</p>
             <div class="flex flex-wrap gap-2">
-              <span v-for="ch in cat.children || []" :key="ch.id" class="flex items-center gap-1 rounded-luxe border border-line px-2.5 py-1 text-[12px] text-ink-soft">
-                <ChevronRightIcon class="h-3 w-3 text-ink-faint" />
-                <span class="cursor-pointer" @dblclick="openDrawer(ch, cat)">{{ ch.name }}</span>
-                <button
-                  class="rounded px-1 py-0.5 text-[10px] leading-none transition-colors hover:bg-info/20"
-                  :class="Object.keys(ch.attrOverrides || {}).length ? 'bg-info/12 text-info' : 'bg-canvas-warm text-ink-faint'"
-                  @click="openDrawer(ch, cat)"
-                >{{ Object.keys(ch.attrOverrides || {}).length ? Object.keys(ch.attrOverrides || {}).length + '覆盖' : '继承' }}</button>
-                <button
-                  class="text-ink-faint hover:text-danger disabled:opacity-40"
-                  :disabled="!canDelete(ch)"
-                  :title="canDelete(ch) ? '删除' : '分类下仍有商品'"
-                  @click="confirmDeleteCat = ch"
-                ><XMarkIcon class="h-3 w-3" /></button>
+              <span v-for="ch in cat.children || []" :key="ch.id" class="group flex items-center gap-1 rounded-luxe border border-line px-2.5 py-1 text-[12px] text-ink-soft">
+                <template v-if="editingChild.catId === cat.id && editingChild.childId === ch.id">
+                  <input
+                    v-model="editChildName"
+                    class="w-20 border-b border-gold bg-transparent text-[12px] outline-none"
+                    @keyup.enter="confirmEditChild(cat, ch)"
+                    @keyup.escape="editingChild = { catId: null, childId: null }"
+                  />
+                </template>
+                <template v-else>
+                  <ChevronRightIcon class="h-3 w-3 text-ink-faint" />
+                  <span class="cursor-pointer" @dblclick="startEditChild(cat, ch)">{{ ch.name }}</span>
+                  <button
+                    class="rounded px-1 py-0.5 text-[10px] leading-none transition-colors hover:bg-info/20"
+                    :class="Object.keys(ch.attrOverrides || {}).length ? 'bg-info/12 text-info' : 'bg-canvas-warm text-ink-faint'"
+                    @click="openDrawer(ch, cat)"
+                  >{{ Object.keys(ch.attrOverrides || {}).length ? Object.keys(ch.attrOverrides || {}).length + '覆盖' : '继承' }}</button>
+                  <button
+                    class="invisible text-ink-faint hover:text-danger disabled:opacity-40 group-hover:visible"
+                    :disabled="!canDelete(ch)"
+                    :title="canDelete(ch) ? '删除' : '分类下仍有商品'"
+                    @click="confirmDeleteCat = ch"
+                  ><XMarkIcon class="h-3 w-3" /></button>
+                </template>
               </span>
               <span v-if="addingChildFor === cat.id" class="flex items-center gap-1 rounded-luxe border border-gold px-2.5 py-1">
                 <input v-model="newChildName" class="w-24 bg-transparent text-[12px] outline-none" placeholder="子类目名" @keyup.enter="confirmAddChild(cat)" @keyup.escape="addingChildFor = null" />
@@ -461,20 +546,33 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ==================== Tab 2: 属性集与字典（COMP-CAT-M02：自 AttributeSets 页迁入——ALIGN-001） ==================== -->
+    <!-- ==================== Tab 2: 属性集与字典（对照原型：仅属性字典；属性集三态配置入口在 Tab 1 徽章） ==================== -->
     <div v-show="mainTab === 'attributes'">
-      <!-- sub-tab 切换条（样式同主 Tab 条；矩阵文案「品类×属性矩阵」——ALIGN-005/COMP-CAT-M02-5） -->
-      <div class="mb-4 flex items-center gap-1 border-b border-line">
-        <button
-          v-for="[key, label] in [['dict', '属性字典'], ['matrix', '品类×属性矩阵']] as const"
-          :key="key"
-          class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
-          :class="attrSubTab === key ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-          @click="switchAttrSubTab(key)"
-        >{{ label }}</button>
+      <div class="mb-4 flex items-center justify-between gap-2">
+        <div class="flex items-start gap-2 rounded-luxe border border-line bg-canvas-warm/60 px-4 py-2.5 text-[12px] text-ink-soft">
+          <SwatchIcon class="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+          <span>属性字典维护全局可选值。各品类启用哪些属性、必填或可选，在「标准品类」Tab 的品类卡片上点击属性集徽章配置。</span>
+        </div>
+        <button class="btn-outline shrink-0" @click="openSetDrawer()"><PlusIcon class="h-4 w-4" />新增属性集</button>
       </div>
-      <AttributeDictPanel v-show="attrSubTab === 'dict'" />
-      <AttributeMatrixPanel v-show="attrSubTab === 'matrix'" :ctl="matrixCtl" />
+
+      <!-- 属性集 chips（功能保留区：点击开三态配置抽屉；hover 显删除，被引用时禁用） -->
+      <div v-if="attributes.sets.length" class="mb-4 flex flex-wrap gap-2">
+        <span v-for="s in attributes.sets" :key="s.id" class="group flex items-center gap-1 rounded-full border border-line px-1 py-0.5">
+          <button class="inline-flex items-center gap-1 rounded-full bg-gold/14 px-2 py-0.5 text-[11px] text-gold-deep transition-colors hover:bg-gold/25" @click="openSetDrawer(s)">
+            <PencilSquareIcon class="h-3 w-3" />
+            {{ s.label }} · {{ s.categoryCount ?? 0 }} 个分类引用
+          </button>
+          <button
+            class="invisible mr-1 text-ink-faint hover:text-danger disabled:opacity-40 group-hover:visible"
+            :disabled="(s.categoryCount ?? 0) > 0"
+            :title="(s.categoryCount ?? 0) > 0 ? '被分类引用，不可删除' : '删除'"
+            @click="confirmDeleteSet = s"
+          ><XMarkIcon class="h-3 w-3" /></button>
+        </span>
+      </div>
+
+      <AttributeDictPanel />
     </div>
 
     <!-- ==================== Tab 3: 自定义标签 ==================== -->
@@ -630,7 +728,8 @@ onMounted(() => {
             <LocaleTabs v-model="drawerLocale" :filled="drawerFilled" />
 
             <div v-show="drawerLocale === 'en'" class="space-y-4">
-              <div>
+              <!-- 名称仅根品类可改（子类目改名走 chip 双击行内编辑——原型覆盖抽屉无名称字段） -->
+              <div v-if="!drawer.parent">
                 <label class="field-label">名称 *</label>
                 <input v-model="drawerName" class="field" />
               </div>
@@ -697,6 +796,57 @@ onMounted(() => {
       </div>
     </Teleport>
 
+    <!-- ===== 属性集配置抽屉（原型 Categories.vue 属性集抽屉同款：三态循环 + 绑定品类 chips；label 可编辑为功能保留） ===== -->
+    <Teleport to="body">
+      <div v-if="setDrawer" class="fixed inset-0 z-50 flex justify-end bg-ink/40" v-dismiss="() => (setDrawer = null)">
+        <div class="flex h-full w-[480px] flex-col bg-canvas shadow-2xl">
+          <div class="flex items-center justify-between border-b border-line px-6 py-4">
+            <div>
+              <p class="text-[11px] text-ink-faint">属性集</p>
+              <h3 class="text-[15px] font-medium text-ink">{{ setDrawer.set ? setDrawer.set.label + ' · 属性配置' : '新增属性集' }}</h3>
+              <div v-if="setDrawerCategories.length" class="mt-1 flex flex-wrap gap-1">
+                <span v-for="c in setDrawerCategories" :key="c" class="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold-deep">{{ c }}</span>
+              </div>
+            </div>
+            <button class="btn-ghost" @click="setDrawer = null"><XMarkIcon class="h-4 w-4" /></button>
+          </div>
+          <div class="border-b border-line bg-canvas-warm/60 px-6 py-2.5 text-[12px] text-ink-soft">
+            点击状态循环切换：
+            <span class="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] text-gold-deep">必填</span>
+            <span class="mx-1">→</span>
+            <span class="rounded bg-info/10 px-1.5 py-0.5 text-[10px] text-info">可选</span>
+            <span class="mx-1">→</span>
+            <span class="rounded bg-canvas-warm px-1.5 py-0.5 text-[10px] text-ink-faint">隐藏</span>
+          </div>
+          <div class="flex-1 overflow-y-auto px-6 py-4">
+            <div class="mb-4">
+              <label class="field-label">属性集名称 *</label>
+              <input v-model="setDrawerLabel" class="field" placeholder="如：婚纱属性集" />
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="attr in editableAttrs"
+                :key="attr.id"
+                class="flex items-center justify-between rounded-luxe bg-canvas-warm/30 px-3 py-2.5 transition-colors"
+              >
+                <span class="text-[13px] text-ink">{{ attr.label }}</span>
+                <button
+                  class="min-w-[3.5rem] rounded px-2.5 py-1 text-[11px] font-medium transition-colors"
+                  :class="STATE_CLASSES[setDrawerAttrs[attr.key] || 'hidden']"
+                  @click="cycleSetDrawerState(attr.key)"
+                >{{ STATE_LABELS[setDrawerAttrs[attr.key] || 'hidden'] }}</button>
+              </div>
+            </div>
+            <p v-if="setDrawerError" class="mt-3 text-[11px] text-danger">{{ setDrawerError }}</p>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-line px-6 py-4">
+            <button class="btn-outline" @click="setDrawer = null">取消</button>
+            <button class="btn-gold" :disabled="setDrawerSaving" @click="saveSetDrawer">{{ setDrawerSaving ? '保存中…' : '保存' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <ConfirmDialog
       :open="!!confirmDeleteCat"
       title="删除分类"
@@ -706,6 +856,16 @@ onMounted(() => {
       :busy="confirmBusy"
       @confirm="doDeleteCat"
       @cancel="confirmDeleteCat = null"
+    />
+    <ConfirmDialog
+      :open="!!confirmDeleteSet"
+      title="删除属性集"
+      :message="`确认删除属性集「${confirmDeleteSet?.label}」？被分类引用时将被拒绝（409）。`"
+      confirm-text="删除"
+      danger
+      :busy="confirmBusy"
+      @confirm="doDeleteSet"
+      @cancel="confirmDeleteSet = null"
     />
     <ConfirmDialog
       :open="!!confirmDeleteDim"
