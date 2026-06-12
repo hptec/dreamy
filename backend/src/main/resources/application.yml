@@ -45,13 +45,7 @@ huihao:
   mysql:
     auto: update
     scan-packages:
-      - com.dreamy.identity.domain
-      - com.dreamy.catalog.domain
-      - com.dreamy.shipping.domain
-      - com.dreamy.review.domain
-      - com.dreamy.marketing.domain
-      - com.dreamy.showroom.domain
-      - com.dreamy.trading.domain
+      - com.dreamy.domain
   # huihao-redis：Redisson（分布式锁 IdLockSupport + 健康检查）
   redis:
     host: localhost
@@ -217,5 +211,5 @@ logging:
     # 应用日志输出到项目根 logs 目录（bootRun 工作目录为 backend/，故 ../logs 指向项目根）
     name: ../logs/identity.log
   level:
-    com.dreamy.identity: INFO
+    com.dreamy: INFO
     com.baomidou.mybatisplus: WARN

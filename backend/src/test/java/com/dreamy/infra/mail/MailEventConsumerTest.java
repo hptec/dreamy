@@ -1,6 +1,6 @@
 package com.dreamy.infra.mail;
 
-import com.dreamy.identity.infra.mail.MailSender;
+import com.dreamy.infra.mail.MailSender;
 import com.dreamy.infra.mail.repository.MailRecordRepository;
 import com.dreamy.infra.mq.DomainEvent;
 import com.dreamy.infra.mq.EventIdempotencyGuard;

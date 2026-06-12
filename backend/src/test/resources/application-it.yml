@@ -19,7 +19,7 @@ huihao:
   mysql:
     auto: update
     scan-packages:
-      - com.dreamy.identity.domain
+      - com.dreamy.domain
   redis:
     host: ${TC_REDIS_HOST:localhost}
     port: ${TC_REDIS_PORT:6379}

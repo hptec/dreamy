@@ -1,7 +1,7 @@
 package com.dreamy.infra.mail;
 
-import com.dreamy.identity.domain.user.entity.User;
-import com.dreamy.identity.domain.user.repository.UserMapper;
+import com.dreamy.domain.user.entity.User;
+import com.dreamy.domain.user.repository.UserMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

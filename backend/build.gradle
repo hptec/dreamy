@@ -5,7 +5,7 @@ plugins {
     id 'application'
 }
 
-group = 'com.dreamy.identity'
+group = 'com.dreamy'
 version = '1.0.0'
 
 java {
@@ -117,7 +117,7 @@ test {
 }
 
 application {
-    mainClass = 'com.dreamy.identity.IdentityApplication'
+    mainClass = 'com.dreamy.DreamyApplication'
 }
 
 bootJar {

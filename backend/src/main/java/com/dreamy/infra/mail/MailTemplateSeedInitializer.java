@@ -1,8 +1,8 @@
 package com.dreamy.infra.mail;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.identity.domain.authconfig.entity.EmailTemplate;
-import com.dreamy.identity.domain.authconfig.repository.EmailTemplateMapper;
+import com.dreamy.domain.authconfig.entity.EmailTemplate;
+import com.dreamy.domain.authconfig.repository.EmailTemplateMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
