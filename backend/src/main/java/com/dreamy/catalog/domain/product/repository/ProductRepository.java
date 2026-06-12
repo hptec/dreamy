@@ -9,10 +9,12 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 商品仓储（RM-CAT-080~099）。
@@ -27,9 +29,10 @@ public class ProductRepository {
         this.productMapper = productMapper;
     }
 
-    /** store 列表筛选条件（RM-CAT-083 入参） */
+    /** store 列表筛选条件（RM-CAT-083 入参；attrFilters: attribute_id → 候选值集，OR/IN 跨键 AND） */
     public record StoreFilter(List<Long> categoryIds, Long tagId, String color, String size,
-                              BigDecimal priceMin, BigDecimal priceMax, String sort) {
+                              BigDecimal priceMin, BigDecimal priceMax, String sort,
+                              Map<Long, Set<String>> attrFilters) {
     }
 
     /** admin 列表筛选条件（RM-CAT-085 入参） */
@@ -80,6 +83,24 @@ public class ProductRepository {
         }
         if (filter.size() != null) {
             qw.exists("SELECT 1 FROM sku s WHERE s.product_id = product.id AND s.size = {0}", filter.size());
+        }
+        // attrs：每维度 EXISTS（idx_pav_filter(attribute_id,value,product_id) 覆盖索引）；同维多值 IN=OR，跨维 AND
+        if (filter.attrFilters() != null) {
+            for (Map.Entry<Long, Set<String>> entry : filter.attrFilters().entrySet()) {
+                List<Object> args = new ArrayList<>();
+                args.add(entry.getKey());
+                StringBuilder in = new StringBuilder();
+                int i = 1;
+                for (String value : entry.getValue()) {
+                    if (in.length() > 0) {
+                        in.append(", ");
+                    }
+                    in.append('{').append(i++).append('}');
+                    args.add(value);
+                }
+                qw.exists("SELECT 1 FROM product_attribute_value pav WHERE pav.product_id = product.id "
+                        + "AND pav.attribute_id = {0} AND pav.`value` IN (" + in + ")", args.toArray());
+            }
         }
         if (filter.priceMin() != null) {
             qw.ge(Product::getPrice, filter.priceMin());

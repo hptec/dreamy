@@ -14,7 +14,7 @@ export interface ServerGetOptions {
   /** ISR TTL 秒；0 = no-store（协作/个人数据） */
   revalidate?: number
   locale?: string
-  query?: Record<string, string | number | boolean | undefined | null>
+  query?: Record<string, string | number | boolean | string[] | undefined | null>
 }
 
 function camelKeyToSnake(key: string): string {
@@ -26,6 +26,13 @@ function buildQuery(query?: ServerGetOptions['query']): string {
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(query)) {
     if (v === undefined || v === null || v === '') continue
+    if (Array.isArray(v)) {
+      // 重复参数（?attr=a:b&attr=c:d——动态属性筛选口径）
+      for (const item of v) {
+        if (item !== '') sp.append(camelKeyToSnake(k), item)
+      }
+      continue
+    }
     sp.set(camelKeyToSnake(k), String(v))
   }
   const s = sp.toString()

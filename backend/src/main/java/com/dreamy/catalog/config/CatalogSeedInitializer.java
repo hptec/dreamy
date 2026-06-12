@@ -16,10 +16,12 @@ import com.dreamy.catalog.domain.enums.ImageKind;
 import com.dreamy.catalog.domain.enums.ProductStatus;
 import com.dreamy.catalog.domain.enums.TagStatus;
 import com.dreamy.catalog.domain.product.entity.Product;
+import com.dreamy.catalog.domain.product.entity.ProductAttributeValue;
 import com.dreamy.catalog.domain.product.entity.ProductImage;
 import com.dreamy.catalog.domain.product.entity.ProductTranslation;
 import com.dreamy.catalog.domain.product.entity.SizeChartRow;
 import com.dreamy.catalog.domain.product.entity.Sku;
+import com.dreamy.catalog.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.catalog.domain.product.repository.ProductImageRepository;
 import com.dreamy.catalog.domain.product.repository.ProductMapper;
 import com.dreamy.catalog.domain.product.repository.ProductRepository;
@@ -74,6 +76,7 @@ public class CatalogSeedInitializer {
     private final SizeChartRowRepository sizeChartRepository;
     private final ProductTagRepository productTagRepository;
     private final ProductTranslationRepository productTranslationRepository;
+    private final ProductAttributeValueRepository attributeValueRepository;
     private final CategoryRepository categoryRepository;
     private final AttributeDefRepository attributeDefRepository;
     private final AttributeSetRepository attributeSetRepository;
@@ -88,6 +91,7 @@ public class CatalogSeedInitializer {
                                   SizeChartRowRepository sizeChartRepository,
                                   ProductTagRepository productTagRepository,
                                   ProductTranslationRepository productTranslationRepository,
+                                  ProductAttributeValueRepository attributeValueRepository,
                                   CategoryRepository categoryRepository,
                                   AttributeDefRepository attributeDefRepository,
                                   AttributeSetRepository attributeSetRepository,
@@ -101,6 +105,7 @@ public class CatalogSeedInitializer {
         this.sizeChartRepository = sizeChartRepository;
         this.productTagRepository = productTagRepository;
         this.productTranslationRepository = productTranslationRepository;
+        this.attributeValueRepository = attributeValueRepository;
         this.categoryRepository = categoryRepository;
         this.attributeDefRepository = attributeDefRepository;
         this.attributeSetRepository = attributeSetRepository;
@@ -122,7 +127,7 @@ public class CatalogSeedInitializer {
         Map<String, Long> sets = seedAttributeSets(defs);
         Map<String, Long> categories = seedCategories(sets);
         Map<String, Long> tags = seedTagsAndDimensions();
-        seedProducts(categories, tags);
+        seedProducts(defs, categories, tags);
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
 
@@ -166,10 +171,26 @@ public class CatalogSeedInitializer {
                         List.of("Asymétrique", "Col V", "V plongeant", "Bustier", "Dos-nu", "Cœur"))));
         ids.put("sleeve", insertDef("sleeve", "Sleeve", AttributeType.SELECT,
                 List.of("Sleeveless", "Long Sleeve", "Strap"), null, null));
-        ids.put("fabric", insertDef("fabric", "Fabric", AttributeType.SELECT,
-                List.of("Tulle", "Lace", "Chiffon", "Satin", "Luxe Knit", "Sequin"), null, null));
+        ids.put("back_style", insertDef("back_style", "Back Style", AttributeType.SELECT,
+                List.of("Open Back", "Lace-Up", "Zipper", "Button", "Keyhole"), null, null));
+        ids.put("waistline", insertDef("waistline", "Waistline", AttributeType.SELECT,
+                List.of("Natural", "Empire", "Drop", "Basque"), null, null));
+        ids.put("train", insertDef("train", "Train", AttributeType.SELECT,
+                List.of("None", "Sweep", "Chapel", "Cathedral"), null, null));
         ids.put("length", insertDef("length", "Length", AttributeType.SELECT,
                 List.of("Floor", "Short"), null, null));
+        ids.put("fabric", insertDef("fabric", "Fabric", AttributeType.SELECT,
+                List.of("Tulle", "Lace", "Chiffon", "Satin", "Luxe Knit", "Sequin"), null, null));
+        ids.put("support", insertDef("support", "Support", AttributeType.SELECT,
+                List.of("Built-in Bra", "Boning", "Padded Cups", "None"), null, null));
+        ids.put("season", insertDef("season", "Season", AttributeType.SELECT,
+                List.of("Spring", "Summer", "Fall", "Winter"), null, null));
+        ids.put("embellishment", insertDef("embellishment", "Embellishments", AttributeType.MULTISELECT,
+                List.of("Lace", "Beading", "Sequins", "Embroidery", "Appliqué", "Pearls"), null, null));
+        ids.put("occasion", insertDef("occasion", "Occasions", AttributeType.MULTISELECT,
+                List.of("Garden", "Beach", "Vineyard", "Forest"), null, null));
+        ids.put("style_tag", insertDef("style_tag", "Style Tags", AttributeType.MULTISELECT,
+                List.of("Boho", "Classic", "Modern", "Romantic", "Minimalist", "Glam"), null, null));
         ids.put("care_notes", insertDef("care_notes", "Care Notes", AttributeType.TEXT, null, null, null));
         return ids;
     }
@@ -199,16 +220,38 @@ public class CatalogSeedInitializer {
 
     private Map<String, Long> seedAttributeSets(Map<String, Long> defs) {
         Map<String, Long> ids = new LinkedHashMap<>();
-        ids.put("bridal", insertSet("Bridal Gown Attributes", defs, Map.of(
-                "silhouette", AttributeVisibility.VISIBLE, "neckline", AttributeVisibility.VISIBLE,
-                "sleeve", AttributeVisibility.OPTIONAL, "fabric", AttributeVisibility.VISIBLE,
-                "length", AttributeVisibility.OPTIONAL, "care_notes", AttributeVisibility.OPTIONAL)));
-        ids.put("occasion", insertSet("Occasion Dress Attributes", defs, Map.of(
-                "silhouette", AttributeVisibility.VISIBLE, "neckline", AttributeVisibility.OPTIONAL,
-                "fabric", AttributeVisibility.VISIBLE, "length", AttributeVisibility.VISIBLE,
-                "care_notes", AttributeVisibility.HIDDEN)));
-        ids.put("accessory", insertSet("Accessory Attributes", defs, Map.of(
-                "fabric", AttributeVisibility.OPTIONAL, "care_notes", AttributeVisibility.OPTIONAL)));
+        // LinkedHashMap 保持矩阵行序（set item 顺序 = 后台表单/PDP 属性展示顺序）
+        Map<String, AttributeVisibility> bridal = new LinkedHashMap<>();
+        bridal.put("silhouette", AttributeVisibility.VISIBLE);
+        bridal.put("neckline", AttributeVisibility.VISIBLE);
+        bridal.put("sleeve", AttributeVisibility.OPTIONAL);
+        bridal.put("back_style", AttributeVisibility.OPTIONAL);
+        bridal.put("waistline", AttributeVisibility.OPTIONAL);
+        bridal.put("train", AttributeVisibility.OPTIONAL);
+        bridal.put("length", AttributeVisibility.OPTIONAL);
+        bridal.put("fabric", AttributeVisibility.VISIBLE);
+        bridal.put("support", AttributeVisibility.OPTIONAL);
+        bridal.put("season", AttributeVisibility.OPTIONAL);
+        bridal.put("embellishment", AttributeVisibility.OPTIONAL);
+        bridal.put("occasion", AttributeVisibility.OPTIONAL);
+        bridal.put("style_tag", AttributeVisibility.OPTIONAL);
+        bridal.put("care_notes", AttributeVisibility.OPTIONAL);
+        ids.put("bridal", insertSet("Bridal Gown Attributes", defs, bridal));
+        Map<String, AttributeVisibility> occasion = new LinkedHashMap<>();
+        occasion.put("silhouette", AttributeVisibility.VISIBLE);
+        occasion.put("neckline", AttributeVisibility.OPTIONAL);
+        occasion.put("fabric", AttributeVisibility.VISIBLE);
+        occasion.put("length", AttributeVisibility.VISIBLE);
+        occasion.put("season", AttributeVisibility.OPTIONAL);
+        occasion.put("occasion", AttributeVisibility.OPTIONAL);
+        occasion.put("style_tag", AttributeVisibility.OPTIONAL);
+        occasion.put("care_notes", AttributeVisibility.HIDDEN);
+        ids.put("occasion", insertSet("Occasion Dress Attributes", defs, occasion));
+        Map<String, AttributeVisibility> accessory = new LinkedHashMap<>();
+        accessory.put("fabric", AttributeVisibility.OPTIONAL);
+        accessory.put("occasion", AttributeVisibility.OPTIONAL);
+        accessory.put("care_notes", AttributeVisibility.OPTIONAL);
+        ids.put("accessory", insertSet("Accessory Attributes", defs, accessory));
         return ids;
     }
 
@@ -353,13 +396,14 @@ public class CatalogSeedInitializer {
                                String esName, String frName) {
     }
 
-    private void seedProducts(Map<String, Long> categories, Map<String, Long> tags) {
+    private void seedProducts(Map<String, Long> defs, Map<String, Long> categories, Map<String, Long> tags) {
         for (SeedProduct sp : seedProductData()) {
-            insertProduct(sp, categories, tags);
+            insertProduct(sp, defs, categories, tags);
         }
     }
 
-    private void insertProduct(SeedProduct sp, Map<String, Long> categories, Map<String, Long> tags) {
+    private void insertProduct(SeedProduct sp, Map<String, Long> defs, Map<String, Long> categories,
+                               Map<String, Long> tags) {
         Product p = new Product();
         p.setName(sp.name());
         p.setSlug(sp.slug());
@@ -377,14 +421,8 @@ public class CatalogSeedInitializer {
         p.setLeadTimeDays(isAccessory ? 7 : 45);
         p.setRushAvailable(!isAccessory);
         p.setCustomSizeAvailable(sp.customSize());
-        p.setSilhouette(sp.silhouette());
-        p.setFabric(sp.fabric());
-        p.setNeckline(sp.neckline());
-        p.setSleeve(sp.sleeve());
-        p.setLength(sp.length());
         p.setDescription(sp.description());
         p.setCareInstructions(sp.care());
-        p.setOccasions(sp.themes());
         p.setStyleNo("D-" + sp.slug().toUpperCase().replaceAll("[^A-Z0-9]", "").substring(0,
                 Math.min(8, sp.slug().replaceAll("[^a-zA-Z0-9]", "").length())));
         p.setSeoTitle(sp.name() + " | Dreamy");
@@ -393,6 +431,17 @@ public class CatalogSeedInitializer {
         p.setRatingAvg(new BigDecimal(sp.ratingAvg()));
         p.setRatingCount(sp.ratingCount());
         productRepository.insert(p);
+        // 版型属性 → EAV（multiselect occasion 一值一行）
+        List<ProductAttributeValue> attrRows = new ArrayList<>();
+        addAttrRow(attrRows, defs, "silhouette", sp.silhouette());
+        addAttrRow(attrRows, defs, "fabric", sp.fabric());
+        addAttrRow(attrRows, defs, "neckline", sp.neckline());
+        addAttrRow(attrRows, defs, "sleeve", sp.sleeve());
+        addAttrRow(attrRows, defs, "length", sp.length());
+        for (String theme : sp.themes()) {
+            addAttrRow(attrRows, defs, "occasion", theme);
+        }
+        attributeValueRepository.replaceAll(p.getId(), attrRows);
         // images：gallery（sort 0..n 主图=0）+ lifestyle + 每色 swatch
         List<ProductImage> images = new ArrayList<>();
         for (int i = 0; i < sp.gallery().size(); i++) {
@@ -466,6 +515,18 @@ public class CatalogSeedInitializer {
         img.setColorName(colorName);
         img.setSort(sort);
         return img;
+    }
+
+    private static void addAttrRow(List<ProductAttributeValue> rows, Map<String, Long> defs,
+                                   String key, String value) {
+        Long attributeId = defs.get(key);
+        if (attributeId == null || value == null || value.isBlank()) {
+            return;
+        }
+        ProductAttributeValue row = new ProductAttributeValue();
+        row.setAttributeId(attributeId);
+        row.setValue(value);
+        rows.add(row);
     }
 
     /** SKU 码：^[A-Z0-9-]+$（slug 首段-颜色-尺码 全大写去非法字符） */

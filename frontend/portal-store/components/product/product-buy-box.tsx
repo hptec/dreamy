@@ -279,25 +279,24 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         )}
         <Accordion title="Details">
           <ul className="list-inside list-disc space-y-1">
-            {([
-              ['Silhouette', product.silhouette],
-              ['Neckline', product.neckline],
-              ['Sleeve', product.sleeve],
-              ['Back style', product.backStyle],
-              ['Waistline', product.waistline],
-              ['Train', product.train],
-              ['Length', product.length],
-              ['Season', product.season],
-              ['Style no.', product.styleNo]
-            ] as const)
-              .filter(([, v]) => !!v)
-              .map(([k, v]) => <li key={k}>{k}: {v}</li>)}
-            {(product.embellishments ?? []).map((e) => <li key={e}>{e}</li>)}
+            {/* 动态属性（attribute_def 字典驱动，fabric 留在 Fabric & Care 块） */}
+            {(product.attributes ?? [])
+              .filter((a) => a.key !== 'fabric' && a.values.length > 0)
+              .map((a) => (
+                <li key={a.key}>
+                  {a.label}: {a.values.map((v) => v.label).join(', ')}
+                </li>
+              ))}
+            {product.styleNo && <li>Style no.: {product.styleNo}</li>}
           </ul>
         </Accordion>
         <Accordion title="Fabric & Care">
           <ul className="list-inside list-disc space-y-1">
-            {product.fabric && <li>Fabric: {product.fabric}</li>}
+            {(product.attributes ?? [])
+              .filter((a) => a.key === 'fabric' && a.values.length > 0)
+              .map((a) => (
+                <li key={a.key}>{a.label}: {a.values.map((v) => v.label).join(', ')}</li>
+              ))}
             {product.fabricComposition && <li>{product.fabricComposition}</li>}
             {product.careInstructions && <li>{product.careInstructions}</li>}
             {product.countryOfOrigin && <li>Made in {product.countryOfOrigin}</li>}

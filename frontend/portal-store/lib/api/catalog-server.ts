@@ -11,6 +11,7 @@ import type {
   Paginated,
   RecommendationBlock,
   StoreCategoryNode,
+  StoreFilterDim,
   StoreProductCard,
   StoreProductDetail,
   StoreTagDimensionGroup
@@ -26,6 +27,8 @@ export interface StoreProductListParams {
   priceMin?: number
   priceMax?: number
   sort?: 'newest' | 'price_asc' | 'price_desc' | 'recommended'
+  /** 动态属性筛选（每项 "key:value"，重复 attr 参数；同 key 多值 OR、跨 key AND） */
+  attrs?: string[]
 }
 
 /** E-CAT-01 商品列表（RSC + ISR revalidate 300） */
@@ -33,10 +36,24 @@ export function fetchStoreProducts(
   params: StoreProductListParams = {},
   revalidate = 300
 ): Promise<Paginated<StoreProductCard> | null> {
+  const { attrs, ...rest } = params
   return serverGet<Paginated<StoreProductCard>>('/api/store/products', {
     revalidate,
-    query: { ...params }
+    query: { ...rest, attr: attrs }
   })
+}
+
+/** E-CAT-27 分类动态属性筛选维度（PLP 筛选组数据源） */
+export async function fetchStoreProductFilters(
+  categoryId: number | undefined,
+  revalidate = 300
+): Promise<StoreFilterDim[]> {
+  if (categoryId == null) return []
+  const res = await serverGet<{ items: StoreFilterDim[] }>('/api/store/products/filters', {
+    revalidate,
+    query: { categoryId }
+  })
+  return res?.items ?? []
 }
 
 /** E-CAT-03 推荐位（首页/PDP 区块；空 items 调用方整段不渲染） */

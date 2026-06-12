@@ -3,13 +3,19 @@ package com.dreamy.catalog.domain.product.service;
 import com.dreamy.catalog.domain.category.entity.Category;
 import com.dreamy.catalog.domain.category.repository.CategoryRepository;
 import com.dreamy.catalog.domain.category.service.CategoryTreeService;
+import com.dreamy.catalog.domain.attribute.entity.AttributeDef;
+import com.dreamy.catalog.domain.attribute.repository.AttributeDefRepository;
+import com.dreamy.catalog.domain.attribute.service.ProductAttributeConfigService;
+import com.dreamy.catalog.domain.attribute.service.ProductAttributeConfigService.ResolvedAttr;
 import com.dreamy.catalog.domain.enums.ImageKind;
 import com.dreamy.catalog.domain.enums.ProductStatus;
 import com.dreamy.catalog.domain.product.entity.Product;
+import com.dreamy.catalog.domain.product.entity.ProductAttributeValue;
 import com.dreamy.catalog.domain.product.entity.ProductImage;
 import com.dreamy.catalog.domain.product.entity.ProductTranslation;
 import com.dreamy.catalog.domain.product.entity.SizeChartRow;
 import com.dreamy.catalog.domain.product.entity.Sku;
+import com.dreamy.catalog.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.catalog.domain.product.repository.ProductImageRepository;
 import com.dreamy.catalog.domain.product.repository.ProductRepository;
 import com.dreamy.catalog.domain.product.repository.ProductRepository.AdminFilter;
@@ -22,6 +28,7 @@ import com.dreamy.catalog.domain.tag.repository.TagRepository;
 import com.dreamy.catalog.dto.AdminProductDetail;
 import com.dreamy.catalog.dto.AdminProductListItem;
 import com.dreamy.catalog.dto.AdminProductUpsert;
+import com.dreamy.catalog.dto.AttributeValueDto;
 import com.dreamy.catalog.dto.ProductImageDto;
 import com.dreamy.catalog.dto.SizeChartRowDto;
 import com.dreamy.catalog.dto.SkuDto;
@@ -70,6 +77,9 @@ public class AdminProductService {
     private final SkuRepository skuRepository;
     private final SizeChartRowRepository sizeChartRepository;
     private final ProductTagRepository productTagRepository;
+    private final ProductAttributeValueRepository attributeValueRepository;
+    private final AttributeDefRepository attributeDefRepository;
+    private final ProductAttributeConfigService attributeConfigService;
     private final TagRepository tagRepository;
     private final CategoryRepository categoryRepository;
     private final CategoryTreeService treeService;
@@ -85,7 +95,11 @@ public class AdminProductService {
                                ProductTranslationRepository translationRepository,
                                ProductImageRepository imageRepository, SkuRepository skuRepository,
                                SizeChartRowRepository sizeChartRepository,
-                               ProductTagRepository productTagRepository, TagRepository tagRepository,
+                               ProductTagRepository productTagRepository,
+                               ProductAttributeValueRepository attributeValueRepository,
+                               AttributeDefRepository attributeDefRepository,
+                               ProductAttributeConfigService attributeConfigService,
+                               TagRepository tagRepository,
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                CatalogCacheService cache, CatalogAuditRecorder audit,
                                AfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
@@ -97,6 +111,9 @@ public class AdminProductService {
         this.skuRepository = skuRepository;
         this.sizeChartRepository = sizeChartRepository;
         this.productTagRepository = productTagRepository;
+        this.attributeValueRepository = attributeValueRepository;
+        this.attributeDefRepository = attributeDefRepository;
+        this.attributeConfigService = attributeConfigService;
         this.tagRepository = tagRepository;
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
@@ -148,7 +165,7 @@ public class AdminProductService {
 
     @Transactional
     public AdminProductDetail create(AdminProductUpsert req) {
-        validateUpsert(req, null);
+        validateUpsert(req, null, null);
         // STEP-CAT-01 slug 唯一性 → 409501
         if (productRepository.existsBySlugExcept(req.slug(), null)) {
             throw new CatalogException(CatalogErrorCode.SLUG_EXISTS);
@@ -168,6 +185,7 @@ public class AdminProductService {
         sizeChartRepository.replaceAll(product.getId(), toSizeChartRows(req.sizeChart()));
         productTagRepository.replaceAll(product.getId(), dedupe(req.tagIds()));
         translationRepository.replaceAll(product.getId(), toTranslationRows(req.translations()));
+        attributeValueRepository.replaceAll(product.getId(), toAttributeRows(req.attributes()));
         // STEP-CAT-05 审计
         audit.record("创建商品", product.getName(), null);
         // STEP-CAT-06 提交后失效链 + MQ（status=published 才需 revalidate 路径，事件统一发布由消费者按 type 处理）
@@ -207,7 +225,7 @@ public class AdminProductService {
         for (Sku sku : ownedSkus) {
             ownedSkuIds.add(sku.getId());
         }
-        validateUpsert(req, ownedSkuIds);
+        validateUpsert(req, ownedSkuIds, id);
         // STEP-CAT-02 slug 查重（排除自身）→ 409501；sku_code 查重（排除本商品行）→ 409504
         if (productRepository.existsBySlugExcept(req.slug(), id)) {
             throw new CatalogException(CatalogErrorCode.SLUG_EXISTS);
@@ -230,6 +248,7 @@ public class AdminProductService {
         sizeChartRepository.replaceAll(id, toSizeChartRows(req.sizeChart()));
         productTagRepository.replaceAll(id, dedupe(req.tagIds()));
         translationRepository.replaceAll(id, toTranslationRows(req.translations()));
+        attributeValueRepository.replaceAll(id, toAttributeRows(req.attributes()));
         // STEP-CAT-06 审计
         audit.record("编辑商品", existing.getName(), null);
         // STEP-CAT-07 提交后失效链（新旧 slug 都失效；search 不主动失效 60s TTL 兜底）+ MQ
@@ -257,13 +276,14 @@ public class AdminProductService {
         if (existing.getStatus() == ProductStatus.PUBLISHED) {
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_DELETABLE);
         }
-        // STEP-CAT-03 物理删除六表（订单行为快照不受影响）
+        // STEP-CAT-03 物理删除七表（订单行为快照不受影响）
         productRepository.deleteById(id);
         imageRepository.deleteByProductId(id);
         skuRepository.deleteByProductId(id);
         sizeChartRepository.deleteByProductId(id);
         productTagRepository.deleteByProductId(id);
         translationRepository.deleteByProductId(id);
+        attributeValueRepository.deleteByProductId(id);
         // STEP-CAT-04 审计
         audit.record("删除商品", existing.getName(), null);
         // STEP-CAT-05 提交后失效（draft 无消费端页面，不发 revalidate 事件）
@@ -354,8 +374,11 @@ public class AdminProductService {
 
     // ==================== 内部装配/校验 ====================
 
-    /** V-CAT-023~038 统一入口（引用上下文预查后委托纯校验器） */
-    private void validateUpsert(AdminProductUpsert req, Set<Long> ownedSkuIds) {
+    /**
+     * V-CAT-023~038 统一入口（引用上下文预查后委托纯校验器；动态属性白名单按分类生效配置解析）。
+     * 编辑场景额外放行该商品已持久化的存量 key（迁移遗留/属性集后续收缩不阻塞整单保存，仅新增 key 严格校验）。
+     */
+    private void validateUpsert(AdminProductUpsert req, Set<Long> ownedSkuIds, Long productId) {
         boolean categoryExists = req.categoryId() != null
                 && categoryRepository.findById(req.categoryId()) != null;
         Set<Long> existingTagIds = new HashSet<>();
@@ -364,7 +387,29 @@ public class AdminProductService {
                 existingTagIds.add(tag.getId());
             }
         }
-        ProductUpsertValidator.validate(req, categoryExists, existingTagIds, ownedSkuIds);
+        Map<String, AttributeDef> defsByKey = new HashMap<>();
+        Map<Long, String> keyById = new HashMap<>();
+        for (AttributeDef def : attributeDefRepository.listAll()) {
+            defsByKey.put(def.getKey(), def);
+            keyById.put(def.getId(), def.getKey());
+        }
+        // 分类无效时跳过 not_in_category 检查（category_id 错误已收集），传 null 白名单
+        Set<String> allowedKeys = null;
+        if (categoryExists) {
+            allowedKeys = new HashSet<>();
+            for (ResolvedAttr attr : attributeConfigService.visibleAttrs(req.categoryId())) {
+                allowedKeys.add(attr.def().getKey());
+            }
+            if (productId != null) {
+                for (ProductAttributeValue row : attributeValueRepository.listByProductId(productId)) {
+                    String key = keyById.get(row.getAttributeId());
+                    if (key != null) {
+                        allowedKeys.add(key);
+                    }
+                }
+            }
+        }
+        ProductUpsertValidator.validate(req, categoryExists, existingTagIds, ownedSkuIds, defsByKey, allowedKeys);
     }
 
     /** STEP-CAT-02 sku_code 全局唯一（409504 details.sku_codes） */
@@ -456,20 +501,7 @@ public class AdminProductService {
         product.setLeadTimeDays(req.leadTimeDays());
         product.setRushAvailable(req.rushAvailable() != null && req.rushAvailable());
         product.setCustomSizeAvailable(req.customSizeAvailable() != null && req.customSizeAvailable());
-        product.setSilhouette(req.silhouette());
-        product.setNeckline(req.neckline());
-        product.setSleeve(req.sleeve());
-        product.setBackStyle(req.backStyle());
-        product.setWaistline(req.waistline());
-        product.setTrain(req.train());
-        product.setLength(req.length());
-        product.setFabric(req.fabric());
         product.setFabricComposition(req.fabricComposition());
-        product.setSupport(req.support());
-        product.setSeason(req.season());
-        product.setEmbellishments(req.embellishments());
-        product.setOccasions(req.occasions());
-        product.setStyleTags(req.styleTags());
         product.setModelHeight(req.modelHeight());
         product.setModelSize(req.modelSize());
         product.setModelBodyType(req.modelBodyType());
@@ -547,14 +579,63 @@ public class AdminProductService {
                 product.getStatus() == null ? null : product.getStatus().getKey(),
                 product.getIsNew(), product.getIsBest(), product.getRecommend(), product.getSort(),
                 product.getLeadTimeDays(), product.getRushAvailable(), product.getCustomSizeAvailable(),
-                product.getSilhouette(), product.getNeckline(), product.getSleeve(), product.getBackStyle(),
-                product.getWaistline(), product.getTrain(), product.getLength(), product.getFabric(),
-                product.getFabricComposition(), product.getSupport(), product.getSeason(),
-                product.getEmbellishments(), product.getOccasions(), product.getStyleTags(),
+                loadAttributeDtos(id), product.getFabricComposition(),
                 product.getModelHeight(), product.getModelSize(), product.getModelBodyType(),
                 product.getCareInstructions(), product.getCountryOfOrigin(), product.getStyleNo(),
                 product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, tagIds, translations,
                 product.getCreatedAt(), product.getUpdatedAt());
+    }
+
+    /** EAV 回读 → entries 数组（key 取字典；按属性首行 id 序分组，行序即写入序） */
+    private List<AttributeValueDto> loadAttributeDtos(Long productId) {
+        List<ProductAttributeValue> rows = attributeValueRepository.listByProductId(productId);
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> keyById = new HashMap<>();
+        for (AttributeDef def : attributeDefRepository.listAll()) {
+            keyById.put(def.getId(), def.getKey());
+        }
+        Map<String, List<String>> grouped = new LinkedHashMap<>();
+        for (ProductAttributeValue row : rows) {
+            String key = keyById.get(row.getAttributeId());
+            if (key != null) {
+                grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(row.getValue());
+            }
+        }
+        List<AttributeValueDto> result = new ArrayList<>(grouped.size());
+        for (Map.Entry<String, List<String>> entry : grouped.entrySet()) {
+            result.add(new AttributeValueDto(entry.getKey(), entry.getValue()));
+        }
+        return result;
+    }
+
+    /** entries 数组 → EAV 行（key→def id；值去重保序；空值跳过——校验器已保证合法性） */
+    private List<ProductAttributeValue> toAttributeRows(List<AttributeValueDto> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Long> idByKey = new HashMap<>();
+        for (AttributeDef def : attributeDefRepository.listAll()) {
+            idByKey.put(def.getKey(), def.getId());
+        }
+        List<ProductAttributeValue> rows = new ArrayList<>();
+        for (AttributeValueDto entry : entries) {
+            Long attributeId = entry.key() == null ? null : idByKey.get(entry.key());
+            if (attributeId == null || entry.values() == null) {
+                continue;
+            }
+            for (String value : new LinkedHashSet<>(entry.values())) {
+                if (value == null || value.isBlank()) {
+                    continue;
+                }
+                ProductAttributeValue row = new ProductAttributeValue();
+                row.setAttributeId(attributeId);
+                row.setValue(value);
+                rows.add(row);
+            }
+        }
+        return rows;
     }
 
     private List<ProductImage> toImageRows(List<ProductImageDto> dtos) {

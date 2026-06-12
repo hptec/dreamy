@@ -13,6 +13,12 @@ import type {
 } from '@/api/types'
 import { useCategoriesStore } from './categories'
 
+export interface ResolvedAttrItem {
+  key: string
+  visibility: AttrVisibility
+  overridden: boolean
+}
+
 export interface ResolvedAttributeConfig {
   setId: number | null
   label: string
@@ -20,6 +26,8 @@ export interface ResolvedAttributeConfig {
   attrs: Record<string, AttrVisibility>
   /** 子分类 delta（key → 三态） */
   overrides: Record<string, AttrVisibility>
+  /** 有序行（属性集 items 顺序，override 新增 key 追加尾部）——动态表单渲染数据源 */
+  items: ResolvedAttrItem[]
   isChild: boolean
   childName: string
 }
@@ -90,22 +98,37 @@ export const useAttributeStore = defineStore('attributes', () => {
     return out
   }
 
-  /** STORE-CAT-A03 派生：分类 → 属性显隐/必填配置（父级基础属性集 ⊕ 子分类覆盖 delta） */
+  /** STORE-CAT-A03 派生：分类 → 属性显隐/必填配置（父级基础属性集 ⊕ 子分类覆盖 delta，保持 set 行序） */
   function resolveAttributeConfig(categoryId: number | null | undefined): ResolvedAttributeConfig {
     const categories = useCategoriesStore()
     const leaf = categories.leafOf(categoryId)
     const root = categories.rootOf(categoryId)
     const setId = root?.attributeSetId ?? null
-    const base = setAttrs(setId)
     const isChild = !!leaf && !!root && leaf.id !== root.id
     const overrides = (isChild ? leaf?.attrOverrides : null) || {}
-    const attrs = { ...base, ...overrides }
+    // 有序合并：set items 顺序为基底，override 改可见性原位生效，新 key 追加尾部
+    const ordered = new Map<string, AttrVisibility>()
+    const set = setId == null ? undefined : sets.value.find((s) => s.id === setId)
+    for (const item of set?.items ?? []) {
+      const def = defById(item.attributeId)
+      if (def) ordered.set(def.key, item.visibility)
+    }
+    for (const [key, visibility] of Object.entries(overrides)) {
+      if (defByKey(key)) ordered.set(key, visibility)
+    }
+    const attrs: Record<string, AttrVisibility> = {}
+    const items: ResolvedAttrItem[] = []
+    for (const [key, visibility] of ordered) {
+      attrs[key] = visibility
+      items.push({ key, visibility, overridden: Object.prototype.hasOwnProperty.call(overrides, key) })
+    }
     const setLabel = sets.value.find((s) => s.id === setId)?.label ?? '未配置'
     return {
       setId,
       label: setLabel,
       attrs,
       overrides: { ...overrides },
+      items,
       isChild,
       childName: isChild ? leaf!.name : '',
     }

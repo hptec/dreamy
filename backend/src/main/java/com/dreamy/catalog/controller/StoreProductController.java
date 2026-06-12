@@ -4,6 +4,7 @@ import com.dreamy.catalog.domain.product.service.RecommendationService;
 import com.dreamy.catalog.domain.product.service.SizeRecommendationService;
 import com.dreamy.catalog.domain.product.service.StoreProductService;
 import com.dreamy.catalog.dto.SizeRecommendation;
+import com.dreamy.catalog.dto.StoreAttributeDtos.StoreFilterDimDto;
 import com.dreamy.catalog.dto.StoreProductCard;
 import com.dreamy.catalog.dto.StoreProductDetail;
 import com.dreamy.catalog.error.CatalogErrorCode;
@@ -47,7 +48,7 @@ public class StoreProductController {
         this.sizeRecommendationService = sizeRecommendationService;
     }
 
-    /** E-CAT-01 listStoreProducts */
+    /** E-CAT-01 listStoreProducts（attr 重复参数：?attr=silhouette:A-Line&attr=fabric:Tulle） */
     @GetMapping("/api/store/products")
     public ResponseEntity<R<Paginated<StoreProductCard>>> listProducts(
             @RequestParam(required = false) String locale,
@@ -59,12 +60,27 @@ public class StoreProductController {
             @RequestParam(required = false) String size,
             @RequestParam(name = "price_min", required = false) BigDecimal priceMin,
             @RequestParam(name = "price_max", required = false) BigDecimal priceMax,
-            @RequestParam(required = false) String sort) {
+            @RequestParam(required = false) String sort,
+            @RequestParam(name = "attr", required = false) List<String> attr) {
         StoreProductService.ListQuery query = storeProductService.parseListQuery(
-                locale, page, pageSize, categoryId, tagId, color, size, priceMin, priceMax, sort);
+                locale, page, pageSize, categoryId, tagId, color, size, priceMin, priceMax, sort, attr);
         applyLocale(query.locale());
         Paginated<StoreProductCard> result = storeProductService.listProducts(query);
         return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(result));
+    }
+
+    /** E-CAT-27 listStoreProductFilters：分类动态属性筛选维度（PLP 筛选组数据源） */
+    @GetMapping("/api/store/products/filters")
+    public ResponseEntity<R<Map<String, List<StoreFilterDimDto>>>> listFilters(
+            @RequestParam(name = "category_id", required = false) Long categoryId,
+            @RequestParam(required = false) String locale) {
+        FieldErrors errors = new FieldErrors();
+        String parsedLocale = StoreParams.parseLocale(locale, errors);
+        Long parsedCategoryId = StoreParams.parsePositiveId(categoryId, "category_id", errors);
+        errors.throwIfAny();
+        applyLocale(parsedLocale);
+        List<StoreFilterDimDto> items = storeProductService.listFilters(parsedCategoryId, parsedLocale);
+        return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(Map.of("items", items)));
     }
 
     /** E-CAT-02 searchStoreProducts（CDN 不缓存，决策 17） */

@@ -4,7 +4,7 @@
  * E-CAT-01 列表（searchParams 透传：color/size/price/sort/cat/page）+ E-CAT-07 色板标签（颜色 facet 数据源）。
  */
 
-import { fetchStoreCategories, fetchStoreProducts, fetchStoreTags, findCategoryByName } from '@/lib/api/catalog-server'
+import { fetchStoreCategories, fetchStoreProductFilters, fetchStoreProducts, fetchStoreTags, findCategoryByName } from '@/lib/api/catalog-server'
 import { CollectionView } from '@/components/product/collection-view'
 import { parsePriceParam } from '@/components/product/product-utils'
 
@@ -14,6 +14,21 @@ export interface CollectionSearchParams {
 
 function single(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v
+}
+
+/** a_<key>=v1|v2 searchParams → attr 重复参数（"key:value" 每值一项；值逐项 decodeURIComponent） */
+function parseAttrParams(searchParams: CollectionSearchParams): string[] {
+  const attrs: string[] = []
+  for (const [k, raw] of Object.entries(searchParams)) {
+    if (!k.startsWith('a_')) continue
+    const key = k.slice(2)
+    const v = single(raw)
+    if (!key || !v) continue
+    for (const value of v.split('|').filter(Boolean)) {
+      attrs.push(`${key}:${decodeURIComponent(value)}`)
+    }
+  }
+  return attrs
 }
 
 const FALLBACK_COLORS = ['Sage', 'Dusty Blue', 'Blush', 'Champagne', 'Lavender', 'Terracotta', 'Ivory', 'Espresso']
@@ -43,17 +58,23 @@ export async function CollectionPage({
   const { priceMin, priceMax } = parsePriceParam(single(searchParams.price))
 
   const categoryId = cat ? Number(cat) : category?.id
+  const attrs = parseAttrParams(searchParams)
 
-  const data = await fetchStoreProducts({
-    categoryId,
-    color: single(searchParams.color),
-    size: single(searchParams.size),
-    priceMin,
-    priceMax,
-    sort: sort ?? 'recommended',
-    page,
-    pageSize: 12
-  })
+  const [data, filterDims] = await Promise.all([
+    fetchStoreProducts({
+      categoryId,
+      color: single(searchParams.color),
+      size: single(searchParams.size),
+      priceMin,
+      priceMax,
+      sort: sort ?? 'recommended',
+      page,
+      pageSize: 12,
+      attrs
+    }),
+    // E-CAT-27 动态属性筛选维度（子分类选中时按子分类解析 overrides）
+    fetchStoreProductFilters(categoryId)
+  ])
 
   // 颜色 facet：色板维度标签（E-CAT-07）；空回退静态色板名（冷启动安全）
   const colorGroup = tagGroups.find((g) => /color/i.test(g.name)) ?? tagGroups[0]
@@ -68,6 +89,7 @@ export async function CollectionPage({
       heroImage={heroImage}
       data={data}
       colorOptions={colorOptions.length > 0 ? colorOptions : FALLBACK_COLORS}
+      filterDims={filterDims}
       subTabs={subTabs.length > 0 ? subTabs : undefined}
       basePath={basePath}
     />

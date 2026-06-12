@@ -91,9 +91,10 @@ public class AdminCategoryService {
         categoryRepository.replaceTranslations(category.getId(), toTranslationRows(req.translations()));
         // STEP-CAT-03 审计（事务内）
         audit.record("创建分类", category.getName(), null);
-        // STEP-CAT-04 提交后失效 + MQ（CP-031）
+        // STEP-CAT-04 提交后失效 + MQ（CP-031；PRODUCTS 含 filters 缓存——CACHE-KEY 一致性）
         afterCommit.run(() -> {
             cache.invalidateFamily(Family.CATEGORIES);
+            cache.invalidateFamily(Family.PRODUCTS);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_CATEGORY_CHANGED);
         });
         return toNode(category, 0, List.of(), req.translations() == null ? List.of() : req.translations());
@@ -123,10 +124,12 @@ public class AdminCategoryService {
         categoryRepository.replaceTranslations(id, toTranslationRows(req.translations()));
         // STEP-CAT-03 审计
         audit.record("编辑分类", existing.getName(), null);
-        // STEP-CAT-04 提交后失效 catalog:categories:* + catalog:products:*（列表含 category_name 派生）→ MQ
+        // STEP-CAT-04 提交后失效 catalog:categories:* + catalog:products:* + catalog:product:*
+        // （列表含 category_name 派生；attribute_set_id/attr_overrides 变更影响 PDP attributes/PLP filters）→ MQ
         afterCommit.run(() -> {
             cache.invalidateFamily(Family.CATEGORIES);
             cache.invalidateFamily(Family.PRODUCTS);
+            cache.invalidateFamily(Family.PRODUCT);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_CATEGORY_CHANGED);
         });
         Map<Long, Integer> counts = treeService.rollupCounts(categoryRepository.listAll(),

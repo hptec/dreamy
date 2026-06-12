@@ -65,6 +65,28 @@ export interface StoreProductCard {
   ratingCount?: number
 }
 
+/** 动态属性值/可选值（value=EN 规范值——筛选参数口径；label=locale 译文） */
+export interface StoreAttributeOption {
+  value: string
+  label: string
+}
+
+/** PDP 动态属性行（按品类生效属性集顺序，hidden 已被后端排除） */
+export interface StoreAttribute {
+  key: string
+  label: string
+  type: 'select' | 'multiselect' | 'text' | 'toggle'
+  values: StoreAttributeOption[]
+}
+
+/** PLP 动态筛选维度（非 hidden 的 select/multiselect） */
+export interface StoreFilterDim {
+  key: string
+  label: string
+  type: 'select' | 'multiselect'
+  options: StoreAttributeOption[]
+}
+
 export interface StoreProductDetail extends StoreProductCard {
   categoryId: number
   categoryName?: string
@@ -74,20 +96,9 @@ export interface StoreProductDetail extends StoreProductCard {
   leadTimeDays: number
   rushAvailable?: boolean
   customSizeAvailable?: boolean
-  silhouette?: string
-  neckline?: string
-  sleeve?: string
-  backStyle?: string
-  waistline?: string
-  train?: string
-  length?: string
-  fabric?: string
+  /** 动态属性（EAV，attribute_def 字典驱动） */
+  attributes?: StoreAttribute[]
   fabricComposition?: string
-  support?: string
-  season?: string
-  embellishments?: string[]
-  occasions?: string[]
-  styleTags?: string[]
   modelHeight?: string
   modelSize?: string
   modelBodyType?: string

@@ -27,20 +27,20 @@ export const mainNav: NavItem[] = [
       {
         title: 'Shop by Silhouette',
         links: [
-          { label: 'A-Line', href: '/wedding-dresses?silhouette=A-Line' },
-          { label: 'Mermaid', href: '/wedding-dresses?silhouette=Mermaid' },
-          { label: 'Ball Gown', href: '/wedding-dresses?silhouette=Ball+Gown' },
-          { label: 'Sheath', href: '/wedding-dresses?silhouette=Sheath' },
-          { label: 'Short', href: '/wedding-dresses?subCategory=Short' }
+          { label: 'A-Line', href: '/wedding-dresses?a_silhouette=A-Line' },
+          { label: 'Mermaid', href: '/wedding-dresses?a_silhouette=Mermaid' },
+          { label: 'Sheath', href: '/wedding-dresses?a_silhouette=Sheath' },
+          { label: 'Fit & Flare', href: '/wedding-dresses?a_silhouette=Fit+%26+Flare' },
+          { label: 'Short', href: '/wedding-dresses?a_length=Short' }
         ]
       },
       {
         title: 'Shop by Fabric',
         links: [
-          { label: 'Tulle', href: '/wedding-dresses?fabric=Tulle' },
-          { label: 'Lace', href: '/wedding-dresses?fabric=Lace' },
-          { label: 'Chiffon', href: '/wedding-dresses?fabric=Chiffon' },
-          { label: 'Satin', href: '/wedding-dresses?fabric=Satin' }
+          { label: 'Tulle', href: '/wedding-dresses?a_fabric=Tulle' },
+          { label: 'Lace', href: '/wedding-dresses?a_fabric=Lace' },
+          { label: 'Chiffon', href: '/wedding-dresses?a_fabric=Chiffon' },
+          { label: 'Satin', href: '/wedding-dresses?a_fabric=Satin' }
         ]
       }
     ],
@@ -95,11 +95,11 @@ export const mainNav: NavItem[] = [
       {
         title: 'Shop by Theme',
         links: [
-          { label: 'Beach', href: '/outdoor-weddings?theme=Beach' },
-          { label: 'Garden', href: '/outdoor-weddings?theme=Garden' },
-          { label: 'Boho', href: '/outdoor-weddings?theme=Boho' },
-          { label: 'Forest', href: '/outdoor-weddings?theme=Forest' },
-          { label: 'Vineyard', href: '/outdoor-weddings?theme=Vineyard' }
+          { label: 'Beach', href: '/outdoor-weddings?a_occasion=Beach' },
+          { label: 'Garden', href: '/outdoor-weddings?a_occasion=Garden' },
+          { label: 'Boho', href: '/outdoor-weddings?a_style_tag=Boho' },
+          { label: 'Forest', href: '/outdoor-weddings?a_occasion=Forest' },
+          { label: 'Vineyard', href: '/outdoor-weddings?a_occasion=Vineyard' }
         ]
       }
     ],

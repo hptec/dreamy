@@ -14,7 +14,6 @@ import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -94,50 +93,9 @@ public class Product extends LongAuditableEntity {
     @Column(name = ProductDBConst.CUSTOM_SIZE_AVAILABLE, definition = "tinyint(1) NOT NULL DEFAULT 0 COMMENT '定制尺寸开关（A-007）'")
     private Boolean customSizeAvailable;
 
-    @Column(name = ProductDBConst.SILHOUETTE, definition = "varchar(64) NULL")
-    private String silhouette;
-
-    @Column(name = ProductDBConst.NECKLINE, definition = "varchar(64) NULL")
-    private String neckline;
-
-    @Column(name = ProductDBConst.SLEEVE, definition = "varchar(64) NULL")
-    private String sleeve;
-
-    @Column(name = ProductDBConst.BACK_STYLE, definition = "varchar(64) NULL")
-    private String backStyle;
-
-    @Column(name = ProductDBConst.WAISTLINE, definition = "varchar(64) NULL")
-    private String waistline;
-
-    @Column(name = ProductDBConst.TRAIN, definition = "varchar(64) NULL")
-    private String train;
-
-    @Column(name = ProductDBConst.LENGTH, definition = "varchar(64) NULL")
-    private String length;
-
-    @Column(name = ProductDBConst.FABRIC, definition = "varchar(64) NULL")
-    private String fabric;
-
+    /** 版型属性已 EAV 化（product_attribute_value 表），fabric_composition 属内容字段保留固定列 */
     @Column(name = ProductDBConst.FABRIC_COMPOSITION, definition = "varchar(128) NULL")
     private String fabricComposition;
-
-    @Column(name = ProductDBConst.SUPPORT, definition = "varchar(64) NULL")
-    private String support;
-
-    @Column(name = ProductDBConst.SEASON, definition = "varchar(64) NULL")
-    private String season;
-
-    @Column(name = ProductDBConst.EMBELLISHMENTS, definition = "json NULL COMMENT '装饰细节多选'")
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> embellishments;
-
-    @Column(name = ProductDBConst.OCCASIONS, definition = "json NULL COMMENT '适合场合多选'")
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> occasions;
-
-    @Column(name = ProductDBConst.STYLE_TAGS, definition = "json NULL COMMENT '风格标签多选（自由文本，区别于 tag 实体）'")
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> styleTags;
 
     @Column(name = ProductDBConst.MODEL_HEIGHT, definition = "varchar(32) NULL")
     private String modelHeight;

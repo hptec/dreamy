@@ -3,14 +3,15 @@
 /**
  * CollectionView（COMP-CAT-S02，layout-keep + data-swap）：
  * 接收 RSC 传入的 Paginated 数据；筛选/排序控件改为路由 searchParams 驱动
- * （color/size/price/sort/cat/page → URL → RSC refetch，FORM-CAT-S03 单一事实源）。
- * 侧栏/排序/子 tab/移动抽屉布局结构保持；facet 维度按 API 契约收敛为 颜色/尺码/价格（E-CAT-01 筛选参数）。
+ * （color/size/price/sort/cat/page/a_<key> → URL → RSC refetch，FORM-CAT-S03 单一事实源）。
+ * facet 维度：颜色/尺码/价格 + 动态属性维度（E-CAT-27 filterDims，attribute_def 字典驱动，
+ * URL 形态 a_<key>=v1|v2，同 key 多值 OR、跨 key AND）。
  */
 
 import { useState, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react'
-import type { Paginated, StoreProductCard } from '@/lib/api/store-types'
+import type { Paginated, StoreFilterDim, StoreProductCard } from '@/lib/api/store-types'
 import { ProductCard } from '@/components/product/product-card'
 import { QuickViewModal } from '@/components/product/quick-view-modal'
 import { cn } from '@/lib/utils'
@@ -37,6 +38,7 @@ export function CollectionView({
   data,
   heroImage,
   colorOptions = [],
+  filterDims = [],
   subTabs,
   basePath
 }: {
@@ -46,6 +48,8 @@ export function CollectionView({
   heroImage?: string
   /** Shop by Color 色板标签名（E-CAT-07 派生；空则不渲染颜色组） */
   colorOptions?: string[]
+  /** 动态属性筛选维度（E-CAT-27；空则不渲染属性组） */
+  filterDims?: StoreFilterDim[]
   /** 子分类 tab（value=category id 字符串，cat searchParam 驱动） */
   subTabs?: { label: string; value: string }[]
   basePath: string
@@ -62,6 +66,14 @@ export function CollectionView({
   const cat = params.get('cat') ?? ''
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
+  // 动态属性已选值：a_<key>=v1|v2（值逐项 encodeURIComponent，防值内 '|' 撞分隔符）
+  const attrSelections: Record<string, string[]> = {}
+  for (const [k, v] of params.entries()) {
+    if (k.startsWith('a_') && v) {
+      attrSelections[k.slice(2)] = v.split('|').filter(Boolean).map((x) => decodeURIComponent(x))
+    }
+  }
+
   const navigate = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString())
     for (const [k, v] of Object.entries(patch)) {
@@ -74,8 +86,19 @@ export function CollectionView({
     router.push(qs ? `${basePath}?${qs}` : basePath)
   }
 
-  const activeCount = [color, size, price].filter(Boolean).length
-  const clearAll = () => navigate({ color: null, size: null, price: null })
+  const toggleAttr = (key: string, value: string) => {
+    const cur = attrSelections[key] ?? []
+    const next = cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value]
+    navigate({ ['a_' + key]: next.length ? next.map((x) => encodeURIComponent(x)).join('|') : null })
+  }
+
+  const attrActiveCount = Object.keys(attrSelections).length
+  const activeCount = [color, size, price].filter(Boolean).length + attrActiveCount
+  const clearAll = () => {
+    const patch: Record<string, string | null> = { color: null, size: null, price: null }
+    for (const key of Object.keys(attrSelections)) patch['a_' + key] = null
+    navigate(patch)
+  }
 
   const items = data?.data ?? []
   const total = data?.totalElements ?? 0
@@ -84,12 +107,15 @@ export function CollectionView({
   const filterGroups = (
     <FilterGroups
       colorOptions={colorOptions}
+      filterDims={filterDims}
+      attrSelections={attrSelections}
       color={color}
       size={size}
       price={price}
       onColor={(v) => navigate({ color: v === color ? null : v })}
       onSize={(v) => navigate({ size: v === size ? null : v })}
       onPrice={(v) => navigate({ price: v === price ? null : v })}
+      onAttr={toggleAttr}
     />
   )
 
@@ -233,20 +259,26 @@ function priceValue(r: (typeof PRICE_RANGES)[number]): string {
 
 function FilterGroups({
   colorOptions,
+  filterDims,
+  attrSelections,
   color,
   size,
   price,
   onColor,
   onSize,
-  onPrice
+  onPrice,
+  onAttr
 }: {
   colorOptions: string[]
+  filterDims: StoreFilterDim[]
+  attrSelections: Record<string, string[]>
   color: string
   size: string
   price: string
   onColor: (v: string) => void
   onSize: (v: string) => void
   onPrice: (v: string) => void
+  onAttr: (key: string, value: string) => void
 }) {
   return (
     <div className="space-y-6">
@@ -277,6 +309,21 @@ function FilterGroups({
           ))}
         </ul>
       </FilterAccordion>
+      {/* 动态属性维度（attribute_def 字典驱动；option.value 写 URL，label 展示） */}
+      {filterDims.map((dim) => (
+        <FilterAccordion key={dim.key} label={dim.label}>
+          <ul className="space-y-1.5 pt-1">
+            {dim.options.map((o) => (
+              <li key={o.value}>
+                <CheckRow
+                  checked={(attrSelections[dim.key] ?? []).includes(o.value)}
+                  onClick={() => onAttr(dim.key, o.value)}
+                >{o.label}</CheckRow>
+              </li>
+            ))}
+          </ul>
+        </FilterAccordion>
+      ))}
     </div>
   )
 }

@@ -38,6 +38,11 @@ public class AttributeDefRepository {
         return defMapper.selectCount(new LambdaQueryWrapper<AttributeDef>().eq(AttributeDef::getKey, key)) > 0;
     }
 
+    /** key 点查（EAV 迁移/种子幂等用） */
+    public AttributeDef findByKey(String key) {
+        return defMapper.selectOne(new LambdaQueryWrapper<AttributeDef>().eq(AttributeDef::getKey, key));
+    }
+
     /** RM-CAT-023 insert */
     public void insert(AttributeDef def) {
         defMapper.insert(def);

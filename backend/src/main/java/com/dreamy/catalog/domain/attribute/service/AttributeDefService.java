@@ -5,12 +5,16 @@ import com.dreamy.catalog.domain.attribute.entity.AttributeDefTranslation;
 import com.dreamy.catalog.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.catalog.domain.attribute.repository.AttributeSetRepository;
 import com.dreamy.catalog.domain.enums.AttributeType;
+import com.dreamy.catalog.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.catalog.dto.AdminCatalogDtos.AttributeDefDto;
 import com.dreamy.catalog.dto.AdminCatalogDtos.AttributeDefUpsert;
 import com.dreamy.catalog.dto.TranslationDtos.AttributeDefTranslationDto;
 import com.dreamy.catalog.error.CatalogErrorCode;
 import com.dreamy.catalog.error.CatalogException;
+import com.dreamy.catalog.infra.AfterCommitRunner;
 import com.dreamy.catalog.infra.CatalogAuditRecorder;
+import com.dreamy.catalog.infra.CatalogCacheService;
+import com.dreamy.catalog.infra.CatalogCacheService.Family;
 import com.dreamy.catalog.support.FieldErrors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,13 +40,21 @@ public class AttributeDefService {
 
     private final AttributeDefRepository defRepository;
     private final AttributeSetRepository setRepository;
+    private final ProductAttributeValueRepository attributeValueRepository;
     private final CatalogAuditRecorder audit;
+    private final CatalogCacheService cache;
+    private final AfterCommitRunner afterCommit;
 
     public AttributeDefService(AttributeDefRepository defRepository, AttributeSetRepository setRepository,
-                               CatalogAuditRecorder audit) {
+                               ProductAttributeValueRepository attributeValueRepository,
+                               CatalogAuditRecorder audit, CatalogCacheService cache,
+                               AfterCommitRunner afterCommit) {
         this.defRepository = defRepository;
         this.setRepository = setRepository;
+        this.attributeValueRepository = attributeValueRepository;
         this.audit = audit;
+        this.cache = cache;
+        this.afterCommit = afterCommit;
     }
 
     /** E-CAT-23：属性字典列表（含三语 translations） */
@@ -85,15 +97,30 @@ public class AttributeDefService {
         }
         validate(new AttributeDefUpsert(existing.getKey(), req.label(), existing.getType().getKey(),
                 req.options(), req.translations()), existing);
+        // options 收缩守卫（审查意见 ⑤）：被商品 EAV 值引用的 option 不允许移除 → 409507
+        if (existing.getType().optionsAllowed() && existing.getOptions() != null) {
+            List<String> removed = existing.getOptions().stream()
+                    .filter(o -> req.options() == null || !req.options().contains(o))
+                    .toList();
+            if (!removed.isEmpty()) {
+                long valueCount = attributeValueRepository.countByAttributeIdAndValues(id, removed);
+                if (valueCount > 0) {
+                    throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE,
+                            Map.of("removed_options", removed, "product_value_count", valueCount));
+                }
+            }
+        }
         existing.setLabel(req.label().trim());
         existing.setOptions(existing.getType().optionsAllowed() ? req.options() : null);
         defRepository.update(existing);
         defRepository.replaceTranslations(id, toTranslationRows(req.translations()));
         audit.record("编辑属性定义", existing.getLabel(), null);
+        // label/options/译文影响 PDP attributes 与 PLP filters（缓存随族失效，原"仅后台"口径不再成立）
+        invalidateStoreCaches();
         return toDto(existing, req.translations() == null ? List.of() : req.translations());
     }
 
-    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查） */
+    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查——属性集引用 + 商品 EAV 引用） */
     @Transactional
     public void delete(Long id) {
         AttributeDef existing = defRepository.findById(id);
@@ -105,9 +132,23 @@ public class AttributeDefService {
             throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE,
                     Map.of("attribute_set_count", usage));
         }
+        long valueCount = attributeValueRepository.countByAttributeId(id);
+        if (valueCount > 0) {
+            throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE,
+                    Map.of("product_value_count", valueCount));
+        }
         defRepository.deleteById(id);
         defRepository.deleteTranslationsByDefId(id);
         audit.record("删除属性定义", existing.getLabel(), null);
+        invalidateStoreCaches();
+    }
+
+    /** 属性字典变更 → PDP/PLP 缓存族失效（提交后执行） */
+    private void invalidateStoreCaches() {
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.PRODUCTS);
+            cache.invalidateFamily(Family.PRODUCT);
+        });
     }
 
     /** V-CAT-053~056/058 校验（existing 非空=编辑场景，key 唯一性豁免自身） */

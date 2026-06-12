@@ -11,7 +11,10 @@ import com.dreamy.catalog.dto.AdminCatalogDtos.AttributeSetItemDto;
 import com.dreamy.catalog.dto.AdminCatalogDtos.AttributeSetUpsert;
 import com.dreamy.catalog.error.CatalogErrorCode;
 import com.dreamy.catalog.error.CatalogException;
+import com.dreamy.catalog.infra.AfterCommitRunner;
 import com.dreamy.catalog.infra.CatalogAuditRecorder;
+import com.dreamy.catalog.infra.CatalogCacheService;
+import com.dreamy.catalog.infra.CatalogCacheService.Family;
 import com.dreamy.catalog.support.FieldErrors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +28,7 @@ import java.util.Set;
 
 /**
  * 后台属性集服务（E-CAT-19~22；TX-CAT-009~011；TASK-037 attribute_visibility_cycle 整单覆盖承载）。
- * 属性集仅影响后台商品表单配置（admin 实时读，无消费端缓存可失效——E-CAT-21 STEP-CAT-04）。
+ * 属性集矩阵自 EAV 化后同时驱动 PDP attributes 展示与 PLP filters（变更需失效 PRODUCTS/PRODUCT 族）。
  * L2 TRACE: V-CAT-049~052 / CV-CAT-006 / MAP-CAT-008。
  */
 @Service
@@ -35,13 +38,18 @@ public class AttributeSetService {
     private final AttributeDefRepository defRepository;
     private final CategoryRepository categoryRepository;
     private final CatalogAuditRecorder audit;
+    private final CatalogCacheService cache;
+    private final AfterCommitRunner afterCommit;
 
     public AttributeSetService(AttributeSetRepository setRepository, AttributeDefRepository defRepository,
-                               CategoryRepository categoryRepository, CatalogAuditRecorder audit) {
+                               CategoryRepository categoryRepository, CatalogAuditRecorder audit,
+                               CatalogCacheService cache, AfterCommitRunner afterCommit) {
         this.setRepository = setRepository;
         this.defRepository = defRepository;
         this.categoryRepository = categoryRepository;
         this.audit = audit;
+        this.cache = cache;
+        this.afterCommit = afterCommit;
     }
 
     /** E-CAT-19：列表（含矩阵明细 + category_count 派生——STEP-CAT-01/02） */
@@ -87,6 +95,11 @@ public class AttributeSetService {
         setRepository.updateLabel(id, req.label().trim());
         setRepository.replaceItems(id, items);
         audit.record("编辑属性集", req.label().trim(), null);
+        // 矩阵变更影响 PDP attributes/PLP filters（E-CAT-21 STEP-CAT-04 口径更新）
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.PRODUCTS);
+            cache.invalidateFamily(Family.PRODUCT);
+        });
         int categoryCount = (int) categoryRepository.countByAttributeSetId(id);
         return new AttributeSetDto(id, req.label().trim(), normalizedItems(req), categoryCount);
     }

@@ -1,11 +1,14 @@
 package com.dreamy.catalog.domain.product.service;
 
+import com.dreamy.catalog.domain.attribute.repository.AttributeDefRepository;
+import com.dreamy.catalog.domain.attribute.service.ProductAttributeConfigService;
 import com.dreamy.catalog.domain.category.entity.Category;
 import com.dreamy.catalog.domain.category.repository.CategoryRepository;
 import com.dreamy.catalog.domain.category.service.CategoryTreeService;
 import com.dreamy.catalog.domain.enums.ProductStatus;
 import com.dreamy.catalog.domain.product.entity.Product;
 import com.dreamy.catalog.domain.product.entity.Sku;
+import com.dreamy.catalog.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.catalog.domain.product.repository.ProductImageRepository;
 import com.dreamy.catalog.domain.product.repository.ProductRepository;
 import com.dreamy.catalog.domain.product.repository.ProductTagRepository;
@@ -67,6 +70,12 @@ class AdminProductServiceTest {
     @Mock
     ProductTagRepository productTagRepository;
     @Mock
+    ProductAttributeValueRepository attributeValueRepository;
+    @Mock
+    AttributeDefRepository attributeDefRepository;
+    @Mock
+    ProductAttributeConfigService attributeConfigService;
+    @Mock
     TagRepository tagRepository;
     @Mock
     CategoryRepository categoryRepository;
@@ -90,7 +99,8 @@ class AdminProductServiceTest {
     @BeforeEach
     void setUp() {
         service = new AdminProductService(productRepository, translationRepository, imageRepository,
-                skuRepository, sizeChartRepository, productTagRepository, tagRepository, categoryRepository,
+                skuRepository, sizeChartRepository, productTagRepository, attributeValueRepository,
+                attributeDefRepository, attributeConfigService, tagRepository, categoryRepository,
                 treeService, cache, audit, afterCommit, invalidatedPublisher, tradingQueryPort,
                 transactionTemplate, new ObjectMapper());
     }
@@ -108,8 +118,7 @@ class AdminProductServiceTest {
     private static AdminProductUpsert upsertWithSku(SkuDto sku) {
         return new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null, null,
                 new BigDecimal("1280"), null, null, null, "published", null, null, null, 0, 45, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
                 null, List.of(sku), null, null, null, null);
     }
 
@@ -151,7 +160,7 @@ class AdminProductServiceTest {
     }
 
     @Test
-    @DisplayName("TC-CAT-033 [P0]: draft 删除成功 → 六表级联物理删除（TX-CAT-003）")
+    @DisplayName("TC-CAT-033 [P0]: draft 删除成功 → 七表级联物理删除（含 EAV，TX-CAT-003）")
     void draftDeleteCascades() {
         Product draft = published(11L);
         draft.setStatus(ProductStatus.DRAFT);
@@ -163,6 +172,7 @@ class AdminProductServiceTest {
         verify(sizeChartRepository).deleteByProductId(11L);
         verify(productTagRepository).deleteByProductId(11L);
         verify(translationRepository).deleteByProductId(11L);
+        verify(attributeValueRepository).deleteByProductId(11L);
         verify(audit).record(eq("删除商品"), any(), any());
     }
 
@@ -252,8 +262,7 @@ class AdminProductServiceTest {
         when(productRepository.existsBySlugExcept("aurelia-gown", 10L)).thenReturn(false);
         AdminProductUpsert req = new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null,
                 null, new BigDecimal("1280"), null, null, null, "published", null, null, null, 0, 45,
-                null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, "2026-06-01T09:00:00");
         assertThatThrownBy(() -> service.update(10L, req))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())

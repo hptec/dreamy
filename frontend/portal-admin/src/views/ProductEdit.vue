@@ -103,20 +103,7 @@ const form = ref({
   leadTimeDays: 14,
   rushAvailable: false,
   customSizeAvailable: false,
-  silhouette: '',
-  neckline: '',
-  sleeve: '',
-  backStyle: '',
-  waistline: '',
-  train: '',
-  length: '',
-  fabric: '',
   fabricComposition: '',
-  support: '',
-  season: '',
-  embellishments: [] as string[],
-  occasions: [] as string[],
-  styleTags: [] as string[],
   modelHeight: '',
   modelSize: '',
   modelBodyType: '',
@@ -151,8 +138,8 @@ const subcategories = computed(() => parentCategory.value?.children ?? [])
 
 function onParentChange() {
   form.value.categoryId = parentCategoryIdLocal.value
-  // 父级切换重置品类专属字段（原型 onParentChange 同义）
-  form.value.train = ''
+  // 父级切换重置品类专属动态属性（原型 onParentChange 同义）
+  attrValues.value = {}
 }
 
 function syncCascadeFromCategoryId() {
@@ -178,6 +165,60 @@ function toggleArr(arr: string[], val: string) {
   const i = arr.indexOf(val)
   if (i >= 0) arr.splice(i, 1)
   else arr.push(val)
+}
+
+/* ===================== 动态属性值（EAV：attribute_def 驱动渲染） ===================== */
+
+// 动态属性值：key → values（select/text/toggle 单元素；multiselect 多元素）
+const attrValues = ref<Record<string, string[]>>({})
+// 显隐 gate 伪 key：控制固定区块（SKU 定制开关/模特信息/护理说明），不渲染为动态属性
+const PSEUDO_GATE_KEYS = new Set(['custom_size', 'model_info', 'care_instructions'])
+
+/** 动态渲染行：生效配置非 hidden 行 × 字典 def（保持属性集顺序） */
+const dynamicAttrs = computed(() =>
+  attrSet.value.items
+    .filter((it) => it.visibility !== 'hidden' && !PSEUDO_GATE_KEYS.has(it.key))
+    .map((it) => ({ ...it, def: attributes.defByKey(it.key)! }))
+    .filter((it) => !!it.def),
+)
+
+// 服务端已持久化的存量 key（迁移遗留/属性集收缩仍保留——后端编辑校验同口径放行）
+const loadedAttrKeys = ref<Set<string>>(new Set())
+
+// 子品类切换：清理新配置下不可见且非存量的属性值（防带着上个品类的值提交被 422 拒绝）
+watch(() => form.value.categoryId, () => {
+  const visible = new Set(dynamicAttrs.value.map((r) => r.key))
+  for (const key of Object.keys(attrValues.value)) {
+    if (!visible.has(key) && !loadedAttrKeys.value.has(key)) delete attrValues.value[key]
+  }
+})
+
+function attrSingle(key: string): string {
+  return attrValues.value[key]?.[0] ?? ''
+}
+function setAttrSingle(key: string, v: string) {
+  if (v) attrValues.value[key] = [v]
+  else delete attrValues.value[key]
+}
+function attrMulti(key: string): string[] {
+  return attrValues.value[key] ?? []
+}
+function toggleAttrMulti(key: string, v: string) {
+  const arr = attrValues.value[key] ?? (attrValues.value[key] = [])
+  toggleArr(arr, v)
+  if (!arr.length) delete attrValues.value[key]
+}
+function attrToggle(key: string): boolean {
+  return attrValues.value[key]?.[0] === 'true'
+}
+function setAttrToggle(key: string, v: boolean) {
+  attrValues.value[key] = [v ? 'true' : 'false']
+}
+
+/** 已保存值不在 options 内（option 已收缩）的遗留值，渲染为禁用项保留可见 */
+function legacyValues(key: string): string[] {
+  const opts = optionsFor(key)
+  return attrMulti(key).filter((v) => !opts.includes(v))
 }
 
 /* ===================== 媒体（COMP-CAT-A06：四区块 + 拖拽排序写 sort） ===================== */
@@ -352,20 +393,7 @@ async function loadProduct() {
       leadTimeDays: p.leadTimeDays ?? 14,
       rushAvailable: !!p.rushAvailable,
       customSizeAvailable: !!p.customSizeAvailable,
-      silhouette: p.silhouette || '',
-      neckline: p.neckline || '',
-      sleeve: p.sleeve || '',
-      backStyle: p.backStyle || '',
-      waistline: p.waistline || '',
-      train: p.train || '',
-      length: p.length || '',
-      fabric: p.fabric || '',
       fabricComposition: p.fabricComposition || '',
-      support: p.support || '',
-      season: p.season || '',
-      embellishments: [...(p.embellishments || [])],
-      occasions: [...(p.occasions || [])],
-      styleTags: [...(p.styleTags || [])],
       modelHeight: p.modelHeight || '',
       modelSize: p.modelSize || '',
       modelBodyType: p.modelBodyType || '',
@@ -376,6 +404,13 @@ async function loadProduct() {
       seoDesc: p.seoDesc || '',
       tagIds: [...(p.tagIds || [])],
     })
+    // 动态属性 entries 回读 → attrValues
+    const loadedAttrs: Record<string, string[]> = {}
+    for (const entry of p.attributes || []) {
+      if (entry.key && entry.values?.length) loadedAttrs[entry.key] = [...entry.values]
+    }
+    attrValues.value = loadedAttrs
+    loadedAttrKeys.value = new Set(Object.keys(loadedAttrs))
     for (const cur of CURRENCIES) {
       multiCurrency.value[cur] = p.multiCurrencyPrices?.[cur] != null ? String(p.multiCurrencyPrices[cur]) : ''
     }
@@ -480,20 +515,10 @@ function buildPayload(status: 'draft' | 'published'): AdminProductUpsert {
     leadTimeDays: form.value.leadTimeDays,
     rushAvailable: form.value.rushAvailable,
     customSizeAvailable: form.value.customSizeAvailable,
-    silhouette: form.value.silhouette || null,
-    neckline: form.value.neckline || null,
-    sleeve: form.value.sleeve || null,
-    backStyle: form.value.backStyle || null,
-    waistline: form.value.waistline || null,
-    train: form.value.train || null,
-    length: form.value.length || null,
-    fabric: form.value.fabric || null,
+    attributes: Object.entries(attrValues.value)
+      .filter(([, values]) => values.length > 0)
+      .map(([key, values]) => ({ key, values })),
     fabricComposition: form.value.fabricComposition || null,
-    support: form.value.support || null,
-    season: form.value.season || null,
-    embellishments: form.value.embellishments,
-    occasions: form.value.occasions,
-    styleTags: form.value.styleTags,
     modelHeight: form.value.modelHeight || null,
     modelSize: form.value.modelSize || null,
     modelBodyType: form.value.modelBodyType || null,
@@ -686,7 +711,7 @@ onMounted(async () => {
                       :class="form.tagIds.includes(tag.id) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
                       @click="form.tagIds.includes(tag.id) ? form.tagIds.splice(form.tagIds.indexOf(tag.id), 1) : form.tagIds.push(tag.id)"
                     >{{ tag.name }}</button>
-                    <span v-if="!tags.tagsByDimension(dim.id).length" class="text-[12px] italic text-ink-faint">暂无，请在「品类与标签 › 自定义标签」添加</span>
+                    <span v-if="!tags.tagsByDimension(dim.id).length" class="text-[12px] italic text-ink-faint">暂无，请在「分类管理 › 自定义标签」添加</span>
                   </div>
                 </div>
               </div>
@@ -702,7 +727,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ② 版型属性（resolveAttributeConfig 驱动显隐/必填） -->
+        <!-- ② 版型属性（attribute_def 字典 + 属性集动态渲染：select/multiselect/text/toggle） -->
         <section id="sec-attrs" class="panel scroll-mt-24 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>版型属性
@@ -719,104 +744,84 @@ onMounted(async () => {
                     <span v-else class="ml-1 text-ink-faint">完全继承父级</span>
                   </template>
                 </p>
-                <p class="mt-0.5 text-ink-faint">属性集已按品类自动配置，隐藏字段不渲染；带 <span class="rounded bg-info/12 px-1 text-info">覆盖</span> 标记的字段由当前子品类调整。</p>
+                <p class="mt-0.5 text-ink-faint">属性由「属性字典 + 品类属性集」动态驱动，新增属性后此处自动出现；隐藏字段不渲染；带 <span class="rounded bg-info/12 px-1 text-info">覆盖</span> 标记的字段由当前子品类调整。</p>
               </div>
             </div>
 
-            <!-- 单选属性区 -->
-            <div>
-              <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">核心版型</p>
-              <div class="grid grid-cols-2 gap-4">
-                <div
-                  v-for="key in (['silhouette', 'length', 'neckline', 'sleeve', 'waistline', 'backStyle', 'train', 'support'] as const)"
-                  v-show="show(key)"
-                  :key="key"
-                >
+            <div v-if="!dynamicAttrs.length" class="rounded-luxe border border-dashed border-line px-4 py-6 text-center text-[12.5px] text-ink-faint">
+              当前品类暂未配置属性。请先在「分类管理」为品类绑定属性集，并在「属性字典」中维护属性。
+            </div>
+
+            <!-- 按属性集顺序渲染：select/text/toggle 占半列，multiselect 整行 chips -->
+            <div v-else class="grid grid-cols-2 gap-4">
+              <template v-for="row in dynamicAttrs" :key="row.key">
+                <!-- select -->
+                <div v-if="row.def.type === 'select'">
                   <label class="field-label">
-                    {{ attributes.defByKey(key)?.label || key }}
-                    <span v-if="required(key)" class="text-danger">*</span>
-                    <span v-if="isOverridden(key)" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
+                    {{ row.def.label }}
+                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </label>
-                  <select v-model="form[key]" class="field">
+                  <select class="field" :value="attrSingle(row.key)" @change="setAttrSingle(row.key, ($event.target as HTMLSelectElement).value)">
                     <option value="">请选择…</option>
-                    <option v-for="o in optionsFor(key)" :key="o">{{ o }}</option>
+                    <option v-for="o in optionsFor(row.key)" :key="o" :value="o">{{ o }}</option>
+                    <option v-for="o in legacyValues(row.key)" :key="'legacy-' + o" :value="o" disabled>{{ o }}（选项已停用）</option>
                   </select>
                 </div>
-              </div>
-            </div>
 
-            <!-- 面料 -->
-            <div v-if="show('fabric')">
-              <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">面料</p>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="field-label">主面料 / Primary Fabric <span v-if="required('fabric')" class="text-danger">*</span></label>
-                  <select v-model="form.fabric" class="field">
-                    <option value="">请选择…</option>
-                    <option v-for="o in optionsFor('fabric')" :key="o">{{ o }}</option>
-                  </select>
+                <!-- text -->
+                <div v-else-if="row.def.type === 'text'">
+                  <label class="field-label">
+                    {{ row.def.label }}
+                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
+                  </label>
+                  <input class="field" :value="attrSingle(row.key)" maxlength="255" :placeholder="row.def.label" @input="setAttrSingle(row.key, ($event.target as HTMLInputElement).value)" />
                 </div>
-                <div>
-                  <label class="field-label">面料成分 / Composition</label>
-                  <input v-model="form.fabricComposition" class="field" placeholder="如 100% Tulle / 60% Lace, 40% Satin" />
-                </div>
-              </div>
-            </div>
 
-            <!-- 装饰（多选） -->
-            <div v-if="show('embellishment')">
-              <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">
-                装饰细节（可多选）<span v-if="isOverridden('embellishment')" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="o in optionsFor('embellishment')"
-                  :key="o"
-                  type="button"
-                  class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
-                  :class="form.embellishments.includes(o) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
-                  @click="toggleArr(form.embellishments, o)"
-                >{{ o }}</button>
-              </div>
-            </div>
-
-            <!-- 场合与风格（多选） -->
-            <div class="grid grid-cols-2 gap-6">
-              <div v-if="show('occasion')">
-                <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">适合场合（可多选）</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="o in optionsFor('occasion')"
-                    :key="o"
-                    type="button"
-                    class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
-                    :class="form.occasions.includes(o) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
-                    @click="toggleArr(form.occasions, o)"
-                  >{{ o }}</button>
+                <!-- toggle -->
+                <div v-else-if="row.def.type === 'toggle'" class="flex items-center justify-between rounded-luxe border border-line px-4 py-3">
+                  <p class="text-[13px] font-medium text-ink">
+                    {{ row.def.label }}
+                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
+                  </p>
+                  <Toggle :model-value="attrToggle(row.key)" @update:model-value="setAttrToggle(row.key, $event)" />
                 </div>
-              </div>
-              <div v-if="show('styleTag')">
-                <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">风格标签（可多选）</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="o in optionsFor('styleTag')"
-                    :key="o"
-                    type="button"
-                    class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
-                    :class="form.styleTags.includes(o) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
-                    @click="toggleArr(form.styleTags, o)"
-                  >{{ o }}</button>
-                </div>
-              </div>
-            </div>
 
-            <!-- 季节 -->
-            <div v-if="show('season')" class="max-w-xs">
-              <label class="field-label">季节 / Season</label>
-              <select v-model="form.season" class="field">
-                <option value="">请选择…</option>
-                <option v-for="o in optionsFor('season')" :key="o">{{ o }}</option>
-              </select>
+                <!-- multiselect（整行 chips） -->
+                <div v-else class="col-span-2">
+                  <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">
+                    {{ row.def.label }}（可多选）
+                    <span v-if="row.visibility === 'visible'" class="text-danger">*</span>
+                    <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="o in optionsFor(row.key)"
+                      :key="o"
+                      type="button"
+                      class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
+                      :class="attrMulti(row.key).includes(o) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
+                      @click="toggleAttrMulti(row.key, o)"
+                    >{{ o }}</button>
+                    <button
+                      v-for="o in legacyValues(row.key)"
+                      :key="'legacy-' + o"
+                      type="button"
+                      class="rounded-full border border-gold bg-gold/12 px-3 py-1 text-[12.5px] text-gold-deep line-through"
+                      title="选项已停用，点击移除"
+                      @click="toggleAttrMulti(row.key, o)"
+                    >{{ o }}</button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 面料成分（固定内容字段，挂靠 fabric 语义；fabric 属性存在时展示） -->
+              <div v-if="show('fabric')">
+                <label class="field-label">面料成分 / Composition</label>
+                <input v-model="form.fabricComposition" class="field" placeholder="如 100% Tulle / 60% Lace, 40% Satin" />
+              </div>
             </div>
           </div>
         </section>
@@ -916,7 +921,7 @@ onMounted(async () => {
                 </div>
                 <Toggle v-model="form.rushAvailable" />
               </div>
-              <div v-if="show('customSize')" class="flex items-center justify-between rounded-luxe border border-line px-4 py-3">
+              <div v-if="show('custom_size')" class="flex items-center justify-between rounded-luxe border border-line px-4 py-3">
                 <div>
                   <p class="text-[13px] font-medium text-ink">支持定制尺寸</p>
                   <p class="text-[12px] text-ink-faint">买家填写三围自定义版型（伴娘服核心功能）</p>
@@ -1093,7 +1098,7 @@ onMounted(async () => {
             <span class="h-4 w-1 rounded-full bg-gold"></span>内容详情
           </h2>
           <div class="max-w-2xl space-y-6">
-            <div v-if="show('modelInfo')">
+            <div v-if="show('model_info')">
               <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">模特信息（提升购买信心）</p>
               <div class="grid grid-cols-3 gap-4">
                 <div>
@@ -1111,7 +1116,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <div v-if="show('careInstructions')">
+            <div v-if="show('care_instructions')">
               <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">护理说明 / Care Instructions</p>
               <textarea v-model="form.careInstructions" rows="3" class="field resize-none" placeholder="如 Dry clean only. Do not bleach." />
             </div>

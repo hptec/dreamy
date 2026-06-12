@@ -301,20 +301,9 @@ export interface AdminProductUpsert {
   leadTimeDays?: number | null
   rushAvailable?: boolean | null
   customSizeAvailable?: boolean | null
-  silhouette?: string | null
-  neckline?: string | null
-  sleeve?: string | null
-  backStyle?: string | null
-  waistline?: string | null
-  train?: string | null
-  length?: string | null
-  fabric?: string | null
+  /** 动态属性 entries（key=attribute_def.key；select/text/toggle 单元素数组，multiselect 多元素） */
+  attributes?: AttributeValueEntry[] | null
   fabricComposition?: string | null
-  support?: string | null
-  season?: string | null
-  embellishments?: string[] | null
-  occasions?: string[] | null
-  styleTags?: string[] | null
   modelHeight?: string | null
   modelSize?: string | null
   modelBodyType?: string | null
@@ -329,6 +318,12 @@ export interface AdminProductUpsert {
   tagIds?: number[]
   translations?: ProductTranslation[]
   updatedAt?: string | null
+}
+
+/** 动态属性 entries 行（entries 数组而非 map：动态 key 是字段值，免疫 snake/camel 递归转换） */
+export interface AttributeValueEntry {
+  key: string
+  values: string[]
 }
 
 export interface AdminProductDetail extends Omit<AdminProductUpsert, 'updatedAt'> {
