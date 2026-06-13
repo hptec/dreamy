@@ -293,13 +293,13 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         <Accordion title="Fabric & Care">
           <ul className="list-inside list-disc space-y-1">
             {(product.attributes ?? [])
-              .filter((a) => a.key === 'fabric' && a.values.length > 0)
-              .map((a) => (
-                <li key={a.key}>{a.label}: {a.values.map((v) => v.label).join(', ')}</li>
-              ))}
-            {product.fabricComposition && <li>{product.fabricComposition}</li>}
-            {product.careInstructions && <li>{product.careInstructions}</li>}
-            {product.countryOfOrigin && <li>Made in {product.countryOfOrigin}</li>}
+              .filter((a) => ['fabric', 'care_instructions', 'country_of_origin'].includes(a.key) && a.values.length > 0)
+              .map((a) => {
+                if (a.key === 'country_of_origin') {
+                  return <li key={a.key}>Made in {a.values.map((v) => v.label).join(', ')}</li>
+                }
+                return <li key={a.key}>{a.label}: {a.values.map((v) => v.label).join(', ')}</li>
+              })}
           </ul>
         </Accordion>
         <Accordion title="Shipping & Delivery">

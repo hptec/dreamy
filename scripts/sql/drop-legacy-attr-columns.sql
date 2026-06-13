@@ -16,4 +16,9 @@ ALTER TABLE product
     DROP COLUMN season,
     DROP COLUMN embellishments,
     DROP COLUMN occasions,
-    DROP COLUMN style_tags;
+    DROP COLUMN style_tags,
+    DROP COLUMN care_instructions,
+    DROP COLUMN model_height,
+    DROP COLUMN model_size,
+    DROP COLUMN model_body_type,
+    DROP COLUMN country_of_origin;

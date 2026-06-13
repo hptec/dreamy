@@ -6,6 +6,7 @@ import { computed, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import DrawerShell from '@/components/DrawerShell.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import { useAttributeStore } from '@/stores/attributes'
 import { useToastStore } from '@/stores/toast'
@@ -258,12 +259,12 @@ async function doDeleteDef() {
           </div>
           <div>
             <label class="field-label">类型</label>
-            <select v-model="defForm.type" class="field" :disabled="!!editingDef">
-              <option :value="AttributeDefType.SELECT">select（单选）</option>
-              <option :value="AttributeDefType.MULTISELECT">multiselect（多选）</option>
-              <option :value="AttributeDefType.TEXT">text（文本）</option>
-              <option :value="AttributeDefType.TOGGLE">toggle（开关）</option>
-            </select>
+            <AppSelect
+              :model-value="defForm.type"
+              :options="[{ value: AttributeDefType.SELECT, label: 'select（单选）' }, { value: AttributeDefType.MULTISELECT, label: 'multiselect（多选）' }, { value: AttributeDefType.TEXT, label: 'text（文本）' }, { value: AttributeDefType.TOGGLE, label: 'toggle（开关）' }]"
+              :disabled="!!editingDef"
+              @update:model-value="defForm.type = $event as typeof defForm.type"
+            />
           </div>
         </div>
         <div>

@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import AttributeDictPanel from '@/components/AttributeDictPanel.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -24,7 +25,7 @@ import {
   ExclamationTriangleIcon, SwatchIcon,
 } from '@heroicons/vue/24/outline'
 import { AttrVisibility, AttributeDefType, TagStatus } from '@/api/types'
-import type { AdminCategoryNode, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
+import type { AdminCategoryNode, AttributeDef, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
 
 const categories = useCategoriesStore()
 const attributes = useAttributeStore()
@@ -90,8 +91,8 @@ const drawerFilled = computed(() => ({
   fr: !!drawerTrans.value.fr,
 }))
 
-/** 仅展示有选项/toggle 的属性（原型同口径） */
-const editableAttrs = computed(() => attributes.defs.filter((a) => a.type !== AttributeDefType.TEXT))
+/** 所有属性定义均可在属性集中配置 */
+const editableAttrs = computed(() => attributes.defs)
 
 function openDrawer(node: AdminCategoryNode, parent: AdminCategoryNode | null) {
   drawer.value = { node, parent }
@@ -248,12 +249,16 @@ async function confirmEditChild(cat: AdminCategoryNode, ch: AdminCategoryNode) {
   }
 }
 
-// ----- 属性集配置抽屉（原型 openCatSetDrawer/openSetDrawer 同款：三态循环 + 绑定品类 chips） -----
+// ----- 属性集配置抽屉（原型 openCatSetDrawer/openSetDrawer 同款：三态循环 + 绑定品类 chips + 拖动排序） -----
 const setDrawer = ref<{ set: AttributeSet | null } | null>(null)
 const setDrawerLabel = ref('')
 const setDrawerAttrs = ref<Record<string, AttrVisibility>>({})
 const setDrawerError = ref('')
 const setDrawerSaving = ref(false)
+
+// 拖拽排序（HTML5 DnD，参考 ProductEdit.vue L266-277）
+const setDrawerDragIndex = ref<number | null>(null)
+const setDrawerOverIndex = ref<number | null>(null)
 
 const setDrawerCategories = computed(() => {
   const set = setDrawer.value?.set
@@ -261,11 +266,27 @@ const setDrawerCategories = computed(() => {
   return categories.tree.filter((c) => c.attributeSetId === set.id).map((c) => c.name)
 })
 
+// 有序属性列表（按当前排序）
+const setDrawerOrderedAttrs = ref<Array<{ key: string; def: AttributeDef }>>([])
+
 function openSetDrawer(set?: AttributeSet) {
   setDrawer.value = { set: set ?? null }
   setDrawerLabel.value = set?.label || ''
-  setDrawerAttrs.value = set ? { ...attributes.setAttrs(set.id) } : {}
+  const existing = set ? attributes.setAttrs(set.id) : {}
+  const all: Record<string, AttrVisibility> = {}
+  for (const d of attributes.defs) all[d.key] = existing[d.key] ?? AttrVisibility.HIDDEN
+  setDrawerAttrs.value = all
   setDrawerError.value = ''
+
+  // 初始化有序列表：从属性集已有顺序恢复，新增属性追加尾部
+  const existingKeys = set?.items.map((i) => attributes.defById(i.attributeId)?.key).filter(Boolean) as string[] ?? []
+  const allKeys = new Set(attributes.defs.map((d) => d.key))
+  const newKeys = attributes.defs.filter((d) => !existingKeys.includes(d.key)).map((d) => d.key)
+  const ordered = [...existingKeys, ...newKeys].filter((k) => allKeys.has(k))
+  setDrawerOrderedAttrs.value = ordered.map((k) => {
+    const def = attributes.defs.find((d) => d.key === k)!
+    return { key: k, def }
+  })
 }
 
 /** 主品类卡片点徽章 → 解析绑定的属性集后打开抽屉（原型 openCatSetDrawer） */
@@ -279,22 +300,30 @@ function cycleSetDrawerState(key: string) {
   setDrawerAttrs.value = { ...setDrawerAttrs.value, [key]: STATES[(STATES.indexOf(cur) + 1) % STATES.length] }
 }
 
+function onSetDrawerDragStart(i: number) {
+  setDrawerDragIndex.value = i
+}
+
+function onSetDrawerDrop(i: number) {
+  if (setDrawerDragIndex.value == null || setDrawerDragIndex.value === i) return
+  const list = setDrawerOrderedAttrs.value
+  const [moved] = list.splice(setDrawerDragIndex.value, 1)
+  list.splice(i, 0, moved)
+  setDrawerDragIndex.value = null
+  setDrawerOverIndex.value = null
+}
+
 async function saveSetDrawer() {
   if (!setDrawer.value) return
   const label = setDrawerLabel.value.trim()
-  if (!label) {
-    setDrawerError.value = '名称必填'
-    return
-  }
+  if (!label) { setDrawerError.value = '名称必填'; return }
   setDrawerSaving.value = true
   try {
-    // 抽屉只编辑可见属性（同原型 editableAttrs 口径）；text 类属性的既有配置原样保留
-    const editableIds = new Set(editableAttrs.value.map((d) => d.id))
-    const preserved = (setDrawer.value.set?.items || []).filter((i) => !editableIds.has(i.attributeId))
-    const edited = editableAttrs.value
-      .filter((d) => (setDrawerAttrs.value[d.key] || AttrVisibility.HIDDEN) !== AttrVisibility.HIDDEN)
-      .map((d) => ({ attributeId: d.id, visibility: setDrawerAttrs.value[d.key] }))
-    await attributes.saveSet({ label, items: [...preserved, ...edited] }, setDrawer.value.set?.id)
+    // 按拖动后的顺序组装 items（非 hidden 的按新顺序提交）
+    const items = setDrawerOrderedAttrs.value
+      .filter((row) => (setDrawerAttrs.value[row.key] ?? AttrVisibility.HIDDEN) !== AttrVisibility.HIDDEN)
+      .map((row) => ({ attributeId: row.def.id, visibility: setDrawerAttrs.value[row.key] }))
+    await attributes.saveSet({ label, items }, setDrawer.value.set?.id)
     toast.success('属性集已保存')
     setDrawer.value = null
   } catch (e) {
@@ -646,10 +675,11 @@ onMounted(() => {
             </div>
             <div>
               <label class="field-label">绑定属性集 *</label>
-              <select v-model="newRootSetId" class="field">
-                <option :value="null" disabled>请选择…</option>
-                <option v-for="s in attributes.sets" :key="s.id" :value="s.id">{{ s.label }}</option>
-              </select>
+              <SelectMenu
+                v-model="newRootSetId"
+                :options="attributes.sets.map((s) => ({ value: s.id, label: s.label }))"
+                placeholder="请选择…"
+              />
             </div>
             <p v-if="newRootError" class="text-[11px] text-danger">{{ newRootError }}</p>
             <div class="flex items-start gap-2 rounded-luxe border border-line bg-canvas-warm/60 px-3 py-2 text-[11px] text-ink-soft">
@@ -740,10 +770,11 @@ onMounted(() => {
               </div>
               <div v-if="!drawer.parent">
                 <label class="field-label">绑定属性集 *</label>
-                <select v-model="drawerSetId" class="field">
-                  <option :value="null" disabled>请选择…</option>
-                  <option v-for="s in attributes.sets" :key="s.id" :value="s.id">{{ s.label }}</option>
-                </select>
+              <SelectMenu
+                v-model="drawerSetId"
+                :options="attributes.sets.map((s) => ({ value: s.id, label: s.label }))"
+                placeholder="请选择…"
+              />
               </div>
 
               <!-- 子分类 delta 三态 -->
@@ -822,6 +853,7 @@ onMounted(() => {
             <span class="rounded bg-info/10 px-1.5 py-0.5 text-[10px] text-info">可选</span>
             <span class="mx-1">→</span>
             <span class="rounded bg-canvas-warm px-1.5 py-0.5 text-[10px] text-ink-faint">隐藏</span>
+            · 拖动左侧手柄调整顺序
           </div>
           <div class="flex-1 overflow-y-auto px-6 py-4">
             <div class="mb-4">
@@ -830,16 +862,26 @@ onMounted(() => {
             </div>
             <div class="space-y-2">
               <div
-                v-for="attr in editableAttrs"
-                :key="attr.id"
-                class="flex items-center justify-between rounded-luxe bg-canvas-warm/30 px-3 py-2.5 transition-colors"
+                v-for="(row, i) in setDrawerOrderedAttrs"
+                :key="row.key"
+                draggable="true"
+                class="flex items-center gap-2 rounded-luxe bg-canvas-warm/30 px-3 py-2.5 transition-all"
+                :class="[
+                  setDrawerDragIndex === i ? 'opacity-30 scale-[0.98]' : '',
+                  setDrawerOverIndex === i && setDrawerDragIndex !== i ? 'ring-2 ring-gold/60 bg-gold/8 -translate-y-px shadow-sm' : '',
+                ]"
+                @dragstart="onSetDrawerDragStart(i)"
+                @dragover.prevent="setDrawerOverIndex = i"
+                @drop="onSetDrawerDrop(i)"
+                @dragend="setDrawerDragIndex = null; setDrawerOverIndex = null"
               >
-                <span class="text-[13px] text-ink">{{ attr.label }}</span>
+                <Bars3Icon class="h-4 w-4 shrink-0 cursor-grab text-ink-faint" />
+                <span class="flex-1 text-[13px] text-ink">{{ row.def.label }}</span>
                 <button
                   class="min-w-[3.5rem] rounded px-2.5 py-1 text-[11px] font-medium transition-colors"
-                  :class="STATE_CLASSES[setDrawerAttrs[attr.key] || AttrVisibility.HIDDEN]"
-                  @click="cycleSetDrawerState(attr.key)"
-                >{{ STATE_LABELS[setDrawerAttrs[attr.key] || AttrVisibility.HIDDEN] }}</button>
+                  :class="STATE_CLASSES[setDrawerAttrs[row.key] || AttrVisibility.HIDDEN]"
+                  @click="cycleSetDrawerState(row.key)"
+                >{{ STATE_LABELS[setDrawerAttrs[row.key] || AttrVisibility.HIDDEN] }}</button>
               </div>
             </div>
             <p v-if="setDrawerError" class="mt-3 text-[11px] text-danger">{{ setDrawerError }}</p>

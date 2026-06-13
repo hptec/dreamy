@@ -10,7 +10,7 @@ import { SectionHeading, Eyebrow, TextLink } from '@/components/ui/primitives'
  * 编辑区块（hero/sub-themes）静态保持；精选商品 ← E-CAT-01（recommended）；Real Weddings ← E-MKT-04。
  */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Outdoor Weddings',

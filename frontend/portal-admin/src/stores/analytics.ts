@@ -18,7 +18,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const range = '30d' // DEC-ANA-FE-6 常量
 
   async function fetchOverview() {
-    if (overview.value || loadingOverview.value) return
+    if (loadingOverview.value) return
     loadingOverview.value = true
     try {
       overview.value = await analyticsApi.getAnalyticsOverview(range)
@@ -27,9 +27,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
-  /** 流量/漏斗 tab 首次激活时懒加载；502001/504001 → trafficFailed 占位 */
-  async function fetchTraffic(force = false) {
-    if (!force && (traffic.value || loadingTraffic.value)) return
+  /** 流量/漏斗 tab 激活时加载；502001/504001 → trafficFailed 占位 */
+  async function fetchTraffic() {
+    if (loadingTraffic.value) return
     loadingTraffic.value = true
     trafficFailed.value = false
     try {
@@ -43,7 +43,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }
 
   function retryTraffic() {
-    return fetchTraffic(true)
+    return fetchTraffic()
   }
 
   const trafficUnavailable = computed(

@@ -9,6 +9,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import Toggle from '@/components/Toggle.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -104,12 +106,6 @@ const form = ref({
   leadTimeDays: 14,
   rushAvailable: false,
   customSizeAvailable: false,
-  fabricComposition: '',
-  modelHeight: '',
-  modelSize: '',
-  modelBodyType: '',
-  careInstructions: 'Dry clean only. Store in a cool, dry place.',
-  countryOfOrigin: 'China',
   styleNo: '',
   seoTitle: '',
   seoDesc: '',
@@ -136,6 +132,13 @@ const transFilled = computed(() => ({
 const parentCategoryIdLocal = ref<number | null>(null)
 const parentCategory = computed(() => categories.cascadeOptions.find((r) => r.id === parentCategoryIdLocal.value))
 const subcategories = computed(() => parentCategory.value?.children ?? [])
+const parentCategoryOptions = computed(() =>
+  categories.cascadeOptions.map((c) => ({ value: c.id, label: c.name }))
+)
+const subCategoryOptions = computed(() => [
+  { value: parentCategoryIdLocal.value as number, label: `全部 ${parentCategory.value?.name ?? ''}` },
+  ...subcategories.value.map((c) => ({ value: c.id, label: c.name })),
+])
 
 function onParentChange() {
   form.value.categoryId = parentCategoryIdLocal.value
@@ -172,8 +175,8 @@ function toggleArr(arr: string[], val: string) {
 
 // 动态属性值：key → values（select/text/toggle 单元素；multiselect 多元素）
 const attrValues = ref<Record<string, string[]>>({})
-// 显隐 gate 伪 key：控制固定区块（SKU 定制开关/模特信息/护理说明），不渲染为动态属性
-const PSEUDO_GATE_KEYS = new Set(['custom_size', 'model_info', 'care_instructions'])
+// 显隐 gate 伪 key：控制固定区块（SKU 定制开关），不渲染为动态属性
+const PSEUDO_GATE_KEYS = new Set(['custom_size'])
 
 /** 动态渲染行：生效配置非 hidden 行 × 字典 def（保持属性集顺序） */
 const dynamicAttrs = computed(() =>
@@ -394,12 +397,6 @@ async function loadProduct() {
       leadTimeDays: p.leadTimeDays ?? 14,
       rushAvailable: !!p.rushAvailable,
       customSizeAvailable: !!p.customSizeAvailable,
-      fabricComposition: p.fabricComposition || '',
-      modelHeight: p.modelHeight || '',
-      modelSize: p.modelSize || '',
-      modelBodyType: p.modelBodyType || '',
-      careInstructions: p.careInstructions || '',
-      countryOfOrigin: p.countryOfOrigin || '',
       styleNo: p.styleNo || '',
       seoTitle: p.seoTitle || '',
       seoDesc: p.seoDesc || '',
@@ -519,12 +516,6 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
     attributes: Object.entries(attrValues.value)
       .filter(([, values]) => values.length > 0)
       .map(([key, values]) => ({ key, values })),
-    fabricComposition: form.value.fabricComposition || null,
-    modelHeight: form.value.modelHeight || null,
-    modelSize: form.value.modelSize || null,
-    modelBodyType: form.value.modelBodyType || null,
-    careInstructions: form.value.careInstructions || null,
-    countryOfOrigin: form.value.countryOfOrigin || null,
     styleNo: form.value.styleNo || null,
     seoTitle: form.value.seoTitle || null,
     seoDesc: form.value.seoDesc || null,
@@ -537,7 +528,7 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
   }
 }
 
-async function save(status: ProductStatus) {
+async function save() {
   // 前端预校验（name/slug/category/price/lead_time 必填、compare_at>=price、SKU 码非空唯一）
   errors.value = validateProductForm({ ...form.value, skus: buildSkus() })
   if (Object.keys(errors.value).length) {
@@ -552,23 +543,21 @@ async function save(status: ProductStatus) {
   }
   saving.value = true
   try {
-    const payload = buildPayload(status)
+    // 所有保存都默认 PUBLISHED，自动清除 CDN 缓存
+    const payload = buildPayload(ProductStatus.PUBLISHED)
     const saved = productId.value == null
       ? await catalogApi.createProduct(payload)
       : await catalogApi.updateProduct(productId.value, payload)
     serverUpdatedAt.value = saved.updatedAt ?? null
-    if (status === ProductStatus.PUBLISHED) {
-      // FORM-CAT-E01（ALIGN-020 合并方案）：API 保存成功（静态页失效链已触发）→
-      // 跳转 /publish 查看发布进度，回对原型 OP-006 navigation 语义
-      toast.success('已保存，静态页失效链已触发')
-      router.push('/publish')
-      return
-    }
-    // 「保存草稿」不跳转（维持现状）
-    toast.success('草稿已保存')
+
+    // 保存成功，停留在当前页，提示缓存已清除
+    toast.success('已保存，CDN 缓存已自动清除，消费端即可看到最新内容')
+
     if (productId.value == null) {
+      // 新建商品：替换 URL 为编辑态
       router.replace(`/products/${saved.id}/edit`)
     } else {
+      // 编辑商品：重新加载数据
       await loadProduct()
     }
   } catch (e) {
@@ -631,9 +620,8 @@ onMounted(async () => {
     >
       <template #actions>
         <button class="btn-ghost" @click="router.push('/products')"><ArrowLeftIcon class="h-4 w-4" />返回列表</button>
-        <button class="btn-outline" :disabled="saving" @click="save(ProductStatus.DRAFT)">保存草稿</button>
-        <button class="btn-gold" :disabled="saving" @click="save(ProductStatus.PUBLISHED)">
-          <RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存并生成静态页' }}
+        <button class="btn-gold" :disabled="saving" @click="save()">
+          <RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存并清除缓存' }}
         </button>
       </template>
     </PageHeader>
@@ -642,7 +630,7 @@ onMounted(async () => {
 
     <div v-else class="flex items-start gap-6">
       <!-- 左侧 sticky 锚点目录 -->
-      <aside class="sticky top-6 hidden w-48 shrink-0 lg:block">
+      <aside class="sticky top-20 hidden w-48 shrink-0 lg:block">
         <nav class="panel p-2">
           <button
             v-for="s in sections"
@@ -678,13 +666,8 @@ onMounted(async () => {
               <div>
                 <label class="field-label">标准品类 *（决定属性表单字段配置）</label>
                 <div class="flex gap-3">
-                  <select v-model="parentCategoryIdLocal" class="field flex-1" @change="onParentChange">
-                    <option v-for="cat in categories.cascadeOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                  </select>
-                  <select v-if="subcategories.length" v-model="form.categoryId" class="field flex-1">
-                    <option :value="parentCategoryIdLocal">全部 {{ parentCategory?.name }}</option>
-                    <option v-for="sub in subcategories" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
-                  </select>
+                  <SelectMenu v-model="parentCategoryIdLocal" :options="parentCategoryOptions" class="flex-1" @change="onParentChange" />
+                  <SelectMenu v-if="subcategories.length" v-model="form.categoryId" :options="subCategoryOptions" class="flex-1" />
                 </div>
                 <p class="mt-1.5 text-[11px] text-ink-faint">
                   属性集：<strong>{{ attrSet.label }}</strong> · {{ visibleFieldCount }} 个字段
@@ -763,11 +746,12 @@ onMounted(async () => {
                     <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </label>
-                  <select class="field" :value="attrSingle(row.key)" @change="setAttrSingle(row.key, ($event.target as HTMLSelectElement).value)">
-                    <option value="">请选择…</option>
-                    <option v-for="o in optionsFor(row.key)" :key="o" :value="o">{{ o }}</option>
-                    <option v-for="o in legacyValues(row.key)" :key="'legacy-' + o" :value="o" disabled>{{ o }}（选项已停用）</option>
-                  </select>
+                  <AppSelect
+                    :model-value="attrSingle(row.key)"
+                    :options="optionsFor(row.key)"
+                    :legacy="legacyValues(row.key)"
+                    @update:model-value="setAttrSingle(row.key, $event)"
+                  />
                 </div>
 
                 <!-- text -->
@@ -817,12 +801,6 @@ onMounted(async () => {
                   </div>
                 </div>
               </template>
-
-              <!-- 面料成分（固定内容字段，挂靠 fabric 语义；fabric 属性存在时展示） -->
-              <div v-if="show('fabric')">
-                <label class="field-label">面料成分 / Composition</label>
-                <input v-model="form.fabricComposition" class="field" placeholder="如 100% Tulle / 60% Lace, 40% Satin" />
-              </div>
             </div>
           </div>
         </section>
@@ -1093,40 +1071,13 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ⑦ 内容详情（模特/护理/产地 + 三语 tab） -->
+        <!-- ⑦ 内容详情（三语 tab + 款式编号） -->
         <section id="sec-content" class="panel scroll-mt-24 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>内容详情
           </h2>
           <div class="max-w-2xl space-y-6">
-            <div v-if="show('model_info')">
-              <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">模特信息（提升购买信心）</p>
-              <div class="grid grid-cols-3 gap-4">
-                <div>
-                  <label class="field-label">模特身高</label>
-                  <input v-model="form.modelHeight" class="field" placeholder='如 5&apos;10" / 178cm' />
-                </div>
-                <div>
-                  <label class="field-label">模特所穿尺码</label>
-                  <input v-model="form.modelSize" class="field" placeholder="如 US 6" />
-                </div>
-                <div>
-                  <label class="field-label">体型描述</label>
-                  <input v-model="form.modelBodyType" class="field" placeholder="如 Straight / Hourglass" />
-                </div>
-              </div>
-            </div>
-
-            <div v-if="show('care_instructions')">
-              <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">护理说明 / Care Instructions</p>
-              <textarea v-model="form.careInstructions" rows="3" class="field resize-none" placeholder="如 Dry clean only. Do not bleach." />
-            </div>
-
             <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="field-label">生产地 / Country of Origin</label>
-                <input v-model="form.countryOfOrigin" class="field" placeholder="如 China / Italy" />
-              </div>
               <div>
                 <label class="field-label">款式编号 / Style No.</label>
                 <input v-model="form.styleNo" class="field" placeholder="如 DRM-WD-001" />
@@ -1185,16 +1136,6 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- 底部操作 -->
-        <div class="panel flex items-center justify-between px-6 py-4">
-          <p class="text-[12px] text-ink-faint">所有区块已展开，可任意编辑后一次保存。</p>
-          <div class="flex items-center gap-2">
-            <button class="btn-outline" :disabled="saving" @click="save(ProductStatus.DRAFT)">保存草稿</button>
-            <button class="btn-gold" :disabled="saving" @click="save(ProductStatus.PUBLISHED)">
-              <RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存并生成静态页' }}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 

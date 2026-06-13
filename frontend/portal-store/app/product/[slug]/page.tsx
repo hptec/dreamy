@@ -11,14 +11,11 @@ import { galleryOf, lifestyleOf, hasVideoOf } from '@/components/product/product
 
 /**
  * PDP（PAGE-CAT-S01，layout-keep + data-swap）：
- * - generateStaticParams 全量预构建删除 → dynamicParams=true + revalidate=300（TTL 兜底）；
- *   秒级失效靠 on-demand POST /api/revalidate → revalidatePath（FLOW-P03/s-758）。
- * - 数据：E-CAT-04 详情 + E-REV-01/03 评价区首屏（随 PDP ISR）+ E-CAT-03 推荐区块。
+ * - 数据：E-CAT-04 详情 + E-REV-01/03 评价区首屏 + E-CAT-03 推荐区块。
  * - 404501 → notFound()。
  */
 
-export const revalidate = 300
-export const dynamicParams = true
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

@@ -9,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
 import Toggle from '@/components/Toggle.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useReviewsStore } from '@/stores/reviews'
 import { useQuestionsStore } from '@/stores/questions'
 import { useToastStore } from '@/stores/toast'
@@ -321,10 +322,19 @@ onMounted(() => {
             @click="selectChip(c.key)"
           >{{ c.label }}<template v-if="c.count != null"> · {{ c.count }}</template></button>
         </div>
-        <select v-model="reviews.rating" class="field" style="min-width:120px" @change="onRatingChange">
-          <option value="all">全部星级</option>
-          <option v-for="n in [5, 4, 3, 2, 1]" :key="n" :value="String(n)">{{ n }} 星</option>
-        </select>
+        <SelectMenu
+          v-model="reviews.rating"
+          :options="[
+            { value: 'all', label: '全部星级' },
+            { value: '5', label: '5 星' },
+            { value: '4', label: '4 星' },
+            { value: '3', label: '3 星' },
+            { value: '2', label: '2 星' },
+            { value: '1', label: '1 星' },
+          ]"
+          class="min-w-[120px]"
+          @change="onRatingChange"
+        />
         <div class="relative">
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input v-model="reviews.search" class="field w-56 pl-9" placeholder="搜索商品 / 买家…" @input="onReviewSearch" />

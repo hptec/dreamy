@@ -10,4 +10,5 @@ public interface AttributeSetItemDBConst extends CatalogCommonDBConst {
     String ATTRIBUTE_SET_ID = "attribute_set_id";
     String ATTRIBUTE_ID = "attribute_id";
     String VISIBILITY = "visibility";
+    String SORT_ORDER = "sort_order";
 }

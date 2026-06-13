@@ -12,6 +12,7 @@ import Toggle from '@/components/Toggle.vue'
 import Pagination from '@/components/Pagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
 import { useTagsStore } from '@/stores/tags'
@@ -51,6 +52,24 @@ const flagOptions = [
   { value: 'isNew', label: '新品' },
   { value: 'recommend', label: '推荐' },
   { value: 'onSale', label: '促销中' },
+]
+
+// SelectMenu options（品类带分组、状态不分组）
+const categoryOptions = computed(() => {
+  const opts: { value: number | 'all'; label: string; group?: string }[] = [{ value: 'all', label: '全部品类' }]
+  for (const root of categories.cascadeOptions) {
+    opts.push({ value: root.id, label: `${root.name}（全部）`, group: root.name })
+    for (const c of root.children ?? []) {
+      opts.push({ value: c.id, label: c.name, group: root.name })
+    }
+  }
+  return opts
+})
+
+const statusOptions = [
+  { value: 'all', label: '全部状态' },
+  { value: ProductStatus.PUBLISHED, label: '已上架' },
+  { value: ProductStatus.DRAFT, label: '草稿' },
 ]
 
 function toggleIn<T>(list: T[], value: T) {
@@ -304,18 +323,8 @@ onMounted(() => {
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input v-model="store.search" class="field pl-9" placeholder="搜索商品名称 / 货号…" @input="onSearchInput" />
         </div>
-        <select v-model="store.filterCategoryId" class="field w-auto" @change="applyFilters">
-          <option value="all">全部品类</option>
-          <optgroup v-for="root in categories.cascadeOptions" :key="root.id" :label="root.name">
-            <option :value="root.id">{{ root.name }}（全部）</option>
-            <option v-for="c in root.children" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </optgroup>
-        </select>
-        <select v-model="store.filterStatus" class="field w-auto" @change="applyFilters">
-          <option value="all">全部状态</option>
-          <option :value="ProductStatus.PUBLISHED">已上架</option>
-          <option :value="ProductStatus.DRAFT">草稿</option>
-        </select>
+        <SelectMenu v-model="store.filterCategoryId" :options="categoryOptions" @change="applyFilters" />
+        <SelectMenu v-model="store.filterStatus" :options="statusOptions" @change="applyFilters" />
         <button class="btn-ghost" :class="showMoreFilters && 'text-gold'" @click="showMoreFilters = !showMoreFilters">
           <FunnelIcon class="h-4 w-4" />
           更多筛选

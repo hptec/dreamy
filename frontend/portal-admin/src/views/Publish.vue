@@ -1,165 +1,236 @@
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { onMounted, ref, computed } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { pendingChanges, publishHistory } from '@/data/mock'
+import Pagination from '@/components/Pagination.vue'
+import { cacheApi, type CacheInvalidationLog } from '@/api'
+import { BizError } from '@/api/client'
+import { useToastStore } from '@/stores/toast'
+import { formatDate } from '@/utils/format'
 import {
-  RocketLaunchIcon, CheckCircleIcon, ArrowPathIcon, DocumentTextIcon,
-  ClockIcon, ArrowUturnLeftIcon, CodeBracketIcon, GlobeAltIcon
+  RocketLaunchIcon, CheckCircleIcon, ArrowPathIcon, ClockIcon,
+  XCircleIcon, InformationCircleIcon
 } from '@heroicons/vue/24/outline'
 
-const changes = ref(pendingChanges.map((c) => ({ ...c, included: true })))
-const phase = ref('idle') // idle | building | done
-const buildSteps = ref([])
-const progress = ref(0)
-const affectedPages = ref([])
+const toast = useToastStore()
 
-const selectedCount = computed(() => changes.value.filter((c) => c.included).length)
-const allAffected = computed(() => {
-  const set = new Set()
-  changes.value.filter((c) => c.included).forEach((c) => c.affects.forEach((a) => set.add(a)))
-  return [...set]
+const logs = ref<CacheInvalidationLog[]>([])
+const loading = ref(false)
+const page = ref(1)
+const pageSize = ref(50)
+const total = ref(0)
+
+// 过滤器
+const filterStatus = ref<number | undefined>()
+const filterResourceType = ref<string | undefined>()
+
+const statusOptions = [
+  { value: undefined, label: '全部状态' },
+  { value: 0, label: '处理中' },
+  { value: 1, label: '已完成' },
+  { value: 2, label: '失败' },
+]
+
+const resourceTypeOptions = [
+  { value: undefined, label: '全部类型' },
+  { value: 'product', label: '商品' },
+  { value: 'blog', label: '博客' },
+  { value: 'wedding', label: '真实婚礼' },
+  { value: 'category', label: '分类' },
+  { value: 'tag', label: '标签' },
+]
+
+// 状态徽章配置
+const statusConfig = computed(() => ({
+  0: { tone: 'warn', label: '处理中', icon: ArrowPathIcon },
+  1: { tone: 'ok', label: '已完成', icon: CheckCircleIcon },
+  2: { tone: 'error', label: '失败', icon: XCircleIcon },
+}))
+
+// 事件类型显示名称
+const eventTypeLabel = (type: string): string => {
+  const map: Record<string, string> = {
+    'product_created': '商品创建',
+    'product_updated': '商品更新',
+    'product_status_changed': '商品状态变更',
+    'product_flags_changed': '商品标记变更',
+    'category_changed': '分类变更',
+    'tag_changed': '标签变更',
+    'blog_changed': '博客变更',
+    'wedding_changed': '真实婚礼变更',
+  }
+  return map[type] || type
+}
+
+async function fetchLogs() {
+  loading.value = true
+  try {
+    const result = await cacheApi.getInvalidationLogs({
+      page: page.value,
+      pageSize: pageSize.value,
+      status: filterStatus.value,
+      resourceType: filterResourceType.value,
+    })
+    logs.value = result.records
+    total.value = result.total
+  } catch (e) {
+    toast.error(e instanceof BizError ? e.message : '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function onPageChange(p: number) {
+  page.value = p
+  fetchLogs()
+}
+
+function applyFilters() {
+  page.value = 1
+  fetchLogs()
+}
+
+// 轮询刷新（每 5 秒）
+let pollTimer: ReturnType<typeof setInterval> | null = null
+function startPolling() {
+  pollTimer = setInterval(() => {
+    fetchLogs()
+  }, 5000)
+}
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+onMounted(() => {
+  fetchLogs()
+  startPolling()
 })
 
-const typeTone = { '首页装修': 'info', '商品': 'ok', 'Banner': 'warn', '内容': 'info', '导航': 'neutral' }
-
-async function publish() {
-  if (phase.value === 'building') return
-  phase.value = 'building'
-  progress.value = 0
-  buildSteps.value = []
-  affectedPages.value = []
-  const seq = [
-    { label: '收集待发布改动', ms: 500 },
-    { label: '校验内容完整性', ms: 600 },
-    { label: 'next build · 编译页面', ms: 1200 },
-    { label: '生成静态 HTML（output: export）', ms: 1400 },
-    { label: '写出 out/ 目录并优化资源', ms: 800 },
-    { label: '部署到 CDN', ms: 700 }
-  ]
-  const total = seq.length
-  for (let i = 0; i < total; i++) {
-    buildSteps.value.push({ ...seq[i], status: 'running' })
-    await new Promise((r) => setTimeout(r, seq[i].ms))
-    buildSteps.value[i].status = 'done'
-    progress.value = Math.round(((i + 1) / total) * 100)
-  }
-  // 逐个列出受影响页面
-  affectedPages.value = allAffected.value.map((p) => ({ path: p, status: 'generated' }))
-  phase.value = 'done'
-}
-function reset() { phase.value = 'idle'; progress.value = 0; buildSteps.value = [] }
+// 组件销毁时停止轮询
+import { onBeforeUnmount } from 'vue'
+onBeforeUnmount(() => {
+  stopPolling()
+})
 </script>
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Static Publishing" title="发布中心" subtitle="将后台改动编译为静态 HTML 站点 · output: export">
+    <PageHeader
+      eyebrow="Cache Management"
+      title="发布中心"
+      subtitle="实时监控 CDN 缓存失效事件 · 自动清除机制"
+    >
       <template #actions>
-        <span class="badge bg-warn/14 text-warn"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ selectedCount }} 项待发布</span>
+        <button class="btn-outline" @click="fetchLogs">
+          <ArrowPathIcon class="h-4 w-4" />刷新
+        </button>
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-      <!-- 左：待发布 diff + 构建过程 -->
-      <div class="space-y-6">
-        <!-- 待发布改动 -->
-        <div class="panel">
-          <div class="flex items-center justify-between border-b border-line px-6 py-4">
-            <h3 class="font-display text-lg font-semibold text-ink">待发布改动</h3>
-            <span class="text-[12px] text-ink-faint">勾选要纳入本次发布的改动</span>
-          </div>
-          <div class="divide-y divide-line">
-            <label v-for="c in changes" :key="c.id" class="flex cursor-pointer items-start gap-3 px-6 py-4 hover:bg-canvas-warm/40">
-              <input type="checkbox" v-model="c.included" class="mt-1 h-4 w-4 rounded border-line accent-gold" />
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <StatusBadge :tone="typeTone[c.type] || 'neutral'" :label="c.type" :dot="false" />
-                  <span class="text-[13px] font-medium text-ink">{{ c.summary }}</span>
-                </div>
-                <p class="mt-1 text-[11px] text-ink-faint">{{ c.author }} · {{ c.time }}</p>
-                <div class="mt-2 flex flex-wrap gap-1.5">
-                  <span v-for="a in c.affects" :key="a" class="rounded bg-canvas-warm px-2 py-0.5 font-mono text-[10px] text-ink-soft">{{ a }}</span>
-                </div>
-              </div>
-            </label>
-          </div>
+    <!-- 过滤器 -->
+    <div class="panel mb-6 p-4">
+      <div class="flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+          <label class="text-[13px] text-ink-soft">状态</label>
+          <select v-model="filterStatus" @change="applyFilters" class="input-field w-32">
+            <option v-for="opt in statusOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+          </select>
         </div>
+        <div class="flex items-center gap-2">
+          <label class="text-[13px] text-ink-soft">资源类型</label>
+          <select v-model="filterResourceType" @change="applyFilters" class="input-field w-32">
+            <option v-for="opt in resourceTypeOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <div class="ml-auto flex items-center gap-2 text-[12px] text-ink-faint">
+          <InformationCircleIcon class="h-4 w-4" />
+          自动刷新：每 5 秒
+        </div>
+      </div>
+    </div>
 
-        <!-- 构建过程 -->
-        <div v-if="phase !== 'idle'" class="panel p-6">
-          <div class="mb-4 flex items-center justify-between">
-            <h3 class="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-              <CodeBracketIcon class="h-5 w-5 text-gold-deep" />构建日志
-            </h3>
-            <span class="font-mono text-[13px]" :class="phase === 'done' ? 'text-ok' : 'text-gold-deep'">{{ progress }}%</span>
-          </div>
-          <!-- 进度条 -->
-          <div class="mb-5 h-1.5 overflow-hidden rounded-full bg-line">
-            <div class="h-full rounded-full bg-gold transition-all duration-300" :style="{ width: progress + '%' }"></div>
-          </div>
-          <!-- 步骤 -->
-          <div class="space-y-2.5 font-mono text-[12.5px]">
-            <div v-for="(s, i) in buildSteps" :key="i" class="flex items-center gap-2.5">
-              <CheckCircleIcon v-if="s.status === 'done'" class="h-4 w-4 shrink-0 text-ok" />
-              <ArrowPathIcon v-else class="h-4 w-4 shrink-0 animate-spin text-gold-deep" />
-              <span :class="s.status === 'done' ? 'text-ink-soft' : 'text-ink'">{{ s.label }}</span>
-              <span v-if="s.status === 'done'" class="ml-auto text-ink-faint">✓</span>
-            </div>
-          </div>
+    <!-- 日志列表 -->
+    <div class="panel">
+      <div class="border-b border-line px-6 py-4">
+        <h3 class="font-display text-lg font-semibold text-ink">缓存失效日志</h3>
+        <p class="mt-1 text-[13px] text-ink-faint">最近 {{ total }} 条失效事件</p>
+      </div>
 
-          <!-- 受影响页面清单 -->
-          <div v-if="phase === 'done'" class="mt-6 rounded-luxe border border-ok/30 bg-ok/6 p-4">
-            <p class="mb-3 flex items-center gap-2 text-[13px] font-medium text-ok">
-              <CheckCircleIcon class="h-5 w-5" />发布成功 · 已生成 {{ affectedPages.length }} 个静态页面
-            </p>
-            <div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              <div v-for="p in affectedPages" :key="p.path" class="flex items-center gap-2 rounded bg-white/60 px-3 py-1.5 text-[12px]">
-                <GlobeAltIcon class="h-3.5 w-3.5 text-ink-faint" />
-                <span class="font-mono text-ink-soft">{{ p.path }}</span>
-                <span class="ml-auto text-[10px] text-ok">已生成</span>
+      <div v-if="loading && !logs.length" class="p-12 text-center text-ink-faint">加载中…</div>
+
+      <div v-else-if="!logs.length" class="p-12 text-center text-ink-faint">暂无失效记录</div>
+
+      <div v-else class="divide-y divide-line">
+        <div v-for="log in logs" :key="log.id" class="px-6 py-4 hover:bg-canvas-warm/40">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <!-- 事件类型 + 状态 -->
+              <div class="flex items-center gap-2">
+                <StatusBadge
+                  :tone="statusConfig[log.status]?.tone || 'neutral'"
+                  :label="statusConfig[log.status]?.label || '未知'"
+                  :dot="log.status === 0"
+                />
+                <span class="text-[13px] font-medium text-ink">{{ eventTypeLabel(log.eventType) }}</span>
+                <span class="text-[12px] text-ink-faint">· {{ log.resourceType }}</span>
+              </div>
+
+              <!-- Slug / Resource ID -->
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
+                <span v-if="log.slug" class="font-mono">slug: {{ log.slug }}</span>
+                <span v-if="log.oldSlug" class="font-mono text-ink-faint">old: {{ log.oldSlug }}</span>
+                <span v-if="log.resourceId" class="font-mono">id: {{ log.resourceId }}</span>
+              </div>
+
+              <!-- 受影响路径 -->
+              <div v-if="log.affectedPaths?.length" class="mt-2 flex flex-wrap gap-1.5">
+                <span v-for="path in log.affectedPaths.slice(0, 6)" :key="path"
+                      class="rounded bg-canvas-warm px-2 py-0.5 font-mono text-[10px] text-ink-soft">
+                  {{ path }}
+                </span>
+                <span v-if="log.affectedPaths.length > 6" class="text-[10px] text-ink-faint">
+                  +{{ log.affectedPaths.length - 6 }} 更多
+                </span>
+              </div>
+
+              <!-- 错误信息 -->
+              <div v-if="log.errorMessage" class="mt-2 rounded bg-error/10 px-3 py-1.5 text-[12px] text-error">
+                {{ log.errorMessage }}
+              </div>
+
+              <!-- 时间信息 -->
+              <div class="mt-2 flex items-center gap-3 text-[11px] text-ink-faint">
+                <span>触发时间：{{ formatDate(log.triggeredAt) }}</span>
+                <span v-if="log.completedAt">完成时间：{{ formatDate(log.completedAt) }}</span>
+                <span>触发者：{{ log.triggeredBy }}</span>
               </div>
             </div>
-            <button class="btn-ghost mt-3" @click="reset">完成</button>
+
+            <!-- 状态图标 -->
+            <component
+              :is="statusConfig[log.status]?.icon || InformationCircleIcon"
+              class="h-5 w-5 shrink-0"
+              :class="{
+                'text-warn animate-spin': log.status === 0,
+                'text-ok': log.status === 1,
+                'text-error': log.status === 2,
+              }"
+            />
           </div>
         </div>
       </div>
 
-      <!-- 右：发布操作 + 历史 -->
-      <div class="space-y-6">
-        <!-- 发布卡 -->
-        <div class="panel p-6">
-          <p class="eyebrow">Ready to Publish</p>
-          <h3 class="mt-1 font-display text-xl font-semibold text-ink">发布到生产环境</h3>
-          <p class="mt-2 text-[13px] text-ink-soft">本次将重新生成 <span class="font-medium text-gold-deep">{{ allAffected.length }}</span> 个受影响页面。</p>
-          <ul class="mt-4 space-y-1.5 text-[12px] text-ink-faint">
-            <li v-for="p in allAffected.slice(0, 6)" :key="p" class="flex items-center gap-1.5"><span class="h-1 w-1 rounded-full bg-gold"></span>{{ p }}</li>
-            <li v-if="allAffected.length > 6" class="text-ink-faint">… 等 {{ allAffected.length }} 个页面</li>
-          </ul>
-          <button class="btn-gold mt-5 w-full py-2.5" :disabled="phase === 'building' || selectedCount === 0" @click="publish">
-            <RocketLaunchIcon class="h-4 w-4" />
-            {{ phase === 'building' ? '正在生成静态站点…' : '一键发布 · 生成 HTML' }}
-          </button>
-          <p class="mt-3 text-center text-[11px] text-ink-faint">原型演示：模拟 next build 静态导出流程</p>
-        </div>
-
-        <!-- 发布历史 -->
-        <div class="panel p-6">
-          <h3 class="mb-4 flex items-center gap-2 font-display text-lg font-semibold text-ink"><ClockIcon class="h-5 w-5 text-gold-deep" />发布历史</h3>
-          <div class="space-y-4">
-            <div v-for="(h, i) in publishHistory" :key="h.id" class="relative pl-5">
-              <span class="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-ok"></span>
-              <span v-if="i < publishHistory.length - 1" class="absolute left-[3px] top-3.5 h-full w-px bg-line"></span>
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <p class="truncate text-[13px] text-ink">{{ h.note }}</p>
-                  <p class="text-[11px] text-ink-faint">{{ h.time }} · {{ h.author }}</p>
-                  <p class="text-[11px] text-ink-faint">{{ h.pages }} 页 · 耗时 {{ h.duration }} · <span class="font-mono">{{ h.id }}</span></p>
-                </div>
-                <button class="btn-ghost shrink-0 text-[11px]"><ArrowUturnLeftIcon class="h-3.5 w-3.5" />回滚</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- 分页 -->
+      <div v-if="total > pageSize" class="border-t border-line px-6 py-4">
+        <Pagination
+          :page="page"
+          :page-size="pageSize"
+          :total="total"
+          @update:page="onPageChange"
+        />
       </div>
     </div>
   </div>

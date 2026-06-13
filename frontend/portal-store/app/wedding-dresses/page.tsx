@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { CollectionPage, type CollectionSearchParams } from '@/components/product/collection-page'
 
-/** PAGE-CAT-S02：RSC + ISR（revalidate 300）+ URL searchParams 驱动筛选（E-CAT-01/06/07）。 */
+/** PAGE-CAT-S02：RSC + URL searchParams 驱动筛选（E-CAT-01/06/07）。 */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Wedding Dresses',

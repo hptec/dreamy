@@ -138,6 +138,7 @@ public class AttributeSetService {
         List<AttributeSetItem> rows = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
         List<Long> attrIds = new ArrayList<>();
+        int order = 0;
         for (AttributeSetItemDto dto : req.items()) {
             if (dto.attributeId() == null) {
                 errors.reject("items", "attribute_not_exists");
@@ -157,6 +158,7 @@ public class AttributeSetService {
             AttributeSetItem row = new AttributeSetItem();
             row.setAttributeId(dto.attributeId());
             row.setVisibility(visibility);
+            row.setSortOrder(order++);
             rows.add(row);
         }
         if (!attrIds.isEmpty()) {

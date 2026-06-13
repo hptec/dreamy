@@ -4,9 +4,9 @@ import { fetchStoreWeddings } from '@/lib/api/marketing-server'
 
 import { SectionHeading } from '@/components/ui/primitives'
 
-/** /real-weddings（PAGE-MKT-S05，layout-keep + data-swap）：E-MKT-04 + ISR；链接 href=/real-weddings/{id}。 */
+/** /real-weddings（PAGE-MKT-S05，layout-keep + data-swap）：E-MKT-04；链接 href=/real-weddings/{id}。 */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Real Weddings',

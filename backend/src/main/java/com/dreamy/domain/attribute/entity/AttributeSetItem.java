@@ -31,4 +31,7 @@ public class AttributeSetItem extends LongAuditableEntity {
 
     @Column(name = AttributeSetItemDBConst.VISIBILITY, definition = "tinyint NOT NULL COMMENT '可见性：1=显示 2=可选 3=隐藏'")
     private AttributeVisibility visibility;
+
+    @Column(name = AttributeSetItemDBConst.SORT_ORDER, definition = "int NOT NULL DEFAULT 0 COMMENT '排序顺序（数字越小越靠前）'")
+    private Integer sortOrder;
 }

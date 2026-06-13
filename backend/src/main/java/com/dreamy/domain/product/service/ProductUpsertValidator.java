@@ -300,11 +300,6 @@ public final class ProductUpsertValidator {
     private static void validateTextLimits(AdminProductUpsert u, CatalogFieldErrors errors) {
         check(u.subtitle(), 255, "subtitle", errors);
         check(u.productType(), 64, "product_type", errors);
-        check(u.fabricComposition(), 128, "fabric_composition", errors);
-        check(u.modelHeight(), 32, "model_height", errors);
-        check(u.modelSize(), 16, "model_size", errors);
-        check(u.modelBodyType(), 32, "model_body_type", errors);
-        check(u.countryOfOrigin(), 64, "country_of_origin", errors);
         check(u.styleNo(), 32, "style_no", errors);
         check(u.seoTitle(), 128, "seo_title", errors);
         check(u.seoDesc(), 255, "seo_desc", errors);

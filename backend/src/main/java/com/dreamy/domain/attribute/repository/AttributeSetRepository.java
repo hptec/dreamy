@@ -58,6 +58,7 @@ public class AttributeSetRepository {
         }
         return itemMapper.selectList(new LambdaQueryWrapper<AttributeSetItem>()
                 .in(AttributeSetItem::getAttributeSetId, setIds)
+                .orderByAsc(AttributeSetItem::getSortOrder)
                 .orderByAsc(AttributeSetItem::getId));
     }
 

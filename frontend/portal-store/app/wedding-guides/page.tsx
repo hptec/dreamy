@@ -9,7 +9,7 @@ import { Eyebrow } from '@/components/ui/primitives'
  * 时间轴布局保持；原型 tasks 列表契约无字段 → 渲染 body 正文 + tasks_count 徽章（data-swap 标注）。
  */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Wedding Planning Guides',

@@ -307,12 +307,6 @@ export interface AdminProductUpsert {
   customSizeAvailable?: boolean | null
   /** 动态属性 entries（key=attribute_def.key；select/text/toggle 单元素数组，multiselect 多元素） */
   attributes?: AttributeValueEntry[] | null
-  fabricComposition?: string | null
-  modelHeight?: string | null
-  modelSize?: string | null
-  modelBodyType?: string | null
-  careInstructions?: string | null
-  countryOfOrigin?: string | null
   styleNo?: string | null
   seoTitle?: string | null
   seoDesc?: string | null

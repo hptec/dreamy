@@ -7,7 +7,7 @@ import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /** /inspiration（PAGE-MKT-S07，layout-keep + data-swap）：mock lookbooks → E-MKT-06/07；卡片展开拉关联商品。 */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Wedding Inspiration & Lookbook',

@@ -4,6 +4,7 @@ import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useUsersStore } from '@/stores/users'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -52,18 +53,28 @@ onMounted(load)
             @keyup.enter="onSearch"
           />
         </div>
-        <select v-model="store.filterTier" class="field w-36 shrink-0" @change="onSearch">
-          <option value="all">全部等级</option>
-          <option :value="2">VIP</option>
-          <option :value="1">常规</option>
-        </select>
-        <select v-model="store.filterStatus" class="field w-36 shrink-0" @change="onSearch">
-          <option value="all">全部状态</option>
-          <option :value="1">正常</option>
-          <option :value="2">已禁用</option>
-          <option :value="3">已注销</option>
-          <option :value="4">已匿名</option>
-        </select>
+        <SelectMenu
+          v-model="store.filterTier"
+          :options="[
+            { value: 'all', label: '全部等级' },
+            { value: 2, label: 'VIP' },
+            { value: 1, label: '常规' },
+          ]"
+          class="w-36 shrink-0"
+          @change="onSearch"
+        />
+        <SelectMenu
+          v-model="store.filterStatus"
+          :options="[
+            { value: 'all', label: '全部状态' },
+            { value: 1, label: '正常' },
+            { value: 2, label: '已禁用' },
+            { value: 3, label: '已注销' },
+            { value: 4, label: '已匿名' },
+          ]"
+          class="w-36 shrink-0"
+          @change="onSearch"
+        />
         <button class="btn-outline shrink-0" @click="onSearch">查询</button>
       </div>
     </div>

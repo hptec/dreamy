@@ -139,12 +139,6 @@ export interface StoreProductDetail extends StoreProductCard {
   customSizeAvailable?: boolean
   /** 动态属性（EAV，attribute_def 字典驱动） */
   attributes?: StoreAttribute[]
-  fabricComposition?: string
-  modelHeight?: string
-  modelSize?: string
-  modelBodyType?: string
-  careInstructions?: string
-  countryOfOrigin?: string
   styleNo?: string
   seoTitle?: string
   seoDesc?: string

@@ -3,6 +3,7 @@
 // value 按 type 占位/校验（DEC-MKT-4）+ end>start js_guard + 三语 tab（EN 主字段，ES/FR translations）
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import { usePromotionsStore } from '@/stores/promotions'
 import { useToastStore } from '@/stores/toast'
@@ -169,11 +170,11 @@ async function submit() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">类型 *</label>
-          <select v-model="form.type" class="field">
-            <option :value="CouponType.DISCOUNT">折扣（discount）</option>
-            <option :value="CouponType.FIXED_AMOUNT">满减（fixed_amount）</option>
-            <option :value="CouponType.FREE_SHIPPING">免邮（free_shipping）</option>
-          </select>
+          <AppSelect
+            :model-value="form.type"
+            :options="[{ value: CouponType.DISCOUNT, label: '折扣（discount）' }, { value: CouponType.FIXED_AMOUNT, label: '满减（fixed_amount）' }, { value: CouponType.FREE_SHIPPING, label: '免邮（free_shipping）' }]"
+            @update:model-value="form.type = $event as typeof form.type"
+          />
         </div>
         <div>
           <label class="field-label">面额 *</label>
@@ -205,9 +206,11 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <select v-model="form.status" class="field">
-          <option v-for="s in statusOptions" :key="s.value" :value="s.value" :disabled="!editing && s.createDisabled">{{ s.label }}</option>
-        </select>
+          <AppSelect
+            :model-value="form.status"
+            :options="statusOptions.map(s => ({ value: s.value, label: s.label, disabled: !editing && s.createDisabled }))"
+            @update:model-value="form.status = $event as typeof form.status"
+          />
       </div>
       <div>
         <label class="field-label">描述（EN）</label>

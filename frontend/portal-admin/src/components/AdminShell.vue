@@ -188,7 +188,7 @@ function groupActive(group: MenuGroup) {
       </header>
 
       <!-- 内容 -->
-      <main class="flex-1 overflow-x-hidden p-6">
+      <main class="flex-1 overflow-x-clip p-6">
         <slot />
       </main>
     </div>

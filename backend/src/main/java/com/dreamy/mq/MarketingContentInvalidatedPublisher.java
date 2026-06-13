@@ -1,10 +1,13 @@
 package com.dreamy.mq;
 
+import com.dreamy.domain.cache.service.AdminCacheService;
+import com.dreamy.infra.CdnInvalidationService;
 import com.dreamy.infra.mq.DomainEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,8 @@ import java.util.Map;
  * slug?, old_slug?, id?, locales:[en,es,fr], occurred_at}；event_id 由 DomainEventPublisher 生成（DomainEvent 信封）。
  * coupon 全部写操作与 SCHED 翻转不发（无消费端缓存面，E-MKT-14 STEP-MKT-04 归因）；
  * newsletter/contact 不发（FLOW-P19 显式约定）。发布失败不回滚（EC-MKT-002，TTL 兜底）。
+ *
+ * 最新调整：同步调用 CDN API 清除缓存（异步执行，不阻塞主流程）。
  */
 @Component
 public class MarketingContentInvalidatedPublisher {
@@ -30,9 +35,15 @@ public class MarketingContentInvalidatedPublisher {
     public static final String TYPE_FLASH_SALE_CHANGED = "flash_sale_changed";
 
     private final DomainEventPublisher eventPublisher;
+    private final AdminCacheService cacheService;
+    private final CdnInvalidationService cdnService;
 
-    public MarketingContentInvalidatedPublisher(DomainEventPublisher eventPublisher) {
+    public MarketingContentInvalidatedPublisher(DomainEventPublisher eventPublisher,
+                                                AdminCacheService cacheService,
+                                                CdnInvalidationService cdnService) {
         this.eventPublisher = eventPublisher;
+        this.cacheService = cacheService;
+        this.cdnService = cdnService;
     }
 
     /** 发布失效事件（事务提交后由 MarketingAfterCommitRunner 调用，CP-031） */
@@ -51,6 +62,21 @@ public class MarketingContentInvalidatedPublisher {
         payload.put("locales", ALL_LOCALES);
         payload.put("occurred_at", OffsetDateTime.now(ZoneOffset.UTC).toString());
         eventPublisher.publish(ROUTING_KEY, payload);
+
+        // 记录日志并触发 CDN 清除
+        List<String> affectedPaths = null;
+        try {
+            String resourceType = extractResourceType(type);
+            cacheService.logInvalidation(type, resourceType, id, slug, oldSlug, ALL_LOCALES, "system");
+            affectedPaths = buildAffectedPaths(type, slug, oldSlug, id);
+        } catch (Exception e) {
+            // 失败不影响主流程
+        }
+
+        // 异步调用 CDN API 清除缓存
+        if (affectedPaths != null && !affectedPaths.isEmpty()) {
+            cdnService.invalidatePaths(affectedPaths);
+        }
     }
 
     public void publish(String type) {
@@ -65,5 +91,44 @@ public class MarketingContentInvalidatedPublisher {
     /** wedding 专用（id 维度——EVT-MKT 路径映射 /real-weddings/{id}） */
     public void publishWedding(Long id) {
         publish(TYPE_WEDDING_CHANGED, null, null, id);
+    }
+
+    private String extractResourceType(String eventType) {
+        if (eventType.contains("blog")) return "blog";
+        if (eventType.contains("wedding")) return "wedding";
+        if (eventType.contains("lookbook")) return "lookbook";
+        if (eventType.contains("guide")) return "guide";
+        if (eventType.contains("banner")) return "banner";
+        if (eventType.contains("flash")) return "flash_sale";
+        return "unknown";
+    }
+
+    private List<String> buildAffectedPaths(String type, String slug, String oldSlug, Long id) {
+        List<String> paths = new ArrayList<>();
+
+        if (TYPE_BLOG_CHANGED.equals(type) && slug != null) {
+            for (String locale : ALL_LOCALES) {
+                String prefix = "en".equals(locale) ? "" : "/" + locale;
+                paths.add(prefix + "/blog/" + slug);
+            }
+            if (oldSlug != null && !oldSlug.equals(slug)) {
+                for (String locale : ALL_LOCALES) {
+                    String prefix = "en".equals(locale) ? "" : "/" + locale;
+                    paths.add(prefix + "/blog/" + oldSlug);
+                }
+            }
+        } else if (TYPE_WEDDING_CHANGED.equals(type) && id != null) {
+            for (String locale : ALL_LOCALES) {
+                String prefix = "en".equals(locale) ? "" : "/" + locale;
+                paths.add(prefix + "/real-weddings/" + id);
+            }
+        } else if (TYPE_BANNER_CHANGED.equals(type)) {
+            // Banner 影响首页
+            paths.add("/");
+            paths.add("/es");
+            paths.add("/fr");
+        }
+
+        return paths;
     }
 }

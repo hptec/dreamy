@@ -4,6 +4,7 @@
 // views/published_at 只读
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import { useBlogStore } from '@/stores/blog'
@@ -161,11 +162,11 @@ async function submit() {
         </div>
         <div>
           <label class="field-label">状态</label>
-          <select v-model="form.status" class="field">
-            <option :value="ContentStatus.DRAFT">草稿</option>
-            <option :value="ContentStatus.PUBLISHED">已发布</option>
-            <option :value="ContentStatus.ARCHIVED">已归档</option>
-          </select>
+          <AppSelect
+            :model-value="form.status"
+            :options="[{ value: ContentStatus.DRAFT, label: '草稿' }, { value: ContentStatus.PUBLISHED, label: '已发布' }, { value: ContentStatus.ARCHIVED, label: '已归档' }]"
+            @update:model-value="form.status = $event as typeof form.status"
+          />
         </div>
       </div>
       <div>

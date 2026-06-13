@@ -4,9 +4,9 @@ import { fetchStoreBlogs } from '@/lib/api/marketing-server'
 import { SectionHeading } from '@/components/ui/primitives'
 import { formatDateTimeLong } from '@/lib/utils'
 
-/** /blog（PAGE-MKT-S03，layout-keep + data-swap）：E-MKT-02 + ISR；?page= searchParams 分页驱动。 */
+/** /blog（PAGE-MKT-S03，layout-keep + data-swap）：E-MKT-02；?page= searchParams 分页驱动。 */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Wedding Blog',

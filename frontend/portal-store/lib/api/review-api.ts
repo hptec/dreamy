@@ -18,13 +18,12 @@ import type {
 
 // ===== 服务端首屏（随 PDP ISR） =====
 
-/** E-REV-01 评价列表 首屏（RSC，revalidate 300） */
+/** E-REV-01 评价列表 首屏（RSC） */
 export function fetchStoreReviewsServer(
   productId: number,
   params: { sort?: ReviewSort; page?: number; pageSize?: number } = {}
 ): Promise<StoreReviewListResponse | null> {
   return serverGet<StoreReviewListResponse>('/api/store/reviews', {
-    revalidate: 300,
     query: { productId, ...params }
   })
 }
@@ -35,7 +34,6 @@ export function fetchStoreQuestionsServer(
   params: { page?: number; pageSize?: number } = {}
 ): Promise<Paginated<StoreQuestion> | null> {
   return serverGet<Paginated<StoreQuestion>>('/api/store/questions', {
-    revalidate: 300,
     query: { productId, ...params }
   })
 }

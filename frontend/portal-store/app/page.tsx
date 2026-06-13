@@ -9,7 +9,7 @@ import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /**
- * 首页（PAGE-CAT-S04 + PAGE-MKT-S01，layout-keep + data-swap，revalidate=300）：
+ * 首页（PAGE-CAT-S04 + PAGE-MKT-S01，layout-keep + data-swap）：
  * - hero ← E-MKT-01 position=hero 首条（空回退现有静态 hero——冷启动安全）
  * - FlashSaleRail ← E-MKT-09（空 items 整段不渲染）
  * - Shop by Color ← E-CAT-07 色板标签（空回退静态 palette）
@@ -17,7 +17,7 @@ import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
  * - Real Weddings ← E-MKT-04（空整段不渲染）
  */
 
-export const revalidate = 300
+export const dynamic = 'force-dynamic'
 
 const themeCards = [
   { theme: 'Beach', image: '/competitor-refs/kissprom/wedding-beach-short-05.jpg', desc: 'Breezy & barefoot' },

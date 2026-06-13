@@ -10,6 +10,7 @@ import { fetchStoreBanners } from '@/lib/api/marketing-server'
 import { BannerPosition } from '@/lib/api/store-types'
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5173'),
   title: {
     default: 'Dreamy — Outdoor Wedding Atelier',
     template: '%s · Dreamy'
@@ -25,12 +26,12 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // PAGE-MKT-S02：layout 级 topbar 公告条（E-MKT-01 position=topbar，revalidate 300；空回退静态文案）
+  // PAGE-MKT-S02：layout 级 topbar 公告条（E-MKT-01 position=topbar；空回退静态文案）
   const topbarBanners = await fetchStoreBanners(BannerPosition.TOPBAR)
   const announcements = topbarBanners.map((b) => b.title).filter((t): t is string => !!t)
 
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

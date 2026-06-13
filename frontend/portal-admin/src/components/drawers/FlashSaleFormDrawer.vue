@@ -3,6 +3,7 @@
 // + 商品选择器（useProductPicker 载体 ProductPickerPanel）+ 三语 name tab
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
 import { usePromotionsStore } from '@/stores/promotions'
@@ -140,12 +141,16 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <select v-model="form.status" class="field">
-          <option :value="FlashSaleStatus.DRAFT">草稿</option>
-          <option :value="FlashSaleStatus.SCHEDULED">已排期</option>
-          <option :value="FlashSaleStatus.ACTIVE">进行中</option>
-          <option :value="FlashSaleStatus.ENDED" :disabled="!editing || editing.status !== FlashSaleStatus.ENDED">已结束</option>
-        </select>
+        <AppSelect
+          :model-value="form.status"
+          :options="[
+            { value: FlashSaleStatus.DRAFT, label: '草稿' },
+            { value: FlashSaleStatus.SCHEDULED, label: '已排期' },
+            { value: FlashSaleStatus.ACTIVE, label: '进行中' },
+            { value: FlashSaleStatus.ENDED, label: '已结束', disabled: !editing || editing.status !== FlashSaleStatus.ENDED },
+          ]"
+          @update:model-value="form.status = $event as typeof form.status"
+        />
       </div>
       <div>
         <label class="field-label">活动商品（可留空——仅展示活动不挂品）</label>

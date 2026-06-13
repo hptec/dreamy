@@ -23,12 +23,6 @@ public interface ProductDBConst extends CatalogCommonDBConst {
     String LEAD_TIME_DAYS = "lead_time_days";
     String RUSH_AVAILABLE = "rush_available";
     String CUSTOM_SIZE_AVAILABLE = "custom_size_available";
-    String FABRIC_COMPOSITION = "fabric_composition";
-    String MODEL_HEIGHT = "model_height";
-    String MODEL_SIZE = "model_size";
-    String MODEL_BODY_TYPE = "model_body_type";
-    String CARE_INSTRUCTIONS = "care_instructions";
-    String COUNTRY_OF_ORIGIN = "country_of_origin";
     String STYLE_NO = "style_no";
     String SEO_TITLE = "seo_title";
     String SEO_DESC = "seo_desc";

@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Pagination from '@/components/Pagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useOrdersStore } from '@/stores/orders'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -117,10 +118,19 @@ onMounted(() => {
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input v-model="store.search" class="field pl-9" placeholder="搜索订单号 / 客户名…" @input="onSearchInput" />
         </div>
-        <select v-model="store.currency" class="field w-32 shrink-0" @change="applyFilters">
-          <option value="all">全部币种</option>
-          <option v-for="c in ['USD', 'EUR', 'CAD', 'AUD', 'GBP']" :key="c" :value="c">{{ c }}</option>
-        </select>
+        <SelectMenu
+          v-model="store.currency"
+          :options="[
+            { value: 'all', label: '全部币种' },
+            { value: 'USD', label: 'USD' },
+            { value: 'EUR', label: 'EUR' },
+            { value: 'CAD', label: 'CAD' },
+            { value: 'AUD', label: 'AUD' },
+            { value: 'GBP', label: 'GBP' },
+          ]"
+          class="w-32 shrink-0"
+          @change="applyFilters"
+        />
         <input v-model="store.from" type="date" class="field w-40 shrink-0" @change="applyFilters" />
         <span class="text-ink-faint">—</span>
         <input v-model="store.to" type="date" class="field w-40 shrink-0" @change="applyFilters" />

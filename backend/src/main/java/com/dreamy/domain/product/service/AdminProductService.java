@@ -501,12 +501,6 @@ public class AdminProductService {
         product.setLeadTimeDays(req.leadTimeDays());
         product.setRushAvailable(req.rushAvailable() != null && req.rushAvailable());
         product.setCustomSizeAvailable(req.customSizeAvailable() != null && req.customSizeAvailable());
-        product.setFabricComposition(req.fabricComposition());
-        product.setModelHeight(req.modelHeight());
-        product.setModelSize(req.modelSize());
-        product.setModelBodyType(req.modelBodyType());
-        product.setCareInstructions(req.careInstructions());
-        product.setCountryOfOrigin(req.countryOfOrigin());
         product.setStyleNo(req.styleNo());
         product.setSeoTitle(req.seoTitle());
         product.setSeoDesc(req.seoDesc());
@@ -579,9 +573,8 @@ public class AdminProductService {
                 product.getStatus() == null ? null : product.getStatus().getKey(),
                 product.getIsNew(), product.getIsBest(), product.getRecommend(), product.getSort(),
                 product.getLeadTimeDays(), product.getRushAvailable(), product.getCustomSizeAvailable(),
-                loadAttributeDtos(id), product.getFabricComposition(),
-                product.getModelHeight(), product.getModelSize(), product.getModelBodyType(),
-                product.getCareInstructions(), product.getCountryOfOrigin(), product.getStyleNo(),
+                loadAttributeDtos(id),
+                product.getStyleNo(),
                 product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, tagIds, translations,
                 product.getCreatedAt(), product.getUpdatedAt());
     }

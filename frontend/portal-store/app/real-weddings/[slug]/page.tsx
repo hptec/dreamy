@@ -7,13 +7,12 @@ import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /**
  * /real-weddings/[slug]（PAGE-MKT-S06）：路由段目录名保持 [slug]、参数值改数字 id（契约按 id 取详情）；
- * generateStaticParams 删除 → dynamicParams=true + revalidate=300；404701 → notFound()。
+ * 404701 → notFound()。
  * 显式偏离（marketing-frontend §C）：契约无 gallery 字段 → 多图画廊降级 cover 单图。
  * Shop the Look 区块 ← 响应 products[]（ProductCard 复用）。
  */
 
-export const revalidate = 300
-export const dynamicParams = true
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

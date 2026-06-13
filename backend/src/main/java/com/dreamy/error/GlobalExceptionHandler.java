@@ -39,11 +39,23 @@ public class GlobalExceptionHandler {
         return build(ex.getErrorCode(), ex.getDetails());
     }
 
-    /** 业务异常（EX-01~25）：4xx WARN（LOG-02），透传映射 */
+    /**
+     * 业务异常（EX-01~25）：4xx 透传映射。
+     * 日志策略（LOG-02）：预期的客户端错误（401/403/404/400）不打日志（服务端工作正常），
+     * 其他业务异常打 WARN（可能是规则冲突、状态不一致等需要关注的情况）。
+     */
     @ExceptionHandler(BizException.class)
     public ResponseEntity<R<Object>> handleBiz(BizException ex, HttpServletRequest req) {
-        log.warn("[BIZ] {} code={} details={}", reqLine(req), ex.getErrorCode().getCode(), ex.getDetails());
-        return build(ex.getErrorCode(), ex.getDetails());
+        ErrorCode code = ex.getErrorCode();
+        // 预期的客户端错误：静默（服务端工作正常，不刷日志）
+        if (code == ErrorCode.UNAUTHORIZED || code == ErrorCode.FORBIDDEN
+                || code == ErrorCode.NOT_FOUND || code == ErrorCode.VALIDATION_ERROR) {
+            log.debug("[BIZ_EXPECTED] {} code={}", reqLine(req), code.getCode());
+        } else {
+            // 可疑的业务异常：可能是规则冲突、状态不一致，需关注
+            log.warn("[BIZ] {} code={} details={}", reqLine(req), code.getCode(), ex.getDetails());
+        }
+        return build(code, ex.getDetails());
     }
 
     /** Bean Validation 字段校验失败（EX-02）→ 40000 VALIDATION_ERROR + 字段级 details */

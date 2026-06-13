@@ -3,6 +3,7 @@
 // status/sort + EN 文案区（title/subtitle/cta_text，DEC-MKT-1 可选）+ ES/FR 三语 tab
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import { useBannersStore } from '@/stores/banners'
@@ -143,11 +144,11 @@ async function submit() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">广告位置 *</label>
-          <select v-model="form.position" class="field">
-            <option :value="BannerPosition.HERO">首页 Hero</option>
-            <option :value="BannerPosition.FEATURED">推荐位</option>
-            <option :value="BannerPosition.TOPBAR">顶部通告条</option>
-          </select>
+          <AppSelect
+            :model-value="form.position"
+            :options="[{ value: BannerPosition.HERO, label: '首页 Hero' }, { value: BannerPosition.FEATURED, label: '推荐位' }, { value: BannerPosition.TOPBAR, label: '顶部通告条' }]"
+            @update:model-value="form.position = $event as typeof form.position"
+          />
         </div>
         <div>
           <label class="field-label">排序</label>
@@ -167,11 +168,11 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <select v-model="form.status" class="field">
-          <option :value="BannerStatus.DRAFT">草稿</option>
-          <option :value="BannerStatus.PUBLISHED">已发布</option>
-          <option :value="BannerStatus.ARCHIVED">已下线</option>
-        </select>
+        <AppSelect
+          :model-value="form.status"
+          :options="[{ value: BannerStatus.DRAFT, label: '草稿' }, { value: BannerStatus.PUBLISHED, label: '已发布' }, { value: BannerStatus.ARCHIVED, label: '已下线' }]"
+          @update:model-value="form.status = $event as typeof form.status"
+        />
       </div>
       <div class="rounded-luxe border border-line p-4">
         <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">展示文案（EN，可选——DEC-MKT-1）</p>

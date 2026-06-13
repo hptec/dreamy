@@ -262,9 +262,7 @@ public class StoreProductService {
                 product.getMultiCurrencyPrices(), product.getInstallment(), product.getIsNew(), product.getIsBest(),
                 product.getLeadTimeDays(), product.getRushAvailable(), product.getCustomSizeAvailable(),
                 buildStoreAttributes(product, locale),
-                product.getFabricComposition(),
-                product.getModelHeight(), product.getModelSize(), product.getModelBodyType(),
-                product.getCareInstructions(), product.getCountryOfOrigin(), product.getStyleNo(),
+                product.getStyleNo(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoTitle(), product.getSeoTitle()),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoDescription(), product.getSeoDesc()),
                 images, skus, sizeChart, tagRefs, product.getRatingAvg(), product.getRatingCount());

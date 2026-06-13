@@ -4,6 +4,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useOrdersStore } from '@/stores/orders'
@@ -204,9 +205,11 @@ onMounted(() => {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="field-label">承运方</label>
-              <select v-model="shipForm.carrier" class="field">
-                <option v-for="c in carriers" :key="c" :value="c">{{ c }}</option>
-              </select>
+              <AppSelect
+                :model-value="shipForm.carrier"
+                :options="carriers"
+                @update:model-value="shipForm.carrier = $event as string"
+              />
               <p v-if="shipErrors.carrier" class="mt-1 text-[11px] text-danger">{{ shipErrors.carrier }}</p>
             </div>
             <div>

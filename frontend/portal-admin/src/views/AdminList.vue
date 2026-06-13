@@ -3,6 +3,7 @@
 // 约束: FORM-A02 创建管理员校验；超管保护 UI 预判 + 后端二次校验
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import { useAdminsStore } from '@/stores/admins'
 import { useRolesStore } from '@/stores/roles'
 import { useAuthStore } from '@/stores/auth'
@@ -324,10 +325,12 @@ onMounted(load)
             </div>
             <div>
               <label class="mb-1 block text-[13px] font-medium text-ink">角色</label>
-              <select v-model="form.roleId" class="field w-full">
-                <option value="" disabled>请选择角色</option>
-                <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}{{ r.type === 1 ? '（系统预设）' : '' }}</option>
-              </select>
+              <AppSelect
+                :model-value="form.roleId"
+                :options="roles.map(r => ({ value: r.id, label: r.name + (r.type === 1 ? '（系统预设）' : '') }))"
+                placeholder="请选择角色"
+                @update:model-value="form.roleId = $event as typeof form.roleId"
+              />
               <p v-if="formErrors.roleId" class="mt-1 text-[12px] text-danger">{{ formErrors.roleId }}</p>
             </div>
           </div>

@@ -6,13 +6,11 @@ import { Eyebrow } from '@/components/ui/primitives'
 import { formatDateTimeLong } from '@/lib/utils'
 
 /**
- * /blog/[slug]（PAGE-MKT-S04）：generateStaticParams 删除 → dynamicParams=true + revalidate=300；
- * 404701 → notFound()；content 单字符串按换行 split 渲染段落（COMP-MKT-S05 data-swap 标注）；
- * seo_title/seo_description → generateMetadata。
+ * /blog/[slug]（PAGE-MKT-S04）：404701 → notFound()；
+ * content 单字符串按换行 split 渲染段落；seo_title/seo_description → generateMetadata。
  */
 
-export const revalidate = 300
-export const dynamicParams = true
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

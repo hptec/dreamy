@@ -93,25 +93,6 @@ public class Product extends LongAuditableEntity {
     @Column(name = ProductDBConst.CUSTOM_SIZE_AVAILABLE, definition = "tinyint(1) NOT NULL DEFAULT 0 COMMENT '定制尺寸开关（A-007）'")
     private Boolean customSizeAvailable;
 
-    /** 版型属性已 EAV 化（product_attribute_value 表），fabric_composition 属内容字段保留固定列 */
-    @Column(name = ProductDBConst.FABRIC_COMPOSITION, definition = "varchar(128) NULL")
-    private String fabricComposition;
-
-    @Column(name = ProductDBConst.MODEL_HEIGHT, definition = "varchar(32) NULL")
-    private String modelHeight;
-
-    @Column(name = ProductDBConst.MODEL_SIZE, definition = "varchar(16) NULL")
-    private String modelSize;
-
-    @Column(name = ProductDBConst.MODEL_BODY_TYPE, definition = "varchar(32) NULL")
-    private String modelBodyType;
-
-    @Column(name = ProductDBConst.CARE_INSTRUCTIONS, definition = "text NULL")
-    private String careInstructions;
-
-    @Column(name = ProductDBConst.COUNTRY_OF_ORIGIN, definition = "varchar(64) NULL")
-    private String countryOfOrigin;
-
     @Column(name = ProductDBConst.STYLE_NO, definition = "varchar(32) NULL COMMENT '款式编号'")
     private String styleNo;
 

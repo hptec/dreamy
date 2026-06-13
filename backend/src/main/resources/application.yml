@@ -98,6 +98,15 @@ identity:
     cron: "0 0 3 * * *"
 
 # ===== portal-api-integration 公共基建（七域前置依赖）=====
+
+# CDN 缓存清除配置
+cdn:
+  provider: ${CDN_PROVIDER:stub}  # stub=仅日志 | cloudflare=Cloudflare API
+  base-url: ${CDN_BASE_URL:https://dreamy.com}
+  cloudflare:
+    zone-id: ${CLOUDFLARE_ZONE_ID:}
+    api-token: ${CLOUDFLARE_API_TOKEN:}
+
 dreamy:
   # StoreJwtFilter 配置化白名单（error-strategy L2 要求 2；条目形式 METHOD:pattern，
   # 无 METHOD 前缀缺省匹配全部 method——review-api-detail 0.1 定稿，向后兼容）
