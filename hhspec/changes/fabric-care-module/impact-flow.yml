@@ -1,0 +1,33 @@
+skipped: false
+analyzed_at: "2026-06-13T23:55:44Z"
+business_flow_hash: "be5baa9700942cb1c01756b2307c4d74345b5103b0b37dbcf524d5dc3c80e0ed"
+
+flows_analyzed:
+  - id: admin_edit_fabric_composition
+  - id: admin_select_care_instructions
+  - id: customer_view_fabric_care_pdp
+  - id: admin_maintain_care_instruction_dict
+
+cross_domain_impacts:
+  []
+
+affected_specs:
+  []
+
+regression_risks:
+  - flow_id: admin_edit_fabric_composition
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: admin_select_care_instructions
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: customer_view_fabric_care_pdp
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: admin_maintain_care_instruction_dict
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []

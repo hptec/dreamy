@@ -1,0 +1,554 @@
+scenarios:
+- id: bs-001
+  cat: "null"
+  entity: product_fabric_composition
+  field: id
+  ctx: product_fabric_composition 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-002
+  cat: "null"
+  entity: product_fabric_composition
+  field: product_id
+  ctx: product_fabric_composition 创建或更新时缺少必填字段 product_id
+  act: 提交 product_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 product_id
+  source: er
+- id: bs-003
+  cat: "null"
+  entity: product_fabric_composition
+  field: layer
+  ctx: product_fabric_composition 创建或更新时缺少必填字段 layer
+  act: 提交 layer=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 layer
+  source: er
+- id: bs-004
+  cat: "null"
+  entity: product_fabric_composition
+  field: material
+  ctx: product_fabric_composition 创建或更新时缺少必填字段 material
+  act: 提交 material=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 material
+  source: er
+- id: bs-005
+  cat: "null"
+  entity: product_fabric_composition
+  field: percentage
+  ctx: product_fabric_composition 创建或更新时缺少必填字段 percentage
+  act: 提交 percentage=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 percentage
+  source: er
+- id: bs-006
+  cat: "null"
+  entity: product_fabric_composition
+  field: sort_order
+  ctx: product_fabric_composition 的可选字段 sort_order 未提供
+  act: 提交 sort_order=null 的请求
+  expect: 系统正常处理并保持 sort_order 为空，不报错
+  source: er
+- id: bs-007
+  cat: "null"
+  entity: product_fabric_composition
+  field: created_at
+  ctx: product_fabric_composition 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-008
+  cat: "null"
+  entity: product_fabric_composition
+  field: updated_at
+  ctx: product_fabric_composition 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-009
+  cat: "null"
+  entity: care_instruction_def
+  field: id
+  ctx: care_instruction_def 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-010
+  cat: "null"
+  entity: care_instruction_def
+  field: code
+  ctx: care_instruction_def 创建或更新时缺少必填字段 code
+  act: 提交 code=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 code
+  source: er
+- id: bs-011
+  cat: "null"
+  entity: care_instruction_def
+  field: symbol_unicode
+  ctx: care_instruction_def 的可选字段 symbol_unicode 未提供
+  act: 提交 symbol_unicode=null 的请求
+  expect: 系统正常处理并保持 symbol_unicode 为空，不报错
+  source: er
+- id: bs-012
+  cat: "null"
+  entity: care_instruction_def
+  field: label_en
+  ctx: care_instruction_def 创建或更新时缺少必填字段 label_en
+  act: 提交 label_en=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label_en
+  source: er
+- id: bs-013
+  cat: "null"
+  entity: care_instruction_def
+  field: label_zh
+  ctx: care_instruction_def 创建或更新时缺少必填字段 label_zh
+  act: 提交 label_zh=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label_zh
+  source: er
+- id: bs-014
+  cat: "null"
+  entity: care_instruction_def
+  field: category
+  ctx: care_instruction_def 创建或更新时缺少必填字段 category
+  act: 提交 category=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 category
+  source: er
+- id: bs-015
+  cat: "null"
+  entity: care_instruction_def
+  field: sort_order
+  ctx: care_instruction_def 的可选字段 sort_order 未提供
+  act: 提交 sort_order=null 的请求
+  expect: 系统正常处理并保持 sort_order 为空，不报错
+  source: er
+- id: bs-016
+  cat: "null"
+  entity: care_instruction_def
+  field: status
+  ctx: care_instruction_def 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-017
+  cat: "null"
+  entity: care_instruction_def
+  field: created_at
+  ctx: care_instruction_def 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-018
+  cat: "null"
+  entity: care_instruction_def
+  field: updated_at
+  ctx: care_instruction_def 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-019
+  cat: "null"
+  entity: product_care_instruction
+  field: product_id
+  ctx: product_care_instruction 创建或更新时缺少必填字段 product_id
+  act: 提交 product_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 product_id
+  source: er
+- id: bs-020
+  cat: "null"
+  entity: product_care_instruction
+  field: care_id
+  ctx: product_care_instruction 创建或更新时缺少必填字段 care_id
+  act: 提交 care_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 care_id
+  source: er
+- id: bs-021
+  cat: "null"
+  entity: product_care_instruction
+  field: sort_order
+  ctx: product_care_instruction 的可选字段 sort_order 未提供
+  act: 提交 sort_order=null 的请求
+  expect: 系统正常处理并保持 sort_order 为空，不报错
+  source: er
+- id: bs-022
+  cat: extreme
+  entity: product_fabric_composition
+  field: layer
+  ctx: "layer 的合法枚举为 [1, 2, 3, 4]"
+  act: 提交枚举外的 layer=__invalid__
+  expect: 系统拒绝非法枚举值，返回 layer 枚举错误
+  source: er
+- id: bs-023
+  cat: extreme
+  entity: product_fabric_composition
+  field: material
+  ctx: "material 的合法枚举为 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+  act: 提交枚举外的 material=__invalid__
+  expect: 系统拒绝非法枚举值，返回 material 枚举错误
+  source: er
+- id: bs-024
+  cat: extreme
+  entity: product_fabric_composition
+  field: percentage
+  ctx: percentage 的最小值约束为 0
+  act: 提交 percentage=-1
+  expect: 系统拒绝低于最小值的输入，返回 percentage 边界错误
+  source: er
+- id: bs-025
+  cat: extreme
+  entity: product_fabric_composition
+  field: percentage
+  ctx: percentage 的最大值约束为 100
+  act: 提交 percentage=101
+  expect: 系统拒绝超过最大值的输入，返回 percentage 边界错误
+  source: er
+- id: bs-026
+  cat: extreme
+  entity: care_instruction_def
+  field: code
+  ctx: code 的最大长度为 64
+  act: 提交长度为 65 的 code
+  expect: 系统拒绝超长输入，返回 code 长度超限错误
+  source: er
+- id: bs-027
+  cat: extreme
+  entity: care_instruction_def
+  field: symbol_unicode
+  ctx: symbol_unicode 的最大长度为 16
+  act: 提交长度为 17 的 symbol_unicode
+  expect: 系统拒绝超长输入，返回 symbol_unicode 长度超限错误
+  source: er
+- id: bs-028
+  cat: extreme
+  entity: care_instruction_def
+  field: label_en
+  ctx: label_en 的最大长度为 128
+  act: 提交长度为 129 的 label_en
+  expect: 系统拒绝超长输入，返回 label_en 长度超限错误
+  source: er
+- id: bs-029
+  cat: extreme
+  entity: care_instruction_def
+  field: label_zh
+  ctx: label_zh 的最大长度为 128
+  act: 提交长度为 129 的 label_zh
+  expect: 系统拒绝超长输入，返回 label_zh 长度超限错误
+  source: er
+- id: bs-030
+  cat: extreme
+  entity: care_instruction_def
+  field: category
+  ctx: "category 的合法枚举为 ['washing', 'bleaching', 'drying', 'ironing', 'dry_cleaning']"
+  act: 提交枚举外的 category=__invalid__
+  expect: 系统拒绝非法枚举值，返回 category 枚举错误
+  source: er
+- id: bs-031
+  cat: extreme
+  entity: care_instruction_def
+  field: status
+  ctx: "status 的合法枚举为 ['active', 'disabled']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-032
+  cat: concurrent
+  entity: care_instruction_def
+  field: state
+  ctx: care_instruction_def 当前处于 active，同一转换被重复提交
+  act: 并发提交两个 disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-033
+  cat: concurrent
+  entity: care_instruction_def
+  field: state
+  ctx: care_instruction_def 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-034
+  cat: concurrent
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-035
+  cat: concurrent
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 unpublish 与 archive
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-036
+  cat: concurrent
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 archived，两个互斥转换同时触发
+  act: 并发提交 restore 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-037
+  cat: auth
+  entity: product_fabric_composition
+  ctx: 用户角色为 viewer，无权执行流程 后台管理员编辑商品面料成分
+  act: 触发 后台管理员编辑商品面料成分 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-038
+  cat: auth
+  entity: product_fabric_composition
+  ctx: 用户已开始执行流程 后台管理员编辑商品面料成分，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-039
+  cat: auth
+  entity: product_fabric_composition
+  ctx: 用户属于 tenant-A，尝试访问 product_fabric_composition 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-040
+  cat: auth
+  entity: care_instruction_def
+  ctx: 用户角色为 viewer，无权执行流程 后台管理员选择护理标签
+  act: 触发 后台管理员选择护理标签 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-041
+  cat: auth
+  entity: care_instruction_def
+  ctx: 用户已开始执行流程 后台管理员选择护理标签，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-042
+  cat: auth
+  entity: care_instruction_def
+  ctx: 用户属于 tenant-A，尝试访问 care_instruction_def 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-043
+  cat: auth
+  entity: product_fabric_composition
+  ctx: 用户角色为 viewer，无权执行流程 消费端用户查看商品面料护理信息
+  act: 触发 消费端用户查看商品面料护理信息 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-044
+  cat: auth
+  entity: product_fabric_composition
+  ctx: 用户已开始执行流程 消费端用户查看商品面料护理信息，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-045
+  cat: auth
+  entity: care_instruction_def
+  ctx: 用户角色为 viewer，无权执行流程 系统管理员维护护理标签字典
+  act: 触发 系统管理员维护护理标签字典 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-046
+  cat: auth
+  entity: care_instruction_def
+  ctx: 用户已开始执行流程 系统管理员维护护理标签字典，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-047
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 后台管理员编辑商品面料成分 依赖的外部系统 external_system 不可用
+  act: 触发需要访问 external_system 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-048
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 后台管理员编辑商品面料成分 调用 external_system 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-049
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 后台管理员编辑商品面料成分 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-050
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 后台管理员选择护理标签 依赖的外部系统 external_system 不可用
+  act: 触发需要访问 external_system 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-051
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 后台管理员选择护理标签 调用 external_system 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-052
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 后台管理员选择护理标签 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-053
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 消费端用户查看商品面料护理信息 依赖的外部系统 external_system 不可用
+  act: 触发需要访问 external_system 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-054
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 消费端用户查看商品面料护理信息 调用 external_system 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-055
+  cat: network
+  entity: product_fabric_composition
+  ctx: 流程 消费端用户查看商品面料护理信息 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-056
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 系统管理员维护护理标签字典 依赖的外部系统 external_system 不可用
+  act: 触发需要访问 external_system 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-057
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 系统管理员维护护理标签字典 调用 external_system 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-058
+  cat: network
+  entity: care_instruction_def
+  ctx: 流程 系统管理员维护护理标签字典 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-059
+  cat: integrity
+  entity: product_care_instruction
+  ctx: product_care_instruction 关联的 care_instruction_def 记录不存在
+  act: 提交引用不存在 care_instruction_def 的写请求
+  expect: 系统返回关联实体 care_instruction_def 不存在错误，拒绝写入
+  source: er
+- id: bs-060
+  cat: integrity
+  entity: care_instruction_def
+  field: ref_2
+  ctx: care_instruction_def 引用的 product 记录不存在
+  act: 提交指向不存在 product 的引用
+  expect: 系统返回关联实体 product 不存在错误
+  source: er
+- id: bs-061
+  cat: integrity
+  entity: care_instruction_def
+  field: ref_3
+  ctx: care_instruction_def 引用的 product 记录不存在
+  act: 提交指向不存在 product 的引用
+  expect: 系统返回关联实体 product 不存在错误
+  source: er
+- id: bs-062
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: care_instruction_def 当前处于 active
+  act: 触发该状态下不允许的操作 disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-063
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: care_instruction_def 当前处于 disabled
+  act: 触发该状态下不允许的操作 enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-064
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-065
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 published
+  act: 触发该状态下不允许的操作 unpublish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-066
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 archived
+  act: 触发该状态下不允许的操作 restore_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-067
+  cat: state
+  entity: care_instruction_def
+  field: state
+  ctx: product 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-068
+  cat: callsite-compat
+  entity: product_fabric_composition
+  field: layer
+  ctx: "product_fabric_composition.layer 枚举值集合 [1, 2, 3, 4]，调用方依赖当前值"
+  act: 为 layer 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-069
+  cat: callsite-compat
+  entity: product_fabric_composition
+  field: material
+  ctx: "product_fabric_composition.material 枚举值集合 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]，调用方依赖当前值"
+  act: 为 material 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-070
+  cat: callsite-compat
+  entity: care_instruction_def
+  field: category
+  ctx: "care_instruction_def.category 枚举值集合 ['washing', 'bleaching', 'drying', 'ironing',\
+    \ 'dry_cleaning']，调用方依赖当前值"
+  act: 为 category 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-071
+  cat: callsite-compat
+  entity: care_instruction_def
+  field: status
+  ctx: "care_instruction_def.status 枚举值集合 ['active', 'disabled']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-072
+  cat: callsite-compat
+  entity: product_care_instruction
+  ctx: care_instruction_def 实体结构变更，product_care_instruction 通过 外键 引用
+  act: 修改 care_instruction_def 的字段定义（添加/删除/修改类型）
+  expect: product_care_instruction 能正常读取 care_instruction_def 变更后的数据，不因字段增删而崩溃
+  source: er

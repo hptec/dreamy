@@ -533,9 +533,9 @@ admin_user ←·· operation_log (operator_id, 弱可空)
 
 ---
 
-## 17. 风险与待确认项
+## 17. 风险记录与后续跟进
 
-1. **CHAR(36) UUID vs BINARY(16)**：本设计用 CHAR(36) 优先可读性/排查便利，代价是索引体积更大。若后续用户量级达千万级，建议评估 BINARY(16) + 应用层转换。待 L3/性能压测确认。
+1. **CHAR(36) UUID vs BINARY(16)**：本设计用 CHAR(36) 优先可读性/排查便利，代价是索引体积更大。若后续用户量级达千万级，建议评估 BINARY(16) + 应用层转换。由 L3/性能压测确认。
 2. **operation_log 分区**：长保留 + 高写，Bootstrap 不分区。达百万行/月后建议按 created_at RANGE 月分区。已在 DDL 注释标注。
 3. **超管全权限实现方式**：role_permission 显式写满 vs 应用层短路（见表 9 注），需 L3 定夺；影响是否预置超管 × 22 权限种子。
 4. **permission 22 项 key 清单**：本层给结构与示例，具体 key 由 portal-admin 路由清单补全（L3）。

@@ -1,0 +1,1280 @@
+scenarios:
+- id: s-001
+  title: care_instruction_def 状态从 active 流转到 disabled
+  source: sm
+  source_id: care_instruction_lifecycle.active→disabled
+  ctx:
+    entity: care_instruction_def
+    state: active
+  act:
+    op: disable
+  expect:
+    state: disabled
+    http_status: 200
+- id: s-002
+  title: care_instruction_def 状态从 disabled 流转到 active
+  source: sm
+  source_id: care_instruction_lifecycle.disabled→active
+  ctx:
+    entity: care_instruction_def
+    state: disabled
+  act:
+    op: enable
+  expect:
+    state: active
+    http_status: 200
+- id: s-003
+  title: product 状态从 draft 流转到 published
+  source: sm
+  source_id: product_lifecycle.draft→published
+  ctx:
+    entity: product
+    state: draft
+  act:
+    op: publish
+  expect:
+    state: published
+    http_status: 200
+- id: s-004
+  title: product 状态从 published 流转到 draft
+  source: sm
+  source_id: product_lifecycle.published→draft
+  ctx:
+    entity: product
+    state: published
+  act:
+    op: unpublish
+  expect:
+    state: draft
+    http_status: 200
+- id: s-005
+  title: product 状态从 published 流转到 archived
+  source: sm
+  source_id: product_lifecycle.published→archived
+  ctx:
+    entity: product
+    state: published
+  act:
+    op: archive
+  expect:
+    state: archived
+    http_status: 200
+- id: s-006
+  title: product 状态从 archived 流转到 published
+  source: sm
+  source_id: product_lifecycle.archived→published
+  ctx:
+    entity: product
+    state: archived
+  act:
+    op: restore
+  expect:
+    state: published
+    http_status: 200
+- id: s-007
+  title: product 状态从 draft 流转到 deleted
+  source: sm
+  source_id: product_lifecycle.draft→deleted
+  ctx:
+    entity: product
+    state: draft
+  act:
+    op: delete
+  expect:
+    state: deleted
+    http_status: 200
+- id: s-008
+  title: product 状态从 archived 流转到 deleted
+  source: sm
+  source_id: product_lifecycle.archived→deleted
+  ctx:
+    entity: product
+    state: archived
+  act:
+    op: delete
+  expect:
+    state: deleted
+    http_status: 200
+- id: s-009
+  title: null 类边界场景 bs-001
+  source: bs
+  source_id: bs-001
+  ctx:
+    entity: product_fabric_composition
+    field: id
+    description: product_fabric_composition 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-010
+  title: null 类边界场景 bs-002
+  source: bs
+  source_id: bs-002
+  ctx:
+    entity: product_fabric_composition
+    field: product_id
+    description: product_fabric_composition 创建或更新时缺少必填字段 product_id
+  act:
+    op: trigger_boundary_case
+    field: product_id
+    detail: 提交 product_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 product_id
+    field: product_id
+- id: s-011
+  title: null 类边界场景 bs-003
+  source: bs
+  source_id: bs-003
+  ctx:
+    entity: product_fabric_composition
+    field: layer
+    description: product_fabric_composition 创建或更新时缺少必填字段 layer
+  act:
+    op: trigger_boundary_case
+    field: layer
+    detail: 提交 layer=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 layer
+    field: layer
+- id: s-012
+  title: null 类边界场景 bs-004
+  source: bs
+  source_id: bs-004
+  ctx:
+    entity: product_fabric_composition
+    field: material
+    description: product_fabric_composition 创建或更新时缺少必填字段 material
+  act:
+    op: trigger_boundary_case
+    field: material
+    detail: 提交 material=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 material
+    field: material
+- id: s-013
+  title: null 类边界场景 bs-005
+  source: bs
+  source_id: bs-005
+  ctx:
+    entity: product_fabric_composition
+    field: percentage
+    description: product_fabric_composition 创建或更新时缺少必填字段 percentage
+  act:
+    op: trigger_boundary_case
+    field: percentage
+    detail: 提交 percentage=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 percentage
+    field: percentage
+- id: s-014
+  title: null 类边界场景 bs-006
+  source: bs
+  source_id: bs-006
+  ctx:
+    entity: product_fabric_composition
+    field: sort_order
+    description: product_fabric_composition 的可选字段 sort_order 未提供
+  act:
+    op: trigger_boundary_case
+    field: sort_order
+    detail: 提交 sort_order=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 sort_order 为空，不报错
+    field: sort_order
+- id: s-015
+  title: null 类边界场景 bs-007
+  source: bs
+  source_id: bs-007
+  ctx:
+    entity: product_fabric_composition
+    field: created_at
+    description: product_fabric_composition 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-016
+  title: null 类边界场景 bs-008
+  source: bs
+  source_id: bs-008
+  ctx:
+    entity: product_fabric_composition
+    field: updated_at
+    description: product_fabric_composition 的可选字段 updated_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: updated_at
+    detail: 提交 updated_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 updated_at 为空，不报错
+    field: updated_at
+- id: s-017
+  title: null 类边界场景 bs-009
+  source: bs
+  source_id: bs-009
+  ctx:
+    entity: care_instruction_def
+    field: id
+    description: care_instruction_def 的可选字段 id 未提供
+  act:
+    op: trigger_boundary_case
+    field: id
+    detail: 提交 id=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 id 为空，不报错
+    field: id
+- id: s-018
+  title: null 类边界场景 bs-010
+  source: bs
+  source_id: bs-010
+  ctx:
+    entity: care_instruction_def
+    field: code
+    description: care_instruction_def 创建或更新时缺少必填字段 code
+  act:
+    op: trigger_boundary_case
+    field: code
+    detail: 提交 code=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 code
+    field: code
+- id: s-019
+  title: null 类边界场景 bs-011
+  source: bs
+  source_id: bs-011
+  ctx:
+    entity: care_instruction_def
+    field: symbol_unicode
+    description: care_instruction_def 的可选字段 symbol_unicode 未提供
+  act:
+    op: trigger_boundary_case
+    field: symbol_unicode
+    detail: 提交 symbol_unicode=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 symbol_unicode 为空，不报错
+    field: symbol_unicode
+- id: s-020
+  title: null 类边界场景 bs-012
+  source: bs
+  source_id: bs-012
+  ctx:
+    entity: care_instruction_def
+    field: label_en
+    description: care_instruction_def 创建或更新时缺少必填字段 label_en
+  act:
+    op: trigger_boundary_case
+    field: label_en
+    detail: 提交 label_en=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 label_en
+    field: label_en
+- id: s-021
+  title: null 类边界场景 bs-013
+  source: bs
+  source_id: bs-013
+  ctx:
+    entity: care_instruction_def
+    field: label_zh
+    description: care_instruction_def 创建或更新时缺少必填字段 label_zh
+  act:
+    op: trigger_boundary_case
+    field: label_zh
+    detail: 提交 label_zh=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 label_zh
+    field: label_zh
+- id: s-022
+  title: null 类边界场景 bs-014
+  source: bs
+  source_id: bs-014
+  ctx:
+    entity: care_instruction_def
+    field: category
+    description: care_instruction_def 创建或更新时缺少必填字段 category
+  act:
+    op: trigger_boundary_case
+    field: category
+    detail: 提交 category=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 category
+    field: category
+- id: s-023
+  title: null 类边界场景 bs-015
+  source: bs
+  source_id: bs-015
+  ctx:
+    entity: care_instruction_def
+    field: sort_order
+    description: care_instruction_def 的可选字段 sort_order 未提供
+  act:
+    op: trigger_boundary_case
+    field: sort_order
+    detail: 提交 sort_order=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 sort_order 为空，不报错
+    field: sort_order
+- id: s-024
+  title: null 类边界场景 bs-016
+  source: bs
+  source_id: bs-016
+  ctx:
+    entity: care_instruction_def
+    field: status
+    description: care_instruction_def 创建或更新时缺少必填字段 status
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交 status=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 status
+    field: status
+- id: s-025
+  title: null 类边界场景 bs-017
+  source: bs
+  source_id: bs-017
+  ctx:
+    entity: care_instruction_def
+    field: created_at
+    description: care_instruction_def 的可选字段 created_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: created_at
+    detail: 提交 created_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 created_at 为空，不报错
+    field: created_at
+- id: s-026
+  title: null 类边界场景 bs-018
+  source: bs
+  source_id: bs-018
+  ctx:
+    entity: care_instruction_def
+    field: updated_at
+    description: care_instruction_def 的可选字段 updated_at 未提供
+  act:
+    op: trigger_boundary_case
+    field: updated_at
+    detail: 提交 updated_at=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 updated_at 为空，不报错
+    field: updated_at
+- id: s-027
+  title: null 类边界场景 bs-019
+  source: bs
+  source_id: bs-019
+  ctx:
+    entity: product_care_instruction
+    field: product_id
+    description: product_care_instruction 创建或更新时缺少必填字段 product_id
+  act:
+    op: trigger_boundary_case
+    field: product_id
+    detail: 提交 product_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 product_id
+    field: product_id
+- id: s-028
+  title: null 类边界场景 bs-020
+  source: bs
+  source_id: bs-020
+  ctx:
+    entity: product_care_instruction
+    field: care_id
+    description: product_care_instruction 创建或更新时缺少必填字段 care_id
+  act:
+    op: trigger_boundary_case
+    field: care_id
+    detail: 提交 care_id=null 的请求
+  expect:
+    http_status: 422
+    error_code: FIELD_REQUIRED
+    description: 系统返回字段必填错误，拒绝写入 care_id
+    field: care_id
+- id: s-029
+  title: null 类边界场景 bs-021
+  source: bs
+  source_id: bs-021
+  ctx:
+    entity: product_care_instruction
+    field: sort_order
+    description: product_care_instruction 的可选字段 sort_order 未提供
+  act:
+    op: trigger_boundary_case
+    field: sort_order
+    detail: 提交 sort_order=null 的请求
+  expect:
+    http_status: 201
+    error_code: SUCCESS
+    description: 系统正常处理并保持 sort_order 为空，不报错
+    field: sort_order
+- id: s-030
+  title: extreme 类边界场景 bs-022
+  source: bs
+  source_id: bs-022
+  ctx:
+    entity: product_fabric_composition
+    field: layer
+    description: layer 的合法枚举为 [1, 2, 3, 4]
+  act:
+    op: trigger_boundary_case
+    field: layer
+    detail: 提交枚举外的 layer=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 layer 枚举错误
+    field: layer
+- id: s-031
+  title: extreme 类边界场景 bs-023
+  source: bs
+  source_id: bs-023
+  ctx:
+    entity: product_fabric_composition
+    field: material
+    description: material 的合法枚举为 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  act:
+    op: trigger_boundary_case
+    field: material
+    detail: 提交枚举外的 material=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 material 枚举错误
+    field: material
+- id: s-032
+  title: extreme 类边界场景 bs-024
+  source: bs
+  source_id: bs-024
+  ctx:
+    entity: product_fabric_composition
+    field: percentage
+    description: percentage 的最小值约束为 0
+  act:
+    op: trigger_boundary_case
+    field: percentage
+    detail: 提交 percentage=-1
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝低于最小值的输入，返回 percentage 边界错误
+    field: percentage
+- id: s-033
+  title: extreme 类边界场景 bs-025
+  source: bs
+  source_id: bs-025
+  ctx:
+    entity: product_fabric_composition
+    field: percentage
+    description: percentage 的最大值约束为 100
+  act:
+    op: trigger_boundary_case
+    field: percentage
+    detail: 提交 percentage=101
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超过最大值的输入，返回 percentage 边界错误
+    field: percentage
+- id: s-034
+  title: extreme 类边界场景 bs-026
+  source: bs
+  source_id: bs-026
+  ctx:
+    entity: care_instruction_def
+    field: code
+    description: code 的最大长度为 64
+  act:
+    op: trigger_boundary_case
+    field: code
+    detail: 提交长度为 65 的 code
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 code 长度超限错误
+    field: code
+- id: s-035
+  title: extreme 类边界场景 bs-027
+  source: bs
+  source_id: bs-027
+  ctx:
+    entity: care_instruction_def
+    field: symbol_unicode
+    description: symbol_unicode 的最大长度为 16
+  act:
+    op: trigger_boundary_case
+    field: symbol_unicode
+    detail: 提交长度为 17 的 symbol_unicode
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 symbol_unicode 长度超限错误
+    field: symbol_unicode
+- id: s-036
+  title: extreme 类边界场景 bs-028
+  source: bs
+  source_id: bs-028
+  ctx:
+    entity: care_instruction_def
+    field: label_en
+    description: label_en 的最大长度为 128
+  act:
+    op: trigger_boundary_case
+    field: label_en
+    detail: 提交长度为 129 的 label_en
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 label_en 长度超限错误
+    field: label_en
+- id: s-037
+  title: extreme 类边界场景 bs-029
+  source: bs
+  source_id: bs-029
+  ctx:
+    entity: care_instruction_def
+    field: label_zh
+    description: label_zh 的最大长度为 128
+  act:
+    op: trigger_boundary_case
+    field: label_zh
+    detail: 提交长度为 129 的 label_zh
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝超长输入，返回 label_zh 长度超限错误
+    field: label_zh
+- id: s-038
+  title: extreme 类边界场景 bs-030
+  source: bs
+  source_id: bs-030
+  ctx:
+    entity: care_instruction_def
+    field: category
+    description: category 的合法枚举为 ['washing', 'bleaching', 'drying', 'ironing', 'dry_cleaning']
+  act:
+    op: trigger_boundary_case
+    field: category
+    detail: 提交枚举外的 category=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 category 枚举错误
+    field: category
+- id: s-039
+  title: extreme 类边界场景 bs-031
+  source: bs
+  source_id: bs-031
+  ctx:
+    entity: care_instruction_def
+    field: status
+    description: status 的合法枚举为 ['active', 'disabled']
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 提交枚举外的 status=__invalid__
+  expect:
+    http_status: 422
+    error_code: VALUE_OUT_OF_RANGE
+    description: 系统拒绝非法枚举值，返回 status 枚举错误
+    field: status
+- id: s-040
+  title: concurrent 类边界场景 bs-032
+  source: bs
+  source_id: bs-032
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: care_instruction_def 当前处于 active，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 disable 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-041
+  title: concurrent 类边界场景 bs-033
+  source: bs
+  source_id: bs-033
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: care_instruction_def 当前处于 disabled，同一转换被重复提交
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交两个 enable 请求
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+- id: s-042
+  title: concurrent 类边界场景 bs-034
+  source: bs
+  source_id: bs-034
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 draft，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 publish 与 delete
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-043
+  title: concurrent 类边界场景 bs-035
+  source: bs
+  source_id: bs-035
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 published，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 unpublish 与 archive
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-044
+  title: concurrent 类边界场景 bs-036
+  source: bs
+  source_id: bs-036
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 archived，两个互斥转换同时触发
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 并发提交 restore 与 delete
+  expect:
+    http_status: 409
+    error_code: CONCURRENT_CONFLICT
+    description: 系统只允许一个转换成功，后一个请求失败或等待重试
+- id: s-045
+  title: auth 类边界场景 bs-037
+  source: bs
+  source_id: bs-037
+  ctx:
+    entity: product_fabric_composition
+    description: 用户角色为 viewer，无权执行流程 后台管理员编辑商品面料成分
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台管理员编辑商品面料成分 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-046
+  title: auth 类边界场景 bs-038
+  source: bs
+  source_id: bs-038
+  ctx:
+    entity: product_fabric_composition
+    description: 用户已开始执行流程 后台管理员编辑商品面料成分，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-047
+  title: auth 类边界场景 bs-039
+  source: bs
+  source_id: bs-039
+  ctx:
+    entity: product_fabric_composition
+    description: 用户属于 tenant-A，尝试访问 product_fabric_composition 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-048
+  title: auth 类边界场景 bs-040
+  source: bs
+  source_id: bs-040
+  ctx:
+    entity: care_instruction_def
+    description: 用户角色为 viewer，无权执行流程 后台管理员选择护理标签
+  act:
+    op: trigger_boundary_case
+    detail: 触发 后台管理员选择护理标签 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-049
+  title: auth 类边界场景 bs-041
+  source: bs
+  source_id: bs-041
+  ctx:
+    entity: care_instruction_def
+    description: 用户已开始执行流程 后台管理员选择护理标签，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-050
+  title: auth 类边界场景 bs-042
+  source: bs
+  source_id: bs-042
+  ctx:
+    entity: care_instruction_def
+    description: 用户属于 tenant-A，尝试访问 care_instruction_def 的 tenant-B 资源
+  act:
+    op: trigger_boundary_case
+    detail: 发起跨组或跨租户查询/写入请求
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝访问目标资源，返回无权访问错误
+- id: s-051
+  title: auth 类边界场景 bs-043
+  source: bs
+  source_id: bs-043
+  ctx:
+    entity: product_fabric_composition
+    description: 用户角色为 viewer，无权执行流程 消费端用户查看商品面料护理信息
+  act:
+    op: trigger_boundary_case
+    detail: 触发 消费端用户查看商品面料护理信息 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-052
+  title: auth 类边界场景 bs-044
+  source: bs
+  source_id: bs-044
+  ctx:
+    entity: product_fabric_composition
+    description: 用户已开始执行流程 消费端用户查看商品面料护理信息，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-053
+  title: auth 类边界场景 bs-045
+  source: bs
+  source_id: bs-045
+  ctx:
+    entity: care_instruction_def
+    description: 用户角色为 viewer，无权执行流程 系统管理员维护护理标签字典
+  act:
+    op: trigger_boundary_case
+    detail: 触发 系统管理员维护护理标签字典 所需的写操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统拒绝越权操作，返回 403 或权限不足错误
+- id: s-054
+  title: auth 类边界场景 bs-046
+  source: bs
+  source_id: bs-046
+  ctx:
+    entity: care_instruction_def
+    description: 用户已开始执行流程 系统管理员维护护理标签字典，管理员在会话内撤销其权限
+  act:
+    op: trigger_boundary_case
+    detail: 用户继续提交当前操作
+  expect:
+    http_status: 403
+    error_code: FORBIDDEN
+    description: 系统检测权限已变更，终止操作并返回权限不足错误
+- id: s-055
+  title: network 类边界场景 bs-047
+  source: bs
+  source_id: bs-047
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 后台管理员编辑商品面料成分 依赖的外部系统 external_system 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 external_system 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-056
+  title: network 类边界场景 bs-048
+  source: bs
+  source_id: bs-048
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 后台管理员编辑商品面料成分 调用 external_system 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-057
+  title: network 类边界场景 bs-049
+  source: bs
+  source_id: bs-049
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 后台管理员编辑商品面料成分 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-058
+  title: network 类边界场景 bs-050
+  source: bs
+  source_id: bs-050
+  ctx:
+    entity: care_instruction_def
+    description: 流程 后台管理员选择护理标签 依赖的外部系统 external_system 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 external_system 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-059
+  title: network 类边界场景 bs-051
+  source: bs
+  source_id: bs-051
+  ctx:
+    entity: care_instruction_def
+    description: 流程 后台管理员选择护理标签 调用 external_system 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-060
+  title: network 类边界场景 bs-052
+  source: bs
+  source_id: bs-052
+  ctx:
+    entity: care_instruction_def
+    description: 流程 后台管理员选择护理标签 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-061
+  title: network 类边界场景 bs-053
+  source: bs
+  source_id: bs-053
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 消费端用户查看商品面料护理信息 依赖的外部系统 external_system 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 external_system 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-062
+  title: network 类边界场景 bs-054
+  source: bs
+  source_id: bs-054
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 消费端用户查看商品面料护理信息 调用 external_system 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-063
+  title: network 类边界场景 bs-055
+  source: bs
+  source_id: bs-055
+  ctx:
+    entity: product_fabric_composition
+    description: 流程 消费端用户查看商品面料护理信息 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-064
+  title: network 类边界场景 bs-056
+  source: bs
+  source_id: bs-056
+  ctx:
+    entity: care_instruction_def
+    description: 流程 系统管理员维护护理标签字典 依赖的外部系统 external_system 不可用
+  act:
+    op: trigger_boundary_case
+    detail: 触发需要访问 external_system 的业务流程
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统降级处理或返回明确的服务暂时不可用错误
+- id: s-065
+  title: network 类边界场景 bs-057
+  source: bs
+  source_id: bs-057
+  ctx:
+    entity: care_instruction_def
+    description: 流程 系统管理员维护护理标签字典 调用 external_system 超时，客户端自动重试
+  act:
+    op: trigger_boundary_case
+    detail: 重复发送相同业务请求
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: 系统保证幂等，仅执行一次副作用，不产生重复数据
+- id: s-066
+  title: network 类边界场景 bs-058
+  source: bs
+  source_id: bs-058
+  ctx:
+    entity: care_instruction_def
+    description: 流程 系统管理员维护护理标签字典 请求已发出后网络中断
+  act:
+    op: trigger_boundary_case
+    detail: 网络恢复后前端重新拉取状态
+  expect:
+    http_status: 503
+    error_code: UPSTREAM_UNAVAILABLE
+    description: UI 与后端状态重新同步，不遗留脏数据或错误提示
+- id: s-067
+  title: integrity 类边界场景 bs-059
+  source: bs
+  source_id: bs-059
+  ctx:
+    entity: product_care_instruction
+    description: product_care_instruction 关联的 care_instruction_def 记录不存在
+  act:
+    op: trigger_boundary_case
+    detail: 提交引用不存在 care_instruction_def 的写请求
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 care_instruction_def 不存在错误，拒绝写入
+- id: s-068
+  title: integrity 类边界场景 bs-060
+  source: bs
+  source_id: bs-060
+  ctx:
+    entity: care_instruction_def
+    field: ref_2
+    description: care_instruction_def 引用的 product 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: ref_2
+    detail: 提交指向不存在 product 的引用
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 product 不存在错误
+    field: ref_2
+- id: s-069
+  title: integrity 类边界场景 bs-061
+  source: bs
+  source_id: bs-061
+  ctx:
+    entity: care_instruction_def
+    field: ref_3
+    description: care_instruction_def 引用的 product 记录不存在
+  act:
+    op: trigger_boundary_case
+    field: ref_3
+    detail: 提交指向不存在 product 的引用
+  expect:
+    http_status: 422
+    error_code: REFERENCE_NOT_FOUND
+    description: 系统返回关联实体 product 不存在错误
+    field: ref_3
+- id: s-070
+  title: state 类边界场景 bs-062
+  source: bs
+  source_id: bs-062
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: care_instruction_def 当前处于 active
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 disable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-071
+  title: state 类边界场景 bs-063
+  source: bs
+  source_id: bs-063
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: care_instruction_def 当前处于 disabled
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 enable_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-072
+  title: state 类边界场景 bs-064
+  source: bs
+  source_id: bs-064
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 draft
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 publish_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-073
+  title: state 类边界场景 bs-065
+  source: bs
+  source_id: bs-065
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 published
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 unpublish_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-074
+  title: state 类边界场景 bs-066
+  source: bs
+  source_id: bs-066
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 archived
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 restore_again
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-075
+  title: state 类边界场景 bs-067
+  source: bs
+  source_id: bs-067
+  ctx:
+    entity: care_instruction_def
+    field: state
+    description: product 当前处于 deleted
+  act:
+    op: trigger_boundary_case
+    field: state
+    detail: 触发该状态下不允许的操作 invalid_event
+  expect:
+    http_status: 409
+    error_code: STATE_NOT_ALLOWED
+    description: 系统返回状态不允许错误，拒绝执行操作
+- id: s-076
+  title: callsite-compat 类边界场景 bs-068
+  source: bs
+  source_id: bs-068
+  ctx:
+    entity: product_fabric_composition
+    field: layer
+    description: product_fabric_composition.layer 枚举值集合 [1, 2, 3, 4]，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: layer
+    detail: 为 layer 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-077
+  title: callsite-compat 类边界场景 bs-069
+  source: bs
+  source_id: bs-069
+  ctx:
+    entity: product_fabric_composition
+    field: material
+    description: product_fabric_composition.material 枚举值集合 [1, 2, 3, 4, 5, 6, 7, 8,
+      9, 10]，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: material
+    detail: 为 material 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-078
+  title: callsite-compat 类边界场景 bs-070
+  source: bs
+  source_id: bs-070
+  ctx:
+    entity: care_instruction_def
+    field: category
+    description: care_instruction_def.category 枚举值集合 ['washing', 'bleaching', 'drying',
+      'ironing', 'dry_cleaning']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: category
+    detail: 为 category 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-079
+  title: callsite-compat 类边界场景 bs-071
+  source: bs
+  source_id: bs-071
+  ctx:
+    entity: care_instruction_def
+    field: status
+    description: care_instruction_def.status 枚举值集合 ['active', 'disabled']，调用方依赖当前值
+  act:
+    op: trigger_boundary_case
+    field: status
+    detail: 为 status 新增枚举值
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+- id: s-080
+  title: callsite-compat 类边界场景 bs-072
+  source: bs
+  source_id: bs-072
+  ctx:
+    entity: product_care_instruction
+    description: care_instruction_def 实体结构变更，product_care_instruction 通过 外键 引用
+  act:
+    op: trigger_boundary_case
+    detail: 修改 care_instruction_def 的字段定义（添加/删除/修改类型）
+  expect:
+    http_status: 422
+    error_code: REQUEST_REJECTED
+    description: product_care_instruction 能正常读取 care_instruction_def 变更后的数据，不因字段增删而崩溃
+- id: s-081
+  title: admin_edit_fabric_composition
+  source: func
+  source_id: admin_edit_fabric_composition
+  ctx: Admin logged in, editing a product with fabric composition section open
+  act:
+    op: admin_edit_fabric_composition
+    description: 删除商品旧面料数据
+  expect:
+    http_status: 200
+    state: completed
+- id: s-082
+  title: admin_select_care_instructions
+  source: func
+  source_id: admin_select_care_instructions
+  ctx: Admin logged in, editing a product with care instructions section open
+  act:
+    op: admin_select_care_instructions
+    description: 加载护理标签字典（按 category 分组）
+  expect:
+    http_status: 200
+    state: completed
+- id: s-083
+  title: customer_view_fabric_care_pdp
+  source: func
+  source_id: customer_view_fabric_care_pdp
+  ctx: Customer viewing product detail page (PDP)
+  act:
+    op: customer_view_fabric_care_pdp
+    description: 读取面料成分（按 layer 分组，按 sort_order 排序）
+  expect:
+    http_status: 200
+    state: completed
+- id: s-084
+  title: admin_maintain_care_instruction_dict
+  source: func
+  source_id: admin_maintain_care_instruction_dict
+  ctx: System admin accessing care instruction dictionary management
+  act:
+    op: admin_maintain_care_instruction_dict
+    description: 校验 code 唯一性
+  expect:
+    http_status: 200
+    state: completed

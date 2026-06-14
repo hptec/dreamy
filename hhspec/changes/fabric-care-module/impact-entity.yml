@@ -1,0 +1,17 @@
+skipped: false
+analyzed_at: "2026-06-13T23:55:35Z"
+er_diagram_hash: "eb0bb5a6b0eb2da39d5f82081fc39b11362d50b88015b64fc545517e0f89882f"
+
+entities_analyzed:
+  - id: ProductFabricComposition
+  - id: CareInstructionDef
+  - id: ProductCareInstruction
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []

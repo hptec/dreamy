@@ -1,0 +1,134 @@
+meta:
+  mode: incremental
+  baseline_ref: hhspec/specs/architecture/er-diagram.yml
+  generated_at: '2026-06-14T08:23:00Z'
+  breaking_changes: []
+
+entities:
+  - id: ProductFabricComposition
+    desc: 商品面料成分（支持多层次结构：主料/内衬/装饰层/边饰）
+    meta:
+      source: new
+    fields:
+      - n: id
+        t: Long
+        pk: true
+        source: 'project_tech_stack.backend=java [INFERRED]'
+      - n: product_id
+        t: Long
+        req: true
+        source: 'user requirement: multi-layer fabric structure'
+      - n: layer
+        t: enum
+        vals: [1, 2, 3, 4]
+        req: true
+        source: 'user requirement: Shell(1)/Lining(2)/Overlay(3)/Trim(4)'
+      - n: material
+        t: enum
+        vals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        req: true
+        source: 'user requirement: Cotton(1)/Polyester(2)/Lace(3)/Satin(4)/Chiffon(5)/Tulle(6)/Silk(7)/Organza(8)/Spandex(9)/Nylon(10)'
+      - n: percentage
+        t: number
+        min: 0
+        max: 100
+        req: true
+        source: 'user requirement: percentage validation 0-100'
+      - n: sort_order
+        t: int
+        source: 'user requirement: sort_order for display sequence'
+      - n: created_at
+        t: timestamp
+        source: 'standard audit field [INFERRED]'
+      - n: updated_at
+        t: timestamp
+        source: 'standard audit field [INFERRED]'
+    relations:
+      - to: Product
+        type: n1
+        source: 'user requirement: product_id foreign key'
+    constraints:
+      - type: js_guard
+        expr: 'SUM(percentage WHERE product_id=X AND layer=Y) == 100'
+        desc: 每层所有材质的百分比总和必须等于100%
+        source: 'user requirement: per-layer percentage sum validation'
+
+  - id: CareInstructionDef
+    desc: 护理标签字典（标准化护理说明定义，含符号和多语言标签）
+    meta:
+      source: new
+    fields:
+      - n: id
+        t: Long
+        pk: true
+        source: 'project_tech_stack.backend=java [INFERRED]'
+      - n: code
+        t: str
+        maxlen: 64
+        req: true
+        source: 'user requirement: unique code identifier'
+      - n: symbol_unicode
+        t: str
+        maxlen: 16
+        source: 'user requirement: Unicode symbol for display'
+      - n: label_en
+        t: str
+        maxlen: 128
+        req: true
+        source: 'user requirement: English label'
+      - n: label_zh
+        t: str
+        maxlen: 128
+        req: true
+        source: 'user requirement: Chinese label'
+      - n: category
+        t: enum
+        vals: ['washing', 'bleaching', 'drying', 'ironing', 'dry_cleaning']
+        req: true
+        source: 'user requirement: care instruction categories'
+      - n: sort_order
+        t: int
+        source: 'display sequence [INFERRED]'
+      - n: status
+        t: enum
+        vals: ['active', 'disabled']
+        req: true
+        source: 'lifecycle state for enable/disable dictionary items'
+      - n: created_at
+        t: timestamp
+        source: 'standard audit field [INFERRED]'
+      - n: updated_at
+        t: timestamp
+        source: 'standard audit field [INFERRED]'
+    constraints:
+      - type: unique
+        fields: [code]
+        source: 'user requirement: code as unique identifier'
+
+  - id: ProductCareInstruction
+    desc: 商品-护理标签关联（多对多）
+    meta:
+      source: new
+    fields:
+      - n: product_id
+        t: Long
+        req: true
+        source: 'user requirement: product foreign key'
+      - n: care_id
+        t: Long
+        req: true
+        source: 'user requirement: care instruction foreign key'
+      - n: sort_order
+        t: int
+        source: 'display order in PDP'
+    relations:
+      - to: Product
+        type: n1
+        source: 'user requirement: product_id foreign key'
+      - to: CareInstructionDef
+        type: n1
+        source: 'user requirement: care_id foreign key'
+    constraints:
+      - type: unique
+        fields: [product_id, care_id]
+        source: 'prevent duplicate assignment'

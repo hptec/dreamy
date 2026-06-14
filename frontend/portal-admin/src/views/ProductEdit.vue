@@ -11,6 +11,8 @@ import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
+import FabricCompositionEditor from '@/components/FabricCompositionEditor.vue'
+import CareSymbolSelector from '@/components/CareSymbolSelector.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -23,7 +25,7 @@ import {
   PlusIcon, XMarkIcon, RocketLaunchIcon, ArrowLeftIcon, InformationCircleIcon, TrashIcon,
 } from '@heroicons/vue/24/outline'
 import { AttrVisibility, AttributeDefType, ImageKind, ProductStatus } from '@/api/types'
-import type { AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow } from '@/api/types'
+import type { AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow, FabricComposition } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -48,6 +50,8 @@ const sections = [
   { key: 'sku', label: 'SKU 矩阵' },
   { key: 'size', label: '尺码表' },
   { key: 'price', label: '定价库存' },
+  { key: 'fabric', label: '面料成分' },
+  { key: 'care', label: '护理标签' },
   { key: 'content', label: '内容详情' },
   { key: 'seo', label: 'SEO' },
 ]
@@ -90,11 +94,11 @@ const serverUpdatedAt = ref<string | null>(null)
 const form = ref({
   name: '',
   slug: '',
-  subtitle: '',
   categoryId: null as number | null,
   productType: '',
   description: '',
   designerNote: '',
+  sellingPoints: [] as string[],
   price: '' as number | string,
   compareAt: '' as number | string,
   installment: true,
@@ -110,16 +114,22 @@ const form = ref({
   seoTitle: '',
   seoDesc: '',
   tagIds: [] as number[],
+  fabricCompositions: [] as FabricComposition[],
+  careInstructionIds: [] as number[],
+  fabricCareNote: '',
 })
 
 // 多币种覆盖价（decision 14：可覆盖，空 = 自动换算）
 const CURRENCIES = ['EUR', 'CAD', 'AUD', 'GBP']
 const multiCurrency = ref<Record<string, string>>({ EUR: '', CAD: '', AUD: '', GBP: '' })
 
+// [L2-COMP-FC-03] 面料成分校验错误状态
+const fabricErrors = ref<Map<number, string>>(new Map())
+
 // 三语 translations（EN 主字段；ES/FR 进 translations[]）
 const contentLocale = ref<'en' | 'es' | 'fr'>('en')
-type Trans = { name: string; subtitle: string; description: string; seoTitle: string; seoDescription: string }
-const emptyTrans = (): Trans => ({ name: '', subtitle: '', description: '', seoTitle: '', seoDescription: '' })
+type Trans = { name: string; description: string; sellingPoints: string[]; seoTitle: string; seoDescription: string }
+const emptyTrans = (): Trans => ({ name: '', description: '', sellingPoints: [], seoTitle: '', seoDescription: '' })
 const trans = ref<Record<'es' | 'fr', Trans>>({ es: emptyTrans(), fr: emptyTrans() })
 const transFilled = computed(() => ({
   en: !!(form.value.name || form.value.description),
@@ -381,11 +391,11 @@ async function loadProduct() {
     Object.assign(form.value, {
       name: p.name,
       slug: p.slug,
-      subtitle: p.subtitle || '',
       categoryId: p.categoryId,
       productType: p.productType || '',
       description: p.description || '',
       designerNote: p.designerNote || '',
+      sellingPoints: [...(p.sellingPoints || [])],
       price: p.price ?? '',
       compareAt: p.compareAt ?? '',
       installment: p.installment ?? true,
@@ -417,8 +427,8 @@ async function loadProduct() {
       const t = byLocale(l)
       return {
         name: t?.name || '',
-        subtitle: t?.subtitle || '',
         description: t?.description || '',
+        sellingPoints: [...(t?.sellingPoints || [])],
         seoTitle: t?.seoTitle || '',
         seoDescription: t?.seoDescription || '',
       }
@@ -465,12 +475,17 @@ function buildTranslations(): ProductTranslation[] {
   const rows: ProductTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    if (Object.values(t).some((v) => v.trim())) {
+    // 检查是否有任何非空字段（包括 sellingPoints 数组）
+    const hasContent = t.name.trim() || t.description.trim() || t.seoTitle.trim() ||
+                       t.seoDescription.trim() || t.sellingPoints.some(p => p.trim())
+    if (hasContent) {
       rows.push({
         locale: l,
         name: t.name.trim() || null,
-        subtitle: t.subtitle.trim() || null,
         description: t.description.trim() || null,
+        sellingPoints: t.sellingPoints.filter(p => p.trim()).length > 0
+          ? t.sellingPoints.filter(p => p.trim())
+          : [],
         seoTitle: t.seoTitle.trim() || null,
         seoDescription: t.seoDescription.trim() || null,
       })
@@ -496,7 +511,9 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
   return {
     name: form.value.name.trim(),
     slug: form.value.slug.trim(),
-    subtitle: form.value.subtitle.trim() || null,
+    sellingPoints: form.value.sellingPoints.filter(p => p.trim()).length > 0
+      ? form.value.sellingPoints.filter(p => p.trim())
+      : [],
     categoryId: form.value.categoryId,
     productType: form.value.productType.trim() || null,
     description: form.value.description || null,
@@ -578,6 +595,19 @@ async function save() {
         conflictModal.value = true // 商品已被他人修改 → 「重新加载」
         return
       }
+      // [L2-INTERACTION-FC-08] 422510: FABRIC_PERCENTAGE_INVALID 服务端二次校验失败
+      if (e.code === 422510) {
+        const details = e.details as Record<string, unknown> | undefined
+        const layer = details?.layer as number | undefined
+        const actualSum = details?.actual_sum as number | undefined
+        if (layer != null && actualSum != null) {
+          fabricErrors.value.set(layer, `该层总和为 ${actualSum}%，必须为 100%`)
+          scrollTo('fabric')
+        } else {
+          toast.error(e.message)
+        }
+        return
+      }
       if (e.code === 422501) {
         errors.value = extractFieldErrors(e)
         if (!Object.keys(errors.value).length) toast.error(e.message)
@@ -599,6 +629,12 @@ async function reloadAfterConflict() {
   toast.info('已加载最新数据，本地改动已丢弃')
 }
 
+// [L2-INTERACTION-FC-09] 面料错误处理回调
+function handleFabricErrors(errors: Map<number, string>) {
+  fabricErrors.value = errors
+  // 错误信息已由组件内部显示，此处仅更新状态
+}
+
 onMounted(async () => {
   await Promise.all([
     categories.fetch().catch(() => undefined),
@@ -614,6 +650,7 @@ onMounted(async () => {
 <template>
   <div class="animate-fadeup">
     <PageHeader
+      sticky
       :eyebrow="editing ? 'Edit Product' : 'New Product'"
       :title="editing ? form.name || '编辑商品' : '新增商品'"
       subtitle="左侧目录快速定位，所有信息区块同屏拉通，可任意顺序编辑"
@@ -659,8 +696,36 @@ onMounted(async () => {
               <p v-if="errors.name" class="mt-1 text-[11px] text-danger">{{ errors.name }}</p>
             </div>
             <div>
-              <label class="field-label">副标题 / 卖点</label>
-              <input v-model="form.subtitle" class="field" placeholder="一句话卖点，显示在 PDP 价格下方" />
+              <label class="field-label">商品卖点（最多5个，显示在 PDP 价格下方）</label>
+              <div class="space-y-2">
+                <div v-for="(point, i) in form.sellingPoints" :key="i" class="flex items-center gap-2">
+                  <input
+                    v-model="form.sellingPoints[i]"
+                    class="field flex-1"
+                    :placeholder="`卖点 ${i + 1}（如：Free Custom Sizing）`"
+                    maxlength="100"
+                  />
+                  <button
+                    type="button"
+                    @click="form.sellingPoints.splice(i, 1)"
+                    class="rounded-sm border border-line px-3 py-2 text-xs text-danger transition-colors hover:border-danger hover:bg-danger/5"
+                  >
+                    删除
+                  </button>
+                </div>
+                <button
+                  v-if="form.sellingPoints.length < 5"
+                  type="button"
+                  @click="form.sellingPoints.push('')"
+                  class="flex items-center gap-1.5 rounded-sm border border-line px-3 py-2 text-xs text-ink-soft transition-colors hover:border-ink hover:text-ink"
+                >
+                  <PlusIcon class="h-3.5 w-3.5" />
+                  添加卖点
+                </button>
+              </div>
+              <p class="mt-1.5 text-[11px] text-ink-faint">
+                示例：Free Custom Sizing / 14-Day Production Time / Free Worldwide Shipping
+              </p>
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
@@ -1071,7 +1136,47 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ⑦ 内容详情（三语 tab + 款式编号） -->
+        <!-- ⑦ 面料成分 -->
+        <section id="sec-fabric" class="panel scroll-mt-24 p-6">
+          <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
+            <span class="h-4 w-1 rounded-full bg-gold"></span>面料成分
+          </h2>
+          <div class="max-w-4xl">
+            <!-- [L2-COMP-FC-03] 集成 FabricCompositionEditor -->
+            <FabricCompositionEditor
+              v-model="form.fabricCompositions"
+              @validation-error="handleFabricErrors"
+            />
+          </div>
+        </section>
+
+        <!-- ⑧ 护理标签 -->
+        <section id="sec-care" class="panel scroll-mt-24 p-6">
+          <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
+            <span class="h-4 w-1 rounded-full bg-gold"></span>护理标签
+          </h2>
+          <div class="max-w-4xl space-y-6">
+            <!-- [L2-COMP-FC-03] 集成 CareSymbolSelector -->
+            <CareSymbolSelector v-model="form.careInstructionIds" />
+
+            <!-- 护理备注（可选） -->
+            <div>
+              <label class="field-label">护理备注（可选）</label>
+              <textarea
+                v-model="form.fabricCareNote"
+                rows="3"
+                class="field resize-none"
+                placeholder="特殊护理说明，如&quot;珠饰区域建议专业干洗&quot;"
+                maxlength="500"
+              />
+              <p class="mt-1 text-[11px] text-ink-faint">
+                {{ form.fabricCareNote.length }} / 500 字符
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ⑨ 内容详情（三语 tab + 款式编号） -->
         <section id="sec-content" class="panel scroll-mt-24 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>内容详情
@@ -1089,11 +1194,39 @@ onMounted(async () => {
               <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">多语言内容（EN 主字段 / ES / FR）</p>
               <LocaleTabs v-model="contentLocale" :filled="transFilled" />
               <div v-show="contentLocale === 'en'" class="space-y-1 text-[12px] text-ink-faint">
-                <p>EN 内容即上方主字段（名称/副标题/介绍/SEO），无需重复填写。</p>
+                <p>EN 内容即上方主字段（名称/商品卖点/介绍/SEO），无需重复填写。</p>
               </div>
               <div v-for="l in ['es', 'fr'] as const" v-show="contentLocale === l" :key="l" class="space-y-3">
                 <input v-model="trans[l].name" class="field" :placeholder="`商品名称（${l.toUpperCase()}）`" />
-                <input v-model="trans[l].subtitle" class="field" :placeholder="`副标题（${l.toUpperCase()}）`" />
+                <div>
+                  <label class="mb-1.5 block text-[11px] font-medium text-ink-soft">商品卖点（{{ l.toUpperCase() }}）</label>
+                  <div class="space-y-2">
+                    <div v-for="(point, i) in trans[l].sellingPoints" :key="i" class="flex items-center gap-2">
+                      <input
+                        v-model="trans[l].sellingPoints[i]"
+                        class="field flex-1 text-sm"
+                        :placeholder="`卖点 ${i + 1}（${l.toUpperCase()}）`"
+                        maxlength="100"
+                      />
+                      <button
+                        type="button"
+                        @click="trans[l].sellingPoints.splice(i, 1)"
+                        class="rounded-sm border border-line px-2 py-1.5 text-xs text-danger transition-colors hover:border-danger"
+                      >
+                        删除
+                      </button>
+                    </div>
+                    <button
+                      v-if="trans[l].sellingPoints.length < 5"
+                      type="button"
+                      @click="trans[l].sellingPoints.push('')"
+                      class="flex items-center gap-1 rounded-sm border border-line px-2 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink"
+                    >
+                      <PlusIcon class="h-3 w-3" />
+                      添加卖点
+                    </button>
+                  </div>
+                </div>
                 <textarea v-model="trans[l].description" rows="4" class="field resize-none" :placeholder="`商品介绍（${l.toUpperCase()}）`"></textarea>
                 <div class="grid grid-cols-2 gap-3">
                   <input v-model="trans[l].seoTitle" class="field" :placeholder="`SEO Title（${l.toUpperCase()}）`" />
@@ -1105,7 +1238,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ⑧ SEO -->
+        <!-- ⑩ SEO -->
         <section id="sec-seo" class="panel scroll-mt-24 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>SEO

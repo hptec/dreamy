@@ -1,0 +1,32 @@
+meta:
+  mode: incremental
+  baseline_ref: "hhspec/specs/architecture/state-machine.yml"
+  generated_at: "2026-06-14T08:23:00Z"
+  breaking_changes: []
+
+machines:
+  - id: care_instruction_lifecycle
+    entity: CareInstructionDef
+    desc: 护理标签字典生命周期（预置数据，支持禁用/启用）
+    meta:
+      source: new
+    states: [active, disabled]
+    initial: active
+    transitions:
+      - {from: active, event: disable, to: disabled, meta: {source: new}}
+      - {from: disabled, event: enable, to: active, meta: {source: new}}
+
+  - id: product_lifecycle
+    entity: Product
+    desc: 商品生命周期（继承自 baseline，本次未修改）
+    meta:
+      source: inherited
+    states: [draft, published, archived, deleted]
+    initial: draft
+    transitions:
+      - {from: draft, event: publish, to: published, meta: {source: inherited}}
+      - {from: published, event: unpublish, to: draft, meta: {source: inherited}}
+      - {from: published, event: archive, to: archived, meta: {source: inherited}}
+      - {from: archived, event: restore, to: published, meta: {source: inherited}}
+      - {from: draft, event: delete, to: deleted, meta: {source: inherited}}
+      - {from: archived, event: delete, to: deleted, meta: {source: inherited}}

@@ -14,8 +14,8 @@ public final class TranslationDtos {
     public record ProductTranslationDto(
             String locale,
             String name,
-            String subtitle,
             String description,
+            List<String> sellingPoints,
             String seoTitle,
             String seoDescription
     ) {

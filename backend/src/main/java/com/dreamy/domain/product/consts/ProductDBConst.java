@@ -8,11 +8,11 @@ public interface ProductDBConst extends CatalogCommonDBConst {
     String TABLE = "product";
 
     String SLUG = "slug";
-    String SUBTITLE = "subtitle";
     String CATEGORY_ID = "category_id";
     String PRODUCT_TYPE = "product_type";
     String DESCRIPTION = "description";
     String DESIGNER_NOTE = "designer_note";
+    String SELLING_POINTS = "selling_points";
     String PRICE = "price";
     String COMPARE_AT = "compare_at";
     String INSTALLMENT = "installment";
@@ -30,4 +30,6 @@ public interface ProductDBConst extends CatalogCommonDBConst {
     String SALES_REFRESHED_AT = "sales_refreshed_at";
     String RATING_AVG = "rating_avg";
     String RATING_COUNT = "rating_count";
+    /** L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 fabric_care_note */
+    String FABRIC_CARE_NOTE = "fabric_care_note";
 }

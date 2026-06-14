@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Heart, Truck, Sparkles, Ruler, ChevronDown, Plus, Minus, PartyPopper } from 'lucide-react'
+import { Heart, Truck, Sparkles, Ruler, ChevronDown, Plus, Minus, PartyPopper, Check } from 'lucide-react'
 import type { CustomSizeData, StoreProductDetail } from '@/lib/api/store-types'
 import { useStore } from '@/components/store-provider'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -26,6 +26,21 @@ import { FindMySizeModal } from './find-my-size-modal'
 import { AddToShowroomModal } from '@/components/showroom/add-to-showroom-modal'
 import { badgeOf } from './product-card'
 import { colorOptionsOf, sizesFor, skuFor, swatchImageOf, primaryImageOf } from './product-utils'
+
+/** 根据卖点文本智能匹配图标 */
+function getIconForSellingPoint(point: string) {
+  const lower = point.toLowerCase()
+  if (lower.includes('shipping') || lower.includes('delivery') || lower.includes('envío') || lower.includes('livraison'))
+    return <Truck className="h-4 w-4 text-gold" />
+  if (lower.includes('custom') || lower.includes('sizing') || lower.includes('talla') || lower.includes('taille') || lower.includes('medida'))
+    return <Ruler className="h-4 w-4 text-gold" />
+  if (lower.includes('swatch') || lower.includes('sample') || lower.includes('fabric') || lower.includes('muestra') || lower.includes('échantillon'))
+    return <Sparkles className="h-4 w-4 text-gold" />
+  if (lower.includes('production') || lower.includes('day') || lower.includes('producción') || lower.includes('días'))
+    return <Truck className="h-4 w-4 text-gold" />
+  // 默认勾选图标
+  return <Check className="h-4 w-4 text-gold" />
+}
 
 export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
   const router = useRouter()
@@ -262,11 +277,22 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         <button className="flex-1 cursor-pointer rounded-sm border border-line py-3 text-[12px] font-medium uppercase tracking-luxe text-ink-faint" title="Coming soon" disabled>Try in AR · Soon</button>
       </div>
 
-      {/* Trust 条 */}
+      {/* 卖点展示（动态渲染 selling_points，回退默认卖点） */}
       <div className="mt-6 space-y-2.5 border-t border-line pt-5 text-sm text-ink-soft">
-        <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-gold" /> Free worldwide shipping over $200</p>
-        <p className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-gold" /> Order fabric swatches before you commit</p>
-        {product.customSizeAvailable && <p className="flex items-center gap-2"><Ruler className="h-4 w-4 text-gold" /> Custom sizing available</p>}
+        {product.sellingPoints && product.sellingPoints.length > 0 ? (
+          product.sellingPoints.map((point, i) => (
+            <p key={i} className="flex items-center gap-2">
+              {getIconForSellingPoint(point)}
+              {point}
+            </p>
+          ))
+        ) : (
+          <>
+            <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-gold" /> Free worldwide shipping over $200</p>
+            <p className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-gold" /> Order fabric swatches before you commit</p>
+            {product.customSizeAvailable && <p className="flex items-center gap-2"><Ruler className="h-4 w-4 text-gold" /> Custom sizing available</p>}
+          </>
+        )}
       </div>
 
       {/* 描述折叠 */}

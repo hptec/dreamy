@@ -1,0 +1,34 @@
+version: "1.0"
+change_name: fabric-care-module
+generated_at: "2026-06-14T00:33:30Z"
+total_units: 3
+
+implementation_units:
+  - task_id: "unit_fabric_care_backend"
+    type: backend
+    scope: "后端实现：3个新实体 + catalog API扩展"
+    l2_design_refs:
+      - specs/design/catalog-fabric-care-api-detail.md
+      - specs/design/catalog-fabric-care-data-detail.md
+    l0_acceptance_refs:
+      - acceptance.yml (s-081 ~ s-084: 4个功能场景)
+      - boundary-scenarios.yml (bs-001 ~ bs-072: 72个边界场景)
+    estimated_loc: 1200
+
+  - task_id: "unit_fabric_care_frontend"
+    type: frontend
+    scope: "前端实现：面料编辑器 + 护理标签选择器"
+    l2_design_refs:
+      - specs/design/catalog-fabric-care-frontend-detail.md
+    l0_acceptance_refs:
+      - acceptance.yml (s-081 ~ s-084)
+    estimated_loc: 800
+
+  - task_id: "unit_fabric_care_database"
+    type: database
+    scope: "数据库迁移：3张新表"
+    l2_design_refs:
+      - specs/design/catalog-fabric-care-data-detail.md
+    l0_acceptance_refs:
+      - er-diagram.yml (ProductFabricComposition, CareInstructionDef, ProductCareInstruction)
+    estimated_loc: 150

@@ -30,7 +30,7 @@ public interface TradingCatalogSnapshotPort {
      * 商品简况（契约 ProductBrief schema；price USD 基准，multi_currency_prices 覆盖价，
      * status=draft 标记不可购买；image_url 主图派生 gallery sort=0）。
      */
-    record ProductBrief(Long id, String slug, String name, String subtitle, BigDecimal price,
+    record ProductBrief(Long id, String slug, String name, BigDecimal price,
                         BigDecimal compareAt, Map<String, BigDecimal> multiCurrencyPrices, String imageUrl,
                         Integer leadTimeDays, Boolean rushAvailable, Boolean customSizeAvailable,
                         Integer status) implements Serializable {

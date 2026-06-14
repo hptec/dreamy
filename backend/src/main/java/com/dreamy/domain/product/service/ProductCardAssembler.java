@@ -16,7 +16,7 @@ import java.util.Map;
 
 /**
  * 消费端商品卡片批量装配器（MAP-CAT-001；NP-CAT-001 防 N+1：image/swatch/translation 一律 IN 批查）。
- * 翻译合并：locale=es/fr 命中字段覆盖 name/subtitle，缺翻译逐字段回退 EN（决策 13——TC-CAT-013）。
+ * 翻译合并：locale=es/fr 命中字段覆盖 name/sellingPoints，缺翻译逐字段回退 EN（决策 13——TC-CAT-013）。
  */
 @Service
 public class ProductCardAssembler {
@@ -81,7 +81,6 @@ public class ProductCardAssembler {
                 product.getId(),
                 product.getSlug(),
                 pick(translation == null ? null : translation.getName(), product.getName()),
-                pick(translation == null ? null : translation.getSubtitle(), product.getSubtitle()),
                 product.getPrice(),
                 product.getCompareAt(),
                 product.getMultiCurrencyPrices(),
@@ -91,11 +90,17 @@ public class ProductCardAssembler {
                 imageUrl,
                 swatches,
                 product.getRatingAvg(),
-                product.getRatingCount());
+                product.getRatingCount(),
+                pickList(translation == null ? null : translation.getSellingPoints(), product.getSellingPoints()));
     }
 
     /** 决策 13 逐字段回退：译文非空白用译文，否则 EN 主表 */
     public static String pick(String translated, String fallback) {
         return translated != null && !translated.isBlank() ? translated : fallback;
+    }
+
+    /** List 版本回退：译文非空用译文，否则主表 */
+    public static List<String> pickList(List<String> translated, List<String> fallback) {
+        return (translated != null && !translated.isEmpty()) ? translated : fallback;
     }
 }

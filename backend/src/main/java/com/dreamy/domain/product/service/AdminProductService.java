@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.domain.product.service.FabricCareService;
 import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
@@ -87,6 +88,7 @@ public class AdminProductService {
     private final CatalogAuditRecorder audit;
     private final CatalogAfterCommitRunner afterCommit;
     private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final FabricCareService fabricCareService;
     private final TradingQueryPort tradingQueryPort;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
@@ -103,6 +105,7 @@ public class AdminProductService {
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                CatalogCacheService cache, CatalogAuditRecorder audit,
                                CatalogAfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
+                               FabricCareService fabricCareService,
                                TradingQueryPort tradingQueryPort,
                                TransactionTemplate transactionTemplate, ObjectMapper objectMapper) {
         this.productRepository = productRepository;
@@ -121,6 +124,7 @@ public class AdminProductService {
         this.audit = audit;
         this.afterCommit = afterCommit;
         this.invalidatedPublisher = invalidatedPublisher;
+        this.fabricCareService = fabricCareService;
         this.tradingQueryPort = tradingQueryPort;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
@@ -186,6 +190,9 @@ public class AdminProductService {
         productTagRepository.replaceAll(product.getId(), dedupe(req.tagIds()));
         translationRepository.replaceAll(product.getId(), toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(product.getId(), toAttributeRows(req.attributes()));
+        // STEP-FC-02/03 面料成分 + 护理标签（TX-FC-001 同事务）
+        fabricCareService.replaceFabricCompositions(product.getId(), req.fabricCompositions());
+        fabricCareService.replaceCareInstructions(product.getId(), req.careInstructionIds());
         // STEP-CAT-05 审计
         audit.record("创建商品", product.getName(), null);
         // STEP-CAT-06 提交后失效链 + MQ（status=published 才需 revalidate 路径，事件统一发布由消费者按 type 处理）
@@ -249,6 +256,9 @@ public class AdminProductService {
         productTagRepository.replaceAll(id, dedupe(req.tagIds()));
         translationRepository.replaceAll(id, toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(id, toAttributeRows(req.attributes()));
+        // STEP-FC-02/03 面料成分 + 护理标签整单覆盖（TX-FC-001 同事务）
+        fabricCareService.replaceFabricCompositions(id, req.fabricCompositions());
+        fabricCareService.replaceCareInstructions(id, req.careInstructionIds());
         // STEP-CAT-06 审计
         audit.record("编辑商品", existing.getName(), null);
         // STEP-CAT-07 提交后失效链（新旧 slug 都失效；search 不主动失效 60s TTL 兜底）+ MQ
@@ -284,6 +294,9 @@ public class AdminProductService {
         productTagRepository.deleteByProductId(id);
         translationRepository.deleteByProductId(id);
         attributeValueRepository.deleteByProductId(id);
+        // TX-FC-002 级联删除面料成分 + 护理标签关联
+        fabricCareService.replaceFabricCompositions(id, null);
+        fabricCareService.replaceCareInstructions(id, null);
         // STEP-CAT-04 审计
         audit.record("删除商品", existing.getName(), null);
         // STEP-CAT-05 提交后失效（draft 无消费端页面，不发 revalidate 事件）
@@ -484,11 +497,11 @@ public class AdminProductService {
     private void applyUpsert(Product product, AdminProductUpsert req) {
         product.setName(req.name().trim());
         product.setSlug(req.slug());
-        product.setSubtitle(req.subtitle());
         product.setCategoryId(req.categoryId());
         product.setProductType(req.productType());
         product.setDescription(req.description());
         product.setDesignerNote(req.designerNote());
+        product.setSellingPoints(req.sellingPoints());
         product.setPrice(req.price());
         product.setCompareAt(req.compareAt());
         product.setInstallment(req.installment() != null && req.installment());
@@ -504,6 +517,8 @@ public class AdminProductService {
         product.setStyleNo(req.styleNo());
         product.setSeoTitle(req.seoTitle());
         product.setSeoDesc(req.seoDesc());
+        // L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 / MAP-FC-004
+        product.setFabricCareNote(req.fabricCareNote());
     }
 
     /**
@@ -563,12 +578,13 @@ public class AdminProductService {
         List<Long> tagIds = productTagRepository.listTagIdsByProductId(id);
         List<ProductTranslationDto> translations = translationRepository.listByProductIds(List.of(id), null)
                 .stream()
-                .map(t -> new ProductTranslationDto(t.getLocale(), t.getName(), t.getSubtitle(),
-                        t.getDescription(), t.getSeoTitle(), t.getSeoDescription()))
+                .map(t -> new ProductTranslationDto(t.getLocale(), t.getName(),
+                        t.getDescription(), t.getSellingPoints(), t.getSeoTitle(), t.getSeoDescription()))
                 .toList();
         return new AdminProductDetail(product.getId(), product.getName(), product.getSlug(),
-                product.getSubtitle(), product.getCategoryId(), product.getProductType(),
-                product.getDescription(), product.getDesignerNote(), product.getPrice(), product.getCompareAt(),
+                product.getCategoryId(), product.getProductType(),
+                product.getDescription(), product.getDesignerNote(), product.getSellingPoints(),
+                product.getPrice(), product.getCompareAt(),
                 product.getInstallment(), product.getMultiCurrencyPrices(),
                 product.getStatus() == null ? null : product.getStatus().getKey(),
                 product.getIsNew(), product.getIsBest(), product.getRecommend(), product.getSort(),
@@ -576,7 +592,11 @@ public class AdminProductService {
                 loadAttributeDtos(id),
                 product.getStyleNo(),
                 product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, tagIds, translations,
-                product.getCreatedAt(), product.getUpdatedAt());
+                product.getCreatedAt(), product.getUpdatedAt(),
+                // L2 TRACE: MAP-FC-006 后台编辑详情扩展字段
+                fabricCareService.loadForAdmin(id),
+                fabricCareService.loadCareIdsForAdmin(id),
+                product.getFabricCareNote());
     }
 
     /** EAV 回读 → entries 数组（key 取字典；按属性首行 id 序分组，行序即写入序） */
@@ -688,8 +708,8 @@ public class AdminProductService {
                 ProductTranslation row = new ProductTranslation();
                 row.setLocale(dto.locale());
                 row.setName(dto.name());
-                row.setSubtitle(dto.subtitle());
                 row.setDescription(dto.description());
+                row.setSellingPoints(dto.sellingPoints());
                 row.setSeoTitle(dto.seoTitle());
                 row.setSeoDescription(dto.seoDescription());
                 rows.add(row);

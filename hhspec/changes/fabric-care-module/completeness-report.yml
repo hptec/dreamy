@@ -1,0 +1,15 @@
+change_name: fabric-care-module
+generated_at: '2026-06-13T23:56:21Z'
+verdict: pass
+semantic_status: complete
+pass_items:
+- er-diagram.yml exists
+- state-machine.yml exists
+- business-flow.yml exists
+- boundary-scenarios.yml exists
+- acceptance.yml exists
+- 'er-diagram has 3 live entities (field-inventory: 19 fields across 0 pages)'
+- state-machine has 2 machine(s), 6 live states total
+- acceptance.yml has 84 live scenarios
+- boundary-scenarios covers all 7 categories
+issues: []

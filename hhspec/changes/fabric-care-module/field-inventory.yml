@@ -1,0 +1,361 @@
+metadata:
+  generated_at: "2026-06-13T23:43:55Z"
+  source_prototype_dir: hhspec/prototype/portal-admin
+  proto_type: vue-sfc
+  source_files_processed: 12
+  html_files_processed: 12
+  total_fields_extracted: 19
+  cjk_name_renamed: 7
+  change_name: fabric-care-module
+  domain_code: null
+  pages_without_fields:
+    - AdminList
+    - AuthSettings
+    - EmailMarketing
+    - HomeBuilder
+    - OperationLogs
+    - RoleManagement
+    - Settings
+  warn_empty: false
+  extraction_confidence: low
+  page_confidence:
+    - page_id: AdminList
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: AuthSettings
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: CustomerDetail
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Customers
+      confidence: low
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+        - "dynamic_labels: 2/2 labels are dynamic bindings"
+    - page_id: EmailMarketing
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: HomeBuilder
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Login
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: NavigationConfig
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: OperationLogs
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Publish
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: RoleManagement
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+    - page_id: Settings
+      confidence: medium
+      reasons:
+        - "script_setup_only: Composition API only, guards may be partial"
+fields:
+  - field_id: FLD-CUSTOMERDETAIL-001
+    name: email
+    label: email
+    source_type: table_column
+    pages: ["CustomerDetail"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["CustomerDetail"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERDETAIL-002
+    name: google
+    label: google
+    source_type: table_column
+    pages: ["CustomerDetail"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["CustomerDetail"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERDETAIL-003
+    name: apple
+    label: apple
+    source_type: table_column
+    pages: ["CustomerDetail"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["CustomerDetail"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-001
+    name: tier
+    label: tier
+    source_type: filter_input
+    pages: ["Customers"]
+    data_type: enum
+    enum_values:
+      - value: all
+        label: 全部等级
+      - value: VIP
+        label: VIP
+      - value: 常规
+        label: 常规
+    read_contexts: []
+    write_contexts: ["Customers"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-002
+    name: search
+    label: search
+    source_type: form_field
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: []
+    write_contexts: ["Customers"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+    placeholder: 搜索姓名 / 邮箱…
+  - field_id: FLD-CUSTOMERS-003
+    name: tcol_9ba763ea
+    label: 用户
+    original_name: 用户
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-004
+    name: tcol_525ad5e2
+    label: 注册时间
+    original_name: 注册时间
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-005
+    name: tcol_084389cc
+    label: 订单数
+    original_name: 订单数
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-006
+    name: tcol_bd94a663
+    label: 累计消费
+    original_name: 累计消费
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-007
+    name: tcol_5c42c048
+    label: 等级
+    original_name: 等级
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-008
+    name: tcol_62e951a6
+    label: 状态
+    original_name: 状态
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: status
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-009
+    name: tcol_f3ea6d34
+    label: 操作
+    original_name: 操作
+    source_type: table_column
+    pages: ["Customers"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Customers"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-CUSTOMERS-010
+    name: tier
+    label: tier
+    source_type: form_field
+    pages: ["Customers"]
+    data_type: enum
+    enum_values:
+      - value: all
+        label: 全部等级
+      - value: VIP
+        label: VIP
+      - value: 常规
+        label: 常规
+    read_contexts: []
+    write_contexts: ["Customers"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-LOGIN-001
+    name: email
+    label: 邮箱
+    source_type: form_field
+    pages: ["Login"]
+    data_type: string
+    enum_values: []
+    read_contexts: []
+    write_contexts: ["Login"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules:
+      - rule: type
+        value: email
+    js_guard: null
+    placeholder: "admin@dreamy.com"
+  - field_id: FLD-LOGIN-002
+    name: password
+    label: 密码
+    source_type: form_field
+    pages: ["Login"]
+    data_type: string
+    enum_values: []
+    read_contexts: []
+    write_contexts: ["Login"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+    placeholder: 请输入密码
+  - field_id: FLD-LOGIN-003
+    name: remember
+    label: remember
+    source_type: form_field
+    pages: ["Login"]
+    data_type: boolean
+    enum_values: []
+    read_contexts: []
+    write_contexts: ["Login"]
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-NAVIGATIONCONFIG-001
+    name: name
+    label: name
+    source_type: table_column
+    pages: ["NavigationConfig"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["NavigationConfig"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-NAVIGATIONCONFIG-002
+    name: href
+    label: href
+    source_type: table_column
+    pages: ["NavigationConfig"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["NavigationConfig"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null
+  - field_id: FLD-PUBLISH-001
+    name: ms
+    label: ms
+    source_type: table_column
+    pages: ["Publish"]
+    data_type: string
+    enum_values: []
+    read_contexts: ["Publish"]
+    write_contexts: []
+    inferred_business_type: generic
+    nullable: true
+    required: false
+    validation_rules: []
+    js_guard: null

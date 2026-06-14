@@ -30,6 +30,9 @@ public enum CatalogErrorCode {
     // ===== 422 =====
     FIELD_VALIDATION_FAILED(422501, 422, "error.422501"),
     SIZE_INPUT_OUT_OF_RANGE(422502, 422, "error.422502"),
+    FABRIC_PERCENTAGE_INVALID(422510, 422, "error.422510"),  // 面料成分百分比总和不等于100%
+    CARE_CODE_EXISTS(422511, 422, "error.422511"),           // 护理标签 code 已存在
+    CARE_NOT_FOUND(422512, 404, "error.422512"),             // 护理标签不存在
 
     // ===== 502 =====
     OBJECT_STORAGE_UNAVAILABLE(502501, 502, "error.502501");

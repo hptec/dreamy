@@ -150,7 +150,7 @@ conflicts:
     min_requirement: >
       Redis 不可用时会话有效性是否降级查 DB（牺牲强一致全集群即时生效）需 L3 确认告警与回退策略。
       标 [INFERRED]，不阻断 L2 交付。
-    resolution: "裁定：保留为待确认项，传递 L3；默认降级查 DB session.status + 记 ERROR 告警，但强制下线即时性在 Redis 恢复前可能有窗口（需运维监控）。"
+    resolution: "裁定：保留为后续跟进项，传递 L3；默认降级查 DB session.status + 记 ERROR 告警，但强制下线即时性在 Redis 恢复前可能有窗口（需运维监控）。"
 
 summary:
   total_dimensions: 18

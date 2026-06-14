@@ -1,0 +1,114 @@
+---
+review_id: challenger-r1
+change_name: fabric-care-module
+round: 1
+verdict: PASS
+reviewed_at: 2026-06-14T08:30:00Z
+validation_mode: full
+---
+
+dimensions:
+  consistency:
+    status: pass
+    findings:
+      - level: info
+        check: CON-01
+        desc: business-flow 中所有 state_change 节点的 from/to 状态均在 state-machine.yml 对应机器的 transitions 中存在
+        evidence: "business-flow.yml:113-114 (admin_maintain_care_instruction_dict 流程的 n7/n8 节点) → state-machine.yml:16-17 (care_instruction_lifecycle.active→disabled, disabled→active)"
+      - level: info
+        check: CON-02
+        desc: business-flow 中引用的所有实体均在 er-diagram.yml 中存在
+        evidence: "business-flow.yml 引用 ProductFabricComposition/CareInstructionDef/ProductCareInstruction → er-diagram.yml:8/56/108"
+      - level: info
+        check: CON-03
+        desc: boundary-scenarios 中引用的所有实体和字段均在 er-diagram.yml 中存在
+        evidence: "boundary-scenarios.yml:4-5 (product_fabric_composition.id) → er-diagram.yml:13-15"
+      - level: info
+        check: CON-04
+        desc: acceptance.yml 中引用的 source_id (sm 类型) 均在 state-machine.yml 的 transitions 中存在
+        evidence: "acceptance.yml:5 (care_instruction_lifecycle.active→disabled) → state-machine.yml:16"
+      - level: info
+        check: CON-05
+        desc: acceptance.yml 中引用的 source_id (bs 类型) 均在 boundary-scenarios.yml 中存在
+        evidence: "acceptance.yml:101 (bs-001) → boundary-scenarios.yml:2"
+
+  verifiability:
+    status: pass
+    findings:
+      - level: info
+        check: VER-01
+        desc: acceptance.yml 所有场景的 ctx 字段非空且包含足够的前置状态信息
+        evidence: "抽检 s-001/s-009/s-010：ctx 包含 entity/state/field/description"
+      - level: info
+        check: VER-02
+        desc: acceptance.yml 所有场景的 act.op 字段非空且操作名称明确
+        evidence: "抽检 s-001 (op:disable) / s-009 (op:trigger_boundary_case)"
+      - level: info
+        check: VER-03
+        desc: acceptance.yml 所有场景的 expect 字段非空且断言可观察
+        evidence: "抽检 s-001 (http_status:200, state:disabled) / s-010 (http_status:422, error_code:FIELD_REQUIRED)"
+      - level: info
+        check: VER-04
+        desc: 未发现 expect 中只有 "success" 或 "fail" 等模糊断言
+        evidence: "全部 84 条场景均包含明确断言 (http_status/state/error_code)"
+      - level: info
+        check: VER-05
+        desc: boundary-scenarios 中 cat:state 场景的 expect 包含明确的错误码或状态值
+        evidence: "boundary-scenarios.yml:468-476 (bs-057/bs-058) expect 包含状态转换描述"
+
+  completeness_supplement:
+    status: pass
+    findings:
+      - level: info
+        check: COM-01
+        desc: business-flow 中无 cross_domain:true 流程，跳过跨域场景检查
+        evidence: "business-flow.yml:38/69/97/137 所有流程 cross_domain:false"
+      - level: info
+        check: COM-02
+        desc: state-machine 中无 guard 的 transition，跳过 guard 失败场景检查
+        evidence: "state-machine.yml:16-17 (care_instruction_lifecycle) 和 27-32 (product_lifecycle) 均无 guard"
+      - level: info
+        check: COM-03
+        desc: state file 中无 BE-DIM 决策，跳过后端关键决策维度覆盖检查
+        evidence: "pd-explore.local.md:8 key_decisions:[]"
+
+  incremental_integrity:
+    status: pass
+    findings:
+      - level: info
+        check: INC-01
+        desc: 顶层 meta 结构完整，mode/baseline_ref/generated_at/breaking_changes 四字段齐全
+        evidence: "er-diagram.yml:1-5, state-machine.yml:1-5, business-flow.yml:1-5"
+      - level: info
+        check: INC-02
+        desc: 所有实体/状态机/流程节点均有 meta.source 标注
+        evidence: "er-diagram.yml:11/59/111 (source:new), state-machine.yml:12/22 (source:new/inherited)"
+      - level: info
+        check: INC-03
+        desc: meta.source:inherited 元素已在 baseline 中确认（product_lifecycle 状态机继承自 baseline）
+        evidence: "state-machine.yml:22-32 (product_lifecycle meta.source:inherited)"
+      - level: info
+        check: INC-04
+        desc: 无 meta.source:modified 元素，跳过 breaking_changes 类型变更检查
+        evidence: "全部实体/字段/状态/转换标注为 new 或 inherited"
+      - level: info
+        check: INC-05
+        desc: 无 meta.source:deleted 元素，跳过 breaking_changes 删除条目检查
+        evidence: "breaking_changes:[] 且无 deleted 标注"
+      - level: info
+        check: INC-06
+        desc: breaking_changes 为空数组，符合 greenfield 变更特征
+        evidence: "er-diagram.yml:5 breaking_changes:[]"
+      - level: info
+        check: INC-07
+        desc: baseline 中被涉及的 Product 实体字段未在本次产出中出现（符合预期，本次仅继承状态机）
+        evidence: "state-machine.yml:19-32 (product_lifecycle 继承), er-diagram 未包含 Product 实体字段"
+
+reviewed_files:
+  er_diagram: eb0bb5a6b0eb2da39d5f82081fc39b11362d50b88015b64fc545517e0f89882f
+  state_machine: 88cd614965921d463889fd4d75ab46767d4e60101f6b62eb302c26268e02d8b5
+  business_flow: be5baa9700942cb1c01756b2307c4d74345b5103b0b37dbcf524d5dc3c80e0ed
+  boundary_scenarios: 1e9288da19f09444596311c092a6e7539a367ddfa0369ae01e6f5af59a6eed14
+  acceptance: b7e35145f7348745072820d51b64017c67ac6af37fc85981e6311b7a5d74bf92
+
+summary: Fabric & Care 模块 L0 需求文档语义审查通过。三维度（一致性/可验收性/完整性补充）+ 增量完整性维度均无 blocking 问题。3 个新实体结构清晰，4 个业务流程覆盖核心场景（admin 编辑面料成分/选择护理标签、customer 查看、system admin 维护字典），72 条边界场景覆盖全部 7 类，84 条验收场景断言明确可观察。增量模式元数据完整，meta.source 标注规范，breaking_changes 为空符合 greenfield 特征。

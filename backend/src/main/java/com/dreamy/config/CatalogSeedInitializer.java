@@ -38,6 +38,10 @@ import com.dreamy.domain.tag.repository.TagRepository;
 import com.dreamy.domain.role.entity.Permission;
 import com.dreamy.domain.role.entity.Role;
 import com.dreamy.domain.role.entity.RolePermission;
+import com.dreamy.domain.product.entity.CareInstructionDef;
+import com.dreamy.domain.product.repository.CareInstructionDefRepository;
+import com.dreamy.enums.CareCategory;
+import com.dreamy.enums.CareStatus;
 import com.dreamy.domain.role.repository.PermissionMapper;
 import com.dreamy.domain.role.repository.RoleMapper;
 import com.dreamy.domain.role.repository.RolePermissionMapper;
@@ -88,6 +92,7 @@ public class CatalogSeedInitializer {
     private final RoleMapper roleMapper;
     private final RolePermissionMapper rolePermissionMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final CareInstructionDefRepository careInstructionDefRepository;
 
     public CatalogSeedInitializer(ProductMapper productMapper, ProductRepository productRepository,
                                   ProductImageRepository imageRepository, SkuRepository skuRepository,
@@ -100,7 +105,8 @@ public class CatalogSeedInitializer {
                                   AttributeSetRepository attributeSetRepository,
                                   TagDimensionRepository tagDimensionRepository, TagRepository tagRepository,
                                   PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                  RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate) {
+                                  RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate,
+                                  CareInstructionDefRepository careInstructionDefRepository) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.imageRepository = imageRepository;
@@ -118,6 +124,7 @@ public class CatalogSeedInitializer {
         this.roleMapper = roleMapper;
         this.rolePermissionMapper = rolePermissionMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.careInstructionDefRepository = careInstructionDefRepository;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -130,6 +137,7 @@ public class CatalogSeedInitializer {
         Map<String, Long> categories = seedCategories(sets);
         Map<String, Long> tags = seedTagsAndDimensions();
         seedProducts(defs, categories, tags);
+        seedCareInstructions();
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
 
@@ -141,7 +149,8 @@ public class CatalogSeedInitializer {
                 "product_translation", "sku", "size_chart_row", "product",
                 "attribute_set_item", "attribute_set", "attribute_def",
                 "category_translation", "category",
-                "tag_translation", "product_tag", "tag", "tag_dimension_translation", "tag_dimension")) {
+                "tag_translation", "product_tag", "tag", "tag_dimension_translation", "tag_dimension",
+                "product_care_instruction", "product_fabric_composition", "care_instruction_def")) {
             jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
@@ -443,7 +452,6 @@ public class CatalogSeedInitializer {
         Product p = new Product();
         p.setName(sp.name());
         p.setSlug(sp.slug());
-        p.setSubtitle(sp.subtitle());
         p.setCategoryId(categories.get(sp.categoryKey()));
         p.setPrice(new BigDecimal(sp.price()));
         p.setCompareAt(sp.compareAt() == null ? null : new BigDecimal(sp.compareAt()));
@@ -530,7 +538,6 @@ public class CatalogSeedInitializer {
                 ProductTranslation es = new ProductTranslation();
                 es.setLocale("es");
                 es.setName(sp.esName());
-                es.setSubtitle(sp.subtitle());
                 translations.add(es);
             }
             if (sp.frName() != null) {
@@ -795,5 +802,32 @@ public class CatalogSeedInitializer {
                 "A flexible gold hair vine scattered with leaves and pearls.",
                 "Gold-tone wire; Handle gently", null, null));
         return list;
+    }
+
+    private void seedCareInstructions() {
+        record C(String code, String sym, String en, String zh, CareCategory cat, int sort) {}
+        List<C> data = List.of(
+            new C("hand_wash_cold",  "🫧", "Hand wash cold",       "冷水手洗",   CareCategory.WASHING,     1),
+            new C("machine_wash_30", "🌀", "Machine wash 30°C",    "30°C 机洗",  CareCategory.WASHING,     2),
+            new C("dry_clean_only",  "⭕", "Dry clean only",       "仅限干洗",   CareCategory.DRY_CLEANING,1),
+            new C("no_bleach",       "🚫", "Do not bleach",        "禁止漂白",   CareCategory.BLEACHING,   1),
+            new C("tumble_dry_low",  "🌡", "Tumble dry low",       "低温烘干",   CareCategory.DRYING,      1),
+            new C("hang_to_dry",     "🪝", "Hang to dry",          "悬挂晾干",   CareCategory.DRYING,      2),
+            new C("low_iron",        "♨", "Iron on low heat",     "低温熨烫",   CareCategory.IRONING,     1),
+            new C("steam_only",      "💨", "Steam only",           "仅蒸汽熨烫", CareCategory.IRONING,     2),
+            new C("do_not_iron",     "❌", "Do not iron",          "禁止熨烫",   CareCategory.IRONING,     3)
+        );
+        for (C c : data) {
+            CareInstructionDef def = new CareInstructionDef();
+            def.setCode(c.code());
+            def.setSymbolUnicode(c.sym());
+            def.setLabelEn(c.en());
+            def.setLabelZh(c.zh());
+            def.setCategory(c.cat());
+            def.setSortOrder(c.sort());
+            def.setStatus(CareStatus.ACTIVE);
+            careInstructionDefRepository.insert(def);
+        }
+        log.info("[CatalogSeed] 护理标签种子数据写入完成 ({} 条)", data.size());
     }
 }

@@ -51,7 +51,7 @@ wave_1: [api, data, ui_test] → wave_2: [error] → wave_3: [frontend, test]（
 - DR-06 角色重名用 40000 VALIDATION_ERROR 字段级，不新增码（CFL-17 裁定）
 - DR-07 前端 Next 用 zustand、Vue 用 Pinia；边界 snake_case→camelCase 统一转换
 
-## 8. 风险与待确认项
+## 8. 风险记录与后续跟进
 - RISK-01 (CFL-18) Redis 不可用会话校验降级查 DB，强制下线即时性在恢复前有窗口，需 L3 + 运维监控
 - RISK-02 permission 22 项 key 清单由 portal-admin 路由补全（L3）
 - RISK-03 超管全权限实现（显式写满 vs 应用层短路），L3 定夺

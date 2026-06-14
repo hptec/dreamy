@@ -186,3 +186,13 @@ export function deleteTag(id: number): Promise<void> {
 export function presignUpload(req: PresignRequest): Promise<PresignResponse> {
   return post<PresignResponse>('/api/admin/uploads/presign', req)
 }
+
+// ===== 护理标签字典 =====
+
+/**
+ * 获取护理标签列表（后台用于选择器）
+ * 证据锚点: catalog-fabric-care-frontend-detail.md INTERACTION-FC-05
+ */
+export function listAdminCareInstructions(): Promise<import('./types').CareInstructionListResponse> {
+  return get<import('./types').CareInstructionListResponse>('/api/admin/care-instructions')
+}

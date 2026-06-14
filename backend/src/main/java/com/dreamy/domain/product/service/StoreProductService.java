@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.domain.product.service.FabricCareService;
 import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.attribute.entity.AttributeDef;
 import com.dreamy.domain.attribute.entity.AttributeDefTranslation;
@@ -80,6 +81,7 @@ public class StoreProductService {
     private final AttributeDefRepository attributeDefRepository;
     private final ProductAttributeConfigService attributeConfigService;
     private final CatalogCacheService cache;
+    private final FabricCareService fabricCareService;
 
     public StoreProductService(ProductRepository productRepository,
                                ProductTranslationRepository translationRepository,
@@ -91,7 +93,8 @@ public class StoreProductService {
                                ProductAttributeValueRepository attributeValueRepository,
                                AttributeDefRepository attributeDefRepository,
                                ProductAttributeConfigService attributeConfigService,
-                               CatalogCacheService cache) {
+                               CatalogCacheService cache,
+                               FabricCareService fabricCareService) {
         this.productRepository = productRepository;
         this.translationRepository = translationRepository;
         this.imageRepository = imageRepository;
@@ -106,6 +109,7 @@ public class StoreProductService {
         this.attributeDefRepository = attributeDefRepository;
         this.attributeConfigService = attributeConfigService;
         this.cache = cache;
+        this.fabricCareService = fabricCareService;
     }
 
     /** E-CAT-01 商品列表查询参数（V-CAT-001~005 已解析；attrs 已规范化排序——key/值均字典序） */
@@ -255,17 +259,22 @@ public class StoreProductService {
         return new StoreProductDetail(
                 product.getId(), product.getSlug(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getName(), product.getName()),
-                ProductCardAssembler.pick(tr == null ? null : tr.getSubtitle(), product.getSubtitle()),
                 product.getCategoryId(), categoryName, product.getProductType(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getDescription(), product.getDescription()),
-                product.getDesignerNote(), product.getPrice(), product.getCompareAt(),
+                product.getDesignerNote(),
+                ProductCardAssembler.pickList(tr == null ? null : tr.getSellingPoints(), product.getSellingPoints()),
+                product.getPrice(), product.getCompareAt(),
                 product.getMultiCurrencyPrices(), product.getInstallment(), product.getIsNew(), product.getIsBest(),
                 product.getLeadTimeDays(), product.getRushAvailable(), product.getCustomSizeAvailable(),
                 buildStoreAttributes(product, locale),
                 product.getStyleNo(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoTitle(), product.getSeoTitle()),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoDescription(), product.getSeoDesc()),
-                images, skus, sizeChart, tagRefs, product.getRatingAvg(), product.getRatingCount());
+                images, skus, sizeChart, tagRefs, product.getRatingAvg(), product.getRatingCount(),
+                // L2 TRACE: MAP-FC-005 STEP-FC-01~03
+                fabricCareService.loadForStore(id),
+                fabricCareService.loadCareForStore(id, locale),
+                product.getFabricCareNote());
     }
 
     /**

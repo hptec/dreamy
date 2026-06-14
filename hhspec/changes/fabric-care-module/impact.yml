@@ -1,0 +1,60 @@
+change_name: fabric-care-module
+generated_at: "2026-06-13T23:55:44Z"
+
+entity_impact:
+  skipped: false
+entities_analyzed:
+  - id: ProductFabricComposition
+  - id: CareInstructionDef
+  - id: ProductCareInstruction
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []
+
+state_impact:
+  skipped: true
+
+flow_impact:
+  skipped: false
+flows_analyzed:
+  - id: admin_edit_fabric_composition
+  - id: admin_select_care_instructions
+  - id: customer_view_fabric_care_pdp
+  - id: admin_maintain_care_instruction_dict
+
+cross_domain_impacts:
+  []
+
+affected_specs:
+  []
+
+regression_risks:
+  - flow_id: admin_edit_fabric_composition
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: admin_select_care_instructions
+    risk_level: low
+    reason: "simple flow with few steps"
+
+affected_specs:
+  []
+
+affected_domains:
+  []
+
+breaking_changes:
+  []
+
+summary:
+  total_affected_specs: 0
+  regression_risk_score: 2
+  regression_risk_level: low
+  must_review:
+    []

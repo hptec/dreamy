@@ -1,6 +1,8 @@
 package com.dreamy.domain.product.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.dreamy.domain.product.consts.ProductTranslationDBConst;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
@@ -9,9 +11,11 @@ import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+
 /**
  * 表 product_translation（商品多语言附表，决策 13/17）。
- * FULLTEXT 索引 ft_pt_search(name, subtitle) WITH PARSER ngram（IDX-CAT-010）由
+ * FULLTEXT 索引 ft_pt_search(name) WITH PARSER ngram（IDX-CAT-010）由
  * CatalogFulltextIndexInitializer 落地。
  * L2 TRACE: catalog-data-detail §9 DDL-12 / IDX-CAT-010 / CV-CAT-009。
  */
@@ -32,11 +36,12 @@ public class ProductTranslation extends LongAuditableEntity {
     @Column(name = ProductTranslationDBConst.NAME, definition = "varchar(128) NULL")
     private String name;
 
-    @Column(name = ProductTranslationDBConst.SUBTITLE, definition = "varchar(255) NULL")
-    private String subtitle;
-
     @Column(name = ProductTranslationDBConst.DESCRIPTION, definition = "text NULL")
     private String description;
+
+    @Column(name = ProductTranslationDBConst.SELLING_POINTS, definition = "json NULL COMMENT '翻译卖点（数组，与主表对应）'")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> sellingPoints;
 
     @Column(name = ProductTranslationDBConst.SEO_TITLE, definition = "varchar(128) NULL")
     private String seoTitle;

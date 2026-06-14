@@ -1,0 +1,138 @@
+meta:
+  mode: incremental
+  baseline_ref: "hhspec/specs/architecture/business-flow.yml"
+  generated_at: "2026-06-14T08:23:00Z"
+  breaking_changes: []
+
+flows:
+  - id: admin_edit_fabric_composition
+    name: 后台管理员编辑商品面料成分
+    trigger: "管理员在 ProductEdit 页面点击保存面料成分"
+    actors: [admin]
+    meta:
+      source: new
+    nodes:
+      - {id: n1, type: start, label: "开始编辑面料成分", meta: {source: new}}
+      - {id: n2, type: decision, label: "权限校验（编辑商品权限）", meta: {source: new}}
+      - {id: n3, type: decision, label: "每层百分比总和校验", meta: {source: new}}
+      - {id: n4, type: action, actor: admin, label: "删除商品旧面料数据", entity: ProductFabricComposition, meta: {source: new, tx_boundary: true}}
+      - {id: n5, type: action, actor: admin, label: "批量插入新面料数据", entity: ProductFabricComposition, meta: {source: new, tx_boundary: true}}
+      - {id: n6, type: action, actor: admin, label: "记录审计日志", meta: {source: new, audit: true}}
+      - {id: n7, type: end, label: "保存成功", meta: {source: new}}
+      - {id: n8, type: error, label: "权限不足", meta: {source: new}}
+      - {id: n9, type: error, label: "百分比校验失败", meta: {source: new}}
+      - {id: n10, type: error, label: "数据库事务失败", meta: {source: new}}
+      - {id: n11, type: action, actor: admin, label: "事务回滚", meta: {source: new}}
+    edges:
+      - {from: n1, to: n2, meta: {source: new}}
+      - {from: n2, to: n3, cond: "权限通过", meta: {source: new}}
+      - {from: n2, to: n8, cond: "权限不足", meta: {source: new}}
+      - {from: n3, to: n4, cond: "校验通过", meta: {source: new}}
+      - {from: n3, to: n9, cond: "校验失败", meta: {source: new}}
+      - {from: n4, to: n5, meta: {source: new}}
+      - {from: n5, to: n6, meta: {source: new}}
+      - {from: n6, to: n7, meta: {source: new}}
+      - {from: n5, to: n10, cond: "数据库异常", meta: {source: new}}
+      - {from: n10, to: n11, meta: {source: new}}
+      - {from: n11, to: n7, meta: {source: new}}
+    cross_domain: false
+    external_systems: []
+
+  - id: admin_select_care_instructions
+    name: 后台管理员选择护理标签
+    trigger: "管理员在 ProductEdit 页面选择护理标签并保存"
+    actors: [admin]
+    meta:
+      source: new
+    nodes:
+      - {id: n1, type: start, label: "开始选择护理标签", meta: {source: new}}
+      - {id: n2, type: decision, label: "权限校验（编辑商品权限）", meta: {source: new}}
+      - {id: n3, type: action, actor: admin, label: "加载护理标签字典（按 category 分组）", entity: CareInstructionDef, meta: {source: new}}
+      - {id: n4, type: action, actor: admin, label: "删除商品旧护理标签关联", entity: ProductCareInstruction, meta: {source: new, tx_boundary: true}}
+      - {id: n5, type: action, actor: admin, label: "批量插入新护理标签关联", entity: ProductCareInstruction, meta: {source: new, tx_boundary: true}}
+      - {id: n6, type: action, actor: admin, label: "记录审计日志", meta: {source: new, audit: true}}
+      - {id: n7, type: end, label: "保存成功", meta: {source: new}}
+      - {id: n8, type: error, label: "权限不足", meta: {source: new}}
+      - {id: n9, type: error, label: "数据库事务失败", meta: {source: new}}
+      - {id: n10, type: action, actor: admin, label: "事务回滚", meta: {source: new}}
+    edges:
+      - {from: n1, to: n2, meta: {source: new}}
+      - {from: n2, to: n3, cond: "权限通过", meta: {source: new}}
+      - {from: n2, to: n8, cond: "权限不足", meta: {source: new}}
+      - {from: n3, to: n4, meta: {source: new}}
+      - {from: n4, to: n5, meta: {source: new}}
+      - {from: n5, to: n6, meta: {source: new}}
+      - {from: n6, to: n7, meta: {source: new}}
+      - {from: n5, to: n9, cond: "数据库异常", meta: {source: new}}
+      - {from: n9, to: n10, meta: {source: new}}
+      - {from: n10, to: n7, meta: {source: new}}
+    cross_domain: false
+    external_systems: []
+
+  - id: customer_view_fabric_care_pdp
+    name: 消费端用户查看商品面料护理信息
+    trigger: "用户访问 PDP 页面"
+    actors: [customer]
+    meta:
+      source: new
+    nodes:
+      - {id: n1, type: start, label: "加载商品详情", meta: {source: new}}
+      - {id: n2, type: action, actor: customer, label: "读取面料成分（按 layer 分组，按 sort_order 排序）", entity: ProductFabricComposition, meta: {source: new}}
+      - {id: n3, type: action, actor: customer, label: "读取护理标签（已翻译为用户语言）", entity: ProductCareInstruction, meta: {source: new}}
+      - {id: n4, type: action, actor: customer, label: "渲染面料成分分层展示", meta: {source: new}}
+      - {id: n5, type: action, actor: customer, label: "渲染护理符号 + 说明", meta: {source: new}}
+      - {id: n6, type: end, label: "展示完成", meta: {source: new}}
+      - {id: n7, type: error, label: "网络请求失败", meta: {source: new}}
+      - {id: n8, type: action, actor: customer, label: "显示加载失败提示", meta: {source: new}}
+    edges:
+      - {from: n1, to: n2, meta: {source: new}}
+      - {from: n2, to: n3, meta: {source: new}}
+      - {from: n3, to: n4, meta: {source: new}}
+      - {from: n4, to: n5, meta: {source: new}}
+      - {from: n5, to: n6, meta: {source: new}}
+      - {from: n2, to: n7, cond: "网络异常", meta: {source: new}}
+      - {from: n3, to: n7, cond: "网络异常", meta: {source: new}}
+      - {from: n7, to: n8, meta: {source: new}}
+      - {from: n8, to: n6, meta: {source: new}}
+    cross_domain: false
+    external_systems: []
+
+  - id: admin_maintain_care_instruction_dict
+    name: 系统管理员维护护理标签字典
+    trigger: "管理员新增/编辑/禁用护理标签"
+    actors: [admin]
+    meta:
+      source: new
+    nodes:
+      - {id: n1, type: start, label: "开始维护护理标签字典", meta: {source: new}}
+      - {id: n2, type: decision, label: "权限校验（系统管理员权限）", meta: {source: new}}
+      - {id: n3, type: decision, label: "操作类型判断", meta: {source: new}}
+      - {id: n4, type: action, actor: admin, label: "校验 code 唯一性", entity: CareInstructionDef, meta: {source: new}}
+      - {id: n5, type: action, actor: admin, label: "创建护理标签", entity: CareInstructionDef, meta: {source: new}}
+      - {id: n6, type: action, actor: admin, label: "更新护理标签", entity: CareInstructionDef, meta: {source: new}}
+      - {id: n7, type: state_change, entity: CareInstructionDef, from: active, to: disabled, meta: {source: new}}
+      - {id: n8, type: state_change, entity: CareInstructionDef, from: disabled, to: active, meta: {source: new}}
+      - {id: n9, type: action, actor: admin, label: "记录审计日志", meta: {source: new, audit: true}}
+      - {id: n10, type: end, label: "操作成功", meta: {source: new}}
+      - {id: n11, type: error, label: "权限不足", meta: {source: new}}
+      - {id: n12, type: error, label: "code 已存在", meta: {source: new}}
+      - {id: n13, type: error, label: "数据库异常", meta: {source: new}}
+    edges:
+      - {from: n1, to: n2, meta: {source: new}}
+      - {from: n2, to: n3, cond: "权限通过", meta: {source: new}}
+      - {from: n2, to: n11, cond: "权限不足", meta: {source: new}}
+      - {from: n3, to: n4, cond: "新增", meta: {source: new}}
+      - {from: n3, to: n6, cond: "编辑", meta: {source: new}}
+      - {from: n3, to: n7, cond: "禁用", meta: {source: new}}
+      - {from: n3, to: n8, cond: "启用", meta: {source: new}}
+      - {from: n4, to: n5, cond: "code 唯一", meta: {source: new}}
+      - {from: n4, to: n12, cond: "code 重复", meta: {source: new}}
+      - {from: n5, to: n9, meta: {source: new}}
+      - {from: n6, to: n9, meta: {source: new}}
+      - {from: n7, to: n9, meta: {source: new}}
+      - {from: n8, to: n9, meta: {source: new}}
+      - {from: n9, to: n10, meta: {source: new}}
+      - {from: n5, to: n13, cond: "数据库异常", meta: {source: new}}
+      - {from: n6, to: n13, cond: "数据库异常", meta: {source: new}}
+    cross_domain: false
+    external_systems: []

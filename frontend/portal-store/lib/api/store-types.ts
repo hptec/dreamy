@@ -93,7 +93,6 @@ export interface StoreProductCard {
   id: number
   slug: string
   name: string
-  subtitle?: string
   price: number
   compareAt?: number | null
   multiCurrencyPrices?: Record<string, number> | null
@@ -104,6 +103,7 @@ export interface StoreProductCard {
   swatches?: { colorName?: string; url?: string }[]
   ratingAvg?: number
   ratingCount?: number
+  sellingPoints?: string[]
 }
 
 /** 动态属性值/可选值（value=EN 规范值——筛选参数口径；label=locale 译文） */
@@ -201,7 +201,6 @@ export interface ProductBrief {
   id: number
   slug: string
   name: string
-  subtitle?: string
   price: number
   compareAt?: number | null
   multiCurrencyPrices?: Record<string, number> | null

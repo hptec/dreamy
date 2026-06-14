@@ -14,13 +14,14 @@ import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 /**
  * 表 product（商品主档，现货+定制双模式）。
  * 冗余回写列 sales_30d/sales_refreshed_at/rating_avg/rating_count 仅 EVT-CAT-001/002 消费者与
  * EVT-CAT-003 定时任务可写（RM-CAT-098/099 专用），管理端整单覆盖（TX-CAT-002）不得触碰。
- * FULLTEXT 索引 ft_product_search(name, subtitle) WITH PARSER ngram（IDX-CAT-004）由
+ * FULLTEXT 索引 ft_product_search(name) WITH PARSER ngram（IDX-CAT-004）由
  * CatalogFulltextIndexInitializer 落地（huihao @Index 不支持 FULLTEXT）。
  * L2 TRACE: catalog-data-detail §1.2/§9 DDL-11 / IDX-CAT-001~005 / TASK-010 / TASK-040 product_lifecycle。
  */
@@ -41,9 +42,6 @@ public class Product extends LongAuditableEntity {
     @Column(name = ProductDBConst.SLUG, definition = "varchar(128) NOT NULL COMMENT 'URL slug ^[a-z0-9-]+$'")
     private String slug;
 
-    @Column(name = ProductDBConst.SUBTITLE, definition = "varchar(255) NULL COMMENT '副标题/卖点'")
-    private String subtitle;
-
     @Column(name = ProductDBConst.CATEGORY_ID, definition = "bigint NOT NULL COMMENT '逻辑外键 category.id（CV-CAT-005）'")
     private Long categoryId;
 
@@ -55,6 +53,10 @@ public class Product extends LongAuditableEntity {
 
     @Column(name = ProductDBConst.DESIGNER_NOTE, definition = "text NULL COMMENT '品牌故事'")
     private String designerNote;
+
+    @Column(name = ProductDBConst.SELLING_POINTS, definition = "json NULL COMMENT '商品卖点（EN 基准，数组，最多5个）'")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> sellingPoints;
 
     @Column(name = ProductDBConst.PRICE, definition = "decimal(12,2) NOT NULL COMMENT '现价 USD 基准'")
     private BigDecimal price;
@@ -118,4 +120,8 @@ public class Product extends LongAuditableEntity {
 
     @Column(name = ProductDBConst.RATING_COUNT, definition = "int NOT NULL DEFAULT 0 COMMENT '已通过评价数（EVT-CAT-002 回写）'")
     private Integer ratingCount;
+
+    /** 面料护理说明（可选自由文本）。L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 / MAP-FC-004/005/006。 */
+    @Column(name = ProductDBConst.FABRIC_CARE_NOTE, definition = "text NULL COMMENT '面料护理说明（自由文本补充）'")
+    private String fabricCareNote;
 }

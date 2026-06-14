@@ -8,6 +8,7 @@ import { ProductBuyBox } from '@/components/product/product-buy-box'
 import { ProductReviews } from '@/components/product/product-reviews'
 import { RecommendationRail } from '@/components/product/recommendation-rail'
 import { galleryOf, lifestyleOf, hasVideoOf } from '@/components/product/product-utils'
+import { FabricCareSection } from '@/components/FabricCareSection'
 
 /**
  * PDP（PAGE-CAT-S01，layout-keep + data-swap）：
@@ -79,6 +80,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         productId={product.id}
         tone="muted"
       />
+
+      {/* Fabric & Care */}
+      <FabricCareSection product={product} />
 
       {/* Reviews & Q&A（PAGE-REV-S01） */}
       <ProductReviews

@@ -14,11 +14,11 @@ import java.util.Map;
 public record AdminProductUpsert(
         String name,
         String slug,
-        String subtitle,
         Long categoryId,
         String productType,
         String description,
         String designerNote,
+        List<String> sellingPoints,
         BigDecimal price,
         BigDecimal compareAt,
         Boolean installment,
@@ -40,6 +40,10 @@ public record AdminProductUpsert(
         List<SizeChartRowDto> sizeChart,
         List<Long> tagIds,
         List<ProductTranslationDto> translations,
-        String updatedAt
+        String updatedAt,
+        // L2 TRACE: catalog-fabric-care-api-detail §2 V-FC-001~004
+        List<com.dreamy.dto.FabricCareDtos.FabricCompositionInput> fabricCompositions,
+        List<Long> careInstructionIds,
+        String fabricCareNote
 ) {
 }

@@ -7,8 +7,8 @@ public interface ProductTranslationDBConst extends CatalogCommonDBConst {
 
     String TABLE = "product_translation";
 
-    String SUBTITLE = "subtitle";
     String DESCRIPTION = "description";
+    String SELLING_POINTS = "selling_points";
     String SEO_TITLE = "seo_title";
     String SEO_DESCRIPTION = "seo_description";
 }

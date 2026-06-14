@@ -16,11 +16,11 @@ public record AdminProductDetail(
         Long id,
         String name,
         String slug,
-        String subtitle,
         Long categoryId,
         String productType,
         String description,
         String designerNote,
+        List<String> sellingPoints,
         BigDecimal price,
         BigDecimal compareAt,
         Boolean installment,
@@ -43,6 +43,10 @@ public record AdminProductDetail(
         List<Long> tagIds,
         List<ProductTranslationDto> translations,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        // L2 TRACE: catalog-fabric-care-api-detail §2 MAP-FC-006
+        List<com.dreamy.dto.FabricCareDtos.FabricCompositionDto> fabricCompositions,
+        List<Long> careInstructionIds,
+        String fabricCareNote
 ) {
 }

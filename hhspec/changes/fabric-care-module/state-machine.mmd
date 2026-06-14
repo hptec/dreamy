@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> active
+  active --> disabled : disable [new]
+  disabled --> active : enable [new]
+  [*] --> draft
+  draft --> published : publish
+  published --> draft : unpublish
+  published --> archived : archive
+  archived --> published : restore
+  draft --> deleted : delete
+  archived --> deleted : delete
+  classDef deprecated stroke:#999,stroke-dasharray:4 4,color:#999
+  classDef new stroke:#0a0,stroke-width:2px
+  classDef modified stroke:#fa0,stroke-width:2px

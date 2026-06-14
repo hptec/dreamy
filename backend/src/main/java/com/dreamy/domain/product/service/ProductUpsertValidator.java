@@ -288,7 +288,7 @@ public final class ProductUpsertValidator {
                 errors.reject("translations", "invalid_locale");
                 return;
             }
-            if (tooLong(t.name(), 128) || tooLong(t.subtitle(), 255)
+            if (tooLong(t.name(), 128)
                     || tooLong(t.seoTitle(), 128) || tooLong(t.seoDescription(), 255)) {
                 errors.reject("translations", "too_long");
                 return;
@@ -298,7 +298,6 @@ public final class ProductUpsertValidator {
 
     /** V-CAT-036 文本长度上限（er-diagram 对齐，CV-CAT-002） */
     private static void validateTextLimits(AdminProductUpsert u, CatalogFieldErrors errors) {
-        check(u.subtitle(), 255, "subtitle", errors);
         check(u.productType(), 64, "product_type", errors);
         check(u.styleNo(), 32, "style_no", errors);
         check(u.seoTitle(), 128, "seo_title", errors);

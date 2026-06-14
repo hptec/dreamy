@@ -1,0 +1,134 @@
+flowchart LR
+  n1((开始编辑面料成分))
+  n2{权限校验（编辑商品权限）}
+  n3{每层百分比总和校验}
+  n4["删除商品旧面料数据"]
+  n5["批量插入新面料数据"]
+  n6["记录审计日志"]
+  n7((保存成功))
+  n8["权限不足"]
+  n9["百分比校验失败"]
+  n10["数据库事务失败"]
+  n11["事务回滚"]
+  n1 --> n2 :::new
+  n2 -->|权限通过| n3 :::new
+  n2 -->|权限不足| n8 :::new
+  n3 -->|校验通过| n4 :::new
+  n3 -->|校验失败| n9 :::new
+  n4 --> n5 :::new
+  n5 --> n6 :::new
+  n6 --> n7 :::new
+  n5 -->|数据库异常| n10 :::new
+  n10 --> n11 :::new
+  n11 --> n7 :::new
+  n1((开始选择护理标签))
+  n2{权限校验（编辑商品权限）}
+  n3["加载护理标签字典（按 category 分组）"]
+  n4["删除商品旧护理标签关联"]
+  n5["批量插入新护理标签关联"]
+  n6["记录审计日志"]
+  n7((保存成功))
+  n8["权限不足"]
+  n9["数据库事务失败"]
+  n10["事务回滚"]
+  n1 --> n2 :::new
+  n2 -->|权限通过| n3 :::new
+  n2 -->|权限不足| n8 :::new
+  n3 --> n4 :::new
+  n4 --> n5 :::new
+  n5 --> n6 :::new
+  n6 --> n7 :::new
+  n5 -->|数据库异常| n9 :::new
+  n9 --> n10 :::new
+  n10 --> n7 :::new
+  n1((加载商品详情))
+  n2["读取面料成分（按 layer 分组，按 sort_order 排序）"]
+  n3["读取护理标签（已翻译为用户语言）"]
+  n4["渲染面料成分分层展示"]
+  n5["渲染护理符号 + 说明"]
+  n6((展示完成))
+  n7["网络请求失败"]
+  n8["显示加载失败提示"]
+  n1 --> n2 :::new
+  n2 --> n3 :::new
+  n3 --> n4 :::new
+  n4 --> n5 :::new
+  n5 --> n6 :::new
+  n2 -->|网络异常| n7 :::new
+  n3 -->|网络异常| n7 :::new
+  n7 --> n8 :::new
+  n8 --> n6 :::new
+  n1((开始维护护理标签字典))
+  n2{权限校验（系统管理员权限）}
+  n3{操作类型判断}
+  n4["校验 code 唯一性"]
+  n5["创建护理标签"]
+  n6["更新护理标签"]
+  n7["n7"]
+  n8["n8"]
+  n9["记录审计日志"]
+  n10((操作成功))
+  n11["权限不足"]
+  n12["code 已存在"]
+  n13["数据库异常"]
+  n1 --> n2 :::new
+  n2 -->|权限通过| n3 :::new
+  n2 -->|权限不足| n11 :::new
+  n3 -->|新增| n4 :::new
+  n3 -->|编辑| n6 :::new
+  n3 -->|禁用| n7 :::new
+  n3 -->|启用| n8 :::new
+  n4 -->|code 唯一| n5 :::new
+  n4 -->|code 重复| n12 :::new
+  n5 --> n9 :::new
+  n6 --> n9 :::new
+  n7 --> n9 :::new
+  n8 --> n9 :::new
+  n9 --> n10 :::new
+  n5 -->|数据库异常| n13 :::new
+  n6 -->|数据库异常| n13 :::new
+  class n1 new
+  class n2 new
+  class n3 new
+  class n4 new
+  class n5 new
+  class n6 new
+  class n7 new
+  class n8 new
+  class n9 new
+  class n10 new
+  class n11 new
+  class n1 new
+  class n2 new
+  class n3 new
+  class n4 new
+  class n5 new
+  class n6 new
+  class n7 new
+  class n8 new
+  class n9 new
+  class n10 new
+  class n1 new
+  class n2 new
+  class n3 new
+  class n4 new
+  class n5 new
+  class n6 new
+  class n7 new
+  class n8 new
+  class n1 new
+  class n2 new
+  class n3 new
+  class n4 new
+  class n5 new
+  class n6 new
+  class n7 new
+  class n8 new
+  class n9 new
+  class n10 new
+  class n11 new
+  class n12 new
+  class n13 new
+  classDef deprecated stroke:#999,stroke-dasharray:4 4,color:#999
+  classDef new stroke:#0a0,stroke-width:2px
+  classDef modified stroke:#fa0,stroke-width:2px

@@ -13,12 +13,12 @@ public record StoreProductDetail(
         Long id,
         String slug,
         String name,
-        String subtitle,
         Long categoryId,
         String categoryName,
         String productType,
         String description,
         String designerNote,
+        List<String> sellingPoints,
         BigDecimal price,
         BigDecimal compareAt,
         Map<String, BigDecimal> multiCurrencyPrices,
@@ -37,7 +37,11 @@ public record StoreProductDetail(
         List<SizeChartRowDto> sizeChart,
         List<TagRef> tags,
         BigDecimal ratingAvg,
-        Integer ratingCount
+        Integer ratingCount,
+        // L2 TRACE: catalog-fabric-care-api-detail §1 MAP-FC-005
+        List<com.dreamy.dto.FabricCareDtos.FabricCompositionDto> fabricCompositions,
+        List<com.dreamy.dto.FabricCareDtos.StoreCareInstructionDto> careInstructions,
+        String fabricCareNote
 ) {
     /** 商品挂载标签（已按 locale 解析） */
     public record TagRef(Long id, Long dimensionId, String name) {

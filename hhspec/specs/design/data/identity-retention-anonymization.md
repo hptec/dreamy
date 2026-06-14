@@ -95,7 +95,7 @@ UPDATE user_identity
 ### 索引补充建议
 - 若启用 admin_session 30d 清理，建议补充 `KEY idx_admin_session_status_created (status, created_at)` 以使清理走索引（当前 DDL 仅有 (admin_id,status)，status 非最左前缀）。本项标记 [INFERRED]，由 L3 按是否实际启用 admin_session 清理决定是否加索引。
 
-## 5. 待确认项
+## 5. 后续跟进事项
 
 1. operation_log 保留年限（1 vs 3 年）取决于机构合规配置，应做成可配置参数（非硬编码）。
 2. admin_session 是否纳入 30d 清理（domain R6 未单列）；若纳入需补索引（见第 4 节）。

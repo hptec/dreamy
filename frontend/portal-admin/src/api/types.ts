@@ -211,8 +211,8 @@ export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus]
 export interface ProductTranslation {
   locale: TranslationLocale
   name?: string | null
-  subtitle?: string | null
   description?: string | null
+  sellingPoints?: string[] | null
   seoTitle?: string | null
   seoDescription?: string | null
 }
@@ -288,7 +288,7 @@ export interface ProductBatchResult {
 export interface AdminProductUpsert {
   name: string
   slug: string
-  subtitle?: string | null
+  sellingPoints?: string[] | null
   categoryId: number | null
   productType?: string | null
   description?: string | null
@@ -315,6 +315,12 @@ export interface AdminProductUpsert {
   sizeChart?: SizeChartRow[]
   tagIds?: number[]
   translations?: ProductTranslation[]
+  /** 面料成分列表 */
+  fabricCompositions?: FabricComposition[] | null
+  /** 护理标签 ID 列表 */
+  careInstructionIds?: number[] | null
+  /** 护理备注（可选） */
+  fabricCareNote?: string | null
   updatedAt?: string | null
 }
 
@@ -987,4 +993,65 @@ export interface AnalyticsTrafficResponse {
   trafficSources?: TrafficSourceItem[] | null
   deviceShare?: DeviceShareItem[] | null
   funnel?: FunnelStage[] | null
+}
+
+// ===== Fabric & Care（面料与护理标签）=====
+
+/** Layer IntEnum 枚举 */
+export const Layer = { Shell: 1, Lining: 2, Overlay: 3, Trim: 4 } as const
+export type Layer = typeof Layer[keyof typeof Layer]
+
+/** Material IntEnum 枚举 */
+export const Material = {
+  Cotton: 1,
+  Polyester: 2,
+  Lace: 3,
+  Satin: 4,
+  Chiffon: 5,
+  Tulle: 6,
+  Silk: 7,
+  Organza: 8,
+  Spandex: 9,
+  Nylon: 10
+} as const
+export type Material = typeof Material[keyof typeof Material]
+
+/** CareCategory IntEnum 枚举 */
+export const CareCategory = {
+  washing: 1,
+  bleaching: 2,
+  drying: 3,
+  ironing: 4,
+  dry_cleaning: 5
+} as const
+export type CareCategory = typeof CareCategory[keyof typeof CareCategory]
+
+/** CareInstructionStatus IntEnum 枚举 */
+export const CareInstructionStatus = { active: 1, disabled: 2 } as const
+export type CareInstructionStatus = typeof CareInstructionStatus[keyof typeof CareInstructionStatus]
+
+/** 面料成分（product_fabric_composition） */
+export interface FabricComposition {
+  id?: number
+  layer: Layer
+  material: Material
+  percentage: number  // 0..100 decimal(5,2)
+  sortOrder: number
+}
+
+/** 护理标签定义（care_instruction_def） */
+export interface CareInstruction {
+  id: number
+  code: string
+  symbolUnicode: string
+  labelEn: string
+  labelZh: string
+  category: CareCategory
+  sortOrder: number
+  status: CareInstructionStatus
+}
+
+/** 护理标签列表响应 */
+export interface CareInstructionListResponse {
+  items: CareInstruction[]
 }

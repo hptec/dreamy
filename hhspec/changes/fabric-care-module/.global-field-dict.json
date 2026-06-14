@@ -1,0 +1,275 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "generated_at": "2026-06-14T07:56:30Z",
+    "source": "hhspec/changes/fabric-care-module/field-inventory.yml",
+    "change_name": "fabric-care-module",
+    "total_fields": 19,
+    "extraction_confidence": "low"
+  },
+  "fields": {
+    "email": {
+      "field_ids": ["FLD-CUSTOMERDETAIL-001", "FLD-LOGIN-001"],
+      "data_type": "string",
+      "business_type": "email",
+      "validation_rules": [
+        {"rule": "type", "value": "email"}
+      ],
+      "pages": ["CustomerDetail", "Login"],
+      "contexts": {
+        "read": ["CustomerDetail"],
+        "write": ["Login"]
+      },
+      "labels": {
+        "zh": "邮箱",
+        "en": "email"
+      }
+    },
+    "google": {
+      "field_ids": ["FLD-CUSTOMERDETAIL-002"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["CustomerDetail"],
+      "contexts": {
+        "read": ["CustomerDetail"],
+        "write": []
+      },
+      "labels": {
+        "en": "google"
+      }
+    },
+    "apple": {
+      "field_ids": ["FLD-CUSTOMERDETAIL-003"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["CustomerDetail"],
+      "contexts": {
+        "read": ["CustomerDetail"],
+        "write": []
+      },
+      "labels": {
+        "en": "apple"
+      }
+    },
+    "tier": {
+      "field_ids": ["FLD-CUSTOMERS-001", "FLD-CUSTOMERS-010"],
+      "data_type": "enum",
+      "business_type": "generic",
+      "validation_rules": [],
+      "enum_values": [
+        {"value": "all", "label": "全部等级"},
+        {"value": "VIP", "label": "VIP"},
+        {"value": "常规", "label": "常规"}
+      ],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": [],
+        "write": ["Customers"]
+      },
+      "labels": {
+        "en": "tier"
+      }
+    },
+    "search": {
+      "field_ids": ["FLD-CUSTOMERS-002"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": [],
+        "write": ["Customers"]
+      },
+      "labels": {
+        "en": "search"
+      },
+      "placeholder": "搜索姓名 / 邮箱…"
+    },
+    "tcol_9ba763ea": {
+      "field_ids": ["FLD-CUSTOMERS-003"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "用户",
+        "en": "tcol_9ba763ea"
+      },
+      "original_name": "用户"
+    },
+    "tcol_525ad5e2": {
+      "field_ids": ["FLD-CUSTOMERS-004"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "注册时间",
+        "en": "tcol_525ad5e2"
+      },
+      "original_name": "注册时间"
+    },
+    "tcol_084389cc": {
+      "field_ids": ["FLD-CUSTOMERS-005"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "订单数",
+        "en": "tcol_084389cc"
+      },
+      "original_name": "订单数"
+    },
+    "tcol_bd94a663": {
+      "field_ids": ["FLD-CUSTOMERS-006"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "累计消费",
+        "en": "tcol_bd94a663"
+      },
+      "original_name": "累计消费"
+    },
+    "tcol_5c42c048": {
+      "field_ids": ["FLD-CUSTOMERS-007"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "等级",
+        "en": "tcol_5c42c048"
+      },
+      "original_name": "等级"
+    },
+    "tcol_62e951a6": {
+      "field_ids": ["FLD-CUSTOMERS-008"],
+      "data_type": "string",
+      "business_type": "status",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "状态",
+        "en": "tcol_62e951a6"
+      },
+      "original_name": "状态"
+    },
+    "tcol_f3ea6d34": {
+      "field_ids": ["FLD-CUSTOMERS-009"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Customers"],
+      "contexts": {
+        "read": ["Customers"],
+        "write": []
+      },
+      "labels": {
+        "zh": "操作",
+        "en": "tcol_f3ea6d34"
+      },
+      "original_name": "操作"
+    },
+    "password": {
+      "field_ids": ["FLD-LOGIN-002"],
+      "data_type": "string",
+      "business_type": "password",
+      "validation_rules": [],
+      "pages": ["Login"],
+      "contexts": {
+        "read": [],
+        "write": ["Login"]
+      },
+      "labels": {
+        "zh": "密码",
+        "en": "password"
+      },
+      "placeholder": "请输入密码"
+    },
+    "remember": {
+      "field_ids": ["FLD-LOGIN-003"],
+      "data_type": "boolean",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Login"],
+      "contexts": {
+        "read": [],
+        "write": ["Login"]
+      },
+      "labels": {
+        "en": "remember"
+      }
+    },
+    "name": {
+      "field_ids": ["FLD-NAVIGATIONCONFIG-001"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["NavigationConfig"],
+      "contexts": {
+        "read": ["NavigationConfig"],
+        "write": []
+      },
+      "labels": {
+        "en": "name"
+      }
+    },
+    "href": {
+      "field_ids": ["FLD-NAVIGATIONCONFIG-002"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["NavigationConfig"],
+      "contexts": {
+        "read": ["NavigationConfig"],
+        "write": []
+      },
+      "labels": {
+        "en": "href"
+      }
+    },
+    "ms": {
+      "field_ids": ["FLD-PUBLISH-001"],
+      "data_type": "string",
+      "business_type": "generic",
+      "validation_rules": [],
+      "pages": ["Publish"],
+      "contexts": {
+        "read": ["Publish"],
+        "write": []
+      },
+      "labels": {
+        "en": "ms"
+      }
+    }
+  }
+}

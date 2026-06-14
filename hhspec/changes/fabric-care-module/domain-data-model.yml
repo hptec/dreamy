@@ -1,0 +1,202 @@
+schema_version: "1.0"
+
+metadata:
+  change_name: fabric-care-module
+  generated_at: "2026-06-14T07:56:00Z"
+  source_files:
+    - hhspec/changes/fabric-care-module/field-inventory.yml
+    - hhspec/changes/fabric-care-module/operation-paths.yml
+  inference_confidence: medium
+  notes:
+    - "Inferred from admin portal prototype pages"
+    - "Customer-centric domain with authentication and navigation management"
+
+entities:
+  - name: Customer
+    description: "电商平台的消费者用户"
+    attributes:
+      - name: email
+        type: string
+        nullable: false
+        description: "用户邮箱地址，用于登录和通信"
+        source_field_ids: [FLD-CUSTOMERDETAIL-001, FLD-LOGIN-001]
+      - name: tier
+        type: enum
+        nullable: true
+        description: "客户等级（VIP/常规）"
+        enum_values: [all, VIP, 常规]
+        source_field_ids: [FLD-CUSTOMERS-001, FLD-CUSTOMERS-010]
+      - name: registration_date
+        type: datetime
+        nullable: true
+        description: "用户注册时间"
+        source_field_ids: [FLD-CUSTOMERS-004]
+      - name: order_count
+        type: integer
+        nullable: true
+        description: "累计订单数量"
+        source_field_ids: [FLD-CUSTOMERS-005]
+      - name: total_spent
+        type: decimal
+        nullable: true
+        description: "累计消费金额"
+        source_field_ids: [FLD-CUSTOMERS-006]
+      - name: status
+        type: enum
+        nullable: true
+        description: "账户状态（活跃/冻结等）"
+        source_field_ids: [FLD-CUSTOMERS-008]
+      - name: google_linked
+        type: boolean
+        nullable: true
+        description: "是否关联Google账号"
+        source_field_ids: [FLD-CUSTOMERDETAIL-002]
+      - name: apple_linked
+        type: boolean
+        nullable: true
+        description: "是否关联Apple账号"
+        source_field_ids: [FLD-CUSTOMERDETAIL-003]
+    operations:
+      - page: Customers
+        type: list
+        description: "客户列表查询，支持按等级筛选和搜索"
+      - page: CustomerDetail
+        type: detail
+        description: "查看客户详细信息"
+      - page: CustomerDetail
+        type: force_offline
+        description: "强制客户下线（OP-004）"
+
+  - name: Admin
+    description: "后台管理员用户"
+    attributes:
+      - name: email
+        type: string
+        nullable: false
+        description: "管理员邮箱，用于登录"
+        source_field_ids: [FLD-LOGIN-001]
+      - name: password
+        type: string
+        nullable: false
+        description: "登录密码"
+        source_field_ids: [FLD-LOGIN-002]
+    operations:
+      - page: Login
+        type: authenticate
+        description: "管理员登录认证"
+      - page: AdminList
+        type: list
+        description: "管理员列表"
+      - page: AdminList
+        type: create
+        description: "新增管理员（OP-001）"
+
+  - name: Role
+    description: "角色权限管理"
+    attributes: []
+    operations:
+      - page: RoleManagement
+        type: list
+        description: "角色列表"
+      - page: RoleManagement
+        type: create
+        description: "新增角色（OP-006）"
+
+  - name: NavigationItem
+    description: "导航菜单配置项"
+    attributes:
+      - name: name
+        type: string
+        nullable: false
+        description: "导航项名称"
+        source_field_ids: [FLD-NAVIGATIONCONFIG-001]
+      - name: href
+        type: string
+        nullable: false
+        description: "导航链接地址"
+        source_field_ids: [FLD-NAVIGATIONCONFIG-002]
+    operations:
+      - page: NavigationConfig
+        type: list
+        description: "导航配置列表"
+
+  - name: OperationLog
+    description: "系统操作日志"
+    attributes:
+      - name: timestamp
+        type: datetime
+        nullable: false
+        description: "操作时间"
+      - name: operator
+        type: string
+        nullable: true
+        description: "操作人"
+      - name: action
+        type: string
+        nullable: false
+        description: "操作类型"
+    operations:
+      - page: OperationLogs
+        type: list
+        description: "操作日志列表"
+      - page: OperationLogs
+        type: export
+        description: "导出CSV（OP-005）"
+
+  - name: AuthSettings
+    description: "认证配置设置"
+    attributes: []
+    operations:
+      - page: AuthSettings
+        type: update
+        description: "保存认证配置（OP-002）"
+
+  - name: PublishStatus
+    description: "发布状态管理"
+    attributes:
+      - name: ms
+        type: string
+        nullable: true
+        description: "发布相关的毫秒时间戳或标识"
+        source_field_ids: [FLD-PUBLISH-001]
+    operations:
+      - page: Publish
+        type: view
+        description: "查看发布状态"
+
+relationships:
+  - from: Admin
+    to: Role
+    type: many_to_many
+    description: "管理员可拥有多个角色"
+  - from: Admin
+    to: OperationLog
+    type: one_to_many
+    description: "管理员产生操作日志"
+  - from: Customer
+    to: OperationLog
+    type: one_to_many
+    description: "客户操作产生日志"
+
+business_flows:
+  - name: customer_management
+    description: "客户管理流程"
+    steps:
+      - "管理员登录（Login）"
+      - "查看客户列表（Customers）"
+      - "筛选和搜索客户"
+      - "查看客户详情（CustomerDetail）"
+      - "执行客户操作（强制下线等）"
+  - name: admin_management
+    description: "管理员管理流程"
+    steps:
+      - "查看管理员列表（AdminList）"
+      - "新增管理员"
+      - "分配角色（RoleManagement）"
+  - name: system_configuration
+    description: "系统配置流程"
+    steps:
+      - "配置认证设置（AuthSettings）"
+      - "配置导航菜单（NavigationConfig）"
+      - "查看操作日志（OperationLogs）"
+      - "导出审计数据"

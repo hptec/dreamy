@@ -1,0 +1,231 @@
+schema_version: "1.0"
+
+meta:
+  change_name: fabric-care-module
+  generated_at: "2026-06-14T08:20:00Z"
+  phase: requirements_confirmed
+  change_type: greenfield
+  portal_id: portal-admin
+
+scope:
+  description: "面料护理模块：为商品编辑页增加面料成分和ISO 3758护理标签的结构化编辑能力"
+
+  primary_portal:
+    portal_id: portal-admin
+    base_dir: frontend/portal-admin
+    entry_file: src/views/ProductEdit.vue
+
+  implementation_files:
+    frontend:
+      new:
+        - path: src/components/FabricCompositionEditor.vue
+          role: 面料成分编辑器组件
+          dependencies:
+            - src/types/fabric-materials.ts
+            - src/constants/fabric-materials.ts
+
+        - path: src/components/CareSymbolSelector.vue
+          role: ISO 3758护理标签选择器组件
+          dependencies:
+            - src/types/care-symbols.ts
+            - src/constants/care-symbols.ts
+
+        - path: src/types/fabric-materials.ts
+          role: 面料材料类型定义
+          dependencies: []
+
+        - path: src/constants/fabric-materials.ts
+          role: 面料材料常量数据（20种材料）
+          dependencies:
+            - src/types/fabric-materials.ts
+
+        - path: src/types/care-symbols.ts
+          role: 护理符号类型定义
+          dependencies: []
+
+        - path: src/constants/care-symbols.ts
+          role: 护理符号常量数据（38个符号）
+          dependencies:
+            - src/types/care-symbols.ts
+
+      modified:
+        - path: src/views/ProductEdit.vue
+          role: 商品编辑页面（集成两个新组件）
+          change_type: integration
+          added_sections:
+            - 面料成分编辑区域
+            - 护理标签选择区域
+
+        - path: src/api/types.ts
+          role: API类型定义（新增面料护理相关接口）
+          change_type: extension
+          added_types:
+            - FabricCompositionRequest
+            - CareSymbolsRequest
+            - FabricCareResponse
+
+    backend:
+      new:
+        - path: backend/src/main/java/com/dreamy/domain/product/entity/FabricLayer.java
+          role: 面料层级实体
+          dependencies: []
+
+        - path: backend/src/main/java/com/dreamy/domain/product/entity/FabricComposition.java
+          role: 面料成分实体
+          dependencies:
+            - FabricLayer.java
+
+        - path: backend/src/main/java/com/dreamy/domain/product/entity/ProductCareSymbol.java
+          role: 商品护理标签实体
+          dependencies: []
+
+        - path: backend/src/main/java/com/dreamy/domain/product/enums/FabricMaterial.java
+          role: 面料材料枚举类
+          dependencies: []
+
+        - path: backend/src/main/java/com/dreamy/domain/product/enums/FabricLayerType.java
+          role: 面料层级枚举类
+          dependencies: []
+
+        - path: backend/src/main/java/com/dreamy/domain/product/repository/FabricLayerRepository.java
+          role: 面料层级数据访问接口
+          dependencies:
+            - FabricLayer.java
+
+        - path: backend/src/main/java/com/dreamy/domain/product/repository/FabricCompositionRepository.java
+          role: 面料成分数据访问接口
+          dependencies:
+            - FabricComposition.java
+
+        - path: backend/src/main/java/com/dreamy/domain/product/repository/ProductCareSymbolRepository.java
+          role: 商品护理标签数据访问接口
+          dependencies:
+            - ProductCareSymbol.java
+
+        - path: backend/src/main/java/com/dreamy/domain/product/service/FabricCareService.java
+          role: 面料护理业务逻辑服务
+          dependencies:
+            - FabricLayerRepository.java
+            - FabricCompositionRepository.java
+            - ProductCareSymbolRepository.java
+
+        - path: backend/src/main/java/com/dreamy/controller/ProductFabricCareController.java
+          role: 面料护理REST API控制器
+          dependencies:
+            - FabricCareService.java
+
+        - path: backend/src/main/java/com/dreamy/dto/FabricCompositionDTO.java
+          role: 面料成分数据传输对象
+          dependencies: []
+
+        - path: backend/src/main/java/com/dreamy/dto/CareSymbolsDTO.java
+          role: 护理标签数据传输对象
+          dependencies: []
+
+      modified:
+        - path: backend/src/main/java/com/dreamy/controller/AdminProductController.java
+          role: 商品管理控制器（可能需要集成面料护理查询）
+          change_type: optional_integration
+
+    database:
+      new:
+        - path: backend/src/main/resources/db/migration/V001__create_fabric_tables.sql
+          role: 数据库迁移脚本（创建3张新表）
+          tables:
+            - fabric_layers
+            - fabric_compositions
+            - product_care_symbols
+
+    assets:
+      new:
+        - path: frontend/portal-admin/public/care-symbols/
+          role: ISO 3758护理符号SVG图标目录
+          file_count: 38
+          file_pattern: "*.svg"
+
+    tests:
+      new:
+        - path: backend/src/test/java/com/dreamy/domain/product/service/FabricCareServiceTest.java
+          role: 面料护理服务单元测试
+
+        - path: frontend/portal-admin/src/components/__tests__/FabricCompositionEditor.spec.ts
+          role: 面料成分编辑器组件测试
+
+        - path: frontend/portal-admin/src/components/__tests__/CareSymbolSelector.spec.ts
+          role: 护理标签选择器组件测试
+
+        - path: tests/ui-verification/fabric-care.spec.ts
+          role: UI端到端验收测试（Playwright）
+
+boundaries:
+  in_scope:
+    - 商品编辑页（ProductEdit.vue）的面料护理信息编辑
+    - 面料成分多层次编辑（Shell/Lining/Overlay/Trim）
+    - ISO 3758护理标签选择器
+    - 后端结构化存储（3张表）
+    - 消费端PDP展示组件（待实现）
+
+  out_of_scope:
+    - 现有商品的批量数据迁移工具
+    - 消费端PDP展示组件的实现（本期不涉及store门户）
+    - 面料护理信息的搜索和筛选功能
+    - 护理符号的自定义上传功能
+    - 多语言版本（仅支持中英文）
+
+dependencies:
+  external_libraries:
+    frontend:
+      - name: "@headlessui/vue"
+        version: "^1.7.0"
+        usage: Tab、Disclosure组件
+
+      - name: "vue"
+        version: "^3.3.0"
+        usage: 组件框架
+
+    backend:
+      - name: "mybatis-plus"
+        version: "3.5.x"
+        usage: 数据访问层
+
+      - name: "spring-boot"
+        version: "3.x"
+        usage: 后端框架
+
+  internal_modules:
+    - module: product
+      reason: 面料护理信息属于商品领域的扩展
+
+    - module: api
+      reason: 新增REST API端点
+
+estimated_impact:
+  lines_of_code:
+    frontend_new: ~1200
+    backend_new: ~800
+    tests_new: ~600
+    total: ~2600
+
+  file_count:
+    frontend_new: 6
+    backend_new: 12
+    database_new: 1
+    assets_new: 38
+    tests_new: 4
+    total: 61
+
+  complexity:
+    frontend: medium
+    backend: low
+    database: low
+    overall: medium
+
+risks:
+  - risk: ISO 3758符号SVG资源获取
+    mitigation: 使用免费图标库或Unicode字符替代
+
+  - risk: 百分比校验复杂度
+    mitigation: 前后端双重校验，前端实时反馈
+
+  - risk: 现有商品数据向后兼容
+    mitigation: 允许面料信息为空，不强制填写

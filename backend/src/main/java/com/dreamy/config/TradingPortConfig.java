@@ -89,10 +89,8 @@ public class TradingPortConfig {
                     ProductTranslation t = translations.get(product.getId());
                     String name = t != null && t.getName() != null && !t.getName().isBlank()
                             ? t.getName() : product.getName();
-                    String subtitle = t != null && t.getSubtitle() != null && !t.getSubtitle().isBlank()
-                            ? t.getSubtitle() : product.getSubtitle();
                     result.put(product.getId(), new ProductBrief(product.getId(), product.getSlug(), name,
-                            subtitle, product.getPrice(), product.getCompareAt(),
+                            product.getPrice(), product.getCompareAt(),
                             product.getMultiCurrencyPrices(), mainImages.get(product.getId()),
                             product.getLeadTimeDays(), product.getRushAvailable(),
                             product.getCustomSizeAvailable(),
