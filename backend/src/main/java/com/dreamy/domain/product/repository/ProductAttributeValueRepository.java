@@ -68,4 +68,10 @@ public class ProductAttributeValueRepository {
                 .eq(ProductAttributeValue::getAttributeId, attributeId)
                 .in(ProductAttributeValue::getValue, values));
     }
+
+    /** attribute_def 强制删除级联：清理所有商品属性值 */
+    public void deleteByAttributeId(Long attributeId) {
+        mapper.delete(new LambdaQueryWrapper<ProductAttributeValue>()
+                .eq(ProductAttributeValue::getAttributeId, attributeId));
+    }
 }

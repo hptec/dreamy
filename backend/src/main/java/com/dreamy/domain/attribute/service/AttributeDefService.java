@@ -120,26 +120,41 @@ public class AttributeDefService {
         return toDto(existing, req.translations() == null ? List.of() : req.translations());
     }
 
-    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查——属性集引用 + 商品 EAV 引用） */
+    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查——属性集引用 + 商品 EAV 引用；force=true 级联删除） */
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, boolean force) {
         AttributeDef existing = defRepository.findById(id);
         if (existing == null) {
             throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_NOT_FOUND);
         }
         long usage = setRepository.countItemsByAttributeId(id);
-        if (usage > 0) {
-            throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE,
-                    Map.of("attribute_set_count", usage));
-        }
         long valueCount = attributeValueRepository.countByAttributeId(id);
-        if (valueCount > 0) {
-            throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE,
-                    Map.of("product_value_count", valueCount));
+
+        if (!force && (usage > 0 || valueCount > 0)) {
+            // 非强制删除：检测到引用时返回 409507 并附带引用计数
+            Map<String, Object> meta = new HashMap<>();
+            if (usage > 0) meta.put("attribute_set_count", usage);
+            if (valueCount > 0) meta.put("product_value_count", valueCount);
+            throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE, meta);
         }
+
+        // 强制删除：级联清理所有引用
+        if (force) {
+            if (usage > 0) {
+                setRepository.deleteItemsByAttributeId(id);
+                audit.record("删除属性定义（强制）", existing.getLabel(),
+                    "已级联删除 " + usage + " 个属性集引用");
+            }
+            if (valueCount > 0) {
+                attributeValueRepository.deleteByAttributeId(id);
+                audit.record("删除属性定义（强制）", existing.getLabel(),
+                    "已级联删除 " + valueCount + " 个商品属性值");
+            }
+        }
+
         defRepository.deleteById(id);
         defRepository.deleteTranslationsByDefId(id);
-        audit.record("删除属性定义", existing.getLabel(), null);
+        audit.record("删除属性定义", existing.getLabel(), force ? "（强制删除）" : null);
         invalidateStoreCaches();
     }
 

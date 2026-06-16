@@ -40,8 +40,12 @@ import com.dreamy.domain.role.entity.Role;
 import com.dreamy.domain.role.entity.RolePermission;
 import com.dreamy.domain.product.entity.CareInstructionDef;
 import com.dreamy.domain.product.repository.CareInstructionDefRepository;
+import com.dreamy.domain.product.service.FabricCareService;
+import com.dreamy.dto.FabricCareDtos;
 import com.dreamy.enums.CareCategory;
 import com.dreamy.enums.CareStatus;
+import com.dreamy.enums.FabricLayer;
+import com.dreamy.enums.FabricMaterial;
 import com.dreamy.domain.role.repository.PermissionMapper;
 import com.dreamy.domain.role.repository.RoleMapper;
 import com.dreamy.domain.role.repository.RolePermissionMapper;
@@ -93,6 +97,7 @@ public class CatalogSeedInitializer {
     private final RolePermissionMapper rolePermissionMapper;
     private final JdbcTemplate jdbcTemplate;
     private final CareInstructionDefRepository careInstructionDefRepository;
+    private final FabricCareService fabricCareService;
 
     public CatalogSeedInitializer(ProductMapper productMapper, ProductRepository productRepository,
                                   ProductImageRepository imageRepository, SkuRepository skuRepository,
@@ -106,7 +111,8 @@ public class CatalogSeedInitializer {
                                   TagDimensionRepository tagDimensionRepository, TagRepository tagRepository,
                                   PermissionMapper permissionMapper, RoleMapper roleMapper,
                                   RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate,
-                                  CareInstructionDefRepository careInstructionDefRepository) {
+                                  CareInstructionDefRepository careInstructionDefRepository,
+                                  FabricCareService fabricCareService) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.imageRepository = imageRepository;
@@ -125,6 +131,7 @@ public class CatalogSeedInitializer {
         this.rolePermissionMapper = rolePermissionMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.careInstructionDefRepository = careInstructionDefRepository;
+        this.fabricCareService = fabricCareService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -136,8 +143,8 @@ public class CatalogSeedInitializer {
         Map<String, Long> sets = seedAttributeSets(defs);
         Map<String, Long> categories = seedCategories(sets);
         Map<String, Long> tags = seedTagsAndDimensions();
+        seedCareInstructions();  // 先初始化护理标签定义，商品填充时需要引用
         seedProducts(defs, categories, tags);
-        seedCareInstructions();
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
 
@@ -207,7 +214,7 @@ public class CatalogSeedInitializer {
                 List.of("Floor", "Short"), null, null));
         ids.put("fabric", insertDef("fabric", "Fabric", AttributeType.SELECT,
                 List.of("Tulle", "Lace", "Chiffon", "Satin", "Luxe Knit", "Sequin"), null, null));
-        ids.put("fabric_composition", insertDef("fabric_composition", "Fabric Composition", AttributeType.TEXT, null, null, null));
+        // fabric_composition / care_instructions 已迁移至专用表（product_fabric_composition / product_care_instruction）
         ids.put("support", insertDef("support", "Support", AttributeType.SELECT,
                 List.of("Built-in Bra", "Boning", "Padded Cups", "None"), null, null));
         ids.put("season", insertDef("season", "Season", AttributeType.SELECT,
@@ -218,8 +225,7 @@ public class CatalogSeedInitializer {
                 List.of("Garden", "Beach", "Vineyard", "Forest"), null, null));
         ids.put("style_tag", insertDef("style_tag", "Style Tags", AttributeType.MULTISELECT,
                 List.of("Boho", "Classic", "Modern", "Romantic", "Minimalist", "Glam"), null, null));
-        // 护理和模特信息属性（迁移自 product 固定列）
-        ids.put("care_instructions", insertDef("care_instructions", "Care Instructions", AttributeType.TEXT, null, null, null));
+        // 模特信息属性（迁移自 product 固定列）
         ids.put("model_height", insertDef("model_height", "Model Height", AttributeType.TEXT, null, null, null));
         ids.put("model_size", insertDef("model_size", "Model Size", AttributeType.TEXT, null, null, null));
         ids.put("model_body_type", insertDef("model_body_type", "Model Body Type", AttributeType.TEXT, null, null, null));
@@ -262,13 +268,11 @@ public class CatalogSeedInitializer {
         bridal.put("train", AttributeVisibility.OPTIONAL);
         bridal.put("length", AttributeVisibility.OPTIONAL);
         bridal.put("fabric", AttributeVisibility.VISIBLE);
-        bridal.put("fabric_composition", AttributeVisibility.OPTIONAL);
         bridal.put("support", AttributeVisibility.OPTIONAL);
         bridal.put("season", AttributeVisibility.OPTIONAL);
         bridal.put("embellishment", AttributeVisibility.OPTIONAL);
         bridal.put("occasion", AttributeVisibility.OPTIONAL);
         bridal.put("style_tag", AttributeVisibility.OPTIONAL);
-        bridal.put("care_instructions", AttributeVisibility.OPTIONAL);
         bridal.put("model_height", AttributeVisibility.OPTIONAL);
         bridal.put("model_size", AttributeVisibility.OPTIONAL);
         bridal.put("model_body_type", AttributeVisibility.OPTIONAL);
@@ -278,19 +282,15 @@ public class CatalogSeedInitializer {
         occasion.put("silhouette", AttributeVisibility.VISIBLE);
         occasion.put("neckline", AttributeVisibility.OPTIONAL);
         occasion.put("fabric", AttributeVisibility.VISIBLE);
-        occasion.put("fabric_composition", AttributeVisibility.OPTIONAL);
         occasion.put("length", AttributeVisibility.VISIBLE);
         occasion.put("season", AttributeVisibility.OPTIONAL);
         occasion.put("occasion", AttributeVisibility.OPTIONAL);
         occasion.put("style_tag", AttributeVisibility.OPTIONAL);
-        occasion.put("care_instructions", AttributeVisibility.HIDDEN);
         occasion.put("country_of_origin", AttributeVisibility.OPTIONAL);
         ids.put("occasion", insertSet("Occasion Dress Attributes", defs, occasion));
         Map<String, AttributeVisibility> accessory = new LinkedHashMap<>();
         accessory.put("fabric", AttributeVisibility.OPTIONAL);
-        accessory.put("fabric_composition", AttributeVisibility.OPTIONAL);
         accessory.put("occasion", AttributeVisibility.OPTIONAL);
-        accessory.put("care_instructions", AttributeVisibility.OPTIONAL);
         accessory.put("country_of_origin", AttributeVisibility.OPTIONAL);
         ids.put("accessory", insertSet("Accessory Attributes", defs, accessory));
         return ids;
@@ -485,6 +485,8 @@ public class CatalogSeedInitializer {
             addAttrRow(attrRows, defs, "occasion", theme);
         }
         attributeValueRepository.replaceAll(p.getId(), attrRows);
+        // 面料成分 + 护理标签 → 专用表（product_fabric_composition / product_care_instruction）
+        seedFabricAndCare(p.getId(), sp.slug());
         // images：gallery（sort 0..n 主图=0）+ lifestyle + 每色 swatch
         List<ProductImage> images = new ArrayList<>();
         for (int i = 0; i < sp.gallery().size(); i++) {
@@ -577,6 +579,60 @@ public class CatalogSeedInitializer {
         String c = color.toUpperCase().replaceAll("[^A-Z0-9]", "");
         String s = size.toUpperCase().replaceAll("[^A-Z0-9]", "");
         return base + "-" + c + "-" + s;
+    }
+
+    /** 为商品填充面料成分和护理标签（专用表） */
+    private void seedFabricAndCare(Long productId, String slug) {
+        // 根据 slug 决定面料成分配置
+        List<FabricCareDtos.FabricCompositionInput> fabricInputs = new ArrayList<>();
+
+        // 示例：为婚纱/礼服类商品配置面料成分
+        if (slug.contains("gown") || slug.contains("dress")) {
+            // Shell: 70% Polyester + 30% Nylon
+            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
+                    FabricLayer.SHELL.getKey(),
+                    FabricMaterial.POLYESTER.getKey(),
+                    new BigDecimal("70.00"),
+                    0
+            ));
+            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
+                    FabricLayer.SHELL.getKey(),
+                    FabricMaterial.NYLON.getKey(),
+                    new BigDecimal("30.00"),
+                    1
+            ));
+            // Lining: 100% Polyester
+            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
+                    FabricLayer.LINING.getKey(),
+                    FabricMaterial.POLYESTER.getKey(),
+                    new BigDecimal("100.00"),
+                    0
+            ));
+        } else if (slug.contains("veil") || slug.contains("accessory")) {
+            // 配饰：100% Polyester（单层）
+            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
+                    FabricLayer.SHELL.getKey(),
+                    FabricMaterial.POLYESTER.getKey(),
+                    new BigDecimal("100.00"),
+                    0
+            ));
+        }
+
+        if (!fabricInputs.isEmpty()) {
+            fabricCareService.replaceFabricCompositions(productId, fabricInputs);
+        }
+
+        // 护理标签：查找前5个活跃标签作为示例（实际应根据商品类型配置）
+        List<CareInstructionDef> allCare = careInstructionDefRepository.listAll();
+        List<Long> careIds = allCare.stream()
+                .filter(c -> c.getStatus() == CareStatus.ACTIVE)
+                .limit(3)
+                .map(CareInstructionDef::getId)
+                .toList();
+
+        if (!careIds.isEmpty()) {
+            fabricCareService.replaceCareInstructions(productId, careIds);
+        }
     }
 
     private List<SizeChartRow> standardSizeChart() {

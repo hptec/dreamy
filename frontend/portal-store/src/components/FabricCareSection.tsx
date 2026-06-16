@@ -3,26 +3,13 @@
 // 证据锚点: catalog-fabric-care-frontend-detail.md § 2.1 / acceptance.yml s-060~s-064
 
 import { useMemo } from 'react'
+import type { FabricComposition, CareInstruction } from '@/lib/api/store-types'
 
 // [L2-COMP-FC-04] Props 定义
 interface Props {
   fabricCompositions: FabricComposition[]
   careInstructions: CareInstruction[]
   fabricCareNote?: string
-}
-
-interface FabricComposition {
-  layer: number
-  material: number
-  percentage: number
-  sortOrder: number
-}
-
-interface CareInstruction {
-  id: number
-  symbolUnicode: string
-  label: string        // 已按 locale 解析（服务端返回 label_en）
-  category: number
 }
 
 // 枚举映射（消费端英文）
@@ -55,7 +42,7 @@ export function FabricCareSection({
   // 证据锚点: acceptance.yml s-060
   const compositionsByLayer = useMemo(() => {
     const groups = new Map<number, FabricComposition[]>()
-    fabricCompositions.forEach(comp => {
+    fabricCompositions?.forEach(comp => {
       if (!groups.has(comp.layer)) groups.set(comp.layer, [])
       groups.get(comp.layer)!.push(comp)
     })
@@ -66,7 +53,7 @@ export function FabricCareSection({
 
   // [L2-COMP-FC-04] 无数据时整个区块不渲染
   // 证据锚点: acceptance.yml s-066 / B-FC-014
-  if (fabricCompositions.length === 0 && careInstructions.length === 0) {
+  if ((!fabricCompositions || fabricCompositions.length === 0) && (!careInstructions || careInstructions.length === 0)) {
     return null
   }
 
@@ -75,7 +62,7 @@ export function FabricCareSection({
       <h2 className="text-2xl font-semibold mb-4 text-gray-900">Fabric & Care</h2>
 
       {/* 面料成分 */}
-      {fabricCompositions.length > 0 && (
+      {fabricCompositions && fabricCompositions.length > 0 && (
         <div className="fabric-composition mb-6">
           <h3 className="text-lg font-medium mb-3 text-gray-800">Composition</h3>
           {Array.from(compositionsByLayer.entries()).map(([layer, items]) => (
@@ -96,7 +83,7 @@ export function FabricCareSection({
       )}
 
       {/* 护理标签 */}
-      {careInstructions.length > 0 && (
+      {careInstructions && careInstructions.length > 0 && (
         <div className="care-instructions mb-6">
           <h3 className="text-lg font-medium mb-3 text-gray-800">Care Instructions</h3>
           <div className="care-symbols flex flex-wrap gap-4">

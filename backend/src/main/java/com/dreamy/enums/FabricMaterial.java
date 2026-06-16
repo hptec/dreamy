@@ -1,5 +1,6 @@
 package com.dreamy.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
 import huihao.enums.annotation.Enumable;
 import huihao.enums.typeable.Describable;
 import huihao.enums.typeable.IntEnum;
@@ -23,6 +24,7 @@ public enum FabricMaterial implements IntEnum, Describable {
     NYLON(10, "尼龙");
 
     @Getter
+    @EnumValue
     private final Integer key;
 
     @Getter

@@ -146,6 +146,30 @@ export interface StoreProductDetail extends StoreProductCard {
   skus: Sku[]
   sizeChart?: SizeChartRow[]
   tags?: { id: number; dimensionId?: number; name: string }[]
+  /** 面料成分列表 */
+  fabricCompositions?: FabricComposition[]
+  /** 护理标签列表 */
+  careInstructions?: CareInstruction[]
+  /** 护理备注 */
+  fabricCareNote?: string
+}
+
+export interface FabricComposition {
+  id?: number
+  productId?: number
+  layer: number
+  material: number
+  percentage: number
+  sortOrder: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CareInstruction {
+  id: number
+  symbolUnicode: string
+  label: string
+  category: number
 }
 
 export type RecommendationBlock =

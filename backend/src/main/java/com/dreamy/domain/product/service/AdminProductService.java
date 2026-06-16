@@ -375,9 +375,10 @@ public class AdminProductService {
         productRepository.patchFlags(id, isNew, isBest, recommend, sort);
         Product refreshed = productRepository.findById(id);
         audit.record("编辑商品", existing.getName(), changesJson(before, flagsSnapshot(refreshed)));
-        // STEP-CAT-03 提交后失效 reco/products + MQ
+        // STEP-CAT-03 提交后失效 slug详情 + reco/products + MQ
         String slug = existing.getSlug();
         afterCommit.run(() -> {
+            cache.invalidateProductSlug(slug);    // 失效详情页（is_new/is_best在详情页也显示）
             cache.invalidateFamily(Family.RECO);
             cache.invalidateFamily(Family.PRODUCTS);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_FLAGS_CHANGED, slug, null);

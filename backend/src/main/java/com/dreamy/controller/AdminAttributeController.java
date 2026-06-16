@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -95,11 +96,12 @@ public class AdminAttributeController {
         return ResponseEntity.ok(R.ok(attributeDefService.update(parseDefId(id), req)));
     }
 
-    /** E-CAT-26 deleteAdminAttributeDef（TX-CAT-014；409507 guard） */
+    /** E-CAT-26 deleteAdminAttributeDef（TX-CAT-014；409507 guard；force=true 级联删除） */
     @RequirePermission(PERMISSION)
     @DeleteMapping("/api/admin/attribute-defs/{id}")
-    public ResponseEntity<Void> deleteDef(@PathVariable String id) {
-        attributeDefService.delete(parseDefId(id));
+    public ResponseEntity<Void> deleteDef(@PathVariable String id,
+                                          @RequestParam(defaultValue = "false") boolean force) {
+        attributeDefService.delete(parseDefId(id), force);
         return ResponseEntity.noContent().build();
     }
 

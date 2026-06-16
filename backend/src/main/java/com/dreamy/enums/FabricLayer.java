@@ -1,5 +1,6 @@
 package com.dreamy.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
 import huihao.enums.annotation.Enumable;
 import huihao.enums.typeable.Describable;
 import huihao.enums.typeable.IntEnum;
@@ -17,6 +18,7 @@ public enum FabricLayer implements IntEnum, Describable {
     TRIM(4, "边饰");
 
     @Getter
+    @EnumValue
     private final Integer key;
 
     @Getter

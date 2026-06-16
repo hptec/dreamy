@@ -141,8 +141,9 @@ export function updateAttributeDef(id: number, body: AttributeDefUpsert): Promis
   return put<AttributeDef>(`/api/admin/attribute-defs/${id}`, body)
 }
 
-export function deleteAttributeDef(id: number): Promise<void> {
-  return del<void>(`/api/admin/attribute-defs/${id}`)
+export function deleteAttributeDef(id: number, force?: boolean): Promise<void> {
+  const params = force ? { force: 'true' } : undefined
+  return del<void>(`/api/admin/attribute-defs/${id}`, { params })
 }
 
 // ===== 标签维度 E-CAT-27~30 =====

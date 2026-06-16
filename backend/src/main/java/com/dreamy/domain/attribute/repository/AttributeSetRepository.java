@@ -79,4 +79,10 @@ public class AttributeSetRepository {
         return itemMapper.selectCount(new LambdaQueryWrapper<AttributeSetItem>()
                 .eq(AttributeSetItem::getAttributeId, attributeId));
     }
+
+    /** attribute_def 强制删除级联：清理属性集中的引用项 */
+    public void deleteItemsByAttributeId(Long attributeId) {
+        itemMapper.delete(new LambdaQueryWrapper<AttributeSetItem>()
+                .eq(AttributeSetItem::getAttributeId, attributeId));
+    }
 }
