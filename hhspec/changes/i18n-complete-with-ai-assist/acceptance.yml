@@ -1,0 +1,188 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T08:05:00Z'
+  source_refs: [er-diagram.yml, state-machine.yml, business-flow.yml, boundary-scenarios.yml]
+
+scenarios:
+  # ===== 子系统 1: 消费端 UI 静态文案多语言补全 =====
+  - id: FUNC-001
+    title: 消费端切换语言后 UI 文案随之变化
+    page: portal-store/*
+    ctx: 用户在站点头部语言切换器选择 ES
+    act: 切换语言为西班牙语
+    expect: 首页/集合页/购物车/结算页的 UI chrome 文案（标题/按钮/标签/空态/错误态）显示为西语，localStorage 持久化 locale=es
+    source_id: store_ui_i18n_render
+
+  - id: FUNC-002
+    title: messages.ts 字典覆盖所有硬编码英文区域
+    page: portal-store/*
+    ctx: messages.ts 扩展完成
+    act: 审计 home/collection/product/cart/checkout/marketing/layout 等 30+ 命名空间
+    expect: 原审计清单中的硬编码英文（cart-drawer/collection-view/FabricCareSection/cookie-consent 等）全部接入 useI18n().t，无遗漏
+    source_id: store_ui_i18n_render
+
+  - id: FUNC-003
+    title: 缺失翻译回退 EN
+    page: portal-store/*
+    ctx: ES/FR 某文案标记 [TRANSLATION_PENDING] 或缺失
+    act: 切换到该语言
+    expect: 该文案回退显示 EN，不出现 key 名或空白
+    source_id: store_ui_i18n_render
+
+  # ===== 子系统 2: 外部网关配置中心 =====
+  - id: FUNC-004
+    title: 系统管理新增外部网关配置模块
+    page: portal-admin /system/gateways
+    ctx: 管理员有 /system/gateways 权限
+    act: 访问系统管理 > 外部网关配置
+    expect: 页面展示网关列表（按 type 分组：AI/物流等），可新增/编辑/启用禁用
+    source_id: configure_ai_gateway
+
+  - id: FUNC-005
+    title: 配置 AI 网关并自动发现模型
+    page: portal-admin /system/gateways
+    ctx: 填写 OpenAI 兼容网关 URL + API Key
+    act: 保存配置
+    expect: 调用 /v1/models 拉取模型列表并缓存，列表展示可选模型，可设置默认模型
+    source_id: configure_ai_gateway
+
+  - id: FUNC-006
+    title: 模型列表刷新策略可配置
+    page: portal-admin /system/gateways
+    ctx: 网关配置已保存
+    act: 设置刷新策略（手动刷新 / 定时 N 分钟）
+    expect: 手动刷新立即拉取；定时策略按间隔自动刷新模型列表
+    source_id: configure_ai_gateway
+
+  - id: FUNC-007
+    title: API Key 加密存储且掩码展示
+    page: portal-admin /system/gateways
+    ctx: 已保存含 API Key 的配置
+    act: 重新打开配置详情
+    expect: API Key 以掩码展示（sk-****1234），数据库密文存储，响应体不含明文
+    source_id: EDGE-010
+
+  # ===== 子系统 3: AI 翻译辅助 =====
+  - id: FUNC-008
+    title: 商品编辑页 AI 翻译按钮
+    page: portal-admin ProductEdit「内容详情」ES/FR tab
+    ctx: 已填写 EN 主字段，AI 网关已配置
+    act: 点击 ES tab 的「AI 翻译」按钮
+    expect: 弹窗打开，展示默认模型（可下拉切换），可追加自定义要求，点击翻译后调用后端
+    source_id: ai_assisted_translation
+
+  - id: FUNC-009
+    title: AI 翻译结果回写表单
+    page: portal-admin ProductEdit
+    ctx: AI 翻译成功返回译文
+    act: 用户确认译文
+    expect: 译文回写到对应 ES/FR 字段（name/sellingPoints/description/seoTitle/seoDescription/designerNote），用户可二次编辑后保存
+    source_id: ai_assisted_translation
+
+  - id: FUNC-010
+    title: 翻译 prompt 锁定婚纱礼服领域
+    page: portal-admin 翻译弹窗
+    ctx: 用户追加自定义要求「语气正式」
+    act: 提交翻译
+    expect: 后端组装 prompt = 系统领域前缀（婚纱礼服电商背景，锁定不可改）+ 用户自定义要求，发送给 AI
+    source_id: ai_assisted_translation
+
+  - id: FUNC-011
+    title: 11 张翻译表均有 AI 辅助按钮
+    page: portal-admin 各内容管理页
+    ctx: 分类/标签/Banner/促销/Blog/Lookbook/RealWedding/Guide/AttributeDef/FlashSale/Coupon 编辑表单
+    act: 打开任一翻译表单的 ES/FR 区域
+    expect: 每个翻译表单均提供「AI 翻译」按钮，交互一致（复用统一组件）
+    source_id: ai_assisted_translation
+
+  - id: FUNC-012
+    title: AI 调用记录可查询
+    page: portal-admin（翻译日志查询）
+    ctx: 已发生多次 AI 翻译
+    act: 查看 ai_translation_log
+    expect: 记录含 时间/操作人/源文本/目标语言/模型/状态/耗时/token 用量，支持按状态/时间筛选
+    source_id: view_translation_logs
+
+  - id: FUNC-013
+    title: 翻译失败允许继续保存
+    page: portal-admin 翻译弹窗
+    ctx: AI 翻译返回错误（超时/5xx/限流）
+    act: 接收失败响应
+    expect: 弹窗展示错误提示，关闭弹窗后表单原内容不受影响，运营可手动填写并正常保存
+    source_id: EDGE-015
+
+  # ===== 子系统 4: 消费端 locale SEO 策略（决策 11） =====
+  - id: FUNC-014
+    title: locale 路径前缀可独立访问与索引
+    page: portal-store /es/* 、/fr/*
+    ctx: 消费端路由重构为 app/[locale]/
+    act: 直接访问 dreamy.com/es/product/aurelia 或 /fr/...
+    expect: 各 locale 前缀返回对应语言 SSR 页面（EN 为无前缀根路径），每个语言版本有独立可索引 URL
+    source_id: store_ui_i18n_render
+
+  - id: FUNC-015
+    title: hreflang 与多语言 sitemap
+    page: portal-store 任意页面 head + /sitemap.xml
+    ctx: 页面已按 locale 渲染
+    act: 检查页面 head 与 sitemap
+    expect: head 含 en/es/fr 三语 hreflang alternate 标签且互相指向；sitemap 输出各语言 URL
+    source_id: store_ui_i18n_render
+
+  - id: FUNC-016
+    title: locale 偏好不依赖 localStorage 作路由来源
+    page: portal-store
+    ctx: 用户显式切换语言
+    act: 切换语言并刷新/分享 URL
+    expect: locale 由 URL 前缀 + cookie（SSR 可读）承载，刷新或分享 URL 后语言保持一致；localStorage 仅作降级辅助，非路由依据
+    source_id: store_ui_i18n_render
+
+  # ===== 子系统 5: 数据级翻译盲区补齐（决策 12） =====
+  - id: FUNC-017
+    title: designerNote 纳入数据级翻译
+    page: portal-admin ProductEdit「内容详情」+ portal-store PDP
+    ctx: 商品 designerNote 已填 EN，ES tab 填写译文
+    act: 后台保存 designerNote 的 ES 译文，消费端切 ES 访问 PDP
+    expect: product_translation.designer_note 落库；PDP Description 折叠区斜体展示 ES 译文，缺译文回退 EN（pick）
+    source_id: store_ui_i18n_render
+
+  - id: FUNC-018
+    title: 面料材质/层级名走 i18n 字典
+    page: portal-store FabricCareSection
+    ctx: messages.ts 新增 fabric 命名空间（10 材质 + 4 层级）
+    act: 消费端切 ES/FR 查看商品面料护理区
+    expect: Cotton/Lace/Satin 等材质名与 Shell/Lining 等层级名显示对应语言（来自 i18n 字典，非数据库），不再硬编码英文
+    source_id: store_ui_i18n_render
+
+  # ===== 子系统 6: 后端邮件多语言（决策 13） =====
+  - id: FUNC-019
+    title: 用户语言偏好持久化
+    page: portal-store 注册/下单
+    ctx: 登录用户在 ES 环境操作 / 匿名用户在 FR 下单
+    act: 登录态切换语言 / 匿名下单
+    expect: user.locale_pref 写入登录用户偏好；orders.locale_snapshot 记录匿名下单时 locale
+    source_id: backend_localized_email
+
+  - id: FUNC-020
+    title: 后端按 locale 发送三语邮件
+    page: 后端邮件发送（订单确认/OTP/退款）
+    ctx: 触发邮件事件
+    act: 后端解析目标 locale 并发信
+    expect: 按 user.locale_pref → orders.locale_snapshot → EN 优先级选模板；缺对应语言模板回退 EN
+    source_id: backend_localized_email
+
+  # ===== 子系统 7: AI 辅助完整性增强（决策 14） =====
+  - id: FUNC-021
+    title: 网关配置测试连接
+    page: portal-admin /system/gateways
+    ctx: 填写 URL+Key（未保存亦可测）
+    act: 点击「测试连接」
+    expect: 后端用最小请求探测网关，成功展示可用模型数，失败展示具体原因（DNS/401/超时），不落库不影响已保存配置
+    source_id: gateway_test_connection
+
+  - id: FUNC-022
+    title: 婚纱领域术语表注入翻译
+    page: portal-admin /system/glossary + 翻译流程
+    ctx: 术语表维护若干启用条目（A-line/sweetheart neckline 等）
+    act: 维护术语后发起 AI 翻译
+    expect: 翻译表 CRUD 正常；启用术语注入 AI system prompt，多次翻译同一术语译法一致
+    source_id: manage_translation_glossary

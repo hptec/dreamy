@@ -1,0 +1,211 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T08:00:00Z'
+  coverage: 7-class
+
+# 7 类边界场景覆盖：空值/边界值/类型/权限/并发/状态/外部依赖
+scenarios:
+  # ===== 类别 1: 空值与缺失 =====
+  - id: EDGE-001
+    category: empty_missing
+    title: AI 网关未配置时点击翻译按钮
+    ctx: external_gateway_config 表中无 type=AI 的启用配置
+    act: 运营在商品编辑页点击「AI 翻译」按钮
+    expect: 弹窗提示「尚未配置 AI 网关，请前往系统管理 > 外部网关配置」，按钮不发起请求
+    source: 'user requirement: 网关配置缺失防御'
+
+  - id: EDGE-002
+    category: empty_missing
+    title: EN 主字段为空时请求 AI 翻译
+    ctx: 商品 name/description 等 EN 主字段为空
+    act: 点击 AI 翻译按钮翻译该字段
+    expect: 前端校验拦截，提示「请先填写 EN 主字段内容」，不发起后端请求
+    source: 'user requirement: 源文本空值防御'
+
+  - id: EDGE-003
+    category: empty_missing
+    title: AI 返回空译文
+    ctx: AI 网关返回 200 但 content 为空字符串
+    act: 系统接收响应
+    expect: ai_translation_log 记录 status=empty_result，前端提示「翻译结果为空，请重试或手动填写」，不回写
+    source: 'user requirement: 空响应处理'
+
+  # ===== 类别 2: 边界值 =====
+  - id: EDGE-004
+    category: boundary_value
+    title: 超长文本翻译
+    ctx: EN description 长度接近 5000 字符上限
+    act: 请求 AI 翻译
+    expect: 后端截断或按 max_tokens 配置发送，ai_translation_log 记录 input_length，正常返回
+    source: 'user requirement: 长文本边界'
+
+  - id: EDGE-005
+    category: boundary_value
+    title: 自定义要求文本超长
+    ctx: 用户在翻译弹窗追加要求文本超过 500 字符
+    act: 提交翻译请求
+    expect: 前端 maxlength 限制 500，超出部分无法输入
+    source: 'user requirement: 自定义 prompt 长度边界'
+
+  # ===== 类别 3: 类型与格式 =====
+  - id: EDGE-006
+    category: type_format
+    title: API Key 格式非法
+    ctx: 运营在网关配置页填入含空格/换行的 API Key
+    act: 保存配置
+    expect: 后端 trim 后校验非空，加密存储；调用时若 401 则 ai_translation_log 记录 auth_failed
+    source: 'user requirement: API Key 格式处理'
+
+  - id: EDGE-007
+    category: type_format
+    title: 网关 URL 协议非法
+    ctx: 运营填入非 http(s) 开头的 URL
+    act: 保存配置
+    expect: 后端校验 URL 格式，非法返回 422 字段错误「网关地址格式不正确」
+    source: 'user requirement: URL 格式校验'
+
+  # ===== 类别 4: 权限与认证 =====
+  - id: EDGE-008
+    category: permission_auth
+    title: 无系统管理权限访问网关配置
+    ctx: 普通运营账户（无 /system/gateways 权限）
+    act: 直接访问网关配置页 URL
+    expect: 路由守卫拦截跳转 /403
+    source: 'user requirement: 权限隔离'
+
+  - id: EDGE-009
+    category: permission_auth
+    title: 翻译接口未登录调用
+    ctx: 无有效 admin JWT
+    act: 直接调用 POST /api/admin/ai/translate
+    expect: 401 未授权，错误码 40100
+    source: 'user requirement: 接口鉴权'
+
+  - id: EDGE-010
+    category: permission_auth
+    title: API Key 不回传前端
+    ctx: 运营打开网关配置页查看已保存配置
+    act: 加载配置详情
+    expect: API Key 字段返回掩码（如 sk-****1234），完整值不出现在响应体
+    source: 'user requirement: 敏感信息保护'
+
+  # ===== 类别 5: 并发 =====
+  - id: EDGE-011
+    category: concurrency
+    title: 同一字段连续点击翻译
+    ctx: 运营快速连续点击 AI 翻译按钮
+    act: 短时间内发起多个相同请求
+    expect: 前端按钮 loading 期间禁用，防止重复提交
+    source: 'user requirement: 防重复提交'
+
+  - id: EDGE-012
+    category: concurrency
+    title: 网关配置编辑并发冲突
+    ctx: 两个管理员同时编辑同一网关配置
+    act: 后者保存
+    expect: updated_at 乐观锁校验，冲突返回 409，提示刷新重试
+    source: 'user requirement: 配置并发保护'
+
+  # ===== 类别 6: 状态流转 =====
+  - id: EDGE-013
+    category: state_transition
+    title: 网关禁用后调用翻译
+    ctx: 网关配置 enabled=false
+    act: 点击 AI 翻译
+    expect: 等同未配置，提示「AI 网关已禁用」，不发起请求
+    source: 'user requirement: 禁用状态处理'
+
+  - id: EDGE-014
+    category: state_transition
+    title: 模型列表刷新失败回退
+    ctx: 自动发现模型时网关 /v1/models 返回错误
+    act: 保存网关配置触发模型发现
+    expect: 配置仍保存成功，模型列表保留上次缓存值或为空，提示「模型列表获取失败，可手动刷新」
+    source: 'user requirement: 模型发现容错'
+
+  # ===== 类别 7: 外部依赖 =====
+  - id: EDGE-015
+    category: external_dependency
+    title: AI 网关超时
+    ctx: AI 网关响应超过超时阈值（如 30s）
+    act: 等待翻译响应
+    expect: 后端超时中断，ai_translation_log 记录 status=timeout，前端提示「翻译超时，请重试」，允许继续保存
+    source: 'user requirement: 超时处理 + 允许继续'
+
+  - id: EDGE-016
+    category: external_dependency
+    title: AI 网关 5xx 错误
+    ctx: AI 网关返回 500/502/503
+    act: 接收错误响应
+    expect: ai_translation_log 记录 status=gateway_error + http_code，前端提示具体错误，允许继续保存
+    source: 'user requirement: 网关错误处理'
+
+  - id: EDGE-017
+    category: external_dependency
+    title: AI 网关限流 429
+    ctx: AI 网关返回 429 Too Many Requests
+    act: 接收限流响应
+    expect: ai_translation_log 记录 status=rate_limited，前端提示「请求过于频繁，请稍后重试」
+    source: 'user requirement: 限流响应处理'
+
+  # ===== 新增内容边界场景（决策 11~14） =====
+  # 类别 3: 类型与格式 —— locale 路由
+  - id: EDGE-018
+    category: type_format
+    title: 无效 locale 前缀访问
+    ctx: 用户访问 /de/product/xxx（de 非支持语言 en/es/fr）
+    act: 请求该 URL
+    expect: middleware 检测非支持 locale，302 临时重定向到默认 EN 根路径对应页面（302 因为是用户输入错误，非永久 URL 变更），不报 404
+    source: 'user requirement: locale 路由健壮性（决策 11）'
+
+  - id: EDGE-019
+    category: type_format
+    title: 无 locale 前缀的旧链接兼容
+    ctx: 搜索引擎/书签持有旧 URL（/product/xxx 无 locale 前缀）
+    act: 访问旧 URL
+    expect: middleware 按 cookie/Accept-Language 检测语言，301 永久重定向到带前缀 URL（EN 则保持根路径不重定向）；301 确保搜索引擎传递链接权重到新 URL
+    source: 'user requirement: 路由重构向后兼容（决策 11）'
+
+  # 类别 1: 空值与缺失 —— 数据级翻译盲区 + 邮件模板
+  - id: EDGE-020
+    category: empty_missing
+    title: designerNote 译文缺失回退
+    ctx: 商品 product_translation 的 designer_note 为空（ES）
+    act: 消费端 ES 访问 PDP
+    expect: designerNote 回退显示 EN 主表值（pick 逻辑），不显示空白或 key 名
+    source: 'user requirement: designerNote 纳入翻译回退（决策 12）'
+
+  - id: EDGE-021
+    category: empty_missing
+    title: 邮件模板对应语言缺失回退
+    ctx: 用户 locale_pref=fr，但退款通知模板只有 en/es 版本
+    act: 触发退款通知邮件
+    expect: 回退使用 EN 模板发送，不发送空邮件，记录回退日志
+    source: 'user requirement: 邮件三语兜底 EN（决策 13）'
+
+  # 类别 4: 权限与认证 —— 术语表
+  - id: EDGE-022
+    category: permission_auth
+    title: 术语表管理需系统管理权限
+    ctx: 无 /system/glossary 权限的运营账户
+    act: 访问翻译术语表页面
+    expect: 路由守卫拦截跳转 /403
+    source: 'user requirement: 术语表权限隔离（决策 14）'
+
+  # 类别 7: 外部依赖 —— 测试连接
+  - id: EDGE-023
+    category: external_dependency
+    title: 测试连接失败明确反馈
+    ctx: 网关配置 URL 不可达或 API Key 错误
+    act: 点击「测试连接」
+    expect: 后端返回具体失败原因（DNS 解析失败/401 鉴权失败/超时），前端展示，不落库不影响已保存配置
+    source: 'user requirement: 测试连接失败反馈（决策 14）'
+
+  # 类别 2: 边界值 —— 术语表注入
+  - id: EDGE-024
+    category: boundary_value
+    title: 术语表条目过多时 prompt 注入截断
+    ctx: 启用术语条目数量极大（如 > 200 条），全注入会占用大量 token 预算
+    act: 发起 AI 翻译
+    expect: 后端仅注入源文本中实际命中的术语（精确匹配 term_en 出现在 source_text 中），上限 50 条；命中超 50 条时按 category 优先级截断（廓形>领型>面料>工艺>其他），日志记录截断数
+    source: 'user requirement: 术语注入规模边界（决策 14）'

@@ -1,0 +1,104 @@
+meta:
+  mode: incremental
+  baseline_ref: hhspec/specs/architecture/state-machine.yml
+  generated_at: '2026-06-16T08:00:00Z'
+  breaking_changes: []
+
+state_machines:
+  - id: ai_translation_request
+    desc: AI 翻译请求生命周期（后端代理调用外部网关的单次翻译）
+    meta:
+      source: new
+    entity: AiTranslationLog
+    state_field: status
+    initial: idle
+    states:
+      - id: idle
+        desc: 用户打开 AI 翻译弹窗，尚未提交（前端态，不落库）
+      - id: calling
+        desc: 后端代理已向外部网关发起请求，等待响应（前端 loading）
+      - id: success
+        desc: 翻译成功返回，译文回填到编辑表单，落 AiTranslationLog(status=1)
+      - id: failed
+        desc: 调用失败（网关错误/超时/鉴权失败），错误提示但允许继续，落 AiTranslationLog(status=2)
+    transitions:
+      - from: idle
+        to: calling
+        trigger: 用户点击「翻译」按钮（含可选自定义要求）
+        source: 'user requirement: AI 辅助按钮点开后翻译'
+      - from: calling
+        to: success
+        trigger: 外部网关返回有效译文
+        source: 'user requirement: 翻译并完成回写'
+      - from: calling
+        to: failed
+        trigger: 网关错误/超时/鉴权失败
+        source: 'user requirement: 失败提示+允许继续'
+      - from: failed
+        to: calling
+        trigger: 用户重试翻译
+        source: 'user requirement: 失败后可重试'
+      - from: success
+        to: idle
+        trigger: 用户修改要求后再次翻译
+        source: 'user requirement: 可多次翻译'
+
+  - id: gateway_model_sync
+    desc: 网关模型列表同步状态（自动发现可用模型）
+    meta:
+      source: new
+    entity: ExternalGatewayConfig
+    state_field: models_synced_at
+    initial: never_synced
+    states:
+      - id: never_synced
+        desc: 配置刚创建，尚未拉取过模型列表
+      - id: syncing
+        desc: 正在调用 /v1/models 拉取模型列表
+      - id: synced
+        desc: 模型列表已拉取并缓存（model_list 非空，models_synced_at 有值）
+      - id: sync_failed
+        desc: 拉取失败（网关不可达/鉴权失败），保留旧 model_list
+    transitions:
+      - from: never_synced
+        to: syncing
+        trigger: 配置保存时自动触发 / 用户手动点刷新 / 定时任务触发
+        source: 'user requirement: 配置保存时拉取 + 手动/定时刷新'
+      - from: synced
+        to: syncing
+        trigger: 用户手动刷新 / 定时任务到期
+        source: 'user requirement: 下拉选择手动刷新或定时刷新'
+      - from: syncing
+        to: synced
+        trigger: /v1/models 返回有效列表
+        source: 'user requirement: 自动发现模型'
+      - from: syncing
+        to: sync_failed
+        trigger: 网关不可达/鉴权失败
+        source: 'user requirement: 容错（非阻断）'
+      - from: sync_failed
+        to: syncing
+        trigger: 用户重试刷新
+        source: 'user requirement: 手动刷新'
+
+  - id: gateway_config_lifecycle
+    desc: 网关配置启用/禁用生命周期（管理员控制网关可用性）
+    meta:
+      source: new
+    entity: ExternalGatewayConfig
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 网关配置已启用，翻译服务可正常调用
+      - id: disabled
+        desc: 网关配置已禁用，翻译请求被前置拦截拒绝
+    transitions:
+      - from: enabled
+        to: disabled
+        trigger: 管理员在网关配置列表点击「禁用」（需 /system/gateways 权限）
+        source: 'user requirement: 网关可启用禁用'
+      - from: disabled
+        to: enabled
+        trigger: 管理员点击「启用」（需 /system/gateways 权限）
+        source: 'user requirement: 禁用后可重新启用'
