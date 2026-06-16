@@ -1,44 +1,29 @@
 metadata:
   source_prototype_dir: hhspec/prototype/portal-admin
   proto_type: vue-sfc
-  source_files_processed: 28
-  html_files_processed: 28
-  total_fields_extracted: 36
-  cjk_name_renamed: 13
+  source_files_processed: 16
+  html_files_processed: 16
+  total_fields_extracted: 19
+  cjk_name_renamed: 8
   pages_without_fields:
-  - AdminList
   - Analytics
-  - AuthSettings
   - Banners
   - ContentBlog
   - ContentLookbook
   - ContentWeddings
-  - EmailMarketing
-  - HomeBuilder
-  - OperationLogs
   - OrderDetail
   - ProductEdit
   - Promotions
   - Reviews
-  - RoleManagement
-  - Settings
   - Shipping
   warn_empty: false
   extraction_confidence: low
   page_confidence:
-  - page_id: AdminList
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
   - page_id: Analytics
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
   - page_id: AttributeSets
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: AuthSettings
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
@@ -62,36 +47,7 @@ metadata:
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: CustomerDetail
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: Customers
-    confidence: low
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-    - 'dynamic_labels: 2/2 labels are dynamic bindings'
   - page_id: Dashboard
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: EmailMarketing
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: HomeBuilder
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: Login
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: NavigationConfig
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: OperationLogs
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
@@ -115,10 +71,6 @@ metadata:
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: Publish
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
   - page_id: Refunds
     confidence: low
     reasons:
@@ -128,20 +80,12 @@ metadata:
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: RoleManagement
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
-  - page_id: Settings
-    confidence: medium
-    reasons:
-    - 'script_setup_only: Composition API only, guards may be partial'
   - page_id: Shipping
     confidence: medium
     reasons:
     - 'script_setup_only: Composition API only, guards may be partial'
-  last_merged_by_change: portal-api-integration
-  last_merged_at: '2026-06-11T02:37:38Z'
+  last_merged_by_change: admin-prototype-alignment
+  last_merged_at: '2026-06-16T06:54:22Z'
 fields:
 - field_id: FLD-ATTRIBUTESETS-001
   name: visible
@@ -160,8 +104,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-ATTRIBUTESETS-002
   name: optional
   label: optional
@@ -179,8 +124,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-ATTRIBUTESETS-003
   name: hidden
   label: hidden
@@ -198,8 +144,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-LOGIN-001
   name: email
   label: 邮箱
@@ -395,18 +342,16 @@ fields:
   js_guard: null
   last_updated_by_change: portal-api-integration
   last_updated_at: '2026-06-11T02:37:38Z'
-- field_id: FLD-CUSTOMERS-008
+- field_id: FLD-REFUNDS-007
   name: tcol_62e951a6
   label: 状态
   original_name: 状态
   source_type: table_column
   pages:
-  - Customers
   - Refunds
   data_type: string
   enum_values: []
   read_contexts:
-  - Customers
   - Refunds
   write_contexts: []
   inferred_business_type: status
@@ -414,20 +359,19 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
-- field_id: FLD-CUSTOMERS-009
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
+- field_id: FLD-REFUNDS-008
   name: tcol_f3ea6d34
   label: 操作
   original_name: 操作
   source_type: table_column
   pages:
-  - Customers
   - Refunds
   data_type: string
   enum_values: []
   read_contexts:
-  - Customers
   - Refunds
   write_contexts: []
   inferred_business_type: generic
@@ -435,8 +379,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-DASHBOARD-001
   name: icon
   label: icon
@@ -453,8 +398,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-DASHBOARD-002
   name: to
   label: to
@@ -471,8 +417,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-LOGIN-002
   name: password
   label: 密码
@@ -562,8 +509,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-PRODUCTS-001
   name: get
   label: get
@@ -580,8 +528,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-PRODUCTS-002
   name: set
   label: set
@@ -598,8 +547,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-PUBLISH-001
   name: ms
   label: ms
@@ -635,8 +585,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-REFUNDS-002
   name: tcol_969d961c
   label: 关联订单
@@ -654,8 +605,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-REFUNDS-003
   name: tcol_f2068706
   label: 客户
@@ -673,8 +625,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-REFUNDS-004
   name: tcol_f243aec2
   label: 退款金额
@@ -692,8 +645,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-REFUNDS-005
   name: tcol_6bbe1ee9
   label: 退款原因
@@ -711,8 +665,9 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
 - field_id: FLD-REFUNDS-006
   name: tcol_e85ad6ea
   label: 申请时间
@@ -730,9 +685,10 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
-- field_id: FLD-REFUNDS-007
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
+- field_id: FLD-REFUNDS-009
   name: pending
   label: pending
   source_type: table_column
@@ -748,9 +704,10 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
-- field_id: FLD-REFUNDS-008
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
+- field_id: FLD-REFUNDS-010
   name: approved
   label: approved
   source_type: table_column
@@ -766,9 +723,10 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
-- field_id: FLD-REFUNDS-009
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'
+- field_id: FLD-REFUNDS-011
   name: rejected
   label: rejected
   source_type: table_column
@@ -784,5 +742,6 @@ fields:
   required: false
   validation_rules: []
   js_guard: null
-  last_updated_by_change: portal-api-integration
-  last_updated_at: '2026-06-11T02:37:38Z'
+  domain_code: catalog
+  last_updated_by_change: admin-prototype-alignment
+  last_updated_at: '2026-06-16T06:54:22Z'

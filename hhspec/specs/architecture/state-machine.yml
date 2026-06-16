@@ -117,8 +117,8 @@ machines:
   - optional
   - hidden
   initial: hidden
-  source: prototype/portal-admin/src/views/AttributeSets.vue > cycleState STATES=['visible','optional','hidden']
-    点击循环切换
+  source: prototype/portal-admin/src/views/Categories.vue > cycleDrawerState/cycleSetDrawerState
+    STATES=['visible','optional','hidden'] 点击循环切换（D1 矩阵并回 Categories 第二 Tab）
   transitions:
   - from: hidden
     event: cycle_click
@@ -167,22 +167,22 @@ machines:
   - from: paid
     event: refund_requested
     to: refunding
-    source: OrderDetail.vue > 发起退款按钮; Orders.vue > tabs 退款中
     guard: 决策24：含定制行（OrderLine.customSizeData 非空）且 now > paidAt+24h（已投产）时拒绝申请；现货行不受限
+    source: OrderDetail.vue > 发起退款按钮; Orders.vue > tabs 退款中
   - from: shipped
     event: refund_requested
     to: refunding
-    source: OrderDetail.vue > 发起退款按钮
     guard: 决策24：含定制行（OrderLine.customSizeData 非空）且 now > paidAt+24h（已投产）时拒绝申请；现货行不受限
+    source: OrderDetail.vue > 发起退款按钮
   - from: refunding
     event: refund_approved
     to: refunded
-    source: field-inventory FLD-REFUNDS-008 approved; 业务上下文确认退款分支 [INFERRED]
+    source: field-inventory FLD-REFUNDS-010 approved; 业务上下文确认退款分支 [INFERRED]
   - from: refunding
     event: refund_rejected
     to: paid
     guard: 回退到退款前状态(paid/shipped)
-    source: field-inventory FLD-REFUNDS-009 rejected [INFERRED]
+    source: field-inventory FLD-REFUNDS-011 rejected [INFERRED]
 - id: payment_lifecycle
   entity: Payment
   states:
@@ -214,7 +214,7 @@ machines:
     event: refund_executed
     to: refunded
     guard: 关联 Refund 已 approved
-    source: field-inventory FLD-REFUNDS-008 approved [INFERRED]
+    source: field-inventory FLD-REFUNDS-010 approved [INFERRED]
 - id: product_lifecycle
   entity: Product
   states:
@@ -240,6 +240,42 @@ machines:
     to: deleted
     guard: 建议先下架再删除
     source: Products.vue > 商品列表删除操作 [INFERRED]
+  - from: draft
+    event: batch_publish
+    to: published
+    guard: selected.length > 0；D10 批量端点一次请求 N 个 id，逐条容错返回成功/失败清单并记录 OperationLog
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量上架」 + key_decisions
+      D4/D10
+  - from: published
+    event: batch_unpublish
+    to: draft
+    guard: selected.length > 0；逐条容错（D10）
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量下架」 + key_decisions
+      D4/D10
+  - from: published
+    event: batch_recommend
+    to: published
+    guard: recommend=true 批量设置，不改变上下架状态
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「设为推荐」 + key_decisions
+      D4/D10
+  - from: draft
+    event: batch_recommend
+    to: draft
+    guard: recommend=true 批量设置，不改变上下架状态
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「设为推荐」 + key_decisions
+      D4/D10
+  - from: draft
+    event: batch_delete
+    to: deleted
+    guard: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量删除」 + key_decisions
+      D4/D10
+  - from: published
+    event: batch_delete
+    to: deleted
+    guard: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）
+    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量删除」 + key_decisions
+      D4/D10
 - id: refund_lifecycle
   entity: Refund
   states:
@@ -253,20 +289,23 @@ machines:
     event: admin_approve
     to: approved
     guard: 触发 Payment refund_executed
-    source: field-inventory FLD-REFUNDS-008 approved
+    source: field-inventory FLD-REFUNDS-010 approved
   - from: pending
     event: admin_reject
     to: rejected
-    source: field-inventory FLD-REFUNDS-009 rejected
+    guard: rejectReason.trim() 非空（D7 行内展开输入框填原因，后端拒绝原因必填约束不变）
+    source: field-inventory FLD-REFUNDS-011 rejected + key_decisions D7
   - from: pending
     event: approve
     to: approved
     guard: 原子回补现货库存且订单状态变更成功
-    source: OP-013 关联页 Refunds.vue 同意按钮 + 业务上下文
+    source: OP-013 关联页 prototype/portal-admin/src/views/Refunds.vue 行内同意按钮 v-if r.status==='pending'
+      + 业务上下文
   - from: pending
     event: reject
     to: rejected
-    source: Refunds.vue 拒绝按钮 r.status === 'pending'
+    guard: r.status === 'pending' 且 rejectReason.trim() 非空（D7 行内拒绝，原因必填）
+    source: prototype/portal-admin/src/views/Refunds.vue 行内拒绝按钮 + key_decisions D7
   - from: approved
     event: stripe_refund_succeeded
     to: refunded
@@ -531,3 +570,632 @@ machines:
     from: reminded
     to: ordered
     guard: 同上
+- id: page_dashboard_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Dashboard.vue + key_decisions D5/D8 + page_diff_summary
+    Dashboard impl_extra 骨架屏/错误态/重试
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: click_publish_site
+    to: loaded
+    guard: PageHeader「发布站点」按钮跳转 Publish 页（D5 补齐）
+  - from: loaded
+    event: click_quick_entry
+    to: loaded
+    guard: 快捷入口恢复 5 项（含编辑首页/发布站点，D5）
+  - from: loaded
+    event: switch_gmv_range
+    to: loaded
+    guard: GMV 14/30 天切换（D9 保留实现增强）
+- id: page_analytics_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - degraded
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Analytics.vue + page_diff_summary Analytics
+    impl_extra GA4 降级占位/CSV 导出（D8 接受现状）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: ga4_unavailable
+    to: degraded
+    guard: GA4 流量指标拉取失败时降级占位，交易指标仍展示
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: export_csv
+    to: loaded
+    guard: D9 保留实现增强
+- id: page_products_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - batch_selected
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Products.vue > selected/allChecked/批量操作栏/导出按钮/更多筛选
+    + key_decisions D4/D10/D11
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+    guard: filtered.length > 0
+  - from: loading
+    event: load_empty
+    to: empty
+    guard: filtered.length === 0 显示 EmptyState「没有符合条件的商品」
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: change_filter
+    to: loading
+    guard: search/cat/statusFilter/moreFilters(productTypes/价格区间/stockLevel/flags/tagIds)
+      变更触发服务端分页查询；activeMoreCount 角标计数
+  - from: empty
+    event: change_filter
+    to: loading
+  - from: loaded
+    event: select_rows
+    to: batch_selected
+    guard: selected.length > 0（勾选框列，allChecked 全选）
+  - from: batch_selected
+    event: clear_selection
+    to: loaded
+    guard: selected.length === 0
+  - from: batch_selected
+    event: batch_action
+    to: loading
+    guard: 批量上架/下架/设为推荐/批量删除走 D10 批量端点，逐条容错后刷新列表
+  - from: loaded
+    event: export_products
+    to: loaded
+    guard: 按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D11）
+  - from: batch_selected
+    event: export_products
+    to: batch_selected
+    guard: 同上（D11）
+- id: page_product_edit_view
+  entity: PageState
+  states:
+  - loading
+  - editing
+  - saving
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/ProductEdit.vue（severity none，维持现状）+ page_diff_summary
+    ProductEdit impl_extra SKU 并发版本控制/presign 直传
+  transitions:
+  - from: loading
+    event: load_success
+    to: editing
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: editing
+    event: save
+    to: saving
+    guard: name/slug/categoryId/price/leadTimeDays 必填；属性集控制版型属性显隐与必填
+  - from: saving
+    event: save_success
+    to: editing
+  - from: saving
+    event: save_conflict
+    to: editing
+    guard: SKU 乐观锁版本冲突提示
+  - from: editing
+    event: save_and_generate
+    to: saving
+    guard: 保存并生成静态页改为 API 触发（维持实现）
+- id: page_categories_view
+  entity: PageState
+  states:
+  - taxonomy_tab
+  - matrix_tab
+  - tags_tab
+  - attr_set_drawer
+  - child_override_drawer
+  initial: taxonomy_tab
+  source: prototype/portal-admin/src/views/Categories.vue > mainTab/openCatSetDrawer/openDrawer/saveDrawer
+    + key_decisions D1/D2/D3 恢复 3-Tab 结构（标准品类树/品类×属性矩阵+属性字典/自定义标签）
+  transitions:
+  - from: taxonomy_tab
+    event: switch_to_matrix
+    to: matrix_tab
+    guard: D1 第二 Tab 合并属性字典+品类×属性矩阵，Tab 文案「品类×属性矩阵」；AttributeSets 菜单移除并路由重定向至此
+  - from: taxonomy_tab
+    event: switch_to_tags
+    to: tags_tab
+  - from: matrix_tab
+    event: switch_to_taxonomy
+    to: taxonomy_tab
+  - from: matrix_tab
+    event: switch_to_tags
+    to: tags_tab
+  - from: tags_tab
+    event: switch_to_taxonomy
+    to: taxonomy_tab
+  - from: tags_tab
+    event: switch_to_matrix
+    to: matrix_tab
+  - from: taxonomy_tab
+    event: click_set_badge
+    to: attr_set_drawer
+    guard: cat.attributeSetId 非空；点击品类卡片属性集徽章直接打开三态配置抽屉（D2 openCatSetDrawer）
+  - from: matrix_tab
+    event: open_set_drawer
+    to: attr_set_drawer
+    guard: openSetDrawer(set)
+  - from: attr_set_drawer
+    event: cycle_attr_state
+    to: attr_set_drawer
+    guard: cycleSetDrawerState 必填→可选→隐藏循环
+  - from: attr_set_drawer
+    event: save_set_drawer
+    to: matrix_tab
+    guard: saveSetDrawer 写回属性集配置
+  - from: attr_set_drawer
+    event: close_drawer
+    to: taxonomy_tab
+  - from: taxonomy_tab
+    event: open_child_override
+    to: child_override_drawer
+    guard: openDrawer(child, parentCat) 解析 resolveAttributeConfig 含继承
+  - from: child_override_drawer
+    event: cycle_attr_state
+    to: child_override_drawer
+    guard: cycleDrawerState；isInherited 标记继承项
+  - from: child_override_drawer
+    event: save_override
+    to: taxonomy_tab
+    guard: saveDrawer 仅存与父级属性集不同的 delta 至 child.attrOverrides；矩阵 Tab 内子品类属性覆盖卡片区按根品类分组只读展示该
+      delta（D3）
+  - from: child_override_drawer
+    event: close_drawer
+    to: taxonomy_tab
+- id: page_attribute_sets_view
+  entity: PageState
+  states:
+  - entered
+  - redirected
+  initial: entered
+  source: key_decisions D1 废弃独立 AttributeSets 页：菜单移除 + 路由重定向到 Categories 对应 Tab
+  transitions:
+  - from: entered
+    event: route_redirect
+    to: redirected
+    guard: 访问 /attribute-sets 自动重定向至 Categories 品类×属性矩阵 Tab（D1）
+- id: page_orders_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Orders.vue 列「地区/商品数」+ key_decisions D6/D11/D12
+    + page_diff_summary Orders impl_extra 服务端分页/防抖搜索
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+    guard: 列表列严格回对原型：地区（addressSnapshot.country）/商品数（itemCount）替换币种/承运（D6/D12）
+  - from: loading
+    event: load_empty
+    to: empty
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: switch_status_tab
+    to: loading
+    guard: 状态 Tab 过滤刷新列表
+  - from: loaded
+    event: search_orders
+    to: loading
+    guard: 防抖搜索（D9 保留）
+  - from: empty
+    event: switch_status_tab
+    to: loading
+  - from: loaded
+    event: export_orders
+    to: loaded
+    guard: 「导出订单」按钮：按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D6/D11）
+- id: page_order_detail_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - refund_modal
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/OrderDetail.vue（severity low，维持现状）+ page_diff_summary
+    OrderDetail impl_extra 退款表单弹窗/定制商品不可退款 422602
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: mark_shipped
+    to: loaded
+    guard: Order.status === 'paid' 且 carrier/trackingNo 已填写；操作按钮按状态条件渲染
+  - from: loaded
+    event: open_refund_modal
+    to: refund_modal
+    guard: 含定制行且已投产时拒绝（422602）
+  - from: refund_modal
+    event: submit_refund
+    to: loaded
+    guard: amount <= Order.totalAmount，创建 Refund 工单
+  - from: refund_modal
+    event: cancel
+    to: loaded
+- id: page_refunds_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - reject_input_open
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Refunds.vue > tabs all/pending/approved/rejected
+    + 行内同意/拒绝按钮 v-if r.status==='pending' + key_decisions D7
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+    guard: filtered.length > 0
+  - from: loading
+    event: load_empty
+    to: empty
+    guard: filtered.length === 0 显示 EmptyState「暂无退款工单」
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: switch_status_tab
+    to: loading
+    guard: status tabs 全部/待审批/已同意/已拒绝过滤
+  - from: empty
+    event: switch_status_tab
+    to: loading
+  - from: loaded
+    event: click_approve
+    to: loading
+    guard: r.status === 'pending' 行内同意，无需弹窗二次确认（D7 回对原型）；成功后刷新行状态为已处理
+  - from: loaded
+    event: click_reject
+    to: reject_input_open
+    guard: r.status === 'pending'；按钮位置行内展开拒绝原因输入框（D7）
+  - from: reject_input_open
+    event: confirm_reject
+    to: loading
+    guard: rejectReason.trim() 非空才可提交（后端拒绝原因必填约束不变，D7）
+  - from: reject_input_open
+    event: cancel_reject
+    to: loaded
+- id: page_reviews_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - detail_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Reviews.vue + key_decisions D8 接受 FORM-REV-A01
+    显式偏离 + page_diff_summary Reviews impl_extra 抽屉同步 syncDetail
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_empty
+    to: empty
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: open_detail
+    to: detail_drawer
+  - from: detail_drawer
+    event: close_drawer
+    to: loaded
+  - from: detail_drawer
+    event: moderate
+    to: detail_drawer
+    guard: 通过/拒绝仅 pending 可操作；删除回复需二次确认（CP-071，维持实现）
+- id: page_shipping_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - edit_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Shipping.vue + key_decisions D8 接受 DEC-SHP-FE-1/2（逐资源即时持久化/行内编辑删除维持实现）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: toggle_carrier
+    to: loaded
+    guard: 最后一个启用承运方禁删禁停（维持实现）；逐资源即时持久化（DEC-SHP-FE-1）
+  - from: loaded
+    event: open_edit_drawer
+    to: edit_drawer
+  - from: edit_drawer
+    event: save_resource
+    to: loaded
+    guard: 即时持久化；满额包邮 0 显示「免邮」
+  - from: edit_drawer
+    event: close_drawer
+    to: loaded
+- id: page_promotions_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - form_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Promotions.vue + page_diff_summary Promotions
+    状态枚举补 expired/ended、已结束活动禁止编辑（维持实现）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: open_form_drawer
+    to: form_drawer
+    guard: 已结束（expired/ended）活动禁止编辑
+  - from: form_drawer
+    event: save
+    to: loaded
+    guard: endAt > startAt
+  - from: form_drawer
+    event: close_drawer
+    to: loaded
+  - from: loaded
+    event: delete_coupon
+    to: loaded
+    guard: 删除二次确认（维持实现）
+- id: page_banners_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - form_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/Banners.vue + page_diff_summary Banners
+    Toggle 三态映射 + 409703 回滚（维持实现）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: toggle_online
+    to: loaded
+    guard: Toggle 映射 published/archived 三态，失败按 409703 回滚 UI
+  - from: loaded
+    event: open_form_drawer
+    to: form_drawer
+  - from: form_drawer
+    event: save_publish
+    to: loaded
+    guard: name 与 image_url 非空；end_time > start_time
+  - from: form_drawer
+    event: close_drawer
+    to: loaded
+  - from: loaded
+    event: edit_sort
+    to: loaded
+    guard: 排序 blur 保存（维持实现）
+- id: page_content_blog_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - edit_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/ContentBlog.vue + page_diff_summary ContentBlog
+    发布/下线/重新发布流转、slug 校验预览（维持实现）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_empty
+    to: empty
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: switch_status_tab
+    to: loading
+    guard: published/draft/archived tab 过滤 + 分页
+  - from: loaded
+    event: open_edit_drawer
+    to: edit_drawer
+  - from: edit_drawer
+    event: save
+    to: loaded
+    guard: title 非空
+  - from: edit_drawer
+    event: close_drawer
+    to: loaded
+  - from: loaded
+    event: preview
+    to: loaded
+    guard: slug 校验通过后新窗口预览（维持实现）
+- id: page_content_weddings_view
+  entity: PageState
+  states:
+  - loading
+  - loaded
+  - empty
+  - form_drawer
+  - error
+  initial: loading
+  source: prototype/portal-admin/src/views/ContentWeddings.vue + page_diff_summary
+    ContentWeddings 发布/下线流转、状态过滤器（维持实现）
+  transitions:
+  - from: loading
+    event: load_success
+    to: loaded
+  - from: loading
+    event: load_empty
+    to: empty
+  - from: loading
+    event: load_error
+    to: error
+  - from: error
+    event: retry
+    to: loading
+  - from: loaded
+    event: filter_status
+    to: loading
+  - from: loaded
+    event: open_form_drawer
+    to: form_drawer
+  - from: form_drawer
+    event: save
+    to: loaded
+    guard: couple 非空
+  - from: form_drawer
+    event: close_drawer
+    to: loaded
+  - from: loaded
+    event: delete_wedding
+    to: loaded
+    guard: 删除二次确认（维持实现）
+- id: lookbook_lifecycle
+  entity: lookbook
+  source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 新增/编辑/删除按钮
+  states:
+  - draft
+  - published
+  - deleted
+  initial: draft
+  transitions:
+  - from: draft
+    event: publish
+    to: published
+  - from: published
+    event: unpublish
+    to: draft
+  - from: draft
+    event: delete
+    to: deleted
+  - from: published
+    event: delete
+    to: deleted
+- id: style_guide_lifecycle
+  entity: style_guide
+  source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 编辑/删除按钮
+  states:
+  - draft
+  - published
+  - deleted
+  initial: draft
+  transitions:
+  - from: draft
+    event: publish
+    to: published
+  - from: published
+    event: unpublish
+    to: draft
+  - from: draft
+    event: delete
+    to: deleted
+  - from: published
+    event: delete
+    to: deleted
+- id: page_content_lookbook_tabs
+  entity: page_state
+  page_id: portal-admin/ContentLookbook
+  source: prototype/portal-admin/src/views/ContentLookbook.vue > const tab = ref('lookbook')
+    + @click tab 切换
+  states:
+  - tab_lookbook
+  - tab_guide
+  initial: tab_lookbook
+  transitions:
+  - from: tab_lookbook
+    event: click_tab_guide
+    to: tab_guide
+  - from: tab_guide
+    event: click_tab_lookbook
+    to: tab_lookbook

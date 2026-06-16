@@ -419,8 +419,9 @@ flows:
     source: pd-explore.local.md > BE-DIM-6 权限
   - id: n6
     type: decision
-    label: 管理员审核结论
-    source: er-diagram.yml > Refund.status js_guard pending 时才允许同意/拒绝
+    label: 管理员在退款工单列表行内审批：仅 pending 行显示同意/拒绝按钮，行内同意无弹窗二次确认（D7 回对原型）
+    source: pd-explore.local.md > D7 + prototype/portal-admin/src/views/Refunds.vue
+      > 行内同意/拒绝按钮 v-if r.status===pending
   - id: n7
     type: state_change
     entity: Refund
@@ -518,6 +519,13 @@ flows:
     type: error
     label: 422 定制款已投产不可退（消费端入口置灰+三语说明文案）
     source: decision.md 决策24
+  - id: n25
+    type: action
+    actor: admin
+    label: 行内拒绝：按钮位置展开拒绝原因输入框，rejectReason.trim() 非空才可提交（D7，后端拒绝原因必填约束不变）
+    entity: Refund
+    source: pd-explore.local.md > D7 + state-machine.yml > page_refunds_view click_reject/confirm_reject
+      + er-diagram.yml > Refund.rejectReason js_guard
   edges:
   - from: n1
     to: n2
@@ -541,7 +549,7 @@ flows:
     to: n7
     cond: 通过
   - from: n6
-    to: n16
+    to: n25
     cond: 驳回
   - from: n7
     to: n8
@@ -588,6 +596,12 @@ flows:
     cond: 'no'
   - from: n24
     to: n22
+  - from: n25
+    to: n16
+    cond: 提交（原因非空）
+  - from: n25
+    to: n6
+    cond: 取消（工单保持 pending）
 - id: review_moderation_flow
   name: 评价提交与审核
   trigger: 消费者对已完成订单提交评价
@@ -1556,5 +1570,506 @@ flows:
   - from: n2
     to: n4
     cond: 'yes'
+  - from: n4
+    to: n5
+- id: category_attribute_config
+  name: 品类属性配置（3-Tab/徽章抽屉/矩阵三态/子品类 delta 覆盖）
+  trigger: 管理员在 Categories 页（3-Tab）配置品类属性集与属性字典
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > D1/D2/D3
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员打开 Categories 页（3-Tab：标准品类树/品类×属性矩阵/自定义标签，D1 合并回单页）
+    source: state-machine.yml > page_categories_view + pd-explore.local.md > D1
+  - id: n2
+    type: action
+    actor: system
+    label: 旧 /attribute-sets 路由访问自动重定向至 Categories 品类×属性矩阵 Tab（菜单移除，D1）
+    source: state-machine.yml > page_attribute_sets_view route_redirect
+  - id: n3
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 品类/属性管理权限点
+    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
+      n2 同模式权限校验
+  - id: n4
+    type: decision
+    label: 配置入口：品类卡片属性集徽章（D2）/ 矩阵 Tab 属性字典与属性集抽屉 / 子品类覆盖抽屉
+    source: state-machine.yml > page_categories_view click_set_badge/open_set_drawer/open_child_override
+  - id: n5
+    type: action
+    actor: admin
+    label: 矩阵 Tab 维护属性字典：属性定义与可选值增删改（select/multiselect 才有选项）
+    entity: AttributeDef
+    source: er-diagram.yml > AttributeDef.options js_guard + pd-explore.local.md >
+      D1
+  - id: n6
+    type: action
+    actor: admin
+    label: 点击品类卡片属性集徽章直接打开该品类属性三态配置抽屉（D2 openCatSetDrawer）
+    entity: AttributeSet
+    source: pd-explore.local.md > D2
+  - id: n7
+    type: state_change
+    entity: AttributeSetItem
+    from: hidden
+    to: visible
+    label: 抽屉内点击属性循环切换三态（必填→可选→隐藏，cycle_click 循环）
+    source: state-machine.yml > attribute_visibility_cycle cycle_click
+  - id: n8
+    type: action
+    actor: admin
+    label: 保存抽屉：根品类写回属性集可见性配置（saveSetDrawer）
+    entity: AttributeSetItem
+    meta:
+      tx_boundary: true
+    source: state-machine.yml > page_categories_view save_set_drawer
+  - id: n9
+    type: action
+    actor: admin
+    label: 子品类覆盖抽屉：解析含继承配置（isInherited），保存仅存与父级不同的 delta 至 attrOverrides（D3）
+    entity: Category
+    meta:
+      tx_boundary: true
+    source: er-diagram.yml > Category.attr_overrides + state-machine.yml > page_categories_view
+      save_override
+  - id: n10
+    type: action
+    actor: system
+    label: 矩阵 Tab 子品类属性覆盖卡片区按根品类分组只读展示 delta（D3）
+    entity: Category
+    source: pd-explore.local.md > D3
+  - id: n11
+    type: error
+    label: 保存失败/网络异常：抽屉保留未提交配置，提示重试
+    source: 'state-machine.yml > page_categories_view 抽屉交互 [INFERRED: 网络失败分支]'
+  - id: n12
+    type: error
+    label: 权限不足：操作拒绝
+    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
+      n8 同模式
+  - id: n13
+    type: end
+    label: 配置生效，ProductEdit 表单按属性集控制版型属性显隐与必填
+    source: er-diagram.yml > Product.silhouette 属性集控制显隐/必填
+  - id: n14
+    type: end
+    label: 操作中止
+    source: state-machine.yml > page_categories_view close_drawer
+  edges:
+  - from: n1
+    to: n3
+  - from: n2
+    to: n3
+  - from: n3
+    to: n4
+    cond: 'yes'
+  - from: n3
+    to: n12
+    cond: 'no'
+  - from: n4
+    to: n5
+    cond: 属性字典维护
+  - from: n4
+    to: n6
+    cond: 徽章/矩阵属性集抽屉
+  - from: n4
+    to: n9
+    cond: 子品类覆盖抽屉
+  - from: n5
+    to: n13
+  - from: n6
+    to: n7
+  - from: n7
+    to: n8
+  - from: n8
+    to: n13
+    cond: 保存成功
+  - from: n8
+    to: n11
+    cond: 保存失败
+  - from: n9
+    to: n10
+    cond: 保存成功
+  - from: n9
+    to: n11
+    cond: 保存失败
+  - from: n10
+    to: n13
+  - from: n11
+    to: n8
+    cond: 重试
+  - from: n11
+    to: n14
+    cond: 放弃
+  - from: n12
+    to: n14
+- id: product_batch_ops
+  name: 商品批量操作（上架/下架/推荐/删除）
+  trigger: 管理员在商品列表勾选多行后点击批量操作栏动作
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > D4/D10 BE-DIM-4 事务
+  nodes:
+  - id: n1
+    type: start
+    label: 管理员勾选商品行（勾选框列/allChecked 全选），批量操作栏出现
+    source: state-machine.yml > page_products_view select_rows
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 商品管理权限点
+    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
+      n2 同模式权限校验
+  - id: n3
+    type: decision
+    label: guard：selected.length > 0 且确认批量动作（批量删除需二次确认）
+    source: state-machine.yml > product_lifecycle batch_publish guard
+  - id: n4
+    type: action
+    actor: system
+    label: 调用批量端点：一次请求 N 个 id，逐条独立事务执行互不阻塞（D10）
+    entity: Product
+    meta:
+      tx_boundary: true
+    source: pd-explore.local.md > D10 BE-DIM-4 事务
+  - id: n5
+    type: state_change
+    entity: Product
+    from: draft
+    to: published
+    label: 批量上架
+    source: state-machine.yml > product_lifecycle batch_publish
+  - id: n6
+    type: state_change
+    entity: Product
+    from: published
+    to: draft
+    label: 批量下架
+    source: state-machine.yml > product_lifecycle batch_unpublish
+  - id: n7
+    type: action
+    actor: system
+    label: 批量设为推荐 recommend=true（不改变上下架状态，draft/published 均可）
+    entity: Product
+    source: state-machine.yml > product_lifecycle batch_recommend guard
+  - id: n8
+    type: state_change
+    entity: Product
+    from: published
+    to: deleted
+    label: 批量删除（draft 同走 batch_delete；逐条复用 409509 删除校验）
+    source: state-machine.yml > product_lifecycle batch_delete
+  - id: n9
+    type: action
+    actor: system
+    label: 汇总逐条结果返回成功/失败清单（失败项不回滚成功项，失败原因含 409509 等校验码）
+    meta:
+      compensation: true
+    source: pd-explore.local.md > D10 逐条容错返回成功/失败清单
+  - id: n10
+    type: action
+    actor: system
+    label: 记录操作日志 OperationLog（action/targetIds/result/adminId）
+    entity: OperationLog
+    meta:
+      audit: true
+    source: pd-explore.local.md > D10 记录操作日志 + er-diagram.yml > OperationLog.result
+  - id: n11
+    type: error
+    label: 批量请求整体失败/超时：列表保持原状，提示重试
+    source: 'state-machine.yml > page_products_view batch_action [INFERRED: 网络失败分支]'
+  - id: n12
+    type: error
+    label: 权限不足或未选中行：操作拒绝
+    source: hhspec/specs/architecture/business-flow.yml > admin_ship_complete n9 同模式
+  - id: n13
+    type: end
+    label: 列表刷新并展示成功/失败反馈
+    source: state-machine.yml > page_products_view batch_action 后刷新
+  - id: n14
+    type: end
+    label: 操作中止
+    source: state-machine.yml > page_products_view clear_selection
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n12
+    cond: 'no'
+  - from: n3
+    to: n4
+    cond: 'yes'
+  - from: n3
+    to: n14
+    cond: 取消
+  - from: n4
+    to: n5
+    cond: 批量上架
+  - from: n4
+    to: n6
+    cond: 批量下架
+  - from: n4
+    to: n7
+    cond: 设为推荐
+  - from: n4
+    to: n8
+    cond: 批量删除
+  - from: n4
+    to: n11
+    cond: 整体失败
+  - from: n5
+    to: n9
+  - from: n6
+    to: n9
+  - from: n7
+    to: n9
+  - from: n8
+    to: n9
+  - from: n9
+    to: n10
+  - from: n10
+    to: n13
+  - from: n11
+    to: n4
+    cond: 重试
+  - from: n11
+    to: n14
+    cond: 放弃
+  - from: n12
+    to: n14
+- id: admin_export_csv
+  name: 商品/订单 CSV 导出
+  trigger: 管理员在 Products/Orders 列表点击导出按钮
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > D11 BE-DIM-8 限流降级
+  nodes:
+  - id: n1
+    type: start
+    label: 点击导出（Products「导出」/ Orders「导出订单」按钮）
+    source: state-machine.yml > page_products_view export_products + page_orders_view
+      export_orders
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 商品/订单导出权限点
+    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
+      n2 同模式
+  - id: n3
+    type: action
+    actor: system
+    label: 后端 CSV 导出端点按当前筛选条件全量查询（Products/Orders 各一端点，D11）
+    meta:
+      rate_limit: max_rows=10000
+    source: pd-explore.local.md > D11 按当前筛选条件全量导出+行数上限
+  - id: n4
+    type: decision
+    label: 行数是否超过上限（1 万行）
+    source: pd-explore.local.md > D11 设行数上限 + er-diagram.yml > OperationLog.rowCount
+  - id: n5
+    type: action
+    actor: system
+    label: 截断至上限行数并在响应中提示已截断（限流降级，D11）
+    source: pd-explore.local.md > D11 BE-DIM-8 限流降级
+  - id: n6
+    type: action
+    actor: admin
+    label: 浏览器下载 CSV 文件
+    source: 'state-machine.yml > page_products_view export_products guard [INFERRED:
+      下载交付]'
+  - id: n7
+    type: action
+    actor: system
+    label: 记录操作日志 OperationLog（export_products/export_orders + rowCount，PII 导出可审计）
+    entity: OperationLog
+    meta:
+      audit: true
+    source: pd-explore.local.md > D11 记录操作日志 + er-diagram.yml > OperationLog.action
+  - id: n8
+    type: error
+    label: 导出失败/超时：提示缩小筛选范围后重试
+    source: 'pd-explore.local.md > D11 [INFERRED: 网络失败分支]'
+  - id: n9
+    type: end
+    label: 导出完成
+    source: pd-explore.local.md > D11
+  - id: n10
+    type: end
+    label: 导出中止
+    source: pd-explore.local.md > D11
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n10
+    cond: 'no'
+  - from: n3
+    to: n4
+    cond: 查询成功
+  - from: n3
+    to: n8
+    cond: 失败/超时
+  - from: n4
+    to: n5
+    cond: 'yes'
+  - from: n4
+    to: n6
+    cond: 'no'
+  - from: n5
+    to: n6
+  - from: n6
+    to: n7
+  - from: n7
+    to: n9
+  - from: n8
+    to: n3
+    cond: 重试
+  - from: n8
+    to: n10
+    cond: 放弃
+- id: order_list_query
+  name: 订单列表查询（地区/商品数列）
+  trigger: 管理员打开订单列表、切换状态 Tab 或搜索
+  actors:
+  - admin
+  - system
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > D6/D12 BE-DIM-8 限流降级
+  nodes:
+  - id: n1
+    type: start
+    label: 打开 Orders 页或切换 8 状态 Tab / 输入客户邮箱搜索（防抖）
+    source: state-machine.yml > page_orders_view switch_status_tab/search_orders
+  - id: n2
+    type: decision
+    label: 权限校验：RBAC @RequirePermission 订单查看权限点
+    source: hhspec/specs/architecture/business-flow.yml > admin_ship_complete n2 同模式
+  - id: n3
+    type: action
+    actor: system
+    label: 服务端分页查询 AdminOrderListItem：join 地址快照取 country（地区）+ 子查询计数 itemCount（商品数），单次
+      SQL 防 N+1（D12）
+    entity: Order
+    meta:
+      rate_limit: 服务端分页+单查询防N+1
+    source: pd-explore.local.md > D12 + er-diagram.yml > Order.country/itemCount 派生字段
+  - id: n4
+    type: decision
+    label: 查询结果是否为空
+    source: state-machine.yml > page_orders_view load_empty
+  - id: n5
+    type: action
+    actor: system
+    label: 渲染列表列：地区/商品数替换币种/承运，严格回对原型（D6）
+    entity: Order
+    source: pd-explore.local.md > D6 + state-machine.yml > page_orders_view load_success
+      guard
+  - id: n6
+    type: action
+    actor: system
+    label: 展示 EmptyState 空态
+    source: state-machine.yml > page_orders_view load_empty
+  - id: n7
+    type: error
+    label: 查询失败：错误态 + 重试
+    source: state-machine.yml > page_orders_view load_error/retry
+  - id: n8
+    type: end
+    label: 列表展示
+    source: state-machine.yml > page_orders_view loaded
+  - id: n9
+    type: end
+    label: 访问拒绝
+    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
+      n8 同模式
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n3
+    cond: 'yes'
+  - from: n2
+    to: n9
+    cond: 'no'
+  - from: n3
+    to: n4
+    cond: 成功
+  - from: n3
+    to: n7
+    cond: 失败
+  - from: n7
+    to: n3
+    cond: 重试
+  - from: n4
+    to: n6
+    cond: 'yes'
+  - from: n4
+    to: n5
+    cond: 'no'
+  - from: n5
+    to: n8
+  - from: n6
+    to: n8
+- id: dashboard_publish_entry
+  name: Dashboard 发布站点入口
+  trigger: 管理员从 Dashboard 进入站点发布
+  actors:
+  - admin
+  cross_domain: false
+  external_systems: []
+  source: pd-explore.local.md > D5
+  nodes:
+  - id: n1
+    type: start
+    label: Dashboard 加载（PageHeader「发布站点」按钮 + 快捷入口 5 项含编辑首页/发布站点，D5 补齐）
+    source: pd-explore.local.md > D5 + state-machine.yml > page_dashboard_view click_publish_site/click_quick_entry
+  - id: n2
+    type: decision
+    label: Dashboard 数据加载是否成功
+    source: state-machine.yml > page_dashboard_view load_success/load_error
+  - id: n3
+    type: error
+    label: 加载失败：错误态 + 重试（发布入口按钮仍可用，不阻断导航）
+    source: state-machine.yml > page_dashboard_view load_error/retry
+  - id: n4
+    type: action
+    actor: admin
+    label: 点击「发布站点」或快捷入口跳转 Publish 页
+    source: state-machine.yml > page_dashboard_view click_publish_site guard
+  - id: n5
+    type: end
+    label: 进入 Publish 页执行静态站点发布（发布链路沿用 content_publish_invalidate）
+    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
+  edges:
+  - from: n1
+    to: n2
+  - from: n2
+    to: n4
+    cond: 'yes'
+  - from: n2
+    to: n3
+    cond: 'no'
+  - from: n3
+    to: n1
+    cond: 重试
+  - from: n3
+    to: n4
+    cond: 仍可导航
   - from: n4
     to: n5

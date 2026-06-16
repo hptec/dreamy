@@ -1,5 +1,6 @@
 entities:
 - id: Category
+  desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
   fields:
   - n: id
     t: Long
@@ -8,9 +9,9 @@ entities:
   - n: name
     t: str
     req: true
+    maxlen: 64
     source: prototype/portal-admin/src/views/Categories.vue > 品类名称 * / newRootName
       / confirmAddChild
-    maxlen: 64
   - n: parent_id
     t: Long
     source: prototype/portal-admin/src/views/Categories.vue > cat.children 子类目树
@@ -26,7 +27,7 @@ entities:
   - n: attr_overrides
     t: json
     source: prototype/portal-admin/src/views/Categories.vue > child.attrOverrides
-      仅存与父级属性集不同的 delta (saveDrawer)
+      仅存与父级属性集不同的 delta (saveDrawer)；key_decisions D3 子品类属性覆盖卡片区按根品类分组只读展示该 delta
   - n: sort
     t: int
     source: prototype/portal-admin/src/views/Categories.vue > Bars3Icon 拖拽手柄 [INFERRED]
@@ -41,7 +42,6 @@ entities:
     type: n1
   - to: AttributeSet
     type: n1
-  desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
 - id: AttributeDef
   desc: 商品属性字典项，维护全局属性定义与可选值列表（廓形/领口/袖型/面料等）
   fields:
@@ -52,7 +52,8 @@ entities:
   - n: key
     t: str
     req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)
+    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)；key_decisions
+      D1 属性字典并回 Categories 第二 Tab
   - n: label
     t: str
     req: true
@@ -71,7 +72,7 @@ entities:
     t: json
     js_guard: type === 'select' || type === 'multiselect' 时才有选项 (attr.optionsKey)
     source: prototype/portal-admin/src/views/AttributeSets.vue > attr.options 增删改
-      (confirmAddOption/removeOption/confirmEdit)
+      (confirmAddOption/removeOption/confirmEdit) + Categories.vue > confirmAddOption/removeOption/confirmEditOpt
   relations: []
 - id: AttributeSet
   desc: 属性集，多个品类可共享同一属性集；定义该集合内各属性的可见性配置
@@ -83,7 +84,8 @@ entities:
   - n: label
     t: str
     req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)
+    source: prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)；key_decisions
+      D1 Tab 文案恢复「品类×属性矩阵」
   relations: []
 - id: AttributeSetItem
   desc: 属性集明细行，记录属性集内单个属性的可见性状态（必填/可选/隐藏）
@@ -107,8 +109,9 @@ entities:
     - optional
     - hidden
     req: true
-    source: field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/AttributeSets.vue
-      > STATES/cycleState 必填→可选→隐藏
+    source: field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/Categories.vue
+      > STATES=['visible','optional','hidden'] cycleDrawerState/cycleSetDrawerState
+      必填→可选→隐藏
   relations:
   - to: AttributeSet
     type: n1
@@ -329,7 +332,8 @@ entities:
   - n: productType
     t: str
     maxlen: 64
-    source: ProductEdit.vue > form.productType 自由填写
+    source: ProductEdit.vue > form.productType 自由填写；prototype/portal-admin/src/views/Products.vue
+      > productTypeOptions 更多筛选商品类型多选（D4）
   - n: description
     t: text
     source: ProductEdit.vue > form.description 富文本介绍
@@ -340,12 +344,14 @@ entities:
     t: number
     req: true
     min: 0
-    source: ProductEdit.vue > form.price 现价USD*
+    source: ProductEdit.vue > form.price 现价USD*；Products.vue > moreFilters.priceMin/priceMax
+      价格区间筛选
   - n: compareAt
     t: number
     min: 0
     js_guard: compareAt == null || compareAt >= price
-    source: ProductEdit.vue > form.compareAt 划线价
+    source: ProductEdit.vue > form.compareAt 划线价；Products.vue > flags onSale 以 compareAt
+      非空判定促销中
   - n: installment
     t: bool
     source: ProductEdit.vue > form.installment Klarna/Afterpay 分期
@@ -358,20 +364,26 @@ entities:
     - draft
     - published
     req: true
-    source: mock.js > products.status; Products.vue > Toggle published/draft
+    source: mock.js > products.status; Products.vue > Toggle published/draft + 批量上架/批量下架（D4/D10）
   - n: isNew
     t: bool
-    source: mock.js > products.isNew; Products.vue > Toggle
+    source: mock.js > products.isNew; Products.vue > Toggle + flags 筛选新品
   - n: isBest
     t: bool
     source: mock.js > products.isBest
   - n: recommend
     t: bool
-    source: mock.js > products.recommend; Products.vue > Toggle
+    source: mock.js > products.recommend; Products.vue > Toggle + 批量设为推荐（D4/D10）
   - n: sort
     t: int
     min: 0
     source: mock.js > products.sort
+  - n: sales
+    t: int
+    min: 0
+    js_guard: 只读聚合列：由订单行销量统计派生，管理端不可直接编辑
+    source: 'prototype/portal-admin/src/views/Products.vue > 销量列 p.sales + key_decisions
+      D4 补齐销量列 [INFERRED: 聚合派生]'
   - n: leadTimeDays
     t: int
     min: 1
@@ -529,7 +541,8 @@ entities:
   - n: stock
     t: int
     min: 0
-    js_guard: 现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存
+    js_guard: 现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存; Products.vue 库存筛选 inStock>=10/low<10/out=0
+      按 SKU 聚合
     source: ProductEdit.vue > 单元格库存数量; 业务上下文确认乐观锁 [INFERRED]
   - n: version
     t: Long
@@ -598,6 +611,7 @@ entities:
     t: str
     maxlen: 32
     source: OrderDetail.vue > o.customer.phone
+  relations: []
 - id: Address
   desc: 收货地址（消费端实体，原型后台仅展示快照）
   fields:
@@ -765,6 +779,18 @@ entities:
     t: json
     req: true
     source: OrderDetail.vue > 收货地址面板(下单时快照)
+  - n: country
+    t: str
+    maxlen: 64
+    js_guard: 列表展示派生字段：取 addressSnapshot.country，AdminOrderListItem DTO 经列表 SQL join/子查询提供，不新增存储列
+    source: 'key_decisions D6 Orders 表格列「地区」替换「币种」 + D12 AdminOrderListItem DTO 扩展
+      country（地址快照） [INFERRED: 派生]'
+  - n: itemCount
+    t: int
+    min: 0
+    js_guard: 列表展示派生字段：OrderLine 按 orderId 计数子查询，避免前端 N+1，不落库
+    source: 'key_decisions D6 Orders 表格列「商品数」替换「承运」 + D12 AdminOrderListItem DTO 扩展
+      itemCount（订单行计数） [INFERRED: 派生]'
   - n: carrier
     t: enum
     vals:
@@ -913,6 +939,7 @@ entities:
   - to: Order
     type: n1
 - id: Refund
+  desc: 退款工单（关联订单，审核通过后执行 Stripe 退款；行内同意/拒绝审批，拒绝必须填写拒绝原因）
   fields:
   - n: id
     t: Long
@@ -922,25 +949,33 @@ entities:
     t: str
     req: true
     maxlen: 32
-    source: field-inventory FLD-REFUNDS-001 工单号
+    source: field-inventory FLD-REFUNDS-001 工单号; prototype/portal-admin/src/views/Refunds.vue
+      > r.id 工单号列
   - n: orderId
     t: Long
     req: true
-    source: field-inventory FLD-REFUNDS-002 关联订单; OrderDetail.vue > 发起退款按钮
+    source: field-inventory FLD-REFUNDS-002 关联订单; Refunds.vue > r.order; OrderDetail.vue
+      > 发起退款按钮
   - n: customerId
     t: Long
     req: true
-    source: field-inventory FLD-REFUNDS-003 客户
+    source: field-inventory FLD-REFUNDS-003 客户; Refunds.vue > r.customer
   - n: amount
     t: number
     req: true
     min: 0
     js_guard: amount <= Order.totalAmount
-    source: field-inventory FLD-REFUNDS-004 退款金额
+    source: field-inventory FLD-REFUNDS-004 退款金额; Refunds.vue > cur[r.currency]+r.amount
   - n: reason
     t: str
     maxlen: 255
-    source: field-inventory FLD-REFUNDS-005 退款原因
+    source: field-inventory FLD-REFUNDS-005 退款原因（买家申请原因）; Refunds.vue > r.reason
+  - n: rejectReason
+    t: str
+    maxlen: 255
+    js_guard: status === 'rejected' 时必填且非空；行内拒绝按钮位置展开输入框填写后提交
+    source: key_decisions D7 拒绝时按钮位置行内展开输入框填原因（后端拒绝原因必填约束不变） + page_diff_summary Refunds
+      impl_extra 拒绝原因必填
   - n: status
     t: enum
     vals:
@@ -948,12 +983,13 @@ entities:
     - approved
     - rejected
     req: true
-    source: field-inventory FLD-REFUNDS-007/008/009 pending/approved/rejected
-    js_guard: r.status === 'pending' 时才允许同意/拒绝操作
+    js_guard: r.status === 'pending' 时才允许同意/拒绝操作，否则展示「已处理」
+    source: field-inventory FLD-REFUNDS-007/009/010/011 状态 pending/approved/rejected;
+      Refunds.vue > tabs/tone/label + v-if r.status==='pending'
   - n: appliedAt
     t: datetime
     req: true
-    source: field-inventory FLD-REFUNDS-006 申请时间
+    source: field-inventory FLD-REFUNDS-006 申请时间; Refunds.vue > r.date
   - n: currency
     t: enum
     vals:
@@ -962,7 +998,7 @@ entities:
     - AUD
     - GBP
     req: true
-    source: Refunds.vue cur 映射表
+    source: Refunds.vue > cur 映射表 USD/CAD/AUD/GBP
   - n: stripeRefundId
     t: str
     source: 业务上下文 Stripe 退款沙箱 [INFERRED]
@@ -975,7 +1011,6 @@ entities:
     type: n1
   - to: Customer
     type: n1
-  desc: 退款工单（关联订单，审核通过后执行 Stripe 退款）
 - id: Coupon
   desc: 优惠券（折扣/满减/包邮三类，限量发放计数）
   fields:
@@ -2060,4 +2095,129 @@ entities:
     t: datetime
     req: true
     source: decision.md 决策30 提交时间
+  relations: []
+- id: OperationLog
+  desc: 管理端操作日志（批量操作与导出动作的审计记录，含逐条容错结果清单）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java-gradle MyBatis-Plus Long 自增主键 [INFERRED]
+  - n: adminId
+    t: Long
+    req: true
+    source: key_decisions D10/D11 记录操作日志（操作者） [INFERRED]
+  - n: action
+    t: enum
+    vals:
+    - batch_publish
+    - batch_unpublish
+    - batch_recommend
+    - batch_delete
+    - export_products
+    - export_orders
+    req: true
+    source: key_decisions D4/D6 批量操作与导出按钮 + D10 批量端点 + D11 CSV 导出端点
+  - n: targetType
+    t: str
+    maxlen: 32
+    source: key_decisions D10 批量端点作用对象（Product/Order） [INFERRED]
+  - n: targetIds
+    t: json
+    source: key_decisions D10 一次请求 N 个 id
+  - n: result
+    t: json
+    js_guard: 逐条容错：记录成功/失败清单（删除失败项复用 409509 校验码）
+    source: key_decisions D10 逐条容错返回成功/失败清单
+  - n: rowCount
+    t: int
+    min: 0
+    source: key_decisions D11 导出按当前筛选条件全量导出，设行数上限
+  - n: createdAt
+    t: datetime
+    req: true
+    source: key_decisions D10/D11 记录操作日志 [INFERRED]
+  relations: []
+- id: PageState
+  desc: 前端页面 UI 状态伪实体（不落库），为本批次 15 个管理端页面的页面级状态机提供建模锚点
+  fields:
+  - n: page_id
+    t: str
+    req: true
+    source: pd-explore.local.md > phase_3_1.batches[portal-admin-1].snapshots 15 页
+      page_id
+  - n: ui_state
+    t: enum
+    vals:
+    - loading
+    - loaded
+    - empty
+    - error
+    source: page_diff_summary impl_extra 骨架屏/空态/错误态/重试 + 各页 EmptyState 组件
+  relations: []
+- id: lookbook
+  desc: Lookbook 主题画册，聚合商品锚点的 CMS 内容
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=l.id
+  - n: title
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.title }}
+  - n: theme
+    t: str
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.theme }}
+  - n: items
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.items }} 件商品锚点
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge l.status
+      === 'published'
+  relations:
+  - to: product
+    type: nm
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > 商品锚点 [INFERRED]
+- id: style_guide
+  desc: Wedding Guides 婚礼筹备时间轴指南条目
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=g.id
+  - n: title
+    t: str
+    req: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.title }}
+  - n: timeframe
+    t: str
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.timeframe
+      }}
+  - n: phase
+    t: str
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.phase }}
+  - n: tasks
+    t: int
+    min: 0
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.tasks }} 个待办任务
+  - n: status
+    t: enum
+    vals:
+    - draft
+    - published
+    req: true
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge g.status
+      === 'published'
+  - n: sort_order
+    t: int
+    min: 1
+    source: prototype/portal-admin/src/views/ContentLookbook.vue > 序号 {{ i + 1 }}
+      [INFERRED]
   relations: []
