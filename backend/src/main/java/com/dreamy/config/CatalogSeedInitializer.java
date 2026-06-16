@@ -38,14 +38,8 @@ import com.dreamy.domain.tag.repository.TagRepository;
 import com.dreamy.domain.role.entity.Permission;
 import com.dreamy.domain.role.entity.Role;
 import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.product.entity.CareInstructionDef;
-import com.dreamy.domain.product.repository.CareInstructionDefRepository;
-import com.dreamy.domain.product.service.FabricCareService;
-import com.dreamy.dto.FabricCareDtos;
-import com.dreamy.enums.CareCategory;
-import com.dreamy.enums.CareStatus;
-import com.dreamy.enums.FabricLayer;
-import com.dreamy.enums.FabricMaterial;
+import com.dreamy.domain.product.entity.vo.FabricComposition;
+import com.dreamy.domain.product.entity.vo.CareItem;
 import com.dreamy.domain.role.repository.PermissionMapper;
 import com.dreamy.domain.role.repository.RoleMapper;
 import com.dreamy.domain.role.repository.RolePermissionMapper;
@@ -96,8 +90,6 @@ public class CatalogSeedInitializer {
     private final RoleMapper roleMapper;
     private final RolePermissionMapper rolePermissionMapper;
     private final JdbcTemplate jdbcTemplate;
-    private final CareInstructionDefRepository careInstructionDefRepository;
-    private final FabricCareService fabricCareService;
 
     public CatalogSeedInitializer(ProductMapper productMapper, ProductRepository productRepository,
                                   ProductImageRepository imageRepository, SkuRepository skuRepository,
@@ -110,9 +102,7 @@ public class CatalogSeedInitializer {
                                   AttributeSetRepository attributeSetRepository,
                                   TagDimensionRepository tagDimensionRepository, TagRepository tagRepository,
                                   PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                  RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate,
-                                  CareInstructionDefRepository careInstructionDefRepository,
-                                  FabricCareService fabricCareService) {
+                                  RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.imageRepository = imageRepository;
@@ -130,8 +120,6 @@ public class CatalogSeedInitializer {
         this.roleMapper = roleMapper;
         this.rolePermissionMapper = rolePermissionMapper;
         this.jdbcTemplate = jdbcTemplate;
-        this.careInstructionDefRepository = careInstructionDefRepository;
-        this.fabricCareService = fabricCareService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -143,7 +131,6 @@ public class CatalogSeedInitializer {
         Map<String, Long> sets = seedAttributeSets(defs);
         Map<String, Long> categories = seedCategories(sets);
         Map<String, Long> tags = seedTagsAndDimensions();
-        seedCareInstructions();  // 先初始化护理标签定义，商品填充时需要引用
         seedProducts(defs, categories, tags);
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
@@ -156,8 +143,7 @@ public class CatalogSeedInitializer {
                 "product_translation", "sku", "size_chart_row", "product",
                 "attribute_set_item", "attribute_set", "attribute_def",
                 "category_translation", "category",
-                "tag_translation", "product_tag", "tag", "tag_dimension_translation", "tag_dimension",
-                "product_care_instruction", "product_fabric_composition", "care_instruction_def")) {
+                "tag_translation", "product_tag", "tag", "tag_dimension_translation", "tag_dimension")) {
             jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
@@ -473,6 +459,9 @@ public class CatalogSeedInitializer {
         p.setSales30d(0);
         p.setRatingAvg(new BigDecimal(sp.ratingAvg()));
         p.setRatingCount(sp.ratingCount());
+        // 面料成分 + 护理标签内联（product 列；随主表一次写入）
+        p.setFabricCompositions(fabricCompositionsFor(sp.slug()));
+        p.setCare(careItemsFor(sp.slug()));
         productRepository.insert(p);
         // 版型属性 → EAV（multiselect occasion 一值一行）
         List<ProductAttributeValue> attrRows = new ArrayList<>();
@@ -485,8 +474,6 @@ public class CatalogSeedInitializer {
             addAttrRow(attrRows, defs, "occasion", theme);
         }
         attributeValueRepository.replaceAll(p.getId(), attrRows);
-        // 面料成分 + 护理标签 → 专用表（product_fabric_composition / product_care_instruction）
-        seedFabricAndCare(p.getId(), sp.slug());
         // images：gallery（sort 0..n 主图=0）+ lifestyle + 每色 swatch
         List<ProductImage> images = new ArrayList<>();
         for (int i = 0; i < sp.gallery().size(); i++) {
@@ -581,58 +568,32 @@ public class CatalogSeedInitializer {
         return base + "-" + c + "-" + s;
     }
 
-    /** 为商品填充面料成分和护理标签（专用表） */
-    private void seedFabricAndCare(Long productId, String slug) {
-        // 根据 slug 决定面料成分配置
-        List<FabricCareDtos.FabricCompositionInput> fabricInputs = new ArrayList<>();
-
-        // 示例：为婚纱/礼服类商品配置面料成分
+    /** 按 slug 填充内联面料成分（product.fabric_compositions JSON 列）。layer: 1=Shell 2=Lining。 */
+    private List<FabricComposition> fabricCompositionsFor(String slug) {
+        List<FabricComposition> rows = new ArrayList<>();
         if (slug.contains("gown") || slug.contains("dress")) {
-            // Shell: 70% Polyester + 30% Nylon
-            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
-                    FabricLayer.SHELL.getKey(),
-                    FabricMaterial.POLYESTER.getKey(),
-                    new BigDecimal("70.00"),
-                    0
-            ));
-            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
-                    FabricLayer.SHELL.getKey(),
-                    FabricMaterial.NYLON.getKey(),
-                    new BigDecimal("30.00"),
-                    1
-            ));
-            // Lining: 100% Polyester
-            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
-                    FabricLayer.LINING.getKey(),
-                    FabricMaterial.POLYESTER.getKey(),
-                    new BigDecimal("100.00"),
-                    0
-            ));
+            // Shell: 70% Polyester + 30% Nylon；Lining: 100% Polyester
+            rows.add(new FabricComposition(1, "Polyester", new BigDecimal("70.00")));
+            rows.add(new FabricComposition(1, "Nylon", new BigDecimal("30.00")));
+            rows.add(new FabricComposition(2, "Polyester", new BigDecimal("100.00")));
         } else if (slug.contains("veil") || slug.contains("accessory")) {
-            // 配饰：100% Polyester（单层）
-            fabricInputs.add(new FabricCareDtos.FabricCompositionInput(
-                    FabricLayer.SHELL.getKey(),
-                    FabricMaterial.POLYESTER.getKey(),
-                    new BigDecimal("100.00"),
-                    0
-            ));
+            rows.add(new FabricComposition(1, "Polyester", new BigDecimal("100.00")));
         }
+        return rows;
+    }
 
-        if (!fabricInputs.isEmpty()) {
-            fabricCareService.replaceFabricCompositions(productId, fabricInputs);
+    /** 内联护理标签（product.care JSON 列）。行业通用 Unicode 护理符号。 */
+    private List<CareItem> careItemsFor(String slug) {
+        boolean isAccessory = slug.contains("veil") || slug.contains("accessory")
+                || slug.contains("heels") || slug.contains("earrings") || slug.contains("vine");
+        if (isAccessory) {
+            return List.of(new CareItem("🚫", "Do not wash"), new CareItem("🧊", "Do not bleach"));
         }
-
-        // 护理标签：查找前5个活跃标签作为示例（实际应根据商品类型配置）
-        List<CareInstructionDef> allCare = careInstructionDefRepository.listAll();
-        List<Long> careIds = allCare.stream()
-                .filter(c -> c.getStatus() == CareStatus.ACTIVE)
-                .limit(3)
-                .map(CareInstructionDef::getId)
-                .toList();
-
-        if (!careIds.isEmpty()) {
-            fabricCareService.replaceCareInstructions(productId, careIds);
-        }
+        // 礼服类标准护理三件套
+        return List.of(
+                new CareItem("🫧", "Hand wash cold"),
+                new CareItem("🚫", "Do not bleach"),
+                new CareItem("🌡", "Tumble dry low"));
     }
 
     private List<SizeChartRow> standardSizeChart() {
@@ -858,32 +819,5 @@ public class CatalogSeedInitializer {
                 "A flexible gold hair vine scattered with leaves and pearls.",
                 "Gold-tone wire; Handle gently", null, null));
         return list;
-    }
-
-    private void seedCareInstructions() {
-        record C(String code, String sym, String en, String zh, CareCategory cat, int sort) {}
-        List<C> data = List.of(
-            new C("hand_wash_cold",  "🫧", "Hand wash cold",       "冷水手洗",   CareCategory.WASHING,     1),
-            new C("machine_wash_30", "🌀", "Machine wash 30°C",    "30°C 机洗",  CareCategory.WASHING,     2),
-            new C("dry_clean_only",  "⭕", "Dry clean only",       "仅限干洗",   CareCategory.DRY_CLEANING,1),
-            new C("no_bleach",       "🚫", "Do not bleach",        "禁止漂白",   CareCategory.BLEACHING,   1),
-            new C("tumble_dry_low",  "🌡", "Tumble dry low",       "低温烘干",   CareCategory.DRYING,      1),
-            new C("hang_to_dry",     "🪝", "Hang to dry",          "悬挂晾干",   CareCategory.DRYING,      2),
-            new C("low_iron",        "♨", "Iron on low heat",     "低温熨烫",   CareCategory.IRONING,     1),
-            new C("steam_only",      "💨", "Steam only",           "仅蒸汽熨烫", CareCategory.IRONING,     2),
-            new C("do_not_iron",     "❌", "Do not iron",          "禁止熨烫",   CareCategory.IRONING,     3)
-        );
-        for (C c : data) {
-            CareInstructionDef def = new CareInstructionDef();
-            def.setCode(c.code());
-            def.setSymbolUnicode(c.sym());
-            def.setLabelEn(c.en());
-            def.setLabelZh(c.zh());
-            def.setCategory(c.cat());
-            def.setSortOrder(c.sort());
-            def.setStatus(CareStatus.ACTIVE);
-            careInstructionDefRepository.insert(def);
-        }
-        log.info("[CatalogSeed] 护理标签种子数据写入完成 ({} 条)", data.size());
     }
 }

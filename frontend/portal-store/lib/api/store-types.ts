@@ -149,27 +149,25 @@ export interface StoreProductDetail extends StoreProductCard {
   /** 面料成分列表 */
   fabricCompositions?: FabricComposition[]
   /** 护理标签列表 */
-  careInstructions?: CareInstruction[]
+  careInstructions?: CareItem[]
   /** 护理备注 */
   fabricCareNote?: string
 }
 
 export interface FabricComposition {
-  id?: number
-  productId?: number
+  /** 1=Shell 2=Lining 3=Overlay 4=Trim（前端分组标签用） */
   layer: number
-  material: number
+  /** 材质名称（如 "Polyester"） */
+  material: string
+  /** 占比 0..100 */
   percentage: number
-  sortOrder: number
-  createdAt?: string
-  updatedAt?: string
 }
 
-export interface CareInstruction {
-  id: number
-  symbolUnicode: string
+export interface CareItem {
+  /** 行业通用护理 Unicode 符号 */
+  symbol: string
+  /** 展示文本 */
   label: string
-  category: number
 }
 
 export type RecommendationBlock =

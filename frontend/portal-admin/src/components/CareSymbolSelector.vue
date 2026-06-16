@@ -1,15 +1,13 @@
 <script setup lang="ts">
-// COMP-FC-02: CareSymbolSelector.vue
-// 功能: 护理标签选择器（按 category 分组展示），支持多选，显示 Unicode 符号 + 标签文本
-// 证据锚点: catalog-fabric-care-frontend-detail.md § 1.2 / acceptance.yml s-050~s-052
+// CareSymbolSelector.vue - 护理标签多选编辑器（前端硬编码行业通用预设，按分类分组）
+// v-model: CareItem[] { symbol, label }
 
-import { computed, onMounted, ref, watch } from 'vue'
-import { catalogApi } from '@/api'
-import type { CareInstruction } from '@/api/types'
+import { computed, ref, watch } from 'vue'
+import type { CareItem } from '@/api/types'
+import { CheckIcon } from '@heroicons/vue/20/solid'
 
-// [L2-COMP-FC-02] Props 定义
 interface Props {
-  modelValue: number[]        // v-model 绑定的 care_instruction_ids
+  modelValue: CareItem[]
   readonly?: boolean
 }
 
@@ -17,18 +15,38 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false
 })
 
-// [L2-COMP-FC-02] Emits 定义
 const emit = defineEmits<{
-  'update:modelValue': [value: number[]]
+  'update:modelValue': [value: CareItem[]]
 }>()
 
-// [L2-COMP-FC-02] 状态管理
-const careInstructions = ref<CareInstruction[]>([])
-const selectedIds = ref<Set<number>>(new Set())
-const loading = ref(false)
-const loadError = ref(false)
+// 行业通用护理标签预设（按分类分组）
+interface PresetItem {
+  symbol: string
+  label: string
+  category: number
+}
 
-// 分类名称映射（CareCategory IntEnum）
+const presetCareItems: PresetItem[] = [
+  // 水洗
+  { symbol: '🫧', label: '冷水手洗', category: 1 },
+  { symbol: '🌀', label: '30°C 机洗', category: 1 },
+  { symbol: '🚫', label: '禁止水洗', category: 1 },
+  // 漂白
+  { symbol: '🧊', label: '禁止漂白', category: 2 },
+  { symbol: '△', label: '可氯漂', category: 2 },
+  // 烘干
+  { symbol: '🌡', label: '低温烘干', category: 3 },
+  { symbol: '🪝', label: '悬挂晾干', category: 3 },
+  { symbol: '❌', label: '禁止烘干', category: 3 },
+  // 熨烫
+  { symbol: '♨', label: '低温熨烫', category: 4 },
+  { symbol: '💨', label: '仅蒸汽', category: 4 },
+  { symbol: '🚷', label: '禁止熨烫', category: 4 },
+  // 干洗
+  { symbol: '⭕', label: '仅限干洗', category: 5 },
+  { symbol: '⊗', label: '禁止干洗', category: 5 }
+]
+
 const categoryNames: Record<number, string> = {
   1: '水洗',
   2: '漂白',
@@ -37,143 +55,112 @@ const categoryNames: Record<number, string> = {
   5: '干洗'
 }
 
-// [L2-COMP-FC-02] 按 category 分组（computed）
-// 证据锚点: acceptance.yml s-050
-const instructionsByCategory = computed(() => {
-  const groups = new Map<number, CareInstruction[]>()
-  careInstructions.value.forEach(instr => {
-    if (!groups.has(instr.category)) groups.set(instr.category, [])
-    groups.get(instr.category)!.push(instr)
+// 本地选中集合（用 symbol 作为唯一标识）
+const selectedSymbols = ref<Set<string>>(new Set())
+
+// 按分类分组
+const itemsByCategory = computed(() => {
+  const groups = new Map<number, PresetItem[]>()
+  presetCareItems.forEach(item => {
+    if (!groups.has(item.category)) groups.set(item.category, [])
+    groups.get(item.category)!.push(item)
   })
-  // 同组按 sortOrder 排序
-  groups.forEach(items => items.sort((a, b) => a.sortOrder - b.sortOrder))
   return groups
 })
 
-// [L2-INTERACTION-FC-05] 初始化加载护理标签字典
-// 证据锚点: B-FC-010 (仅加载 status=active)
-onMounted(async () => {
-  await loadCareInstructions()
-})
+const selectedCount = computed(() => selectedSymbols.value.size)
 
-async function loadCareInstructions() {
-  loading.value = true
-  loadError.value = false
-  try {
-    const response = await catalogApi.listAdminCareInstructions()
-    // 仅加载 active 标签
-    careInstructions.value = response.items.filter(i => i.status === 1)
-  } catch (error) {
-    loadError.value = true
-    console.error('Failed to load care instructions:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-// [L2-INTERACTION-FC-06] 切换选中状态
-// 证据锚点: acceptance.yml s-051 (多选支持)
-function toggleSelection(id: number) {
+// 切换选中
+function toggleSelection(item: PresetItem) {
   if (props.readonly) return
 
-  if (selectedIds.value.has(id)) {
-    selectedIds.value.delete(id)
+  if (selectedSymbols.value.has(item.symbol)) {
+    selectedSymbols.value.delete(item.symbol)
   } else {
-    selectedIds.value.add(id)
+    selectedSymbols.value.add(item.symbol)
   }
-  emit('update:modelValue', Array.from(selectedIds.value))
+  selectedSymbols.value = new Set(selectedSymbols.value)
+
+  // 同步到 modelValue
+  const selected = presetCareItems.filter(i => selectedSymbols.value.has(i.symbol))
+  emit('update:modelValue', selected.map(i => ({ symbol: i.symbol, label: i.label })))
 }
 
-// [L2-INTERACTION-FC-07] 同步 props 变化到本地状态
-watch(() => props.modelValue, (newIds) => {
-  selectedIds.value = new Set(newIds)
+// 同步 props → 本地状态
+watch(() => props.modelValue, (newItems) => {
+  selectedSymbols.value = new Set(newItems.map(i => i.symbol))
 }, { immediate: true })
 </script>
 
 <template>
-  <div class="care-symbol-selector">
-    <!-- 加载中 -->
-    <div v-if="loading" class="flex justify-center items-center py-8">
-      <div class="text-gray-500">加载护理标签中...</div>
+  <div class="care-symbol-selector space-y-6">
+    <!-- 已选汇总 -->
+    <div v-if="selectedCount > 0" class="flex items-center gap-2 text-[12px] text-ink-soft">
+      <span class="rounded-full bg-gold/10 px-2.5 py-0.5 font-medium text-gold-deep tabular-nums">
+        已选 {{ selectedCount }} 项
+      </span>
     </div>
 
-    <!-- 加载失败降级态 -->
-    <div v-else-if="loadError" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-      <p class="text-yellow-800 mb-3">护理标签加载失败</p>
-      <button
-        type="button"
-        @click="loadCareInstructions"
-        class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
-      >
-        重试
-      </button>
-    </div>
+    <!-- 按 category 分组渲染 -->
+    <div v-for="category in [1, 2, 3, 4, 5]" :key="category">
+      <h4 class="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-luxe text-gold-deep">
+        {{ categoryNames[category] }}
+      </h4>
 
-    <!-- 正常内容 -->
-    <div v-else class="category-groups space-y-6">
-      <!-- 按 category 分组渲染 -->
-      <div v-for="category in [1, 2, 3, 4, 5]" :key="category" class="category-group">
-        <h4 class="text-sm font-medium text-gray-700 mb-3">{{ categoryNames[category] }}</h4>
-
-        <div class="symbol-grid grid grid-cols-4 gap-3">
-          <div
-            v-for="instr in instructionsByCategory.get(category)"
-            :key="instr.id"
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <button
+          v-for="item in itemsByCategory.get(category)"
+          :key="item.symbol"
+          type="button"
+          :class="[
+            'group relative flex flex-col items-center justify-center gap-2 rounded-luxe border px-3 py-4 transition-all',
+            selectedSymbols.has(item.symbol)
+              ? 'border-gold bg-gold/5 shadow-soft'
+              : 'border-line bg-white hover:border-gold-soft hover:bg-canvas-warm/40',
+            readonly ? 'cursor-default' : 'cursor-pointer'
+          ]"
+          role="checkbox"
+          :aria-checked="selectedSymbols.has(item.symbol)"
+          :aria-label="`${item.label} 护理标签`"
+          :disabled="readonly"
+          @click="toggleSelection(item)"
+        >
+          <!-- Unicode 符号 -->
+          <span
             :class="[
-              'symbol-card border rounded-lg p-3 cursor-pointer transition relative',
-              selectedIds.has(instr.id)
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-300 hover:border-blue-500'
+              'text-3xl leading-none transition-colors',
+              selectedSymbols.has(item.symbol) ? 'text-ink' : 'text-ink-soft group-hover:text-ink'
             ]"
-            role="checkbox"
-            :aria-checked="selectedIds.has(instr.id)"
-            :aria-label="`${instr.labelZh} 护理标签`"
-            tabindex="0"
-            @click="toggleSelection(instr.id)"
-            @keydown.enter="toggleSelection(instr.id)"
-            @keydown.space.prevent="toggleSelection(instr.id)"
+            aria-hidden="true"
+          >{{ item.symbol }}</span>
+
+          <!-- 标签文本 -->
+          <span
+            :class="[
+              'text-center text-[12px] leading-tight transition-colors',
+              selectedSymbols.has(item.symbol) ? 'font-medium text-ink' : 'text-ink-soft'
+            ]"
           >
-            <!-- Unicode 符号 -->
-            <span
-              class="symbol-icon text-3xl block text-center"
-              aria-hidden="true"
-            >{{ instr.symbolUnicode }}</span>
+            {{ item.label }}
+          </span>
 
-            <!-- 标签文本 -->
-            <span class="symbol-label text-sm text-center block mt-2 text-gray-700">
-              {{ instr.labelZh }}
-            </span>
-
-            <!-- 选中指示器 -->
-            <span
-              v-if="selectedIds.has(instr.id)"
-              class="check-icon absolute top-2 right-2 text-blue-600 font-bold"
-            >✓</span>
-          </div>
-
-          <!-- 空状态 -->
-          <div
-            v-if="!instructionsByCategory.has(category) || instructionsByCategory.get(category)!.length === 0"
-            class="col-span-4 text-sm text-gray-500 italic py-4"
+          <!-- 选中指示器 -->
+          <span
+            v-if="selectedSymbols.has(item.symbol)"
+            class="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-white"
           >
-            暂无{{ categoryNames[category] }}标签
-          </div>
+            <CheckIcon class="h-3 w-3" aria-hidden="true" />
+          </span>
+        </button>
+
+        <!-- 空状态 -->
+        <div
+          v-if="!itemsByCategory.has(category) || itemsByCategory.get(category)!.length === 0"
+          class="col-span-2 rounded-luxe border border-dashed border-line py-4 text-center text-[12px] text-ink-faint sm:col-span-4 lg:col-span-5"
+        >
+          暂无{{ categoryNames[category] }}标签
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-/* 移动端适配 */
-@media (max-width: 640px) {
-  .symbol-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* 键盘导航焦点样式 */
-.symbol-card:focus {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
-}
-</style>

@@ -1,6 +1,5 @@
 package com.dreamy.domain.product.service;
 
-import com.dreamy.domain.product.service.FabricCareService;
 import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
@@ -88,7 +87,6 @@ public class AdminProductService {
     private final CatalogAuditRecorder audit;
     private final CatalogAfterCommitRunner afterCommit;
     private final ContentInvalidatedPublisher invalidatedPublisher;
-    private final FabricCareService fabricCareService;
     private final TradingQueryPort tradingQueryPort;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
@@ -105,7 +103,6 @@ public class AdminProductService {
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                CatalogCacheService cache, CatalogAuditRecorder audit,
                                CatalogAfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
-                               FabricCareService fabricCareService,
                                TradingQueryPort tradingQueryPort,
                                TransactionTemplate transactionTemplate, ObjectMapper objectMapper) {
         this.productRepository = productRepository;
@@ -124,7 +121,6 @@ public class AdminProductService {
         this.audit = audit;
         this.afterCommit = afterCommit;
         this.invalidatedPublisher = invalidatedPublisher;
-        this.fabricCareService = fabricCareService;
         this.tradingQueryPort = tradingQueryPort;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
@@ -190,9 +186,7 @@ public class AdminProductService {
         productTagRepository.replaceAll(product.getId(), dedupe(req.tagIds()));
         translationRepository.replaceAll(product.getId(), toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(product.getId(), toAttributeRows(req.attributes()));
-        // STEP-FC-02/03 面料成分 + 护理标签（TX-FC-001 同事务）
-        fabricCareService.replaceFabricCompositions(product.getId(), req.fabricCompositions());
-        fabricCareService.replaceCareInstructions(product.getId(), req.careInstructionIds());
+        // 面料/护理已随 applyUpsert 写入 product JSON 列（无需子表操作）
         // STEP-CAT-05 审计
         audit.record("创建商品", product.getName(), null);
         // STEP-CAT-06 提交后失效链 + MQ（status=published 才需 revalidate 路径，事件统一发布由消费者按 type 处理）
@@ -256,9 +250,7 @@ public class AdminProductService {
         productTagRepository.replaceAll(id, dedupe(req.tagIds()));
         translationRepository.replaceAll(id, toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(id, toAttributeRows(req.attributes()));
-        // STEP-FC-02/03 面料成分 + 护理标签整单覆盖（TX-FC-001 同事务）
-        fabricCareService.replaceFabricCompositions(id, req.fabricCompositions());
-        fabricCareService.replaceCareInstructions(id, req.careInstructionIds());
+        // 面料成分/护理标签已随 applyUpsert 写入 product 行（JSON 列，整单覆盖语义）
         // STEP-CAT-06 审计
         audit.record("编辑商品", existing.getName(), null);
         // STEP-CAT-07 提交后失效链（新旧 slug 都失效；search 不主动失效 60s TTL 兜底）+ MQ
@@ -294,9 +286,7 @@ public class AdminProductService {
         productTagRepository.deleteByProductId(id);
         translationRepository.deleteByProductId(id);
         attributeValueRepository.deleteByProductId(id);
-        // TX-FC-002 级联删除面料成分 + 护理标签关联
-        fabricCareService.replaceFabricCompositions(id, null);
-        fabricCareService.replaceCareInstructions(id, null);
+        // 面料成分/护理标签为 product 行内 JSON 列，随 deleteById 一并删除
         // STEP-CAT-04 审计
         audit.record("删除商品", existing.getName(), null);
         // STEP-CAT-05 提交后失效（draft 无消费端页面，不发 revalidate 事件）
@@ -518,7 +508,9 @@ public class AdminProductService {
         product.setStyleNo(req.styleNo());
         product.setSeoTitle(req.seoTitle());
         product.setSeoDesc(req.seoDesc());
-        // L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 / MAP-FC-004
+        // 面料护理内联 JSON 列（取代专用表；整单覆盖语义）
+        product.setFabricCompositions(req.fabricCompositions());
+        product.setCare(req.care());
         product.setFabricCareNote(req.fabricCareNote());
     }
 
@@ -594,9 +586,9 @@ public class AdminProductService {
                 product.getStyleNo(),
                 product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, tagIds, translations,
                 product.getCreatedAt(), product.getUpdatedAt(),
-                // L2 TRACE: MAP-FC-006 后台编辑详情扩展字段
-                fabricCareService.loadForAdmin(id),
-                fabricCareService.loadCareIdsForAdmin(id),
+                // 面料护理内联字段（直接读 product JSON 列）
+                product.getFabricCompositions(),
+                product.getCare(),
                 product.getFabricCareNote());
     }
 

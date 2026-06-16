@@ -44,9 +44,9 @@ public record AdminProductDetail(
         List<ProductTranslationDto> translations,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        // L2 TRACE: catalog-fabric-care-api-detail §2 MAP-FC-006
-        List<com.dreamy.dto.FabricCareDtos.FabricCompositionDto> fabricCompositions,
-        List<Long> careInstructionIds,
+        // 面料护理内联（取代专用表）
+        List<com.dreamy.domain.product.entity.vo.FabricComposition> fabricCompositions,
+        List<com.dreamy.domain.product.entity.vo.CareItem> care,
         String fabricCareNote
 ) {
 }

@@ -1,6 +1,5 @@
 package com.dreamy.domain.product.service;
 
-import com.dreamy.domain.product.service.FabricCareService;
 import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.attribute.entity.AttributeDef;
 import com.dreamy.domain.attribute.entity.AttributeDefTranslation;
@@ -81,8 +80,6 @@ public class StoreProductService {
     private final AttributeDefRepository attributeDefRepository;
     private final ProductAttributeConfigService attributeConfigService;
     private final CatalogCacheService cache;
-    private final FabricCareService fabricCareService;
-
     public StoreProductService(ProductRepository productRepository,
                                ProductTranslationRepository translationRepository,
                                ProductImageRepository imageRepository, SkuRepository skuRepository,
@@ -93,8 +90,7 @@ public class StoreProductService {
                                ProductAttributeValueRepository attributeValueRepository,
                                AttributeDefRepository attributeDefRepository,
                                ProductAttributeConfigService attributeConfigService,
-                               CatalogCacheService cache,
-                               FabricCareService fabricCareService) {
+                               CatalogCacheService cache) {
         this.productRepository = productRepository;
         this.translationRepository = translationRepository;
         this.imageRepository = imageRepository;
@@ -109,7 +105,6 @@ public class StoreProductService {
         this.attributeDefRepository = attributeDefRepository;
         this.attributeConfigService = attributeConfigService;
         this.cache = cache;
-        this.fabricCareService = fabricCareService;
     }
 
     /** E-CAT-01 商品列表查询参数（V-CAT-001~005 已解析；attrs 已规范化排序——key/值均字典序） */
@@ -271,9 +266,9 @@ public class StoreProductService {
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoTitle(), product.getSeoTitle()),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoDescription(), product.getSeoDesc()),
                 images, skus, sizeChart, tagRefs, product.getRatingAvg(), product.getRatingCount(),
-                // L2 TRACE: MAP-FC-005 STEP-FC-01~03
-                fabricCareService.loadForStore(id),
-                fabricCareService.loadCareForStore(id, locale),
+                // 面料护理内联读取 product JSON 列（material/symbol 已是字符串，无需 locale 解析）
+                product.getFabricCompositions(),
+                product.getCare(),
                 product.getFabricCareNote());
     }
 

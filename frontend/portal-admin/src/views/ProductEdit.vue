@@ -115,7 +115,7 @@ const form = ref({
   seoDesc: '',
   tagIds: [] as number[],
   fabricCompositions: [] as FabricComposition[],
-  careInstructionIds: [] as number[],
+  care: [] as CareItem[],
   fabricCareNote: '',
 })
 
@@ -411,6 +411,10 @@ async function loadProduct() {
       seoTitle: p.seoTitle || '',
       seoDesc: p.seoDesc || '',
       tagIds: [...(p.tagIds || [])],
+      // [L2-COMP-FC-03] 面料成分/护理标签回填（缺失会导致保存时被整单删除）
+      fabricCompositions: (p.fabricCompositions || []).map((c) => ({ ...c })),
+      care: (p.care || []).map((c) => ({ ...c })),
+      fabricCareNote: p.fabricCareNote || '',
     })
     // 动态属性 entries 回读 → attrValues
     const loadedAttrs: Record<string, string[]> = {}
@@ -541,6 +545,10 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
     sizeChart: sizeChart.value,
     tagIds: form.value.tagIds,
     translations: buildTranslations(),
+    // 面料成分/护理标签整单覆盖（内联 JSON）
+    fabricCompositions: form.value.fabricCompositions,
+    care: form.value.care,
+    fabricCareNote: form.value.fabricCareNote.trim() || null,
     updatedAt: serverUpdatedAt.value, // 并发防丢失比对（409508）
   }
 }
@@ -1156,8 +1164,8 @@ onMounted(async () => {
             <span class="h-4 w-1 rounded-full bg-gold"></span>护理标签
           </h2>
           <div class="max-w-4xl space-y-6">
-            <!-- [L2-COMP-FC-03] 集成 CareSymbolSelector -->
-            <CareSymbolSelector v-model="form.careInstructionIds" />
+            <!-- 护理标签编辑器（内联 JSON，预设多选） -->
+            <CareSymbolSelector v-model="form.care" />
 
             <!-- 护理备注（可选） -->
             <div>

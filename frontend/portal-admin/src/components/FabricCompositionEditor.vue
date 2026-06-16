@@ -1,199 +1,208 @@
 <script setup lang="ts">
-// COMP-FC-01: FabricCompositionEditor.vue
-// 功能: 商品编辑表单中的面料成分编辑器，支持多层次（Shell/Lining/Overlay/Trim）动态添加/删除行，percentage 总和校验
-// 证据锚点: catalog-fabric-care-frontend-detail.md § 1.1 / acceptance.yml s-040~s-043
+// FabricCompositionEditor.vue - 面料成分多层编辑器（Shell/Lining/Overlay/Trim）
+// v-model: FabricComposition[] { layer: number, material: string, percentage: number }
 
 import { computed, ref, watch } from 'vue'
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOptions,
+  ListboxOption
+} from '@headlessui/vue'
+import { CheckIcon, ChevronUpDownIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/20/solid'
+import type { FabricComposition } from '@/api/types'
 
-// [L2-COMP-FC-01] Props 定义
 interface Props {
-  modelValue: FabricComposition[]  // v-model 绑定
-  readonly?: boolean               // 只读模式（查看商品详情）
-}
-
-export interface FabricComposition {
-  id?: number           // 编辑模式有 id，新增模式无
-  layer: number         // 1..4 枚举
-  material: number      // 1..10 枚举
-  percentage: number    // 0..100 decimal(5,2)
-  sortOrder: number     // 同层排序
+  modelValue: FabricComposition[]
+  readonly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false
 })
 
-// [L2-COMP-FC-01] Emits 定义
 const emit = defineEmits<{
   'update:modelValue': [value: FabricComposition[]]
-  'validation-error': [errors: Map<number, string>]  // layer → 错误信息
 }>()
 
-// [L2-COMP-FC-01] 状态管理
+// 本地编辑副本
 const localCompositions = ref<FabricComposition[]>([])
-const layerErrors = ref<Map<number, string>>(new Map())
-const isDirty = ref(false)
 
-// 枚举映射（L2 设计 IntEnum 整数契约）
-const layerNames: Record<number, string> = {
-  1: 'Shell',
-  2: 'Lining',
-  3: 'Overlay',
-  4: 'Trim'
-}
+// Layer 映射
+const layerOptions = [
+  { value: 1, label: 'Shell' },
+  { value: 2, label: 'Lining' },
+  { value: 3, label: 'Overlay' },
+  { value: 4, label: 'Trim' }
+]
 
-const materialNames: Record<number, string> = {
-  1: '棉',
-  2: '涤纶',
-  3: '蕾丝',
-  4: '缎面',
-  5: '雪纺',
-  6: '薄纱',
-  7: '丝绸',
-  8: '欧根纱',
-  9: '氨纶',
-  10: '尼龙'
-}
+// Material 预设（字符串，常见面料）
+const materialPresets = [
+  'Cotton',
+  'Polyester',
+  'Lace',
+  'Satin',
+  'Chiffon',
+  'Tulle',
+  'Silk',
+  'Organza',
+  'Spandex',
+  'Nylon',
+  'Viscose',
+  'Elastane'
+]
 
 function getLayerName(layer: number): string {
-  return layerNames[layer] || `Layer ${layer}`
+  return layerOptions.find(o => o.value === layer)?.label || `Layer ${layer}`
 }
 
-function getMaterialName(material: number): string {
-  return materialNames[material] || `Material ${material}`
-}
-
-// [L2-COMP-FC-01] 按 layer 分组（computed）
+// 按 layer 分组
 const compositionsByLayer = computed(() => {
   const groups = new Map<number, FabricComposition[]>()
   localCompositions.value.forEach(comp => {
     if (!groups.has(comp.layer)) groups.set(comp.layer, [])
     groups.get(comp.layer)!.push(comp)
   })
-  // 同层按 sortOrder 排序
-  groups.forEach(items => items.sort((a, b) => a.sortOrder - b.sortOrder))
   return groups
 })
 
-// [L2-INTERACTION-FC-01] 添加行（按层分组添加按钮）
-// 证据锚点: acceptance.yml s-040
-function addRow(layer: number) {
-  const existingInLayer = compositionsByLayer.value.get(layer) || []
-  const maxSortOrder = existingInLayer.length > 0
-    ? Math.max(...existingInLayer.map(c => c.sortOrder))
-    : -1
+// 每层百分比总和校验
+const layerErrors = computed(() => {
+  const errors = new Map<number, string>()
+  compositionsByLayer.value.forEach((items, layer) => {
+    const sum = items.reduce((acc, c) => acc + (c.percentage || 0), 0)
+    if (sum > 0 && Math.abs(sum - 100) > 0.01) {
+      errors.set(layer, `当前总和 ${sum.toFixed(2)}%，应为 100%`)
+    }
+  })
+  return errors
+})
 
+const hasErrors = computed(() => layerErrors.value.size > 0)
+
+// 添加行
+function addRow(layer: number) {
+  if (props.readonly) return
   localCompositions.value.push({
     layer,
-    material: 1,  // 默认 Cotton
-    percentage: 0,
-    sortOrder: maxSortOrder + 1
+    material: materialPresets[0],
+    percentage: 0
   })
-  isDirty.value = true
+  emitUpdate()
 }
 
-// [L2-INTERACTION-FC-02] 删除行
-// 证据锚点: acceptance.yml s-043
+// 删除行
 function removeRow(comp: FabricComposition) {
-  const index = localCompositions.value.indexOf(comp)
-  if (index >= 0) {
-    localCompositions.value.splice(index, 1)
-    isDirty.value = true
-    validatePercentageSum()  // 删除后重新校验
+  if (props.readonly) return
+  const idx = localCompositions.value.indexOf(comp)
+  if (idx > -1) {
+    localCompositions.value.splice(idx, 1)
+    emitUpdate()
   }
 }
 
-// [L2-INTERACTION-FC-03] percentage 总和校验（每层独立校验）
-// 证据锚点: acceptance.yml s-041 (总和=100%), s-042 (总和超100%)
-function validatePercentageSum() {
-  layerErrors.value.clear()
-
-  compositionsByLayer.value.forEach((items, layer) => {
-    const sum = items.reduce((acc, c) => acc + c.percentage, 0)
-    if (sum > 100) {
-      layerErrors.value.set(layer, `${getLayerName(layer)} 总和超过 100% (当前 ${sum.toFixed(2)}%)`)
-    } else if (sum < 100 && sum > 0) {
-      layerErrors.value.set(layer, `${getLayerName(layer)} 总和不足 100% (当 ${sum.toFixed(2)}%)`)
-    }
-  })
-
-  emit('validation-error', layerErrors.value)
-  return layerErrors.value.size === 0
-}
-
-// [L2-INTERACTION-FC-04] 字段变更（material/percentage）
+// 字段变更
 function onFieldChange() {
-  isDirty.value = true
-  validatePercentageSum()
-  emit('update:modelValue', localCompositions.value)
+  emitUpdate()
 }
 
-// 同步 props 变化到本地状态
-watch(() => props.modelValue, (newValue) => {
-  localCompositions.value = [...newValue]
-  validatePercentageSum()
+function emitUpdate() {
+  emit('update:modelValue', localCompositions.value.map(c => ({ ...c })))
+}
+
+// 同步 props → 本地
+watch(() => props.modelValue, (newVal) => {
+  localCompositions.value = newVal.map(c => ({ ...c }))
 }, { immediate: true, deep: true })
 </script>
 
 <template>
   <div class="fabric-composition-editor space-y-6">
-    <!-- 按层分组渲染 -->
-    <div v-for="layer in [1, 2, 3, 4]" :key="layer" class="layer-group border border-gray-200 rounded-lg p-4">
-      <div class="layer-header flex justify-between items-center mb-3">
-        <h4 class="text-sm font-medium text-gray-700">{{ getLayerName(layer) }}</h4>
-        <button
-          type="button"
-          @click="addRow(layer)"
-          :disabled="readonly"
-          class="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+    <!-- 全局错误提示 -->
+    <div
+      v-if="hasErrors"
+      role="alert"
+      aria-live="assertive"
+      class="rounded-luxe border border-danger/30 bg-danger/5 p-4 text-[12px] text-danger"
+    >
+      <p class="mb-1 font-semibold">面料成分占比异常：</p>
+      <ul class="list-disc pl-5 space-y-1">
+        <li v-for="[layer, msg] in layerErrors" :key="layer">
+          <strong>{{ getLayerName(layer) }}</strong>：{{ msg }}
+        </li>
+      </ul>
+    </div>
+
+    <!-- 按 Layer 分组展示 -->
+    <div v-for="layer in [1, 2, 3, 4]" :key="layer" class="space-y-3">
+      <h4 class="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-luxe text-gold-deep">
+        {{ getLayerName(layer) }}
+        <span
+          v-if="layerErrors.has(layer)"
+          class="rounded-full bg-danger/10 px-2 py-0.5 text-[11px] normal-case text-danger"
         >
-          + 添加{{ getLayerName(layer) }}成分
-        </button>
-      </div>
+          占比异常
+        </span>
+      </h4>
 
-      <!-- 错误提示（percentage 总和不对） -->
-      <div
-        v-if="layerErrors.has(layer)"
-        :id="`error-${layer}`"
-        class="error-banner bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded mb-3"
-        role="alert"
-      >
-        {{ layerErrors.get(layer) }}
-      </div>
-
-      <!-- 成分行列表 -->
-      <div class="composition-rows space-y-2">
+      <div class="space-y-2">
+        <!-- 成分行 -->
         <div
           v-for="(comp, idx) in compositionsByLayer.get(layer)"
-          :key="comp.id || idx"
-          class="composition-row flex items-center gap-3"
+          :key="idx"
+          class="flex items-center gap-3"
           role="group"
           :aria-label="`${getLayerName(layer)} 成分 ${idx + 1}`"
         >
           <!-- Material 下拉 -->
           <label :for="`material-${layer}-${idx}`" class="sr-only">材质</label>
-          <select
-            :id="`material-${layer}-${idx}`"
+          <Listbox
             v-model="comp.material"
-            @change="onFieldChange"
             :disabled="readonly"
-            class="form-select rounded-md border-gray-300 text-sm flex-1"
+            as="div"
+            class="relative flex-1"
+            @update:model-value="onFieldChange"
           >
-            <option :value="1">棉</option>
-            <option :value="2">涤纶</option>
-            <option :value="3">蕾丝</option>
-            <option :value="4">缎面</option>
-            <option :value="5">雪纺</option>
-            <option :value="6">薄纱</option>
-            <option :value="7">丝绸</option>
-            <option :value="8">欧根纱</option>
-            <option :value="9">氨纶</option>
-            <option :value="10">尼龙</option>
-          </select>
+            <ListboxButton
+              :id="`material-${layer}-${idx}`"
+              class="field flex w-full items-center justify-between pr-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span class="truncate">{{ comp.material || '选择材质' }}</span>
+              <ChevronUpDownIcon class="h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
+            </ListboxButton>
+
+            <transition
+              leave-active-class="transition duration-100 ease-in"
+              leave-from-class="opacity-100"
+              leave-to-class="opacity-0"
+            >
+              <ListboxOptions
+                class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-luxe border border-line bg-white py-1 shadow-card focus:outline-none"
+              >
+                <ListboxOption
+                  v-for="mat in materialPresets"
+                  :key="mat"
+                  v-slot="{ active, selected }"
+                  :value="mat"
+                  as="template"
+                >
+                  <li
+                    :class="[
+                      'flex cursor-pointer items-center justify-between px-3 py-2 text-[13px]',
+                      active ? 'bg-canvas-warm text-ink' : 'text-ink-soft'
+                    ]"
+                  >
+                    <span :class="selected ? 'font-medium text-ink' : ''">{{ mat }}</span>
+                    <CheckIcon v-if="selected" class="h-4 w-4 text-gold-deep" aria-hidden="true" />
+                  </li>
+                </ListboxOption>
+              </ListboxOptions>
+            </transition>
+          </Listbox>
 
           <!-- Percentage 输入 -->
           <label :for="`percentage-${layer}-${idx}`" class="sr-only">占比</label>
-          <div class="relative">
+          <div class="relative w-28">
             <input
               :id="`percentage-${layer}-${idx}`"
               type="number"
@@ -204,10 +213,10 @@ watch(() => props.modelValue, (newValue) => {
               min="0"
               max="100"
               step="0.01"
-              placeholder="占比 (%)"
-              class="form-input w-24 rounded-md border-gray-300 text-sm pr-8"
+              placeholder="占比"
+              class="field pr-7 text-right tabular-nums"
             />
-            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+            <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ink-faint">%</span>
           </div>
 
           <!-- 删除按钮 -->
@@ -215,28 +224,25 @@ watch(() => props.modelValue, (newValue) => {
             type="button"
             @click="removeRow(comp)"
             :disabled="readonly"
-            :aria-label="`删除 ${getMaterialName(comp.material)} 成分`"
+            :aria-label="`删除 ${comp.material} 成分`"
             tabindex="0"
-            class="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-luxe text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
           >
-            删除
+            <XMarkIcon class="h-4 w-4" />
           </button>
         </div>
 
-        <!-- 空状态 -->
-        <div v-if="!compositionsByLayer.has(layer) || compositionsByLayer.get(layer)!.length === 0"
-             class="text-sm text-gray-500 italic">
-          暂无{{ getLayerName(layer) }}成分
-        </div>
+        <!-- 添加按钮 -->
+        <button
+          type="button"
+          @click="addRow(layer)"
+          :disabled="readonly"
+          class="flex w-full items-center justify-center gap-2 rounded-luxe border border-dashed border-line py-3 text-[12px] text-ink-faint transition-colors hover:border-gold-soft hover:text-gold-deep disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <PlusIcon class="h-4 w-4" />
+          添加{{ getLayerName(layer) }}成分
+        </button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-/* 确保输入框样式一致 */
-.form-select,
-.form-input {
-  @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-}
-</style>

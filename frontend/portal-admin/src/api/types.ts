@@ -317,8 +317,8 @@ export interface AdminProductUpsert {
   translations?: ProductTranslation[]
   /** 面料成分列表 */
   fabricCompositions?: FabricComposition[] | null
-  /** 护理标签 ID 列表 */
-  careInstructionIds?: number[] | null
+  /** 护理标签列表（内联 JSON） */
+  care?: CareItem[] | null
   /** 护理备注（可选） */
   fabricCareNote?: string | null
   updatedAt?: string | null
@@ -1032,14 +1032,18 @@ export type CareInstructionStatus = typeof CareInstructionStatus[keyof typeof Ca
 
 /** 面料成分（product_fabric_composition） */
 export interface FabricComposition {
-  id?: number
-  layer: Layer
-  material: Material
-  percentage: number  // 0..100 decimal(5,2)
-  sortOrder: number
+  layer: Layer  // 1=Shell 2=Lining 3=Overlay 4=Trim
+  material: string  // 材质名称字符串（如 "Polyester"）
+  percentage: number  // 0..100
 }
 
-/** 护理标签定义（care_instruction_def） */
+/** 护理标签项（内联 JSON，取代字典表） */
+export interface CareItem {
+  symbol: string  // 行业通用护理 Unicode 符号
+  label: string   // 展示文本
+}
+
+/** 护理标签定义（care_instruction_def，已废弃专用表） */
 export interface CareInstruction {
   id: number
   code: string

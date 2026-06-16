@@ -32,4 +32,8 @@ public interface ProductDBConst extends CatalogCommonDBConst {
     String RATING_COUNT = "rating_count";
     /** L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 fabric_care_note */
     String FABRIC_CARE_NOTE = "fabric_care_note";
+    /** 面料成分 JSON 列（分层+材质+百分比，内联存储） */
+    String FABRIC_COMPOSITIONS = "fabric_compositions";
+    /** 护理标签 JSON 列（符号+文本，内联存储） */
+    String CARE = "care";
 }

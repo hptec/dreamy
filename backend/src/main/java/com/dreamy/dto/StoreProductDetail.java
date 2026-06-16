@@ -38,9 +38,9 @@ public record StoreProductDetail(
         List<TagRef> tags,
         BigDecimal ratingAvg,
         Integer ratingCount,
-        // L2 TRACE: catalog-fabric-care-api-detail §1 MAP-FC-005
-        List<com.dreamy.dto.FabricCareDtos.FabricCompositionDto> fabricCompositions,
-        List<com.dreamy.dto.FabricCareDtos.StoreCareInstructionDto> careInstructions,
+        // 面料成分/护理标签内联 JSON（不再走专用表）
+        List<com.dreamy.domain.product.entity.vo.FabricComposition> fabricCompositions,
+        List<com.dreamy.domain.product.entity.vo.CareItem> careInstructions,
         String fabricCareNote
 ) {
     /** 商品挂载标签（已按 locale 解析） */

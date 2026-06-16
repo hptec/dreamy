@@ -84,7 +84,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       {/* Fabric & Care */}
       <FabricCareSection
         fabricCompositions={product.fabricCompositions || []}
-        careInstructions={product.careInstructions || []}
+        care={product.careInstructions || []}
         fabricCareNote={product.fabricCareNote}
       />
 

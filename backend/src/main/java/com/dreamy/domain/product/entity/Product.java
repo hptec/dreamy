@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.product.consts.ProductDBConst;
+import com.dreamy.domain.product.entity.vo.CareItem;
+import com.dreamy.domain.product.entity.vo.FabricComposition;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
 import huihao.mysql.annotation.Table;
@@ -124,4 +126,14 @@ public class Product extends LongAuditableEntity {
     /** 面料护理说明（可选自由文本）。L2 TRACE: catalog-fabric-care-data-detail §1.2 Product扩展 / MAP-FC-004/005/006。 */
     @Column(name = ProductDBConst.FABRIC_CARE_NOTE, definition = "text NULL COMMENT '面料护理说明（自由文本补充）'")
     private String fabricCareNote;
+
+    /** 面料成分（内联 JSON，分层+材质+占比）。取代 product_fabric_composition 专用表。 */
+    @Column(name = ProductDBConst.FABRIC_COMPOSITIONS, definition = "json NULL COMMENT '面料成分 [{layer,material,percentage}]'")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<FabricComposition> fabricCompositions;
+
+    /** 护理标签（内联 JSON，符号+文本）。取代 product_care_instruction + care_instruction_def 字典。 */
+    @Column(name = ProductDBConst.CARE, definition = "json NULL COMMENT '护理标签 [{symbol,label}]'")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<CareItem> care;
 }

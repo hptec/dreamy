@@ -41,9 +41,9 @@ public record AdminProductUpsert(
         List<Long> tagIds,
         List<ProductTranslationDto> translations,
         String updatedAt,
-        // L2 TRACE: catalog-fabric-care-api-detail §2 V-FC-001~004
-        List<com.dreamy.dto.FabricCareDtos.FabricCompositionInput> fabricCompositions,
-        List<Long> careInstructionIds,
+        // 面料护理内联（取代专用表；material 为字符串，care 为 {symbol,label}）
+        List<com.dreamy.domain.product.entity.vo.FabricComposition> fabricCompositions,
+        List<com.dreamy.domain.product.entity.vo.CareItem> care,
         String fabricCareNote
 ) {
 }
