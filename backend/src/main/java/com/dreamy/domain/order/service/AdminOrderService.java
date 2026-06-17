@@ -280,7 +280,9 @@ public class AdminOrderService {
             // 提交后 MQ order.shipped（EVT-TRD-002 → 发货邮件 FLOW-P11）
             afterCommit.run(() -> {
                 Order shipped = orderRepository.findById(orderId);
-                eventsPublisher.publishOrderShipped(shipped, "en");
+                // FUNC-020：发货邮件语言取下单语言快照（消费侧再按 user.locale_pref 优先覆盖）
+                String locale = shipped.getLocaleSnapshot() != null ? shipped.getLocaleSnapshot() : "en";
+                eventsPublisher.publishOrderShipped(shipped, locale);
             });
         });
         return assembleDetail(orderRepository.findById(orderId));

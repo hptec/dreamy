@@ -1,5 +1,6 @@
 package com.dreamy.domain.tag.entity;
 
+import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.domain.tag.consts.TagDimensionDBConst;
 import huihao.mysql.annotation.Column;
@@ -23,4 +24,7 @@ public class TagDimension extends LongAuditableEntity {
 
     @Column(name = TagDimensionDBConst.DESCRIPTION, definition = "varchar(255) NULL COMMENT '维度说明'")
     private String description;
+
+    @Column(name = TagDimensionDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

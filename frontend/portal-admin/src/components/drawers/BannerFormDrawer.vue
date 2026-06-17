@@ -3,7 +3,7 @@
 // status/sort + EN 文案区（title/subtitle/cta_text，DEC-MKT-1 可选）+ ES/FR 三语 tab
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import { useBannersStore } from '@/stores/banners'
@@ -144,7 +144,7 @@ async function submit() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">广告位置 *</label>
-          <AppSelect
+          <SelectMenu
             :model-value="form.position"
             :options="[{ value: BannerPosition.HERO, label: '首页 Hero' }, { value: BannerPosition.FEATURED, label: '推荐位' }, { value: BannerPosition.TOPBAR, label: '顶部通告条' }]"
             @update:model-value="form.position = $event as typeof form.position"
@@ -168,7 +168,7 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <AppSelect
+        <SelectMenu
           :model-value="form.status"
           :options="[{ value: BannerStatus.DRAFT, label: '草稿' }, { value: BannerStatus.PUBLISHED, label: '已发布' }, { value: BannerStatus.ARCHIVED, label: '已下线' }]"
           @update:model-value="form.status = $event as typeof form.status"

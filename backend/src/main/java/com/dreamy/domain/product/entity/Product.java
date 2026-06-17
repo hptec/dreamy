@@ -136,4 +136,7 @@ public class Product extends LongAuditableEntity {
     @Column(name = ProductDBConst.CARE, definition = "json NULL COMMENT '护理标签 [{symbol,label}]'")
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<CareItem> care;
+
+    @Column(name = ProductDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

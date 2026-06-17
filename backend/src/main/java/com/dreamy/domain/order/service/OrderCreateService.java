@@ -175,6 +175,8 @@ public class OrderCreateService {
         order.setCustomerId(customerId);
         order.setStatus(OrderStatus.PENDING);
         order.setCurrency(quote.currency());
+        // FUNC-020 / 决策13：下单语言环境快照（邮件三语用），缺省 en
+        order.setLocaleSnapshot(request.locale() != null ? request.locale() : "en");
         order.setExchangeRate(quote.rate());
         order.setWeddingDate(request.weddingDate());
         order.setSubtotal(quote.subtotal());

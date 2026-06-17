@@ -1,6 +1,7 @@
 package com.dreamy.domain.banner.service;
 
 import com.dreamy.domain.banner.entity.Banner;
+import java.time.LocalDateTime;
 import com.dreamy.domain.banner.entity.BannerTranslation;
 import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.enums.BannerPosition;
@@ -120,7 +121,11 @@ public class AdminBannerService {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-02 物理删除双表 + 审计
-        bannerRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        Banner patch = new Banner();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        bannerRepository.update(patch);
         bannerRepository.deleteTranslationsByBannerId(id);
         audit.record("删除Banner", existing.getName(), null);
         // STEP-MKT-03 提交后失效 + MQ

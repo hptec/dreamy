@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
+import { LocalizedLink as Link } from '@/components/localized-link'
 import { usePathname } from 'next/navigation'
 import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe } from 'lucide-react'
 import { mainNav, announcements as staticAnnouncements, currencies, languages } from '@/data/navigation'
@@ -17,17 +17,19 @@ import { searchStoreProducts } from '@/lib/api/catalog-api'
 import { useStore } from '@/components/store-provider'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { useI18n } from '@/lib/i18n/i18n-context'
+import { useI18n, stripLocale } from '@/lib/i18n/i18n-context'
 import type { Locale } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
 export function SiteHeader({ announcements: serverAnnouncements }: { announcements?: string[] }) {
   const pathname = usePathname()
+  const { t } = useI18n()
   const { cartCount, wishlist, currency, setCurrency, language, setLanguage, setCartOpen } = useStore()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const hydrate = useAuthStore((s) => s.hydrate)
   const accountHref = isAuthenticated ? '/account' : '/account/login'
   const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
+  const activePath = stripLocale(pathname ?? '/')
   const [announceIdx, setAnnounceIdx] = useState(0)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -67,8 +69,8 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
             {announcements[announceIdx % announcements.length]}
           </p>
           <div className="hidden items-center gap-4 sm:flex">
-            <Link href="/contact" className="transition-colors hover:text-gold-light">Contact</Link>
-            <Link href="/wedding-guides" className="transition-colors hover:text-gold-light">Planning</Link>
+            <Link href="/contact" className="transition-colors hover:text-gold-light">{t.layout.header.contact}</Link>
+            <Link href="/wedding-guides" className="transition-colors hover:text-gold-light">{t.layout.header.planning}</Link>
           </div>
         </div>
       </div>
@@ -78,7 +80,7 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
         <div className="container-luxe" onMouseLeave={() => setOpenMenu(null)}>
           <div className="flex h-16 items-center justify-between lg:h-20">
             {/* 移动端菜单按钮 */}
-            <button onClick={() => setMobileOpen(true)} className="cursor-pointer p-2 lg:hidden" aria-label="Open menu">
+            <button onClick={() => setMobileOpen(true)} className="cursor-pointer p-2 lg:hidden" aria-label={t.layout.header.openMenu}>
               <Menu className="h-5 w-5" />
             </button>
 
@@ -96,7 +98,7 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
                     href={item.href}
                     className={cn(
                       'flex items-center gap-1 text-[13px] font-medium uppercase tracking-luxe transition-colors hover:text-gold-deep',
-                      pathname.startsWith(item.href) && item.href !== '/' ? 'text-gold-deep' : 'text-ink'
+                      activePath.startsWith(item.href) && item.href !== '/' ? 'text-gold-deep' : 'text-ink'
                     )}
                   >
                     {item.label}
@@ -108,19 +110,19 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
 
             {/* 工具图标 */}
             <div className="flex items-center gap-1 sm:gap-2">
-              <button onClick={() => setSearchOpen(true)} className="cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label="Search">
+              <button onClick={() => setSearchOpen(true)} className="cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.searchAria}>
                 <Search className="h-5 w-5" />
               </button>
-              <Link href="/account/wishlist" className="relative p-2 transition-colors hover:text-gold-deep" aria-label="Wishlist">
+              <Link href="/account/wishlist" className="relative p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.wishlistAria}>
                 <Heart className="h-5 w-5" />
                 {wishlist.length > 0 && (
                   <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-blush text-[9px] text-white">{wishlist.length}</span>
                 )}
               </Link>
-              <Link href={accountHref} className="p-2 transition-colors hover:text-gold-deep" aria-label="Account">
+              <Link href={accountHref} className="p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.accountAria}>
                 <User className="h-5 w-5" />
               </Link>
-              <button onClick={() => setCartOpen(true)} className="relative cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label="Cart">
+              <button onClick={() => setCartOpen(true)} className="relative cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.cartAria}>
                 <ShoppingBag className="h-5 w-5" />
                 {cartCount > 0 && (
                   <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[9px] text-white">{cartCount}</span>
@@ -147,7 +149,7 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
 }
 
 function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
-  const { setLocale } = useI18n()
+  const { t, locale, setLocale } = useI18n()
   return (
     <div className="flex items-center gap-3">
       <Globe className="h-3.5 w-3.5 text-gold-light" />
@@ -155,7 +157,7 @@ function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
         value={currency}
         onChange={(e) => setCurrency(e.target.value)}
         className="cursor-pointer bg-transparent text-canvas outline-none [&>option]:text-ink"
-        aria-label="Currency"
+        aria-label={t.layout.header.currencyAria}
       >
         {currencies.map((c) => (
           <option key={c.code} value={c.code}>{c.label}</option>
@@ -163,14 +165,15 @@ function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
       </select>
       <span className="text-gold-light/40">|</span>
       <select
-        value={language}
+        value={locale.toUpperCase()}
         onChange={(e) => {
-          setLanguage(e.target.value)
-          // 语言切换联动 i18n locale（Accept-Language → API 文案语言，决策 13/27）
-          setLocale(e.target.value.toLowerCase() as Locale)
+          const code = e.target.value
+          setLanguage(code)
+          // 语言切换：写 cookie + 跳转到 locale 前缀 URL（决策 11）
+          setLocale(code.toLowerCase() as Locale)
         }}
         className="cursor-pointer bg-transparent text-canvas outline-none [&>option]:text-ink"
-        aria-label="Language"
+        aria-label={t.layout.header.languageAria}
       >
         {languages.map((l) => (
           <option key={l.code} value={l.code}>{l.label}</option>
@@ -212,6 +215,7 @@ function MegaPanel({ label, onClose, onMouseEnter }: { label: string; onClose: (
 }
 
 function SearchDrawer({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   const [results, setResults] = useState<StoreProductCard[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -252,14 +256,14 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search gowns, dresses, accessories..."
+              placeholder={t.layout.search.placeholder}
               className="flex-1 bg-transparent font-display text-2xl outline-none placeholder:text-ink-faint"
             />
-            <button onClick={onClose} className="cursor-pointer p-2" aria-label="Close search"><X className="h-5 w-5" /></button>
+            <button onClick={onClose} className="cursor-pointer p-2" aria-label={t.common.close}><X className="h-5 w-5" /></button>
           </div>
           {q.length <= 1 ? (
             <div className="py-6">
-              <p className="eyebrow mb-3">Popular Searches</p>
+              <p className="eyebrow mb-3">{t.layout.search.popular}</p>
               <div className="flex flex-wrap gap-2">
                 {popular.map((p) => (
                   <button key={p} onClick={() => setQ(p)} className="cursor-pointer rounded-full border border-line px-4 py-1.5 text-sm transition-colors hover:border-gold hover:text-gold-deep">{p}</button>
@@ -269,7 +273,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
           ) : (
             <div className="grid grid-cols-2 gap-4 py-6 sm:grid-cols-4">
               {results.length === 0 ? (
-                <p className="col-span-full py-8 text-center text-ink-soft">No matches for “{q}”. Try a color or silhouette.</p>
+                <p className="col-span-full py-8 text-center text-ink-soft">{t.layout.search.noMatches}</p>
               ) : (
                 results.map((p) => (
                   <Link key={p.id} href={`/product/${p.slug}`} onClick={onClose} className="group">
@@ -284,7 +288,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
                 ))
               )}
               <Link href={`/search?q=${encodeURIComponent(q)}`} onClick={onClose} className="col-span-full mt-2 text-center text-sm font-medium uppercase tracking-luxe text-gold-deep">
-                View all results →
+                {t.layout.search.viewAllResults}
               </Link>
             </div>
           )}
@@ -295,6 +299,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
 }
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState<string | null>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return (
@@ -303,7 +308,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
       <div className="absolute left-0 top-0 h-full w-[85%] max-w-sm animate-fadeup overflow-y-auto bg-canvas">
         <div className="flex items-center justify-between border-b border-line p-5">
           <span className="font-display text-2xl font-semibold">Dreamy</span>
-          <button onClick={onClose} className="cursor-pointer p-2" aria-label="Close menu"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="cursor-pointer p-2" aria-label={t.layout.header.closeMenu}><X className="h-5 w-5" /></button>
         </div>
         <nav className="p-5">
           {mainNav.map((item) => (
@@ -329,7 +334,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
               )}
             </div>
           ))}
-          <Link href={isAuthenticated ? '/account' : '/account/login'} onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-gold-deep">{isAuthenticated ? 'My Account' : 'Sign In / Register'}</Link>
+          <Link href={isAuthenticated ? '/account' : '/account/login'} onClick={onClose} className="mt-6 block text-sm font-medium uppercase tracking-luxe text-gold-deep">{isAuthenticated ? t.layout.header.myAccount : t.layout.header.signInRegister}</Link>
         </nav>
       </div>
     </div>

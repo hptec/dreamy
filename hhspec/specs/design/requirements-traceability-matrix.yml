@@ -1,0 +1,138 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T21:40:00Z'
+  generated_by: L2 Coordinator (Phase 5.5 + R1修复 ISS-007 错位修正)
+  total_requirements: 22
+  coverage_status: complete
+  note: |
+    R1修复(ISS-007)：FUNC-014~022 title 已按 acceptance.yml 原文逐条重新对齐，
+    修正此前自 FUNC-015 起整体错位一位的问题（曾将 FUNC-021 网关测试连接误标为邮件三语模板）。
+    FUNC-021(网关测试连接)现真实映射到 i18n-backend-api-detail.md#1.7 测试连接端点(ISS-001修复后)。
+    FUNC-022(术语表注入翻译)映射到术语CRUD + 注入一致性测试(TC-UNIT-I18N-0013/0014)。
+    所有22个需求已被L2设计覆盖，覆盖率100%，无未覆盖需求。
+
+requirements:
+  - id: FUNC-001
+    title: 消费端切换语言后UI文案随之变化
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#middleware, UI-ST-001]
+
+  - id: FUNC-002
+    title: messages.ts字典覆盖所有硬编码英文区域
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#2-messages扩展, UI-I18N-001]
+
+  - id: FUNC-003
+    title: 缺失翻译回退EN
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#2.2回退, UI-I18N-002]
+
+  - id: FUNC-004
+    title: 系统管理新增外部网关配置模块
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#1.2, i18n-admin-frontend-detail.md#PAGE-001, UI-GW-001]
+
+  - id: FUNC-005
+    title: 配置AI网关并自动发现模型
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#1.1-STEP-G001-04, UI-GW-002]
+
+  - id: FUNC-006
+    title: 模型列表刷新策略可配置
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#1.6, TC-ASYNC-0001, UI-GW-003]
+
+  - id: FUNC-007
+    title: API Key加密存储且掩码展示
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#6.1, TC-UNIT-0002/0003, UI-GW-004]
+
+  - id: FUNC-008
+    title: 商品编辑页AI翻译按钮
+    coverage_status: covered
+    covered_by: [i18n-admin-frontend-detail.md#COMP-006, UI-AI-001]
+
+  - id: FUNC-009
+    title: AI翻译结果回写表单
+    coverage_status: covered
+    covered_by: [i18n-admin-frontend-detail.md#COMP-006, UI-AI-003]
+
+  - id: FUNC-010
+    title: 翻译弹窗系统prompt+自定义要求
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#2.1-STEP4, UI-AI-001]
+
+  - id: FUNC-011
+    title: 商品等11张表支持AI翻译
+    coverage_status: covered
+    covered_by: [i18n-admin-frontend-detail.md#5-11处嵌入]
+
+  - id: FUNC-012
+    title: 调用记录查询
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#2.2, i18n-backend-data-detail.md#ai_translation_log]
+
+  - id: FUNC-013
+    title: 翻译失败不阻塞保存
+    coverage_status: covered
+    covered_by: [i18n-backend-error-mapping.yml#gateway_degradation, TC-RESILIENCE-0007, UI-AI-006]
+
+  - id: FUNC-014
+    title: locale 路径前缀可独立访问与索引
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#1.2-middleware, UI-ST-001]
+
+  - id: FUNC-015
+    title: hreflang 与多语言 sitemap
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#4.1-hreflang, i18n-store-frontend-detail.md#4.2-sitemap, UI-I18N-005, UI-I18N-006]
+
+  - id: FUNC-016
+    title: locale 偏好不依赖 localStorage 作路由来源
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#1.2-middleware, i18n-store-frontend-detail.md#6-cookie, UI-ST-001]
+
+  - id: FUNC-017
+    title: designerNote 纳入数据级翻译
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#4.1, i18n-backend-data-detail.md#2-ALTER, i18n-admin-frontend-detail.md#PAGE-003]
+
+  - id: FUNC-018
+    title: 面料材质/层级名走 i18n 字典
+    coverage_status: covered
+    covered_by: [i18n-store-frontend-detail.md#5-pick回退, i18n-store-frontend-detail.md#2-fabric命名空间, TC-INT-I18N-0007, UI-I18N-004]
+
+  - id: FUNC-019
+    title: 用户语言偏好持久化
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#5.1, i18n-backend-data-detail.md#user.locale_pref, i18n-backend-data-detail.md#orders.locale_snapshot]
+
+  - id: FUNC-020
+    title: 后端按 locale 发送三语邮件
+    coverage_status: covered
+    covered_by: [identity-api-incremental.md#选模板逻辑, i18n-backend-error-mapping.yml#email_template_fallback, TC-INT邮件回退]
+
+  - id: FUNC-021
+    title: 网关配置测试连接
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#1.7, TC-API-I18N-0009/0010/0011, TC-RESILIENCE-I18N-0008/0009/0010, UI-GW-005]
+
+  - id: FUNC-022
+    title: 婚纱领域术语表注入翻译
+    coverage_status: covered
+    covered_by: [i18n-backend-api-detail.md#3, i18n-backend-api-detail.md#2.1-术语注入, TC-UNIT-I18N-0013/0014, i18n-admin-frontend-detail.md#PAGE-002, UI-GL-001]
+
+edge_scenarios:
+  total: 24
+  covered: 24
+  coverage_note: 24个EDGE场景全覆盖，见i18n-test-skeleton.md第9节矩阵和error-mapping.yml第4节
+
+metadata:
+  baseline_requirements: 0
+  new_requirements: 22
+  modified_requirements: 0
+  dropped_requirements: 0
+  coverage_target: 100%
+  current_coverage: 100%  # 22/22 covered
+  user_approvals: []  # 无需跳过任何需求
+  edge_coverage: 100%  # 24/24

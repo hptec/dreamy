@@ -9,4 +9,10 @@ public interface CustomerEmailPort {
 
     /** 用户邮箱；用户不存在/已匿名化返回 null（消费侧告警跳过，不落 MailRecord） */
     String getEmail(Long customerId);
+
+    /**
+     * 用户偏好语言 locale_pref（en/es/fr）；不存在/未设置返回 null（决策13 / FUNC-020）。
+     * 邮件 locale 选择优先级：user.locale_pref > orders.locale_snapshot(payload.locale) > en。
+     */
+    String getLocalePref(Long customerId);
 }

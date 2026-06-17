@@ -3,7 +3,7 @@
 // + 商品选择器（useProductPicker 载体 ProductPickerPanel）+ 三语 name tab
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
 import { usePromotionsStore } from '@/stores/promotions'
@@ -141,7 +141,7 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <AppSelect
+        <SelectMenu
           :model-value="form.status"
           :options="[
             { value: FlashSaleStatus.DRAFT, label: '草稿' },

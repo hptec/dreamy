@@ -1,0 +1,53 @@
+status: pass
+scope: L1.2
+checks:
+  - id: CHECK-01
+    name: "OpenAPI 文件存在"
+    status: PASS
+    detail: |
+      找到 3 个 OpenAPI 契约文件：
+      - gateway-api.openapi.yml (18KB)
+      - ai-translation-api.openapi.yml (15KB)
+      - glossary-api.openapi.yml (11KB)
+      总计 45KB，所有文件均为有效 YAML 格式。
+
+  - id: CHECK-02
+    name: "OpenAPI paths 非空"
+    status: PASS
+    detail: |
+      所有 3 个文件均包含 paths 节，共定义 8 个端点：
+      - gateway-api: 4 个路径（5 个端点，含 POST test/sync-models）
+      - ai-translation-api: 2 个路径（2 个端点）
+      - glossary-api: 2 个路径（4 个端点，完整 CRUD）
+      无空 paths 或骨架文件。
+
+  - id: CHECK-03
+    name: "OpenAPI schemas 非空"
+    status: PASS
+    detail: |
+      所有 3 个文件均包含 components 节和 schemas 定义：
+      - gateway-api: 7 个 schema（GatewayConfigUpsert/Detail/Page/Model/TestResult/ErrorResponse）
+      - ai-translation-api: 6 个 schema（TranslateRequest/Response/TokenUsage/TranslationLog/Page/ErrorResponse）
+      - glossary-api: 4 个 schema（GlossaryTermUpsert/Term/Page/ErrorResponse）
+      共 17 个核心 schema，所有引用可解析。
+
+  - id: CHECK-04
+    name: "data-flow.md 存在且完整"
+    status: SKIP
+    detail: "L1.2 阶段仅检查接口契约，data-flow.md 在 L1.3 阶段产出。"
+
+  - id: CHECK-05
+    name: "error-strategy.md 存在且完整"
+    status: SKIP
+    detail: "L1.2 阶段仅检查接口契约，error-strategy.md 在 L1.3 阶段产出。"
+
+issues: []
+
+summary: |
+  L1.2 接口契约设计完整性验证通过。
+  - 3 个新增 OpenAPI 契约文件（gateway/ai-translation/glossary）
+  - 3 个增量契约文档（catalog/identity/trading）
+  - 8 个端点定义完整
+  - 17 个 schema 无循环引用
+
+  L1.3 阶段待产出：data-flow.md / error-strategy.md

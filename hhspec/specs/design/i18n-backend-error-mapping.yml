@@ -1,0 +1,469 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T20:25:00Z'
+  generated_by: Backend Designer (Error职责)
+  coverage: 18新错误码 + 24 EDGE场景 + 外部网关降级矩阵
+
+# ===== 1. 异常分类体系 =====
+exception_hierarchy:
+  base: DomainException  # 所有业务异常基类，携带code+message+details
+  categories:
+    validation:  # 422系列
+      base: FieldValidationException
+      http: 422
+      handler: MethodArgumentNotValidException → GlobalExceptionHandler
+    not_found:  # 404系列
+      base: ResourceNotFoundException
+      http: 404
+    conflict:  # 409系列
+      base: ConflictException
+      http: 409
+      subtypes: [NameExistsException, ResourceInUseException, ConcurrentModificationException]
+    bad_request:  # 400系列
+      base: BadRequestException
+      http: 400
+      subtypes: [NoEnabledGatewayException, InvalidModelException, NonAiGatewayException]
+    gateway_integration:  # 502/504系列
+      base: GatewayException
+      http: 502/504
+      subtypes: [GatewayCallFailedException, GatewayTimeoutException, GatewayUnavailableException, GatewayAuthFailedException]
+
+# ===== 2. 错误码→接口映射 =====
+error_code_mapping:
+  - code: 400201
+    identifier: NON_AI_GATEWAY_NO_SYNC
+    http: 400
+    domain: gateway
+    endpoints: ['POST /api/admin/gateway/configs/{id}/sync-models']
+    message_zh: 仅AI网关支持模型同步
+    exception: NonAiGatewayException
+    must_test: true
+
+  - code: 400301
+    identifier: NO_ENABLED_GATEWAY
+    http: 400
+    domain: ai_translation
+    endpoints: ['POST /api/admin/ai/translate']
+    message_zh: 尚未配置AI网关，请前往系统管理 > 外部网关配置
+    exception: NoEnabledGatewayException
+    edge: EDGE-001
+    must_test: true
+
+  - code: 400302
+    identifier: INVALID_MODEL
+    http: 400
+    domain: ai_translation
+    endpoints: ['POST /api/admin/ai/translate']
+    message_zh: 请求的模型不在可用列表中
+    exception: InvalidModelException
+    must_test: true
+
+  - code: 404201
+    identifier: GATEWAY_CONFIG_NOT_FOUND
+    http: 404
+    domain: gateway
+    endpoints: ['GET/PUT/DELETE /configs/{id}', 'POST /sync-models']
+    message_zh: 网关配置不存在
+    exception: ResourceNotFoundException
+    must_test: true
+
+  - code: 404401
+    identifier: TERM_NOT_FOUND
+    http: 404
+    domain: glossary
+    endpoints: ['GET/PUT/DELETE /terms/{id}']
+    message_zh: 术语不存在
+    exception: ResourceNotFoundException
+    must_test: true
+
+  - code: 409201
+    identifier: GATEWAY_NAME_EXISTS
+    http: 409
+    domain: gateway
+    endpoints: ['POST /configs', 'PUT /configs/{id}']
+    message_zh: 配置名称已存在
+    exception: NameExistsException
+    edge: EDGE-012
+    must_test: true
+
+  - code: 409202
+    identifier: GATEWAY_IN_USE
+    http: 409
+    domain: gateway
+    endpoints: ['DELETE /configs/{id}']
+    message_zh: 网关配置已被翻译日志引用，不可删除
+    exception: ResourceInUseException
+    must_test: true
+
+  - code: 409401
+    identifier: TERM_EN_EXISTS
+    http: 409
+    domain: glossary
+    endpoints: ['POST /terms', 'PUT /terms/{id}']
+    message_zh: 术语已存在
+    exception: NameExistsException
+    must_test: true
+
+  - code: 422201
+    identifier: FIELD_VALIDATION_FAILED
+    http: 422
+    domain: gateway
+    endpoints: ['POST/PUT /configs']
+    message_zh: 字段校验失败
+    exception: MethodArgumentNotValidException
+    edge: [EDGE-006, EDGE-007]
+    must_test: true
+
+  - code: 422202
+    identifier: API_KEY_DECRYPTION_FAILED
+    http: 422
+    domain: gateway
+    endpoints: ['GET /configs/{id}']
+    message_zh: API Key解密失败
+    exception: ApiKeyDecryptionException
+    must_test: false  # 极罕见，密文损坏
+
+  - code: 422301
+    identifier: FIELD_VALIDATION_FAILED
+    http: 422
+    domain: ai_translation
+    endpoints: ['POST /translate']
+    message_zh: 字段校验失败
+    exception: MethodArgumentNotValidException
+    edge: [EDGE-002, EDGE-005]
+    must_test: true
+
+  - code: 422401
+    identifier: FIELD_VALIDATION_FAILED
+    http: 422
+    domain: glossary
+    endpoints: ['POST/PUT /terms']
+    message_zh: 字段校验失败
+    exception: MethodArgumentNotValidException
+    must_test: true
+
+  - code: 502201
+    identifier: GATEWAY_UNAVAILABLE
+    http: 502
+    domain: gateway
+    endpoints: ['POST /sync-models', '测试连接']
+    message_zh: 网关不可达
+    exception: GatewayUnavailableException
+    edge: EDGE-023
+    must_test: true
+
+  - code: 502202
+    identifier: GATEWAY_AUTH_FAILED
+    http: 502
+    domain: gateway
+    endpoints: ['测试连接']
+    message_zh: API Key鉴权失败
+    exception: GatewayAuthFailedException
+    edge: EDGE-023
+    must_test: true
+
+  - code: 502301
+    identifier: GATEWAY_CALL_FAILED
+    http: 502
+    domain: ai_translation
+    endpoints: ['POST /translate']
+    message_zh: AI网关调用失败
+    exception: GatewayCallFailedException
+    edge: [EDGE-003, EDGE-016, EDGE-017]
+    must_test: true
+
+  - code: 504201
+    identifier: GATEWAY_TIMEOUT
+    http: 504
+    domain: gateway
+    endpoints: ['测试连接', 'POST /sync-models']
+    message_zh: 连接超时
+    exception: GatewayTimeoutException
+    edge: EDGE-023
+    must_test: true
+
+  - code: 504301
+    identifier: GATEWAY_TIMEOUT
+    http: 504
+    domain: ai_translation
+    endpoints: ['POST /translate']
+    message_zh: AI翻译请求超时，请稍后重试
+    exception: GatewayTimeoutException
+    edge: EDGE-015
+    must_test: true
+
+# ===== 3. 复用identity既有码 =====
+reused_identity_codes:
+  - code: 40100
+    scene: 未认证(AdminJwtFilter)
+    edge: EDGE-009
+  - code: 40300
+    scene: RBAC无权限
+    edge: [EDGE-008, EDGE-022]
+  - code: 40400
+    scene: 通用404
+  - code: 50000
+    scene: 500内部错误
+  - code: 50001
+    scene: DB异常
+
+# ===== 4. 24 EDGE场景错误处理矩阵 =====
+edge_scenario_matrix:
+  # 空值与缺失
+  - edge: EDGE-001
+    title: AI网关未配置
+    exception: NoEnabledGatewayException
+    http: 400
+    code: 400301
+    propagation: ai_translation Svc抛 → GEH捕获
+    degrade: 弹窗提示，不发起请求
+    must_test: true
+
+  - edge: EDGE-002
+    title: EN主字段为空
+    exception: MethodArgumentNotValidException
+    http: 422
+    code: 422301
+    propagation: Controller @Valid → GEH
+    degrade: 前端校验拦截
+    must_test: true
+
+  - edge: EDGE-003
+    title: AI返回空译文
+    exception: GatewayCallFailedException
+    http: 502
+    code: 502301
+    propagation: GatewayClient抛 → Svc捕获记log status=empty_result
+    degrade: 允许继续保存(决策10)
+    must_test: true
+
+  - edge: EDGE-020
+    title: designerNote缺失
+    exception: 不抛错
+    propagation: catalog Svc pick()回退EN主表
+    degrade: 正常显示EN回退值
+    must_test: true
+
+  - edge: EDGE-021
+    title: 邮件模板语言缺失
+    exception: 不抛错
+    propagation: MailConsumer回退EN模板记WARN
+    degrade: 用户收EN邮件
+    must_test: true
+
+  # 边界值
+  - edge: EDGE-004
+    title: 超长文本翻译
+    exception: 不抛错
+    propagation: 前端maxlength+后端max_tokens截断
+    degrade: 截断处理
+    must_test: true
+
+  - edge: EDGE-005
+    title: 自定义要求超长
+    exception: MethodArgumentNotValidException
+    http: 422
+    code: 422301
+    propagation: Controller @Valid(maxLength=500)
+    degrade: 前端maxlength限制500
+    must_test: false
+
+  - edge: EDGE-024
+    title: 术语表过多prompt截断
+    exception: 不抛错
+    propagation: ai_translation Svc仅注入命中术语上限50条
+    degrade: 智能截断按category优先级
+    must_test: true
+
+  # 类型与格式
+  - edge: EDGE-006
+    title: API Key格式非法
+    exception: MethodArgumentNotValidException
+    http: 422
+    code: 422201
+    propagation: Controller @Valid(trim后非空)
+    must_test: true
+
+  - edge: EDGE-007
+    title: 网关URL协议非法
+    exception: MethodArgumentNotValidException
+    http: 422
+    code: 422201
+    propagation: Controller @Valid(URL format)
+    must_test: true
+
+  - edge: EDGE-018
+    title: 无效locale前缀
+    exception: 不抛错
+    http: 302
+    propagation: Next.js Middleware检测非en/es/fr → 302重定向EN
+    degrade: 自动纠正
+    must_test: true
+
+  - edge: EDGE-019
+    title: 旧链接兼容
+    exception: 不抛错
+    http: 301
+    propagation: Middleware按cookie/Accept-Language → 301永久重定向
+    degrade: 向后兼容
+    must_test: true
+
+  # 权限与认证
+  - edge: EDGE-008
+    title: 无系统管理权限
+    exception: AccessDeniedException
+    http: 403
+    code: 40300
+    propagation: AdminJwtFilter RBAC → 路由守卫
+    must_test: true
+
+  - edge: EDGE-009
+    title: 翻译接口未登录
+    exception: UnauthorizedException
+    http: 401
+    code: 40100
+    propagation: AdminJwtFilter
+    must_test: true
+
+  - edge: EDGE-010
+    title: API Key不回传前端
+    exception: 不抛错
+    propagation: toDetailResponse掩码处理
+    degrade: 返回sk-****1234
+    must_test: true
+
+  - edge: EDGE-022
+    title: 术语表权限隔离
+    exception: AccessDeniedException
+    http: 403
+    code: 40300
+    propagation: AdminJwtFilter RBAC(/system/glossary)
+    must_test: true
+
+  # 并发
+  - edge: EDGE-011
+    title: 连续点击翻译
+    exception: 不抛错
+    propagation: 前端按钮loading禁用
+    degrade: 前端防重
+    must_test: false
+
+  - edge: EDGE-012
+    title: 网关配置编辑并发冲突
+    exception: ConcurrentModificationException
+    http: 409
+    code: 409201
+    propagation: updated_at乐观锁
+    degrade: 提示刷新重试
+    must_test: true
+
+  # 状态流转
+  - edge: EDGE-013
+    title: 网关禁用后调用翻译
+    exception: NoEnabledGatewayException
+    http: 400
+    code: 400301
+    propagation: 等同未配置(enabled=false不被RM-002查到)
+    degrade: 提示AI网关已禁用
+    must_test: true
+
+  - edge: EDGE-014
+    title: 模型列表刷新失败回退
+    exception: 不抛错(catch GatewayException)
+    propagation: 配置仍保存，model_list保留缓存或空
+    degrade: 提示模型列表获取失败可手动刷新
+    must_test: true
+
+  # 外部依赖
+  - edge: EDGE-015
+    title: AI网关超时
+    exception: GatewayTimeoutException
+    http: 504
+    code: 504301
+    propagation: GatewayClient超时30s → 记log status=timeout
+    degrade: 允许继续保存
+    must_test: true
+
+  - edge: EDGE-016
+    title: AI网关5xx
+    exception: GatewayCallFailedException
+    http: 502
+    code: 502301
+    propagation: 记log status=failed(2)+http_code
+    degrade: 允许继续保存
+    must_test: true
+
+  - edge: EDGE-017
+    title: AI网关限流429
+    exception: GatewayCallFailedException
+    http: 502
+    code: 502301
+    propagation: 记log status=rate_limited
+    degrade: 提示请求过于频繁
+    must_test: true
+
+  - edge: EDGE-023
+    title: 测试连接失败明确反馈
+    exception: GatewayUnavailableException/GatewayAuthFailedException/GatewayTimeoutException
+    http: 502/504
+    code: [502201, 502202, 504201]
+    propagation: 测试连接返回具体失败原因
+    degrade: 不落库不影响已保存配置
+    must_test: true
+
+# ===== 5. 外部网关降级矩阵 =====
+gateway_degradation:
+  translation_failure:
+    decision: 决策10
+    behavior: |
+      翻译失败时：
+      1. 记录ai_translation_log status=failed + error_message
+      2. 返回502/504错误码给前端
+      3. 前端toast提示但允许继续编辑保存
+    no_retry: true  # 翻译不自动重试，由用户手动触发
+
+  model_sync_failure:
+    decision: 决策5
+    behavior: |
+      模型同步失败（依赖 external_gateway_config.consecutive_failures 计数字段，见 data-detail §8 状态机）：
+      1. 单次失败：consecutive_failures += 1，记WARN日志，models_synced_at不更新，保留旧model_list
+      2. 同步成功：consecutive_failures 清零
+      3. 连续失败3次(consecutive_failures>=3)：降级model_refresh_strategy为manual(1)，enabled→0，发告警通知
+    retry_count: 3
+    fallback_strategy: manual
+    state_field: consecutive_failures  # INT DEFAULT 0, data-detail §1.1 + §8 状态机
+    test: TC-RESILIENCE-I18N-0006
+    note: |
+      enabled→false 自动禁用影响面较大(UNC-L2C-002待确认)，L3 可配置开关控制是否自动禁用。
+
+  email_template_fallback:
+    decision: 决策13
+    behavior: |
+      邮件模板语言缺失：
+      1. 按user.locale_pref → orders.locale_snapshot → 'en'优先级
+      2. 目标语言模板不存在 → 回退EN模板
+      3. 记WARN日志
+    fallback_locale: en
+
+# ===== 6. 日志规范 =====
+logging_rules:
+  api_key_masking: 所有日志中API Key必须掩码(sk-****1234)，禁止明文
+  translation_log: 每次翻译(成功/失败)记录ai_translation_log
+  sensitive_fields: [api_key_encrypted, api_key]  # 脱敏字段
+  log_levels:
+    gateway_call_failed: WARN
+    model_sync_failed: WARN
+    api_key_decryption_failed: ERROR  # 告警
+    translation_success: INFO
+
+# ===== 7. 国际化（错误消息）=====
+i18n_rules:
+  admin_messages: 中文(决策8后台不翻译)
+  store_messages: 不涉及(后台错误码不出三语)
+  note: i18n变更仅后台管理，所有错误message为admin端中文
+
+# ===== 8. 需求追溯 =====
+requirement_coverage:
+  - FUNC-007: API Key加密+掩码(EDGE-010)
+  - FUNC-013: 翻译失败不阻塞(决策10 + EDGE-003/015/016/017)
+  - 24 EDGE场景全覆盖

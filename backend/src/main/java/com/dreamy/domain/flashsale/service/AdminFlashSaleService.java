@@ -131,7 +131,11 @@ public class AdminFlashSaleService {
             throw MarketingException.stateInvalid("only_draft_deletable");
         }
         // STEP-MKT-03 物理删除三表 + 审计
-        flashSaleRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        FlashSale patch = new FlashSale();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        flashSaleRepository.update(patch);
         flashSaleRepository.deleteProductsByFlashId(id);
         flashSaleRepository.deleteTranslationsByFlashId(id);
         audit.record("删除闪购", existing.getName(), null);

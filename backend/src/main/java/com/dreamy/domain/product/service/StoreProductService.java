@@ -256,7 +256,7 @@ public class StoreProductService {
                 ProductCardAssembler.pick(tr == null ? null : tr.getName(), product.getName()),
                 product.getCategoryId(), categoryName, product.getProductType(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getDescription(), product.getDescription()),
-                product.getDesignerNote(),
+                ProductCardAssembler.pick(tr == null ? null : tr.getDesignerNote(), product.getDesignerNote()),
                 ProductCardAssembler.pickList(tr == null ? null : tr.getSellingPoints(), product.getSellingPoints()),
                 product.getPrice(), product.getCompareAt(),
                 product.getMultiCurrencyPrices(), product.getInstallment(), product.getIsNew(), product.getIsBest(),

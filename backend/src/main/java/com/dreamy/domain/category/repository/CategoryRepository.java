@@ -26,13 +26,15 @@ public class CategoryRepository {
     /** RM-CAT-001 listAll —— ORDER BY sort, id（树组装；E-CAT-06/15） */
     public List<Category> listAll() {
         return categoryMapper.selectList(new LambdaQueryWrapper<Category>()
+                .isNull(Category::getDeletedAt)
                 .orderByAsc(Category::getSort)
                 .orderByAsc(Category::getId));
     }
 
     /** RM-CAT-002 findById */
     public Category findById(Long id) {
-        return id == null ? null : categoryMapper.selectById(id);
+        Category e = id == null ? null : categoryMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-CAT-003 insert */
@@ -53,12 +55,14 @@ public class CategoryRepository {
     /** RM-CAT-006 countByParentId —— 删除 guard②（has_children，409502） */
     public long countByParentId(Long parentId) {
         return categoryMapper.selectCount(new LambdaQueryWrapper<Category>()
+                .isNull(Category::getDeletedAt)
                 .eq(Category::getParentId, parentId));
     }
 
     /** RM-CAT-007 countByAttributeSetId —— 409503 guard（AttributeSet 删除） */
     public long countByAttributeSetId(Long attributeSetId) {
         return categoryMapper.selectCount(new LambdaQueryWrapper<Category>()
+                .isNull(Category::getDeletedAt)
                 .eq(Category::getAttributeSetId, attributeSetId));
     }
 
@@ -70,6 +74,7 @@ public class CategoryRepository {
         } else {
             qw.eq(Category::getParentId, parentId);
         }
+        qw.isNull(Category::getDeletedAt);
         qw.orderByDesc(Category::getSort).last("LIMIT 1");
         Category top = categoryMapper.selectOne(qw);
         return top == null || top.getSort() == null ? -1 : top.getSort();

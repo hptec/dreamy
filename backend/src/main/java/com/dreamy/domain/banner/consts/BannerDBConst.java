@@ -15,4 +15,5 @@ public interface BannerDBConst extends MarketingCommonDBConst {
     String CLICKS = "clicks";
     String SUBTITLE = "subtitle";
     String CTA_TEXT = "cta_text";
+    public static final String DELETED_AT = "deleted_at";
 }

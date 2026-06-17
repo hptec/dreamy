@@ -1,0 +1,309 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T20:45:00Z'
+  generated_by: Test Designer (UI Test职责)
+  coverage: admin 3页面 + store locale路由 + i18n文案验证
+  test_framework: Playwright (E2E) + Vitest (组件)
+
+# ===== 1. Admin: 网关配置页 =====
+admin_gateway_config:
+  page: /system/gateways
+  screens:
+    - id: UI-GW-001
+      title: 网关配置列表展示
+      steps:
+        - 访问/system/gateways
+        - 验证表格按type分组(AI/物流/支付)
+        - 验证可新增/编辑/启用禁用
+      assertions:
+        - element: gateway-table
+          visible: true
+        - element: add-config-btn
+          visible: true
+      func: FUNC-004
+
+    - id: UI-GW-002
+      title: 创建AI网关配置+自动模型发现
+      steps:
+        - 点击新增
+        - 填写gateway_type=AI, name, base_url, api_key
+        - 保存
+      assertions:
+        - 保存成功toast
+        - model_list下拉自动填充(/v1/models结果)
+      func: FUNC-005
+      mock: msw拦截POST /configs返回含model_list
+
+    - id: UI-GW-003
+      title: 模型刷新策略配置
+      steps:
+        - 编辑配置
+        - 选择定时刷新, interval=5
+        - 保存
+      assertions:
+        - interval字段在strategy=scheduled时显示
+      func: FUNC-006
+
+    - id: UI-GW-004
+      title: API Key掩码展示
+      steps:
+        - 打开已保存配置详情
+      assertions:
+        - api_key字段显示"sk-****1234"格式
+        - 响应体不含明文api_key
+      func: FUNC-007
+      edge: EDGE-010
+
+    - id: UI-GW-005
+      title: 测试连接成功
+      steps:
+        - 填写配置
+        - 点击测试连接
+      assertions:
+        - 显示连通状态(成功/失败具体原因)
+      edge: EDGE-023
+      mock: 模拟DNS失败/401/超时三种反馈
+
+    - id: UI-GW-006
+      title: 无权限访问拦截
+      steps:
+        - 普通账户访问/system/gateways
+      assertions:
+        - 跳转/403
+      edge: EDGE-008
+
+# ===== 2. Admin: AI翻译弹窗 =====
+admin_translate_modal:
+  component: AiTranslateModal
+  screens:
+    - id: UI-AI-001
+      title: 翻译弹窗打开+系统prompt展示
+      steps:
+        - ProductEdit ES tab
+        - 点击字段AI翻译按钮
+      assertions:
+        - 弹窗打开
+        - 系统prompt只读展示
+        - 模型下拉默认全局模型
+        - 自定义要求输入框可见
+      func: FUNC-008/010
+
+    - id: UI-AI-002
+      title: EN主字段为空拦截
+      steps:
+        - EN字段为空
+        - 点击AI翻译
+      assertions:
+        - 提示"请先填写EN主字段内容"
+        - 弹窗不打开/不发请求
+      edge: EDGE-002
+
+    - id: UI-AI-003
+      title: 翻译结果回填
+      steps:
+        - 输入自定义要求
+        - 点击翻译
+        - 确认译文
+      assertions:
+        - 结果回填textarea
+        - 可二次编辑
+        - 确认后回写表单字段
+      func: FUNC-009
+
+    - id: UI-AI-004
+      title: 网关未配置提示
+      steps:
+        - 无AI网关时点击翻译
+      assertions:
+        - 提示"尚未配置AI网关"
+      edge: EDGE-001
+      mock: msw返回400301
+
+    - id: UI-AI-005
+      title: 连续点击防重复
+      steps:
+        - 快速连续点击翻译
+      assertions:
+        - 翻译中按钮loading禁用
+      edge: EDGE-011
+
+    - id: UI-AI-006
+      title: 翻译失败不阻塞保存
+      steps:
+        - 翻译返回502
+      assertions:
+        - toast错误提示
+        - 弹窗保持打开
+        - 可继续编辑保存
+      edge: EDGE-015/016/017
+      func: FUNC-013
+
+    - id: UI-AI-007
+      title: 自定义要求超长限制
+      steps:
+        - 输入>500字符
+      assertions:
+        - maxlength限制500
+      edge: EDGE-005
+
+# ===== 3. Admin: 术语表页 =====
+admin_glossary:
+  page: /system/glossary
+  screens:
+    - id: UI-GL-001
+      title: 术语表CRUD
+      steps:
+        - 访问/system/glossary
+        - 新增/编辑/删除术语
+      assertions:
+        - 表格展示term_en/term_es/term_fr/category/enabled
+        - CRUD操作成功
+      func: FUNC-022
+
+    - id: UI-GL-002
+      title: 术语权限隔离
+      steps:
+        - 无权限账户访问
+      assertions:
+        - 跳转/403
+      edge: EDGE-022
+
+    - id: UI-GL-003
+      title: 术语重复校验
+      steps:
+        - 新增已存在的term_en
+      assertions:
+        - 提示"术语已存在"(409401)
+      mock: msw返回409401
+
+# ===== 4. Store: locale路由切换 =====
+store_locale_routing:
+  screens:
+    - id: UI-ST-001
+      title: 语言切换器切换ES
+      steps:
+        - 首页点击语言切换器选ES
+      assertions:
+        - URL变为/es/
+        - UI文案变西语
+        - cookie NEXT_LOCALE=es
+      func: FUNC-001/014
+
+    - id: UI-ST-002
+      title: 无效locale前缀重定向
+      steps:
+        - 访问/de/product/xxx
+      assertions:
+        - 302重定向到EN路径
+        - 不报404
+      edge: EDGE-018
+
+    - id: UI-ST-003
+      title: 旧链接兼容301
+      steps:
+        - 访问无前缀/product/xxx(cookie=es)
+      assertions:
+        - 301重定向到/es/product/xxx
+      edge: EDGE-019
+
+    - id: UI-ST-004
+      title: EN保持根路径
+      steps:
+        - 访问/product/xxx(默认EN)
+      assertions:
+        - 不重定向, 保持根路径
+      edge: EDGE-019
+
+# ===== 5. Store: i18n文案验证 =====
+store_i18n_validation:
+  screens:
+    - id: UI-I18N-001
+      title: 50+组件文案接入验证
+      steps:
+        - 切换ES
+        - 遍历home/collection/product/cart/checkout
+      assertions:
+        - 无硬编码英文残留
+        - cart-drawer/FabricCareSection/cookie-consent等已接入
+      func: FUNC-002
+
+    - id: UI-I18N-002
+      title: 缺失翻译回退EN
+      steps:
+        - 某文案标记[TRANSLATION_PENDING]
+        - 切换ES
+      assertions:
+        - 显示EN回退值
+        - 不显示key名或空白
+      func: FUNC-003
+      edge: EDGE-020
+
+    - id: UI-I18N-003
+      title: 面料材质i18n
+      steps:
+        - PDP查看FabricCareSection
+        - 切换ES/FR
+      assertions:
+        - Cotton/Lace/Satin等材质名翻译
+        - Shell/Lining层级名翻译
+      func: FUNC-002
+      decision: 决策12
+
+    - id: UI-I18N-004
+      title: designerNote回退展示
+      steps:
+        - ES访问PDP, designer_note(ES)为空
+      assertions:
+        - Description折叠区显示EN designerNote
+        - 不显示空白
+      edge: EDGE-020
+      func: FUNC-018
+
+    - id: UI-I18N-005
+      title: hreflang标签验证
+      steps:
+        - 查看页面head
+      assertions:
+        - 含en/es/fr/x-default hreflang标签
+      func: FUNC-015
+
+    - id: UI-I18N-006
+      title: sitemap多语言
+      steps:
+        - 访问/sitemap.xml
+      assertions:
+        - 每页面含3语言URL条目
+      func: FUNC-016
+
+# ===== 6. 可访问性 =====
+accessibility:
+  - 语言切换器有aria-label
+  - 翻译弹窗焦点管理(打开聚焦, 关闭恢复)
+  - 表单字段有label关联
+
+# ===== 7. 性能预算 =====
+performance_budget:
+  - locale切换重定向: <100ms
+  - 翻译弹窗打开: <200ms
+  - 翻译结果返回: <30s(超时阈值)
+
+# ===== 8. 响应式差异 =====
+responsive:
+  - admin页面: 桌面端为主(运营使用)
+  - store页面: 移动端优先(消费端)
+  - 语言切换器: 移动端折叠到菜单
+
+# ===== 9. 需求追溯 =====
+requirement_coverage:
+  - FUNC-001: UI-ST-001
+  - FUNC-002: UI-I18N-001/003
+  - FUNC-003: UI-I18N-002
+  - FUNC-004~007: UI-GW-001~004
+  - FUNC-008~010: UI-AI-001/003
+  - FUNC-011: UI-AI(11处嵌入)
+  - FUNC-013: UI-AI-006
+  - FUNC-014: UI-ST-001
+  - FUNC-015: UI-I18N-005
+  - FUNC-016: UI-I18N-006
+  - FUNC-018: UI-I18N-004
+  - FUNC-022: UI-GL-001

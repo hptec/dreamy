@@ -18,7 +18,7 @@ import {
 import { getActiveLocale } from '../i18n/i18n-context'
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:8080'
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:18081'
 
 export class ApiError extends Error {
   readonly code: number

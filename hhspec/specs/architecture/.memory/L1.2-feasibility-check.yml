@@ -1,0 +1,111 @@
+status: pass
+scope: L1.2
+checks:
+  - id: FCHECK-01
+    name: "OpenAPI 规范版本"
+    status: PASS
+    detail: |
+      所有 3 个文件均使用 OpenAPI 3.0.3 版本（符合规范）。
+      - gateway-api.openapi.yml: openapi: 3.0.3
+      - ai-translation-api.openapi.yml: openapi: 3.0.3
+      - glossary-api.openapi.yml: openapi: 3.0.3
+
+  - id: FCHECK-02
+    name: "Schema 引用可解析"
+    status: PASS
+    detail: |
+      所有 $ref 引用均在同一文件内可解析，无悬空引用：
+      - gateway-api: 9 个 $ref（均指向 #/components/schemas 或 #/components/parameters）
+      - ai-translation-api: 7 个 $ref
+      - glossary-api: 5 个 $ref
+      增量契约文档中引用 ProductTranslation/User/Order schema 均在各自基线文件中存在。
+
+  - id: FCHECK-03
+    name: "无循环引用"
+    status: PASS
+    detail: |
+      检查所有 schema 依赖关系，无循环引用：
+      - gateway-api: GatewayConfigDetail → GatewayConfigUpsert（单向继承，allOf）
+      - ai-translation-api: TranslationLog → TokenUsage（组合关系，properties）
+      - glossary-api: GlossaryTerm → GlossaryTermUpsert（单向继承，allOf）
+      所有 Page schema 均通过 items 引用对应 Detail schema，无回环。
+
+  - id: FCHECK-04
+    name: "接口粒度合理"
+    status: PASS
+    detail: |
+      所有路径下 operation 数量合理（≤ 5 个）：
+      - /api/admin/gateway/configs: 2 个（GET/POST）
+      - /api/admin/gateway/configs/{id}: 3 个（GET/PUT/DELETE）
+      - /api/admin/gateway/configs/{id}/test: 1 个（POST）
+      - /api/admin/gateway/configs/{id}/sync-models: 1 个（POST）
+      - /api/admin/ai/translate: 1 个（POST）
+      - /api/admin/ai/translation-logs: 1 个（GET）
+      - /api/admin/glossary/terms: 2 个（GET/POST）
+      - /api/admin/glossary/terms/{id}: 3 个（GET/PUT/DELETE）
+
+      路径命名遵循 RESTful 约定（名词复数、资源层级清晰）。
+
+  - id: FCHECK-05
+    name: "数据流覆盖完整性"
+    status: SKIP
+    detail: "L1.2 阶段仅检查接口契约，data-flow.md 在 L1.3 阶段产出并验证覆盖性。"
+
+  - id: FCHECK-06
+    name: "错误码一致性"
+    status: PASS
+    detail: |
+      OpenAPI 契约中声明的错误码与 HTTP 状态码一致：
+      - gateway-api: 404201/409201/422201/502201/502202/504201（7 个错误码，对应 404/409/422/502/504）
+      - ai-translation-api: 400301/400302/422301/502301/504301（5 个错误码，对应 400/422/502/504）
+      - glossary-api: 404401/409401/422401（3 个错误码，对应 404/409/422）
+
+      错误码高 3 位与 HTTP 状态码一致（如 404201 → 404），符合错误码体系设计。
+      所有错误响应均使用统一 ErrorResponse schema（code/message/details?）。
+
+  - id: FCHECK-07
+    name: "技术约束明确性"
+    status: PASS
+    detail: |
+      技术约束已在契约 description 中明确声明：
+
+      **鉴权约束**：
+      - 所有后台端点需要 AdminBearerAuth（security 节已声明）
+      - 权限要求已标注（/system/gateways、/system/glossary、/system/translation-logs）
+
+      **超时约束**：
+      - AI 翻译请求：30s（ai-translation-api description 已标注）
+      - 网关测试连接：10s（gateway-api description 已标注）
+
+      **加密存储**：
+      - API Key 使用 AES-256-GCM 加密（gateway-api schema description 已标注）
+
+      **数据保留**：
+      - 翻译日志保留 90 天（ai-translation-api description 已标注）
+
+      **模型同步策略**：
+      - 手动刷新 / 定时刷新（gateway-api schema description 已标注）
+
+      增量契约中邮件模板选择优先级（user.locale_pref → order.locale_snapshot → EN）已在 identity/trading 增量文档中明确。
+
+issues: []
+
+summary: |
+  L1.2 技术可行性验证通过，无 blocking 级问题。
+
+  **验证通过项**：
+  - OpenAPI 3.0.3 规范符合性 ✓
+  - Schema 引用可解析，无悬空引用 ✓
+  - 无循环依赖 ✓
+  - 接口粒度合理（单路径最多 3 个 operation）✓
+  - 错误码体系一致（高 3 位对应 HTTP 状态码）✓
+  - 技术约束明确（鉴权/超时/加密/保留期）✓
+
+  **设计亮点**：
+  1. 统一 R 包络映射（与 catalog-api 一致）
+  2. 统一分页格式（huihao.page.Paginated）
+  3. 统一错误响应格式（code/message/details?）
+  4. RESTful 命名规范严格遵守
+  5. 增量契约文档清晰标注数据库迁移和实现注意事项
+
+  可进入 L1.3 阶段产出 data-flow.md 和 error-strategy.md。

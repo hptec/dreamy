@@ -3,12 +3,12 @@
 # 脚本名称: backend-api.sh
 # 功能描述: 启动后端服务（内置 restart：端口占用检测 + kill + 启动）
 # 使用方式: bash scripts/backend-api.sh [PORT]
-# 默认端口: 8080
+# 默认端口: 18081
 # 依赖环境: JDK 25（GraalVM）、Gradle Wrapper 9.3.1
 # =============================================================
 set -euo pipefail
 
-PORT="${1:-8080}"
+PORT="${1:-18081}"
 
 # 基于脚本自身位置定位项目根目录，避免依赖调用时的工作目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +18,12 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 if [ -d "/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home" ]; then
   export JAVA_HOME="/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home"
 fi
+
+# 网关 API Key AES-256 密钥：dev 默认值已写入 backend/src/main/resources/application.yml
+# （dreamy.gateway.aes-key 配置项，生产可通过环境变量 DREAMY_GATEWAY_AES_KEY 覆盖注入独立密钥）。
+# GatewayCryptoService @PostConstruct fail-fast：必须配置且解码后严格 32 字节。
+# 注意：dev key 必须稳定不可随机——已加密的 api_key_encrypted 密文用此密钥加密，
+# 更换会导致存量密文无法解密。
 
 echo "[backend] 检查端口 ${PORT} 占用..."
 # 仅匹配 LISTEN 进程：lsof -t -i 会把连到该端口的客户端进程（浏览器/IM 等）也列出来，不能 kill

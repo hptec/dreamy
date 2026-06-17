@@ -32,7 +32,7 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 server:
-  port: 8080
+  port: 18081
 
 # dev 缺省 stub 模式不连 RabbitMQ，关闭 rabbit 健康检查避免 actuator 误报 DOWN（real 环境按需开启）
 management:
@@ -43,7 +43,7 @@ management:
 # huihao-mysql：DDL 自动管理（@EnableMysql 覆盖 auto/scan-packages，此处兜底）
 huihao:
   mysql:
-    auto: none
+    auto: update
     scan-packages:
       - com.dreamy.domain
   # huihao-redis：Redisson（分布式锁 IdLockSupport + 健康检查）
@@ -216,6 +216,16 @@ dreamy:
     cloudflare:
       zone-id: ${CF_ZONE_ID:}
       api-token: ${CF_API_TOKEN:}
+  # i18n 外部网关（决策 1/5/6）：API Key AES-256-GCM 加密密钥（Base64 256-bit/32 字节，启动 fail-fast 校验）
+  # 模型定时刷新扫描间隔（决策5；scheduled 策略网关按各自 interval 到期触发 syncModels）
+  gateway:
+    # dev 默认密钥直接写在配置文件中（不再依赖脚本 export 环境变量）；
+    # 生产可通过环境变量 DREAMY_GATEWAY_AES_KEY 覆盖注入独立密钥。
+    # 注意：dev key 必须稳定不可随机——已加密的 api_key_encrypted 密文用此密钥加密，
+    # 更换会导致存量密文无法解密。
+    aes-key: ${DREAMY_GATEWAY_AES_KEY:NnZxCvcqBH3AomfDERQjX2LKfnbii+xmeJ2ue1PPtCM=}
+    model-refresh-scan-delay-ms: ${GATEWAY_MODEL_REFRESH_SCAN_DELAY_MS:300000}
+
 
 logging:
   file:

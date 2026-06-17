@@ -2073,3 +2073,175 @@ flows:
     cond: 仍可导航
   - from: n4
     to: n5
+- id: configure_ai_gateway
+  desc: 管理员在系统管理-外部网关配置中新增/编辑 AI 网关并自动发现模型
+  actor: 管理员
+  trigger: 进入「系统管理 > 外部网关配置」页面新增 AI 网关
+  steps:
+  - n: 1
+    node: 填写网关配置（type=AI/protocol=openai/base_url/api_key/名称）
+    type: user_input
+    source: 'user requirement: 配置外部系统'
+  - n: 2
+    node: 后端加密 api_key 后落库 ExternalGatewayConfig
+    type: persist
+    source: 'user requirement: API Key 加密存储'
+  - n: 3
+    node: 保存成功后自动调用 /v1/models 拉取可用模型列表
+    type: external_call
+    source: 'user requirement: 配置保存时拉取模型'
+    state_change:
+      machine: gateway_model_sync
+      to: syncing
+  - n: 4
+    node: 模型列表写入 model_list 字段并更新 models_synced_at
+    type: persist
+    source: 'user requirement: 自动发现模型列表'
+    state_change:
+      machine: gateway_model_sync
+      to: synced
+  - n: 5
+    node: 管理员设置默认模型 default_model + 刷新策略（手动/定时）
+    type: user_input
+    source: 'user requirement: 多模型切换 + 刷新策略下拉'
+  exceptions:
+  - cond: /v1/models 拉取失败
+    handle: 提示拉取失败但配置仍保存，model_list 保留旧值，可手动重试
+    state_change:
+      machine: gateway_model_sync
+      to: sync_failed
+    source: 'user requirement: 容错非阻断'
+- id: ai_assisted_translation
+  desc: 运营在翻译表单点击 AI 辅助按钮，追加要求后翻译并回写
+  actor: 运营/管理员
+  trigger: 在商品编辑/分类/标签/Banner 等翻译表单点击「AI 翻译」按钮
+  steps:
+  - n: 1
+    node: 弹窗展示 EN 主字段原文 + 模型下拉（默认全局模型）+ 自定义要求输入框
+    type: user_input
+    source: 'user requirement: 两级模型选择 + 追加自定义要求'
+    state_change:
+      machine: ai_translation_request
+      to: idle
+  - n: 2
+    node: 用户选目标语言（es/fr）并提交翻译请求
+    type: user_input
+    source: 'user requirement: AI 辅助翻译'
+  - n: 3
+    node: 后端代理拼装 prompt（锁定婚纱礼服领域系统提示 + 用户自定义要求）
+    type: process
+    source: 'user requirement: 内部提示词锁定婚纱礼服领域'
+    state_change:
+      machine: ai_translation_request
+      to: calling
+  - n: 4
+    node: 后端调用外部 AI 网关 /v1/chat/completions
+    type: external_call
+    source: 'user requirement: 后端代理调用，API Key 不暴露'
+  - n: 5
+    node: 译文返回，记录 AiTranslationLog(status=success, 耗时/token)
+    type: persist
+    source: 'user requirement: AI 提供调用记录'
+    state_change:
+      machine: ai_translation_request
+      to: success
+  - n: 6
+    node: 译文回填到编辑表单对应语言字段，用户复核后随表单保存
+    type: user_input
+    source: 'user requirement: 翻译并完成回写 + 人工复核'
+  exceptions:
+  - cond: AI 网关调用失败/超时/鉴权失败
+    handle: 错误提示，记录 AiTranslationLog(status=failed)，允许用户重试或手动填写后继续保存
+    state_change:
+      machine: ai_translation_request
+      to: failed
+    source: 'user requirement: 失败提示+允许继续'
+- id: view_translation_logs
+  desc: 管理员查看 AI 翻译调用记录
+  actor: 管理员
+  trigger: 进入「系统管理 > 外部网关配置 > AI 调用记录」
+  steps:
+  - n: 1
+    node: 按时间倒序分页加载 AiTranslationLog（可按 biz_type/status 筛选）
+    type: query
+    source: 'user requirement: AI 提供调用记录'
+  - n: 2
+    node: 展示原文/译文/模型/耗时/token/状态
+    type: display
+    source: 'user requirement: 调用记录可审计'
+- id: store_ui_i18n_render
+  desc: 消费端按 URL locale 段渲染 UI 静态文案 + SEO 标签（决策 11 路由重构）
+  actor: 消费者 / 搜索引擎爬虫
+  trigger: 访问带 locale 前缀的 URL（/、/es/、/fr/）或切换语言
+  steps:
+  - n: 1
+    node: middleware 检测路径 locale 段（无前缀=en），非法 locale 重定向到默认
+    type: process
+    source: 'user requirement: SEO 可索引 + 移除 localStorage 作为唯一来源'
+  - n: 2
+    node: app/[locale] 布局按 locale 注入 I18nProvider + 从 messages.ts 取字典
+    type: process
+    source: 'user requirement: 消费端 UI 文案补齐'
+  - n: 3
+    node: 50+ 组件通过 useI18n().t 渲染对应语言文案（缺失回退 EN）
+    type: display
+    source: 'user requirement: 全部硬编码英文改造接 i18n'
+  - n: 4
+    node: 页面 head 注入 hreflang 三语 alternate 标签；sitemap 输出各语言 URL
+    type: display
+    source: 'user requirement: 搜索引擎索引各语言版本'
+  - n: 5
+    node: 用户显式切换语言时跳转对应 locale 前缀 URL，并写 cookie（SSR 可读，localStorage 仅降级辅助）
+    type: user_input
+    source: 'user requirement: 尽量不用 localStorage，cookie 承载 SSR 可读偏好'
+- id: gateway_test_connection
+  desc: 管理员在网关配置页测试 URL+Key 连通性（决策 14）
+  actor: 管理员
+  trigger: 网关配置页点击「测试连接」按钮
+  steps:
+  - n: 1
+    node: 前端提交当前配置（URL+Key，未保存也可测）到后端测试端点
+    type: user_input
+    source: 'user requirement: 配置可用性验证'
+  - n: 2
+    node: 后端用最小请求（GET /v1/models 或一次轻量 translate）探测网关
+    type: external_call
+    source: 'user requirement: 测试连接避免配错延迟暴露'
+  - n: 3
+    node: 返回连通状态（成功展示可用模型数；失败展示错误原因）
+    type: display
+    source: 'user requirement: 即时反馈连通性'
+  exceptions:
+  - cond: 网关不可达/鉴权失败/超时
+    handle: 返回具体失败原因（DNS/401/超时），不落库不影响已保存配置
+    source: 'user requirement: 测试失败明确提示'
+- id: manage_translation_glossary
+  desc: 管理员维护婚纱领域术语表（决策 14）
+  actor: 管理员
+  trigger: 进入「系统管理 > 翻译术语表」页面
+  steps:
+  - n: 1
+    node: CRUD 术语条目（term_en / term_es / term_fr / category / enabled）
+    type: user_input
+    source: 'user requirement: 术语一致性维护'
+  - n: 2
+    node: 保存后启用项在下次 AI 翻译时注入 system prompt
+    type: persist
+    source: 'user requirement: 术语注入保证译法一致'
+- id: backend_localized_email
+  desc: 后端按用户 locale 发送三语邮件（订单/OTP/退款，决策 13）
+  actor: 系统（后端异步）
+  trigger: 订单确认/OTP 验证码/退款通知等事件触发邮件发送
+  steps:
+  - n: 1
+    node: 按优先级解析目标 locale（user.locale_pref → orders.locale_snapshot → 默认 EN）
+    type: process
+    source: 'user requirement: 后端拿到用户语言偏好'
+  - n: 2
+    node: 按 locale 选择对应语言的邮件模板渲染
+    type: process
+    source: 'user requirement: 邮件模板三语化'
+  - n: 3
+    node: 发送邮件（缺对应语言模板回退 EN）
+    type: external_call
+    source: 'user requirement: 三语邮件兜底 EN'

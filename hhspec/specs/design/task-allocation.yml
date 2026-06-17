@@ -1,0 +1,200 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T20:00:00Z'
+  generated_by: L2 Coordinator
+  activation_mode: fallback_full_activation
+  activation_note: |
+    activation-matrix.yml缺失，采用全量激活fallback模式。
+    激活所有专家：Backend Designer (统一API+Data+Error) / Test Designer (统一后端测试+UI测试) / Frontend Designer
+
+total_tasks: 5
+activation_status:
+  backend_designer: true
+  test_designer: true
+  frontend_designer: true
+  compliance_designer: false  # 无COMPLIANCE需求
+
+tasks:
+  - task_id: L2-I18N-BACKEND-001
+    expert: Designer-Backend
+    description: 统一后端详细设计（API+Data+Error三职责）
+    scope:
+      domains: [gateway, ai_translation, glossary, catalog_incremental, identity_incremental, trading_incremental]
+      endpoints:
+        - POST /api/admin/gateway/configs
+        - GET /api/admin/gateway/configs
+        - GET /api/admin/gateway/configs/{id}
+        - PUT /api/admin/gateway/configs/{id}
+        - DELETE /api/admin/gateway/configs/{id}
+        - POST /api/admin/gateway/configs/{id}/sync-models
+        - POST /api/admin/gateway/configs/{id}/test (测试连接, ISS-001)
+        - POST /api/admin/ai/translate
+        - GET /api/admin/ai/translation-logs
+        - POST /api/admin/glossary/terms
+        - GET /api/admin/glossary/terms
+        - GET /api/admin/glossary/terms/{id} (术语详情, ISS-002)
+        - PUT /api/admin/glossary/terms/{id}
+        - DELETE /api/admin/glossary/terms/{id}
+        - PUT /api/admin/catalog/products/{id} (增量：designer_note字段)
+        - PUT /api/consumer/auth/profile (增量：locale_pref字段, StoreBearerAuth, ISS-003)
+      entities:
+        - ExternalGatewayConfig (新增)
+        - AiTranslationLog (新增)
+        - AiTranslationGlossary (新增)
+        - ProductTranslation (修改：+designer_note列)
+        - User (修改：+locale_pref列)
+        - Order (修改：+locale_snapshot列)
+      error_codes: [18个新错误码，详见error-strategy.md]
+    inputs:
+      - source: specs/architecture/api-contracts/gateway-api.openapi.yml
+        sections: [paths, components.schemas, info.error_codes]
+      - source: specs/architecture/api-contracts/ai-translation-api.openapi.yml
+        sections: [paths, components.schemas, info.error_codes]
+      - source: specs/architecture/api-contracts/glossary-api.openapi.yml
+        sections: [paths, components.schemas, info.error_codes]
+      - source: specs/architecture/api-contracts/catalog-api-incremental.md
+        sections: [designer_note字段增量]
+      - source: specs/architecture/api-contracts/identity-api-incremental.md
+        sections: [locale_pref字段增量]
+      - source: specs/architecture/api-contracts/trading-api-incremental.md
+        sections: [locale_snapshot字段增量]
+      - source: er-diagram.yml
+        sections: [entities, modified_entities]
+      - source: data-flow.md
+        sections: [FLOW-I01~I09]
+      - source: error-strategy.md
+        sections: [24 EDGE场景矩阵]
+      - source: decision.md
+        sections: [决策1~14]
+    output_files:
+      - i18n-backend-api-detail.md  # API详设（16端点×4部分）
+      - i18n-backend-data-detail.md  # 数据详设（6实体+Repository+索引+事务）
+      - i18n-backend-error-mapping.yml  # 错误处理详设（18码+24 EDGE+降级）
+    dependencies: []
+    complexity: very_high
+    estimated_hours: 16
+
+  - task_id: L2-I18N-TEST-001
+    expert: Designer-Test
+    description: 统一测试设计（后端测试骨架+UI测试期望）
+    scope:
+      backend_test_layers: [unit, integration, contract, component, snapshot, async, api, resilience]
+      edge_scenarios: 24
+      ui_test_screens:
+        - portal-admin: /system/gateways
+        - portal-admin: /system/glossary
+        - portal-admin: AI翻译弹窗组件
+        - portal-store: locale路由切换
+        - portal-store: i18n文案验证
+    inputs:
+      - source: acceptance.yml
+        sections: [22个FUNC场景]
+      - source: boundary-scenarios.yml
+        sections: [24个EDGE场景]
+      - source: data-flow.md
+        sections: [FLOW-I01~I09业务流]
+      - source: specs/architecture/api-contracts/*.yml
+        sections: [所有端点契约]
+      - source: i18n-backend-api-detail.md
+        sections: [API详设产出，用于生成测试骨架]
+      - source: i18n-backend-data-detail.md
+        sections: [数据详设产出，用于Repository测试]
+      - source: i18n-backend-error-mapping.yml
+        sections: [错误码映射，用于错误路径测试]
+    output_files:
+      - i18n-test-skeleton.md  # 后端测试骨架（8层+业务流DAG+24 EDGE覆盖）
+      - i18n-ui-test-spec.yml  # UI测试期望（5屏幕+交互路径+字段断言）
+    dependencies: [L2-I18N-BACKEND-001]
+    complexity: high
+    estimated_hours: 12
+
+  - task_id: L2-I18N-FRONTEND-ADMIN-001
+    expert: Designer-Frontend
+    description: portal-admin前端详细设计
+    scope:
+      new_pages:
+        - /system/gateways  # 网关配置列表+CRUD表单
+        - /system/glossary  # 术语表列表+CRUD表单
+      new_components:
+        - AiTranslateModal  # AI翻译弹窗（11处嵌入点）
+      modified_pages:
+        - /catalog/products/:id/edit  # ProductEdit增加designerNote字段三语tab
+    inputs:
+      - source: acceptance.yml
+        sections: [FUNC-004~007网关配置, FUNC-008~010翻译弹窗, FUNC-022术语表]
+      - source: decision.md
+        sections: [决策1~10 admin相关]
+      - source: specs/architecture/api-contracts/gateway-api.openapi.yml
+        sections: [schemas用于表单字段]
+      - source: specs/architecture/api-contracts/ai-translation-api.openapi.yml
+        sections: [TranslateRequest schema]
+      - source: specs/architecture/api-contracts/glossary-api.openapi.yml
+        sections: [GlossaryTermUpsert schema]
+    output_files:
+      - i18n-admin-frontend-detail.md  # portal-admin组件树+状态管理+路由+表单交互
+    dependencies: []
+    complexity: high
+    estimated_hours: 10
+
+  - task_id: L2-I18N-FRONTEND-STORE-001
+    expert: Designer-Frontend
+    description: portal-store前端详细设计（路由重构+i18n补全）
+    scope:
+      route_refactor:
+        - from: app/
+        - to: app/[locale]/
+        - middleware: locale检测（URL前缀 > cookie > Accept-Language > 默认EN）
+      i18n_namespaces: 30+  # messages.ts扩展
+      modified_components: 50+  # 接入useI18n()
+      seo_enhancements:
+        - hreflang标签（每页面输出3语言版本）
+        - sitemap按语言分文件
+      data_consumption:
+        - designerNote回退逻辑（product_translation.designer_note为空时pick() EN主表）
+    inputs:
+      - source: acceptance.yml
+        sections: [FUNC-001~003消费端UI文案, FUNC-020~021 designerNote+邮件]
+      - source: boundary-scenarios.yml
+        sections: [EDGE-018~021 locale路由+翻译回退+邮件]
+      - source: decision.md
+        sections: [决策9/11/12消费端i18n]
+      - source: specs/architecture/api-contracts/catalog-api-incremental.md
+        sections: [designerNote字段定义]
+    output_files:
+      - i18n-store-frontend-detail.md  # portal-store路由重构+组件i18n+SEO增强
+    dependencies: []
+    complexity: very_high
+    estimated_hours: 14
+
+  - task_id: L2-I18N-UNIFIED-DOC-001
+    expert: Coordinator
+    description: 统一设计文档生成与冲突检测
+    scope:
+      - 汇总所有专家产出
+      - 执行18维冲突检测（CFL-01~18）
+      - 生成统一i18n-design.md
+      - 生成shared-contracts.yml
+      - 生成conflict-report.yml
+      - 生成requirements-traceability-matrix.yml
+    inputs:
+      - 所有专家产出文件
+    output_files:
+      - i18n-design.md  # 统一设计文档（8章节）
+      - shared-contracts.yml  # 共享契约
+      - conflict-report.yml  # 冲突检测报告
+      - requirements-traceability-matrix.yml  # 需求追溯矩阵
+    dependencies: [L2-I18N-BACKEND-001, L2-I18N-TEST-001, L2-I18N-FRONTEND-ADMIN-001, L2-I18N-FRONTEND-STORE-001]
+    complexity: medium
+    estimated_hours: 6
+
+execution_order:
+  phase_1_parallel:
+    - L2-I18N-BACKEND-001
+    - L2-I18N-FRONTEND-ADMIN-001
+    - L2-I18N-FRONTEND-STORE-001
+  phase_2_sequential:
+    - L2-I18N-TEST-001  # 依赖Backend产出
+  phase_3_sequential:
+    - L2-I18N-UNIFIED-DOC-001  # 依赖所有专家产出
+
+total_estimated_hours: 58

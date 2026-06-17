@@ -1,0 +1,63 @@
+challenger_input:
+  change_name: i18n-complete-with-ai-assist
+  design_dir: /Volumes/MAC/workspace/dreamy/hhspec/changes/i18n-complete-with-ai-assist/specs/design/
+  requirement_sources:
+    - hhspec/changes/i18n-complete-with-ai-assist/acceptance.yml
+    - hhspec/changes/i18n-complete-with-ai-assist/boundary-scenarios.yml
+    - hhspec/changes/i18n-complete-with-ai-assist/decision.md
+    - hhspec/changes/i18n-complete-with-ai-assist/er-diagram.yml
+  architecture_dir: /Volumes/MAC/workspace/dreamy/hhspec/changes/i18n-complete-with-ai-assist/specs/architecture/
+  specs_dir: /Volumes/MAC/workspace/dreamy/hhspec/changes/i18n-complete-with-ai-assist/specs/
+  review_round: 2
+  strictness_mode: standard
+  r1_fixes_applied: |
+    R1审查8项MUST_FIX已全部修复：
+    - ISS-001: 补 §1.7 POST /configs/{id}/test 测试连接端点 + 测试(TC-API/RESILIENCE/UNIT)
+    - ISS-002: 补 §3.3 GET /terms/{id} 术语详情端点 + 测试
+    - ISS-003: §5.1 修正为 PUT /api/consumer/auth/profile (StoreBearerAuth)
+    - ISS-004: data-detail 补 consecutive_failures 字段 + §8 降级状态机
+    - ISS-005: ai_translation_log.status 扩展为5值(success/failed/timeout/empty_result/rate_limited)
+    - ISS-006: §6.1 补 AES-256-GCM 密钥管理方案(env DREAMY_GATEWAY_AES_KEY + fail-fast + 版本前缀轮转)
+    - ISS-007: 追溯矩阵 FUNC-014~022 按 acceptance.yml 重新对齐
+    - ISS-008: §1.1/§1.4 入参字段 api_key_encrypted → api_key (1~512)
+
+design_artifacts:
+  unified_doc: i18n-design.md
+  backend:
+    - i18n-backend-api-detail.md
+    - i18n-backend-data-detail.md
+    - i18n-backend-error-mapping.yml
+  frontend:
+    - i18n-admin-frontend-detail.md
+    - i18n-store-frontend-detail.md
+  test:
+    - i18n-test-skeleton.md
+    - i18n-ui-test-spec.yml
+  coordination:
+    - complexity-metrics.yml
+    - task-allocation.yml
+    - shared-contracts.yml
+    - conflict-report.yml
+    - requirements-traceability-matrix.yml
+
+coverage_summary:
+  func_requirements: 22/22 (100%)
+  edge_scenarios: 24/24 (100%)
+  endpoints: 16/16
+  entities: 6/6 (3新+3改)
+  error_codes: 18/18 + 501(非AI网关测试连接)
+
+conflict_summary:
+  dimensions_checked: 18
+  pass: 17
+  compatible: 1
+  blocking: 0
+  verdict: PASS
+
+notes: |
+  - activation-matrix.yml缺失，采用全量激活fallback模式
+  - 无标准requirement.md，需求来源为acceptance.yml(22 FUNC)+boundary-scenarios.yml(24 EDGE)
+  - 全栈变更：后端3新域+3增量+前端admin/store全面改造
+  - 关键风险：路由重构影响面大，API Key密钥管理需运维确认
+
+l2_complete: true

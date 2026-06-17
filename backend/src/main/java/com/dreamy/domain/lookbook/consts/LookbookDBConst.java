@@ -8,4 +8,5 @@ public interface LookbookDBConst extends MarketingCommonDBConst {
     String TABLE = "lookbook";
 
     String THEME = "theme";
+    public static final String DELETED_AT = "deleted_at";
 }

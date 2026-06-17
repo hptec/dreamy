@@ -1,13 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { SiteHeader } from '@/components/layout/site-header'
-import { SiteFooter } from '@/components/layout/site-footer'
-import { NewsletterModal } from '@/components/marketing/newsletter-modal'
-import { CookieConsent } from '@/components/marketing/cookie-consent'
-import { StoreProvider } from '@/components/store-provider'
-import { I18nProvider } from '@/lib/i18n/i18n-context'
-import { fetchStoreBanners } from '@/lib/api/marketing-server'
-import { BannerPosition } from '@/lib/api/store-types'
+
+/**
+ * 根布局（App Router 要求顶层 app/layout 渲染 html/body）。
+ * locale-aware 的 chrome（header/footer/providers）下沉到 app/[locale]/layout.tsx，
+ * 其中 HtmlLangSync 客户端组件按当前 locale 同步 <html lang>（决策 11）。
+ */
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5173'),
@@ -16,20 +14,11 @@ export const metadata: Metadata = {
     template: '%s · Dreamy'
   },
   description:
-    'Luxury wedding gowns, bridesmaid & special occasion dresses, and accessories designed for the modern outdoor bride. Bright, airy, effortlessly elegant.',
-  keywords: ['wedding dresses', 'outdoor wedding', 'bridesmaid dresses', 'bridal accessories', 'beach wedding gown'],
-  openGraph: {
-    title: 'Dreamy — Outdoor Wedding Atelier',
-    description: 'Luxury gowns & dresses for the modern outdoor bride.',
-    type: 'website'
-  }
+    'Luxury wedding gowns, bridesmaid & special occasion dresses, and accessories designed for the modern outdoor bride.',
+  icons: { icon: '/icon.svg' }
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // PAGE-MKT-S02：layout 级 topbar 公告条（E-MKT-01 position=topbar；空回退静态文案）
-  const topbarBanners = await fetchStoreBanners(BannerPosition.TOPBAR)
-  const announcements = topbarBanners.map((b) => b.title).filter((t): t is string => !!t)
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
@@ -40,19 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
         />
       </head>
-      <body>
-        <I18nProvider>
-          <StoreProvider>
-            <div className="flex min-h-screen flex-col">
-              <SiteHeader announcements={announcements} />
-              <main className="flex-1">{children}</main>
-              <SiteFooter />
-            </div>
-            <NewsletterModal />
-            <CookieConsent />
-          </StoreProvider>
-        </I18nProvider>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }

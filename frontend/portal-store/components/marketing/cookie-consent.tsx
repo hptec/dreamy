@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react'
 import Script from 'next/script'
 import { usePathname } from 'next/navigation'
+import { useI18n } from '@/lib/i18n/i18n-context'
 import {
   GA4_ID,
   getStoredConsent,
@@ -23,6 +24,7 @@ import {
 } from '@/lib/analytics/gtag'
 
 export function CookieConsent() {
+  const { t } = useI18n()
   const [consent, setConsent] = useState<ConsentChoice | null>(null)
   const [show, setShow] = useState(false)
   /** gtag 命令队列已初始化（granted 时一次；脚本注入与 page_view 上报的前置门） */
@@ -71,21 +73,20 @@ export function CookieConsent() {
       {show && (
         <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-2xl animate-fadeup rounded-sm border border-line bg-surface p-5 shadow-lift sm:flex sm:items-center sm:gap-6">
           <p className="text-sm text-ink-soft">
-            We use analytics cookies to understand how you shop and to show you the gowns you’ll love.
-            Choose “Accept” to allow them, or “Decline” and we won’t set any analytics cookies.
+            {t.cookieConsent.body}
           </p>
           <div className="mt-3 flex shrink-0 gap-2 sm:mt-0">
             <button
               onClick={() => choose('granted')}
               className="cursor-pointer rounded-sm bg-ink px-5 py-2 text-xs font-medium uppercase tracking-luxe text-canvas transition-colors hover:bg-gold-deep"
             >
-              Accept
+              {t.cookieConsent.accept}
             </button>
             <button
               onClick={() => choose('denied')}
               className="cursor-pointer rounded-sm border border-line px-5 py-2 text-xs font-medium uppercase tracking-luxe transition-colors hover:border-ink"
             >
-              Decline
+              {t.cookieConsent.decline}
             </button>
           </div>
         </div>

@@ -1,0 +1,120 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T20:00:00Z'
+  generated_by: L2 Coordinator
+  mode: full-stack
+
+complexity_metrics:
+  endpoints_count: 14
+  endpoints_breakdown:
+    gateway_api: 6  # POST/GET/GET{id}/PUT{id}/DELETE{id}/POST sync-models
+    ai_translation_api: 2  # POST translate + GET logs
+    glossary_api: 4  # POST/GET/PUT{id}/DELETE{id}
+    catalog_api_incremental: 1  # PUT product designer_note
+    identity_api_incremental: 1  # PATCH user profile locale_pref
+
+  entities_count: 6
+  entities_breakdown:
+    new: 3  # ExternalGatewayConfig, AiTranslationLog, AiTranslationGlossary
+    modified: 3  # ProductTranslation+designer_note, User+locale_pref, Order+locale_snapshot
+
+  domains_count: 6
+  domains_breakdown:
+    new_backend: 3  # gateway, ai_translation, glossary
+    modified_backend: 3  # catalog, identity, trading
+    new_frontend: 0  # 前端无新domain，增强现有portal-admin/portal-store
+
+  cross_domain_deps: 8
+  cross_domain_deps_breakdown:
+    - from: ai_translation
+      to: gateway
+      type: read
+      desc: 读取启用的AI网关配置
+    - from: ai_translation
+      to: glossary
+      type: read
+      desc: 注入启用的术语表到system prompt
+    - from: catalog
+      to: ai_translation
+      type: call
+      desc: 商品编辑页调用AI翻译接口
+    - from: identity
+      to: email_service
+      type: data_flow
+      desc: user.locale_pref影响邮件模板选择
+    - from: trading
+      to: email_service
+      type: data_flow
+      desc: orders.locale_snapshot影响订单邮件语言
+    - from: portal_admin
+      to: gateway
+      type: ui_integration
+      desc: 后台网关配置页面
+    - from: portal_admin
+      to: glossary
+      type: ui_integration
+      desc: 后台术语表管理页面
+    - from: portal_store
+      to: i18n_messages
+      type: ui_integration
+      desc: 消费端50+组件接入useI18n()
+
+  error_codes_count: 18
+  error_codes_breakdown:
+    gateway: 9  # 400201/404201/409201/409202/422201/422202/502201/502202/504201
+    ai_translation: 5  # 400301/400302/422301/502301/504301
+    glossary: 3  # 404401/409401/422401
+    reused_identity: 1  # 40100/40300/40400/50000/50001
+
+  gherkin_scenarios_count: 22
+  boundary_scenarios_count: 24
+
+  external_integrations: 2
+  external_integrations_breakdown:
+    - name: OpenAI-compatible Gateway
+      protocol: REST
+      endpoints: ['/v1/chat/completions', '/v1/models']
+      critical: true
+    - name: Email SMTP
+      protocol: SMTP
+      templates: 9  # 3类邮件 × 3语言
+      critical: false
+
+  frontend_scope:
+    portal_admin:
+      new_pages: 2  # /system/gateways, /system/glossary
+      new_components: 1  # AI翻译弹窗（11处嵌入点）
+      modified_pages: 1  # ProductEdit增加designerNote字段
+    portal_store:
+      route_refactor: true  # app/ → app/[locale]/
+      i18n_namespaces: 30+  # messages.ts扩展
+      modified_components: 50+  # 接入useI18n()
+      seo_enhancements: ['hreflang', 'sitemap']
+
+  data_model_changes:
+    new_tables: 3
+    modified_tables: 3
+    new_indexes: 4
+    new_constraints: 3
+
+  test_coverage_targets:
+    backend_layers: 8  # 单元/集成/契约/组件/快照/异步/API/韧性
+    edge_scenarios: 24
+    ui_test_screens: 5  # admin 3页 + store locale切换 + i18n验证
+
+  complexity_level: high
+  complexity_level_rationale: |
+    - 16端点跨3新域+3增量域
+    - 全栈变更：后端新域+前端路由重构+50+组件i18n
+    - 外部依赖：OpenAI网关集成+超时/重试/降级
+    - 数据安全：API Key加密存储+掩码展示
+    - SEO影响：locale路由重构+hreflang+sitemap
+    - 24边界场景覆盖7类（空值/边界/格式/权限/并发/状态/外部依赖）
+
+  estimated_design_effort:
+    api_detail: high  # 16端点×4层（验证/逻辑/出参/错误映射）
+    data_detail: medium  # 3新实体+3修改+Repository方法+索引+事务
+    error_detail: high  # 18新错误码+24 EDGE场景矩阵+外部网关降级
+    test_detail: high  # 8层测试骨架+24 EDGE+业务流DAG
+    frontend_detail: very_high  # admin 3页+翻译弹窗+store路由重构+50+组件
+    ui_test_detail: medium  # admin 3页+store locale切换+i18n验证

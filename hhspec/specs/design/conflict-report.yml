@@ -1,0 +1,206 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T21:45:00Z'
+  generated_by: L2 Coordinator (Phase 5冲突检测 + R1修复后重检)
+  conflict_dimensions_checked: 18  # CFL-01~18
+  ui_dimensions_applicable: true  # 有UI需求，CFL-14~18适用
+  r1_fix_note: |
+    R1修复后重新检测：新增 §1.7 测试连接端点 + §3.3 术语详情端点（16端点），
+    修正 §5.1 profile 路径为 PUT /api/consumer/auth/profile（StoreBearerAuth），
+    修正 §1.1 入参字段 api_key（非api_key_encrypted），
+    补 consecutive_failures 字段 + status 5值枚举。重检后所有维度仍一致。
+
+# ===== 冲突检测结果 =====
+conflict_detection:
+  # CFL-01: 命名一致性（实体/字段）
+  - id: CFL-01
+    dimension: 命名一致性
+    result: PASS
+    evidence: |
+      实体名PascalCase统一(ExternalGatewayConfig/AiTranslationLog/AiTranslationGlossary)。
+      DTO字段camelCase(apiKeyEncrypted), DB列snake_case(api_key_encrypted), 通过MapStruct映射。
+      前后端字段名一致(camelCase)。
+
+  # CFL-02: 类型映射一致性
+  - id: CFL-02
+    dimension: 类型映射
+    result: PASS
+    evidence: |
+      Long→BIGINT, Enum→TINYINT, JSON→JSON, EncryptedString→VARCHAR(512)。
+      与shared-contracts.yml type_mapping一致。
+
+  # CFL-03: 错误码引用一致性
+  - id: CFL-03
+    dimension: 错误码引用
+    result: PASS
+    evidence: |
+      API详设ERR-*引用的18个错误码全部在error-mapping.yml中定义。
+      号段无交叉(gateway=2/ai_translation=3/glossary=4)。
+
+  # CFL-04: 端点路径一致性
+  - id: CFL-04
+    dimension: 端点路径
+    result: PASS
+    evidence: |
+      API详设16端点路径与L1 OpenAPI契约一致（gateway7含§1.7 test + ai2 + glossary5含§3.3 详情 + 增量2）。
+      §5.1 profile 已修正为 PUT /api/consumer/auth/profile（StoreBearerAuth），与 identity-api-incremental 一致。
+      前端Store actions调用路径与API详设一致（store-frontend §7 profile 路径已同步）。
+
+  # CFL-05: 请求/响应Schema一致性
+  - id: CFL-05
+    dimension: Schema一致性
+    result: PASS
+    evidence: |
+      GatewayConfigUpsert/Detail/ListItem字段与data-detail DTO映射一致。
+      创建端点入参字段 api_key（明文1~512）与 GatewayConfigUpsert schema 一致（ISS-008修正）。
+      GatewayTestResult{reachable/available_models_count/error_code/error_message/latency_ms}与§1.7一致。
+      TranslateRequest字段与ai_translation入参验证一致。
+
+  # CFL-06: 数据约束一致性
+  - id: CFL-06
+    dimension: 数据约束
+    result: PASS
+    evidence: |
+      唯一约束(uk_type_name/uk_term_en)在API业务逻辑和DDL中一致。
+      字段长度(name≤64/term_en≤128)在验证和DDL中一致。
+
+  # CFL-07: 事务边界一致性
+  - id: CFL-07
+    dimension: 事务边界
+    result: PASS
+    evidence: |
+      TX-001(模型拉取事务外)与API STEP-G001-04一致。
+      TX-004(日志REQUIRES_NEW)与翻译流程一致。
+
+  # CFL-08: 索引覆盖查询
+  - id: CFL-08
+    dimension: 索引覆盖
+    result: PASS
+    evidence: |
+      RM-002查询有idx_type_enabled覆盖。
+      RM-005引用计数有idx_gateway覆盖。
+      RM-008唯一性有uk_term_en覆盖。
+
+  # CFL-09: 测试覆盖API端点
+  - id: CFL-09
+    dimension: 测试覆盖端点
+    result: PASS
+    evidence: |
+      16端点均有对应测试(TC-API-*/TC-UNIT-*)。
+      §1.7 测试连接：TC-API-I18N-0009/0010/0011 + TC-RESILIENCE-I18N-0008/0009/0010 + TC-UNIT-I18N-0030。
+      §3.3 术语详情：TC-UNIT-I18N-0021/0022 + TC-API-I18N-0007/0008。
+      测试引用的端点路径与API详设一致。
+
+  # CFL-10: 测试覆盖错误码
+  - id: CFL-10
+    dimension: 测试覆盖错误码
+    result: PASS
+    evidence: |
+      所有must_test=true错误码有对应测试。
+      24 EDGE场景全覆盖(见test-skeleton第9节矩阵)。
+
+  # CFL-11: 测试覆盖数据约束
+  - id: CFL-11
+    dimension: 测试覆盖约束
+    result: PASS
+    evidence: |
+      唯一索引有TC-INT-0002验证。
+      乐观锁有TC-UNIT-0004验证。
+
+  # CFL-12: 跨域依赖一致性
+  - id: CFL-12
+    dimension: 跨域依赖
+    result: PASS
+    evidence: |
+      ai_translation→gateway(读配置)与shared-contracts integration_contracts一致。
+      ai_translation→glossary(注入术语)与FLOW-I01一致。
+      catalog→ai_translation(翻译调用)前端admin详设一致。
+
+  # CFL-13: 外部集成契约一致性
+  - id: CFL-13
+    dimension: 外部集成
+    result: PASS
+    evidence: |
+      OpenAI /v1/chat/completions + /v1/models契约在API/Data/Test中一致。
+      超时30s(翻译)/10s(测试连接)统一。
+
+  # ===== UI维度 CFL-14~18 =====
+  # CFL-14: 前端组件覆盖屏幕
+  - id: CFL-14
+    dimension: 组件覆盖屏幕
+    result: PASS
+    evidence: |
+      admin 2新页面(PAGE-001/002)+1弹窗(COMP-006)+1增量(PAGE-003)。
+      store路由重构覆盖所有页面。
+
+  # CFL-15: 前端状态管理一致性
+  - id: CFL-15
+    dimension: 状态管理
+    result: PASS
+    evidence: |
+      STORE-001/002/003(Pinia)actions与API端点一一对应。
+
+  # CFL-16: 前端API调用一致性
+  - id: CFL-16
+    dimension: 前端API调用
+    result: PASS
+    evidence: |
+      前端actions调用路径/参数与API详设一致。
+      请求字段camelCase与OpenAPI schema一致。
+
+  # CFL-17: UI测试覆盖交互
+  - id: CFL-17
+    dimension: UI测试覆盖
+    result: PASS
+    evidence: |
+      ui-test-spec覆盖admin 3页面+store locale切换+i18n验证。
+      关键交互(翻译弹窗/防重复/失败不阻塞)均有测试。
+
+  # CFL-18: 前端错误处理一致性
+  - id: CFL-18
+    dimension: 前端错误处理
+    result: COMPATIBLE
+    severity: low
+    evidence: |
+      前端错误提示与后端错误码映射存在轻微表述差异。
+    detail: |
+      后端error-mapping.yml message_zh为后台中文(决策8)。
+      前端admin详设错误提示文案需与后端message_zh对齐。
+      store端无后端错误码消费(纯前端i18n)。
+    resolution: |
+      合并方案：前端admin错误提示直接展示后端返回的message字段(中文)，
+      不在前端硬编码错误文案，确保一致性。前端仅根据code做UI分支(如401跳登录)。
+    merge_into_unified: true
+
+# ===== 冲突汇总 =====
+summary:
+  total_dimensions: 18
+  pass: 17
+  compatible: 1  # CFL-18
+  blocking: 0
+  gap: 0
+  unresolved: 0
+
+  blocking_conflicts: []
+  compatible_conflicts:
+    - CFL-18: 前端错误提示与后端message对齐(已给合并方案)
+  gaps: []
+
+# ===== 裁定记录 =====
+adjudications:
+  - conflict: CFL-18
+    type: COMPATIBLE
+    principle: API优先  # 后端错误码message为权威
+    decision: |
+      前端admin展示后端返回的message字段，不硬编码错误文案。
+      理由：决策8后台保持中文，后端message_zh已是最终文案，前端透传即可。
+    assigned_to: Designer-Frontend (admin)
+    action: 错误处理统一透传后端message
+
+# ===== 整体结论 =====
+verdict: PASS
+verdict_rationale: |
+  18个冲突检测维度17 PASS + 1 COMPATIBLE(已给合并方案)，0 BLOCKING。
+  各专家产出在命名/类型/错误码/端点/Schema/事务/索引/测试/跨域/外部集成/UI层面一致。
+  唯一COMPATIBLE项(前端错误提示)已裁定按API优先原则透传后端message。
+  可进入Phase 6统一文档生成。

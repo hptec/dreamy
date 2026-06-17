@@ -205,7 +205,7 @@ class StoreAuthControllerTest {
         User user = activeUser(1L, "user@example.com");
         TokenPair tokens = buildTokenPair();
         when(mapper.toProfile(any(User.class))).thenReturn(
-                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE));
+                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE, null));
         when(otpService.verifyOtp(eq("user@example.com"), eq("123456"), any(LoginContext.class)))
                 .thenReturn(new LoginResult(user, tokens, false, false));
 
@@ -259,7 +259,7 @@ class StoreAuthControllerTest {
         // ARRANGE：主键 Long 迁移，store token subject 必须为数字串
         TokenPair pair = jwtTokenProvider.issueStoreTokens("1", "email");
         when(identityService.getProfileView(1L)).thenReturn(
-                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE));
+                new UserProfileDTO(1L, "user@example.com", true, null, null, UserTier.REGULAR, null, null, UserStatus.ACTIVE, null));
 
         // ACT + ASSERT: L1 200, L2 user.id（R 包络 data）
         mockMvc.perform(get("/api/store/account/profile")

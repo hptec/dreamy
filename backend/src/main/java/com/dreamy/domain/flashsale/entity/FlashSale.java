@@ -38,4 +38,7 @@ public class FlashSale extends LongAuditableEntity {
 
     @Column(name = FlashSaleDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已排期 3=进行中 4=已结束'")
     private FlashSaleStatus status;
+
+    @Column(name = FlashSaleDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

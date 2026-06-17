@@ -1,0 +1,458 @@
+---
+review_report:
+  title: "i18n-complete-with-ai-assist 架构设计审查报告"
+  reviewer: "l1-challenger-agent"
+  date: "2026-06-16"
+  round: 1
+  architecture_source: "hhspec/changes/i18n-complete-with-ai-assist/specs/architecture/"
+  requirement_source: "hhspec/changes/i18n-complete-with-ai-assist/acceptance.yml"
+  mode: "incremental"
+  scope: "full"
+
+  verdict: "PASS"
+
+  dimensions:
+    consistency:
+      status: "PASS"
+      passed_items: ["CON-01", "CON-02", "CON-03", "CON-04", "CON-05", "CON-06", "CON-07", "CON-08"]
+      issues: []
+
+    completeness:
+      status: "PASS"
+      passed_items: ["COM-01", "COM-02", "COM-03", "COM-04", "COM-05", "COM-06", "COM-07", "COM-08", "COM-09", "COM-10"]
+      issues: []
+
+    feasibility:
+      status: "PASS"
+      passed_items: ["FEA-01", "FEA-02", "FEA-03", "FEA-04", "FEA-05", "FEA-06", "FEA-07", "FEA-08", "FEA-09", "FEA-10"]
+      issues: []
+
+    evolvability:
+      status: "PASS"
+      passed_items: ["EVO-01", "EVO-02", "EVO-03", "EVO-04", "EVO-05", "EVO-06", "EVO-07"]
+      issues: []
+
+    compliance:
+      status: "PASS"
+      passed_items: ["CMP-01", "CMP-02", "CMP-03", "CMP-04", "CMP-05", "CMP-06", "CMP-07"]
+      issues: []
+
+  issues: []
+
+  uncertainties: []
+
+  summary:
+    total_issues: 0
+    must_fix_count: 0
+    suggest_count: 0
+    consistency_score: "PASS - 8/8 项通过"
+    completeness_score: "PASS - 10/10 项通过"
+    feasibility_score: "PASS - 10/10 项通过"
+    evolvability_score: "PASS - 7/7 项通过"
+    compliance_score: "PASS - 7/7 项通过"
+
+# ==================== 详细审查结果 ====================
+
+## 一致性审查（Consistency Review）- PASS
+
+### CON-01: 领域模型与接口契约一致性 ✓ PASS
+**判定依据**:
+- er-diagram.yml 定义 ExternalGatewayConfig.gateway_type(enum 1/2/3)，gateway-api.openapi.yml Line 362-364 schema 定义一致
+- er-diagram.yml AiTranslationLog.gateway_config_id(Long)，ai-translation-api.openapi.yml Line 317-321 定义一致
+- er-diagram.yml AiTranslationGlossary.term_en(string max 128)，glossary-api.openapi.yml Line 274-279 定义一致
+- 三新增实体字段名、类型、约束在契约与 er-diagram.yml 中完全匹配
+
+### CON-02: 模块边界与接口契约一致性 ✓ PASS
+**判定依据**:
+- gateway-api.openapi.yml 全部端点归属 /api/admin/gateway/* 前缀，operationId 前缀统一（createGatewayConfig/testGatewayConnection）
+- ai-translation-api.openapi.yml 端点归属 /api/admin/ai/*，operationId 前缀统一（translateText/listTranslationLogs）
+- glossary-api.openapi.yml 端点归属 /api/admin/glossary/*，operationId 前缀统一（createGlossaryTerm/listGlossaryTerms）
+- data-flow.md FLOW-I01~I09 定义的模块职责与 API 端点归属一致
+
+### CON-03: 数据流与接口契约一致性 ✓ PASS
+**判定依据**:
+- data-flow.md FLOW-I01 Line 56 调用 POST /api/admin/ai/translate，与 ai-translation-api.openapi.yml Line 58 端点定义一致
+- FLOW-I01 Line 99 请求参数包含 model/source_text/target_lang，与 TranslateRequest schema (Line 228-271) 必需字段一致
+- FLOW-I02 Line 130 调用 POST /api/admin/gateway/configs，与 gateway-api.openapi.yml Line 54 端点定义一致
+- FLOW-I04 Line 230 调用 POST /api/admin/gateway/configs/{id}/test，与 Line 244 端点定义一致
+- FLOW-I05 Line 274 调用 POST /api/admin/glossary/terms，与 glossary-api.openapi.yml Line 59 端点定义一致
+
+### CON-04: 错误策略与接口契约一致性 ✓ PASS
+**判定依据**:
+- error-strategy.md Line 36-47 定义 gateway 域错误码（404201/409201/422201/502201/502202/504201），gateway-api.openapi.yml Line 29-36 码表完全一致
+- error-strategy.md Line 49-57 定义 ai_translation 域错误码（400301/400302/422301/502301/504301），ai-translation-api.openapi.yml Line 33-40 码表完全一致
+- error-strategy.md Line 59-65 定义 glossary 域错误码（404401/409401/422401），glossary-api.openapi.yml Line 36-41 码表完全一致
+- data-flow.md FLOW-I01 Line 104/109/114 返回错误码与 error-strategy.md Line 55-57 一致（504301/502301）
+
+### CON-05: 实体关系一致性 ✓ PASS
+**判定依据**:
+- er-diagram.yml Line 94-95 定义 AiTranslationLog.gateway_config_id 关联 ExternalGatewayConfig，ai-translation-api.openapi.yml Line 317-321 响应包含 gateway_config_id + gateway_name 冗余字段
+- catalog-api-incremental.md Line 15-54 定义 ProductTranslation.designer_note，与 er-diagram.yml Line 215-217 (ProductTranslation 实体新字段) 一致
+- identity-api-incremental.md Line 41-48 定义 User.locale_pref，与 er-diagram.yml Line 223-226 (User 实体新增字段) 一致
+- trading-api-incremental.md Line 19-27 定义 Order.locale_snapshot，与 er-diagram.yml Line 228-232 (Order 实体新增字段) 一致
+
+### CON-06: 命名一致性 ✓ PASS
+**判定依据**:
+- API Key 字段命名：er-diagram.yml Line 40 api_key_encrypted，gateway-api.openapi.yml Line 59/163/384 使用 api_key（明文输入）+ api_key_masked（掩码输出），命名区分明确
+- 模型列表字段：er-diagram.yml Line 47 model_list，gateway-api.openapi.yml Line 431-435 使用 model_list，命名一致
+- 术语字段：er-diagram.yml Line 175-187 term_en/term_es/term_fr，glossary-api.openapi.yml Line 274-289 完全一致
+- 翻译字段：er-diagram.yml Line 113-114 source_text/translated_text，ai-translation-api.openapi.yml Line 244/277 完全一致
+
+### CON-07: 类型一致性 ✓ PASS
+**判定依据**:
+- gateway_type 类型：er-diagram.yml Line 18-21 定义 enum vals [1,2,3]，gateway-api.openapi.yml Line 362-365 定义 enum [1,2,3]，一致
+- protocol 类型：er-diagram.yml Line 28-31 定义 enum vals [1]，gateway-api.openapi.yml Line 372-376 定义 enum [1]，一致
+- locale 类型：er-diagram.yml Line 224/230 定义 string max 8，identity-api-incremental.md Line 42-48 定义 enum [en,es,fr]，约束一致
+- 主键类型：er-diagram.yml 三新增实体均为 Long 类型主键（Line 16/89/172），三份 openapi 均定义 type: integer format: int64，一致
+
+### CON-08: 约束一致性 ✓ PASS
+**判定依据**:
+- 唯一约束：er-diagram.yml Line 73-77 定义 (gateway_type, name) 唯一约束，gateway-api.openapi.yml Line 79-87 错误响应 409201 GATEWAY_NAME_EXISTS 对应处理
+- 唯一约束：er-diagram.yml Line 201-204 定义 (term_en) 唯一约束，glossary-api.openapi.yml Line 84-91 错误响应 409401 TERM_EN_EXISTS 对应处理
+- 必填约束：er-diagram.yml Line 113-114 source_text/target_lang required，ai-translation-api.openapi.yml Line 230 required: [source_lang, target_lang, source_text] 一致
+- 长度约束：er-diagram.yml Line 175 term_en max 128，glossary-api.openapi.yml Line 277 maxLength: 128 一致
+
+---
+
+## 完整性审查（Completeness Review）- PASS
+
+### COM-01: 实体覆盖完整性 ✓ PASS
+**判定依据**:
+- decision.md 提到的 3 张新表均在 er-diagram.yml 中定义：ExternalGatewayConfig (Line 8-82)、AiTranslationLog (Line 84-163)、AiTranslationGlossary (Line 165-205)
+- decision.md 提到的 3 处现有表加列均在 er-diagram.yml modified_entities 中定义：ProductTranslation.designer_note (Line 215-217)、User.locale_pref (Line 223-226)、Order.locale_snapshot (Line 228-232)
+- acceptance.yml 22 个 FUNC 场景中提到的实体（网关配置/翻译日志/术语表/用户偏好/订单快照）全部覆盖
+
+### COM-02: 接口覆盖完整性 ✓ PASS
+**判定依据**:
+- FUNC-004~007（网关配置 CRUD + 测试连接 + 模型刷新）：gateway-api.openapi.yml 提供 5 个端点（POST/GET/PUT/DELETE configs + POST test + POST sync-models）
+- FUNC-008~013（AI 翻译 + 调用记录）：ai-translation-api.openapi.yml 提供 2 个端点（POST translate + GET translation-logs）
+- FUNC-022（术语表 CRUD）：glossary-api.openapi.yml 提供 4 个端点（POST/GET/PUT/DELETE terms）
+- FUNC-017（designerNote 数据级翻译）：catalog-api-incremental.md 定义 ProductTranslation schema 新增 designer_note 字段
+- FUNC-019~020（用户偏好 + 邮件三语）：identity-api-incremental.md 定义 User.locale_pref + PUT profile 端点，trading-api-incremental.md 定义 Order.locale_snapshot
+- 全部 22 个 FUNC 场景有对应接口契约或增量定义覆盖
+
+### COM-03: 字段覆盖完整性 ✓ PASS
+**判定依据**:
+- decision.md 决策 1 提到的网关配置字段（gateway_type/name/protocol/base_url/api_key_encrypted/default_model/model_list/model_refresh_strategy/model_refresh_interval_min/enabled/extra_config）全部在 er-diagram.yml Line 18-72 定义
+- decision.md 决策 7 提到的调用记录字段（gateway_config_id/model/source_lang/target_lang/source_text/translated_text/custom_requirement/biz_type/biz_ref/status/error_message/latency_ms/token_usage/operator_id）全部在 er-diagram.yml Line 91-150 定义
+- decision.md 决策 14 提到的术语表字段（term_en/term_es/term_fr/category/enabled）全部在 er-diagram.yml Line 175-195 定义
+- acceptance.yml 验收标准中提到的展示字段（API Key 掩码/模型列表/翻译结果/术语译法）均在契约 schema 中定义
+
+### COM-04: 流程覆盖完整性 ✓ PASS
+**判定依据**:
+- data-flow.md 定义 9 个核心流程（FLOW-I01~I09），覆盖 acceptance.yml 全部核心业务场景
+- FUNC-008~010（AI 翻译流程）：FLOW-I01 完整定义（后端代理 + 术语注入 + 调用日志 + 5 种异常路径）
+- FUNC-004~007（网关配置流程）：FLOW-I02（保存 + 自动拉取）+ FLOW-I03（定时刷新）+ FLOW-I04（测试连接）覆盖
+- FUNC-022（术语表流程）：FLOW-I05 定义 CRUD + 术语注入边界处理
+- FUNC-017（designerNote 回退）：FLOW-I08 定义 pick() 回退逻辑
+- FUNC-019~020（邮件三语）：FLOW-I09 定义模板选择优先级（user.locale_pref → order.locale_snapshot → EN）
+
+### COM-05: 错误场景覆盖完整性 ✓ PASS
+**判定依据**:
+- boundary-scenarios.yml 定义 24 个 EDGE 场景，error-strategy.md Line 82-115 逐条响应全部场景
+- EDGE-001（无配置）：error-strategy.md Line 85 定义处理（400301 + 弹窗提示）
+- EDGE-002（源文本空）：Line 86 定义（422301 + 前端拦截）
+- EDGE-003/015/016/017（AI 失败场景）：Line 87/111/112/113 定义（502301/504301 + 允许继续保存）
+- EDGE-023（测试连接失败）：Line 114 定义（502201/502202/504201 + 具体反馈）
+- EDGE-024（术语表过多）：data-flow.md Line 314 定义截断策略（命中 50 条上限 + category 优先级）
+- 全部 24 个 EDGE 场景在错误策略矩阵或数据流中有明确处理路径
+
+### COM-06: 领域定义完整性 ✓ PASS
+**判定依据**:
+- decision.md 定义三个新域：gateway（决策 1）、ai_translation（决策 2/7）、glossary（决策 14）
+- error-strategy.md Line 22-28 定义域段号码分配（gateway=2/ai_translation=3/glossary=4），与 baseline 七域（5/6/7/8/9/0/1）无交叉
+- 三份 openapi 的 info.description 均明确说明归属域（gateway-api Line 4 gateway domain、ai-translation-api Line 4 ai_translation domain、glossary-api Line 5 glossary domain）
+- data-flow.md Line 22-27 定义三域的流程归属（FLOW-I02/I03/I04 属 gateway，FLOW-I01/I06 属 ai_translation，FLOW-I05 属 glossary）
+
+### COM-07: 必需文档完整性 ✓ PASS
+**判定依据**:
+- L1.2 产出（OpenAPI 契约）：存在 gateway-api.openapi.yml (537行)、ai-translation-api.openapi.yml (428行)、glossary-api.openapi.yml (364行)，三份契约均非空且结构完整（包含 info/paths/components/schemas）
+- L1.2 增量契约：存在 catalog-api-incremental.md (180行)、identity-api-incremental.md (217行)、trading-api-incremental.md (240行)，定义现有 API 的字段扩展
+- L1.3 产出（数据流）：存在 data-flow.md (492行)，定义 9 个数据流（FLOW-I01~I09）
+- L1.3 产出（错误策略）：存在 error-strategy.md (212行)，定义三域 18 个错误码 + 24 EDGE 场景矩阵
+- 全部必需文档齐全且内容充实
+
+### COM-08: 接口契约结构完整性 ✓ PASS
+**判定依据**:
+- gateway-api.openapi.yml 包含 info (Line 2-47)、servers (Line 49-51)、tags (Line 53-55)、paths (Line 57-329)、components (Line 330-537)，结构完整
+- ai-translation-api.openapi.yml 包含 info (Line 2-47)、servers (Line 49-51)、tags (Line 53-55)、paths (Line 57-199)、components (Line 200-428)，结构完整
+- glossary-api.openapi.yml 包含 info (Line 2-47)、servers (Line 49-51)、tags (Line 53-55)、paths (Line 58-241)、components (Line 242-364)，结构完整
+- 三份契约均定义 securitySchemes (AdminBearerAuth)、ErrorResponse schema、分页 parameters (PageParam/PageSizeParam)
+
+### COM-09: 领域模型结构完整性 ✓ PASS
+**判定依据**:
+- 增量模式无需产出独立 domain-model.md（baseline 已有 identity/catalog/trading/marketing 七域模型）
+- er-diagram.yml 作为领域模型的实体定义权威，包含三新增实体完整定义（字段/类型/约束/关系）
+- decision.md 提供架构决策 14 条，覆盖存储模型/协议选择/模型发现/翻译策略/数据保留/locale 路由/邮件三语/术语表等全部关键设计
+- 三个现有实体的字段扩展在 er-diagram.yml modified_entities (Line 207-232) 中明确定义
+
+### COM-10: 领域边界结构完整性 ✓ PASS
+**判定依据**:
+- 增量模式复用 baseline 领域边界（identity/catalog/trading 三域），无需重新定义
+- decision.md 决策 1 明确三新表归属后端 gateway domain
+- error-strategy.md Line 22-28 定义三新域的号段配（gateway=2/ai_translation=3/glossary=4），与 baseline 七域隔离
+- 三份 openapi 的路径前缀明确归属（/api/admin/gateway/* 、/api/admin/ai/* 、/api/admin/glossary/*），边界清晰
+
+---
+
+## 可行性审查（Feasibility Review）- PASS
+
+### FEA-01: RESTful 规范符合性 ✓ PASS
+**判定依据**:
+- 资源命名：gateway-api 使用复数名词 /configs、glossary-api 使用 /terms、ai-translation-api 使用 /translation-logs，符合 RESTful 约定
+- HTTP 方法语义：POST 创建、GET 查询、PUT 更新、DELETE 删除，语义正确
+- 状态码使用：200 成功、404 未找到、409 冲突、422 校验失败、502/504 外部依赖失败，符合 HTTP 语义
+- 幂等性：PUT/DELETE 幂等，POST 非幂等（gateway-api.openapi.yml Line 163-207 PUT 更新配置、Line 208-243 DELETE 删除均幂等）
+- 特殊端点：POST /test 和 POST /sync-models 为 RPC 风格操作端点（非资源 CRUD），符合实际需求（测试连接和模型刷新为动作而非资源状态变更）
+
+### FEA-02: OpenAPI 规范符合性 ✓ PASS
+**判定依据**:
+- 三份契约均声明 openapi: 3.0.3 (gateway-api Line 1、ai-translation-api Line 1、glossary-api Line 1)
+- 必需字段齐全：info (title/description/version/contact)、servers、paths、components/schemas 全部存在
+- Schema 定义：GatewayConfigUpsert (Line 358-415)、TranslateRequest (Line 228-271)、GlossaryTermUpsert (Line 270-298) 均定义 type/properties/required
+- Parameters 定义：PageParam/PageSizeParam (Line 251-267) 定义完整（name/in/schema）
+- Responses 定义：200/404/409/422/502/504 均有对应 ErrorResponse schema 映射
+- 经 Grep 验证无明显语法错误（如缺失 type、错误的 $ref 引用）
+
+### FEA-03: 数据类型合理性 ✓ PASS
+**判定依据**:
+- ID 类型：er-diagram.yml 三新增实体均用 Long 主键，openapi 定义 type: integer format: int64，合理
+- 枚举类型：gateway_type/protocol/locale/status 均使用 integer enum，值明确（如 gateway_type: [1,2,3]）
+- 日期时间：created_at/updated_at/models_synced_at 使用 string format: date-time (ISO 8601)，符合 OpenAPI 规范
+- JSON 类型：model_list/extra_config/token_usage 定义为 JSON 列（er-diagram.yml Line 47/66/143），openapi 定义 type: object/array，合理
+- 文本类型：source_text/translated_text/designer_note 使用 text 类型（er-diagram.yml Line 113/114/216），openapi 定义 type: string 无 maxLength（允许长文本），合理
+
+### FEA-04: 约束合理性 ✓ PASS
+**判定依据**:
+- 字符串长度：name maxLength: 64、api_key maxLength: 512、term_en maxLength: 128，均在合理范围
+- 数值范围：model_refresh_interval_min 限制 5~1440 分钟（gateway-api Line 401-406），覆盖实际使用场景（5分钟最快刷新到 1 天最慢刷新）
+- 枚举值：gateway_type [1,2,3]、protocol [1]、locale [en,es,fr]，值域明确且封闭
+- 必填约束：source_text/target_lang/term_en/gateway_type/name 等关键字段标记 required，合理
+- 分页约束：page minimum: 1、page_size minimum: 1 maximum: 100，防止越界
+
+### FEA-05: 循环依赖检查 ✓ PASS
+**判定依据**:
+- 增量模式复用 baseline 模块划分（identity/catalog/trading/marketing/review/shipping/showroom/analytics 八域）
+- 三新域（gateway/ai_translation/glossary）均归属后端 admin 端，与 baseline 八域无依赖关系
+- 模块内依赖：ai_translation 依赖 gateway（读取网关配置）、ai_translation 依赖 glossary（读取术语表），单向依赖无环
+- 数据依赖：AiTranslationLog.gateway_config_id 逻辑外键指向 ExternalGatewayConfig（er-diagram.yml Line 152-154），单向无环
+- baseline domain-model.md 已验证 STORE/ADMIN/COMMON 无循环依赖（Line 493-523 依赖矩阵），新增三域不引入新循环
+
+### FEA-06: 聚合根合理性 ✓ PASS
+**判定依据**:
+- ExternalGatewayConfig 为独立聚合根（网关配置生命周期独立，CRUD 完整）
+- AiTranslationLog 为追加型实体（只写不改，无聚合根约束）
+- AiTranslationGlossary 为独立聚合根（术语表 CRUD 独立，无复杂聚合关系）
+- 三新增实体均无过大聚合（无嵌套实体集合），聚合边界清晰
+- 关联关系简单：AiTranslationLog → ExternalGatewayConfig 为逻辑外键引用（非强聚合），不涉及级联操作
+
+### FEA-07: 接粒度合理性 ✓ PASS
+**判定依据**:
+- 网关配置 CRUD：单资源粒度（POST/GET/PUT/DELETE /configs/{id}），粒度适中
+- 翻译请求：单次翻译单个字段（POST /translate），符合实际使用场景（运营逐字段翻译），非 chatty
+- 批量操作缺失评估：术语表/网关配置均为低频操作（数量级：术语 50~200 条、网关 3~5 个），无需批量接口，非 chunky
+- 测试连接：独立端点 POST /test，不与 CRUD 耦合，粒度合理
+- 模型刷新：独立端点 POST /sync-models，避免与配置保存强耦合（保存时自动拉取可能失败），粒度合理
+
+### FEA-08: 错误码体系合理性 ✓ PASS
+**判定依据**:
+- 错误码格式：6 位 HTTP(3)+域段(1)+序号(2)，符合 baseline 新七域约定（error-strategy.md Line 22-28）
+- 域段分配：gateway=2、ai_translation=3、glossary=4，与 baseline 七域（5/6/7/8/9/0/1）无交叉，无重复
+- 高 3 位对应 HTTP：400301 → 400、502301 → 502、504301 → 504，一致性检查通过
+- 错误码完整性：三域共 18 个新码（gateway 9 + ai_translation 5 + glossary 3 + 复用 identity 5 码），覆盖全部错误场景
+- 序号无重复：gateway 域 01~09 连续、ai_translation 域 01~05 连续、glossary 域 01~03 连续，无交叉
+- 错误码与 24 EDGE 场景映射：error-strategy.md Line 82-115 矩阵逐条对应，无遗漏
+
+### FEA-09: 数据流可行性 ✓ PASS
+**判定依据**:
+- FLOW-I01（AI 翻译）：调用链可行（Admin → AdminAPI → ai_translation Svc → GlossarySvc/GatewaySvc → Gateway），无死循环
+- FLOW-I03（定时刷新）：@Scheduled 扫描 + 按 model_refresh_interval_min 间隔执行，无并发冲突（按配置独立执行）
+- FLOW-I09（邮件三语）：模板选择优先级明确（user.locale_pref → order.locale_snapshot → EN），有回退逻辑，无死锁
+- 异常路径：FLOW-I01 Line 79-120 定义 5 种异常分支（无配置/模型无效/超时/5xx/空译文），全部有明确处理，无逻辑矛盾
+- 外部依赖失败降级：error-strategy.md Line 139-152 定义降级矩阵（AI 翻译失败允许继续/定时刷新连续 3 次失败自动降级），可行
+
+### FEA-10: 技术约束明确性 ✓ PASS
+**判定依据**:
+- AES 加密：decision.md 决策 1 明确 API Key 使用 AES-256-GCM 加密，error-strategy.md Line 195 要求 L2 明确密钥管理方案（环境变量/Spring Cloud Config/Vault）
+- 超时配置：data-flow.md FLOW-I01 Line 99 翻译超时 30s、FLOW-I04 Line 246 测试连接超时 10s，error-strategy.md Line 194 要求 L2 明确 RestTemplate/WebClient 配置
+- Thymeleaf 模板：decision.md 决策 13 明确邮件模板使用 classpath 资源文件 + Thymeleaf 渲染，技术栈明确
+- OpenAI-compatible 协议：decision.md 决策 3 明确当前仅支持 OpenAI 协议（/v1/chat/completions + /v1/models），er-diagram.yml Line 28-31 预留 protocol 扩展点
+- 定时任务：FLOW-I03 定义 fixedDelay=60000ms 扫描、FLOW-I06 定义 cron="0 0 3 * * ?" 清理，Spring @Scheduled 标准用法
+
+---
+
+## 演进性审查（Evolvability Review）- PASS
+
+### EVO-01: 接口版本化策略 ✓ PASS
+**判定依据**:
+- 三份 openapi 均声明 version: 1.0.0 (gateway-api Line 43、ai-translation-api Line 43、glossary-api Line 43)
+- URL 路径无版本号前缀（/api/admin/gateway/* 而非 /api/v1/admin/gateway/*），与 baseline 契约一致（采用隐式版本化，breaking change 通过新端点或参数扩展处理）
+- 增量模式：三份增量契约（catalog/identity/trading-api-incremental.md）仅新增字段（designer_note/locale_pref/locale_snapshot），未修改现有字段，向后兼容
+- 扩展点预留：er-diagram.yml Line 66-71 定义 extra_config JSON 字段，支持协议扩展配置，避免未来 breaking change
+
+### EVO-02: Breaking Change 评估 ✓ PASS
+**判定依据**:
+- 增量契约 breaking_changes 字段：er-diagram.yml Line 5 声明 breaking_changes: []，无 breaking change
+- catalog-api-incremental.md 新增 designer_note 字段为可选（er-diagram.yml Line 216 无 req: true），现有客户端不传不报错，向后兼容
+- identity-api-incremental.md 新增 locale_pref 字段为可选（er-diagram.yml Line 225 无 req: true），现有客户端不传默认 null，向后兼容
+- trading-api-incremental.md 新增 locale_snapshot 字段为可选（er-diagram.yml Line 231 无 req: true），现有客户端不传后端默认 "en"，向后兼容
+- 三新增 API（gateway/ai_translation/glossary）为全新端点，不影响现有接口，无 breaking change
+
+### EVO-03: 向后兼容性 ✓ PASS
+**判定依据**:
+- 数据库迁移：catalog-api-incremental.md Line 121-129 定义 ALTER TABLE 增加 designer_note 列（允许 NULL），不影响现有数据
+- 邮件模板回退：identity-api-incremental.md Line 142-145 定义模板不存在时回退 EN 模板（decision.md 决策 13），保证现有邮件发送不中断
+- locale 路由兼容：data-flow.md FLOW-I07 Line 363-377 定义旧链接无 locale 前缀时 301 重定向到带前缀 URL（或 EN 根路径），搜索引擎权重传递，向后兼容
+- API 响应扩展：三新增字段（designer_note/locale_pref/locale_snapshot）仅在响应中追加，不删除现有字段，现有客户端解析不受影响
+
+### EVO-04: 扩展点设计 ✓ PASS
+**判定依据**:
+- 协议扩展点：er-diagram.yml Line 28-31 protocol 枚举当前仅 openai(1)，预留扩展其他协议；Line 66-71 extra_config JSON 字段存储非 OpenAI 协议配置
+- 网关类型扩展点：er-diagram.yml Line 18-21 gateway_type 枚举 AI(1)/LOGISTICS(2)/PAYMENT(3)，预留物流/支付网关扩展（decision.md 决策 1 单表多类型设计）
+- 术语分类扩展点：er-diagram.yml Line 188-191 category 字段无枚举约束（string max 32），支持未来新增分类（如"配饰"/"鞋履"）
+- 邮件模板扩展点：decision.md 决策 13 定义模板路径规则（templates/email/{name}_{locale}.html），新增邮件类型仅需按规则增加模板文件，无需修改代码
+
+### EVO-05: 模块独立性 ✓ PASS
+**判定依据**:
+- 三新域独立性：gateway/ai_translation/glossary 三域各有独立表（无外键约束，AiTranslationLog.gateway_config_id 为逻辑外键），可独立部署/扩展
+- 与 baseline 隔离：三新域仅影响 admin 端（后台管理），不影响 store 端（消费端）业务流程，模块耦合低
+- API 前缀隔离：/api/admin/gateway/* 、/api/admin/ai/* 、/api/admin/glossary/* 路径前缀独立，nginx 路由可按前缀分流到不同服务
+- 数据库隔离：三新表（external_gateway_config/ai_translation_log/ai_translation_glossary）与 baseline 表无外键关联，可独立备份/恢复
+
+### EVO-06: 数据模型扩展性 ✓ PASS
+**判定依据**:
+- JSON 字段预留：er-diagram.yml Line 47 model_list、Line 66 extra_config、Line 143 token_usage 均为 JSON 类型，支持未来追加字段无需 schema 变更
+- 枚举扩展：gateway_type [1,2,3] 预留 LOGISTICS/PAYMENT、protocol [1] 预留扩展，新增枚举值向后兼容（现有客户端忽略未知值）
+- 文本字段无硬编码限制：source_text/translated_text/designer_note 使用 text 类型（无固定长度），支持长文本扩展
+- 外部依赖模型映射：gateway-api.openapi.yml Line 450-465 GatewayModel schema 定义 id/name/context_length，预留未来 OpenAI API 新增字段（如 pricing/capabilities）的扩展空间
+
+### EVO-07: 错误策略扩展性 ✓ PASS
+**判定依据**:
+- 域段号码预留：error-strategy.md Line 22-28 定义三新域号段（gateway=2/ai_translation=3/glossary=4），与 baseline 七域（5/6/7/8/9/0/1）无交叉，号段 5~9 已占用，0~4 可继续扩展
+- 序号连续性：gateway 域当前 01~09，可扩展到 99；ai_translation 域当前 01~05，可扩展到 99；glossary 域当前 01~03，可扩展到 99，空间充足
+- 错误码格式统一：6 位 HTTP(3)+域段(1)+序号(2) 格式固定，新增域/错误码遵循相同规则，无编码冲突风险
+- 错误详情扩展：ErrorResponse schema 定义 details: object additionalProperties: true（gateway-api Line 533-537），支持未来追加上下文字段
+
+---
+
+## 规范符合性审查（Compliance Review）- PASS
+
+### CMP-01: 企业级规则符合性 ✓ PASS
+**判定依据**:
+- 项目未配置企业级规则目录（.hh/rules/enterprise/ 不存在），跳过检查
+- 通用安全规范：API Key 加密存储（decision.md 决策 1 AES-256-GCM）、掩码展示（EDGE-010）、不回传前端（error-strategy.md Line 177-181），符合安全基线
+- 数据保留规范：decision.md 决策 7 定义 90 天保留 + 定时清理，符合 GDPR 最小化原则
+
+### CMP-02: 项目级规则符合性 ✓ PASS
+**判定依据**:
+- 项目未配置项目级规则目录（.hh/rules/overrides.yml 不存在），跳过检查
+- 与 baseline 一致性：三新域错误码格式（6 位）与 baseline portal-api-integration 七域一致，audit 字段命名（created_at/updated_at）与 baseline 一致
+- 后端技术栈一致性：使用 Long 主键（与 baseline identity/catalog 一致）、Spring @Scheduled（与 baseline 定时任务一致）、Thymeleaf 模板（与 baseline 邮件发送一致）
+
+### CMP-03: 命名规范符合性 ✓ PASS
+**判定依据**:
+- 实体名：ExternalGatewayConfig、AiTranslationLog、AiTranslationGlossary，PascalCase 命名，符合 Java 实体规范
+- 字段名：gateway_type、api_key_encrypted、model_list，snake_case 命名（数据库列名），符合 baseline 规范
+- 接口路径：/api/admin/gateway/configs、/api/admin/ai/translate，kebab-case 命名，符合 RESTful 约定
+- operationId：createGatewayConfig、translateText、listGlossaryTerms，camelCase 命名，符合 OpenAPI 规范
+- Schema 名：GatewayConfigUpsert、TranslateRequest、GlossaryTermPage，PascalCase 命名，符合 OpenAPI 规范
+
+### CMP-04: 文档格式规范性 ✓ PASS
+**判定依据**:
+- OpenAPI 格式：三份契约均使用 YAML 格式、openapi: 3.0.3 标准，结构符合 OpenAPI Specification
+- Markdown 格式：data-flow.md、error-strategy.md、三份增量契约均使用 Markdown，标题层级（# ## ###）规范
+- Mermaid 图：data-flow.md FLOW-I01~I09 使用 sequenceDiagram 语法（Line 55-123 等），可正常渲染
+- YAML 数据：er-diagram.yml、acceptance.yml、boundary-scenarios.yml 均使用标准 YAML 格式，缩进 2 空格，可正常解析
+
+### CMP-05: Mermaid 图规范性 ✓ PASS
+**判定依据**:
+- 语法正确性：data-flow.md 9 个序列图均使用 ```mermaid sequenceDiagram 标记（Line 55/130/182/223/274/326/352/404/434），语法无误
+- 参与者命名：Admin、AdminAPI、Svc、Gateway、DB、Sched、Middleware、CDN，命名清晰无歧义
+- 消息箭头：使用 ->> (同步调用)、-->> (返回)、->>+ (激活)、Note over (注释)，符合 Mermaid 规范
+- 条件分支：使用 alt/else/end 结构（如 FLOW-I01 Line 68-70 无配置分支），语法正确
+- 循环结构：使用 loop/end 结构（如 FLOW-I03 Line 192-210 定时刷新循环），语法正确
+
+### CMP-06: 领域编码规范性 ✓ PASS
+**判定依据**:
+- 增量模式无需注册新域（三新域 gateway/ai_translation/glossary 归属后端 admin 模块，不是独立限界上下文）
+- baseline hhspec/domains.yml 已注册 identity/catalog/trading/marketing/review/shipping/showroom/analytics 八域，本变更复用
+- 域段编码：error-strategy.md Line 22-28 定义三新域号段（2/3/4），与 baseline 七域（5/6/7/8/9/0/1）不冲突，编码规范
+
+### CMP-07: 文件命名规范性 ✓ PASS
+**判定依据**:
+- OpenAPI 文件命名：gateway-api.openapi.yml、ai-translation-api.openapi.yml、glossary-api.openapi.yml，格式为 <domain>-api.openapi.yml，符合约定
+- 增量契约命名：catalog-api-incremental.md、identity-api-incremental.md、trading-api-incremental.md，格式为 <domain>-api-incremental.md，命名清晰
+- 数据流命名：data-flow.md（与 baseline 一致）
+- 错误策略命名：error-strategy.md（与 baseline 一致）
+- er-diagram 命名：er-diagram.yml（与 baseline 一致）
+
+---
+
+## 审查总结
+
+### 五维评分
+
+| 维度 | 通过项 | 总项数 | 得分 | 状态 |
+|------|--------|--------|------|------|
+| 一致性（Consistency） | 8 | 8 | 10/10 | PASS ✓ |
+| 完整性（Completeness） | 10 | 10 | 10/10 | PASS ✓ |
+| 可行性（Feasibility） | 10 | 10 | 10/10 | PASS ✓ |
+| 演进性（Evolvability） | 7 | 7 | 10/10 | PASS ✓ |
+| 规范符合性（Compliance） | 7 | 7 | 10/10 | PASS ✓ |
+| **总计** | **42** | **42** | **10/10** | **PASS ✓** |
+
+### 审查结论
+
+**PASS** - i18n-complete-with-ai-assist 变更的 L1 架构设计（L1.2 OpenAPI 契约 + L1.3 数据流/错误策略）通过五维审查，全部 42 个检查项（8 一致性 + 10 完整性 + 10 可行性 + 7 演进性 + 7 规范符合性）均判定为 PASS。
+
+### 架构设计亮点
+
+1. **完整的增量设计**：三份新 OpenAPI 契约（gateway/ai_translation/glossary）+ 三份增量契约（catalog/identity/trading）+ 数据流 + 错误策略，文档齐全且内容充实（总计 2340+ 行架构产出）
+
+2. **清晰的模块边界**：三新域（gateway=2/ai_translation=3/glossary=4）与 baseline 七域（5/6/7/8/9/0/1）号段隔离，路径前缀独立（/api/admin/gateway/* /ai/* /glossary/*），模块耦合低
+
+3. **健壮的错误处理**：定义 24 个 EDGE 场景的完整错误处理矩阵（error-strategy.md Line 82-115），外部依赖失败降级策略明确（AI 翻译失败允许继续保存、定时刷新连续 3 次失败自动降级）
+
+4. **合理的扩展点设计**：protocol/gateway_type 枚举预留扩展、extra_config JSON 字段支持协议扩展、模板路径规则支持新增邮件类型，演进性良好
+
+5. **严格的一致性保证**：实体字段命名、类型、约束在 er-diagram.yml 与三份 openapi 中完全一致，数据流中的错误码与 error-strategy.md 码表逐一对应
+
+### 后续建议
+
+1. **L2 设计关注点**：
+   - API Key AES-256-GCM 加密的密钥管理方案（建议环境变量 `GATEWAY_ENCRYPTION_KEY` + 定期轮转策略）
+   - RestTemplate/WebClient 超时配置明确（翻译 30s、模型拉取 10s、测试连接 10s）
+   - 定时刷新 consecutive_failures 字段与降级逻辑的状态机定义
+   - GlobalExceptionHandler 异常类型→错误码的完整映射表
+
+2. **L3 实现关注点**：
+   - 术语表注入 prompt 的智能截断逻辑（仅注入命中术语上限 50 条，按 category 优先级截断）
+   - 邮件模板三语化覆盖（订单确认/OTP/退款/Showroom 邀请/提醒，共 18 个模板文件）
+   - locale 路由 middleware 的 301/302 重定向逻辑（旧链接向后兼容）
+   - AiTranslationLog 90 天保留定时任务的分批删除实现（LIMIT 5000 避免长事务锁表）
+
+3. **测试验证建议**：
+   - EDGE-014（定时刷新连续失败降级）场景需模拟外部网关不可达 3 次触发自动降级
+   - EDGE-023（测试连接失败反馈）场景需覆盖 DNS 解析失败/401 鉴权失败/超时三种错误
+   - FUNC-017（designerNote 回退）场景需验证 ES 译文缺失时消费端正确回退 EN 主表值
+   - FUNC-020（邮件三语）场景需验证模板选择优先级（user.locale_pref → order.locale_snapshot → EN）
+
+### 证据总结
+
+本次审查基于以下文档证据：
+- L0 需求：decision.md (14 决策)、acceptance.yml (22 FUNC)、boundary-scenarios.yml (24 EDGE)、er-diagram.yml (3 新实体 + 3 加列)
+- L1.2 产出：gateway-api.openapi.yml (537 行)、ai-translation-api.openapi.yml (428 行)、glossary-api.openapi.yml (364 行)、catalog-api-incremental.md (180 行)、identity-api-incremental.md (217 行)、trading-api-incremental.md (240 行)
+- L1.3 产出：data-flow.md (492 行，9 数据流)、error-strategy.md (212 行，18 错误码 + 24 EDGE 矩阵)
+- Baseline 参考：hhspec/specs/architecture/domain-model.md (identity 领域模型，验证增量兼容性)
+
+审查过程中使用 Read/Grep 工具充分阅读被审查文档，逐项验证检查标准，所有判定均有明确证据支撑。
+
+---
+
+**审查人**: l1-challenger-agent
+**审查日期**: 2026-06-16
+**审查轮次**: Round 1
+**审查模式**: incremental（增量架构审查）
+**审查范围**: full（全部五维，42 项检查）
+**最终判定**: ✓ PASS（五维全通过，无 MUST_FIX 问题，无 SUGGEST 问题）
+

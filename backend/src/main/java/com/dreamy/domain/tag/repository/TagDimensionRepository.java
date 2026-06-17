@@ -32,12 +32,15 @@ public class TagDimensionRepository {
 
     /** RM-CAT-050 listAll */
     public List<TagDimension> listAll() {
-        return dimensionMapper.selectList(new LambdaQueryWrapper<TagDimension>().orderByAsc(TagDimension::getId));
+        return dimensionMapper.selectList(new LambdaQueryWrapper<TagDimension>()
+                .isNull(TagDimension::getDeletedAt)
+                .orderByAsc(TagDimension::getId));
     }
 
     /** RM-CAT-051 findById */
     public TagDimension findById(Long id) {
-        return id == null ? null : dimensionMapper.selectById(id);
+        TagDimension e = id == null ? null : dimensionMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-CAT-052 insert */

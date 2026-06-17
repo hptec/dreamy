@@ -11,6 +11,7 @@ import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -45,4 +46,7 @@ public class Category extends LongAuditableEntity {
 
     @Column(name = CategoryDBConst.SORT, definition = "int NOT NULL DEFAULT 0 COMMENT '同层排序（拖拽落库）'")
     private Integer sort;
+
+    @Column(name = CategoryDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

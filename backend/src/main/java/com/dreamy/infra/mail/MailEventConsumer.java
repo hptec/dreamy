@@ -84,7 +84,6 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
             return;
         }
         Map<String, Object> payload = event.payload() == null ? Map.of() : event.payload();
-        String locale = resolveLocale(payload.get("locale"));
 
         // ③ recipient 解析
         String recipient = resolveRecipient(type, payload);
@@ -93,6 +92,10 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
                     event.eventId(), type.getKey());
             return;
         }
+
+        // locale 选择优先级（决策13 / FUNC-020）：
+        // 订单类 user.locale_pref > payload.locale(=orders.locale_snapshot) > en；showroom 类直接取 payload.locale。
+        String locale = resolveMailLocale(type, payload);
 
         // ④ MailRecord event_id 幂等落表（已 sent/dead → 防重发空操作 ack）
         MailRecord record = loadOrInsertPending(event, type, recipient, locale, payload);
@@ -166,6 +169,24 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
             return s;
         }
         return DEFAULT_LOCALE;
+    }
+
+    /**
+     * 邮件 locale 选择（决策13 / FUNC-020）。
+     * 订单类：user.locale_pref（CustomerEmailPort）> payload.locale(=orders.locale_snapshot) > en；
+     * showroom 类：直接取 payload.locale（载荷自带，无关联用户）。
+     */
+    private String resolveMailLocale(MailType type, Map<String, Object> payload) {
+        if (!type.isShowroom()) {
+            Long customerId = asLong(payload.get("customer_id"));
+            if (customerId != null) {
+                String pref = customerEmailPort.getLocalePref(customerId);
+                if (pref != null && SUPPORTED_LOCALES.contains(pref)) {
+                    return pref;
+                }
+            }
+        }
+        return resolveLocale(payload.get("locale"));
     }
 
     /** 顶层标量载荷 → 模板变量 {{var}}（结构型字段剔除；email_template 渲染惯例） */

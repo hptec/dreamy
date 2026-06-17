@@ -1,5 +1,6 @@
 package com.dreamy.domain.wedding.entity;
 
+import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.wedding.consts.RealWeddingDBConst;
@@ -45,4 +46,7 @@ public class RealWedding extends LongAuditableEntity {
 
     @Column(name = RealWeddingDBConst.STORY, definition = "text NULL COMMENT '婚礼故事(EN 基准)'")
     private String story;
+
+    @Column(name = RealWeddingDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

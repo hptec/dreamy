@@ -36,7 +36,9 @@ public class CouponRepository {
         if (code == null || code.isBlank()) {
             return null;
         }
-        return couponMapper.selectOne(new LambdaQueryWrapper<Coupon>().eq(Coupon::getCode, code));
+        return couponMapper.selectOne(new LambdaQueryWrapper<Coupon>()
+                .isNull(Coupon::getDeletedAt)
+                .eq(Coupon::getCode, code));
     }
 
     /** RM-MKT-101 pageAdmin —— code/name LIKE（IDX-MKT-002）ORDER BY id DESC */
@@ -54,12 +56,15 @@ public class CouponRepository {
 
     /** RM-MKT-102 findById */
     public Coupon findById(Long id) {
-        return id == null ? null : couponMapper.selectById(id);
+        Coupon e = id == null ? null : couponMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-MKT-103 existsByCodeExcept —— 409701 */
     public boolean existsByCodeExcept(String code, Long exceptId) {
-        LambdaQueryWrapper<Coupon> qw = new LambdaQueryWrapper<Coupon>().eq(Coupon::getCode, code);
+        LambdaQueryWrapper<Coupon> qw = new LambdaQueryWrapper<Coupon>()
+                .isNull(Coupon::getDeletedAt)
+                .eq(Coupon::getCode, code);
         if (exceptId != null) {
             qw.ne(Coupon::getId, exceptId);
         }
@@ -117,6 +122,7 @@ public class CouponRepository {
      */
     public List<Long> flipStatusByWindow(LocalDateTime now, Duration expiringThreshold) {
         List<Coupon> candidates = couponMapper.selectList(new LambdaQueryWrapper<Coupon>()
+                .isNull(Coupon::getDeletedAt)
                 .in(Coupon::getStatus, CouponStatus.SCHEDULED, CouponStatus.ACTIVE, CouponStatus.EXPIRING));
         List<Long> flipped = new ArrayList<>();
         for (Coupon coupon : candidates) {

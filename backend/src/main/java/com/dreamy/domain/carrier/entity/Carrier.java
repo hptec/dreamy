@@ -1,5 +1,6 @@
 package com.dreamy.domain.carrier.entity;
 
+import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.domain.carrier.consts.CarrierDBConst;
 import com.dreamy.enums.CarrierStatus;
@@ -33,4 +34,7 @@ public class Carrier extends LongAuditableEntity {
 
     @Column(name = CarrierDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 2=禁用'")
     private CarrierStatus status;
+
+    @Column(name = CarrierDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

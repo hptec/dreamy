@@ -11,4 +11,5 @@ public interface CategoryDBConst extends CatalogCommonDBConst {
     String LEVEL = "level";
     String ATTRIBUTE_SET_ID = "attribute_set_id";
     String ATTR_OVERRIDES = "attr_overrides";
+    public static final String DELETED_AT = "deleted_at";
 }

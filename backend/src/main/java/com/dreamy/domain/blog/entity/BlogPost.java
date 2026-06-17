@@ -54,4 +54,7 @@ public class BlogPost extends LongAuditableEntity {
 
     @Column(name = BlogPostDBConst.VIEWS, definition = "int NOT NULL DEFAULT 0 COMMENT '阅读数近似计数（SCHED-MKT-02 flush，DEC-MKT-6）'")
     private Integer views;
+
+    @Column(name = BlogPostDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

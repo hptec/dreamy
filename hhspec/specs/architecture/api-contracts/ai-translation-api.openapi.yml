@@ -1,0 +1,428 @@
+openapi: 3.0.3
+info:
+  title: AI Translation API (i18n-complete-with-ai-assist)
+  description: |
+    AI 翻译服务 API 契约，覆盖后台翻译请求（后端代理外部网关）和调用记录查询。
+
+    ## 设计依据
+    - decision.md 决策 2（后端代理模式）、决策 4（两级模型选择）、决策 6（翻译弹窗交互）、决策 7（调用记录）、决策 10（失败允许继续）
+    - state-machine.yml：ai_translation_request（翻译请求生命周期 idle→calling→success/failed）
+    - er-diagram.yml：AiTranslationLog 实体定义
+    - acceptance.yml：FUNC-008~013（AI 翻译按钮 + 结果回写 + 系统 prompt + 11 张翻译表 + 调用记录 + 失败容错）
+
+    ## 后端代理架构（决策 2）
+    前端不直接调用外部网关，所有翻译请求经 /api/admin/ai/translate 后端代理：
+    1. 后端从 external_gateway_config 读取当前启用的 AI 网关配置
+    2. 解密 API Key，组装 OpenAI-compatible /v1/chat/completions 请求
+    3. System prompt = 婚纱礼服电商领域前缀（锁定） + 启用的术语表（glossary enabled=true） + 用户自定义要求
+    4. 调用外部网关，记录 ai_translation_log（含原文/译文/耗时/token/状态）
+    5. 返回译文或错误给前端
+
+    ## R 包络映射（与 catalog-api 一致）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。
+
+    ## 鉴权约定
+    - 翻译请求端点需要 AdminBearerAuth（后台 JWT），根据业务来源权限校验（如翻译商品需 /catalog/products 权限）
+    - 调用记录查询需要 AdminBearerAuth + `/system/translation-logs` 权限（运营/系统管理员可见）
+
+    ## 错误响应
+    所有错误返回 `{ code, message, details? }`。AI 翻译域错误码为 6 位：高 3 位对应 HTTP 状态，
+    第 4 位为域段（ai_translation=3），末 2 位为域内序号。
+
+    ### ai_translation 域错误码表
+    | code | 含义 | HTTP |
+    |------|------|------|
+    | 400301 | NO_ENABLED_GATEWAY（无启用的 AI 网关配置） | 400 |
+    | 400302 | INVALID_MODEL（请求的模型不在 gateway model_list 中） | 400 |
+    | 422301 | FIELD_VALIDATION_FAILED（source_text 为空等） | 422 |
+    | 502301 | GATEWAY_CALL_FAILED（外部网关返回 4xx/5xx） | 502 |
+    | 504301 | GATEWAY_TIMEOUT（调用超时，默认 30s） | 504 |
+
+    ## 版本历史
+    - v1.0.0 (2026-06-16): 初始版本（i18n-complete-with-ai-assist 变更）
+  version: 1.0.0
+  contact:
+    name: ai translation team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: admin-ai-translation
+    description: 后台 AI 翻译服务（FUNC-008~013）
+
+paths:
+  /api/admin/ai/translate:
+    post:
+      summary: AI 翻译请求（后端代理）
+      description: |
+        FUNC-008~010（决策 2/4/6）。后端代理调用外部 AI 网关翻译文本。
+
+        **调用流程**：
+        1. 校验必填字段（source_text/source_lang/target_lang）
+        2. 读取当前启用的 AI 网关配置（enabled=true 的 gateway_type=AI 配置，若有多个取最新）
+        3. 确定使用的模型（优先用请求参数 model，若无则用 gateway.default_model）
+        4. 组装 system prompt：
+           - 固定前缀（婚纱礼服电商背景，不可改）："You are a professional translator for a bridal e-commerce platform. Translate the following text accurately while preserving tone and marketing appeal."
+           - 注入启用的术语表（glossary enabled=true）："Use these standard terms: A-line 译为 xxx，sweetheart neckline 译为 yyy..."
+           - 追加用户自定义要求（custom_requirement，可选）："语气更正式" / "简洁些"等
+        5. 调用外部网关 /v1/chat/completions（超时 30s）
+        6. 记录 ai_translation_log（operator_id 从 JWT 提取）
+        7. 返回译文或错误
+
+        **失败处理（决策 10）**：翻译失败时返回 502/504 错误，前端 toast 提示但允许用户继续编辑保存（不阻塞运营工作流）。
+      operationId: translateText
+      tags: [admin-ai-translation]
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslateRequest'
+      responses:
+        '200':
+          description: 翻译成功，返回译文
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslateResponse'
+        '400':
+          description: 无启用的网关配置或模型无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_gateway:
+                  value:
+                    code: 400301
+                    message: "无启用的 AI 网关配置，请先在系统管理中配置网关"
+                invalid_model:
+                  value:
+                    code: 400302
+                    message: "请求的模型不在可用列表中"
+                    details: { model: "gpt-5", available_models: ["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet"] }
+        '422':
+          description: 字段校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 422301
+                message: "source_text 不能为空"
+        '502':
+          description: 外部网关调用失败（网关返回错误或不可达）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 502301
+                message: "AI 网关调用失败"
+                details: { gateway_error: "Rate limit exceeded (429)", gateway_name: "OpenRouter 主网关" }
+        '504':
+          description: 网关调用超时（30s）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 504301
+                message: "AI 翻译请求超时，请稍后重试"
+
+  /api/admin/ai/translation-logs:
+    get:
+      summary: AI 翻译调用记录查询
+      description: |
+        FUNC-012（决策 7）。查询 ai_translation_log 表，支持按状态/时间/业务来源筛选和分页。
+        记录含：时间/操作人/源文本/译文/目标语言/模型/状态/耗时/token 用量。
+
+        **权限**：需要 `/system/translation-logs` 菜单权限（运营主管/系统管理员）。
+
+        **数据保留**：日志保留 90 天（决策 7），超期由后台定时任务删除。
+      operationId: listTranslationLogs
+      tags: [admin-ai-translation]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: 状态筛选（success=1/failed=2）
+          schema:
+            type: integer
+            enum: [1, 2]
+        - name: biz_type
+          in: query
+          description: 业务来源类型（product/category/tag/banner/blog 等）
+          schema:
+            type: string
+            maxLength: 32
+        - name: biz_ref
+          in: query
+          description: 业务来源标识（如 product_id=123）
+          schema:
+            type: string
+            maxLength: 64
+        - name: operator_id
+          in: query
+          description: 操作人 ID（管理员 ID）
+          schema:
+            type: integer
+            format: int64
+        - name: start_time
+          in: query
+          description: 开始时间（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: 结束时间（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 调用记录列表（分页）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationLogPage'
+
+components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 后台管理员 JWT（8h access token）
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页条数
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    TranslateRequest:
+      type: object
+      required: [source_lang, target_lang, source_text]
+      properties:
+        source_lang:
+          type: string
+          minLength: 2
+          maxLength: 8
+          description: 源语言（ISO 639-1 码，如 en）
+          example: "en"
+        target_lang:
+          type: string
+          minLength: 2
+          maxLength: 8
+          description: 目标语言（es/fr）
+          example: "es"
+        source_text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 待翻译的原文（限 10000 字符）
+          example: "Elegant A-line wedding dress with sweetheart neckline and lace appliqués."
+        custom_requirement:
+          type: string
+          maxLength: 500
+          description: 用户自定义翻译要求（如"语气更正式"、"简洁些"），可选
+          example: "语气更正式，突出奢华感"
+        model:
+          type: string
+          maxLength: 128
+          description: |
+            指定使用的模型（可选）。若不传则使用网关配置的 default_model。
+            前端从网关配置的 model_list 中选择（下拉选择器，决策 4）。
+          example: "openai/gpt-4o-mini"
+        biz_type:
+          type: string
+          maxLength: 32
+          description: 业务来源类型（product/category/tag/banner/blog 等，用于溯源和统计）
+          example: "product"
+        biz_ref:
+          type: string
+          maxLength: 64
+          description: 业务来源标识（如商品 ID、分类 ID，便于溯源）
+          example: "123"
+
+    TranslateResponse:
+      type: object
+      required: [translated_text, model, latency_ms, token_usage]
+      properties:
+        translated_text:
+          type: string
+          description: 翻译后的文本
+          example: "Vestido de novia elegante de línea A con escote corazón y apliques de encaje."
+        model:
+          type: string
+          description: 实际使用的模型名
+          example: "openai/gpt-4o-mini"
+        latency_ms:
+          type: integer
+          description: 翻译耗时毫秒
+          example: 1842
+        token_usage:
+          $ref: '#/components/schemas/TokenUsage'
+
+    TokenUsage:
+      type: object
+      required: [prompt_tokens, completion_tokens, total_tokens]
+      properties:
+        prompt_tokens:
+          type: integer
+          description: Prompt tokens（包含 system prompt + user input）
+          example: 128
+        completion_tokens:
+          type: integer
+          description: Completion tokens（AI 生成的译文）
+          example: 52
+        total_tokens:
+          type: integer
+          description: 总 tokens（prompt + completion）
+          example: 180
+
+    TranslationLog:
+      type: object
+      required: [id, gateway_config_id, model, source_lang, target_lang, source_text, status, latency_ms, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        gateway_config_id:
+          type: integer
+          format: int64
+          description: 关联的网关配置 ID
+          example: 1
+        gateway_name:
+          type: string
+          description: 网关配置名称（冗余字段，便于展示）
+          example: "OpenRouter 主网关"
+        model:
+          type: string
+          description: 实际调用的模型名
+          example: "openai/gpt-4o-mini"
+        source_lang:
+          type: string
+          example: "en"
+        target_lang:
+          type: string
+          example: "es"
+        source_text:
+          type: string
+          description: 原文（列表中截断展示，详情完整显示）
+          example: "Elegant A-line wedding dress..."
+        translated_text:
+          type: string
+          description: 译文（失败时为 null）
+          example: "Vestido de novia elegante de línea A..."
+        custom_requirement:
+          type: string
+          description: 用户自定义要求
+          example: "语气更正式"
+        biz_type:
+          type: string
+          example: "product"
+        biz_ref:
+          type: string
+          example: "123"
+        status:
+          type: integer
+          enum: [1, 2]
+          description: 状态（success=1/failed=2）
+          example: 1
+        error_message:
+          type: string
+          description: 失败原因（status=failed 时）
+          example: null
+        latency_ms:
+          type: integer
+          description: 调用耗时毫秒
+          example: 1842
+        token_usage:
+          $ref: '#/components/schemas/TokenUsage'
+        operator_id:
+          type: integer
+          format: int64
+          description: 操作人 ID（管理员）
+          example: 5
+        operator_name:
+          type: string
+          description: 操作人姓名（冗余字段，便于展示）
+          example: "张三"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-06-16T10:35:42Z"
+
+    TranslationLogPage:
+      type: object
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationLog'
+        total_elements:
+          type: integer
+          format: int64
+          description: 总记录数
+          example: 328
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+          example: 1
+        page_size:
+          type: integer
+          description: 每页条数
+          example: 20
+        number_of_elements:
+          type: integer
+          description: 当前页实际条数
+          example: 20
+        total_pages:
+          type: integer
+          description: 总页数
+          example: 17
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 6 位错误码（高 3 位对应 HTTP 状态）
+          example: 502301
+        message:
+          type: string
+          description: 错误消息
+          example: "AI 网关调用失败"
+        details:
+          type: object
+          description: 错误详情（可选，含字段名/值等上下文）
+          additionalProperties: true

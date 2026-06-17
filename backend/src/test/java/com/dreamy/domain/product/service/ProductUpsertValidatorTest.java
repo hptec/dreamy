@@ -157,12 +157,12 @@ class ProductUpsertValidatorTest {
     @DisplayName("V-CAT-035 [P0]: translations locale 仅 es/fr 且不重复（TC-CAT-013 写侧）")
     void translationRules() {
         AdminProductUpsert dupLocale = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null,
-                null, List.of(new ProductTranslationDto("es", "A", null, null, null, null),
-                        new ProductTranslationDto("es", "B", null, null, null, null)));
+                null, List.of(new ProductTranslationDto("es", "A", null, null, null, null, null),
+                        new ProductTranslationDto("es", "B", null, null, null, null, null)));
         assertThatThrownBy(() -> validateCompat(dupLocale, true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "invalid_locale"));
         AdminProductUpsert enLocale = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1, null, null,
-                null, List.of(new ProductTranslationDto("en", "A", null, null, null, null)));
+                null, List.of(new ProductTranslationDto("en", "A", null, null, null, null, null)));
         assertThatThrownBy(() -> validateCompat(enLocale, true, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "invalid_locale"));
     }

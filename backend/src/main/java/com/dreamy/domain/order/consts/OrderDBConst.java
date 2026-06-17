@@ -8,6 +8,8 @@ public interface OrderDBConst extends TradingCommonDBConst {
     String TABLE = "orders";
 
     String ORDER_NO = "order_no";
+    /** 下单时语言环境快照 en/es/fr（决策13 / FUNC-020，邮件三语用，V20260616 增量加列） */
+    String LOCALE_SNAPSHOT = "locale_snapshot";
     String EXCHANGE_RATE = "exchange_rate";
     String WEDDING_DATE = "wedding_date";
     String SUBTOTAL = "subtotal";

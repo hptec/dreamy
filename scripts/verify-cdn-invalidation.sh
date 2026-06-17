@@ -7,7 +7,7 @@ echo ""
 
 # 1. 检查后端服务
 echo "1. 检查后端服务..."
-curl -s http://localhost:8080/actuator/health | jq .
+curl -s http://localhost:18081/actuator/health | jq .
 echo ""
 
 # 2. 检查数据库表

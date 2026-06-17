@@ -109,6 +109,9 @@ public class DataInitializer {
                 {"/system/roles", "系统管理", "角色权限"},
                 {"/system/auth", "系统管理", "登录与认证"},
                 {"/system/logs", "系统管理", "操作日志"},
+                // i18n-complete-with-ai-assist：网关配置 + 术语表（翻译记录复用 /system/gateways）
+                {"/system/gateways", "系统管理", "外部网关配置"},
+                {"/system/glossary", "系统管理", "翻译术语表"},
         };
         for (String[] p : perms) {
             // A4: LambdaQueryWrapper 替代 @Select findIdByPermCode（仅判存在性，幂等）

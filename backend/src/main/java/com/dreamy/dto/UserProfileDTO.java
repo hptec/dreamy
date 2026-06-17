@@ -14,6 +14,8 @@ public record UserProfileDTO(
         UserTier tier,
         String avatar,
         LocalDateTime joinedAt,
-        UserStatus status
+        UserStatus status,
+        /** 用户偏好语言 en/es/fr（决策13 / FUNC-019） */
+        String localePref
 ) {
 }

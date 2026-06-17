@@ -38,73 +38,78 @@ export const menuGroups: MenuGroup[] = [
     icon: SwatchIcon,
     badge: 'CMS',
     items: [
-      { title: '首页装修', to: '/site/home' },
-      { title: '导航与页脚', to: '/site/navigation' },
-      { title: 'Banner 管理', to: '/banners' },
+      { title: '首页装修', to: '/site/home', permission: '/site/home' },
+      { title: '导航与页脚', to: '/site/navigation', permission: '/site/navigation' },
+      { title: 'Banner 管理', to: '/banners', permission: '/banners' },
     ],
   },
   {
     label: '商品管理',
     icon: ShoppingBagIcon,
     items: [
-      { title: '商品列表', to: '/products' },
+      { title: '商品列表', to: '/products', permission: '/products' },
       // FORM-CAT-M01（ALIGN-004）：「属性集」菜单项移除，功能迁入「分类管理」Tab 2；后端权限点不动（决策 10）
-      { title: '分类管理', to: '/categories' },
+      { title: '分类管理', to: '/categories', permission: '/categories' },
     ],
   },
   {
     label: '订单管理',
     icon: ClipboardDocumentListIcon,
     items: [
-      { title: '订单列表', to: '/orders' },
-      { title: '退款工单', to: '/refunds' },
+      { title: '订单列表', to: '/orders', permission: '/orders' },
+      { title: '退款工单', to: '/refunds', permission: '/refunds' },
     ],
   },
   {
     label: '用户管理',
     icon: UsersIcon,
-    items: [{ title: '用户列表', to: '/customers' }],
+    items: [{ title: '用户列表', to: '/customers', permission: '/customers' }],
   },
   {
     label: '营销活动',
     icon: MegaphoneIcon,
     items: [
-      { title: '优惠券与促销', to: '/promotions' },
-      { title: '邮件营销', to: '/marketing/email' },
+      { title: '优惠券与促销', to: '/promotions', permission: '/promotions' },
+      { title: '邮件营销', to: '/marketing/email', permission: '/marketing/email' },
     ],
   },
   {
     label: '内容管理',
     icon: DocumentTextIcon,
     items: [
-      { title: 'Blog 文章', to: '/content/blog' },
-      { title: 'Real Weddings', to: '/content/weddings' },
-      { title: 'Lookbook 与指南', to: '/content/lookbook' },
-      { title: '评价与 Q&A', to: '/reviews' },
+      { title: 'Blog 文章', to: '/content/blog', permission: '/content/blog' },
+      { title: 'Real Weddings', to: '/content/weddings', permission: '/content/weddings' },
+      { title: 'Lookbook 与指南', to: '/content/lookbook', permission: '/content/lookbook' },
+      { title: '评价与 Q&A', to: '/reviews', permission: '/reviews' },
     ],
   },
   {
     label: '数据分析',
     icon: ChartBarIcon,
-    items: [{ title: '数据看板', to: '/analytics' }],
+    items: [{ title: '数据看板', to: '/analytics', permission: '/analytics' }],
   },
   {
     label: '发布与系统',
     icon: RocketLaunchIcon,
     items: [
-      { title: '发布中心', to: '/publish' },
-      { title: '物流配置', to: '/shipping' },
-      { title: '汇率与结算配置', to: '/settings' },
+      { title: '发布中心', to: '/publish', permission: '/publish' },
+      { title: '物流配置', to: '/shipping', permission: '/shipping' },
+      { title: '汇率与结算配置', to: '/settings', permission: '/settings' },
     ],
   },
   {
     label: '系统管理',
     icon: ShieldCheckIcon,
     items: [
-      { title: '管理员管理', to: '/system/admins' },
-      { title: '角色权限', to: '/system/roles' },
-      { title: '登录与认证', to: '/system/auth' },
-      { title: '操作日志', to: '/system/logs' },
+      { title: '管理员管理', to: '/system/admins', permission: '/system/admins' },
+      { title: '角色权限', to: '/system/roles', permission: '/system/roles' },
+      { title: '登录与认证', to: '/system/auth', permission: '/system/auth' },
+      { title: '操作日志', to: '/system/logs', permission: '/system/logs' },
+      // i18n-complete-with-ai-assist：网关配置 + 术语表（权限点对齐路由 meta.permission）
+      { title: '外部网关配置', to: '/system/gateways', permission: '/system/gateways' },
+      // FUNC-012：AI 翻译记录（权限点同口径 /system/gateways）
+      { title: 'AI 翻译记录', to: '/system/translation-logs', permission: '/system/gateways' },
+      { title: '翻译术语表', to: '/system/glossary', permission: '/system/glossary' },
     ],
   },
 ]

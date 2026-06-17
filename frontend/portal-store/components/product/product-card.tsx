@@ -15,8 +15,8 @@ import { formatPrice, installments, cn } from '@/lib/utils'
 import { Badge, Stars } from '@/components/ui/primitives'
 
 export function badgeOf(product: StoreProductCard): { label: string; variant: 'default' | 'sale' | 'new' } | null {
-  if (product.compareAt && product.compareAt > product.price) return { label: 'Sale', variant: 'sale' }
   if (product.isNew) return { label: 'New', variant: 'new' }
+  if (product.compareAt && product.compareAt > product.price) return { label: 'Sale', variant: 'sale' }
   if (product.isBest) return { label: 'Best Seller', variant: 'default' }
   return null
 }

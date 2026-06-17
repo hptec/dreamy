@@ -17,15 +17,29 @@ public class MailPortConfig {
     @Bean
     @ConditionalOnMissingBean(CustomerEmailPort.class)
     public CustomerEmailPort customerEmailPortAdapter(UserMapper userMapper) {
-        return customerId -> {
-            if (customerId == null) {
-                return null;
+        return new CustomerEmailPort() {
+            @Override
+            public String getEmail(Long customerId) {
+                User user = loadActive(customerId);
+                return user == null ? null : user.getEmail();
             }
-            User user = userMapper.selectById(customerId);
-            if (user == null || Boolean.TRUE.equals(user.getAnonymized())) {
-                return null;
+
+            @Override
+            public String getLocalePref(Long customerId) {
+                User user = loadActive(customerId);
+                return user == null ? null : user.getLocalePref();
             }
-            return user.getEmail();
+
+            private User loadActive(Long customerId) {
+                if (customerId == null) {
+                    return null;
+                }
+                User user = userMapper.selectById(customerId);
+                if (user == null || Boolean.TRUE.equals(user.getAnonymized())) {
+                    return null;
+                }
+                return user;
+            }
         };
     }
 }

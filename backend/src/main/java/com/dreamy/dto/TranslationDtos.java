@@ -10,11 +10,12 @@ public final class TranslationDtos {
     private TranslationDtos() {
     }
 
-    /** openapi ProductTranslation */
+    /** openapi ProductTranslation（决策12 增量 designerNote 三语独立） */
     public record ProductTranslationDto(
             String locale,
             String name,
             String description,
+            String designerNote,
             List<String> sellingPoints,
             String seoTitle,
             String seoDescription

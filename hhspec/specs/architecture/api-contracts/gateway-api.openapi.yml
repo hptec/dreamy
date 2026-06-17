@@ -1,0 +1,537 @@
+openapi: 3.0.3
+info:
+  title: Gateway API (i18n-complete-with-ai-assist)
+  description: |
+    外部系统网关配置管理 API 契约，覆盖 AI 网关/物流网关/支付网关等的配置 CRUD、测试连接、模型列表同步。
+
+    ## 设计依据
+    - decision.md 决策 1（单表多类型存储）、决策 3（OpenAI-compatible 协议）、决策 5（模型列表自动发现）、决策 14（测试连接）
+    - state-machine.yml：gateway_model_sync（模型同步状态机）、gateway_config_lifecycle（启用/禁用）
+    - er-diagram.yml：ExternalGatewayConfig 实体定义
+    - acceptance.yml：FUNC-004~007（配置 CRUD + 自动发现模型 + API Key 掩码展示 + 测试连接）
+
+    ## R 包络映射（与 catalog-api 一致）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。
+    分页载荷统一为 huihao.page.Paginated 形状（snake_case）：
+    `{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`
+
+    ## 鉴权约定
+    - 所有端点需要 AdminBearerAuth（后台 JWT）
+    - 需要 `/system/gateways` 菜单权限（决策 1，系统配置级权限）
+
+    ## 错误响应
+    所有错误返回 `{ code, message, details? }`。新域错误码为 6 位：高 3 位对应 HTTP 状态，
+    第 4 位为域段（gateway=2，i18n 变更引入的新域，按决策 12 号段顺延逻辑分配），末 2 位为域内序号。
+
+    ### gateway 域错误码表
+    | code | 含义 | HTTP |
+    |------|------|------|
+    | 404201 | GATEWAY_CONFIG_NOT_FOUND | 404 |
+    | 409201 | GATEWAY_NAME_EXISTS | 409 |
+    | 422201 | FIELD_VALIDATION_FAILED | 422 |
+    | 422202 | API_KEY_DECRYPTION_FAILED | 422 |
+    | 502201 | GATEWAY_UNAVAILABLE（测试连接时外部网关不可达） | 502 |
+    | 502202 | GATEWAY_AUTH_FAILED（测试连接时 API Key 鉴权失败） | 502 |
+    | 504201 | GATEWAY_TIMEOUT（测试连接超时） | 504 |
+
+    ## 版本历史
+    - v1.0.0 (2026-06-16): 初始版本（i18n-complete-with-ai-assist 变更）
+  version: 1.0.0
+  contact:
+    name: gateway domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: admin-gateways
+    description: 后台外部网关配置管理（FUNC-004~007）
+
+paths:
+  /api/admin/gateway/configs:
+    post:
+      summary: 创建网关配置
+      description: |
+        FUNC-005。创建外部网关配置，保存时自动触发模型列表拉取（AI 网关 type=1 时）。
+        API Key 使用 AES-256-GCM 加密存储，IV 与密文一起存入 api_key_encrypted 字段。
+        保存成功后若 gateway_type=AI，后端自动调用 /v1/models 拉取模型列表填充 model_list 并记录 models_synced_at。
+      operationId: createGatewayConfig
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GatewayConfigUpsert'
+      responses:
+        '200':
+          description: 创建成功，返回完整配置（含自动拉取的模型列表）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigDetail'
+        '409':
+          description: 配置名称已存在（同 gateway_type 下 name 唯一）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409201
+                message: "配置名称已存在"
+                details: { field: "name", value: "OpenRouter 主网关" }
+        '422':
+          description: 字段校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: 创建成功但模型列表拉取失败（配置已保存，model_list 为空）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigDetail'
+
+    get:
+      summary: 网关配置列表
+      description: |
+        FUNC-004。返回所有网关配置列表，支持按 gateway_type 筛选和分页。
+        API Key 掩码展示（EDGE-010）：仅返回前缀+后4位（sk-****1234），不返回密文。
+      operationId: listGatewayConfigs
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: gateway_type
+          in: query
+          description: 网关类型筛选（AI=1/LOGISTICS=2/PAYMENT=3）
+          schema:
+            type: integer
+            enum: [1, 2, 3]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 配置列表（分页）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigPage'
+
+  /api/admin/gateway/configs/{id}:
+    get:
+      summary: 获取网关配置详情
+      description: |
+        返回单个网关配置详情。API Key 掩码展示（前缀+后4位）。
+      operationId: getGatewayConfig
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 配置详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigDetail'
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 404201
+                message: "网关配置不存在"
+
+    put:
+      summary: 更新网关配置
+      description: |
+        FUNC-005。更新网关配置。若 api_key 字段值为掩码格式（sk-****xxxx），后端保持原密文不变；
+        若为明文新 Key，重新加密存储。更新后若 base_url/api_key 变更，重新拉取模型列表。
+      operationId: updateGatewayConfig
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GatewayConfigUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigDetail'
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 配置名称冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 字段校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: 删除网关配置
+      description: |
+        删除网关配置。软删除（设置 deleted_at）还是硬删除由 L2 设计决定（建议硬删除，配置量小且无历史追溯需求）。
+        删除前检查是否有 ai_translation_log 引用（gateway_config_id），若有则拒绝删除（409）。
+      operationId: deleteGatewayConfig
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 删除成功（无响应体）
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 配置被引用不可删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 409202
+                message: "网关配置已被翻译日志引用，不可删除"
+                details: { log_count: 328 }
+
+  /api/admin/gateway/configs/{id}/test:
+    post:
+      summary: 测试网关连接
+      description: |
+        FUNC-021（决策 14）。保存前/后可点击测试连接，后端用最小请求验证 URL+Key 可用性。
+        测试内容：AI 网关调用 /v1/models（或 ping translate），其他类型网关暂无测试逻辑（返回 501）。
+        测试结果不落库、不影响已保存配置，仅返回连通状态与错误原因。超时 10s。
+      operationId: testGatewayConnection
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 配置 ID（已保存的配置）
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 测试完成（成功或失败均返回 200，通过 reachable 字段区分）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayTestResult'
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: 该网关类型暂不支持测试
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/gateway/configs/{id}/sync-models:
+    post:
+      summary: 手动刷新模型列表
+      description: |
+        FUNC-006（决策 5）。手动触发模型列表拉取（仅 AI 网关有效），更新 model_list 和 models_synced_at。
+        仅当 gateway_type=AI 时有效，其他类型返回 400。
+        该操作等价于保存时的自动拉取，但运营可独立触发（网关新增模型后立即可用）。
+      operationId: syncGatewayModels
+      tags: [admin-gateways]
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 同步成功，返回更新后的配置（含新模型列表和 models_synced_at）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfigDetail'
+        '400':
+          description: 非 AI 网关类型不支持模型同步
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: 400201
+                message: "仅 AI 网关支持模型同步"
+        '404':
+          description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: 同步失败（网关不可达或鉴权失败）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 后台管理员 JWT（8h access token，需 /system/gateways 权限）
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从 1 开始）
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: 每页条数
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    GatewayConfigUpsert:
+      type: object
+      required: [gateway_type, name, protocol, base_url, api_key, enabled]
+      properties:
+        gateway_type:
+          type: integer
+          enum: [1, 2, 3]
+          description: 网关类型（AI=1/LOGISTICS=2/PAYMENT=3）
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 配置名称（如"OpenRouter 主网关"）
+          example: "OpenRouter 主网关"
+        protocol:
+          type: integer
+          enum: [1]
+          description: 协议类型（openai=1，预留扩展）
+          example: 1
+        base_url:
+          type: string
+          minLength: 1
+          maxLength: 255
+          format: uri
+          description: 网关 base URL（OpenAI-compatible）
+          example: "https://openrouter.ai/api/v1"
+        api_key:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: |
+            API Key（明文输入，后端 AES 加密存储）。更新时若传掩码格式（sk-****xxxx）则保持原密文不变。
+          example: "sk-or-v1-abc123def456..."
+        default_model:
+          type: string
+          maxLength: 128
+          description: 全局默认模型（首次创建后可从 model_list 中选择设置）
+          example: "openai/gpt-4o-mini"
+        model_refresh_strategy:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: 模型刷新策略（manual=1 手动/scheduled=2 定时）
+        model_refresh_interval_min:
+          type: integer
+          minimum: 5
+          maximum: 1440
+          description: 定时刷新间隔分钟（strategy=scheduled 时必填，5~1440 分钟）
+          example: 60
+        enabled:
+          type: boolean
+          default: true
+          description: 是否启用该配置
+        extra_config:
+          type: object
+          description: 协议扩展配置（预留非 OpenAI 协议字段，JSON 自由结构）
+          additionalProperties: true
+          example: {}
+
+    GatewayConfigDetail:
+      allOf:
+        - $ref: '#/components/schemas/GatewayConfigUpsert'
+        - type: object
+          required: [id, api_key_masked, model_list, models_synced_at, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+              example: 1
+            api_key_masked:
+              type: string
+              description: API Key 掩码展示（前缀+后4位，如 sk-****1234）
+              example: "sk-or-****3f8a"
+            model_list:
+              type: array
+              description: 已拉取的可用模型列表（AI 网关自动发现，决策 5）
+              items:
+                $ref: '#/components/schemas/GatewayModel'
+            models_synced_at:
+              type: string
+              format: date-time
+              description: 模型列表最后拉取时间（ISO 8601）
+              example: "2026-06-16T10:30:00Z"
+            created_at:
+              type: string
+              format: date-time
+              example: "2026-06-16T08:00:00Z"
+            updated_at:
+              type: string
+              format: date-time
+              example: "2026-06-16T10:30:00Z"
+
+    GatewayModel:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: 模型 ID（OpenAI /v1/models 返回的 id 字段）
+          example: "openai/gpt-4o-mini"
+        name:
+          type: string
+          description: 模型显示名称（优先用 /v1/models 的 name，若无则用 id）
+          example: "GPT-4o Mini"
+        context_length:
+          type: integer
+          description: 上下文窗口大小（tokens）
+          example: 128000
+
+    GatewayConfigPage:
+      type: object
+      required: [data, total_elements, page_number, page_size, number_of_elements, total_pages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GatewayConfigDetail'
+        total_elements:
+          type: integer
+          format: int64
+          description: 总记录数
+          example: 3
+        page_number:
+          type: integer
+          description: 当前页码（从 1 开始）
+          example: 1
+        page_size:
+          type: integer
+          description: 每页条数
+          example: 20
+        number_of_elements:
+          type: integer
+          description: 当前页实际条数
+          example: 3
+        total_pages:
+          type: integer
+          description: 总页数
+          example: 1
+
+    GatewayTestResult:
+      type: object
+      required: [reachable]
+      properties:
+        reachable:
+          type: boolean
+          description: 是否可达（true=测试成功，false=失败）
+          example: true
+        available_models_count:
+          type: integer
+          description: 可用模型数量（成功时返回，AI 网关）
+          example: 47
+        error_code:
+          type: integer
+          description: 失败时的错误码（502201/502202/504201）
+          example: 502202
+        error_message:
+          type: string
+          description: 失败原因（DNS 解析失败/401 鉴权失败/超时等）
+          example: "API Key 鉴权失败（401 Unauthorized）"
+        latency_ms:
+          type: integer
+          description: 测试请求耗时毫秒（成功或失败均返回）
+          example: 342
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 6 位错误码（高 3 位对应 HTTP 状态）
+          example: 404201
+        message:
+          type: string
+          description: 错误消息
+          example: "网关配置不存在"
+        details:
+          type: object
+          description: 错误详情（可选，含字段名/值等上下文）
+          additionalProperties: true

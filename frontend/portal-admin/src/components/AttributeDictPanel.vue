@@ -6,7 +6,7 @@ import { computed, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import DrawerShell from '@/components/DrawerShell.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import { useAttributeStore } from '@/stores/attributes'
 import { useToastStore } from '@/stores/toast'
@@ -288,7 +288,7 @@ function cancelDeleteDef() {
           </div>
           <div>
             <label class="field-label">类型</label>
-            <AppSelect
+            <SelectMenu
               :model-value="defForm.type"
               :options="[{ value: AttributeDefType.SELECT, label: 'select（单选）' }, { value: AttributeDefType.MULTISELECT, label: 'multiselect（多选）' }, { value: AttributeDefType.TEXT, label: 'text（文本）' }, { value: AttributeDefType.TOGGLE, label: 'toggle（开关）' }]"
               :disabled="!!editingDef"

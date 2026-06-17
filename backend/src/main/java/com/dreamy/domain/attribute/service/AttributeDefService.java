@@ -1,6 +1,7 @@
 package com.dreamy.domain.attribute.service;
 
 import com.dreamy.domain.attribute.entity.AttributeDef;
+import java.time.LocalDateTime;
 import com.dreamy.domain.attribute.entity.AttributeDefTranslation;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
@@ -152,7 +153,11 @@ public class AttributeDefService {
             }
         }
 
-        defRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        AttributeDef patch = new AttributeDef();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        defRepository.update(patch);
         defRepository.deleteTranslationsByDefId(id);
         audit.record("删除属性定义", existing.getLabel(), force ? "（强制删除）" : null);
         invalidateStoreCaches();

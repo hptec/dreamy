@@ -141,15 +141,19 @@ export function CollectionView({
         {/* Sub tabs（子分类，cat searchParam 驱动） */}
         {subTabs && subTabs.length > 0 && (
           <div className="mb-8 flex flex-wrap justify-center gap-2 border-b border-line pb-6">
-            {[{ label: 'All', value: '' }, ...subTabs].map((t) => (
-              <button
-                key={t.value || 'all'}
-                onClick={() => navigate({ cat: t.value || null })}
-                className={cn('cursor-pointer rounded-full px-5 py-2 text-[13px] font-medium uppercase tracking-luxe transition-colors', cat === t.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}
-              >
-                {t.label}
-              </button>
-            ))}
+            {[{ label: 'All', value: '' }, ...subTabs].map((t) => {
+              const catPatch: Record<string, string | null> = { cat: t.value || null }
+              for (const key of Object.keys(attrSelections)) catPatch['a_' + key] = null
+              return (
+                <button
+                  key={t.value || 'all'}
+                  onClick={() => navigate(catPatch)}
+                  className={cn('cursor-pointer rounded-full px-5 py-2 text-[13px] font-medium uppercase tracking-luxe transition-colors', cat === t.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
           </div>
         )}
 

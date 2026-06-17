@@ -4,9 +4,10 @@
 // views/published_at 只读
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
+import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import { useBlogStore } from '@/stores/blog'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -162,7 +163,7 @@ async function submit() {
         </div>
         <div>
           <label class="field-label">状态</label>
-          <AppSelect
+          <SelectMenu
             :model-value="form.status"
             :options="[{ value: ContentStatus.DRAFT, label: '草稿' }, { value: ContentStatus.PUBLISHED, label: '已发布' }, { value: ContentStatus.ARCHIVED, label: '已归档' }]"
             @update:model-value="form.status = $event as typeof form.status"
@@ -184,7 +185,18 @@ async function submit() {
 
     <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-4">
       <div>
-        <label class="field-label">标题（{{ l.toUpperCase() }}）</label>
+        <div class="mb-1.5 flex items-center justify-between">
+          <label class="field-label mb-0">标题（{{ l.toUpperCase() }}）</label>
+          <AiTranslateButton
+            v-model="trans[l].title"
+            :source-text="form.title"
+            :target-lang="l"
+            biz-type="blog"
+            :biz-ref="editing != null ? String(editing.id) : null"
+            field-label="标题"
+            compact
+          />
+        </div>
         <input v-model="trans[l].title" class="field" />
       </div>
       <div>
@@ -192,7 +204,18 @@ async function submit() {
         <textarea v-model="trans[l].excerpt" rows="2" class="field resize-none"></textarea>
       </div>
       <div>
-        <label class="field-label">正文 body（{{ l.toUpperCase() }}）</label>
+        <div class="mb-1.5 flex items-center justify-between">
+          <label class="field-label mb-0">正文 body（{{ l.toUpperCase() }}）</label>
+          <AiTranslateButton
+            v-model="trans[l].body"
+            :source-text="form.content"
+            :target-lang="l"
+            biz-type="blog"
+            :biz-ref="editing != null ? String(editing.id) : null"
+            field-label="正文"
+            compact
+          />
+        </div>
         <textarea v-model="trans[l].body" rows="8" class="field resize-y leading-relaxed"></textarea>
       </div>
       <div class="grid grid-cols-2 gap-4">

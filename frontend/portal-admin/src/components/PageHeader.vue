@@ -3,7 +3,7 @@ defineProps({ title: String, subtitle: String, eyebrow: String, sticky: { type: 
 </script>
 
 <template>
-  <div class="mb-6 flex flex-wrap items-end justify-between gap-4" :class="sticky && 'sticky top-0 z-10 bg-canvas pb-4 pt-6'">
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4" :class="sticky && 'sticky top-16 z-10 bg-canvas pb-4 pt-6'">
     <div>
       <p v-if="eyebrow" class="eyebrow mb-1">{{ eyebrow }}</p>
       <h1 class="font-display text-2xl font-semibold text-ink">{{ title }}</h1>

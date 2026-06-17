@@ -9,6 +9,7 @@ import Pagination from '@/components/Pagination.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import CouponFormDrawer from '@/components/drawers/CouponFormDrawer.vue'
 import FlashSaleFormDrawer from '@/components/drawers/FlashSaleFormDrawer.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { usePromotionsStore } from '@/stores/promotions'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -120,14 +121,19 @@ onMounted(load)
             <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
             <input v-model="store.couponSearch" class="field pl-9" placeholder="搜索券码 / 名称…" @input="onSearchInput" />
           </div>
-          <select v-model="store.couponStatus" class="field w-36 shrink-0" @change="applyCouponFilters">
-            <option value="all">全部状态</option>
-            <option :value="CouponStatus.DRAFT">草稿</option>
-            <option :value="CouponStatus.SCHEDULED">已排期</option>
-            <option :value="CouponStatus.ACTIVE">进行中</option>
-            <option :value="CouponStatus.EXPIRING">即将到期</option>
-            <option :value="CouponStatus.EXPIRED">已过期</option>
-          </select>
+          <SelectMenu
+            v-model="store.couponStatus"
+            class="w-36 shrink-0"
+            :options="[
+              { value: 'all', label: '全部状态' },
+              { value: CouponStatus.DRAFT, label: '草稿' },
+              { value: CouponStatus.SCHEDULED, label: '已排期' },
+              { value: CouponStatus.ACTIVE, label: '进行中' },
+              { value: CouponStatus.EXPIRING, label: '即将到期' },
+              { value: CouponStatus.EXPIRED, label: '已过期' },
+            ]"
+            @change="applyCouponFilters"
+          />
         </div>
       </div>
 
@@ -175,13 +181,18 @@ onMounted(load)
     <!-- 闪购 tab -->
     <div v-show="tab === 'flash'">
       <div class="panel mb-4 p-4">
-        <select v-model="store.flashStatus" class="field w-36" @change="applyFlashFilters">
-          <option value="all">全部状态</option>
-          <option :value="FlashSaleStatus.DRAFT">草稿</option>
-          <option :value="FlashSaleStatus.SCHEDULED">已排期</option>
-          <option :value="FlashSaleStatus.ACTIVE">进行中</option>
-          <option :value="FlashSaleStatus.ENDED">已结束</option>
-        </select>
+        <SelectMenu
+          v-model="store.flashStatus"
+          class="w-36"
+          :options="[
+            { value: 'all', label: '全部状态' },
+            { value: FlashSaleStatus.DRAFT, label: '草稿' },
+            { value: FlashSaleStatus.SCHEDULED, label: '已排期' },
+            { value: FlashSaleStatus.ACTIVE, label: '进行中' },
+            { value: FlashSaleStatus.ENDED, label: '已结束' },
+          ]"
+          @change="applyFlashFilters"
+        />
       </div>
       <div class="panel overflow-hidden">
         <table class="data-table">

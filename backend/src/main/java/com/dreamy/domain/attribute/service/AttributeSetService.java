@@ -1,6 +1,7 @@
 package com.dreamy.domain.attribute.service;
 
 import com.dreamy.domain.attribute.entity.AttributeSet;
+import java.time.LocalDateTime;
 import com.dreamy.domain.attribute.entity.AttributeSetItem;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
@@ -117,7 +118,8 @@ public class AttributeSetService {
                     Map.of("category_count", categoryCount));
         }
         setRepository.replaceItems(id, List.of());
-        setRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        setRepository.markDeleted(id);
         audit.record("删除属性集", existing.getLabel(), null);
     }
 

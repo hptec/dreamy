@@ -44,4 +44,7 @@ public class AdminUser extends LongAuditableEntity {
     @Column(name = AdminUserDBConst.VERSION, definition = "int NOT NULL DEFAULT 0 COMMENT '乐观锁版本'")
     @TableField(AdminUserDBConst.VERSION)
     private Integer version;
+
+    @Column(name = AdminUserDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

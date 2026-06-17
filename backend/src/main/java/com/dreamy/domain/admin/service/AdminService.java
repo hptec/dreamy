@@ -120,6 +120,7 @@ public class AdminService {
 
     public AdminUser findByEmail(String email) {
         LambdaQueryWrapper<AdminUser> qw = new LambdaQueryWrapper<>();
+        qw.isNull(AdminUser::getDeletedAt);
         qw.eq(AdminUser::getEmail, email).last("LIMIT 1");
         return adminUserMapper.selectOne(qw);
     }
@@ -183,7 +184,11 @@ public class AdminService {
         if (isSuperAdmin(admin)) {
             throw new BizException(ErrorCode.SUPER_ADMIN_PROTECTED);
         }
-        adminUserMapper.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        AdminUser patch = new AdminUser();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        adminUserMapper.updateById(patch);
     }
 
     @Transactional

@@ -72,6 +72,31 @@ public class IdentityService {
         return dtoMapper.toProfile(getProfile(userId));
     }
 
+    /**
+     * FUNC-019 更新用户资料（display_name / locale_pref），仅更新请求中提供的字段（决策13）。
+     * 返回更新后的资料 DTO（含 locale_pref，邮件模板选择优先级最高位）。
+     */
+    @Transactional
+    public com.dreamy.dto.UserProfileDTO updateProfileView(Long userId, String displayName, String localePref) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(ErrorCode.UNAUTHORIZED);
+        }
+        boolean changed = false;
+        if (displayName != null) {
+            user.setName(displayName);
+            changed = true;
+        }
+        if (localePref != null) {
+            user.setLocalePref(localePref);
+            changed = true;
+        }
+        if (changed) {
+            userMapper.updateById(user);
+        }
+        return dtoMapper.toProfile(userMapper.selectById(userId));
+    }
+
     /** FUNC-010 表示层：登录方式 DTO 列表（MAP-002 隐藏 provider_uid） */
     public List<com.dreamy.dto.IdentityDTO> listIdentityViews(Long userId) {
         return listIdentities(userId).stream().map(dtoMapper::toIdentity).toList();

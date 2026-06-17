@@ -3,7 +3,7 @@
 // 约束: FORM-A02 创建管理员校验；超管保护 UI 预判 + 后端二次校验
 import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useAdminsStore } from '@/stores/admins'
 import { useRolesStore } from '@/stores/roles'
 import { useAuthStore } from '@/stores/auth'
@@ -200,15 +200,22 @@ onMounted(load)
         <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
         <input v-model="search" class="field w-full pl-9" placeholder="搜索姓名 / 邮箱…" />
       </div>
-      <select v-model="store.filterRoleId" class="field w-40 shrink-0" @change="store.applyFilters()">
-        <option value="">全部角色</option>
-        <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
-      </select>
-      <select v-model="store.filterStatus" class="field w-36 shrink-0" @change="store.applyFilters()">
-        <option value="all">全部状态</option>
-        <option :value="AdminStatus.ACTIVE">正常</option>
-        <option :value="AdminStatus.DISABLED">已禁用</option>
-      </select>
+      <SelectMenu
+        v-model="store.filterRoleId"
+        class="w-40 shrink-0"
+        :options="[{ value: '', label: '全部角色' }, ...roles.map((r) => ({ value: r.id, label: r.name }))]"
+        @change="store.applyFilters()"
+      />
+      <SelectMenu
+        v-model="store.filterStatus"
+        class="w-36 shrink-0"
+        :options="[
+          { value: 'all', label: '全部状态' },
+          { value: AdminStatus.ACTIVE, label: '正常' },
+          { value: AdminStatus.DISABLED, label: '已禁用' },
+        ]"
+        @change="store.applyFilters()"
+      />
       <span class="ml-auto text-[12px] text-ink-faint">共 {{ store.total }} 人</span>
     </div>
 
@@ -325,7 +332,7 @@ onMounted(load)
             </div>
             <div>
               <label class="mb-1 block text-[13px] font-medium text-ink">角色</label>
-              <AppSelect
+              <SelectMenu
                 :model-value="form.roleId"
                 :options="roles.map(r => ({ value: r.id, label: r.name + (r.type === 1 ? '（系统预设）' : '') }))"
                 placeholder="请选择角色"

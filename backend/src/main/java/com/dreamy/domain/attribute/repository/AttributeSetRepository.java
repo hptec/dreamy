@@ -6,6 +6,7 @@ import com.dreamy.domain.attribute.entity.AttributeSet;
 import com.dreamy.domain.attribute.entity.AttributeSetItem;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -26,12 +27,15 @@ public class AttributeSetRepository {
 
     /** RM-CAT-040 listAll */
     public List<AttributeSet> listAll() {
-        return setMapper.selectList(new LambdaQueryWrapper<AttributeSet>().orderByAsc(AttributeSet::getId));
+        return setMapper.selectList(new LambdaQueryWrapper<AttributeSet>()
+                .isNull(AttributeSet::getDeletedAt)
+                .orderByAsc(AttributeSet::getId));
     }
 
     /** RM-CAT-041 findById */
     public AttributeSet findById(Long id) {
-        return id == null ? null : setMapper.selectById(id);
+        AttributeSet e = id == null ? null : setMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-CAT-042 insert */
@@ -84,5 +88,13 @@ public class AttributeSetRepository {
     public void deleteItemsByAttributeId(Long attributeId) {
         itemMapper.delete(new LambdaQueryWrapper<AttributeSetItem>()
                 .eq(AttributeSetItem::getAttributeId, attributeId));
+    }
+
+    /** 逻辑删除：设置 deleted_at = now() */
+    public void markDeleted(Long id) {
+        AttributeSet patch = new AttributeSet();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        setMapper.updateById(patch);
     }
 }

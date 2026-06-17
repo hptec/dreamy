@@ -1,6 +1,7 @@
 package com.dreamy.domain.lookbook.service;
 
 import com.dreamy.enums.PublishStatus;
+import java.time.LocalDateTime;
 import com.dreamy.domain.lookbook.entity.Lookbook;
 import com.dreamy.domain.lookbook.entity.LookbookTranslation;
 import com.dreamy.domain.lookbook.repository.LookbookRepository;
@@ -121,7 +122,11 @@ public class AdminLookbookService {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-02 物理删除三表 + 审计
-        lookbookRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        Lookbook patch = new Lookbook();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        lookbookRepository.update(patch);
         lookbookRepository.deleteProductsByLookbookId(id);
         lookbookRepository.deleteTranslationsByLookbookId(id);
         audit.record("删除Lookbook", existing.getTitle(), null);

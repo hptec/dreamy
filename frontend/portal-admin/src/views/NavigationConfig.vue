@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { navConfig } from '@/data/mock'
 import {
   Bars3Icon, PlusIcon, TrashIcon, RocketLaunchIcon, EyeIcon, ChevronRightIcon
@@ -43,7 +44,7 @@ const touch = () => (dirty.value = true)
           <div class="flex items-center text-[12px] text-ink-faint"><span class="px-2">链接</span><input v-model="item.href" @input="touch" class="field w-56 text-[12px]" /></div>
           <div class="ml-auto flex items-center gap-2 text-[12px] text-ink-soft">
             <span>Mega Menu 列：</span>
-            <select v-model="item.columns" @change="touch" class="field w-16 py-1 text-[12px]"><option :value="0">无</option><option :value="1">1</option><option :value="2">2</option><option :value="3">3</option></select>
+            <SelectMenu v-model="item.columns" class="w-16" :options="[{ value: 0, label: '无' }, { value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' }]" @change="touch" />
             <button class="btn-danger-ghost"><TrashIcon class="h-4 w-4" /></button>
           </div>
         </div>

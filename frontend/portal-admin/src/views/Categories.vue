@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import AttributeDictPanel from '@/components/AttributeDictPanel.vue'
+import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
@@ -811,7 +812,18 @@ onMounted(() => {
             </div>
 
             <div v-for="l in ['es', 'fr'] as const" v-show="drawerLocale === l" :key="l">
-              <label class="field-label">名称（{{ l.toUpperCase() }}）</label>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label class="field-label mb-0">名称（{{ l.toUpperCase() }}）</label>
+                <AiTranslateButton
+                  v-model="drawerTrans[l]"
+                  :source-text="drawerName"
+                  :target-lang="l"
+                  biz-type="category"
+                  :biz-ref="drawer != null ? String(drawer.node.id) : null"
+                  field-label="名称"
+                  compact
+                />
+              </div>
               <input v-model="drawerTrans[l]" class="field" />
               <p class="mt-1.5 text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
             </div>

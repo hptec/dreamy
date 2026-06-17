@@ -1,0 +1,181 @@
+meta:
+  change_name: i18n-complete-with-ai-assist
+  generated_at: '2026-06-16T20:00:00Z'
+  generated_by: L2 Coordinator
+  purpose: 定义L2专家间共享约定，防止产出冲突
+
+naming:
+  entity_style: PascalCase
+  field_style: camelCase  # Java/Spring项目
+  db_column_style: snake_case  # MySQL列名
+  endpoint_style: kebab-case
+  error_code_prefix_format: "{HTTP_3位}{域段_1位}{序号_2位}"
+  test_id_format: "TC-{TYPE}-I18N-{NNNN}"
+
+type_mapping:
+  - domain_type: Long
+    api_type: integer (format: int64)
+    db_type: BIGINT
+    note: Java主键统一Long自增
+
+  - domain_type: String
+    api_type: string
+    db_type: VARCHAR(n)
+    note: 字符串长度由max约束决定
+
+  - domain_type: LocalDateTime
+    api_type: string (format: date-time)
+    db_type: DATETIME
+    note: 时区处理在应用层，数据库存UTC
+
+  - domain_type: Boolean
+    api_type: boolean
+    db_type: TINYINT(1)
+    note: MySQL布尔用TINYINT(1)
+
+  - domain_type: Enum (IntEnum)
+    api_type: integer (enum: [1,2,3])
+    db_type: TINYINT
+    note: 整数枚举，OpenAPI用enum约束值域
+
+  - domain_type: JSON
+    api_type: object
+    db_type: JSON
+    note: MySQL 5.7+ JSON类型，存储model_list/extra_config/token_usage
+
+  - domain_type: EncryptedString
+    api_type: string (writeOnly, 前端提交明文或掩码)
+    db_type: VARCHAR(512)
+    note: API Key加密存储，响应时掩码展示（sk-****1234）
+
+cross_reference:
+  api_to_data: |
+    API Schema字段名（camelCase）通过MapStruct映射到DB列名（snake_case）。
+    示例：apiKeyEncrypted (DTO) ↔ api_key_encrypted (DB)
+
+  api_to_error: |
+    API错误响应中的code字段必须引用error-strategy.md中定义的6位错误码。
+    3新域号段：gateway=2, ai_translation=3, glossary=4
+
+  test_to_api: |
+    测试骨架中的端点调用必须使用api-detail中定义的完整路径和参数。
+    错误路径测试必须覆盖error-detail中定义的所有MUST_TEST错误码。
+
+  frontend_to_api: |
+    前端组件调用API时，请求/响应字段名统一camelCase（与OpenAPI schema一致）。
+    portal-admin使用axios，portal-store使用fetch。
+
+domain_boundaries:
+  gateway:
+    responsibilities: [配置CRUD, 测试连接, 模型同步]
+    not_responsible: [实际翻译调用, 术语表管理]
+
+  ai_translation:
+    responsibilities: [翻译请求代理, 调用日志, system prompt组装]
+    not_responsible: [网关配置管理, 术语表CRUD]
+    external_deps: [gateway配置, glossary术语表]
+
+  glossary:
+    responsibilities: [术语CRUD, 启用状态管理]
+    not_responsible: [注入prompt逻辑（由ai_translation负责）]
+
+  catalog_incremental:
+    responsibilities: [product_translation.designer_note CRUD, pick()回退逻辑]
+    not_responsible: [翻译调用（调用ai_translation）]
+
+  identity_incremental:
+    responsibilities: [user.locale_pref持久化, profile API]
+    not_responsible: [邮件模板选择（由email服务负责）]
+
+  trading_incremental:
+    responsibilities: [orders.locale_snapshot记录]
+    not_responsible: [邮件发送（由email服务消费locale字段）]
+
+shared_constants:
+  supported_locales: ['en', 'es', 'fr']
+  default_locale: 'en'
+  api_key_mask_pattern: 'sk-****{last4}'
+  ai_translation_timeout_sec: 30
+  gateway_test_connection_timeout_sec: 10
+  model_sync_batch_size: 100
+  translation_log_retention_days: 90
+  glossary_inject_max_terms: 50
+  system_prompt_prefix: 'You are a professional translator for a bridal e-commerce platform. Translate the following text accurately while preserving tone and marketing appeal.'
+
+error_handling_contracts:
+  external_gateway_failure: |
+    AI网关调用失败时：
+    1. 记录ai_translation_log status=failed
+    2. 返回502/504错误码
+    3. 前端toast提示但允许继续保存（决策10）
+
+  api_key_masking: |
+    API Key响应掩码规则：
+    - 存储：AES-256-GCM加密，IV+密文存api_key_encrypted
+    - 传输：响应体仅返回前缀+后4位（sk-****1234）
+    - 更新：前端提交掩码时保持原密文，提交明文时重新加密
+
+  validation_failure_format: |
+    字段校验失败统一返回422，details字段包含：
+    { field: "字段名", value: "错误值", constraint: "约束描述" }
+
+  concurrent_update_protection: |
+    网关配置/术语表编辑使用updated_at乐观锁，冲突返回409提示刷新重试。
+
+integration_contracts:
+  ai_translation_to_gateway: |
+    1. 读取enabled=true的gateway_type=AI配置（多个时取updated_at最新）
+    2. 解密api_key_encrypted（内存中解密，不落日志）
+    3. 调用外部网关/v1/chat/completions，超时30s
+    4. 记录ai_translation_log（含latency_ms/token_usage/status）
+
+  ai_translation_to_glossary: |
+    1. 查询enabled=true的所有术语
+    2. 仅注入源文本中实际命中的术语（term_en出现在source_text中）
+    3. 上限50条，超出按category优先级截断（廓形>领型>面料>工艺>其他）
+    4. 格式：Use these standard terms: "A-line" → "línea A" (ES) / "ligne A" (FR)
+
+  catalog_to_ai_translation: |
+    商品编辑页AI翻译按钮调用POST /api/admin/ai/translate：
+    - biz_type: "product"
+    - biz_ref: product_id
+    - source_lang: "en"
+    - target_lang: "es" | "fr"
+    - source_text: 字段内容
+    - custom_requirement: 用户追加要求（可选）
+
+  email_service_locale_resolution: |
+    邮件发送时locale选择优先级：
+    1. user.locale_pref（登录用户）
+    2. orders.locale_snapshot（匿名下单时从下单页locale快照）
+    3. 默认'en'
+    模板路径：classpath:templates/email/{name}_{locale}.html
+
+  store_locale_routing: |
+    Next.js middleware检测顺序：
+    1. URL路径前缀（/es/ | /fr/，EN无前缀）
+    2. cookie NEXT_LOCALE
+    3. Accept-Language header
+    4. 默认'en'
+    非支持locale → 302重定向到EN，旧无前缀链接 → 301永久重定向到带前缀URL
+
+testability_contracts:
+  backend_mock_strategy: |
+    - 单元测试：Mock外部网关GatewayClient，返回预定义响应
+    - 集成测试：使用TestContainers MySQL，严格零Mock
+    - 契约测试：WireMock模拟OpenAI /v1/chat/completions和/v1/models
+
+  frontend_test_strategy: |
+    - admin组件：msw拦截API，返回fixture数据
+    - store i18n：测试messages.ts覆盖率，验证所有硬编码英文已接入useI18n()
+    - locale路由：测试middleware重定向逻辑（302/301状态码）
+
+  edge_scenario_coverage: |
+    24个EDGE场景必须在测试骨架中体现：
+    - 空值/缺失：EDGE-001~003,020,021 → 集成测试+API测试
+    - 边界值：EDGE-004,005,024 → 单元测试
+    - 格式：EDGE-006,007,018,019 → 契约测试+中间件测试
+    - 权限：EDGE-008~010,022 → API测试（RBAC）
+    - 并发：EDGE-011,012 → 组件测试（乐观锁）
+    - 状态：EDGE-013,014 → 集成测试
+    - 外部依赖：EDGE-015~017,023 → 韧性测试（超时/限流/5xx）

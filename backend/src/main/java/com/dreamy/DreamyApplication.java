@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Dreamy 单一 Spring Boot 入口（端口 8080）。
+ * Dreamy 单一 Spring Boot 入口（端口 18081）。
  * 同时装配 store(/api/store/*) 与 admin(/api/admin/*) 表现层 + 各 domain 领域/基础设施。
  * 约束: 单一 @SpringBootApplication 入口；BE-DIM-6 双 JWT 过滤器按前缀选解析器。
  * huihao-mysql DDL-auto（@EnableMysql）+ huihao-redis 分布式锁（@EnableHuiHaoRedis）。

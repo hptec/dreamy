@@ -2,7 +2,7 @@
 // COMP-MKT-A10 LookbookFormDrawer：title/theme/description EN + 三语 tab + 商品选择器 + 状态
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
 import { useLookbookStore } from '@/stores/lookbook'
@@ -133,7 +133,7 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">状态</label>
-        <AppSelect
+        <SelectMenu
           :model-value="form.status"
           :options="[{ value: PublishStatus.DRAFT, label: '草稿' }, { value: PublishStatus.PUBLISHED, label: '已发布' }]"
           @update:model-value="form.status = $event as typeof form.status"

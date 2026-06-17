@@ -57,7 +57,10 @@ export async function CollectionPage({
   const page = Math.max(1, Number(single(searchParams.page) ?? '1') || 1)
   const { priceMin, priceMax } = parsePriceParam(single(searchParams.price))
 
-  const categoryId = cat ? Number(cat) : category?.id
+  // cat 兼容数字 id 与子分类 name（slug）；未命中则回退父分类
+  const catNumeric = cat ? Number(cat) : NaN
+  const catByName = Number.isNaN(catNumeric) ? category?.children?.find((c) => c.name === cat)?.id : undefined
+  const categoryId = (Number.isNaN(catNumeric) ? catByName : catNumeric) ?? category?.id
   const attrs = parseAttrParams(searchParams)
 
   const [data, filterDims] = await Promise.all([
@@ -80,7 +83,7 @@ export async function CollectionPage({
   const colorGroup = tagGroups.find((g) => /color/i.test(g.name)) ?? tagGroups[0]
   const colorOptions = colorGroup?.tags.map((t) => t.name) ?? []
 
-  const subTabs = (category?.children ?? []).map((c) => ({ label: c.name, value: String(c.id) }))
+  const subTabs = (category?.children ?? []).map((c) => ({ label: c.name, value: c.name }))
 
   return (
     <CollectionView

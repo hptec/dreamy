@@ -2221,3 +2221,201 @@ entities:
     source: prototype/portal-admin/src/views/ContentLookbook.vue > 序号 {{ i + 1 }}
       [INFERRED]
   relations: []
+- id: ExternalGatewayConfig
+  desc: 外部系统网关配置（单表多类型：AI 网关/物流网关/支付网关等，type 区分）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java [INFERRED]
+  - n: gateway_type
+    t: enum
+    vals:
+    - 1
+    - 2
+    - 3
+    req: true
+    source: 'user requirement: 单表多类型 AI(1)/LOGISTICS(2)/PAYMENT(3)'
+  - n: name
+    t: string
+    req: true
+    max: 64
+    source: 'user requirement: 配置名称（如 OpenAI官方/Azure代理）'
+  - n: protocol
+    t: enum
+    vals:
+    - 1
+    req: true
+    source: 'user requirement: 当前仅 openai(1)，预留扩展其他协议'
+  - n: base_url
+    t: string
+    req: true
+    max: 255
+    source: 'user requirement: 网关 URL（OpenAI-compatible base）'
+  - n: api_key_encrypted
+    t: string
+    req: true
+    max: 512
+    source: 'user requirement: API Key 加密存储，前端不可见'
+  - n: default_model
+    t: string
+    max: 128
+    source: 'user requirement: 全局默认模型（两级模型选择的默认值）'
+  - n: model_list
+    t: json
+    source: 'user requirement: 自动发现的可用模型列表（/v1/models 拉取缓存）'
+  - n: model_refresh_strategy
+    t: enum
+    vals:
+    - 1
+    - 2
+    source: 'user requirement: manual(1)手动刷新/scheduled(2)定时刷新'
+  - n: model_refresh_interval_min
+    t: int
+    min: 1
+    source: 'user requirement: 定时刷新间隔分钟数（strategy=scheduled 时生效）'
+  - n: models_synced_at
+    t: timestamp
+    source: 'user requirement: 上次模型列表拉取时间'
+  - n: enabled
+    t: boolean
+    req: true
+    source: 'user requirement: 是否启用该网关配置'
+  - n: extra_config
+    t: json
+    source: 'user requirement: 协议扩展配置（预留非 OpenAI 协议字段）'
+  - n: created_at
+    t: timestamp
+    source: standard audit field [INFERRED]
+  - n: updated_at
+    t: timestamp
+    source: standard audit field [INFERRED]
+  constraints:
+  - type: unique
+    expr: (gateway_type, name)
+    desc: 同类型网关下配置名称唯一
+    source: 'user requirement: 多配置区分'
+  - type: js_guard
+    expr: COUNT(enabled=true WHERE gateway_type=AI) <= 1 视为默认网关
+    desc: AI 类型可有多个配置，但同时只有一个作为当前默认（enabled 语义）
+    source: 'user requirement: 多配置切换'
+- id: AiTranslationLog
+  desc: AI 翻译调用记录（每次翻译请求的原文/译文/耗时/token/状态审计）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java [INFERRED]
+  - n: gateway_config_id
+    t: Long
+    req: true
+    source: 'user requirement: 关联使用的网关配置'
+  - n: model
+    t: string
+    req: true
+    max: 128
+    source: 'user requirement: 实际调用的模型名'
+  - n: source_lang
+    t: string
+    req: true
+    max: 8
+    source: 'user requirement: 源语言（en 主字段）'
+  - n: target_lang
+    t: string
+    req: true
+    max: 8
+    source: 'user requirement: 目标语言（es/fr）'
+  - n: source_text
+    t: text
+    req: true
+    source: 'user requirement: 原文'
+  - n: translated_text
+    t: text
+    source: 'user requirement: 译文（失败时为空）'
+  - n: custom_requirement
+    t: text
+    source: 'user requirement: 用户追加的自定义翻译要求'
+  - n: biz_type
+    t: string
+    max: 32
+    source: 'user requirement: 业务来源类型（product/category/tag/banner...）'
+  - n: biz_ref
+    t: string
+    max: 64
+    source: 'user requirement: 业务来源标识（如 product_id，便于溯源）'
+  - n: status
+    t: enum
+    vals:
+    - 1
+    - 2
+    req: true
+    source: 'user requirement: success(1)/failed(2)'
+  - n: error_message
+    t: string
+    max: 512
+    source: 'user requirement: 失败原因（status=failed 时）'
+  - n: latency_ms
+    t: int
+    min: 0
+    source: 'user requirement: 调用耗时毫秒'
+  - n: token_usage
+    t: json
+    source: 'user requirement: token 消耗（prompt/completion/total）'
+  - n: operator_id
+    t: Long
+    source: 'user requirement: 操作人（管理员 id）'
+  - n: created_at
+    t: timestamp
+    source: standard audit field [INFERRED]
+  relations:
+  - to: ExternalGatewayConfig
+    type: n1
+    source: 'user requirement: gateway_config_id 逻辑外键'
+  constraints:
+  - type: index
+    expr: (biz_type, biz_ref)
+    desc: 按业务来源溯源翻译记录
+    source: 'user requirement: 调用记录可按业务检索'
+  - type: index
+    expr: (created_at)
+    desc: 按时间倒序分页查询调用记录
+    source: 'user requirement: 调用记录列表'
+- id: AiTranslationGlossary
+  desc: 婚纱礼服领域翻译术语表（EN→ES/FR 标准译法，翻译时注入 system prompt 保证术语一致性）
+  fields:
+  - n: id
+    t: Long
+    pk: true
+    source: project_tech_stack.backend=java [INFERRED]
+  - n: term_en
+    t: string
+    req: true
+    max: 128
+    source: 'user requirement: 英文术语（A-line/sweetheart neckline 等）'
+  - n: term_es
+    t: string
+    max: 128
+    source: 'user requirement: 西语标准译法'
+  - n: term_fr
+    t: string
+    max: 128
+    source: 'user requirement: 法语标准译法'
+  - n: category
+    t: string
+    max: 32
+    source: 'user requirement: 术语分类（廓形/领型/面料/工艺）'
+  - n: enabled
+    t: boolean
+    req: true
+    source: 'user requirement: 是否启用（注入 prompt）'
+  - n: created_at
+    t: timestamp
+    source: standard audit field [INFERRED]
+  - n: updated_at
+    t: timestamp
+    source: standard audit field [INFERRED]
+  constraints:
+  - type: unique
+    expr: (term_en)
+    desc: 英文术语唯一
+    source: 'user requirement: 术语去重'

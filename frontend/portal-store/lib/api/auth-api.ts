@@ -63,6 +63,18 @@ export function listIdentities(): Promise<Identity[]> {
   })
 }
 
+/** updateProfile — PUT /api/store/account/profile（FUNC-019 / 决策13，持久化 locale_pref / display_name） */
+export function updateProfile(input: {
+  displayName?: string
+  localePref?: string
+}): Promise<UserProfile> {
+  return request<UserProfile>('/api/store/account/profile', {
+    method: 'PUT',
+    auth: true,
+    body: input
+  })
+}
+
 /** bindIdentity — POST /api/store/account/identities/bind（FLOW-05 FUNC-008） */
 export function bindIdentity(input: {
   provider: AuthProvider

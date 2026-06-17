@@ -39,7 +39,8 @@ public class TagRepository {
 
     /** RM-CAT-061 findById */
     public Tag findById(Long id) {
-        return id == null ? null : tagMapper.selectById(id);
+        Tag e = id == null ? null : tagMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-CAT-062 listByIds —— tag_ids 存在性校验（V-CAT-034） */
@@ -47,12 +48,16 @@ public class TagRepository {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        return tagMapper.selectList(new LambdaQueryWrapper<Tag>().in(Tag::getId, ids));
+        return tagMapper.selectList(new LambdaQueryWrapper<Tag>()
+                .isNull(Tag::getDeletedAt)
+                .in(Tag::getId, ids));
     }
 
     /** RM-CAT-063 listEnabled —— 消费端 status=enabled（E-CAT-07） */
     public List<Tag> listEnabled(Long dimensionId) {
-        LambdaQueryWrapper<Tag> qw = new LambdaQueryWrapper<Tag>().eq(Tag::getStatus, TagStatus.ENABLED);
+        LambdaQueryWrapper<Tag> qw = new LambdaQueryWrapper<Tag>()
+                .isNull(Tag::getDeletedAt)
+                .eq(Tag::getStatus, TagStatus.ENABLED);
         if (dimensionId != null) {
             qw.eq(Tag::getDimensionId, dimensionId);
         }
@@ -68,6 +73,7 @@ public class TagRepository {
         Set<Long> tagIds = new LinkedHashSet<>();
         // 主表 name LIKE
         List<Tag> byName = tagMapper.selectList(new LambdaQueryWrapper<Tag>()
+                .isNull(Tag::getDeletedAt)
                 .eq(Tag::getStatus, TagStatus.ENABLED)
                 .like(Tag::getName, q));
         for (Tag t : byName) {
@@ -82,7 +88,8 @@ public class TagRepository {
                 List<Long> candidate = byLabel.stream().map(TagTranslation::getTagId).toList();
                 // 仅 enabled 标签入结果
                 for (Tag t : tagMapper.selectList(new LambdaQueryWrapper<Tag>()
-                        .in(Tag::getId, candidate)
+                .isNull(Tag::getDeletedAt)
+                .in(Tag::getId, candidate)
                         .eq(Tag::getStatus, TagStatus.ENABLED))) {
                     tagIds.add(t.getId());
                 }
@@ -93,7 +100,9 @@ public class TagRepository {
 
     /** RM-CAT-065 countByDimensionId —— 409506 guard */
     public long countByDimensionId(Long dimensionId) {
-        return tagMapper.selectCount(new LambdaQueryWrapper<Tag>().eq(Tag::getDimensionId, dimensionId));
+        return tagMapper.selectCount(new LambdaQueryWrapper<Tag>()
+                .isNull(Tag::getDeletedAt)
+                .eq(Tag::getDimensionId, dimensionId));
     }
 
     /** RM-CAT-066 insert */

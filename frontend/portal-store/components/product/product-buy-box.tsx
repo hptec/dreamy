@@ -46,7 +46,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
   const router = useRouter()
   const { currency, addToCart, toggleWishlist, isWished, trackView } = useStore()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const { te } = useI18n()
+  const { te, t } = useI18n()
 
   const colors = useMemo(() => colorOptionsOf(product), [product])
   const [colorName, setColorName] = useState(colors[0]?.name ?? '')

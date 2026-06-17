@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { LocalizedLink as Link } from '@/components/localized-link'
 import { footerNav } from '@/data/navigation'
 import { Instagram, Facebook, Twitter } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function SiteFooter() {
-  const { locale, te } = useI18n()
+  const { locale, te, t } = useI18n()
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
   const [invalid, setInvalid] = useState(false)
@@ -51,31 +51,31 @@ export function SiteFooter() {
       <div className="border-b border-white/10">
         <div className="container-luxe grid gap-8 py-14 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="eyebrow mb-2 text-gold-light">Join the Atelier</p>
-            <h3 className="font-display text-3xl font-medium lg:text-4xl">Be the first to know</h3>
-            <p className="mt-2 max-w-md text-sm text-canvas/70">Sign up for early access to new collections and outdoor wedding inspiration.</p>
+            <p className="eyebrow mb-2 text-gold-light">{t.layout.footer.newsletterEyebrow}</p>
+            <h3 className="font-display text-3xl font-medium lg:text-4xl">{t.layout.footer.newsletterTitle}</h3>
+            <p className="mt-2 max-w-md text-sm text-canvas/70">{t.layout.footer.newsletterBody}</p>
           </div>
           <div className="w-full max-w-md lg:ml-auto">
             {done ? (
-              <p className="rounded-sm bg-sage/15 px-4 py-3 text-sm text-sage-deep">You&apos;re on the list — welcome to the atelier.</p>
+              <p className="rounded-sm bg-sage/15 px-4 py-3 text-sm text-sage-deep">{t.layout.footer.subscribed}</p>
             ) : (
               <form onSubmit={submit} className="flex w-full gap-3" noValidate>
-                <label htmlFor="footer-email" className="sr-only">Email address</label>
+                <label htmlFor="footer-email" className="sr-only">{t.layout.footer.emailSrLabel}</label>
                 <input
                   id="footer-email"
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Your email address"
+                  placeholder={t.layout.footer.emailPlaceholder}
                   className={cn('flex-1 rounded-sm border bg-transparent px-4 py-3 text-sm outline-none placeholder:text-canvas/40 focus:border-gold-light', invalid ? 'border-blush' : 'border-white/20')}
                 />
                 <button type="submit" disabled={submitting} className="cursor-pointer rounded-sm bg-gold px-6 py-3 text-[13px] font-medium uppercase tracking-luxe text-white transition-colors hover:bg-gold-deep disabled:opacity-60">
-                  {submitting ? '…' : 'Subscribe'}
+                  {submitting ? '…' : t.layout.footer.subscribe}
                 </button>
               </form>
             )}
-            {invalid && !done && <p className="mt-2 text-xs text-blush">Please enter a valid email address.</p>}
+            {invalid && !done && <p className="mt-2 text-xs text-blush">{t.layout.footer.invalidEmail}</p>}
             {error && !done && <p className="mt-2 text-xs text-blush">{error}</p>}
           </div>
         </div>
@@ -102,10 +102,10 @@ export function SiteFooter() {
         <div className="container-luxe flex flex-col items-center justify-between gap-4 py-6 text-xs text-canvas/60 sm:flex-row">
           <div className="flex items-center gap-4">
             <span className="font-display text-lg text-canvas">Dreamy</span>
-            <span>© 2026 Dreamy Atelier.</span>
+            <span>{t.layout.footer.rights}</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="hidden sm:inline">We accept</span>
+            <span className="hidden sm:inline">{t.layout.footer.weAccept}</span>
             <div className="flex items-center gap-2">
               {['Visa', 'MC', 'Amex', 'Klarna', 'Afterpay'].map((p) => (
                 <span key={p} className="rounded border border-white/20 px-2 py-1 text-[10px] tracking-wide">{p}</span>

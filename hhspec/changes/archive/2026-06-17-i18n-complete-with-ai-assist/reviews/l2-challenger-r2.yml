@@ -1,0 +1,272 @@
+---
+review_report:
+  title: "i18n-complete-with-ai-assist L2 设计审查报告"
+  reviewer: "l2-challenger-agent"
+  date: "2026-06-16"
+  round: 2
+  design_source: "hhspec/changes/i18n-complete-with-ai-assist/specs/design/"
+  requirement_source: "hhspec/changes/i18n-complete-with-ai-assist/acceptance.yml + boundary-scenarios.yml + decision.md"
+  architecture_source: "hhspec/changes/i18n-complete-with-ai-assist/specs/architecture/"
+
+  verdict: "PASS"
+
+  activation_note: |
+    [ACTIVATION-MATRIX-MISSING] activation-matrix.yml 缺失，采用全量激活 fallback 模式审查。
+    所有 Designer 检查项均启用（API/Data/Error/Test/Frontend/UI-Test）。
+
+  preflight:
+    layer: preflight
+    result: PASS
+    checks:
+      - id: PF-L2-01
+        desc: "统一设计文档结构完整"
+        result: PASS
+      - id: PF-L2-02
+        desc: "shared-contracts.yml 结构正确"
+        result: PASS
+      - id: PF-L2-03
+        desc: "task-allocation.yml 完整"
+        result: PASS
+      - id: PF-L2-04
+        desc: "complexity-metrics.yml 存在"
+        result: PASS
+      - id: PF-IO-01
+        desc: "L1 OpenAPI 契约完整性（paths/schemas/responses）"
+        result: PASS
+        evidence: "gateway(7)/glossary(5)/ai-translation(2) openapi + catalog/identity/trading 3 增量文档齐全"
+
+  # ===== R1 8 项 MUST_FIX 修复验证 =====
+  fix_verification:
+    previous_round: 1
+    summary: "8/8 MUST_FIX 已全部修复（FIXED），0 项 NOT_FIXED / PARTIALLY_FIXED"
+    previous_issues:
+      - id: "ISS-L2C-001"
+        title: "测试网关连接端点 POST /configs/{id}/test 缺失"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-api-detail.md §1.7 已新增完整四部分设计：入参(id Long)/业务逻辑(404201→501非AI网关→解密调用/v1/models 10s超时→封装GatewayTestResult)/
+          出参(reachable/available_models_count/error_code/error_message/latency_ms，成功失败均返200)/错误码(404201 HTTP404 + 501 + result内502201/502202/504201)。
+          与 gateway-api.openapi.yml lines 244-281 + GatewayTestResult schema(497-520) 逐字段一致。
+          测试侧补 TC-UNIT-I18N-0030 + TC-API-I18N-0009/0010/0011 + TC-RESILIENCE-I18N-0008/0009/0010。
+      - id: "ISS-L2C-002"
+        title: "术语详情端点 GET /terms/{id} 缺失"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-api-detail.md §3.3 已新增 GET /api/admin/glossary/terms/{id}：入参(id Long)/业务逻辑(主键查询→404401→MAP-007)/出参 GlossaryTerm/错误码 404401。
+          与 glossary-api.openapi.yml lines 136-167(getGlossaryTerm) 一致。glossary 域端点数由 4 补至 5（OpenAPI 定义 5 端点全覆盖）。
+          测试补 TC-UNIT-I18N-0021/0022 + TC-API-I18N-0007/0008。
+      - id: "ISS-L2C-003"
+        title: "Profile 端点路径/方法/鉴权与契约不一致"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-api-detail.md §5.1 已改为 PUT /api/consumer/auth/profile，鉴权 StoreBearerAuth，入参 ProfileUpdateRequest(display_name?/locale_pref?∈[en,es,fr])，出参 User(含 locale_pref)。
+          与 identity-api-incremental.md lines 63-94(updateProfile/StoreBearerAuth) 完全一致。
+          store-frontend-detail §7(line 256) 已同步为 PUT /api/consumer/auth/profile + StoreBearerAuth；conflict-report CFL-04 已重检通过。
+      - id: "ISS-L2C-004"
+        title: "external_gateway_config 缺 consecutive_failures 字段与降级状态机"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-data-detail.md §1.1 DDL 已增 consecutive_failures INT NOT NULL DEFAULT 0(line 28)；
+          §8 新增完整降级状态机(成功清零/失败+1/>=3降级 manual+enabled=0+告警)，含状态转移表，对齐 error-mapping.yml model_sync_failure(retry_count:3, state_field:consecutive_failures)。
+          UNC-L2C-002(enabled→false 影响面) 已记录为 info 级待确认，L3 可配置开关，不阻塞。
+      - id: "ISS-L2C-005"
+        title: "ai_translation_log.status 枚举值层间不一致"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-data-detail.md §1.2 DDL line 53 status 注释扩为 5 值(success1/failed2/timeout3/empty_result4/rate_limited5)；
+          §7.1 新增枚举映射表(值→枚举→触发场景→错误码→测试)，明确原 gateway_error 归并为 failed(2)，消除未编号态。
+          与 error-mapping.yml + test-skeleton(TC-RESILIENCE-0001~0003/TC-UNIT-0015) 语义逐一对齐。
+      - id: "ISS-L2C-006"
+        title: "API Key AES-256-GCM 密钥管理方案未定义"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-api-detail.md §6.1 已补密钥管理方案表：密钥来源(env DREAMY_GATEWAY_AES_KEY, Base64 32字节)/启动 fail-fast 校验(@PostConstruct 非空+长度==32, 禁默认硬编码)/
+          密文格式(keyVersion 前缀 v1:)/轮转策略(双密钥并存按版本选 key, 渐进重加密)/解密失败 422202。伪代码完整(initKey/encrypt/decrypt/mask)。
+          UNC-L2C-001(运维注入方式) 标注 info 级不阻塞 L3。
+      - id: "ISS-L2C-007"
+        title: "追溯矩阵 FUNC 标题错位，FUNC-021 测试连接未真实覆盖"
+        status: "FIXED"
+        evidence: |
+          requirements-traceability-matrix.yml FUNC-014~022 title 已逐条按 acceptance.yml 原文对齐：
+          FUNC-021=网关配置测试连接(line 116) → covered_by i18n-backend-api-detail.md#1.7 + TC-API-0009/0010/0011 + TC-RESILIENCE-0008/0009/0010 + UI-GW-005；
+          FUNC-022=婚纱领域术语表注入翻译(line 121)；FUNC-020=后端按locale发三语邮件(line 111)；FUNC-016=locale偏好不依赖localStorage(line 90)。
+          逐条与 acceptance.yml lines 123-188 核对一致，错位已消除。
+      - id: "ISS-L2C-008"
+        title: "网关创建端点入参误用列名 api_key_encrypted"
+        status: "FIXED"
+        evidence: |
+          i18n-backend-api-detail.md §1.1 入参字段改为 api_key(必填,明文,1~512)，§1.4 同步；
+          §1.1 补字段命名对齐说明(请求字段 api_key vs 持久化列 api_key_encrypted, 由 MAP-001 转换)。
+          约束 1~512 与 GatewayConfigUpsert schema(minLength:1/maxLength:512) 一致；data-detail §7 校验同步为 api_key 1~512。
+
+  dimensions:
+    completeness:
+      status: "PASS"
+      score: "PASS - 17/17 项通过"
+      passed_items: ["CMP-01", "CMP-02", "CMP-03", "CMP-04", "CMP-05", "CMP-06", "CMP-07", "CMP-08", "CMP-09", "CMP-10", "CMP-11", "CMP-12", "CMP-13", "CMP-14", "CMP-15", "CMP-16", "CMP-17"]
+      failed_items: []
+      crosscheck_log:
+        endpoint_coverage:
+          total_L1_endpoints: 16
+          total_L2_designed: 16
+          gateway: "7/7 (§1.1~1.7，含§1.7 testGatewayConnection 已补)"
+          ai_translation: "2/2 (§2.1 translate / §2.2 translation-logs)"
+          glossary: "5/5 (§3.1~3.5，含§3.3 getGlossaryTerm 已补)"
+          catalog_incremental: "1/1 (§4.1 product 更新 designer_note)"
+          identity_incremental: "1/1 (§5.1 PUT /api/consumer/auth/profile)"
+          missing: []
+        entity_coverage: "6/6 实体均有 Repository 设计(RM-001~011)，含 consecutive_failures 字段补齐，PASS"
+        error_code_coverage: "18 新码 + 5 复用 identity 码 + 501，error-mapping.yml 与 API 详设错误码表逐一一致，PASS"
+        must_test_coverage: "error-mapping must_test=true 错误码均有对应 TC，PASS"
+      note: "R1 失败项 CMP-01/02/04/11 全部修复转 PASS。"
+
+    consistency:
+      status: "PASS"
+      score: "PASS - 17/17 项通过"
+      passed_items: ["CST-01", "CST-02", "CST-03", "CST-04", "CST-05", "CST-06", "CST-07", "CST-08", "CST-09", "CST-10", "CST-11", "CST-12", "CST-13", "CST-14", "CST-15", "CST-16", "CST-17"]
+      failed_items: []
+      crosscheck_log:
+        api_vs_L1_contract: "16 端点路径/方法/鉴权/字段名/枚举值与 L1 OpenAPI + 3 增量文档一致。§5.1 profile(PUT/consumer/StoreBearerAuth)、§1.1 api_key 字段已修正对齐。"
+        api_vs_data: "MAP-001~007 字段映射齐全；status 5 值枚举(§7.1)与 DDL/error/test 一致(ISS-005 修复)。"
+        api_vs_error: "API 详设引用错误码均在 error-mapping.yml 定义，号段无交叉(gateway2/ai3/glossary4)。"
+        test_vs_design: "测试编号 TC-*-I18N-* 合规；矩阵 covered_by 测试编号已补全 I18N 段(SUG-L2C-003 修复)。"
+        ui_vs_api: "store-frontend profile 路径、admin 翻译弹窗调用与 API 详设一致(CFL-16)。"
+      note: "R1 失败项 CST-01/02/12 全部修复转 PASS。"
+
+    implementability:
+      status: "PASS"
+      score: "PASS - 15/15 项通过"
+      passed_items: ["IMP-01", "IMP-02", "IMP-03", "IMP-04", "IMP-05", "IMP-06", "IMP-07", "IMP-08", "IMP-09", "IMP-10", "IMP-11", "IMP-12", "IMP-13", "IMP-14", "IMP-15"]
+      failed_items: []
+      crosscheck_log:
+        imp_06_tx: "事务边界 TX-001~006 无矛盾；§1.7 测试连接明确无副作用(不落库)，与 sync-models 差异表清晰。"
+        imp_12_mock: "test-skeleton §1 分层 Mock 策略合规：集成测试零Mock(TestContainers)，外部网关用 WireMock(允许)，单元 Mock Repository/GatewayClient(内部边界)。"
+        密钥管理: "§6.1 密钥来源/校验/轮转/解密失败均可实现(ISS-006 修复)，IMP-12 安全空白已补。"
+      note: "R1 失败项 IMP-06/IMP-12 修复转 PASS。"
+
+    test_coverage:
+      status: "PASS"
+      score: "PASS - 18/20 项通过（TST-19/TST-20 SKIP）"
+      passed_items: ["TST-01", "TST-02", "TST-03", "TST-04", "TST-05", "TST-06", "TST-07", "TST-08", "TST-09", "TST-10", "TST-11", "TST-12", "TST-13", "TST-14", "TST-15", "TST-16", "TST-17", "TST-18"]
+      failed_items: []
+      skipped_checks:
+        - check_item: "TST-19"
+          reason: "无 ≥3 独立布尔/枚举条件的端点，判定表分析不适用"
+        - check_item: "TST-20"
+          reason: "L1 领域模型无显式状态机聚合根(gateway 同步降级为运维状态字段，非聚合根状态机)"
+      crosscheck_log:
+        gherkin_coverage: "22 FUNC 场景均有测试映射；24 EDGE 全覆盖(test-skeleton §9 矩阵)。"
+        endpoint_min_test: "16 端点每端点≥1 正常+1 异常测试，含 §1.7 测试连接(TC-API-0009/0010/0011)与 §3.3 术语详情(TC-API-0007/0008)补齐(TST-05 满足)。"
+        must_test_coverage: "must_test=true 错误码(含 502201/502202/504201 测试连接三态)均有 TC。"
+        resilience: "TST-16 韧性测试覆盖 RT/降级：TC-RESILIENCE-0001~0010(含测试连接三态 0008~0010 + 模型同步降级 0006)。"
+      note: "R1 失败项 TST-05/06/14 修复转 PASS；TST-06(AAA)/TST-14(Teardown) 在 standard 模式下骨架 given/when/then 可接受(SUG-L2C-001 仍建议 L3 前补足)。"
+
+    coverage_review:
+      status: "PASS"
+      score: "PASS - 5/5 项通过"
+      passed_items: ["COV-01", "COV-02", "COV-03", "COV-04", "COV-05"]
+      failed_items: []
+      crosscheck_log:
+        cov_02: "矩阵 22 需求 ID 与 acceptance.yml FUNC-001~022 集合完全一致，无遗漏无多余。"
+        cov_03: "每个 covered 需求 design_section 非空且指向实存设计章节；FUNC-021/022 错位已修正(ISS-007)。"
+        cov_05: "覆盖率 22/22 = 100%，edge 24/24 = 100%，user_approvals 为空(无跳过需求)。"
+      note: "R1 失败项 COV-02/COV-03 修复转 PASS。"
+
+  issues: []
+
+  suggestions:
+    - id: "SUG-L2C-R2-001"
+      check_item: "CST-01 / 分页约定"
+      severity: "SUGGEST"
+      title: "分页参数 page 起始约定在 L1 契约与 API 详设间不一致"
+      evidence:
+        source: "specs/design/i18n-backend-api-detail.md"
+        location: "§1.2 / §2.2"
+        quote: "page(≥0,默认0)"
+      counterpart:
+        source: "specs/architecture/api-contracts/gateway-api.openapi.yml"
+        location: "lines 339-346 PageParam"
+        quote: "page: minimum: 1, default: 1（页码从 1 开始）"
+      description: |
+        L1 契约 PageParam 定义 page 从 1 开始(min=1/default=1)，且 Paginated.page_number 示例为 1；
+        API 详设 §1.2/§2.2 写 page≥0 默认 0(Spring Pageable 0-based 习惯)。两者起始基数不一致，
+        若 L3 直接按详设以 0 为首页会与契约/前端页码(1-based)产生 off-by-one。非阻塞(可在 L3 用 PageRequest.of(page-1) 适配)，但建议统一。
+      recommendation: |
+        统一为契约的 1-based：API 详设 §1.2/§2.2 改为 page(≥1,默认1)，L3 内部转 Spring Pageable 时减 1；
+        或在 shared-contracts.yml 显式声明"对外 1-based，内部 0-based 适配"约定，前后端共识。
+      assigned_to: "Designer-API"
+
+    - id: "SUG-L2C-R2-002"
+      check_item: "CST-02 / 端点路径"
+      severity: "SUGGEST"
+      title: "catalog 商品更新端点路径在 API 详设与增量文档示例间表述不一"
+      evidence:
+        source: "specs/design/i18n-backend-api-detail.md"
+        location: "§4.1"
+        quote: "PUT /api/admin/catalog/products/{id}"
+      counterpart:
+        source: "specs/architecture/api-contracts/catalog-api-incremental.md"
+        location: "line 135"
+        quote: "PUT /api/admin/products/123"
+      description: |
+        API 详设 §4.1 用 /api/admin/catalog/products/{id}，增量文档示例用 /api/admin/products/123。
+        catalog-api 增量为纯 schema 增量(designer_note 字段)，复用 baseline 既有商品更新端点，未新增路径。
+        路径表述差异不影响 designer_note 字段落地，但建议以 baseline catalog-api.openapi.yml 实际路径为准统一，避免 L3 歧义。
+      recommendation: |
+        核对 baseline catalog-api.openapi.yml 商品更新端点真实路径，统一 §4.1 与增量文档示例；
+        若 baseline 为 /api/admin/products/{id} 则修正 §4.1，反之修正增量示例。
+      assigned_to: "Designer-API"
+
+    - id: "SUG-L2C-R2-003"
+      check_item: "TST-06 / TST-14"
+      severity: "SUGGEST"
+      title: "测试骨架沿用 given/when/then 摘要，缺完整 AAA 与 Teardown（沿用 R1 SUG-L2C-001）"
+      description: "test-skeleton 各用例为 given/when/then 摘要，无具体 Arrange 字段值与 Teardown。standard 模式骨架可接受，L3 前建议为 P0 用例(加密/术语注入/韧性/测试连接)补 Arrange 具体值与 Teardown(清理 TestContainers / 重置 WireMock stub)。"
+      recommendation: "L3 编码前补足 P0 用例 AAA 三段与 Teardown，保证可执行性与测试隔离。"
+      assigned_to: "Designer-Test"
+
+  uncertainties:
+    - id: "UNC-L2C-001"
+      question: "API Key 加密密钥 DREAMY_GATEWAY_AES_KEY 的运维注入与轮转由谁负责？"
+      impact: "影响 ISS-006 落地，密钥管理跨开发/运维边界。已在 §6.1 标注 info 级不阻塞 L3。"
+      suggestion: "需运维确认密钥托管方式(env/Vault)，在 decision.md 记录运维约定。L3 用 env 占位编码不阻塞。"
+    - id: "UNC-L2C-002"
+      question: "决策5 模型定时刷新连续失败降级中 enabled→false 自动禁用是否误伤正在使用的网关？"
+      impact: "自动禁用 AI 网关将使所有翻译返回 400301，影响面较大。"
+      suggestion: "data-detail §8 已按 L1 error-strategy 原文实现(enabled→false + 告警)并标注 L3 可配置开关控制是否自动禁用。建议上线前由运营确认是否仅降级 refresh_strategy。"
+
+  summary:
+    total_issues: 0
+    must_fix_count: 0
+    suggest_count: 3
+    completeness_score: "PASS - 17/17 项通过"
+    consistency_score: "PASS - 17/17 项通过"
+    implementability_score: "PASS - 15/15 项通过"
+    test_coverage_score: "PASS - 18/20 项通过（TST-19/20 SKIP）"
+    coverage_review_score: "PASS - 5/5 项通过"
+    fix_verification_result: "8/8 FIXED"
+    issues_by_designer:
+      Designer-API: 0
+      Designer-Data: 0
+      Designer-Error: 0
+      Designer-Test: 0
+      Designer-Frontend: 0
+      Coordinator: 0
+    headline: |
+      第 2 轮审查：R1 全部 8 项 MUST_FIX 经逐条核对证实已真正修复（FIXED），证据链完整：
+      2 个漏设计端点(测试连接§1.7/术语详情§3.3)已补四部分设计+测试；profile 端点已对齐 consumer 域 PUT+StoreBearerAuth；
+      数据层 consecutive_failures 字段+降级状态机、status 5 值枚举已补齐并跨层对齐；AES 密钥管理方案+轮转已定义；
+      追溯矩阵 FUNC-014~022 错位已按 acceptance.yml 修正、FUNC-021 真实映射测试连接；入参 api_key 命名已修正。
+      五维 68 项全 PASS(TST-19/20 SKIP)，未发现新 MUST_FIX。判定 PASS。仅余 3 项 SUGGEST(分页基数/catalog 路径表述/AAA 骨架补足)，不阻塞 L3。
+
+  recommendations:
+    - "判定 PASS，L2 设计可进入 L3 编码实现阶段。"
+    - "L3 前处理 3 项 SUGGEST：统一分页 page 基数(1-based 对外)、核对 catalog 商品更新真实路径、为 P0 用例补 AAA+Teardown。"
+    - "上线前由运维确认 DREAMY_GATEWAY_AES_KEY 注入方式(UNC-001)、由运营确认降级 enabled→false 策略(UNC-002)，并记入 decision.md。"
+
+  iteration_protocol:
+    max_rounds: 3
+    current_round: 2
+    next_action: "审查通过，进入 L3 编码实现。无需第 3 轮。"
+    escalation_trigger: "N/A（本轮已 PASS）"
+---

@@ -279,7 +279,11 @@ public class AdminProductService {
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_DELETABLE);
         }
         // STEP-CAT-03 物理删除七表（订单行为快照不受影响）
-        productRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        Product patch = new Product();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        productRepository.update(patch);
         imageRepository.deleteByProductId(id);
         skuRepository.deleteByProductId(id);
         sizeChartRepository.deleteByProductId(id);
@@ -572,7 +576,8 @@ public class AdminProductService {
         List<ProductTranslationDto> translations = translationRepository.listByProductIds(List.of(id), null)
                 .stream()
                 .map(t -> new ProductTranslationDto(t.getLocale(), t.getName(),
-                        t.getDescription(), t.getSellingPoints(), t.getSeoTitle(), t.getSeoDescription()))
+                        t.getDescription(), t.getDesignerNote(), t.getSellingPoints(),
+                        t.getSeoTitle(), t.getSeoDescription()))
                 .toList();
         return new AdminProductDetail(product.getId(), product.getName(), product.getSlug(),
                 product.getCategoryId(), product.getProductType(),
@@ -702,6 +707,7 @@ public class AdminProductService {
                 row.setLocale(dto.locale());
                 row.setName(dto.name());
                 row.setDescription(dto.description());
+                row.setDesignerNote(dto.designerNote());
                 row.setSellingPoints(dto.sellingPoints());
                 row.setSeoTitle(dto.seoTitle());
                 row.setSeoDescription(dto.seoDescription());

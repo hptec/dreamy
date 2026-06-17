@@ -4,7 +4,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useOrdersStore } from '@/stores/orders'
@@ -205,7 +205,7 @@ onMounted(() => {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="field-label">承运方</label>
-              <AppSelect
+              <SelectMenu
                 :model-value="shipForm.carrier"
                 :options="carriers"
                 @update:model-value="shipForm.carrier = $event as string"

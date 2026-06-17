@@ -1,8 +1,16 @@
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 决策 22：去 output:'export' 静态导出 → Node standalone 运行时
   // （ISR/revalidatePath 失效链可用；docker 容器部署 + CDN 前置，页面 Cache-Control: s-maxage 由 Next ISR 默认头承载）
   output: 'standalone',
+  // 锁定 workspace root 为本工程目录：根目录存在空壳 pnpm-lock.yaml 会令 Next 误判 root，
+  // 导致 dev 下 public/ 静态资源定位错误（competitor-refs 图片 404）。
+  outputFileTracingRoot: __dirname,
   reactStrictMode: true,
   // MF-L4S-002：隐藏 X-Powered-By，减少指纹暴露
   poweredByHeader: false,
@@ -11,14 +19,14 @@ const nextConfig = {
     unoptimized: true
   },
   // MF-L4S-002：HTTP 安全响应头基线（全路由）。
-  // CSP connect-src 中的 http://localhost:8080 为 dev 后端域名，上线时由环境变量/部署层替换为生产 API 域名。
+  // CSP connect-src 中的 http://localhost:18081 为 dev 后端域名，上线时由环境变量/部署层替换为生产 API 域名。
   async headers() {
     // dev 下 Next.js（react-refresh/eval-source-map）依赖 'unsafe-eval'，生产不放行
     const devScript = process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${devScript} https://www.googletagmanager.com https://js.stripe.com`,
-      "connect-src 'self' http://localhost:8080 https://www.google-analytics.com https://*.google-analytics.com https://api.stripe.com",
+      "connect-src 'self' http://localhost:18081 https://www.google-analytics.com https://*.google-analytics.com https://api.stripe.com",
       "frame-src https://js.stripe.com",
       "img-src 'self' data: blob: https: http:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",

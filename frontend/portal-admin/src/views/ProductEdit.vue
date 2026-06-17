@@ -10,9 +10,9 @@ import Toggle from '@/components/Toggle.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
 import FabricCompositionEditor from '@/components/FabricCompositionEditor.vue'
 import CareSymbolSelector from '@/components/CareSymbolSelector.vue'
+import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useTagsStore } from '@/stores/tags'
@@ -65,23 +65,27 @@ function scrollTo(key: string) {
   }
 }
 
-let observer: IntersectionObserver | null = null
-function setupObserver() {
-  observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-      if (visible.length) active.value = visible[0].target.id.replace('sec-', '')
-    },
-    { rootMargin: '-96px 0px -60% 0px', threshold: 0 },
-  )
-  sections.forEach((s) => {
+// 与 section.scroll-mt-44（176px）对齐：红线之下即"当前区块"
+const SCROLL_SPY_OFFSET = 176
+function updateActive() {
+  let current = sections[0].key
+  for (const s of sections) {
     const el = document.getElementById('sec-' + s.key)
-    if (el) observer!.observe(el)
-  })
+    if (!el) continue
+    if (el.getBoundingClientRect().top - SCROLL_SPY_OFFSET <= 0) current = s.key
+    else break
+  }
+  active.value = current
 }
-onBeforeUnmount(() => observer && observer.disconnect())
+function setupObserver() {
+  updateActive()
+  window.addEventListener('scroll', updateActive, { passive: true })
+  window.addEventListener('resize', updateActive)
+}
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateActive)
+  window.removeEventListener('resize', updateActive)
+})
 
 /* ===================== 表单状态 ===================== */
 
@@ -128,8 +132,8 @@ const fabricErrors = ref<Map<number, string>>(new Map())
 
 // 三语 translations（EN 主字段；ES/FR 进 translations[]）
 const contentLocale = ref<'en' | 'es' | 'fr'>('en')
-type Trans = { name: string; description: string; sellingPoints: string[]; seoTitle: string; seoDescription: string }
-const emptyTrans = (): Trans => ({ name: '', description: '', sellingPoints: [], seoTitle: '', seoDescription: '' })
+type Trans = { name: string; description: string; sellingPoints: string[]; seoTitle: string; seoDescription: string; designerNote: string }
+const emptyTrans = (): Trans => ({ name: '', description: '', sellingPoints: [], seoTitle: '', seoDescription: '', designerNote: '' })
 const trans = ref<Record<'es' | 'fr', Trans>>({ es: emptyTrans(), fr: emptyTrans() })
 const transFilled = computed(() => ({
   en: !!(form.value.name || form.value.description),
@@ -435,6 +439,7 @@ async function loadProduct() {
         sellingPoints: [...(t?.sellingPoints || [])],
         seoTitle: t?.seoTitle || '',
         seoDescription: t?.seoDescription || '',
+        designerNote: t?.designerNote || '',
       }
     }
     trans.value = { es: toTrans('es'), fr: toTrans('fr') }
@@ -479,9 +484,9 @@ function buildTranslations(): ProductTranslation[] {
   const rows: ProductTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    // 检查是否有任何非空字段（包括 sellingPoints 数组）
+    // 检查是否有任何非空字段（包括 sellingPoints 数组、designerNote）
     const hasContent = t.name.trim() || t.description.trim() || t.seoTitle.trim() ||
-                       t.seoDescription.trim() || t.sellingPoints.some(p => p.trim())
+                       t.seoDescription.trim() || t.designerNote.trim() || t.sellingPoints.some(p => p.trim())
     if (hasContent) {
       rows.push({
         locale: l,
@@ -492,6 +497,8 @@ function buildTranslations(): ProductTranslation[] {
           : [],
         seoTitle: t.seoTitle.trim() || null,
         seoDescription: t.seoDescription.trim() || null,
+        // FUNC-017：designerNote 三语（ES/FR 留空消费端回退 EN）
+        designerNote: t.designerNote.trim() || null,
       })
     }
   }
@@ -675,7 +682,7 @@ onMounted(async () => {
 
     <div v-else class="flex items-start gap-6">
       <!-- 左侧 sticky 锚点目录 -->
-      <aside class="sticky top-20 hidden w-48 shrink-0 lg:block">
+      <aside class="sticky top-44 hidden w-48 shrink-0 lg:block">
         <nav class="panel p-2">
           <button
             v-for="s in sections"
@@ -693,7 +700,7 @@ onMounted(async () => {
       <!-- 右侧拉通内容 -->
       <div class="min-w-0 flex-1 space-y-4">
         <!-- ① 基础信息 -->
-        <section id="sec-basic" class="panel scroll-mt-24 p-6">
+        <section id="sec-basic" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>基础信息
           </h2>
@@ -785,7 +792,7 @@ onMounted(async () => {
         </section>
 
         <!-- ② 版型属性（attribute_def 字典 + 属性集动态渲染：select/multiselect/text/toggle） -->
-        <section id="sec-attrs" class="panel scroll-mt-24 p-6">
+        <section id="sec-attrs" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>版型属性
           </h2>
@@ -819,11 +826,11 @@ onMounted(async () => {
                     <span v-if="row.visibility === AttrVisibility.VISIBLE" class="text-danger">*</span>
                     <span v-if="row.overridden" class="ml-1 rounded bg-info/12 px-1 text-[10px] text-info">覆盖</span>
                   </label>
-                  <AppSelect
+                  <SelectMenu
                     :model-value="attrSingle(row.key)"
                     :options="optionsFor(row.key)"
                     :legacy="legacyValues(row.key)"
-                    @update:model-value="setAttrSingle(row.key, $event)"
+                    @update:model-value="setAttrSingle(row.key, $event as string)"
                   />
                 </div>
 
@@ -879,7 +886,7 @@ onMounted(async () => {
         </section>
 
         <!-- ③ 媒体素材（四区块；presign 直传） -->
-        <section id="sec-media" class="panel scroll-mt-24 p-6">
+        <section id="sec-media" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>媒体素材
           </h2>
@@ -951,7 +958,7 @@ onMounted(async () => {
         </section>
 
         <!-- ④ SKU 矩阵 -->
-        <section id="sec-sku" class="panel scroll-mt-24 p-6">
+        <section id="sec-sku" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>SKU 矩阵
           </h2>
@@ -1070,7 +1077,7 @@ onMounted(async () => {
         </section>
 
         <!-- ⑤ 尺码表 -->
-        <section id="sec-size" class="panel scroll-mt-24 p-6">
+        <section id="sec-size" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>尺码表
           </h2>
@@ -1099,7 +1106,7 @@ onMounted(async () => {
         </section>
 
         <!-- ⑥ 定价库存 -->
-        <section id="sec-price" class="panel scroll-mt-24 p-6">
+        <section id="sec-price" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>定价库存
           </h2>
@@ -1145,7 +1152,7 @@ onMounted(async () => {
         </section>
 
         <!-- ⑦ 面料成分 -->
-        <section id="sec-fabric" class="panel scroll-mt-24 p-6">
+        <section id="sec-fabric" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>面料成分
           </h2>
@@ -1159,7 +1166,7 @@ onMounted(async () => {
         </section>
 
         <!-- ⑧ 护理标签 -->
-        <section id="sec-care" class="panel scroll-mt-24 p-6">
+        <section id="sec-care" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>护理标签
           </h2>
@@ -1185,7 +1192,7 @@ onMounted(async () => {
         </section>
 
         <!-- ⑨ 内容详情（三语 tab + 款式编号） -->
-        <section id="sec-content" class="panel scroll-mt-24 p-6">
+        <section id="sec-content" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>内容详情
           </h2>
@@ -1205,7 +1212,21 @@ onMounted(async () => {
                 <p>EN 内容即上方主字段（名称/商品卖点/介绍/SEO），无需重复填写。</p>
               </div>
               <div v-for="l in ['es', 'fr'] as const" v-show="contentLocale === l" :key="l" class="space-y-3">
-                <input v-model="trans[l].name" class="field" :placeholder="`商品名称（${l.toUpperCase()}）`" />
+                <div>
+                  <div class="mb-1.5 flex items-center justify-between">
+                    <label class="text-[11px] font-medium text-ink-soft">商品名称（{{ l.toUpperCase() }}）</label>
+                    <AiTranslateButton
+                      v-model="trans[l].name"
+                      :source-text="form.name"
+                      :target-lang="l"
+                      biz-type="product"
+                      :biz-ref="productId != null ? String(productId) : null"
+                      field-label="商品名称"
+                      compact
+                    />
+                  </div>
+                  <input v-model="trans[l].name" class="field" :placeholder="`商品名称（${l.toUpperCase()}）`" />
+                </div>
                 <div>
                   <label class="mb-1.5 block text-[11px] font-medium text-ink-soft">商品卖点（{{ l.toUpperCase() }}）</label>
                   <div class="space-y-2">
@@ -1215,6 +1236,15 @@ onMounted(async () => {
                         class="field flex-1 text-sm"
                         :placeholder="`卖点 ${i + 1}（${l.toUpperCase()}）`"
                         maxlength="100"
+                      />
+                      <AiTranslateButton
+                        v-model="trans[l].sellingPoints[i]"
+                        :source-text="form.sellingPoints[i] || ''"
+                        :target-lang="l"
+                        biz-type="product"
+                        :biz-ref="productId != null ? String(productId) : null"
+                        :field-label="`卖点 ${i + 1}`"
+                        compact
                       />
                       <button
                         type="button"
@@ -1235,19 +1265,77 @@ onMounted(async () => {
                     </button>
                   </div>
                 </div>
-                <textarea v-model="trans[l].description" rows="4" class="field resize-none" :placeholder="`商品介绍（${l.toUpperCase()}）`"></textarea>
-                <div class="grid grid-cols-2 gap-3">
-                  <input v-model="trans[l].seoTitle" class="field" :placeholder="`SEO Title（${l.toUpperCase()}）`" />
-                  <input v-model="trans[l].seoDescription" class="field" :placeholder="`SEO Description（${l.toUpperCase()}）`" />
+                <div>
+                  <div class="mb-1.5 flex items-center justify-between">
+                    <label class="text-[11px] font-medium text-ink-soft">商品介绍（{{ l.toUpperCase() }}）</label>
+                    <AiTranslateButton
+                      v-model="trans[l].description"
+                      :source-text="form.description"
+                      :target-lang="l"
+                      biz-type="product"
+                      :biz-ref="productId != null ? String(productId) : null"
+                      field-label="商品介绍"
+                      compact
+                    />
+                  </div>
+                  <textarea v-model="trans[l].description" rows="4" class="field resize-none" :placeholder="`商品介绍（${l.toUpperCase()}）`"></textarea>
                 </div>
-                <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13，可部分提交）。</p>
+                <!-- FUNC-017：设计师/品牌故事三语（designerNote），ES/FR 留空消费端回退 EN -->
+                <div>
+                  <div class="mb-1.5 flex items-center justify-between">
+                    <label class="text-[11px] font-medium text-ink-soft">设计师/品牌故事（{{ l.toUpperCase() }}）</label>
+                    <AiTranslateButton
+                      v-model="trans[l].designerNote"
+                      :source-text="form.designerNote"
+                      :target-lang="l"
+                      biz-type="product"
+                      :biz-ref="productId != null ? String(productId) : null"
+                      field-label="设计师故事"
+                      compact
+                    />
+                  </div>
+                  <textarea v-model="trans[l].designerNote" rows="3" class="field resize-none" :placeholder="`设计师/品牌故事（${l.toUpperCase()}）`"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <div class="mb-1.5 flex items-center justify-between">
+                      <label class="text-[11px] font-medium text-ink-soft">SEO Title（{{ l.toUpperCase() }}）</label>
+                      <AiTranslateButton
+                        v-model="trans[l].seoTitle"
+                        :source-text="form.seoTitle"
+                        :target-lang="l"
+                        biz-type="product"
+                        :biz-ref="productId != null ? String(productId) : null"
+                        field-label="SEO Title"
+                        compact
+                      />
+                    </div>
+                    <input v-model="trans[l].seoTitle" class="field" :placeholder="`SEO Title（${l.toUpperCase()}）`" />
+                  </div>
+                  <div>
+                    <div class="mb-1.5 flex items-center justify-between">
+                      <label class="text-[11px] font-medium text-ink-soft">SEO Description（{{ l.toUpperCase() }}）</label>
+                      <AiTranslateButton
+                        v-model="trans[l].seoDescription"
+                        :source-text="form.seoDesc"
+                        :target-lang="l"
+                        biz-type="product"
+                        :biz-ref="productId != null ? String(productId) : null"
+                        field-label="SEO Description"
+                        compact
+                      />
+                    </div>
+                    <input v-model="trans[l].seoDescription" class="field" :placeholder="`SEO Description（${l.toUpperCase()}）`" />
+                  </div>
+                </div>
+                <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13，可部分提交）。点击「AI 翻译」按钮可基于 EN 主字段自动翻译（决策 6/10）。</p>
               </div>
             </div>
           </div>
         </section>
 
         <!-- ⑩ SEO -->
-        <section id="sec-seo" class="panel scroll-mt-24 p-6">
+        <section id="sec-seo" class="panel scroll-mt-44 p-6">
           <h2 class="mb-5 flex items-center gap-2 text-[15px] font-medium text-ink">
             <span class="h-4 w-1 rounded-full bg-gold"></span>SEO
           </h2>

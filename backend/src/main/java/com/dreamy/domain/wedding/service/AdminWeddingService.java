@@ -1,6 +1,7 @@
 package com.dreamy.domain.wedding.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import java.time.LocalDateTime;
 import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.wedding.entity.RealWedding;
 import com.dreamy.domain.wedding.entity.RealWeddingTranslation;
@@ -128,7 +129,11 @@ public class AdminWeddingService {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-02 物理删除三表 + 审计
-        weddingRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        RealWedding patch = new RealWedding();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        weddingRepository.update(patch);
         weddingRepository.deleteProductsByWeddingId(id);
         weddingRepository.deleteTranslationsByWeddingId(id);
         audit.record("删除婚礼案例", existing.getCouple(), null);

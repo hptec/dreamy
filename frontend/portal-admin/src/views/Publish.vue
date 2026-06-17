@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Pagination from '@/components/Pagination.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { cacheApi, type CacheInvalidationLog } from '@/api'
 import { BizError } from '@/api/client'
 import { useToastStore } from '@/stores/toast'
@@ -135,15 +136,11 @@ onBeforeUnmount(() => {
       <div class="flex flex-wrap items-center gap-4">
         <div class="flex items-center gap-2">
           <label class="text-[13px] text-ink-soft">状态</label>
-          <select v-model="filterStatus" @change="applyFilters" class="input-field w-32">
-            <option v-for="opt in statusOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
-          </select>
+          <SelectMenu v-model="filterStatus" :options="statusOptions" class="w-32" @change="applyFilters" />
         </div>
         <div class="flex items-center gap-2">
           <label class="text-[13px] text-ink-soft">资源类型</label>
-          <select v-model="filterResourceType" @change="applyFilters" class="input-field w-32">
-            <option v-for="opt in resourceTypeOptions" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
-          </select>
+          <SelectMenu v-model="filterResourceType" :options="resourceTypeOptions" class="w-32" @change="applyFilters" />
         </div>
         <div class="ml-auto flex items-center gap-2 text-[12px] text-ink-faint">
           <InformationCircleIcon class="h-4 w-4" />

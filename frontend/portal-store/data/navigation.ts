@@ -27,20 +27,9 @@ export const mainNav: NavItem[] = [
       {
         title: 'Shop by Silhouette',
         links: [
-          { label: 'A-Line', href: '/wedding-dresses?a_silhouette=A-Line' },
-          { label: 'Mermaid', href: '/wedding-dresses?a_silhouette=Mermaid' },
-          { label: 'Sheath', href: '/wedding-dresses?a_silhouette=Sheath' },
-          { label: 'Fit & Flare', href: '/wedding-dresses?a_silhouette=Fit+%26+Flare' },
-          { label: 'Short', href: '/wedding-dresses?a_length=Short' }
-        ]
-      },
-      {
-        title: 'Shop by Fabric',
-        links: [
-          { label: 'Tulle', href: '/wedding-dresses?a_fabric=Tulle' },
-          { label: 'Lace', href: '/wedding-dresses?a_fabric=Lace' },
-          { label: 'Chiffon', href: '/wedding-dresses?a_fabric=Chiffon' },
-          { label: 'Satin', href: '/wedding-dresses?a_fabric=Satin' }
+          { label: 'A-Line', href: '/wedding-dresses?cat=A-Line' },
+          { label: 'Mermaid', href: '/wedding-dresses?cat=Mermaid' },
+          { label: 'Short', href: '/wedding-dresses?cat=Short' }
         ]
       }
     ],
@@ -53,11 +42,9 @@ export const mainNav: NavItem[] = [
       {
         title: 'Shop by Role',
         links: [
-          { label: 'Bridesmaid', href: '/special-occasion?occasion=Bridesmaid' },
-          { label: 'Mother of the Bride', href: '/special-occasion?occasion=MOB' },
-          { label: 'Wedding Guest', href: '/special-occasion?occasion=Guest' },
-          { label: 'Prom', href: '/special-occasion?occasion=Prom' },
-          { label: 'Cocktail', href: '/special-occasion?occasion=Cocktail' }
+          { label: 'Bridesmaid', href: '/special-occasion?cat=Bridesmaid' },
+          { label: 'Prom', href: '/special-occasion?cat=Prom' },
+          { label: 'Cocktail', href: '/special-occasion?cat=Cocktail' }
         ]
       },
       {
@@ -70,7 +57,7 @@ export const mainNav: NavItem[] = [
         ]
       }
     ],
-    featured: { label: 'Bridesmaid Edit', href: '/special-occasion?occasion=Bridesmaid', image: `${C}/birdygrey/bridesmaid-pink-bella-01.jpg` }
+    featured: { label: 'Bridesmaid Edit', href: '/special-occasion?cat=Bridesmaid', image: `${C}/birdygrey/bridesmaid-pink-bella-01.jpg` }
   },
   {
     label: 'Accessories',
@@ -79,10 +66,10 @@ export const mainNav: NavItem[] = [
       {
         title: 'Categories',
         links: [
-          { label: 'Veils', href: '/accessories?subCategory=Veils' },
-          { label: 'Shoes', href: '/accessories?subCategory=Shoes' },
-          { label: 'Jewelry', href: '/accessories?subCategory=Jewelry' },
-          { label: 'Headpieces', href: '/accessories?subCategory=Headpieces' }
+          { label: 'Veils', href: '/accessories?cat=Veils' },
+          { label: 'Shoes', href: '/accessories?cat=Shoes' },
+          { label: 'Jewelry', href: '/accessories?cat=Jewelry' },
+          { label: 'Headpieces', href: '/accessories?cat=Headpieces' }
         ]
       }
     ],
@@ -91,18 +78,6 @@ export const mainNav: NavItem[] = [
   {
     label: 'Outdoor Weddings',
     href: '/outdoor-weddings',
-    columns: [
-      {
-        title: 'Shop by Theme',
-        links: [
-          { label: 'Beach', href: '/outdoor-weddings?a_occasion=Beach' },
-          { label: 'Garden', href: '/outdoor-weddings?a_occasion=Garden' },
-          { label: 'Boho', href: '/outdoor-weddings?a_style_tag=Boho' },
-          { label: 'Forest', href: '/outdoor-weddings?a_occasion=Forest' },
-          { label: 'Vineyard', href: '/outdoor-weddings?a_occasion=Vineyard' }
-        ]
-      }
-    ],
     featured: { label: 'Real Outdoor Weddings', href: '/real-weddings', image: `${C}/davidsbridal/wedding-dress-04.jpg` }
   },
   {

@@ -2,7 +2,7 @@
 // 纯函数无副作用，Vitest 可测（任务产出要求：表单校验单测）
 
 import { BizError } from '@/api/client'
-import { CarrierStatus, ContentStatus, CouponType } from '@/api/types'
+import { CarrierStatus, ContentStatus, CouponType, ModelRefreshStrategy } from '@/api/types'
 
 export type FieldErrors = Record<string, string>
 
@@ -281,4 +281,58 @@ export function dateToStartOfDay(value?: string | null): string | undefined {
 }
 export function dateToEndOfDay(value?: string | null): string | undefined {
   return value ? `${value}T23:59:59` : undefined
+}
+
+// ===== i18n 网关配置（FORM-001 镜像 gateway-api GatewayConfigUpsert） =====
+
+const URL_PATTERN = /^https?:\/\/.+/i
+
+/** FORM-001：网关配置表单预校验（V 镜像：type/name/protocol/base_url/api_key 必填；定时策略需间隔） */
+export function validateGatewayForm(form: {
+  gatewayType?: number | null
+  name?: string | null
+  baseUrl?: string | null
+  apiKey?: string | null
+  modelRefreshStrategy?: number | null
+  modelRefreshIntervalMin?: number | null
+}): FieldErrors {
+  const errors: FieldErrors = {}
+  if (form.gatewayType == null) errors.gatewayType = '请选择网关类型'
+  const name = (form.name || '').trim()
+  if (!name) errors.name = '配置名称必填'
+  else if (name.length > 64) errors.name = '不超过 64 字符'
+  const baseUrl = (form.baseUrl || '').trim()
+  if (!baseUrl) errors.baseUrl = '网关地址必填'
+  else if (baseUrl.length > 255) errors.baseUrl = '不超过 255 字符'
+  else if (!URL_PATTERN.test(baseUrl)) errors.baseUrl = '需为合法 URL（http(s)://…）'
+  // 编辑态允许保留掩码（sk-****xxxx 表示不修改）；新建必填明文
+  const apiKey = (form.apiKey || '').trim()
+  if (!apiKey) errors.apiKey = 'API Key 必填'
+  else if (apiKey.length > 512) errors.apiKey = '不超过 512 字符'
+  if (form.modelRefreshStrategy === ModelRefreshStrategy.SCHEDULED) {
+    const min = Number(form.modelRefreshIntervalMin)
+    if (!Number.isInteger(min) || min < 5 || min > 1440) {
+      errors.modelRefreshIntervalMin = '定时刷新间隔需为 5~1440 分钟'
+    }
+  }
+  return errors
+}
+
+// ===== i18n 术语表（FORM-002 镜像 glossary-api GlossaryTermUpsert） =====
+
+/** FORM-002：术语表单预校验（term_en 必填 ≤128；es/fr/category 可选 ≤限长） */
+export function validateGlossaryForm(form: {
+  termEn?: string | null
+  termEs?: string | null
+  termFr?: string | null
+  category?: string | null
+}): FieldErrors {
+  const errors: FieldErrors = {}
+  const en = (form.termEn || '').trim()
+  if (!en) errors.termEn = '英文术语必填'
+  else if (en.length > 128) errors.termEn = '不超过 128 字符'
+  if ((form.termEs || '').length > 128) errors.termEs = '不超过 128 字符'
+  if ((form.termFr || '').length > 128) errors.termFr = '不超过 128 字符'
+  if ((form.category || '').length > 32) errors.category = '不超过 32 字符'
+  return errors
 }

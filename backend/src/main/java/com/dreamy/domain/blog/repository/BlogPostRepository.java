@@ -30,6 +30,7 @@ public class BlogPostRepository {
     /** RM-MKT-020 pageStorePublished —— status='published' ORDER BY published_at DESC, id DESC（IDX-MKT-005） */
     public Page<BlogPost> pageStorePublished(String category, int page, int pageSize) {
         LambdaQueryWrapper<BlogPost> qw = new LambdaQueryWrapper<BlogPost>()
+                .isNull(BlogPost::getDeletedAt)
                 .eq(BlogPost::getStatus, ContentStatus.PUBLISHED);
         if (category != null) {
             qw.eq(BlogPost::getCategory, category);
@@ -41,6 +42,7 @@ public class BlogPostRepository {
     /** RM-MKT-021 findBySlugPublished —— uk_blog_slug 点查（E-MKT-03 热路径） */
     public BlogPost findBySlugPublished(String slug) {
         return blogPostMapper.selectOne(new LambdaQueryWrapper<BlogPost>()
+                .isNull(BlogPost::getDeletedAt)
                 .eq(BlogPost::getSlug, slug)
                 .eq(BlogPost::getStatus, ContentStatus.PUBLISHED));
     }
@@ -60,12 +62,15 @@ public class BlogPostRepository {
 
     /** RM-MKT-023 findById */
     public BlogPost findById(Long id) {
-        return id == null ? null : blogPostMapper.selectById(id);
+        BlogPost e = id == null ? null : blogPostMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-MKT-024 existsBySlugExcept —— 409702 */
     public boolean existsBySlugExcept(String slug, Long exceptId) {
-        LambdaQueryWrapper<BlogPost> qw = new LambdaQueryWrapper<BlogPost>().eq(BlogPost::getSlug, slug);
+        LambdaQueryWrapper<BlogPost> qw = new LambdaQueryWrapper<BlogPost>()
+                .isNull(BlogPost::getDeletedAt)
+                .eq(BlogPost::getSlug, slug);
         if (exceptId != null) {
             qw.ne(BlogPost::getId, exceptId);
         }

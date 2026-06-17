@@ -29,6 +29,10 @@ public class User extends LongAuditableEntity {
     @Column(name = UserDBConst.EMAIL_VERIFIED, definition = "tinyint(1) NOT NULL DEFAULT 0 COMMENT '邮箱已验证'")
     private Boolean emailVerified;
 
+    /** 用户偏好语言（en/es/fr，决策13 / FUNC-019；邮件模板选择优先级最高位） */
+    @Column(name = UserDBConst.LOCALE_PREF, definition = "varchar(8) NULL COMMENT '用户偏好语言(en/es/fr,决策13/FUNC-019)'")
+    private String localePref;
+
     @Column(name = UserDBConst.NAME, definition = "varchar(100) NULL COMMENT '昵称'")
     private String name;
 

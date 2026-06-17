@@ -6,6 +6,7 @@ import com.dreamy.domain.carrier.entity.Carrier;
 import com.dreamy.enums.CarrierStatus;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -23,17 +24,21 @@ public class CarrierRepository {
 
     /** RM-SHP-001 listAll —— ORDER BY id ASC（E-SHP-01，实时不缓存） */
     public List<Carrier> listAll() {
-        return carrierMapper.selectList(new LambdaQueryWrapper<Carrier>().orderByAsc(Carrier::getId));
+        return carrierMapper.selectList(new LambdaQueryWrapper<Carrier>()
+                .isNull(Carrier::getDeletedAt)
+                .orderByAsc(Carrier::getId));
     }
 
     /** RM-SHP-002 findById —— 404901 判定点 */
     public Carrier findById(Long id) {
-        return id == null ? null : carrierMapper.selectById(id);
+        Carrier e = id == null ? null : carrierMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-SHP-003 countEnabled —— 409902 guard（仅在 EC-SHP-001 锁内调用，计数读写串行无竞态） */
     public long countEnabled() {
         Long count = carrierMapper.selectCount(new LambdaQueryWrapper<Carrier>()
+                .isNull(Carrier::getDeletedAt)
                 .eq(Carrier::getStatus, CarrierStatus.ENABLED));
         return count == null ? 0 : count;
     }
@@ -68,7 +73,16 @@ public class CarrierRepository {
     /** RM-SHP-008 listEnabled —— WHERE status='enabled' ORDER BY id ASC（SVC-SHP-01 报价数据源，CACHE-SHP-001 回源方法） */
     public List<Carrier> listEnabled() {
         return carrierMapper.selectList(new LambdaQueryWrapper<Carrier>()
+                .isNull(Carrier::getDeletedAt)
                 .eq(Carrier::getStatus, CarrierStatus.ENABLED)
                 .orderByAsc(Carrier::getId));
+    }
+
+    /** 逻辑删除：设置 deleted_at = now() */
+    public void markDeleted(Long id) {
+        Carrier patch = new Carrier();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        carrierMapper.updateById(patch);
     }
 }

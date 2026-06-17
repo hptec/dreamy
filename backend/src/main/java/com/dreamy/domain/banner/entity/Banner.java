@@ -59,4 +59,7 @@ public class Banner extends LongAuditableEntity {
 
     @Column(name = BannerDBConst.CTA_TEXT, definition = "varchar(64) NULL COMMENT 'CTA 文案(EN 基准)'")
     private String ctaText;
+
+    @Column(name = BannerDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
+    private LocalDateTime deletedAt;
 }

@@ -8,4 +8,5 @@ public interface TagDimensionDBConst extends CatalogCommonDBConst {
     String TABLE = "tag_dimension";
 
     String DESCRIPTION = "description";
+    public static final String DELETED_AT = "deleted_at";
 }

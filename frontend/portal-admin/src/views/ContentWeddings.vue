@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import WeddingFormDrawer from '@/components/drawers/WeddingFormDrawer.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useWeddingsStore } from '@/stores/weddings'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -61,11 +62,16 @@ onMounted(load)
   <div class="animate-fadeup">
     <PageHeader eyebrow="Content · CMS" title="Real Weddings" subtitle="管理真实婚礼故事画廊与 Shop the Look 关联">
       <template #actions>
-        <select v-model="store.statusFilter" class="field w-32" @change="load">
-          <option value="all">全部状态</option>
-          <option :value="PublishStatus.PUBLISHED">已发布</option>
-          <option :value="PublishStatus.DRAFT">草稿</option>
-        </select>
+        <SelectMenu
+          v-model="store.statusFilter"
+          class="w-32"
+          :options="[
+            { value: 'all', label: '全部状态' },
+            { value: PublishStatus.PUBLISHED, label: '已发布' },
+            { value: PublishStatus.DRAFT, label: '草稿' },
+          ]"
+          @change="load"
+        />
         <button class="btn-primary" @click="editing = null; drawer = true"><PlusIcon class="h-4 w-4" />新增婚礼故事</button>
       </template>
     </PageHeader>

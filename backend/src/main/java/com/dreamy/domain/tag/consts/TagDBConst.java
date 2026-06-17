@@ -9,4 +9,5 @@ public interface TagDBConst extends CatalogCommonDBConst {
 
     String DIMENSION_ID = "dimension_id";
     String COVER = "cover";
+    public static final String DELETED_AT = "deleted_at";
 }

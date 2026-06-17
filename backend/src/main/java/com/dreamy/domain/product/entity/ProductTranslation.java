@@ -39,6 +39,10 @@ public class ProductTranslation extends LongAuditableEntity {
     @Column(name = ProductTranslationDBConst.DESCRIPTION, definition = "text NULL")
     private String description;
 
+    /** 设计师备注（三语独立，决策12 / FUNC-017；为空时消费端 pick() 回退 EN 主表，EDGE-020） */
+    @Column(name = ProductTranslationDBConst.DESIGNER_NOTE, definition = "text NULL COMMENT '设计师备注(三语独立,决策12/FUNC-017)'")
+    private String designerNote;
+
     @Column(name = ProductTranslationDBConst.SELLING_POINTS, definition = "json NULL COMMENT '翻译卖点（数组，与主表对应）'")
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> sellingPoints;

@@ -48,6 +48,10 @@ public class Order extends LongAuditableEntity {
     @Column(name = OrderDBConst.CURRENCY, definition = "char(3) NOT NULL COMMENT 'USD/EUR/CAD/AUD/GBP（决策14）'")
     private String currency;
 
+    /** 下单时语言环境快照（决策13 / FUNC-020；邮件模板选择优先级 user.locale_pref > orders.locale_snapshot > en） */
+    @Column(name = OrderDBConst.LOCALE_SNAPSHOT, definition = "varchar(8) NULL COMMENT '下单时语言环境快照(决策13/FUNC-020,邮件三语用)'")
+    private String localeSnapshot;
+
     @Column(name = OrderDBConst.EXCHANGE_RATE, definition = "decimal(12,6) NOT NULL COMMENT '下单锁定 USD→订单币种汇率（决策14）'")
     private BigDecimal exchangeRate;
 

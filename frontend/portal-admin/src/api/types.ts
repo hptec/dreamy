@@ -215,6 +215,8 @@ export interface ProductTranslation {
   sellingPoints?: string[] | null
   seoTitle?: string | null
   seoDescription?: string | null
+  /** 设计师备注译文（决策 12，product_translation.designer_note；消费端 pick 回退 EN，FUNC-017） */
+  designerNote?: string | null
 }
 
 export const ImageKind = { GALLERY: 1, LIFESTYLE: 2, VIDEO: 3, SWATCH: 4 } as const
@@ -1058,4 +1060,164 @@ export interface CareInstruction {
 /** 护理标签列表响应 */
 export interface CareInstructionListResponse {
   items: CareInstruction[]
+}
+
+// ===== i18n-complete-with-ai-assist：网关配置 / AI 翻译 / 术语表 =====
+// 约束: gateway-api.openapi.yml / ai-translation-api.openapi.yml / glossary-api.openapi.yml
+// 边界 camelCase；后端 snake_case 由 client 统一转换（gateway_type → gatewayType 等）
+
+/** 网关类型枚举（AI=1 / LOGISTICS=2 / PAYMENT=3，与后端 IntEnum 对齐） */
+export const GatewayType = { AI: 1, LOGISTICS: 2, PAYMENT: 3 } as const
+export type GatewayType = typeof GatewayType[keyof typeof GatewayType]
+
+/** 网关协议枚举（openai=1，预留扩展） */
+export const GatewayProtocol = { OPENAI: 1 } as const
+export type GatewayProtocol = typeof GatewayProtocol[keyof typeof GatewayProtocol]
+
+/** 模型刷新策略（manual=1 手动 / scheduled=2 定时） */
+export const ModelRefreshStrategy = { MANUAL: 1, SCHEDULED: 2 } as const
+export type ModelRefreshStrategy = typeof ModelRefreshStrategy[keyof typeof ModelRefreshStrategy]
+
+/** 网关测试结果错误码（gateway 域 6 位） */
+export const GatewayErrorCode = {
+  CONFIG_NOT_FOUND: 404201,
+  NAME_EXISTS: 409201,
+  CONFIG_REFERENCED: 409202,
+  FIELD_VALIDATION_FAILED: 422201,
+  API_KEY_DECRYPTION_FAILED: 422202,
+  NOT_AI_GATEWAY: 400201,
+  GATEWAY_UNAVAILABLE: 502201,
+  GATEWAY_AUTH_FAILED: 502202,
+  GATEWAY_TIMEOUT: 504201,
+} as const
+
+/** AI 翻译域错误码（ai_translation 域 6 位） */
+export const AiTranslateErrorCode = {
+  // 后端 GatewayErrorCode.NO_AI_GATEWAY_CONFIGURED = 403202（无可用 AI 网关 → 引导前往配置）
+  NO_ENABLED_GATEWAY: 403202,
+  INVALID_MODEL: 400302,
+  FIELD_VALIDATION_FAILED: 422301,
+  GATEWAY_CALL_FAILED: 502301,
+  GATEWAY_TIMEOUT: 504301,
+} as const
+
+/** 术语表域错误码（glossary 域 6 位） */
+export const GlossaryErrorCode = {
+  TERM_NOT_FOUND: 404401,
+  TERM_EN_EXISTS: 409401,
+  FIELD_VALIDATION_FAILED: 422401,
+} as const
+
+/** 网关可用模型（/v1/models 自动发现，GatewayModel schema） */
+export interface GatewayModel {
+  id: string
+  name: string
+  contextLength?: number | null
+}
+
+/** 网关配置写入体（GatewayConfigUpsert schema） */
+export interface GatewayConfigUpsert {
+  gatewayType: GatewayType
+  name: string
+  protocol: GatewayProtocol
+  baseUrl: string
+  /** 明文输入；更新时若传掩码格式（sk-****xxxx）后端保持原密文 */
+  apiKey: string
+  defaultModel?: string | null
+  modelRefreshStrategy?: ModelRefreshStrategy | null
+  modelRefreshIntervalMin?: number | null
+  enabled: boolean
+  extraConfig?: Record<string, unknown> | null
+}
+
+/** 网关配置详情（GatewayConfigDetail schema，含掩码 Key + 模型列表） */
+export interface GatewayConfigDetail extends GatewayConfigUpsert {
+  id: number
+  /** API Key 掩码展示（前缀+后4位，如 sk-or-****3f8a） */
+  apiKeyMasked: string
+  /** 后端暂时返回字符串数组，前端兼容包装；TODO: 后端改为 GatewayModel[] */
+  modelList: (GatewayModel | string)[]
+  modelsSyncedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+/** 网关测试连接结果（GatewayTestResult schema，成功失败均 200） */
+export interface GatewayTestResult {
+  reachable: boolean
+  availableModelsCount?: number | null
+  errorCode?: number | null
+  errorMessage?: string | null
+  latencyMs?: number | null
+}
+
+/** AI 翻译请求体（TranslateRequest schema） */
+export interface TranslateRequest {
+  sourceLang: string
+  targetLang: string
+  sourceText: string
+  customRequirement?: string | null
+  model?: string | null
+  bizType?: string | null
+  bizRef?: string | null
+}
+
+/** token 用量（TokenUsage schema） */
+export interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+/** AI 翻译响应（TranslateResponse schema） */
+export interface TranslateResponse {
+  translatedText: string
+  model: string
+  latencyMs: number
+  tokenUsage: TokenUsage
+}
+
+/** 术语表条目写入体（GlossaryTermUpsert schema） */
+export interface GlossaryTermUpsert {
+  termEn: string
+  termEs?: string | null
+  termFr?: string | null
+  category?: string | null
+  enabled: boolean
+}
+
+/** 术语表条目（GlossaryTerm schema） */
+export interface GlossaryTerm extends GlossaryTermUpsert {
+  id: number
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+/** AI 翻译调用记录状态（与后端 AiTranslationStatus IntEnum 对齐，决策 10 / EDGE-016/017） */
+export const AiTranslationStatus = {
+  SUCCESS: 1,
+  FAILED: 2,
+  TIMEOUT: 3,
+  EMPTY_RESULT: 4,
+  RATE_LIMITED: 5,
+} as const
+export type AiTranslationStatus = typeof AiTranslationStatus[keyof typeof AiTranslationStatus]
+
+/** AI 翻译调用记录条目（TranslationLogDto；source_text/translated_text 后端截断展示前 200 字符） */
+export interface TranslationLog {
+  id: number
+  gatewayConfigId: number | null
+  model: string | null
+  sourceLang: string | null
+  targetLang: string | null
+  sourceText: string | null
+  translatedText: string | null
+  customRequirement: string | null
+  bizType: string | null
+  bizRef: string | null
+  status: AiTranslationStatus
+  errorMessage: string | null
+  latencyMs: number | null
+  operatorId: number | null
+  createdAt: string | null
 }

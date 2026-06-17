@@ -42,18 +42,22 @@ public class ProductRepository {
     /** RM-CAT-080 findBySlugPublished —— uk_product_slug 点查（FLOW-P01 热路径） */
     public Product findBySlugPublished(String slug) {
         return productMapper.selectOne(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getSlug, slug)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED));
     }
 
     /** RM-CAT-081 findById */
     public Product findById(Long id) {
-        return id == null ? null : productMapper.selectById(id);
+        Product e = id == null ? null : productMapper.selectById(id);
+        return (e == null || e.getDeletedAt() != null) ? null : e;
     }
 
     /** RM-CAT-082 existsBySlugExcept —— 409501（编辑排除自身） */
     public boolean existsBySlugExcept(String slug, Long exceptId) {
-        LambdaQueryWrapper<Product> qw = new LambdaQueryWrapper<Product>().eq(Product::getSlug, slug);
+        LambdaQueryWrapper<Product> qw = new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
+                .eq(Product::getSlug, slug);
         if (exceptId != null) {
             qw.ne(Product::getId, exceptId);
         }
@@ -66,6 +70,7 @@ public class ProductRepository {
      */
     public Page<Product> pageStoreList(StoreFilter filter, int page, int pageSize) {
         LambdaQueryWrapper<Product> qw = new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED);
         if (filter.categoryIds() != null) {
             if (filter.categoryIds().isEmpty()) {
@@ -216,6 +221,7 @@ public class ProductRepository {
     /** RM-CAT-091 listRecoNewArrivals —— created_at DESC（决策 29） */
     public List<Product> listRecoNewArrivals(int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .orderByDesc(Product::getCreatedAt)
                 .last("LIMIT " + limit));
@@ -224,6 +230,7 @@ public class ProductRepository {
     /** RM-CAT-092 listRecoBestSellers —— sales_30d DESC（IDX-CAT-005）；全 0 冷启动由 Service 回退 recommend */
     public List<Product> listRecoBestSellers(int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .gt(Product::getSales30d, 0)
                 .orderByDesc(Product::getSales30d)
@@ -233,6 +240,7 @@ public class ProductRepository {
     /** RM-CAT-092 冷启动回退：recommend=true ORDER BY sort（决策 29） */
     public List<Product> listRecoRecommendFallback(int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .eq(Product::getRecommend, true)
                 .orderByAsc(Product::getSort)
@@ -242,6 +250,7 @@ public class ProductRepository {
     /** RM-CAT-093 listRecoByTag —— EXISTS product_tag(tag_id=?) ORDER BY sort */
     public List<Product> listRecoByTag(Long tagId, int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .exists("SELECT 1 FROM product_tag ptag WHERE ptag.product_id = product.id AND ptag.tag_id = {0}", tagId)
                 .orderByAsc(Product::getSort)
@@ -252,6 +261,7 @@ public class ProductRepository {
     public List<Product> listRecoSimilar(Long categoryId, BigDecimal priceLow, BigDecimal priceHigh,
                                          Long exceptId, int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .eq(Product::getCategoryId, categoryId)
                 .ge(Product::getPrice, priceLow)
@@ -264,6 +274,7 @@ public class ProductRepository {
     /** RM-CAT-094 放宽补足：仅同 category_id（E-CAT-03 STEP-CAT-02 ymal 不足 limit 时） */
     public List<Product> listRecoSameCategory(Long categoryId, Long exceptId, int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .eq(Product::getCategoryId, categoryId)
                 .ne(Product::getId, exceptId)
@@ -277,6 +288,7 @@ public class ProductRepository {
             return List.of();
         }
         LambdaQueryWrapper<Product> qw = new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .in(Product::getCategoryId, categoryIds);
         if (exceptProductId != null) {
@@ -325,7 +337,9 @@ public class ProductRepository {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        return productMapper.selectList(new LambdaQueryWrapper<Product>().in(Product::getId, ids));
+        return productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .isNull(Product::getDeletedAt)
+                .in(Product::getId, ids));
     }
 
     private Map<Long, Integer> toCountMap(List<Map<String, Object>> rows) {

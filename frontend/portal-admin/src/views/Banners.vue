@@ -7,6 +7,7 @@ import Toggle from '@/components/Toggle.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import BannerFormDrawer from '@/components/drawers/BannerFormDrawer.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useBannersStore } from '@/stores/banners'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -87,12 +88,17 @@ onMounted(load)
     </PageHeader>
 
     <div class="panel mb-4 p-4">
-      <select v-model="store.positionFilter" class="field w-44" @change="load">
-        <option value="all">全部广告位</option>
-        <option :value="BannerPosition.HERO">首页 Hero</option>
-        <option :value="BannerPosition.FEATURED">推荐位</option>
-        <option :value="BannerPosition.TOPBAR">顶部通告条</option>
-      </select>
+      <SelectMenu
+        v-model="store.positionFilter"
+        class="w-44"
+        :options="[
+          { value: 'all', label: '全部广告位' },
+          { value: BannerPosition.HERO, label: '首页 Hero' },
+          { value: BannerPosition.FEATURED, label: '推荐位' },
+          { value: BannerPosition.TOPBAR, label: '顶部通告条' },
+        ]"
+        @change="load"
+      />
     </div>
 
     <div class="panel overflow-hidden">

@@ -1,6 +1,7 @@
 package com.dreamy.domain.tag.service;
 
 import com.dreamy.enums.TagStatus;
+import java.time.LocalDateTime;
 import com.dreamy.domain.product.repository.ProductTagRepository;
 import com.dreamy.domain.tag.entity.Tag;
 import com.dreamy.domain.tag.entity.TagDimension;
@@ -127,7 +128,11 @@ public class TagAdminService {
         if (tagCount > 0) {
             throw new CatalogException(CatalogErrorCode.TAG_DIMENSION_IN_USE, Map.of("tag_count", tagCount));
         }
-        dimensionRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        TagDimension patch = new TagDimension();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        dimensionRepository.update(patch);
         audit.record("删除标签维度", existing.getName(), null);
         afterCommit.run(() -> {
             cache.invalidateFamily(Family.TAGS);
@@ -203,7 +208,11 @@ public class TagAdminService {
         if (existing == null) {
             throw new CatalogException(CatalogErrorCode.TAG_NOT_FOUND);
         }
-        tagRepository.deleteById(id);
+        // 逻辑删除：设置 deleted_at = now()
+        Tag patch = new Tag();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        tagRepository.update(patch);
         tagRepository.deleteTranslationsByTagId(id);
         productTagRepository.deleteByTagId(id);
         audit.record("删除标签", existing.getName(), null);

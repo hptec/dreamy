@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Toggle from '@/components/Toggle.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { homeBlocks, palette, products } from '@/data/mock'
 import {
   Bars3Icon, EyeIcon, PencilSquareIcon, RocketLaunchIcon,
@@ -134,7 +135,7 @@ const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
           </template>
           <template v-else-if="active().type === 'ProductRail'">
             <div><label class="field-label">标题</label><input v-model="active().data.title" @input="touch" class="field text-[12px]" /></div>
-            <div><label class="field-label">商品来源</label><select v-model="active().data.source" @change="touch" class="field text-[12px]"><option value="isNew">新品 New Arrivals</option><option value="isBest">热销 Best Sellers</option><option value="recommend">人工推荐</option></select></div>
+            <div><label class="field-label">商品来源</label><SelectMenu v-model="active().data.source" :options="[{ value: 'isNew', label: '新品 New Arrivals' }, { value: 'isBest', label: '热销 Best Sellers' }, { value: 'recommend', label: '人工推荐' }]" @change="touch" /></div>
             <div><label class="field-label">展示数量</label><input v-model="active().data.limit" @input="touch" type="number" class="field text-[12px]" /></div>
           </template>
           <template v-else>
