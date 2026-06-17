@@ -317,22 +317,3 @@ export function validateGatewayForm(form: {
   }
   return errors
 }
-
-// ===== i18n 术语表（FORM-002 镜像 glossary-api GlossaryTermUpsert） =====
-
-/** FORM-002：术语表单预校验（term_en 必填 ≤128；es/fr/category 可选 ≤限长） */
-export function validateGlossaryForm(form: {
-  termEn?: string | null
-  termEs?: string | null
-  termFr?: string | null
-  category?: string | null
-}): FieldErrors {
-  const errors: FieldErrors = {}
-  const en = (form.termEn || '').trim()
-  if (!en) errors.termEn = '英文术语必填'
-  else if (en.length > 128) errors.termEn = '不超过 128 字符'
-  if ((form.termEs || '').length > 128) errors.termEs = '不超过 128 字符'
-  if ((form.termFr || '').length > 128) errors.termFr = '不超过 128 字符'
-  if ((form.category || '').length > 32) errors.category = '不超过 32 字符'
-  return errors
-}

@@ -13,7 +13,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Heart, Truck, Sparkles, Ruler, ChevronDown, Plus, Minus, PartyPopper, Check } from 'lucide-react'
-import type { CustomSizeData, StoreProductDetail } from '@/lib/api/store-types'
+import type { CustomSizeData, StoreProductDetail, FabricComposition } from '@/lib/api/store-types'
 import { useStore } from '@/components/store-provider'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
@@ -26,6 +26,7 @@ import { FindMySizeModal } from './find-my-size-modal'
 import { AddToShowroomModal } from '@/components/showroom/add-to-showroom-modal'
 import { badgeOf } from './product-card'
 import { colorOptionsOf, sizesFor, skuFor, swatchImageOf, primaryImageOf } from './product-utils'
+import { CareSymbolIcon } from './care-symbol-icon'
 
 /** 根据卖点文本智能匹配图标 */
 function getIconForSellingPoint(point: string) {
@@ -40,6 +41,14 @@ function getIconForSellingPoint(point: string) {
     return <Truck className="h-4 w-4 text-gold" />
   // 默认勾选图标
   return <Check className="h-4 w-4 text-gold" />
+}
+
+// layer 数字 → 展示名（面料分组标签）
+const FABRIC_LAYER_NAMES: Record<number, string> = {
+  1: 'Shell',
+  2: 'Lining',
+  3: 'Overlay',
+  4: 'Trim'
 }
 
 export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
@@ -61,6 +70,19 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
   const [customError, setCustomError] = useState(false)
   const wished = isWished(product.id)
   const badge = badgeOf(product)
+
+  // 面料成分按 layer 分组（Shell/Lining/Overlay/Trim），用于 Fabric & Care 折叠项
+  const compositionsByLayer = useMemo(() => {
+    const groups = new Map<number, FabricComposition[]>()
+    for (const c of product.fabricCompositions ?? []) {
+      if (!groups.has(c.layer)) groups.set(c.layer, [])
+      groups.get(c.layer)!.push(c)
+    }
+    return groups
+  }, [product.fabricCompositions])
+  const hasFabric = (product.fabricCompositions?.length ?? 0) > 0
+  const hasCare = (product.careInstructions?.length ?? 0) > 0
+  const hasFabricCare = hasFabric || hasCare || !!product.fabricCareNote
 
   useEffect(() => { trackView(product.id) }, [product.id, trackView])
 
@@ -167,9 +189,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
           <span className="text-lg text-ink-faint line-through">{formatPrice(product.compareAt, currency)}</span>
         )}
       </div>
-      {product.installment !== false && (
-        <p className="mt-1 text-sm text-ink-soft">or 4 interest-free payments of {formatPrice(Number(installments(product.price)), currency)} with <strong>Klarna</strong></p>
-      )}
+      {/* Klarna installment line hidden */}
 
       {/* Color */}
       {colors.length > 0 && (
@@ -305,7 +325,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         )}
         <Accordion title="Details">
           <ul className="list-inside list-disc space-y-1">
-            {/* 动态属性（attribute_def 字典驱动；面料成分/护理走专用 FabricCareSection） */}
+            {/* 动态属性（attribute_def 字典驱动；面料成分/护理走下方 Fabric & Care 折叠项） */}
             {(product.attributes ?? [])
               .filter((a) => a.values.length > 0)
               .map((a) => (
@@ -316,6 +336,37 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
             {product.styleNo && <li>Style no.: {product.styleNo}</li>}
           </ul>
         </Accordion>
+        {hasFabricCare && (
+          <Accordion title="Fabric & Care">
+            {hasFabric && (
+              <div className="space-y-3">
+                {Array.from(compositionsByLayer.entries()).map(([layer, items]) => (
+                  <div key={layer}>
+                    <p className="mb-1 text-[11px] uppercase tracking-luxe text-gold">
+                      {FABRIC_LAYER_NAMES[layer] ?? `Layer ${layer}`}
+                    </p>
+                    <p>{items.map((c) => `${c.material} ${c.percentage}%`).join(', ')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {hasCare && (
+              <div className={cn('flex flex-wrap gap-x-8 gap-y-3', hasFabric && 'mt-4')}>
+                {product.careInstructions!.map((item, idx) => (
+                  <div key={idx} className="flex flex-col items-center gap-1.5">
+                    <CareSymbolIcon symbol={item.symbol} className="h-7 w-7 text-ink" />
+                    <span className="text-[10px] uppercase tracking-luxe text-ink-faint">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {product.fabricCareNote && (
+              <p className={cn('italic text-ink-faint', (hasFabric || hasCare) && 'mt-3')}>
+                {product.fabricCareNote}
+              </p>
+            )}
+          </Accordion>
+        )}
         <Accordion title="Shipping & Delivery">
           <p>
             Standard production {product.leadTimeDays} days.

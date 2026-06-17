@@ -28,34 +28,12 @@ public final class AiTranslationDtos {
     }
 
     /**
-     * 翻译结果（TranslateResult）。失败时 translatedText 为空，status 标记失败类型，
-     * 由 ExceptionHandler 转 502/504（决策10：前端 toast 但允许继续保存）。
+     * 翻译结果（TranslateResult）。失败时由 ExceptionHandler 转 502/504，前端 toast 但允许继续保存。
      */
     public record TranslateResult(
             String translatedText,
             String model,
             Integer status,
             Long latencyMs) {
-    }
-
-    /**
-     * 翻译日志条目（AiTranslationLogItem）。source_text/translated_text 超长截断展示前 200 字符。
-     */
-    public record TranslationLogDto(
-            Long id,
-            Long gatewayConfigId,
-            String model,
-            String sourceLang,
-            String targetLang,
-            String sourceText,
-            String translatedText,
-            String customRequirement,
-            String bizType,
-            String bizRef,
-            Integer status,
-            String errorMessage,
-            Integer latencyMs,
-            Long operatorId,
-            String createdAt) {
     }
 }

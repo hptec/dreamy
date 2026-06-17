@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// COMP-006 AiTranslateModal：AI 翻译弹窗（FUNC-008~013，11 处复用）
-// 决策 6：系统 prompt 只读 + 自定义要求 + 模型下拉；决策 10：失败 toast 但允许继续
+// AiTranslateModal：AI 翻译弹窗（瘦版，仅源文本 + 模型 + 自定义要求 + 译文）
 // 注意：不使用 Headless UI Dialog（规避根组件无 as 崩溃陷阱），沿用 DrawerShell 同型 Teleport overlay
 import { computed, ref, watch } from 'vue'
 import { XMarkIcon, SparklesIcon } from '@heroicons/vue/24/outline'
@@ -34,12 +33,6 @@ const emit = defineEmits<{
 
 const store = useAiTranslateStore()
 const toast = useToastStore()
-
-// 锁定的婚纱礼服领域系统 prompt（只读展示，与后端固定前缀一致，决策 6）
-const SYSTEM_PROMPT =
-  'You are a professional translator for a bridal e-commerce platform. ' +
-  'Translate the following text accurately while preserving tone and marketing appeal. ' +
-  '（已启用的婚纱领域术语表会自动注入，保证术语译法一致）'
 
 const model = ref('')
 const customRequirement = ref('')
@@ -138,13 +131,6 @@ function confirm() {
           </div>
 
           <div>
-            <label class="field-label">系统提示词（只读，锁定婚纱礼服领域）</label>
-            <div class="rounded-luxe border border-line bg-canvas-warm/40 px-3 py-2 text-[12px] leading-relaxed text-ink-faint">
-              {{ SYSTEM_PROMPT }}
-            </div>
-          </div>
-
-          <div>
             <label class="field-label">模型</label>
             <SelectMenu
               v-model="model"
@@ -152,7 +138,7 @@ function confirm() {
                 ? store.availableModels.map((m) => ({ value: m.id, label: m.name }))
                 : [{ value: '', label: '（使用网关默认模型）' }]"
             />
-            <p class="mt-1 text-[11px] text-ink-faint">默认使用全局模型，可切换为特定模型（决策 4）。</p>
+            <p class="mt-1 text-[11px] text-ink-faint">默认使用全局模型，可切换为特定模型。</p>
           </div>
 
           <div>

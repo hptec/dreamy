@@ -62,12 +62,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/system/auth', name: 'system-auth', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录与认证', group: '系统管理', permission: '/system/auth' } },
   { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理', permission: '/system/logs' } },
 
-  // i18n-complete-with-ai-assist（PAGE-001/002）：外部网关配置 + 翻译术语表
-  // 路由守卫按 meta.permission 校验（EDGE-008 /system/gateways；EDGE-022 /system/glossary）
+  // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）
   { path: '/system/gateways', name: 'system-gateways', component: () => import('@/views/system/GatewayConfigList.vue'), meta: { title: '外部网关配置', group: '系统管理', permission: '/system/gateways' } },
-  // FUNC-012：AI 翻译调用记录（运维查看，权限点同口径 /system/gateways——EDGE-022）
-  { path: '/system/translation-logs', name: 'system-translation-logs', component: () => import('@/views/system/TranslationLogList.vue'), meta: { title: 'AI 翻译记录', group: '系统管理', permission: '/system/gateways' } },
-  { path: '/system/glossary', name: 'system-glossary', component: () => import('@/views/system/GlossaryList.vue'), meta: { title: '翻译术语表', group: '系统管理', permission: '/system/glossary' } },
 
   // PAGE-TRD-A04：汇率与结算配置（权限点 /settings，trading 域种子）
   { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '汇率与结算配置', group: '发布与系统', permission: '/settings' } },

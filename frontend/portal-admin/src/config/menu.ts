@@ -105,11 +105,8 @@ export const menuGroups: MenuGroup[] = [
       { title: '角色权限', to: '/system/roles', permission: '/system/roles' },
       { title: '登录与认证', to: '/system/auth', permission: '/system/auth' },
       { title: '操作日志', to: '/system/logs', permission: '/system/logs' },
-      // i18n-complete-with-ai-assist：网关配置 + 术语表（权限点对齐路由 meta.permission）
+      // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）
       { title: '外部网关配置', to: '/system/gateways', permission: '/system/gateways' },
-      // FUNC-012：AI 翻译记录（权限点同口径 /system/gateways）
-      { title: 'AI 翻译记录', to: '/system/translation-logs', permission: '/system/gateways' },
-      { title: '翻译术语表', to: '/system/glossary', permission: '/system/glossary' },
     ],
   },
 ]

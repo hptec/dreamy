@@ -2,7 +2,6 @@ package com.dreamy.error;
 
 import com.dreamy.controller.AdminAiController;
 import com.dreamy.controller.AdminGatewayController;
-import com.dreamy.controller.AdminGlossaryController;
 import huihao.web.R;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -21,15 +20,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 网关 / AI 翻译 / 术语表域异常处理器（assignableTypes 限定本域 3 个 Controller）。
- * L2 TRACE: i18n-backend-error-mapping.yml；error-strategy R 包络 {code,message,data=details}；
+ * 网关 / AI 翻译域异常处理器（assignableTypes 限定本域 2 个 Controller）。
+ * error-strategy R 包络 {code,message,data=details}；
  * 422 字段级结构 { fields: { <field>: <reason> } }；4xx WARN / 5xx ERROR 分级。
  * 决策8：admin 端错误 message 固定中文，不走 i18n 解析。
  */
 @RestControllerAdvice(assignableTypes = {
         AdminGatewayController.class,
-        AdminAiController.class,
-        AdminGlossaryController.class})
+        AdminAiController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class GatewayExceptionHandler {
 

@@ -1,23 +1,37 @@
 <script setup lang="ts">
-// FORM-CAT-A06 / FORM-MKT-A05：三语 tab（EN 主字段，ES/FR 写 translations[]）
-// tab 标注翻译完整度圆点（任一字段非空即绿）
+// 三语 tab（EN 主字段，ES/FR 写 translations[]）
+// tab 标注翻译状态国旗：filled=已填，missing=应填未填，disabled=不在应翻译范围
+// 兼容：传入 filled (布尔) 时按 filled/missing 二态推导
 import { computed } from 'vue'
+import LocaleFlag from '@/components/ui/LocaleFlag.vue'
+
+type LocaleKey = 'en' | 'es' | 'fr'
+type LocaleState = 'filled' | 'missing' | 'disabled'
 
 const props = withDefaults(
   defineProps<{
-    modelValue: string
-    /** 各 locale 是否已有内容（完整度圆点） */
-    filled?: Partial<Record<'en' | 'es' | 'fr', boolean>>
+    modelValue: LocaleKey
+    /** 各 locale 翻译状态（推荐） */
+    state?: Partial<Record<LocaleKey, LocaleState>>
+    /** 兼容旧 filled 布尔（true→filled，false→missing） */
+    filled?: Partial<Record<LocaleKey, boolean>>
   }>(),
-  { filled: () => ({}) },
+  { state: () => ({}), filled: () => ({}) },
 )
 
-const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', v: LocaleKey): void }>()
+
+function resolveState(key: LocaleKey): LocaleState {
+  if (props.state && props.state[key]) return props.state[key] as LocaleState
+  // 兼容 filled 布尔
+  const f = props.filled?.[key]
+  return f ? 'filled' : 'missing'
+}
 
 const tabs = computed(() => [
-  { key: 'en', label: 'EN（主）', filled: props.filled.en ?? false },
-  { key: 'es', label: 'ES', filled: props.filled.es ?? false },
-  { key: 'fr', label: 'FR', filled: props.filled.fr ?? false },
+  { key: 'en' as LocaleKey, label: 'EN（主）', state: resolveState('en') },
+  { key: 'es' as LocaleKey, label: 'ES', state: resolveState('es') },
+  { key: 'fr' as LocaleKey, label: 'FR', state: resolveState('fr') },
 ])
 </script>
 
@@ -32,7 +46,7 @@ const tabs = computed(() => [
       @click="emit('update:modelValue', t.key)"
     >
       {{ t.label }}
-      <span class="h-1.5 w-1.5 rounded-full" :class="t.filled ? 'bg-ok' : 'bg-line'"></span>
+      <LocaleFlag :locale="t.key" :state="t.state" />
     </button>
   </div>
 </template>
