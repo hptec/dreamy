@@ -11,7 +11,7 @@ public final class PresignDtos {
     private PresignDtos() {
     }
 
-    /** scope ∈ {product,category,tag,banner,content} 缺省 product（V-CAT-071） */
+    /** scope ∈ {product,category,collection,banner,content} 缺省 product（V-CAT-071） */
     public record PresignRequest(String fileName, String contentType, String scope) {
     }
 

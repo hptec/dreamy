@@ -9,7 +9,7 @@ import java.util.Set;
 /**
  * type → revalidate 路径映射表（EVT-MKT-002 / data-flow FLOW-P03 落点，纯函数）。
  * 每条路径 ×3 locale：EN 无前缀、`/es`、`/fr`（决策 27）；purge URL 同列表。
- * 覆盖本域 6 type + catalog 生产的 product_xxx / category_changed / tag_changed
+ * 覆盖本域 6 type + catalog 生产的 product_xxx / category_changed / collection_changed
  * + review 生产的 review_changed / question_changed（多域生产者共用 q.invalidate）。
  * trading exchange_rates_updated（EVT-TRD-005 自带 purge_paths、仅 CDN purge）由消费者特判，不经本表。
  * L2 TRACE: marketing-data-detail §9.2 路径映射表 / TC-MKT-026。
@@ -65,7 +65,7 @@ public final class InvalidatePathMapper {
                 paths.addAll(CATALOG_AGGREGATE_PAGES);
                 paths.add("/");
             }
-            case "category_changed", "tag_changed" -> {
+            case "category_changed", "collection_changed" -> {
                 paths.addAll(CATALOG_AGGREGATE_PAGES);
                 paths.add("/");
             }

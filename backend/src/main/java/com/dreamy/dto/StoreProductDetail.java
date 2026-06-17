@@ -35,7 +35,7 @@ public record StoreProductDetail(
         List<ProductImageDto> images,
         List<SkuDto> skus,
         List<SizeChartRowDto> sizeChart,
-        List<TagRef> tags,
+        List<CollectionRef> collections,
         BigDecimal ratingAvg,
         Integer ratingCount,
         // 面料成分/护理标签内联 JSON（不再走专用表）
@@ -43,7 +43,7 @@ public record StoreProductDetail(
         List<com.dreamy.domain.product.entity.vo.CareItem> careInstructions,
         String fabricCareNote
 ) {
-    /** 商品挂载标签（已按 locale 解析） */
-    public record TagRef(Long id, Long dimensionId, String name) {
+    /** 商品挂载集合（已按 locale 解析） */
+    public record CollectionRef(Long id, Long collectionGroupId, String name) {
     }
 }

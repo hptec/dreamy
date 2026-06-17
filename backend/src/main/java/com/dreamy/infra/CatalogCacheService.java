@@ -40,7 +40,7 @@ public class CatalogCacheService {
         SEARCH("catalog:search:", Duration.ofSeconds(60)),
         RECO("catalog:reco:", Duration.ofSeconds(300)),
         CATEGORIES("catalog:categories:", Duration.ofSeconds(600)),
-        TAGS("catalog:tags:", Duration.ofSeconds(600));
+        COLLECTIONS("catalog:collections:", Duration.ofSeconds(600));
 
         final String prefix;
         final Duration ttl;

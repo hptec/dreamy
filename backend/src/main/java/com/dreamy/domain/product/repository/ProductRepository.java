@@ -30,7 +30,7 @@ public class ProductRepository {
     }
 
     /** store 列表筛选条件（RM-CAT-083 入参；attrFilters: attribute_id → 候选值集，OR/IN 跨键 AND） */
-    public record StoreFilter(List<Long> categoryIds, Long tagId, String color, String size,
+    public record StoreFilter(List<Long> categoryIds, Long collectionId, String color, String size,
                               BigDecimal priceMin, BigDecimal priceMax, String sort,
                               Map<Long, Set<String>> attrFilters) {
     }
@@ -79,9 +79,9 @@ public class ProductRepository {
             }
             qw.in(Product::getCategoryId, filter.categoryIds());
         }
-        if (filter.tagId() != null) {
-            qw.exists("SELECT 1 FROM product_tag ptag WHERE ptag.product_id = product.id AND ptag.tag_id = {0}",
-                    filter.tagId());
+        if (filter.collectionId() != null) {
+            qw.exists("SELECT 1 FROM product_collection pcol WHERE pcol.product_id = product.id AND pcol.collection_id = {0}",
+                    filter.collectionId());
         }
         if (filter.color() != null) {
             qw.exists("SELECT 1 FROM sku s WHERE s.product_id = product.id AND s.color = {0}", filter.color());
@@ -247,12 +247,12 @@ public class ProductRepository {
                 .last("LIMIT " + limit));
     }
 
-    /** RM-CAT-093 listRecoByTag —— EXISTS product_tag(tag_id=?) ORDER BY sort */
-    public List<Product> listRecoByTag(Long tagId, int limit) {
+    /** RM-CAT-093 listRecoByCollection —— EXISTS product_collection(collection_id=?) ORDER BY sort */
+    public List<Product> listRecoByCollection(Long collectionId, int limit) {
         return productMapper.selectList(new LambdaQueryWrapper<Product>()
                 .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
-                .exists("SELECT 1 FROM product_tag ptag WHERE ptag.product_id = product.id AND ptag.tag_id = {0}", tagId)
+                .exists("SELECT 1 FROM product_collection pcol WHERE pcol.product_id = product.id AND pcol.collection_id = {0}", collectionId)
                 .orderByAsc(Product::getSort)
                 .last("LIMIT " + limit));
     }

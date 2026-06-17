@@ -5,11 +5,11 @@ import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
 import com.dreamy.enums.RecommendationBlock;
-import com.dreamy.enums.TagStatus;
+import com.dreamy.enums.CollectionStatus;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.domain.tag.entity.Tag;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.StoreProductCard;
 import com.dreamy.infra.CatalogCacheService;
 import com.dreamy.infra.CatalogCacheService.Family;
@@ -33,17 +33,17 @@ import java.util.Map;
 public class RecommendationService {
 
     private final ProductRepository productRepository;
-    private final TagRepository tagRepository;
+    private final CollectionRepository collectionRepository;
     private final CategoryRepository categoryRepository;
     private final CategoryTreeService treeService;
     private final ProductCardAssembler cardAssembler;
     private final CatalogCacheService cache;
 
-    public RecommendationService(ProductRepository productRepository, TagRepository tagRepository,
+    public RecommendationService(ProductRepository productRepository, CollectionRepository collectionRepository,
                                  CategoryRepository categoryRepository, CategoryTreeService treeService,
                                  ProductCardAssembler cardAssembler, CatalogCacheService cache) {
         this.productRepository = productRepository;
-        this.tagRepository = tagRepository;
+        this.collectionRepository = collectionRepository;
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
         this.cardAssembler = cardAssembler;
@@ -52,7 +52,7 @@ public class RecommendationService {
 
     /** E-CAT-03：推荐位（block 规则化，一律仅 published） */
     @SuppressWarnings("unchecked")
-    public List<StoreProductCard> recommend(String blockParam, Long productId, Long tagId,
+    public List<StoreProductCard> recommend(String blockParam, Long productId, Long collectionId,
                                             Integer limitParam, String localeParam) {
         // V-CAT-008~011 入参校验
         CatalogFieldErrors errors = new CatalogFieldErrors();
@@ -66,8 +66,8 @@ public class RecommendationService {
         if (block != null && block.requiresProductId() && productId == null) {
             errors.reject("product_id", "required");
         }
-        if (block != null && block.requiresTagId() && tagId == null) {
-            errors.reject("tag_id", "required");
+        if (block != null && block.requiresCollectionId() && collectionId == null) {
+            errors.reject("collection_id", "required");
         }
         int limit = 8;
         if (limitParam != null) {
@@ -80,14 +80,14 @@ public class RecommendationService {
         errors.throwIfAny();
         // STEP-CAT-01 查缓存 catalog:reco:{block}:{pid|tid|-}:{locale}（TTL 300s）
         String anchor = block.requiresProductId() ? String.valueOf(productId)
-                : block.requiresTagId() ? String.valueOf(tagId) : "-";
+                : block.requiresCollectionId() ? String.valueOf(collectionId) : "-";
         String cacheKey = block.getKey() + ":" + anchor + ":" + limit + ":" + locale;
         Object cached = cache.get(Family.RECO, cacheKey);
         if (cached instanceof List<?> hit) {
             return (List<StoreProductCard>) hit;
         }
         // STEP-CAT-02 block 规则查询
-        List<Product> products = queryByBlock(block, productId, tagId, limit);
+        List<Product> products = queryByBlock(block, productId, collectionId, limit);
         // STEP-CAT-03 装配卡片 + locale 翻译
         List<StoreProductCard> cards = cardAssembler.assemble(products, locale);
         // STEP-CAT-04 写缓存 TTL 300s
@@ -96,7 +96,7 @@ public class RecommendationService {
     }
 
     /** 决策 29 五规则（TC-CAT-009 纯函数面） */
-    private List<Product> queryByBlock(RecommendationBlock block, Long productId, Long tagId, int limit) {
+    private List<Product> queryByBlock(RecommendationBlock block, Long productId, Long collectionId, int limit) {
         return switch (block) {
             case NEW_ARRIVALS -> productRepository.listRecoNewArrivals(limit);
             case BEST_SELLERS -> {
@@ -105,12 +105,12 @@ public class RecommendationService {
                 yield bySales.isEmpty() ? productRepository.listRecoRecommendFallback(limit) : bySales;
             }
             case SHOP_BY_COLOR -> {
-                // tag 不存在/disabled → 空 items 不 404
-                Tag tag = tagRepository.findById(tagId);
-                if (tag == null || tag.getStatus() != TagStatus.ENABLED) {
+                // collection 不存在/disabled → 空 items 不 404
+                Collection collection = collectionRepository.findById(collectionId);
+                if (collection == null || collection.getStatus() != CollectionStatus.ENABLED) {
                     yield List.of();
                 }
-                yield productRepository.listRecoByTag(tagId, limit);
+                yield productRepository.listRecoByCollection(collectionId, limit);
             }
             case YOU_MAY_ALSO_LIKE -> {
                 // 基准品不存在或未发布 → 空 items

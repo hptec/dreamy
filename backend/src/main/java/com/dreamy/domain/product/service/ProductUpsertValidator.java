@@ -37,12 +37,12 @@ public final class ProductUpsertValidator {
      * 校验整单载荷；任一违规收集后抛 422501。
      *
      * @param categoryExists category_id 存在性（V-CAT-025，Service 预查）
-     * @param existingTagIds 全部存在的 tag id 集（V-CAT-034）
+     * @param existingCollectionIds 全部存在的 collection id 集（V-CAT-034）
      * @param ownedSkuIds    编辑场景本商品既有 SKU id 集（创建场景传 null 跳过 V-CAT-038）
      * @param defsByKey      属性字典全量 key 索引（动态属性校验数据源）
      * @param allowedKeys    分类生效非 hidden 属性 key 白名单（分类无效传 null 跳过 not_in_category）
      */
-    public static void validate(AdminProductUpsert u, boolean categoryExists, Set<Long> existingTagIds,
+    public static void validate(AdminProductUpsert u, boolean categoryExists, Set<Long> existingCollectionIds,
                                 Set<Long> ownedSkuIds, Map<String, AttributeDef> defsByKey,
                                 Set<String> allowedKeys) {
         CatalogFieldErrors errors = new CatalogFieldErrors();
@@ -97,15 +97,15 @@ public final class ProductUpsertValidator {
         validateImages(u.images(), errors);
         validateSkus(u.skus(), ownedSkuIds, errors);
         validateSizeChart(u.sizeChart(), errors);
-        // V-CAT-034 tag_ids 去重后全部存在
-        if (u.tagIds() != null) {
+        // V-CAT-034 collection_ids 去重后全部存在
+        if (u.collectionIds() != null) {
             Set<Long> seen = new HashSet<>();
-            for (Long tagId : u.tagIds()) {
-                if (tagId == null || !existingTagIds.contains(tagId)) {
-                    errors.reject("tag_ids", "not_exists");
+            for (Long collectionId : u.collectionIds()) {
+                if (collectionId == null || !existingCollectionIds.contains(collectionId)) {
+                    errors.reject("collection_ids", "not_exists");
                     break;
                 }
-                seen.add(tagId);
+                seen.add(collectionId);
             }
         }
         validateTranslations(u.translations(), errors);

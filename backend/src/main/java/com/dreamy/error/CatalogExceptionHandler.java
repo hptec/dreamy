@@ -3,7 +3,7 @@ package com.dreamy.error;
 import com.dreamy.controller.AdminAttributeController;
 import com.dreamy.controller.AdminCategoryController;
 import com.dreamy.controller.AdminProductController;
-import com.dreamy.controller.AdminTagController;
+import com.dreamy.controller.AdminCollectionController;
 import com.dreamy.controller.AdminUploadController;
 import com.dreamy.controller.StoreCategoryController;
 import com.dreamy.controller.StoreProductController;
@@ -33,7 +33,7 @@ import java.util.Map;
  * `{ fields: { <field>: <reason_key> } }`（api-detail §0 横切）；4xx WARN / 5xx ERROR 分级。
  * identity 复用码（40100/40300/50000 等 BizException）仍由 identity GlobalExceptionHandler 兜底处理。
  */
-@RestControllerAdvice(assignableTypes = {AdminAttributeController.class, AdminCategoryController.class, AdminProductController.class, AdminTagController.class, AdminUploadController.class, StoreCategoryController.class, StoreProductController.class})
+@RestControllerAdvice(assignableTypes = {AdminAttributeController.class, AdminCategoryController.class, AdminProductController.class, AdminCollectionController.class, AdminUploadController.class, StoreCategoryController.class, StoreProductController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CatalogExceptionHandler {
 

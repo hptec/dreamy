@@ -11,11 +11,11 @@ import com.dreamy.domain.product.entity.Sku;
 import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.domain.product.repository.ProductImageRepository;
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.domain.product.repository.ProductTagRepository;
+import com.dreamy.domain.product.repository.ProductCollectionRepository;
 import com.dreamy.domain.product.repository.ProductTranslationRepository;
 import com.dreamy.domain.product.repository.SizeChartRowRepository;
 import com.dreamy.domain.product.repository.SkuRepository;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.AdminProductUpsert;
 import com.dreamy.dto.SkuDto;
 import com.dreamy.error.CatalogErrorCode;
@@ -68,7 +68,7 @@ class AdminProductServiceTest {
     @Mock
     SizeChartRowRepository sizeChartRepository;
     @Mock
-    ProductTagRepository productTagRepository;
+    ProductCollectionRepository productCollectionRepository;
     @Mock
     ProductAttributeValueRepository attributeValueRepository;
     @Mock
@@ -76,7 +76,7 @@ class AdminProductServiceTest {
     @Mock
     ProductAttributeConfigService attributeConfigService;
     @Mock
-    TagRepository tagRepository;
+    CollectionRepository collectionRepository;
     @Mock
     CategoryRepository categoryRepository;
     @Mock
@@ -99,8 +99,8 @@ class AdminProductServiceTest {
     @BeforeEach
     void setUp() {
         service = new AdminProductService(productRepository, translationRepository, imageRepository,
-                skuRepository, sizeChartRepository, productTagRepository, attributeValueRepository,
-                attributeDefRepository, attributeConfigService, tagRepository, categoryRepository,
+                skuRepository, sizeChartRepository, productCollectionRepository, attributeValueRepository,
+                attributeDefRepository, attributeConfigService, collectionRepository, categoryRepository,
                 treeService, cache, audit, afterCommit, invalidatedPublisher, tradingQueryPort,
                 transactionTemplate, new ObjectMapper());
     }
@@ -170,7 +170,7 @@ class AdminProductServiceTest {
         verify(imageRepository).deleteByProductId(11L);
         verify(skuRepository).deleteByProductId(11L);
         verify(sizeChartRepository).deleteByProductId(11L);
-        verify(productTagRepository).deleteByProductId(11L);
+        verify(productCollectionRepository).deleteByProductId(11L);
         verify(translationRepository).deleteByProductId(11L);
         verify(attributeValueRepository).deleteByProductId(11L);
         verify(audit).record(eq("删除商品"), any(), any());

@@ -315,7 +315,7 @@ export interface AdminProductUpsert {
   images?: ProductImage[]
   skus?: Sku[]
   sizeChart?: SizeChartRow[]
-  tagIds?: number[]
+  collectionIds?: number[]
   translations?: ProductTranslation[]
   /** 面料成分列表 */
   fabricCompositions?: FabricComposition[] | null
@@ -412,52 +412,52 @@ export interface AttributeDefUpsert {
   translations?: AttributeDefTranslation[] | null
 }
 
-export interface TagDimensionTranslation {
+export interface CollectionGroupTranslation {
   locale: TranslationLocale
   name?: string | null
 }
 
-export interface TagDimension {
+export interface CollectionGroup {
   id: number
   name: string
   description?: string | null
-  tagCount?: number | null
-  translations?: TagDimensionTranslation[] | null
+  collectionCount?: number | null
+  translations?: CollectionGroupTranslation[] | null
 }
 
-export interface TagDimensionUpsert {
+export interface CollectionGroupUpsert {
   name: string
   description?: string | null
-  translations?: TagDimensionTranslation[] | null
+  translations?: CollectionGroupTranslation[] | null
 }
 
-export interface TagTranslation {
+export interface CollectionTranslation {
   locale: TranslationLocale
   label?: string | null
 }
 
-export const TagStatus = { ENABLED: 1, DISABLED: 2 } as const
-export type TagStatus = typeof TagStatus[keyof typeof TagStatus]
+export const CollectionStatus = { ENABLED: 1, DISABLED: 2 } as const
+export type CollectionStatus = typeof CollectionStatus[keyof typeof CollectionStatus]
 
-export interface Tag {
+export interface Collection {
   id: number
-  dimensionId: number
+  collectionGroupId: number
   name: string
   cover?: string | null
-  status: TagStatus
+  status: CollectionStatus
   productCount?: number | null
-  translations?: TagTranslation[] | null
+  translations?: CollectionTranslation[] | null
 }
 
-export interface TagUpsert {
-  dimensionId: number
+export interface CollectionUpsert {
+  collectionGroupId: number
   name: string
   cover?: string | null
-  status: TagStatus
-  translations?: TagTranslation[] | null
+  status: CollectionStatus
+  translations?: CollectionTranslation[] | null
 }
 
-export type PresignScope = 'product' | 'category' | 'tag' | 'banner' | 'content'
+export type PresignScope = 'product' | 'category' | 'collection' | 'banner' | 'content'
 
 export interface PresignRequest {
   fileName: string
@@ -1063,7 +1063,7 @@ export interface CareInstructionListResponse {
 }
 
 // ===== i18n-complete-with-ai-assist：网关配置 / AI 翻译 / 术语表 =====
-// 约束: gateway-api.openapi.yml / ai-translation-api.openapi.yml / glossary-api.openapi.yml
+// 约束: gateway-api.openapi.yml / ai-translation-api.openapi.yml
 // 边界 camelCase；后端 snake_case 由 client 统一转换（gateway_type → gatewayType 等）
 
 /** 网关类型枚举（AI=1 / LOGISTICS=2 / PAYMENT=3，与后端 IntEnum 对齐） */
@@ -1099,13 +1099,6 @@ export const AiTranslateErrorCode = {
   FIELD_VALIDATION_FAILED: 422301,
   GATEWAY_CALL_FAILED: 502301,
   GATEWAY_TIMEOUT: 504301,
-} as const
-
-/** 术语表域错误码（glossary 域 6 位） */
-export const GlossaryErrorCode = {
-  TERM_NOT_FOUND: 404401,
-  TERM_EN_EXISTS: 409401,
-  FIELD_VALIDATION_FAILED: 422401,
 } as const
 
 /** 网关可用模型（/v1/models 自动发现，GatewayModel schema） */
@@ -1162,62 +1155,10 @@ export interface TranslateRequest {
   bizRef?: string | null
 }
 
-/** token 用量（TokenUsage schema） */
-export interface TokenUsage {
-  promptTokens: number
-  completionTokens: number
-  totalTokens: number
-}
-
 /** AI 翻译响应（TranslateResponse schema） */
 export interface TranslateResponse {
   translatedText: string
   model: string
+  status?: number | null
   latencyMs: number
-  tokenUsage: TokenUsage
-}
-
-/** 术语表条目写入体（GlossaryTermUpsert schema） */
-export interface GlossaryTermUpsert {
-  termEn: string
-  termEs?: string | null
-  termFr?: string | null
-  category?: string | null
-  enabled: boolean
-}
-
-/** 术语表条目（GlossaryTerm schema） */
-export interface GlossaryTerm extends GlossaryTermUpsert {
-  id: number
-  createdAt?: string | null
-  updatedAt?: string | null
-}
-
-/** AI 翻译调用记录状态（与后端 AiTranslationStatus IntEnum 对齐，决策 10 / EDGE-016/017） */
-export const AiTranslationStatus = {
-  SUCCESS: 1,
-  FAILED: 2,
-  TIMEOUT: 3,
-  EMPTY_RESULT: 4,
-  RATE_LIMITED: 5,
-} as const
-export type AiTranslationStatus = typeof AiTranslationStatus[keyof typeof AiTranslationStatus]
-
-/** AI 翻译调用记录条目（TranslationLogDto；source_text/translated_text 后端截断展示前 200 字符） */
-export interface TranslationLog {
-  id: number
-  gatewayConfigId: number | null
-  model: string | null
-  sourceLang: string | null
-  targetLang: string | null
-  sourceText: string | null
-  translatedText: string | null
-  customRequirement: string | null
-  bizType: string | null
-  bizRef: string | null
-  status: AiTranslationStatus
-  errorMessage: string | null
-  latencyMs: number | null
-  operatorId: number | null
-  createdAt: string | null
 }

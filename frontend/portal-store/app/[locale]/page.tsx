@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Truck, Sparkles, Globe, Heart } from 'lucide-react'
 import { palette } from '@/data/products'
-import { fetchStoreTags } from '@/lib/api/catalog-server'
+import { fetchStoreCollections } from '@/lib/api/catalog-server'
 import { fetchStoreBanners, fetchStoreFlashSales, fetchStoreWeddings } from '@/lib/api/marketing-server'
 import { BannerPosition } from '@/lib/api/store-types'
 import { RecommendationRail } from '@/components/product/recommendation-rail'
@@ -27,16 +27,16 @@ const themeCards = [
 ]
 
 export default async function HomePage() {
-  const [heroBanners, flashSales, tagGroups, weddingsPage] = await Promise.all([
+  const [heroBanners, flashSales, collectionGroups, weddingsPage] = await Promise.all([
     fetchStoreBanners(BannerPosition.HERO),
     fetchStoreFlashSales(),
-    fetchStoreTags(),
+    fetchStoreCollections(),
     fetchStoreWeddings({ page: 1, pageSize: 3 })
   ])
 
   const hero = heroBanners[0]
-  const colorGroup = tagGroups.find((g) => /color/i.test(g.name))
-  const colorTags = colorGroup?.tags ?? []
+  const colorGroup = collectionGroups.find((g) => /color/i.test(g.name))
+  const colorTags = colorGroup?.collections ?? []
   const weddings = weddingsPage?.data ?? []
 
   return (

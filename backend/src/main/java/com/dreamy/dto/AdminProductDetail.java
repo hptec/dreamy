@@ -40,7 +40,7 @@ public record AdminProductDetail(
         List<ProductImageDto> images,
         List<SkuDto> skus,
         List<SizeChartRowDto> sizeChart,
-        List<Long> tagIds,
+        List<Long> collectionIds,
         List<ProductTranslationDto> translations,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,

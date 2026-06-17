@@ -1,13 +1,13 @@
 package com.dreamy.dto;
 
 import com.dreamy.dto.TranslationDtos.AttributeDefTranslationDto;
-import com.dreamy.dto.TranslationDtos.TagDimensionTranslationDto;
-import com.dreamy.dto.TranslationDtos.TagTranslationDto;
+import com.dreamy.dto.TranslationDtos.CollectionGroupTranslationDto;
+import com.dreamy.dto.TranslationDtos.CollectionTranslationDto;
 
 import java.util.List;
 
 /**
- * 属性集/属性字典/标签维度/标签 后台 DTO 集（MAP-CAT-008/009/010）。
+ * 属性集/属性字典/集合分组/集合 后台 DTO 集（MAP-CAT-008/009/010）。
  */
 public final class AdminCatalogDtos {
 
@@ -36,23 +36,23 @@ public final class AdminCatalogDtos {
                                   List<AttributeDefTranslationDto> translations) {
     }
 
-    /** openapi TagDimensionUpsert（V-CAT-059/060） */
-    public record TagDimensionUpsert(String name, String description,
-                                     List<TagDimensionTranslationDto> translations) {
+    /** openapi CollectionGroupUpsert（V-CAT-059/060） */
+    public record CollectionGroupUpsert(String name, String description,
+                                        List<CollectionGroupTranslationDto> translations) {
     }
 
-    /** openapi TagDimension（tag_count 派生——删除约束判定） */
-    public record TagDimensionDto(Long id, String name, String description, Integer tagCount,
-                                  List<TagDimensionTranslationDto> translations) {
+    /** openapi CollectionGroup（collection_count 派生——删除约束判定） */
+    public record CollectionGroupDto(Long id, String name, String description, Integer collectionCount,
+                                     List<CollectionGroupTranslationDto> translations) {
     }
 
-    /** openapi TagUpsert（V-CAT-063~066） */
-    public record TagUpsert(Long dimensionId, String name, String cover, Integer status,
-                            List<TagTranslationDto> translations) {
+    /** openapi CollectionUpsert（V-CAT-063~066） */
+    public record CollectionUpsert(Long collectionGroupId, String name, String cover, Integer status,
+                                   List<CollectionTranslationDto> translations) {
     }
 
-    /** openapi Tag（product_count 全量口径——MAP-CAT-010） */
-    public record TagDto(Long id, Long dimensionId, String name, String cover, Integer status,
-                         Integer productCount, List<TagTranslationDto> translations) {
+    /** openapi Collection（product_count 全量口径——MAP-CAT-010） */
+    public record CollectionDto(Long id, Long collectionGroupId, String name, String cover, Integer status,
+                                Integer productCount, List<CollectionTranslationDto> translations) {
     }
 }

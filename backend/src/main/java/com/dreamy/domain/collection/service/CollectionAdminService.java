@@ -1,0 +1,355 @@
+package com.dreamy.domain.collection.service;
+
+import com.dreamy.enums.CollectionStatus;
+import java.time.LocalDateTime;
+import com.dreamy.domain.product.repository.ProductCollectionRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.entity.CollectionGroup;
+import com.dreamy.domain.collection.entity.CollectionGroupTranslation;
+import com.dreamy.domain.collection.entity.CollectionTranslation;
+import com.dreamy.domain.collection.repository.CollectionGroupRepository;
+import com.dreamy.domain.collection.repository.CollectionRepository;
+import com.dreamy.dto.AdminCatalogDtos.CollectionGroupDto;
+import com.dreamy.dto.AdminCatalogDtos.CollectionGroupUpsert;
+import com.dreamy.dto.AdminCatalogDtos.CollectionDto;
+import com.dreamy.dto.AdminCatalogDtos.CollectionUpsert;
+import com.dreamy.dto.TranslationDtos.CollectionGroupTranslationDto;
+import com.dreamy.dto.TranslationDtos.CollectionTranslationDto;
+import com.dreamy.error.CatalogErrorCode;
+import com.dreamy.error.CatalogException;
+import com.dreamy.event.ContentInvalidatedPublisher;
+import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.infra.CatalogAuditRecorder;
+import com.dreamy.infra.CatalogCacheService;
+import com.dreamy.infra.CatalogCacheService.Family;
+import com.dreamy.support.CatalogFieldErrors;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 后台集合分组/集合服务（E-CAT-27~34；TX-CAT-015~020；TASK-035/036 lifecycle guard）。
+ * L2 TRACE: V-CAT-059~068 / CV-CAT-006 / CACHE-CAT-006 失效链 / MAP-CAT-010。
+ */
+@Service
+public class CollectionAdminService {
+
+    private static final Set<String> TRANSLATION_LOCALES = Set.of("es", "fr");
+
+    private final CollectionGroupRepository groupRepository;
+    private final CollectionRepository collectionRepository;
+    private final ProductCollectionRepository productCollectionRepository;
+    private final CatalogCacheService cache;
+    private final CatalogAuditRecorder audit;
+    private final CatalogAfterCommitRunner afterCommit;
+    private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final ObjectMapper objectMapper;
+
+    public CollectionAdminService(CollectionGroupRepository groupRepository, CollectionRepository collectionRepository,
+                                  ProductCollectionRepository productCollectionRepository, CatalogCacheService cache,
+                                  CatalogAuditRecorder audit, CatalogAfterCommitRunner afterCommit,
+                                  ContentInvalidatedPublisher invalidatedPublisher, ObjectMapper objectMapper) {
+        this.groupRepository = groupRepository;
+        this.collectionRepository = collectionRepository;
+        this.productCollectionRepository = productCollectionRepository;
+        this.cache = cache;
+        this.audit = audit;
+        this.afterCommit = afterCommit;
+        this.invalidatedPublisher = invalidatedPublisher;
+        this.objectMapper = objectMapper;
+    }
+
+    // ==================== 集合分组 E-CAT-27~30 ====================
+
+    /** E-CAT-27：分组列表（collection_count 派生 + 三语 translations） */
+    public List<CollectionGroupDto> listGroups() {
+        List<CollectionGroup> groups = groupRepository.listAll();
+        Map<Long, Long> collectionCounts = groupRepository.countCollectionsGroupByGroup();
+        Map<Long, List<CollectionGroupTranslationDto>> translations = groupTranslations(
+                groups.stream().map(CollectionGroup::getId).toList());
+        return groups.stream().map(g -> new CollectionGroupDto(g.getId(), g.getName(), g.getDescription(),
+                collectionCounts.getOrDefault(g.getId(), 0L).intValue(),
+                translations.getOrDefault(g.getId(), List.of()))).toList();
+    }
+
+    /** E-CAT-28：新增分组（TX-CAT-015） */
+    @Transactional
+    public CollectionGroupDto createGroup(CollectionGroupUpsert req) {
+        validateGroup(req);
+        CollectionGroup group = new CollectionGroup();
+        group.setName(req.name().trim());
+        group.setDescription(req.description());
+        groupRepository.insert(group);
+        groupRepository.replaceTranslations(group.getId(), toGroupTranslationRows(req.translations()));
+        audit.record("创建集合分组", group.getName(), null);
+        return new CollectionGroupDto(group.getId(), group.getName(), group.getDescription(), 0,
+                req.translations() == null ? List.of() : req.translations());
+    }
+
+    /** E-CAT-29：编辑分组（TX-CAT-016） */
+    @Transactional
+    public CollectionGroupDto updateGroup(Long id, CollectionGroupUpsert req) {
+        CollectionGroup existing = groupRepository.findById(id);
+        if (existing == null) {
+            // V-CAT-061
+            throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
+        }
+        validateGroup(req);
+        existing.setName(req.name().trim());
+        existing.setDescription(req.description());
+        groupRepository.update(existing);
+        groupRepository.replaceTranslations(id, toGroupTranslationRows(req.translations()));
+        audit.record("编辑集合分组", existing.getName(), null);
+        // STEP-CAT-02 提交后失效 catalog:collections:* → MQ collection_changed
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
+        int collectionCount = (int) collectionRepository.countByGroupId(id);
+        return new CollectionGroupDto(id, existing.getName(), existing.getDescription(), collectionCount,
+                req.translations() == null ? List.of() : req.translations());
+    }
+
+    /** E-CAT-30：删除分组（TX-CAT-017；guard 409506——真实端收紧为先清空集合防误删营销数据） */
+    @Transactional
+    public void deleteGroup(Long id) {
+        CollectionGroup existing = groupRepository.findById(id);
+        if (existing == null) {
+            throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
+        }
+        long collectionCount = collectionRepository.countByGroupId(id);
+        if (collectionCount > 0) {
+            throw new CatalogException(CatalogErrorCode.COLLECTION_GROUP_IN_USE, Map.of("collection_count", collectionCount));
+        }
+        // 逻辑删除：设置 deleted_at = now()
+        CollectionGroup patch = new CollectionGroup();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        groupRepository.update(patch);
+        audit.record("删除集合分组", existing.getName(), null);
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
+    }
+
+    // ==================== 集合 E-CAT-31~34 ====================
+
+    /** E-CAT-31：集合列表（product_count 全量口径 + translations——V-CAT-062） */
+    public List<CollectionDto> listCollections(Long groupId) {
+        List<Collection> collections = collectionRepository.listByGroupId(groupId);
+        Map<Long, Integer> counts = productCollectionRepository.countByCollections(false);
+        Map<Long, List<CollectionTranslationDto>> translations = collectionTranslations(collections.stream().map(Collection::getId).toList());
+        return collections.stream().map(c -> toCollectionDto(c, counts.getOrDefault(c.getId(), 0),
+                translations.getOrDefault(c.getId(), List.of()))).toList();
+    }
+
+    /** E-CAT-32：新增集合（TX-CAT-018；collection_lifecycle →enabled） */
+    @Transactional
+    public CollectionDto createCollection(CollectionUpsert req) {
+        validateCollection(req);
+        Collection collection = new Collection();
+        collection.setCollectionGroupId(req.collectionGroupId());
+        collection.setName(req.name().trim());
+        collection.setCover(req.cover());
+        collection.setStatus(CollectionStatus.of(req.status()));
+        collectionRepository.insert(collection);
+        collectionRepository.replaceTranslations(collection.getId(), toCollectionTranslationRows(req.translations()));
+        audit.record("创建集合", collection.getName(), null);
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
+        return toCollectionDto(collection, 0, req.translations() == null ? List.of() : req.translations());
+    }
+
+    /** E-CAT-33：编辑集合（TX-CAT-019；Toggle enabled 映射 status；collection_group_id 可改=移动分组） */
+    @Transactional
+    public CollectionDto updateCollection(Long id, CollectionUpsert req) {
+        Collection existing = collectionRepository.findById(id);
+        if (existing == null) {
+            // V-CAT-067
+            throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
+        }
+        validateCollection(req);
+        CollectionStatus oldStatus = existing.getStatus();
+        existing.setCollectionGroupId(req.collectionGroupId());
+        existing.setName(req.name().trim());
+        existing.setCover(req.cover());
+        existing.setStatus(CollectionStatus.of(req.status()));
+        collectionRepository.update(existing);
+        collectionRepository.replaceTranslations(id, toCollectionTranslationRows(req.translations()));
+        // 审计 changes 含 status 流转（BE-DIM-7）
+        audit.record("编辑集合", existing.getName(), statusChangesJson(oldStatus, existing.getStatus()));
+        // STEP-CAT-02 提交后失效 collections/reco（shop_by_color）/products（collection_id 筛选）→ MQ
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            cache.invalidateFamily(Family.RECO);
+            cache.invalidateFamily(Family.PRODUCTS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
+        Map<Long, Integer> counts = productCollectionRepository.countByCollections(false);
+        return toCollectionDto(existing, counts.getOrDefault(id, 0),
+                req.translations() == null ? List.of() : req.translations());
+    }
+
+    /** E-CAT-34：删除集合（TX-CAT-020；无前置 guard；product_collection 级联摘除——RM-CAT-144） */
+    @Transactional
+    public void deleteCollection(Long id) {
+        // V-CAT-068：不存在（含非法 id）→ 404505
+        Collection existing = collectionRepository.findById(id);
+        if (existing == null) {
+            throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
+        }
+        // 逻辑删除：设置 deleted_at = now()
+        Collection patch = new Collection();
+        patch.setId(id);
+        patch.setDeletedAt(LocalDateTime.now());
+        collectionRepository.update(patch);
+        collectionRepository.deleteTranslationsByCollectionId(id);
+        productCollectionRepository.deleteByCollectionId(id);
+        audit.record("删除集合", existing.getName(), null);
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            cache.invalidateFamily(Family.RECO);
+            cache.invalidateFamily(Family.PRODUCTS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
+    }
+
+    // ==================== 校验/装配 ====================
+
+    /** V-CAT-059/060 */
+    private void validateGroup(CollectionGroupUpsert req) {
+        CatalogFieldErrors errors = new CatalogFieldErrors();
+        if (req.name() == null || req.name().trim().isEmpty()) {
+            errors.reject("name", "required");
+        } else if (req.name().trim().length() > 64) {
+            errors.reject("name", "too_long");
+        }
+        if (req.description() != null && req.description().length() > 255) {
+            errors.reject("description", "too_long");
+        }
+        if (req.translations() != null) {
+            Set<String> seen = new HashSet<>();
+            for (CollectionGroupTranslationDto t : req.translations()) {
+                if (t.locale() == null || !TRANSLATION_LOCALES.contains(t.locale()) || !seen.add(t.locale())) {
+                    errors.reject("translations", "invalid_locale");
+                    break;
+                }
+                if (t.name() != null && t.name().length() > 64) {
+                    errors.reject("translations", "too_long");
+                    break;
+                }
+            }
+        }
+        errors.throwIfAny();
+    }
+
+    /** V-CAT-063~066 */
+    private void validateCollection(CollectionUpsert req) {
+        CatalogFieldErrors errors = new CatalogFieldErrors();
+        // V-CAT-063 collection_group_id 必填且分组存在（不存在 → 404505）
+        if (req.collectionGroupId() == null) {
+            errors.reject("collection_group_id", "required");
+            errors.throwIfAny();
+        }
+        if (groupRepository.findById(req.collectionGroupId()) == null) {
+            throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
+        }
+        // V-CAT-064 name 必填 trim 非空 ≤64（js_guard 后端兜底）
+        if (req.name() == null || req.name().trim().isEmpty()) {
+            errors.reject("name", "required");
+        } else if (req.name().trim().length() > 64) {
+            errors.reject("name", "too_long");
+        }
+        // V-CAT-065 status 必填枚举
+        if (CollectionStatus.of(req.status()) == null) {
+            errors.reject("status", "invalid_enum");
+        }
+        // V-CAT-066 cover ≤512 可空
+        if (req.cover() != null && req.cover().length() > 512) {
+            errors.reject("cover", "too_long");
+        }
+        if (req.translations() != null) {
+            Set<String> seen = new HashSet<>();
+            for (CollectionTranslationDto t : req.translations()) {
+                if (t.locale() == null || !TRANSLATION_LOCALES.contains(t.locale()) || !seen.add(t.locale())) {
+                    errors.reject("translations", "invalid_locale");
+                    break;
+                }
+                if (t.label() != null && t.label().length() > 64) {
+                    errors.reject("translations", "too_long");
+                    break;
+                }
+            }
+        }
+        errors.throwIfAny();
+    }
+
+    private String statusChangesJson(CollectionStatus from, CollectionStatus to) {
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "before", Map.of("status", from == null ? null : from.getKey()),
+                    "after", Map.of("status", to == null ? null : to.getKey())));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private List<CollectionGroupTranslation> toGroupTranslationRows(List<CollectionGroupTranslationDto> dtos) {
+        List<CollectionGroupTranslation> rows = new ArrayList<>();
+        if (dtos != null) {
+            for (CollectionGroupTranslationDto dto : dtos) {
+                CollectionGroupTranslation row = new CollectionGroupTranslation();
+                row.setLocale(dto.locale());
+                row.setName(dto.name());
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private List<CollectionTranslation> toCollectionTranslationRows(List<CollectionTranslationDto> dtos) {
+        List<CollectionTranslation> rows = new ArrayList<>();
+        if (dtos != null) {
+            for (CollectionTranslationDto dto : dtos) {
+                CollectionTranslation row = new CollectionTranslation();
+                row.setLocale(dto.locale());
+                row.setLabel(dto.label());
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private Map<Long, List<CollectionGroupTranslationDto>> groupTranslations(List<Long> ids) {
+        Map<Long, List<CollectionGroupTranslationDto>> result = new HashMap<>();
+        for (CollectionGroupTranslation t : groupRepository.listTranslationsByGroupIds(ids)) {
+            result.computeIfAbsent(t.getCollectionGroupId(), k -> new ArrayList<>())
+                    .add(new CollectionGroupTranslationDto(t.getLocale(), t.getName()));
+        }
+        return result;
+    }
+
+    private Map<Long, List<CollectionTranslationDto>> collectionTranslations(List<Long> collectionIds) {
+        Map<Long, List<CollectionTranslationDto>> result = new HashMap<>();
+        for (CollectionTranslation t : collectionRepository.listTranslationsByCollectionIds(collectionIds)) {
+            result.computeIfAbsent(t.getCollectionId(), k -> new ArrayList<>())
+                    .add(new CollectionTranslationDto(t.getLocale(), t.getLabel()));
+        }
+        return result;
+    }
+
+    private CollectionDto toCollectionDto(Collection collection, int productCount, List<CollectionTranslationDto> translations) {
+        return new CollectionDto(collection.getId(), collection.getCollectionGroupId(), collection.getName(), collection.getCover(),
+                collection.getStatus() == null ? null : collection.getStatus().getKey(), productCount, translations);
+    }
+}

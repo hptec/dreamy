@@ -14,7 +14,7 @@ import com.dreamy.enums.AttributeType;
 import com.dreamy.enums.AttributeVisibility;
 import com.dreamy.enums.ImageKind;
 import com.dreamy.enums.ProductStatus;
-import com.dreamy.enums.TagStatus;
+import com.dreamy.enums.CollectionStatus;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.entity.ProductAttributeValue;
 import com.dreamy.domain.product.entity.ProductImage;
@@ -25,16 +25,16 @@ import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.domain.product.repository.ProductImageRepository;
 import com.dreamy.domain.product.repository.ProductMapper;
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.domain.product.repository.ProductTagRepository;
+import com.dreamy.domain.product.repository.ProductCollectionRepository;
 import com.dreamy.domain.product.repository.ProductTranslationRepository;
 import com.dreamy.domain.product.repository.SizeChartRowRepository;
 import com.dreamy.domain.product.repository.SkuRepository;
-import com.dreamy.domain.tag.entity.Tag;
-import com.dreamy.domain.tag.entity.TagDimension;
-import com.dreamy.domain.tag.entity.TagDimensionTranslation;
-import com.dreamy.domain.tag.entity.TagTranslation;
-import com.dreamy.domain.tag.repository.TagDimensionRepository;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.entity.CollectionGroup;
+import com.dreamy.domain.collection.entity.CollectionGroupTranslation;
+import com.dreamy.domain.collection.entity.CollectionTranslation;
+import com.dreamy.domain.collection.repository.CollectionGroupRepository;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.domain.role.entity.Permission;
 import com.dreamy.domain.role.entity.Role;
 import com.dreamy.domain.role.entity.RolePermission;
@@ -78,14 +78,14 @@ public class CatalogSeedInitializer {
     private final ProductImageRepository imageRepository;
     private final SkuRepository skuRepository;
     private final SizeChartRowRepository sizeChartRepository;
-    private final ProductTagRepository productTagRepository;
+    private final ProductCollectionRepository productCollectionRepository;
     private final ProductTranslationRepository productTranslationRepository;
     private final ProductAttributeValueRepository attributeValueRepository;
     private final CategoryRepository categoryRepository;
     private final AttributeDefRepository attributeDefRepository;
     private final AttributeSetRepository attributeSetRepository;
-    private final TagDimensionRepository tagDimensionRepository;
-    private final TagRepository tagRepository;
+    private final CollectionGroupRepository collectionGroupRepository;
+    private final CollectionRepository collectionRepository;
     private final PermissionMapper permissionMapper;
     private final RoleMapper roleMapper;
     private final RolePermissionMapper rolePermissionMapper;
@@ -94,13 +94,13 @@ public class CatalogSeedInitializer {
     public CatalogSeedInitializer(ProductMapper productMapper, ProductRepository productRepository,
                                   ProductImageRepository imageRepository, SkuRepository skuRepository,
                                   SizeChartRowRepository sizeChartRepository,
-                                  ProductTagRepository productTagRepository,
+                                  ProductCollectionRepository productCollectionRepository,
                                   ProductTranslationRepository productTranslationRepository,
                                   ProductAttributeValueRepository attributeValueRepository,
                                   CategoryRepository categoryRepository,
                                   AttributeDefRepository attributeDefRepository,
                                   AttributeSetRepository attributeSetRepository,
-                                  TagDimensionRepository tagDimensionRepository, TagRepository tagRepository,
+                                  CollectionGroupRepository collectionGroupRepository, CollectionRepository collectionRepository,
                                   PermissionMapper permissionMapper, RoleMapper roleMapper,
                                   RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate) {
         this.productMapper = productMapper;
@@ -108,14 +108,14 @@ public class CatalogSeedInitializer {
         this.imageRepository = imageRepository;
         this.skuRepository = skuRepository;
         this.sizeChartRepository = sizeChartRepository;
-        this.productTagRepository = productTagRepository;
+        this.productCollectionRepository = productCollectionRepository;
         this.productTranslationRepository = productTranslationRepository;
         this.attributeValueRepository = attributeValueRepository;
         this.categoryRepository = categoryRepository;
         this.attributeDefRepository = attributeDefRepository;
         this.attributeSetRepository = attributeSetRepository;
-        this.tagDimensionRepository = tagDimensionRepository;
-        this.tagRepository = tagRepository;
+        this.collectionGroupRepository = collectionGroupRepository;
+        this.collectionRepository = collectionRepository;
         this.permissionMapper = permissionMapper;
         this.roleMapper = roleMapper;
         this.rolePermissionMapper = rolePermissionMapper;
@@ -130,8 +130,8 @@ public class CatalogSeedInitializer {
         Map<String, Long> defs = seedAttributeDefs();
         Map<String, Long> sets = seedAttributeSets(defs);
         Map<String, Long> categories = seedCategories(sets);
-        Map<String, Long> tags = seedTagsAndDimensions();
-        seedProducts(defs, categories, tags);
+        Map<String, Long> collections = seedCollectionsAndGroups();
+        seedProducts(defs, categories, collections);
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
 
@@ -139,11 +139,11 @@ public class CatalogSeedInitializer {
     private void clearCatalogData() {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
         for (String table : List.of(
-                "product_attribute_value", "product_tag", "product_image",
+                "product_attribute_value", "product_collection", "product_image",
                 "product_translation", "sku", "size_chart_row", "product",
                 "attribute_set_item", "attribute_set", "attribute_def",
                 "category_translation", "category",
-                "tag_translation", "product_tag", "tag", "tag_dimension_translation", "tag_dimension")) {
+                "collection_translation", "product_collection", "collection", "collection_group_translation", "collection_group")) {
             jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
@@ -353,10 +353,10 @@ public class CatalogSeedInitializer {
         return category.getId();
     }
 
-    private Map<String, Long> seedTagsAndDimensions() {
-        Map<String, Long> tagIds = new HashMap<>();
-        // Color 维度（Shop by Color 调色板，mock palette 8 色）
-        Long colorDim = insertDimension("Color", "Shop by Color palette for outdoor weddings",
+    private Map<String, Long> seedCollectionsAndGroups() {
+        Map<String, Long> collectionIds = new HashMap<>();
+        // Color 分组（Shop by Color 调色板，mock palette 8 色）
+        Long colorGroup = insertGroup("Color", "Shop by Color palette for outdoor weddings",
                 "Color", "Couleur");
         String[][] colors = {
                 {"Sage", "Salvia", "Sauge"}, {"Dusty Blue", "Azul Empolvado", "Bleu Poudré"},
@@ -365,55 +365,55 @@ public class CatalogSeedInitializer {
                 {"Ivory", "Marfil", "Ivoire"}, {"Espresso", "Café", "Expresso"}
         };
         for (String[] c : colors) {
-            tagIds.put("color:" + c[0], insertTag(colorDim, c[0], c[1], c[2]));
+            collectionIds.put("color:" + c[0], insertCollection(colorGroup, c[0], c[1], c[2]));
         }
-        // Theme 维度（婚礼场景主题）
-        Long themeDim = insertDimension("Theme", "Outdoor wedding themes", "Tema", "Thème");
+        // Theme 分组（婚礼场景主题）
+        Long themeGroup = insertGroup("Theme", "Outdoor wedding themes", "Tema", "Thème");
         String[][] themes = {
                 {"Garden", "Jardín", "Jardin"}, {"Beach", "Playa", "Plage"},
                 {"Vineyard", "Viñedo", "Vignoble"}, {"Forest", "Bosque", "Forêt"}
         };
         for (String[] t : themes) {
-            tagIds.put("theme:" + t[0], insertTag(themeDim, t[0], t[1], t[2]));
+            collectionIds.put("theme:" + t[0], insertCollection(themeGroup, t[0], t[1], t[2]));
         }
-        return tagIds;
+        return collectionIds;
     }
 
-    private Long insertDimension(String name, String description, String esName, String frName) {
-        TagDimension dim = new TagDimension();
-        dim.setName(name);
-        dim.setDescription(description);
-        tagDimensionRepository.insert(dim);
-        List<TagDimensionTranslation> translations = new ArrayList<>();
-        TagDimensionTranslation es = new TagDimensionTranslation();
+    private Long insertGroup(String name, String description, String esName, String frName) {
+        CollectionGroup group = new CollectionGroup();
+        group.setName(name);
+        group.setDescription(description);
+        collectionGroupRepository.insert(group);
+        List<CollectionGroupTranslation> translations = new ArrayList<>();
+        CollectionGroupTranslation es = new CollectionGroupTranslation();
         es.setLocale("es");
         es.setName(esName);
         translations.add(es);
-        TagDimensionTranslation fr = new TagDimensionTranslation();
+        CollectionGroupTranslation fr = new CollectionGroupTranslation();
         fr.setLocale("fr");
         fr.setName(frName);
         translations.add(fr);
-        tagDimensionRepository.replaceTranslations(dim.getId(), translations);
-        return dim.getId();
+        collectionGroupRepository.replaceTranslations(group.getId(), translations);
+        return group.getId();
     }
 
-    private Long insertTag(Long dimensionId, String name, String esLabel, String frLabel) {
-        Tag tag = new Tag();
-        tag.setDimensionId(dimensionId);
-        tag.setName(name);
-        tag.setStatus(TagStatus.ENABLED);
-        tagRepository.insert(tag);
-        List<TagTranslation> translations = new ArrayList<>();
-        TagTranslation es = new TagTranslation();
+    private Long insertCollection(Long groupId, String name, String esLabel, String frLabel) {
+        Collection collection = new Collection();
+        collection.setCollectionGroupId(groupId);
+        collection.setName(name);
+        collection.setStatus(CollectionStatus.ENABLED);
+        collectionRepository.insert(collection);
+        List<CollectionTranslation> translations = new ArrayList<>();
+        CollectionTranslation es = new CollectionTranslation();
         es.setLocale("es");
         es.setLabel(esLabel);
         translations.add(es);
-        TagTranslation fr = new TagTranslation();
+        CollectionTranslation fr = new CollectionTranslation();
         fr.setLocale("fr");
         fr.setLabel(frLabel);
         translations.add(fr);
-        tagRepository.replaceTranslations(tag.getId(), translations);
-        return tag.getId();
+        collectionRepository.replaceTranslations(collection.getId(), translations);
+        return collection.getId();
     }
 
     // ==================== 商品（mock data/products.ts 16 款全量提炼） ====================
@@ -427,14 +427,14 @@ public class CatalogSeedInitializer {
                                String esName, String frName) {
     }
 
-    private void seedProducts(Map<String, Long> defs, Map<String, Long> categories, Map<String, Long> tags) {
+    private void seedProducts(Map<String, Long> defs, Map<String, Long> categories, Map<String, Long> collections) {
         for (SeedProduct sp : seedProductData()) {
-            insertProduct(sp, defs, categories, tags);
+            insertProduct(sp, defs, categories, collections);
         }
     }
 
     private void insertProduct(SeedProduct sp, Map<String, Long> defs, Map<String, Long> categories,
-                               Map<String, Long> tags) {
+                               Map<String, Long> collections) {
         Product p = new Product();
         p.setName(sp.name());
         p.setSlug(sp.slug());
@@ -505,21 +505,21 @@ public class CatalogSeedInitializer {
         if (!isAccessory) {
             sizeChartRepository.replaceAll(p.getId(), standardSizeChart());
         }
-        // tags：颜色命中调色板 + 主题
-        List<Long> tagIds = new ArrayList<>();
+        // collections：颜色命中调色板 + 主题
+        List<Long> collectionIds = new ArrayList<>();
         for (String[] color : sp.colors()) {
-            Long tagId = tags.get("color:" + color[0]);
-            if (tagId != null && !tagIds.contains(tagId)) {
-                tagIds.add(tagId);
+            Long collectionId = collections.get("color:" + color[0]);
+            if (collectionId != null && !collectionIds.contains(collectionId)) {
+                collectionIds.add(collectionId);
             }
         }
         for (String theme : sp.themes()) {
-            Long tagId = tags.get("theme:" + theme);
-            if (tagId != null && !tagIds.contains(tagId)) {
-                tagIds.add(tagId);
+            Long collectionId = collections.get("theme:" + theme);
+            if (collectionId != null && !collectionIds.contains(collectionId)) {
+                collectionIds.add(collectionId);
             }
         }
-        productTagRepository.replaceAll(p.getId(), tagIds);
+        productCollectionRepository.replaceAll(p.getId(), collectionIds);
         // 三语 translation 样例（验证决策 13 回退合并）
         if (sp.esName() != null || sp.frName() != null) {
             List<ProductTranslation> translations = new ArrayList<>();

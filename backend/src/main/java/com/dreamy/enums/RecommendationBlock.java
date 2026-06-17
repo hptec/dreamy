@@ -34,8 +34,8 @@ public enum RecommendationBlock {
         return this == YOU_MAY_ALSO_LIKE || this == COMPLETE_THE_LOOK;
     }
 
-    /** shop_by_color 需要 tag_id（V-CAT-010） */
-    public boolean requiresTagId() {
+    /** shop_by_color 需要 collection_id（V-CAT-010） */
+    public boolean requiresCollectionId() {
         return this == SHOP_BY_COLOR;
     }
 }

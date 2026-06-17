@@ -202,11 +202,11 @@ export interface StoreCategoryNode {
   children?: StoreCategoryNode[]
 }
 
-export interface StoreTagDimensionGroup {
+export interface StoreCollectionGroup {
   id: number
   name: string
   description?: string
-  tags: { id: number; name: string; cover?: string | null; productCount?: number }[]
+  collections: { id: number; name: string; cover?: string | null; productCount?: number }[]
 }
 
 // ===== trading =====

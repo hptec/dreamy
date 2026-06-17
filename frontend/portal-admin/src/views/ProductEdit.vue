@@ -15,7 +15,7 @@ import CareSymbolSelector from '@/components/CareSymbolSelector.vue'
 import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
-import { useTagsStore } from '@/stores/tags'
+import { useCollectionsStore } from '@/stores/collections'
 import { useToastStore } from '@/stores/toast'
 import { catalogApi } from '@/api'
 import { BizError } from '@/api/client'
@@ -31,7 +31,7 @@ const route = useRoute()
 const router = useRouter()
 const categories = useCategoriesStore()
 const attributes = useAttributeStore()
-const tags = useTagsStore()
+const collections = useCollectionsStore()
 const toast = useToastStore()
 
 const editing = computed(() => route.name === 'product-edit')
@@ -46,6 +46,7 @@ function bizMsg(e: unknown, fallback: string): string {
 const sections = [
   { key: 'basic', label: '基础信息' },
   { key: 'attrs', label: '版型属性' },
+  { key: 'collections', label: '加入集合' },
   { key: 'media', label: '媒体素材' },
   { key: 'sku', label: 'SKU 矩阵' },
   { key: 'size', label: '尺码表' },
@@ -117,7 +118,7 @@ const form = ref({
   styleNo: '',
   seoTitle: '',
   seoDesc: '',
-  tagIds: [] as number[],
+  collectionIds: [] as number[],
   fabricCompositions: [] as FabricComposition[],
   care: [] as CareItem[],
   fabricCareNote: '',
@@ -135,10 +136,10 @@ const contentLocale = ref<'en' | 'es' | 'fr'>('en')
 type Trans = { name: string; description: string; sellingPoints: string[]; seoTitle: string; seoDescription: string; designerNote: string }
 const emptyTrans = (): Trans => ({ name: '', description: '', sellingPoints: [], seoTitle: '', seoDescription: '', designerNote: '' })
 const trans = ref<Record<'es' | 'fr', Trans>>({ es: emptyTrans(), fr: emptyTrans() })
-const transFilled = computed(() => ({
-  en: !!(form.value.name || form.value.description),
-  es: Object.values(trans.value.es).some(Boolean),
-  fr: Object.values(trans.value.fr).some(Boolean),
+const transState = computed(() => ({
+  en: (form.value.name || form.value.description) ? 'filled' as const : 'missing' as const,
+  es: Object.values(trans.value.es).some(Boolean) ? 'filled' as const : 'missing' as const,
+  fr: Object.values(trans.value.fr).some(Boolean) ? 'filled' as const : 'missing' as const,
 }))
 
 /* ===================== 品类级联（STORE-CAT-A02.cascadeOptions） ===================== */
@@ -414,7 +415,7 @@ async function loadProduct() {
       styleNo: p.styleNo || '',
       seoTitle: p.seoTitle || '',
       seoDesc: p.seoDesc || '',
-      tagIds: [...(p.tagIds || [])],
+      collectionIds: [...(p.collectionIds || [])],
       // [L2-COMP-FC-03] 面料成分/护理标签回填（缺失会导致保存时被整单删除）
       fabricCompositions: (p.fabricCompositions || []).map((c) => ({ ...c })),
       care: (p.care || []).map((c) => ({ ...c })),
@@ -550,7 +551,7 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
     images: buildImages(),
     skus: buildSkus(),
     sizeChart: sizeChart.value,
-    tagIds: form.value.tagIds,
+    collectionIds: form.value.collectionIds,
     translations: buildTranslations(),
     // 面料成分/护理标签整单覆盖（内联 JSON）
     fabricCompositions: form.value.fabricCompositions,
@@ -654,8 +655,8 @@ onMounted(async () => {
   await Promise.all([
     categories.fetch().catch(() => undefined),
     attributes.fetchAll().catch(() => undefined),
-    tags.fetchDimensions().catch(() => undefined),
-    tags.fetchTags().catch(() => undefined),
+    collections.fetchGroups().catch(() => undefined),
+    collections.fetchCollections().catch(() => undefined),
   ])
   await loadProduct()
   nextTick(setupObserver)
@@ -760,26 +761,6 @@ onMounted(async () => {
                 <p class="mt-1.5 text-[11px] text-ink-faint">不影响属性表单，仅用于内部分组和自动化规则。</p>
               </div>
             </div>
-            <!-- 标签选择器（STORE-CAT-A04.tagsByDimension 按维度分组多选 chip） -->
-            <div>
-              <label class="field-label">自定义标签（营销/导航用，不影响属性表单，可多选）</label>
-              <div class="space-y-3">
-                <div v-for="dim in tags.dimensions" :key="dim.id">
-                  <p class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-ink-faint">{{ dim.name }}</p>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="tag in tags.tagsByDimension(dim.id)"
-                      :key="tag.id"
-                      type="button"
-                      class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
-                      :class="form.tagIds.includes(tag.id) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
-                      @click="form.tagIds.includes(tag.id) ? form.tagIds.splice(form.tagIds.indexOf(tag.id), 1) : form.tagIds.push(tag.id)"
-                    >{{ tag.name }}</button>
-                    <span v-if="!tags.tagsByDimension(dim.id).length" class="text-[12px] italic text-ink-faint">暂无，请在「分类管理 › 自定义标签」添加</span>
-                  </div>
-                </div>
-              </div>
-            </div>
             <div>
               <label class="field-label">商品介绍（EN）</label>
               <textarea v-model="form.description" rows="5" class="field resize-none" placeholder="描述商品的面料、版型、适用场景…"></textarea>
@@ -882,6 +863,31 @@ onMounted(async () => {
                 </div>
               </template>
             </div>
+          </div>
+        </section>
+
+        <!-- ③ 加入集合（营销/导航聚合，独立 section；按分组多选 chip） -->
+        <section id="sec-collections" class="panel scroll-mt-44 p-6">
+          <h2 class="mb-2 flex items-center gap-2 text-[15px] font-medium text-ink">
+            <span class="h-4 w-1 rounded-full bg-gold"></span>加入集合
+          </h2>
+          <p class="mb-4 text-[12px] text-ink-faint">集合仅用于前台导航与营销聚合，不影响商品固有属性表单；同一商品可多选。</p>
+          <div class="space-y-4">
+            <div v-for="group in collections.groups" :key="group.id">
+              <p class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-ink-faint">{{ group.name }}</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="c in collections.collectionsByGroup(group.id)"
+                  :key="c.id"
+                  type="button"
+                  class="rounded-full border px-3 py-1 text-[12.5px] transition-colors"
+                  :class="form.collectionIds.includes(c.id) ? 'border-gold bg-gold/12 text-gold-deep' : 'border-line text-ink-soft hover:border-ink'"
+                  @click="form.collectionIds.includes(c.id) ? form.collectionIds.splice(form.collectionIds.indexOf(c.id), 1) : form.collectionIds.push(c.id)"
+                >{{ c.name }}</button>
+                <span v-if="!collections.collectionsByGroup(group.id).length" class="text-[12px] italic text-ink-faint">暂无，请在「分类管理 › 集合」添加</span>
+              </div>
+            </div>
+            <p v-if="!collections.groups.length" class="text-[12px] italic text-ink-faint">暂无集合分组，请先在「分类管理 › 集合」创建。</p>
           </div>
         </section>
 
@@ -1207,7 +1213,7 @@ onMounted(async () => {
             <!-- 三语 tab（FORM-CAT-A06：ES/FR 空字段允许提交，缺翻译消费端回退 EN） -->
             <div class="rounded-luxe border border-line p-4">
               <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">多语言内容（EN 主字段 / ES / FR）</p>
-              <LocaleTabs v-model="contentLocale" :filled="transFilled" />
+              <LocaleTabs v-model="contentLocale" :state="transState" />
               <div v-show="contentLocale === 'en'" class="space-y-1 text-[12px] text-ink-faint">
                 <p>EN 内容即上方主字段（名称/商品卖点/介绍/SEO），无需重复填写。</p>
               </div>

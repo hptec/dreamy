@@ -10,23 +10,23 @@ import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
 import com.dreamy.enums.AttributeType;
-import com.dreamy.enums.TagStatus;
+import com.dreamy.enums.CollectionStatus;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.entity.ProductAttributeValue;
-import com.dreamy.domain.product.entity.ProductTag;
+import com.dreamy.domain.product.entity.ProductCollection;
 import com.dreamy.domain.product.entity.ProductTranslation;
 import com.dreamy.domain.product.entity.Sku;
 import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.domain.product.repository.ProductImageRepository;
 import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.domain.product.repository.ProductRepository.StoreFilter;
-import com.dreamy.domain.product.repository.ProductTagRepository;
+import com.dreamy.domain.product.repository.ProductCollectionRepository;
 import com.dreamy.domain.product.repository.ProductTranslationRepository;
 import com.dreamy.domain.product.repository.SizeChartRowRepository;
 import com.dreamy.domain.product.repository.SkuRepository;
-import com.dreamy.domain.tag.entity.Tag;
-import com.dreamy.domain.tag.entity.TagTranslation;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.entity.CollectionTranslation;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.ProductImageDto;
 import com.dreamy.dto.SizeChartRowDto;
 import com.dreamy.dto.SkuDto;
@@ -71,8 +71,8 @@ public class StoreProductService {
     private final ProductImageRepository imageRepository;
     private final SkuRepository skuRepository;
     private final SizeChartRowRepository sizeChartRepository;
-    private final ProductTagRepository productTagRepository;
-    private final TagRepository tagRepository;
+    private final ProductCollectionRepository productCollectionRepository;
+    private final CollectionRepository collectionRepository;
     private final CategoryRepository categoryRepository;
     private final CategoryTreeService treeService;
     private final ProductCardAssembler cardAssembler;
@@ -84,7 +84,7 @@ public class StoreProductService {
                                ProductTranslationRepository translationRepository,
                                ProductImageRepository imageRepository, SkuRepository skuRepository,
                                SizeChartRowRepository sizeChartRepository,
-                               ProductTagRepository productTagRepository, TagRepository tagRepository,
+                               ProductCollectionRepository productCollectionRepository, CollectionRepository collectionRepository,
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                ProductCardAssembler cardAssembler,
                                ProductAttributeValueRepository attributeValueRepository,
@@ -96,8 +96,8 @@ public class StoreProductService {
         this.imageRepository = imageRepository;
         this.skuRepository = skuRepository;
         this.sizeChartRepository = sizeChartRepository;
-        this.productTagRepository = productTagRepository;
-        this.tagRepository = tagRepository;
+        this.productCollectionRepository = productCollectionRepository;
+        this.collectionRepository = collectionRepository;
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
         this.cardAssembler = cardAssembler;
@@ -108,7 +108,7 @@ public class StoreProductService {
     }
 
     /** E-CAT-01 商品列表查询参数（V-CAT-001~005 已解析；attrs 已规范化排序——key/值均字典序） */
-    public record ListQuery(String locale, int page, int pageSize, Long categoryId, Long tagId,
+    public record ListQuery(String locale, int page, int pageSize, Long categoryId, Long collectionId,
                             String color, String size, BigDecimal priceMin, BigDecimal priceMax, String sort,
                             Map<String, Set<String>> attrs) {
     }
@@ -130,7 +130,7 @@ public class StoreProductService {
         List<Long> categoryIds = treeService.subtreeIds(q.categoryId());
         // STEP-CAT-03 查询 + 排序 + 分页（RM-CAT-083）
         Page<Product> page = productRepository.pageStoreList(
-                new StoreFilter(categoryIds, q.tagId(), q.color(), q.size(), q.priceMin(), q.priceMax(), q.sort(),
+                new StoreFilter(categoryIds, q.collectionId(), q.color(), q.size(), q.priceMin(), q.priceMax(), q.sort(),
                         attrFilters),
                 q.page(), q.pageSize());
         // STEP-CAT-04/05 批量装配卡片 + 翻译合并（NP-CAT-001）
@@ -163,9 +163,9 @@ public class StoreProductService {
         if ("es".equals(locale) || "fr".equals(locale)) {
             merged.addAll(translationRepository.fulltextSearch(qNorm, locale));
         }
-        // STEP-CAT-04 标签命中（RM-CAT-064/146）：tag.name/label LIKE → published 商品并入
-        for (Long tagId : tagRepository.searchEnabledByName(qNorm, locale)) {
-            for (Long productId : productTagRepository.listProductIdsByTagId(tagId, 200)) {
+        // STEP-CAT-04 集合命中（RM-CAT-064/146）：collection.name/label LIKE → published 商品并入
+        for (Long collectionId : collectionRepository.searchEnabledByName(qNorm, locale)) {
+            for (Long productId : productCollectionRepository.listProductIdsByCollectionId(collectionId, 200)) {
                 merged.add(productId);
             }
         }
@@ -174,7 +174,7 @@ public class StoreProductService {
         int from = Math.min((page - 1) * pageSize, ids.size());
         int to = Math.min(from + pageSize, ids.size());
         List<Long> pageIds = ids.subList(from, to);
-        // 标签命中路径可能引入未发布商品 id——按 published 批查后按序回排
+        // 集合命中路径可能引入未发布商品 id——按 published 批查后按序回排
         Map<Long, Product> byId = new HashMap<>();
         for (Product p : productRepository.listByIds(pageIds)) {
             if (p.getStatus() == ProductStatus.PUBLISHED) {
@@ -230,22 +230,22 @@ public class StoreProductService {
         List<SizeChartRowDto> sizeChart = sizeChartRepository.listByProductIdOrderById(id).stream()
                 .map(StoreProductService::toRowDto)
                 .toList();
-        // 标签（仅 enabled）+ locale 翻译
-        List<Long> tagIds = productTagRepository.listTagIdsByProductId(id);
-        List<Tag> tags = tagRepository.listByIds(tagIds).stream()
-                .filter(t -> t.getStatus() == TagStatus.ENABLED)
+        // 集合（仅 enabled）+ locale 翻译
+        List<Long> collectionIds = productCollectionRepository.listCollectionIdsByProductId(id);
+        List<Collection> collections = collectionRepository.listByIds(collectionIds).stream()
+                .filter(c -> c.getStatus() == CollectionStatus.ENABLED)
                 .toList();
-        Map<Long, String> tagNames = new HashMap<>();
-        if (("es".equals(locale) || "fr".equals(locale)) && !tags.isEmpty()) {
-            for (TagTranslation t : tagRepository.listTranslationsByTagIds(tags.stream().map(Tag::getId).toList())) {
+        Map<Long, String> collectionNames = new HashMap<>();
+        if (("es".equals(locale) || "fr".equals(locale)) && !collections.isEmpty()) {
+            for (CollectionTranslation t : collectionRepository.listTranslationsByCollectionIds(collections.stream().map(Collection::getId).toList())) {
                 if (locale.equals(t.getLocale()) && t.getLabel() != null && !t.getLabel().isBlank()) {
-                    tagNames.put(t.getTagId(), t.getLabel());
+                    collectionNames.put(t.getCollectionId(), t.getLabel());
                 }
             }
         }
-        List<StoreProductDetail.TagRef> tagRefs = tags.stream()
-                .map(t -> new StoreProductDetail.TagRef(t.getId(), t.getDimensionId(),
-                        tagNames.getOrDefault(t.getId(), t.getName())))
+        List<StoreProductDetail.CollectionRef> collectionRefs = collections.stream()
+                .map(c -> new StoreProductDetail.CollectionRef(c.getId(), c.getCollectionGroupId(),
+                        collectionNames.getOrDefault(c.getId(), c.getName())))
                 .toList();
         // STEP-CAT-04 分类名派生（es/fr 经 category_translation 解析）
         String categoryName = resolveCategoryName(product.getCategoryId(), locale);
@@ -265,7 +265,7 @@ public class StoreProductService {
                 product.getStyleNo(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoTitle(), product.getSeoTitle()),
                 ProductCardAssembler.pick(tr == null ? null : tr.getSeoDescription(), product.getSeoDesc()),
-                images, skus, sizeChart, tagRefs, product.getRatingAvg(), product.getRatingCount(),
+                images, skus, sizeChart, collectionRefs, product.getRatingAvg(), product.getRatingCount(),
                 // 面料护理内联读取 product JSON 列（material/symbol 已是字符串，无需 locale 解析）
                 product.getFabricCompositions(),
                 product.getCare(),
@@ -430,7 +430,7 @@ public class StoreProductService {
             }
         }
         return "c=" + (q.categoryId() == null ? "-" : q.categoryId())
-                + "|t=" + (q.tagId() == null ? "-" : q.tagId())
+                + "|t=" + (q.collectionId() == null ? "-" : q.collectionId())
                 + "|co=" + (q.color() == null ? "-" : q.color())
                 + "|s=" + (q.size() == null ? "-" : q.size())
                 + "|pm=" + (q.priceMin() == null ? "-" : q.priceMin().stripTrailingZeros().toPlainString())
@@ -445,7 +445,7 @@ public class StoreProductService {
      * attr 重复参数（?attr=key:value&attr=key:value2）：每项首个 ':' 分隔 key/value（值内允许 ':'）；
      * 同 key 多值 = OR；跨 key = AND。格式非法/值超 255 → 422；TreeMap/TreeSet 规范化排序（缓存 key 稳定）。
      */
-    public ListQuery parseListQuery(String locale, Integer page, Integer pageSize, Long categoryId, Long tagId,
+    public ListQuery parseListQuery(String locale, Integer page, Integer pageSize, Long categoryId, Long collectionId,
                                     String color, String size, BigDecimal priceMin, BigDecimal priceMax,
                                     String sort, List<String> attrParams) {
         CatalogFieldErrors errors = new CatalogFieldErrors();
@@ -455,12 +455,12 @@ public class StoreProductService {
         StoreParams.validatePriceRange(priceMin, priceMax, errors);
         String parsedSort = StoreParams.parseSort(sort, errors);
         Long parsedCategoryId = StoreParams.parsePositiveId(categoryId, "category_id", errors);
-        Long parsedTagId = StoreParams.parsePositiveId(tagId, "tag_id", errors);
+        Long parsedCollectionId = StoreParams.parsePositiveId(collectionId, "collection_id", errors);
         String parsedColor = StoreParams.checkMaxLength(color, 32, "color", errors);
         String parsedSizeFilter = StoreParams.checkMaxLength(size, 16, "size", errors);
         Map<String, Set<String>> attrs = parseAttrParams(attrParams, errors);
         errors.throwIfAny();
-        return new ListQuery(parsedLocale, parsedPage, parsedSize, parsedCategoryId, parsedTagId,
+        return new ListQuery(parsedLocale, parsedPage, parsedSize, parsedCategoryId, parsedCollectionId,
                 parsedColor, parsedSizeFilter, priceMin, priceMax, parsedSort, attrs);
     }
 

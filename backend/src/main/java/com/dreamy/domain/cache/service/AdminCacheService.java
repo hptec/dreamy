@@ -106,8 +106,8 @@ public class AdminCacheService {
                 paths.add(prefix + "/real-weddings/" + resourceId);
             }
         }
-        // 分类/标签变更影响列表页
-        else if ("category".equals(resourceType) || "tag".equals(resourceType)) {
+        // 分类/集合变更影响列表页
+        else if ("category".equals(resourceType) || "collection".equals(resourceType)) {
             paths.add("/products");
             paths.add("/es/products");
             paths.add("/fr/products");

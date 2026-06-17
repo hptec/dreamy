@@ -30,11 +30,11 @@ public final class TranslationDtos {
     public record AttributeDefTranslationDto(String locale, String label, List<String> options) {
     }
 
-    /** openapi TagTranslation */
-    public record TagTranslationDto(String locale, String label) {
+    /** openapi CollectionTranslation */
+    public record CollectionTranslationDto(String locale, String label) {
     }
 
-    /** openapi TagDimensionTranslation */
-    public record TagDimensionTranslationDto(String locale, String name) {
+    /** openapi CollectionGroupTranslation */
+    public record CollectionGroupTranslationDto(String locale, String name) {
     }
 }

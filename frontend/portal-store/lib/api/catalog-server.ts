@@ -1,6 +1,6 @@
 /**
  * catalog 域 — RSC 服务端取数（直连后端，无缓存）。
- * 端点：E-CAT-01 列表 / E-CAT-03 推荐位 / E-CAT-04 PDP / E-CAT-06 分类树 / E-CAT-07 标签。
+ * 端点：E-CAT-01 列表 / E-CAT-03 推荐位 / E-CAT-04 PDP / E-CAT-06 分类树 / E-CAT-07 集合。
  * 全部匿名公开；locale 服务端默认 en。
  */
 
@@ -10,17 +10,17 @@ import type {
   Paginated,
   RecommendationBlock,
   StoreCategoryNode,
+  StoreCollectionGroup,
   StoreFilterDim,
   StoreProductCard,
   StoreProductDetail,
-  StoreTagDimensionGroup
 } from './store-types'
 
 export interface StoreProductListParams {
   page?: number
   pageSize?: number
   categoryId?: number
-  tagId?: number
+  collectionId?: number
   color?: string
   size?: string
   priceMin?: number
@@ -54,7 +54,7 @@ export async function fetchStoreProductFilters(
 /** E-CAT-03 推荐位（首页/PDP 区块；空 items 调用方整段不渲染） */
 export async function fetchRecommendations(
   block: RecommendationBlock,
-  opts: { productId?: number; tagId?: number; limit?: number } = {}
+  opts: { productId?: number; collectionId?: number; limit?: number } = {}
 ): Promise<StoreProductCard[]> {
   const res = await serverGet<{ items: StoreProductCard[] }>('/api/store/products/recommendations', {
     query: { block, ...opts }
@@ -76,10 +76,10 @@ export async function fetchStoreCategories(): Promise<StoreCategoryNode[]> {
   return res?.items ?? []
 }
 
-/** E-CAT-07 标签导航（Shop by Color 色板等） */
-export async function fetchStoreTags(dimensionId?: number): Promise<StoreTagDimensionGroup[]> {
-  const res = await serverGet<{ items: StoreTagDimensionGroup[] }>('/api/store/tags', {
-    query: { dimensionId }
+/** E-CAT-07 集合导航（Shop by Color 色板等） */
+export async function fetchStoreCollections(groupId?: number): Promise<StoreCollectionGroup[]> {
+  const res = await serverGet<{ items: StoreCollectionGroup[] }>('/api/store/collections', {
+    query: { groupId }
   })
   return res?.items ?? []
 }

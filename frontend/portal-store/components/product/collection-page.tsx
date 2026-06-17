@@ -4,7 +4,7 @@
  * E-CAT-01 列表（searchParams 透传：color/size/price/sort/cat/page）+ E-CAT-07 色板标签（颜色 facet 数据源）。
  */
 
-import { fetchStoreCategories, fetchStoreProductFilters, fetchStoreProducts, fetchStoreTags, findCategoryByName } from '@/lib/api/catalog-server'
+import { fetchStoreCategories, fetchStoreProductFilters, fetchStoreProducts, fetchStoreCollections, findCategoryByName } from '@/lib/api/catalog-server'
 import { CollectionView } from '@/components/product/collection-view'
 import { parsePriceParam } from '@/components/product/product-utils'
 
@@ -49,7 +49,7 @@ export async function CollectionPage({
   basePath: string
   searchParams: CollectionSearchParams
 }) {
-  const [tree, tagGroups] = await Promise.all([fetchStoreCategories(), fetchStoreTags()])
+  const [tree, collectionGroups] = await Promise.all([fetchStoreCategories(), fetchStoreCollections()])
   const category = findCategoryByName(tree, categoryNames)
 
   const cat = single(searchParams.cat)
@@ -79,9 +79,9 @@ export async function CollectionPage({
     fetchStoreProductFilters(categoryId)
   ])
 
-  // 颜色 facet：色板维度标签（E-CAT-07）；空回退静态色板名（冷启动安全）
-  const colorGroup = tagGroups.find((g) => /color/i.test(g.name)) ?? tagGroups[0]
-  const colorOptions = colorGroup?.tags.map((t) => t.name) ?? []
+  // 颜色 facet：色板集合分组（E-CAT-07）；空回退静态色板名（冷启动安全）
+  const colorGroup = collectionGroups.find((g) => /color/i.test(g.name)) ?? collectionGroups[0]
+  const colorOptions = colorGroup?.collections.map((c) => c.name) ?? []
 
   const subTabs = (category?.children ?? []).map((c) => ({ label: c.name, value: c.name }))
 

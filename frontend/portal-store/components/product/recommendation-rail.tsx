@@ -13,7 +13,7 @@ export async function RecommendationRail({
   eyebrow,
   title,
   productId,
-  tagId,
+  collectionId,
   limit = 4,
   href,
   hrefLabel,
@@ -23,13 +23,13 @@ export async function RecommendationRail({
   eyebrow: string
   title: string
   productId?: number
-  tagId?: number
+  collectionId?: number
   limit?: number
   href?: string
   hrefLabel?: string
   tone?: 'plain' | 'muted'
 }) {
-  const items = await fetchRecommendations(block, { productId, tagId, limit })
+  const items = await fetchRecommendations(block, { productId, collectionId, limit })
   if (items.length === 0) return null
 
   const inner = (

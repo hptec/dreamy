@@ -15,7 +15,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
-import { useTagsStore } from '@/stores/tags'
+import { useCollectionsStore } from '@/stores/collections'
 import { useToastStore } from '@/stores/toast'
 import { catalogApi } from '@/api'
 import { BizError } from '@/api/client'
@@ -28,7 +28,7 @@ import type { AdminProductListItem, ProductBatchAction, ProductBatchFailure } fr
 
 const store = useProductsStore()
 const categories = useCategoriesStore()
-const tags = useTagsStore()
+const collections = useCollectionsStore()
 const toast = useToastStore()
 
 // 更多筛选状态（COMP-CAT-A01：当前页内存过滤，与原型行为一致并 tooltip 标注；
@@ -40,7 +40,7 @@ const moreFilters = ref({
   priceMax: '' as string,
   stockLevel: 'all' as 'all' | 'inStock' | 'low' | 'out',
   flags: [] as string[],
-  tagIds: [] as number[],
+  collectionIds: [] as number[],
 })
 const stockLevels = [
   { value: 'all', label: '全部' },
@@ -78,10 +78,10 @@ function toggleIn<T>(list: T[], value: T) {
   else list.splice(i, 1)
 }
 
-// ISS-L4U-001：productType/tagIds 非 AdminProductListItem 契约字段（catalog-api listAdminProducts），
+// ISS-L4U-001：productType/collectionIds 非 AdminProductListItem 契约字段（catalog-api listAdminProducts），
 // 面板展开时经详情接口（GET /api/admin/products/{id}）按页懒加载缓存，沿用现有 api 层；
 // 行级失败静默降级（该行不参与两组新筛选），不阻断面板其余筛选
-const rowMeta = ref<Record<number, { productType: string | null; tagIds: number[] }>>({})
+const rowMeta = ref<Record<number, { productType: string | null; collectionIds: number[] }>>({})
 const metaLoading = ref(false)
 async function ensureRowMeta() {
   const missing = store.list.filter((p) => !(p.id in rowMeta.value))
@@ -92,7 +92,7 @@ async function ensureRowMeta() {
       missing.map((p) => catalogApi.getProduct(p.id).catch(() => null)),
     )
     for (const d of details) {
-      if (d) rowMeta.value[d.id] = { productType: d.productType ?? null, tagIds: d.tagIds ?? [] }
+      if (d) rowMeta.value[d.id] = { productType: d.productType ?? null, collectionIds: d.collectionIds ?? [] }
     }
   } finally {
     metaLoading.value = false
@@ -116,17 +116,17 @@ const activeMoreCount = computed(() => {
   let n = 0
   n += moreFilters.value.productTypes.length
   n += moreFilters.value.flags.length
-  n += moreFilters.value.tagIds.length
+  n += moreFilters.value.collectionIds.length
   if (moreFilters.value.priceMin !== '' || moreFilters.value.priceMax !== '') n++
   if (moreFilters.value.stockLevel !== 'all') n++
   return n
 })
 
 function resetMoreFilters() {
-  moreFilters.value = { productTypes: [], priceMin: '', priceMax: '', stockLevel: 'all', flags: [], tagIds: [] }
+  moreFilters.value = { productTypes: [], priceMin: '', priceMax: '', stockLevel: 'all', flags: [], collectionIds: [] }
 }
 
-/** 当前页内存过滤（高级项；productType/tagIds 因 admin 列表契约无对应字段/参数，经 rowMeta 同为当前页过滤——设计标注） */
+/** 当前页内存过滤（高级项；productType/collectionIds 因 admin 列表契约无对应字段/参数，经 rowMeta 同为当前页过滤——设计标注） */
 const filtered = computed(() =>
   store.list.filter((p) => {
     const f = moreFilters.value
@@ -142,7 +142,7 @@ const filtered = computed(() =>
     // ISS-L4U-001：meta 未就绪（懒加载中/行级失败）时该行暂不被两组新筛选排除，加载完成后响应式重算
     const meta = rowMeta.value[p.id]
     if (f.productTypes.length && meta && !f.productTypes.includes(meta.productType ?? '')) return false
-    if (f.tagIds.length && meta && !f.tagIds.some((id) => meta.tagIds.includes(id))) return false
+    if (f.collectionIds.length && meta && !f.collectionIds.some((id) => meta.collectionIds.includes(id))) return false
     return true
   }),
 )
@@ -297,7 +297,7 @@ function fmt(n?: number | string | null) {
 onMounted(() => {
   load()
   categories.fetch().catch(() => undefined)
-  tags.fetchTags().catch(() => undefined)
+  collections.fetchCollections().catch(() => undefined)
 })
 </script>
 
@@ -391,18 +391,18 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 主题标签（独占一行，原型 L190-200；选项自标签 store，筛选经 rowMeta 当前页过滤） -->
+        <!-- 主题集合（独占一行，原型 L190-200；选项自集合 store，筛选经 rowMeta 当前页过滤） -->
         <div class="mt-4">
-          <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">主题标签<span class="ml-1 normal-case tracking-normal">（当前页过滤）</span></p>
+          <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">主题集合<span class="ml-1 normal-case tracking-normal">（当前页过滤）</span></p>
           <div class="flex flex-wrap gap-1.5">
-            <span v-if="!tags.tags.length" class="text-[12px] text-ink-faint">{{ tags.loading ? '加载中…' : '暂无标签' }}</span>
+            <span v-if="!collections.collections.length" class="text-[12px] text-ink-faint">{{ collections.loading ? '加载中…' : '暂无集合' }}</span>
             <button
-              v-for="t in tags.tags"
-              :key="t.id"
-              :class="moreFilters.tagIds.includes(t.id) ? 'bg-gold/10 border-gold text-ink font-medium' : 'border-line text-ink-soft hover:border-gold/50'"
+              v-for="c in collections.collections"
+              :key="c.id"
+              :class="moreFilters.collectionIds.includes(c.id) ? 'bg-gold/10 border-gold text-ink font-medium' : 'border-line text-ink-soft hover:border-gold/50'"
               class="rounded-full border px-2.5 py-0.5 text-[12px] transition"
-              @click="toggleIn(moreFilters.tagIds, t.id)"
-            >{{ t.name }}</button>
+              @click="toggleIn(moreFilters.collectionIds, c.id)"
+            >{{ c.name }}</button>
           </div>
         </div>
 

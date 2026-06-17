@@ -173,7 +173,7 @@ async function main() {
   // ================= Categories =================
   await gotoPage(page, '/categories', 'Categories')
   await check('UI-CAT-01', 'Categories', async () => {
-    for (const t of ['标准品类', '属性集与字典', '自定义标签']) {
+    for (const t of ['标准品类', '属性集与字典', '集合']) {
       ok(await page.getByRole('button', { name: t, exact: true }).isVisible(), `主 Tab「${t}」缺失`)
     }
     return '3-Tab 文案与顺序对照原型'
@@ -246,9 +246,9 @@ async function main() {
     return '双击根品类名 → 品类配置抽屉含 EN（主）/ES/FR 三语独立 name 输入（豁免现状一致）'
   })
   await check('UI-CAT-07', 'Categories', async () => {
-    // 豁免项 E-CAT-30：删除维度 → 仅验证确认弹窗出现后取消（不触发真实删除/409506）
+    // 豁免项 E-CAT-30：删除分组 → 仅验证确认弹窗出现后取消（不触发真实删除/409506）
     await gotoPage(page, '/categories', 'Categories') // 复位，关闭可能残留的抽屉遮罩
-    await page.getByRole('button', { name: '自定义标签', exact: true }).click()
+    await page.getByRole('button', { name: '集合', exact: true }).click()
     await sleep(500)
     const dimTab = page.locator('button.group:visible').first()
     await dimTab.waitFor({ state: 'visible', timeout: 5000 })
@@ -317,7 +317,7 @@ async function main() {
     await page.getByRole('button', { name: /更多筛选/ }).click()
     await sleep(400)
     const missing = []
-    for (const g of ['商品类型', '库存状态', '标记', '价格区间', '主题标签']) {
+    for (const g of ['商品类型', '库存状态', '标记', '价格区间', '主题集合']) {
       if ((await page.getByText(g, { exact: false }).count()) === 0) missing.push(g)
     }
     ok(missing.length === 0, `更多筛选面板缺筛选组: ${missing.join('、')}（原型为 5 组，实现仅 ${5 - missing.length} 组）`)

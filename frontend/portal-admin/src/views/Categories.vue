@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // PAGE-CAT-A03 / COMP-CAT-A03/A05（对照原型 Categories.vue「分类管理」）：
-// 品类与标签 3-Tab（标准品类 / 属性集与字典 / 自定义标签）；
+// 品类与集合 3-Tab（标准品类 / 属性集与字典 / 集合）；
 // 属性集三态配置走 Tab 1 品类卡片徽章 → 属性集配置抽屉（原型 openCatSetDrawer 同款交互），
 // Tab 2 仅保留属性字典 + 属性集管理入口（矩阵 sub-tab 已按原型移除）；
 // 三语 name tab 增强保留（收进抽屉内，交互入口按原型）；
-// 数据层接 E-CAT-15~18 / 27~34；维度删除收紧为 409506 引导——E-CAT-30 显式偏离（ALIGN-003 豁免）
+// 数据层接 E-CAT-15~18 / 27~34；分组删除收紧为 409506 引导——E-CAT-30 显式偏离（ALIGN-003 豁免）
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
@@ -18,23 +18,23 @@ import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
-import { useTagsStore } from '@/stores/tags'
+import { useCollectionsStore } from '@/stores/collections'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import {
   PlusIcon, Bars3Icon, PencilSquareIcon, TrashIcon, ChevronRightIcon, TagIcon, XMarkIcon,
   ExclamationTriangleIcon, SwatchIcon,
 } from '@heroicons/vue/24/outline'
-import { AttrVisibility, AttributeDefType, TagStatus } from '@/api/types'
-import type { AdminCategoryNode, AttributeDef, AttributeSet, CategoryTranslation, Tag, TagDimension } from '@/api/types'
+import { AttrVisibility, AttributeDefType, CollectionStatus } from '@/api/types'
+import type { AdminCategoryNode, AttributeDef, AttributeSet, CategoryTranslation, Collection, CollectionGroup } from '@/api/types'
 
 const categories = useCategoriesStore()
 const attributes = useAttributeStore()
-const tags = useTagsStore()
+const collections = useCollectionsStore()
 const toast = useToastStore()
 
-// 主 Tab：标准品类 / 属性集与字典 / 自定义标签（顺序文案对照原型）
-const mainTab = ref<'taxonomy' | 'attributes' | 'tags'>('taxonomy')
+// 主 Tab：标准品类 / 属性集与字典 / 集合（顺序文案对照原型）
+const mainTab = ref<'taxonomy' | 'attributes' | 'collections'>('taxonomy')
 
 const route = useRoute()
 
@@ -44,9 +44,9 @@ function bizMsg(e: unknown, fallback: string): string {
 
 function load() {
   Promise.all([categories.fetch(), attributes.fetchAll()]).catch((e) => toast.error(bizMsg(e, '加载分类失败')))
-  tags.fetchDimensions().then(() => {
-    if (!activeTagDim.value && tags.dimensions.length) activeTagDim.value = tags.dimensions[0].id
-    tags.fetchTags().catch(() => undefined)
+  collections.fetchGroups().then(() => {
+    if (!activeGroup.value && collections.groups.length) activeGroup.value = collections.groups[0].id
+    collections.fetchCollections().catch(() => undefined)
   }).catch(() => undefined)
 }
 
@@ -370,109 +370,109 @@ async function doDeleteCat() {
   }
 }
 
-/* ===================== Tab 3：标签维度 / 标签 ===================== */
+/* ===================== Tab 3：集合分组 / 集合 ===================== */
 
-const activeTagDim = ref<number | ''>('')
-const tagsByActiveDim = computed(() => (activeTagDim.value === '' ? [] : tags.tagsByDimension(activeTagDim.value)))
+const activeGroup = ref<number | ''>('')
+const collectionsByActiveGroup = computed(() => (activeGroup.value === '' ? [] : collections.collectionsByGroup(activeGroup.value)))
 
-// 新建维度
-const showNewDim = ref(false)
-const newDimLabel = ref('')
-async function confirmAddDim() {
-  const v = newDimLabel.value.trim()
+// 新建分组
+const showNewGroup = ref(false)
+const newGroupLabel = ref('')
+async function confirmAddGroup() {
+  const v = newGroupLabel.value.trim()
   if (!v) return
   try {
-    const dim = await tags.saveDimension({ name: v })
-    activeTagDim.value = dim.id
-    showNewDim.value = false
-    newDimLabel.value = ''
-    toast.success('维度已创建')
+    const group = await collections.saveGroup({ name: v })
+    activeGroup.value = group.id
+    showNewGroup.value = false
+    newGroupLabel.value = ''
+    toast.success('分组已创建')
   } catch (e) {
     toast.error(bizMsg(e, '创建失败'))
   }
 }
 
-// 删除维度（FORM-CAT-A05：409506 引导先清空标签——较原型级联删除收紧）
-const confirmDeleteDim = ref<TagDimension | null>(null)
-async function doDeleteDim() {
-  if (!confirmDeleteDim.value) return
+// 删除分组（FORM-CAT-A05：409506 引导先清空集合——较原型级联删除收紧）
+const confirmDeleteGroup = ref<CollectionGroup | null>(null)
+async function doDeleteGroup() {
+  if (!confirmDeleteGroup.value) return
   confirmBusy.value = true
   try {
-    await tags.removeDimension(confirmDeleteDim.value.id)
-    if (activeTagDim.value === confirmDeleteDim.value.id) activeTagDim.value = tags.dimensions[0]?.id ?? ''
-    toast.success('维度已删除')
-    confirmDeleteDim.value = null
+    await collections.removeGroup(confirmDeleteGroup.value.id)
+    if (activeGroup.value === confirmDeleteGroup.value.id) activeGroup.value = collections.groups[0]?.id ?? ''
+    toast.success('分组已删除')
+    confirmDeleteGroup.value = null
   } catch (e) {
-    if (e instanceof BizError && e.code === 409506) toast.error('维度下仍有标签，请先清空标签后再删除')
+    if (e instanceof BizError && e.code === 409506) toast.error('分组下仍有集合，请先清空集合后再删除')
     else toast.error(bizMsg(e, '删除失败'))
   } finally {
     confirmBusy.value = false
   }
 }
 
-// 新增/编辑标签（封面上传 scope=tag）
-const tagModal = ref<{ editing: Tag | null } | null>(null)
-const tagName = ref('')
-const tagCover = ref('')
-const tagSaving = ref(false)
+// 新增/编辑集合（封面上传 scope=collection）
+const collectionModal = ref<{ editing: Collection | null } | null>(null)
+const collectionName = ref('')
+const collectionCover = ref('')
+const collectionSaving = ref(false)
 
-function openTagModal(t?: Tag) {
-  tagModal.value = { editing: t ?? null }
-  tagName.value = t?.name || ''
-  tagCover.value = t?.cover || ''
+function openCollectionModal(c?: Collection) {
+  collectionModal.value = { editing: c ?? null }
+  collectionName.value = c?.name || ''
+  collectionCover.value = c?.cover || ''
 }
 
-async function confirmSaveTag() {
-  const v = tagName.value.trim()
-  if (!v || activeTagDim.value === '') return
-  tagSaving.value = true
+async function confirmSaveCollection() {
+  const v = collectionName.value.trim()
+  if (!v || activeGroup.value === '') return
+  collectionSaving.value = true
   try {
-    const editing = tagModal.value?.editing
-    await tags.saveTag(
+    const editing = collectionModal.value?.editing
+    await collections.saveCollection(
       {
-        dimensionId: editing?.dimensionId ?? activeTagDim.value,
+        collectionGroupId: editing?.collectionGroupId ?? activeGroup.value,
         name: v,
-        cover: tagCover.value || null,
-        status: editing?.status ?? TagStatus.ENABLED,
+        cover: collectionCover.value || null,
+        status: editing?.status ?? CollectionStatus.ENABLED,
         translations: editing?.translations || [],
       },
       editing?.id,
     )
-    toast.success('标签已保存')
-    tagModal.value = null
+    toast.success('集合已保存')
+    collectionModal.value = null
   } catch (e) {
     toast.error(bizMsg(e, '保存失败'))
   } finally {
-    tagSaving.value = false
+    collectionSaving.value = false
   }
 }
 
-/** 标签 Toggle enabled↔status（乐观更新由 API 回写） */
-async function toggleTag(t: Tag, on: boolean) {
+/** 集合 Toggle enabled↔status（乐观更新由 API 回写） */
+async function toggleCollection(c: Collection, on: boolean) {
   try {
-    await tags.saveTag(
+    await collections.saveCollection(
       {
-        dimensionId: t.dimensionId,
-        name: t.name,
-        cover: t.cover,
-        status: on ? TagStatus.ENABLED : TagStatus.DISABLED,
-        translations: t.translations || [],
+        collectionGroupId: c.collectionGroupId,
+        name: c.name,
+        cover: c.cover,
+        status: on ? CollectionStatus.ENABLED : CollectionStatus.DISABLED,
+        translations: c.translations || [],
       },
-      t.id,
+      c.id,
     )
   } catch (e) {
     toast.error(bizMsg(e, '操作失败'))
   }
 }
 
-const confirmDeleteTag = ref<Tag | null>(null)
-async function doDeleteTag() {
-  if (!confirmDeleteTag.value) return
+const confirmDeleteCollection = ref<Collection | null>(null)
+async function doDeleteCollection() {
+  if (!confirmDeleteCollection.value) return
   confirmBusy.value = true
   try {
-    await tags.removeTag(confirmDeleteTag.value.id)
-    toast.success('标签已删除')
-    confirmDeleteTag.value = null
+    await collections.removeCollection(confirmDeleteCollection.value.id)
+    toast.success('集合已删除')
+    confirmDeleteCollection.value = null
   } catch (e) {
     toast.error(bizMsg(e, '删除失败'))
   } finally {
@@ -481,21 +481,21 @@ async function doDeleteTag() {
 }
 
 onMounted(() => {
-  // 深链支持 /categories?tab=attributes|tags（/attribute-sets 旧路由 redirect 落点）
+  // 深链支持 /categories?tab=attributes|collections（/attribute-sets 旧路由 redirect 落点）
   const t = route.query.tab
-  if (t === 'attributes' || t === 'tags') mainTab.value = t
+  if (t === 'attributes' || t === 'collections') mainTab.value = t
   load()
 })
 </script>
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Catalog" title="品类与标签" subtitle="管理商品品类树和自定义营销标签" />
+    <PageHeader eyebrow="Catalog" title="品类与集合" subtitle="管理商品品类树和营销集合" />
 
     <!-- Main Tabs（3-Tab，顺序文案严格对照原型 Categories.vue L250-257） -->
     <div class="mb-4 flex items-center gap-1 border-b border-line">
       <button
-        v-for="[key, label] in [['taxonomy', '标准品类'], ['attributes', '属性集与字典'], ['tags', '自定义标签']] as const"
+        v-for="[key, label] in [['taxonomy', '标准品类'], ['attributes', '属性集与字典'], ['collections', '集合']] as const"
         :key="key"
         class="border-b-2 px-4 py-2.5 text-[13px] transition-colors"
         :class="mainTab === key ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
@@ -610,53 +610,53 @@ onMounted(() => {
       <AttributeDictPanel />
     </div>
 
-    <!-- ==================== Tab 3: 自定义标签 ==================== -->
-    <div v-show="mainTab === 'tags'">
+    <!-- ==================== Tab 3: 集合 ==================== -->
+    <div v-show="mainTab === 'collections'">
       <div class="mb-4 flex items-start gap-2 rounded-luxe border border-line bg-canvas-warm/60 px-4 py-2.5 text-[12px] text-ink-soft">
         <TagIcon class="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
-        <span>自定义标签仅用于前台导航和营销聚合，不影响商品属性表单。商品可多选标签。</span>
+        <span>集合仅用于前台导航和营销聚合，不影响商品属性表单。商品可多选集合。</span>
       </div>
 
-      <!-- Dimension sub-tabs（删除收紧：409506 引导） -->
+      <!-- Group sub-tabs（删除收紧：409506 引导） -->
       <div class="mb-4 flex items-center gap-1 border-b border-line">
         <button
-          v-for="d in tags.dimensions"
-          :key="d.id"
+          v-for="g in collections.groups"
+          :key="g.id"
           class="group flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-[13px] transition-colors"
-          :class="activeTagDim === d.id ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-          @click="activeTagDim = d.id"
+          :class="activeGroup === g.id ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
+          @click="activeGroup = g.id"
         >
-          {{ d.name }}
+          {{ g.name }}
           <span
             class="invisible ml-0.5 cursor-pointer rounded p-0.5 text-ink-faint hover:text-danger group-hover:visible"
-            @click.stop="confirmDeleteDim = d"
+            @click.stop="confirmDeleteGroup = g"
           ><XMarkIcon class="h-3 w-3" /></span>
         </button>
-        <button class="ml-1 flex items-center gap-1 rounded-luxe px-3 py-2 text-[12px] text-ink-faint hover:bg-canvas-warm hover:text-ink" @click="showNewDim = true">
-          <PlusIcon class="h-3.5 w-3.5" />新建维度
+        <button class="ml-1 flex items-center gap-1 rounded-luxe px-3 py-2 text-[12px] text-ink-faint hover:bg-canvas-warm hover:text-ink" @click="showNewGroup = true">
+          <PlusIcon class="h-3.5 w-3.5" />新建分组
         </button>
       </div>
 
-      <EmptyState v-if="!tags.dimensions.length" title="暂无标签维度" hint="先创建维度（如 风格 Style），再添加标签。" />
+      <EmptyState v-if="!collections.groups.length" title="暂无集合分组" hint="先创建分组（如 风格 Style），再添加集合。" />
       <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div v-for="t in tagsByActiveDim" :key="t.id" class="panel overflow-hidden">
+        <div v-for="c in collectionsByActiveGroup" :key="c.id" class="panel overflow-hidden">
           <div class="relative aspect-[3/4]">
-            <img v-if="t.cover" :src="t.cover" class="h-full w-full object-cover" />
+            <img v-if="c.cover" :src="c.cover" class="h-full w-full object-cover" />
             <div v-else class="flex h-full w-full items-center justify-center bg-canvas-warm text-ink-faint"><TagIcon class="h-8 w-8" /></div>
             <div class="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent"></div>
-            <p class="absolute bottom-2 left-3 font-display text-lg text-white">{{ t.name }}</p>
+            <p class="absolute bottom-2 left-3 font-display text-lg text-white">{{ c.name }}</p>
           </div>
           <div class="flex items-center justify-between p-3">
-            <span class="text-[12px] text-ink-faint">{{ t.productCount ?? 0 }} 件</span>
+            <span class="text-[12px] text-ink-faint">{{ c.productCount ?? 0 }} 件</span>
             <div class="flex items-center gap-2">
-              <Toggle :model-value="t.status === TagStatus.ENABLED" @update:model-value="toggleTag(t, $event)" />
-              <button class="btn-ghost" @click="openTagModal(t)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
-              <button class="btn-danger-ghost" @click="confirmDeleteTag = t"><TrashIcon class="h-3.5 w-3.5" /></button>
+              <Toggle :model-value="c.status === CollectionStatus.ENABLED" @update:model-value="toggleCollection(c, $event)" />
+              <button class="btn-ghost" @click="openCollectionModal(c)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
+              <button class="btn-danger-ghost" @click="confirmDeleteCollection = c"><TrashIcon class="h-3.5 w-3.5" /></button>
             </div>
           </div>
         </div>
-        <button class="panel flex aspect-[3/4] flex-col items-center justify-center gap-2 border-2 border-dashed text-ink-faint hover:border-gold" @click="openTagModal()">
-          <PlusIcon class="h-6 w-6" /><span class="text-[12px]">新增标签</span>
+        <button class="panel flex aspect-[3/4] flex-col items-center justify-center gap-2 border-2 border-dashed text-ink-faint hover:border-gold" @click="openCollectionModal()">
+          <PlusIcon class="h-6 w-6" /><span class="text-[12px]">新增集合</span>
         </button>
       </div>
     </div>
@@ -696,53 +696,53 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- ===== Modal: 新增/编辑标签（封面上传 scope=tag） ===== -->
+    <!-- ===== Modal: 新增/编辑集合（封面上传 scope=collection） ===== -->
     <Teleport to="body">
-      <div v-if="tagModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (tagModal = null)">
+      <div v-if="collectionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (collectionModal = null)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
-            <h3 class="text-[15px] font-medium text-ink">{{ tagModal.editing ? '编辑标签' : '新增标签' }}</h3>
-            <button class="btn-ghost" @click="tagModal = null"><XMarkIcon class="h-4 w-4" /></button>
+            <h3 class="text-[15px] font-medium text-ink">{{ collectionModal.editing ? '编辑集合' : '新增集合' }}</h3>
+            <button class="btn-ghost" @click="collectionModal = null"><XMarkIcon class="h-4 w-4" /></button>
           </div>
           <div class="space-y-4">
             <div>
-              <label class="field-label">标签名称 *</label>
-              <input v-model="tagName" class="field" placeholder="如：Boho、Spring 2026" @keyup.enter="confirmSaveTag" />
+              <label class="field-label">集合名称 *</label>
+              <input v-model="collectionName" class="field" placeholder="如：Boho、Spring 2026" @keyup.enter="confirmSaveCollection" />
             </div>
             <div>
               <label class="field-label">封面图片</label>
               <div class="w-32">
-                <MediaUploadCard v-model="tagCover" scope="tag" aspect="aspect-[3/4]" label="点击上传" />
+                <MediaUploadCard v-model="collectionCover" scope="collection" aspect="aspect-[3/4]" label="点击上传" />
               </div>
-              <p class="mt-1.5 text-[11px] text-ink-faint">用于前台导航卡片展示，建议竖图 3:4。不上传则以纯文字标签展示。</p>
+              <p class="mt-1.5 text-[11px] text-ink-faint">用于前台导航卡片展示，建议竖图 3:4。不上传则以纯文字集合展示。</p>
             </div>
           </div>
           <div class="mt-6 flex justify-end gap-2">
-            <button class="btn-outline" @click="tagModal = null">取消</button>
-            <button class="btn-gold" :disabled="!tagName.trim() || tagSaving" @click="confirmSaveTag">{{ tagSaving ? '保存中…' : tagModal.editing ? '保存' : '添加' }}</button>
+            <button class="btn-outline" @click="collectionModal = null">取消</button>
+            <button class="btn-gold" :disabled="!collectionName.trim() || collectionSaving" @click="confirmSaveCollection">{{ collectionSaving ? '保存中…' : collectionModal.editing ? '保存' : '添加' }}</button>
           </div>
         </div>
       </div>
     </Teleport>
 
-    <!-- ===== Modal: 新建维度 ===== -->
+    <!-- ===== Modal: 新建分组 ===== -->
     <Teleport to="body">
-      <div v-if="showNewDim" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showNewDim = false)">
+      <div v-if="showNewGroup" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (showNewGroup = false)">
         <div class="panel w-96 p-6">
           <div class="mb-5 flex items-center justify-between">
-            <h3 class="text-[15px] font-medium text-ink">新建标签维度</h3>
-            <button class="btn-ghost" @click="showNewDim = false"><XMarkIcon class="h-4 w-4" /></button>
+            <h3 class="text-[15px] font-medium text-ink">新建集合分组</h3>
+            <button class="btn-ghost" @click="showNewGroup = false"><XMarkIcon class="h-4 w-4" /></button>
           </div>
           <div class="space-y-4">
             <div>
-              <label class="field-label">维度名称 *</label>
-              <input v-model="newDimLabel" class="field" placeholder="如：风格 Style、用途 Usage" @keyup.enter="confirmAddDim" />
+              <label class="field-label">分组名称 *</label>
+              <input v-model="newGroupLabel" class="field" placeholder="如：风格 Style、用途 Usage" @keyup.enter="confirmAddGroup" />
             </div>
-            <p class="text-[11px] text-ink-faint">标签维度仅用于前台营销聚合与导航，不影响商品属性表单。</p>
+            <p class="text-[11px] text-ink-faint">集合分组仅用于前台营销聚合与导航，不影响商品属性表单。</p>
           </div>
           <div class="mt-6 flex justify-end gap-2">
-            <button class="btn-outline" @click="showNewDim = false">取消</button>
-            <button class="btn-gold" :disabled="!newDimLabel.trim()" @click="confirmAddDim">创建维度</button>
+            <button class="btn-outline" @click="showNewGroup = false">取消</button>
+            <button class="btn-gold" :disabled="!newGroupLabel.trim()" @click="confirmAddGroup">创建分组</button>
           </div>
         </div>
       </div>
@@ -927,24 +927,24 @@ onMounted(() => {
       @cancel="confirmDeleteSet = null"
     />
     <ConfirmDialog
-      :open="!!confirmDeleteDim"
-      title="删除标签维度"
-      :message="`确认删除维度「${confirmDeleteDim?.name}」？维度下仍有标签时将被拒绝（需先清空标签）。`"
+      :open="!!confirmDeleteGroup"
+      title="删除集合分组"
+      :message="`确认删除分组「${confirmDeleteGroup?.name}」？分组下仍有集合时将被拒绝（需先清空集合）。`"
       confirm-text="删除"
       danger
       :busy="confirmBusy"
-      @confirm="doDeleteDim"
-      @cancel="confirmDeleteDim = null"
+      @confirm="doDeleteGroup"
+      @cancel="confirmDeleteGroup = null"
     />
     <ConfirmDialog
-      :open="!!confirmDeleteTag"
-      title="删除标签"
-      :message="`确认删除标签「${confirmDeleteTag?.name}」？商品上的该标签将被摘除。`"
+      :open="!!confirmDeleteCollection"
+      title="删除集合"
+      :message="`确认删除集合「${confirmDeleteCollection?.name}」？商品上的该集合将被摘除。`"
       confirm-text="删除"
       danger
       :busy="confirmBusy"
-      @confirm="doDeleteTag"
-      @cancel="confirmDeleteTag = null"
+      @confirm="doDeleteCollection"
+      @cancel="confirmDeleteCollection = null"
     />
   </div>
 </template>

@@ -12,16 +12,16 @@ import type {
   AttributeDefUpsert,
   AttributeSet,
   AttributeSetUpsert,
+  Collection,
+  CollectionGroup,
+  CollectionGroupUpsert,
+  CollectionUpsert,
   PageResult,
   PresignRequest,
   PresignResponse,
   ProductBatchAction,
   ProductBatchResult,
   ProductStatus,
-  Tag,
-  TagDimension,
-  TagDimensionUpsert,
-  TagUpsert,
 } from './types'
 
 // ===== 商品 E-CAT-08~14 =====
@@ -146,40 +146,40 @@ export function deleteAttributeDef(id: number, force?: boolean): Promise<void> {
   return del<void>(`/api/admin/attribute-defs/${id}`, { params })
 }
 
-// ===== 标签维度 E-CAT-27~30 =====
+// ===== 集合分组 E-CAT-27~30 =====
 
-export function listTagDimensions(): Promise<{ items: TagDimension[] }> {
-  return get<{ items: TagDimension[] }>('/api/admin/tag-dimensions')
+export function listCollectionGroups(): Promise<{ items: CollectionGroup[] }> {
+  return get<{ items: CollectionGroup[] }>('/api/admin/collection-groups')
 }
 
-export function createTagDimension(body: TagDimensionUpsert): Promise<TagDimension> {
-  return post<TagDimension>('/api/admin/tag-dimensions', body)
+export function createCollectionGroup(body: CollectionGroupUpsert): Promise<CollectionGroup> {
+  return post<CollectionGroup>('/api/admin/collection-groups', body)
 }
 
-export function updateTagDimension(id: number, body: TagDimensionUpsert): Promise<TagDimension> {
-  return put<TagDimension>(`/api/admin/tag-dimensions/${id}`, body)
+export function updateCollectionGroup(id: number, body: CollectionGroupUpsert): Promise<CollectionGroup> {
+  return put<CollectionGroup>(`/api/admin/collection-groups/${id}`, body)
 }
 
-export function deleteTagDimension(id: number): Promise<void> {
-  return del<void>(`/api/admin/tag-dimensions/${id}`)
+export function deleteCollectionGroup(id: number): Promise<void> {
+  return del<void>(`/api/admin/collection-groups/${id}`)
 }
 
-// ===== 标签 E-CAT-31~34 =====
+// ===== 集合 E-CAT-31~34 =====
 
-export function listTags(dimensionId?: number): Promise<{ items: Tag[] }> {
-  return get<{ items: Tag[] }>('/api/admin/tags', { params: { dimensionId } })
+export function listCollections(groupId?: number): Promise<{ items: Collection[] }> {
+  return get<{ items: Collection[] }>('/api/admin/collections', { params: { groupId } })
 }
 
-export function createTag(body: TagUpsert): Promise<Tag> {
-  return post<Tag>('/api/admin/tags', body)
+export function createCollection(body: CollectionUpsert): Promise<Collection> {
+  return post<Collection>('/api/admin/collections', body)
 }
 
-export function updateTag(id: number, body: TagUpsert): Promise<Tag> {
-  return put<Tag>(`/api/admin/tags/${id}`, body)
+export function updateCollection(id: number, body: CollectionUpsert): Promise<Collection> {
+  return put<Collection>(`/api/admin/collections/${id}`, body)
 }
 
-export function deleteTag(id: number): Promise<void> {
-  return del<void>(`/api/admin/tags/${id}`)
+export function deleteCollection(id: number): Promise<void> {
+  return del<void>(`/api/admin/collections/${id}`)
 }
 
 // ===== 预签名上传 E-CAT-35（FLOW-P17 两步：presign → PUT 直传） =====

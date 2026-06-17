@@ -123,7 +123,7 @@ dreamy:
       # catalog 域登记 3 条（catalog-api-detail 0.1）
       - /api/store/products/**
       - /api/store/categories
-      - /api/store/tags
+      - /api/store/collections
       # marketing 域登记 4 条（marketing-api-detail 0.1；flash-sales 精确路径，
       # 禁止 /api/store/promotions/**——否则误放行 coupons/validate）
       - /api/store/content/**

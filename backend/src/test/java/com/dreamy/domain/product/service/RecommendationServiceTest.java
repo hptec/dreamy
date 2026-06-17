@@ -3,11 +3,11 @@ package com.dreamy.domain.product.service;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
 import com.dreamy.enums.ProductStatus;
-import com.dreamy.enums.TagStatus;
+import com.dreamy.enums.CollectionStatus;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.domain.tag.entity.Tag;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.StoreProductCard;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
@@ -46,7 +46,7 @@ class RecommendationServiceTest {
     @Mock
     ProductRepository productRepository;
     @Mock
-    TagRepository tagRepository;
+    CollectionRepository collectionRepository;
     @Mock
     CategoryRepository categoryRepository;
     @Mock
@@ -60,7 +60,7 @@ class RecommendationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RecommendationService(productRepository, tagRepository, categoryRepository,
+        service = new RecommendationService(productRepository, collectionRepository, categoryRepository,
                 treeService, cardAssembler, cache);
         lenient().when(cache.get(any(), anyString())).thenReturn(null);
         lenient().when(cardAssembler.assemble(anyList(), anyString()))
@@ -126,20 +126,20 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("TC-CAT-009 [P0]: shop_by_color tag 不存在/disabled → 空 items 不 404")
-    void shopByColorDisabledTag() {
-        when(tagRepository.findById(7L)).thenReturn(null);
+    @DisplayName("TC-CAT-009 [P0]: shop_by_color collection 不存在/disabled → 空 items 不 404")
+    void shopByColorDisabledCollection() {
+        when(collectionRepository.findById(7L)).thenReturn(null);
         assertThat(service.recommend("shop_by_color", null, 7L, null, "en")).isEmpty();
-        Tag disabled = new Tag();
+        Collection disabled = new Collection();
         disabled.setId(8L);
-        disabled.setStatus(TagStatus.DISABLED);
-        when(tagRepository.findById(8L)).thenReturn(disabled);
+        disabled.setStatus(CollectionStatus.DISABLED);
+        when(collectionRepository.findById(8L)).thenReturn(disabled);
         assertThat(service.recommend("shop_by_color", null, 8L, null, "en")).isEmpty();
-        verify(productRepository, never()).listRecoByTag(any(), anyInt());
+        verify(productRepository, never()).listRecoByCollection(any(), anyInt());
     }
 
     @Test
-    @DisplayName("V-CAT-008~011 [P0]: block 必填/枚举外、ymal 缺 product_id、sbc 缺 tag_id、limit 越界 → 422501")
+    @DisplayName("V-CAT-008~011 [P0]: block 必填/枚举外、ymal 缺 product_id、sbc 缺 collection_id、limit 越界 → 422501")
     void paramValidation() {
         assertThatThrownBy(() -> service.recommend(null, null, null, null, "en"))
                 .isInstanceOf(CatalogException.class)
@@ -151,7 +151,7 @@ class RecommendationServiceTest {
         assertThatThrownBy(() -> service.recommend("complete_the_look", null, null, null, "en"))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("product_id", "required"));
         assertThatThrownBy(() -> service.recommend("shop_by_color", null, null, null, "en"))
-                .satisfies(ex -> assertThat(fields(ex)).containsEntry("tag_id", "required"));
+                .satisfies(ex -> assertThat(fields(ex)).containsEntry("collection_id", "required"));
         assertThatThrownBy(() -> service.recommend("new_arrivals", null, null, 25, "en"))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("limit", "range_invalid"));
         assertThatThrownBy(() -> service.recommend("new_arrivals", null, null, 0, "en"))

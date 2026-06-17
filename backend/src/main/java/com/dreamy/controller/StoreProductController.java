@@ -55,7 +55,7 @@ public class StoreProductController {
             @RequestParam(required = false) Integer page,
             @RequestParam(name = "page_size", required = false) Integer pageSize,
             @RequestParam(name = "category_id", required = false) Long categoryId,
-            @RequestParam(name = "tag_id", required = false) Long tagId,
+            @RequestParam(name = "collection_id", required = false) Long collectionId,
             @RequestParam(required = false) String color,
             @RequestParam(required = false) String size,
             @RequestParam(name = "price_min", required = false) BigDecimal priceMin,
@@ -63,7 +63,7 @@ public class StoreProductController {
             @RequestParam(required = false) String sort,
             @RequestParam(name = "attr", required = false) List<String> attr) {
         StoreProductService.ListQuery query = storeProductService.parseListQuery(
-                locale, page, pageSize, categoryId, tagId, color, size, priceMin, priceMax, sort, attr);
+                locale, page, pageSize, categoryId, collectionId, color, size, priceMin, priceMax, sort, attr);
         applyLocale(query.locale());
         Paginated<StoreProductCard> result = storeProductService.listProducts(query);
         return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(result));
@@ -104,14 +104,14 @@ public class StoreProductController {
     public ResponseEntity<R<Map<String, List<StoreProductCard>>>> recommendations(
             @RequestParam(required = false) String block,
             @RequestParam(name = "product_id", required = false) Long productId,
-            @RequestParam(name = "tag_id", required = false) Long tagId,
+            @RequestParam(name = "collection_id", required = false) Long collectionId,
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) String locale) {
         CatalogFieldErrors errors = new CatalogFieldErrors();
         String parsedLocale = StoreParams.parseLocale(locale, errors);
         errors.throwIfAny();
         applyLocale(parsedLocale);
-        List<StoreProductCard> items = recommendationService.recommend(block, productId, tagId, limit, parsedLocale);
+        List<StoreProductCard> items = recommendationService.recommend(block, productId, collectionId, limit, parsedLocale);
         return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(Map.of("items", items)));
     }
 

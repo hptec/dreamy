@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * content.invalidated 事件发布（catalog-data-detail §8.1，TASK-056 本域触发侧）。
  * payload：{type: product_created|product_updated|product_status_changed|product_flags_changed|
- * category_changed|tag_changed, slug?, old_slug?, locales:[en,es,fr], occurred_at}；
+ * category_changed|collection_changed, slug?, old_slug?, locales:[en,es,fr], occurred_at}；
  * event_id 由 DomainEventPublisher 生成（DomainEvent 信封）。
  * 发布失败不回滚（EC-CAT-002 / TX-CAT-001 备注：MQ 失败 TTL 兜底）；消费者 q.invalidate 归基建侧。
  *
@@ -32,7 +32,7 @@ public class ContentInvalidatedPublisher {
     public static final String TYPE_PRODUCT_STATUS_CHANGED = "product_status_changed";
     public static final String TYPE_PRODUCT_FLAGS_CHANGED = "product_flags_changed";
     public static final String TYPE_CATEGORY_CHANGED = "category_changed";
-    public static final String TYPE_TAG_CHANGED = "tag_changed";
+    public static final String TYPE_COLLECTION_CHANGED = "collection_changed";
 
     private final DomainEventPublisher eventPublisher;
     private final AdminCacheService cacheService;
@@ -88,8 +88,8 @@ public class ContentInvalidatedPublisher {
             return "product";
         } else if (eventType.startsWith("category_")) {
             return "category";
-        } else if (eventType.startsWith("tag_")) {
-            return "tag";
+        } else if (eventType.startsWith("collection_")) {
+            return "collection";
         }
         return "unknown";
     }
@@ -110,8 +110,8 @@ public class ContentInvalidatedPublisher {
                     paths.add(prefix + "/product/" + oldSlug);
                 }
             }
-        } else if ("category".equals(resourceType) || "tag".equals(resourceType)) {
-            // 分类/标签变更影响列表页
+        } else if ("category".equals(resourceType) || "collection".equals(resourceType)) {
+            // 分类/集合变更影响列表页
             paths.add("/products");
             paths.add("/es/products");
             paths.add("/fr/products");

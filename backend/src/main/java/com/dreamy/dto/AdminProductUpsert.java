@@ -38,7 +38,7 @@ public record AdminProductUpsert(
         List<ProductImageDto> images,
         List<SkuDto> skus,
         List<SizeChartRowDto> sizeChart,
-        List<Long> tagIds,
+        List<Long> collectionIds,
         List<ProductTranslationDto> translations,
         String updatedAt,
         // 面料护理内联（取代专用表；material 为字符串，care 为 {symbol,label}）

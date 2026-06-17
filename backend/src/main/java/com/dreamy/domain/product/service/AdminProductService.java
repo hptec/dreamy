@@ -19,12 +19,12 @@ import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.domain.product.repository.ProductImageRepository;
 import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.domain.product.repository.ProductRepository.AdminFilter;
-import com.dreamy.domain.product.repository.ProductTagRepository;
+import com.dreamy.domain.product.repository.ProductCollectionRepository;
 import com.dreamy.domain.product.repository.ProductTranslationRepository;
 import com.dreamy.domain.product.repository.SizeChartRowRepository;
 import com.dreamy.domain.product.repository.SkuRepository;
-import com.dreamy.domain.tag.entity.Tag;
-import com.dreamy.domain.tag.repository.TagRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.AdminProductDetail;
 import com.dreamy.dto.AdminProductListItem;
 import com.dreamy.dto.AdminProductUpsert;
@@ -76,11 +76,11 @@ public class AdminProductService {
     private final ProductImageRepository imageRepository;
     private final SkuRepository skuRepository;
     private final SizeChartRowRepository sizeChartRepository;
-    private final ProductTagRepository productTagRepository;
+    private final ProductCollectionRepository productCollectionRepository;
     private final ProductAttributeValueRepository attributeValueRepository;
     private final AttributeDefRepository attributeDefRepository;
     private final ProductAttributeConfigService attributeConfigService;
-    private final TagRepository tagRepository;
+    private final CollectionRepository collectionRepository;
     private final CategoryRepository categoryRepository;
     private final CategoryTreeService treeService;
     private final CatalogCacheService cache;
@@ -95,11 +95,11 @@ public class AdminProductService {
                                ProductTranslationRepository translationRepository,
                                ProductImageRepository imageRepository, SkuRepository skuRepository,
                                SizeChartRowRepository sizeChartRepository,
-                               ProductTagRepository productTagRepository,
+                               ProductCollectionRepository productCollectionRepository,
                                ProductAttributeValueRepository attributeValueRepository,
                                AttributeDefRepository attributeDefRepository,
                                ProductAttributeConfigService attributeConfigService,
-                               TagRepository tagRepository,
+                               CollectionRepository collectionRepository,
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
                                CatalogCacheService cache, CatalogAuditRecorder audit,
                                CatalogAfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
@@ -110,11 +110,11 @@ public class AdminProductService {
         this.imageRepository = imageRepository;
         this.skuRepository = skuRepository;
         this.sizeChartRepository = sizeChartRepository;
-        this.productTagRepository = productTagRepository;
+        this.productCollectionRepository = productCollectionRepository;
         this.attributeValueRepository = attributeValueRepository;
         this.attributeDefRepository = attributeDefRepository;
         this.attributeConfigService = attributeConfigService;
-        this.tagRepository = tagRepository;
+        this.collectionRepository = collectionRepository;
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
         this.cache = cache;
@@ -183,7 +183,7 @@ public class AdminProductService {
         imageRepository.replaceAll(product.getId(), toImageRows(req.images()));
         skuRepository.insertBatch(toSkuRows(product.getId(), req.skus()));
         sizeChartRepository.replaceAll(product.getId(), toSizeChartRows(req.sizeChart()));
-        productTagRepository.replaceAll(product.getId(), dedupe(req.tagIds()));
+        productCollectionRepository.replaceAll(product.getId(), dedupe(req.collectionIds()));
         translationRepository.replaceAll(product.getId(), toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(product.getId(), toAttributeRows(req.attributes()));
         // 面料/护理已随 applyUpsert 写入 product JSON 列（无需子表操作）
@@ -195,7 +195,7 @@ public class AdminProductService {
             cache.invalidateFamily(Family.PRODUCTS);
             cache.invalidateFamily(Family.RECO);
             cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.TAGS);
+            cache.invalidateFamily(Family.COLLECTIONS);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_CREATED, slug, null);
         });
         return loadDetail(product.getId());
@@ -247,7 +247,7 @@ public class AdminProductService {
         // STEP-CAT-05 其余子表整单覆盖（DELETE+批量 INSERT）
         imageRepository.replaceAll(id, toImageRows(req.images()));
         sizeChartRepository.replaceAll(id, toSizeChartRows(req.sizeChart()));
-        productTagRepository.replaceAll(id, dedupe(req.tagIds()));
+        productCollectionRepository.replaceAll(id, dedupe(req.collectionIds()));
         translationRepository.replaceAll(id, toTranslationRows(req.translations()));
         attributeValueRepository.replaceAll(id, toAttributeRows(req.attributes()));
         // 面料成分/护理标签已随 applyUpsert 写入 product 行（JSON 列，整单覆盖语义）
@@ -287,7 +287,7 @@ public class AdminProductService {
         imageRepository.deleteByProductId(id);
         skuRepository.deleteByProductId(id);
         sizeChartRepository.deleteByProductId(id);
-        productTagRepository.deleteByProductId(id);
+        productCollectionRepository.deleteByProductId(id);
         translationRepository.deleteByProductId(id);
         attributeValueRepository.deleteByProductId(id);
         // 面料成分/护理标签为 product 行内 JSON 列，随 deleteById 一并删除
@@ -298,7 +298,7 @@ public class AdminProductService {
             cache.invalidateFamily(Family.PRODUCTS);
             cache.invalidateFamily(Family.RECO);
             cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.TAGS);
+            cache.invalidateFamily(Family.COLLECTIONS);
         });
     }
 
@@ -339,7 +339,7 @@ public class AdminProductService {
                 cache.invalidateFamily(Family.PRODUCTS);
                 cache.invalidateFamily(Family.RECO);
                 cache.invalidateFamily(Family.CATEGORIES);
-                cache.invalidateFamily(Family.TAGS);
+                cache.invalidateFamily(Family.COLLECTIONS);
                 invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_STATUS_CHANGED, slug, null);
             });
         });
@@ -389,10 +389,10 @@ public class AdminProductService {
     private void validateUpsert(AdminProductUpsert req, Set<Long> ownedSkuIds, Long productId) {
         boolean categoryExists = req.categoryId() != null
                 && categoryRepository.findById(req.categoryId()) != null;
-        Set<Long> existingTagIds = new HashSet<>();
-        if (req.tagIds() != null && !req.tagIds().isEmpty()) {
-            for (Tag tag : tagRepository.listByIds(req.tagIds())) {
-                existingTagIds.add(tag.getId());
+        Set<Long> existingCollectionIds = new HashSet<>();
+        if (req.collectionIds() != null && !req.collectionIds().isEmpty()) {
+            for (Collection collection : collectionRepository.listByIds(req.collectionIds())) {
+                existingCollectionIds.add(collection.getId());
             }
         }
         Map<String, AttributeDef> defsByKey = new HashMap<>();
@@ -417,7 +417,7 @@ public class AdminProductService {
                 }
             }
         }
-        ProductUpsertValidator.validate(req, categoryExists, existingTagIds, ownedSkuIds, defsByKey, allowedKeys);
+        ProductUpsertValidator.validate(req, categoryExists, existingCollectionIds, ownedSkuIds, defsByKey, allowedKeys);
     }
 
     /** STEP-CAT-02 sku_code 全局唯一（409504 details.sku_codes） */
@@ -572,7 +572,7 @@ public class AdminProductService {
                 .map(r -> new SizeChartRowDto(r.getId(), r.getUs(), r.getUk(), r.getAu(),
                         r.getBust(), r.getWaist(), r.getHips(), r.getHollowToFloor()))
                 .toList();
-        List<Long> tagIds = productTagRepository.listTagIdsByProductId(id);
+        List<Long> collectionIds = productCollectionRepository.listCollectionIdsByProductId(id);
         List<ProductTranslationDto> translations = translationRepository.listByProductIds(List.of(id), null)
                 .stream()
                 .map(t -> new ProductTranslationDto(t.getLocale(), t.getName(),
@@ -589,7 +589,7 @@ public class AdminProductService {
                 product.getLeadTimeDays(), product.getRushAvailable(), product.getCustomSizeAvailable(),
                 loadAttributeDtos(id),
                 product.getStyleNo(),
-                product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, tagIds, translations,
+                product.getSeoTitle(), product.getSeoDesc(), images, skus, sizeChart, collectionIds, translations,
                 product.getCreatedAt(), product.getUpdatedAt(),
                 // 面料护理内联字段（直接读 product JSON 列）
                 product.getFabricCompositions(),
