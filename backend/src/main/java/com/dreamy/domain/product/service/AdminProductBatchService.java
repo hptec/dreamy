@@ -213,14 +213,14 @@ public class AdminProductBatchService {
         try {
             switch (action) {
                 case PUBLISH, UNPUBLISH -> {
-                    // 上架/下架：影响商品列表、详情页、推荐、分类、标签
+                    // 上架/下架：影响商品列表、详情页、推荐、分类、集合
                     for (String slug : slugs) {
                         cache.invalidateProductSlug(slug);
                     }
                     cache.invalidateFamily(Family.PRODUCTS);
                     cache.invalidateFamily(Family.RECO);
                     cache.invalidateFamily(Family.CATEGORIES);
-                    cache.invalidateFamily(Family.TAGS);
+                    cache.invalidateFamily(Family.COLLECTIONS);
                     log.info("[CATALOG-BATCH] cache invalidated for {} action={} count={}",
                             action.key, action.key, slugs.size());
                 }
@@ -232,11 +232,11 @@ public class AdminProductBatchService {
                             action.key, action.key, slugs.size());
                 }
                 case DELETE -> {
-                    // 删除：影响商品列表、推荐、分类、标签（已删除无需失效详情页）
+                    // 删除：影响商品列表、推荐、分类、集合（已删除无需失效详情页）
                     cache.invalidateFamily(Family.PRODUCTS);
                     cache.invalidateFamily(Family.RECO);
                     cache.invalidateFamily(Family.CATEGORIES);
-                    cache.invalidateFamily(Family.TAGS);
+                    cache.invalidateFamily(Family.COLLECTIONS);
                     log.info("[CATALOG-BATCH] cache invalidated for delete action count={}", slugs.size());
                 }
             }
