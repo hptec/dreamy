@@ -16,6 +16,7 @@ import LocaleTabs from '@/components/LocaleTabs.vue'
 import AttributeDictPanel from '@/components/AttributeDictPanel.vue'
 import AiTranslateButton from '@/components/ai/AiTranslateButton.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
+import CollectionProductsDrawer from '@/components/drawers/CollectionProductsDrawer.vue'
 import { useCategoriesStore } from '@/stores/categories'
 import { useAttributeStore } from '@/stores/attributes'
 import { useCollectionsStore } from '@/stores/collections'
@@ -23,7 +24,7 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import {
   PlusIcon, Bars3Icon, PencilSquareIcon, TrashIcon, ChevronRightIcon, TagIcon, XMarkIcon,
-  ExclamationTriangleIcon, SwatchIcon,
+  ExclamationTriangleIcon, SwatchIcon, ListBulletIcon,
 } from '@heroicons/vue/24/outline'
 import { AttrVisibility, AttributeDefType, CollectionStatus } from '@/api/types'
 import type { AdminCategoryNode, AttributeDef, AttributeSet, CategoryTranslation, Collection, CollectionGroup } from '@/api/types'
@@ -410,16 +411,14 @@ async function doDeleteGroup() {
   }
 }
 
-// 新增/编辑集合（封面上传 scope=collection）
+// 新增/编辑集合
 const collectionModal = ref<{ editing: Collection | null } | null>(null)
 const collectionName = ref('')
-const collectionCover = ref('')
 const collectionSaving = ref(false)
 
 function openCollectionModal(c?: Collection) {
   collectionModal.value = { editing: c ?? null }
   collectionName.value = c?.name || ''
-  collectionCover.value = c?.cover || ''
 }
 
 async function confirmSaveCollection() {
@@ -432,7 +431,6 @@ async function confirmSaveCollection() {
       {
         collectionGroupId: editing?.collectionGroupId ?? activeGroup.value,
         name: v,
-        cover: collectionCover.value || null,
         status: editing?.status ?? CollectionStatus.ENABLED,
         translations: editing?.translations || [],
       },
@@ -466,6 +464,17 @@ async function toggleCollection(c: Collection, on: boolean) {
 }
 
 const confirmDeleteCollection = ref<Collection | null>(null)
+
+// 集合内商品管理抽屉
+const productsDrawer = ref<{ collection: Collection } | null>(null)
+function openCollectionProductsDrawer(c: Collection) {
+  productsDrawer.value = { collection: c }
+}
+async function onProductsDrawerChanged() {
+  // 抽屉里排序/摘除/添加后，刷新当前分组集合列表（cover fallback 与 productCount）
+  if (activeGroup.value === '') return
+  await collections.fetchCollections(activeGroup.value as number).catch(() => undefined)
+}
 async function doDeleteCollection() {
   if (!confirmDeleteCollection.value) return
   confirmBusy.value = true
@@ -639,27 +648,55 @@ onMounted(() => {
 
       <EmptyState v-if="!collections.groups.length" title="暂无集合分组" hint="先创建分组（如 风格 Style），再添加集合。" />
       <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div v-for="c in collectionsByActiveGroup" :key="c.id" class="panel overflow-hidden">
-          <div class="relative aspect-[3/4]">
-            <img v-if="c.cover" :src="c.cover" class="h-full w-full object-cover" />
+        <div v-for="c in collectionsByActiveGroup" :key="c.id" class="panel flex aspect-[3/5] flex-col overflow-hidden">
+          <!-- 图片区：扣除功能栏后的剩余空间，在此平均分配 -->
+          <div class="min-h-0 flex-1">
+            <img v-if="c.cover" :src="c.cover" class="h-full w-full object-cover object-top" />
+            <template v-else-if="c.fallbackCoverUrls && c.fallbackCoverUrls.length">
+              <div v-if="c.fallbackCoverUrls.length === 1" class="grid h-full w-full grid-cols-1 gap-0.5">
+                <img :src="c.fallbackCoverUrls[0]" class="h-full w-full object-cover object-top" />
+              </div>
+              <div v-else-if="c.fallbackCoverUrls.length === 2" class="grid h-full w-full grid-cols-2 gap-0.5">
+                <img v-for="(url, i) in c.fallbackCoverUrls" :key="i" :src="url" class="h-full w-full object-cover object-top" />
+              </div>
+              <div v-else-if="c.fallbackCoverUrls.length === 3" class="grid h-full w-full grid-cols-2 grid-rows-2 gap-0.5">
+                <img :src="c.fallbackCoverUrls[0]" class="col-span-2 h-full w-full object-cover object-top" />
+                <img :src="c.fallbackCoverUrls[1]" class="h-full w-full object-cover object-top" />
+                <img :src="c.fallbackCoverUrls[2]" class="h-full w-full object-cover object-top" />
+              </div>
+              <div v-else class="grid h-full w-full grid-cols-2 grid-rows-2 gap-0.5">
+                <img v-for="(url, i) in c.fallbackCoverUrls.slice(0, 4)" :key="i" :src="url" class="h-full w-full object-cover object-top" />
+              </div>
+            </template>
             <div v-else class="flex h-full w-full items-center justify-center bg-canvas-warm text-ink-faint"><TagIcon class="h-8 w-8" /></div>
-            <div class="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent"></div>
-            <p class="absolute bottom-2 left-3 font-display text-lg text-white">{{ c.name }}</p>
           </div>
-          <div class="flex items-center justify-between p-3">
-            <span class="text-[12px] text-ink-faint">{{ c.productCount ?? 0 }} 件</span>
-            <div class="flex items-center gap-2">
+          <!-- 功能栏：白色不透明，两行布局避免文字与按钮互相挤压 -->
+          <div class="flex shrink-0 flex-col gap-1 border-t border-line bg-canvas px-3 py-1.5">
+            <div class="flex items-baseline justify-between gap-2">
+              <p class="truncate font-display text-[14px] text-ink">{{ c.name }}</p>
+              <p class="shrink-0 text-[11px] text-ink-faint">{{ c.productCount ?? 0 }} 件</p>
+            </div>
+            <div class="flex items-center justify-end gap-1">
+              <button class="btn-ghost" title="查看内容" @click="openCollectionProductsDrawer(c)"><ListBulletIcon class="h-3.5 w-3.5" /></button>
               <Toggle :model-value="c.status === CollectionStatus.ENABLED" @update:model-value="toggleCollection(c, $event)" />
               <button class="btn-ghost" @click="openCollectionModal(c)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
               <button class="btn-danger-ghost" @click="confirmDeleteCollection = c"><TrashIcon class="h-3.5 w-3.5" /></button>
             </div>
           </div>
         </div>
-        <button class="panel flex aspect-[3/4] flex-col items-center justify-center gap-2 border-2 border-dashed text-ink-faint hover:border-gold" @click="openCollectionModal()">
+        <button class="panel flex aspect-[3/5] flex-col items-center justify-center gap-2 border-2 border-dashed text-ink-faint hover:border-gold" @click="openCollectionModal()">
           <PlusIcon class="h-6 w-6" /><span class="text-[12px]">新增集合</span>
         </button>
       </div>
     </div>
+
+    <!-- ===== Drawer: 集合内商品管理 ===== -->
+    <CollectionProductsDrawer
+      :open="!!productsDrawer"
+      :collection="productsDrawer?.collection ?? null"
+      @close="productsDrawer = null"
+      @changed="onProductsDrawerChanged"
+    />
 
     <!-- ===== Modal: 添加根品类 ===== -->
     <Teleport to="body">
@@ -696,7 +733,7 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- ===== Modal: 新增/编辑集合（封面上传 scope=collection） ===== -->
+    <!-- ===== Modal: 新增/编辑集合 ===== -->
     <Teleport to="body">
       <div v-if="collectionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" v-dismiss="() => (collectionModal = null)">
         <div class="panel w-96 p-6">
@@ -708,13 +745,7 @@ onMounted(() => {
             <div>
               <label class="field-label">集合名称 *</label>
               <input v-model="collectionName" class="field" placeholder="如：Boho、Spring 2026" @keyup.enter="confirmSaveCollection" />
-            </div>
-            <div>
-              <label class="field-label">封面图片</label>
-              <div class="w-32">
-                <MediaUploadCard v-model="collectionCover" scope="collection" aspect="aspect-[3/4]" label="点击上传" />
-              </div>
-              <p class="mt-1.5 text-[11px] text-ink-faint">用于前台导航卡片展示，建议竖图 3:4。不上传则以纯文字集合展示。</p>
+              <p class="mt-1.5 text-[11px] text-ink-faint">封面图自动取集合内前 4 张商品主图拼图展示。</p>
             </div>
           </div>
           <div class="mt-6 flex justify-end gap-2">

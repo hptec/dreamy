@@ -442,21 +442,29 @@ export interface Collection {
   id: number
   collectionGroupId: number
   name: string
-  cover?: string | null
   status: CollectionStatus
   productCount?: number | null
+  fallbackCoverUrls?: string[] | null
   translations?: CollectionTranslation[] | null
+}
+
+export interface CollectionProduct {
+  productId: number
+  name: string
+  slug: string
+  status: ProductStatus
+  imageUrl?: string | null
+  sort: number
 }
 
 export interface CollectionUpsert {
   collectionGroupId: number
   name: string
-  cover?: string | null
   status: CollectionStatus
   translations?: CollectionTranslation[] | null
 }
 
-export type PresignScope = 'product' | 'category' | 'collection' | 'banner' | 'content'
+export type PresignScope = 'product' | 'category' | 'banner' | 'content'
 
 export interface PresignRequest {
   fileName: string

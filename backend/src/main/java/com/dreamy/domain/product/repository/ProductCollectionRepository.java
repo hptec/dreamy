@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.domain.product.entity.ProductCollection;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -105,9 +106,9 @@ public class ProductCollectionRepository {
                 .orderByAsc(ProductCollection::getId));
     }
 
-    /** 批量取每个集合 sort 最小的 productId（用于 fallback cover 装配，防 N+1） */
-    public Map<Long, Long> listFirstProductIdsByCollections(Collection<Long> collectionIds) {
-        if (collectionIds == null || collectionIds.isEmpty()) {
+    /** 批量取每个集合 sort 最小的前 N 个 productId（用于 fallback cover 拼图装配，防 N+1） */
+    public Map<Long, List<Long>> listFirstNProductIdsByCollections(Collection<Long> collectionIds, int n) {
+        if (collectionIds == null || collectionIds.isEmpty() || n <= 0) {
             return Map.of();
         }
         List<ProductCollection> rows = mapper.selectList(new LambdaQueryWrapper<ProductCollection>()
@@ -115,10 +116,12 @@ public class ProductCollectionRepository {
                 .orderByAsc(ProductCollection::getCollectionId)
                 .orderByAsc(ProductCollection::getSort)
                 .orderByAsc(ProductCollection::getId));
-        Map<Long, Long> result = new LinkedHashMap<>();
+        Map<Long, List<Long>> result = new LinkedHashMap<>();
         for (ProductCollection pc : rows) {
-            // 每个 collectionId 只取首条（sort 最小）
-            result.putIfAbsent(pc.getCollectionId(), pc.getProductId());
+            List<Long> list = result.computeIfAbsent(pc.getCollectionId(), k -> new ArrayList<>());
+            if (list.size() < n) {
+                list.add(pc.getProductId());
+            }
         }
         return result;
     }

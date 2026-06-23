@@ -30,9 +30,6 @@ public class Collection extends LongAuditableEntity {
     @Column(name = CollectionDBConst.NAME, definition = "varchar(64) NOT NULL COMMENT '集合名(EN 基准)'")
     private String name;
 
-    @Column(name = CollectionDBConst.COVER, definition = "varchar(512) NULL COMMENT '封面图 URL（预签名上传 public_url），空=纯文字'")
-    private String cover;
-
     @Column(name = CollectionDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 2=禁用'")
     private CollectionStatus status;
 

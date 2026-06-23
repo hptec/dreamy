@@ -2,9 +2,9 @@ package com.dreamy.domain.collection.service;
 
 import com.dreamy.enums.CollectionStatus;
 import com.dreamy.enums.ImageKind;
-import com.dreamy.enums.ProductStatus;
 import java.time.LocalDateTime;
 import com.dreamy.domain.product.entity.Product;
+import com.dreamy.domain.product.entity.ProductCollection;
 import com.dreamy.domain.product.entity.ProductImage;
 import com.dreamy.domain.product.repository.ProductCollectionRepository;
 import com.dreamy.domain.product.repository.ProductImageRepository;
@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -156,18 +157,26 @@ public class CollectionAdminService {
 
     // ==================== 集合 E-CAT-31~34 ====================
 
-    /** E-CAT-31：集合列表（product_count 全量口径 + translations + fallback_cover_url——V-CAT-062） */
+    /** E-CAT-31：集合列表（product_count 全量口径 + translations + fallback_cover_urls——V-CAT-062） */
     public List<CollectionDto> listCollections(Long groupId) {
         List<Collection> collections = collectionRepository.listByGroupId(groupId);
         Map<Long, Integer> counts = productCollectionRepository.countByCollections(false);
         Map<Long, List<CollectionTranslationDto>> translations = collectionTranslations(collections.stream().map(Collection::getId).toList());
-        Map<Long, Long> firstProductIdByCollection = productCollectionRepository.listFirstProductIdsByCollections(
-                collections.stream().map(Collection::getId).toList());
-        Map<Long, String> primaryImageByProduct = resolvePrimaryImages(firstProductIdByCollection.values());
+        // 每集合取前 4 个商品 id（卡片拼图最多 4 格），再批量解析主图
+        Map<Long, List<Long>> firstNProductIds = productCollectionRepository.listFirstNProductIdsByCollections(
+                collections.stream().map(Collection::getId).toList(), 4);
+        Set<Long> allProductIds = new HashSet<>();
+        for (List<Long> ids : firstNProductIds.values()) {
+            allProductIds.addAll(ids);
+        }
+        Map<Long, String> primaryImageByProduct = resolvePrimaryImages(allProductIds);
         return collections.stream().map(c -> {
-            Long firstPid = firstProductIdByCollection.get(c.getId());
-            String fallback = firstPid == null ? null : primaryImageByProduct.get(firstPid);
-            return toCollectionDto(c, counts.getOrDefault(c.getId(), 0), fallback,
+            List<Long> pids = firstNProductIds.getOrDefault(c.getId(), List.of());
+            List<String> covers = pids.stream()
+                    .map(primaryImageByProduct::get)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+            return toCollectionDto(c, counts.getOrDefault(c.getId(), 0), covers,
                     translations.getOrDefault(c.getId(), List.of()));
         }).toList();
     }
@@ -186,6 +195,27 @@ public class CollectionAdminService {
         return images;
     }
 
+    /** 解析单个集合的前 N 张商品主图（用于 update/create 返回 DTO 时填充 fallback_cover_urls） */
+    private List<String> resolveFallbackCoverUrls(Long collectionId, int n) {
+        if (collectionId == null || n <= 0) {
+            return List.of();
+        }
+        List<Long> productIds = productCollectionRepository.listFirstNProductIdsByCollections(
+                List.of(collectionId), n).getOrDefault(collectionId, List.of());
+        if (productIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> imageByProduct = resolvePrimaryImages(productIds);
+        List<String> result = new ArrayList<>();
+        for (Long pid : productIds) {
+            String url = imageByProduct.get(pid);
+            if (url != null) {
+                result.add(url);
+            }
+        }
+        return result;
+    }
+
     /** E-CAT-32：新增集合（TX-CAT-018；collection_lifecycle →enabled） */
     @Transactional
     public CollectionDto createCollection(CollectionUpsert req) {
@@ -193,7 +223,6 @@ public class CollectionAdminService {
         Collection collection = new Collection();
         collection.setCollectionGroupId(req.collectionGroupId());
         collection.setName(req.name().trim());
-        collection.setCover(req.cover());
         collection.setStatus(CollectionStatus.of(req.status()));
         collectionRepository.insert(collection);
         collectionRepository.replaceTranslations(collection.getId(), toCollectionTranslationRows(req.translations()));
@@ -202,7 +231,8 @@ public class CollectionAdminService {
             cache.invalidateFamily(Family.COLLECTIONS);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
         });
-        return toCollectionDto(collection, 0, null, req.translations() == null ? List.of() : req.translations());
+        return toCollectionDto(collection, 0, resolveFallbackCoverUrls(collection.getId(), 4),
+                req.translations() == null ? List.of() : req.translations());
     }
 
     /** E-CAT-33：编辑集合（TX-CAT-019；Toggle enabled 映射 status；collection_group_id 可改=移动分组） */
@@ -217,7 +247,6 @@ public class CollectionAdminService {
         CollectionStatus oldStatus = existing.getStatus();
         existing.setCollectionGroupId(req.collectionGroupId());
         existing.setName(req.name().trim());
-        existing.setCover(req.cover());
         existing.setStatus(CollectionStatus.of(req.status()));
         collectionRepository.update(existing);
         collectionRepository.replaceTranslations(id, toCollectionTranslationRows(req.translations()));
@@ -231,7 +260,7 @@ public class CollectionAdminService {
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
         });
         Map<Long, Integer> counts = productCollectionRepository.countByCollections(false);
-        return toCollectionDto(existing, counts.getOrDefault(id, 0), null,
+        return toCollectionDto(existing, counts.getOrDefault(id, 0), resolveFallbackCoverUrls(id, 4),
                 req.translations() == null ? List.of() : req.translations());
     }
 
@@ -309,10 +338,6 @@ public class CollectionAdminService {
         if (CollectionStatus.of(req.status()) == null) {
             errors.reject("status", "invalid_enum");
         }
-        // V-CAT-066 cover ≤512 可空
-        if (req.cover() != null && req.cover().length() > 512) {
-            errors.reject("cover", "too_long");
-        }
         if (req.translations() != null) {
             Set<String> seen = new HashSet<>();
             for (CollectionTranslationDto t : req.translations()) {
@@ -383,10 +408,10 @@ public class CollectionAdminService {
         return result;
     }
 
-    private CollectionDto toCollectionDto(Collection collection, int productCount, String fallbackCoverUrl,
+    private CollectionDto toCollectionDto(Collection collection, int productCount, List<String> fallbackCoverUrls,
                                           List<CollectionTranslationDto> translations) {
-        return new CollectionDto(collection.getId(), collection.getCollectionGroupId(), collection.getName(), collection.getCover(),
-                collection.getStatus() == null ? null : collection.getStatus().getKey(), productCount, fallbackCoverUrl, translations);
+        return new CollectionDto(collection.getId(), collection.getCollectionGroupId(), collection.getName(),
+                collection.getStatus() == null ? null : collection.getStatus().getKey(), productCount, fallbackCoverUrls, translations);
     }
 
     // ==================== 集合内商品管理 E-CAT-35~37 ====================
@@ -397,18 +422,18 @@ public class CollectionAdminService {
         if (existing == null) {
             throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
         }
-        List<com.dreamy.domain.product.entity.ProductCollection> rows = productCollectionRepository.listByCollectionId(collectionId);
+        List<ProductCollection> rows = productCollectionRepository.listByCollectionId(collectionId);
         if (rows.isEmpty()) {
             return List.of();
         }
-        List<Long> productIds = rows.stream().map(com.dreamy.domain.product.entity.ProductCollection::getProductId).toList();
+        List<Long> productIds = rows.stream().map(ProductCollection::getProductId).toList();
         Map<Long, Product> productById = new LinkedHashMap<>();
         for (Product p : productRepository.listByIds(productIds)) {
             productById.put(p.getId(), p);
         }
         Map<Long, String> imageByProduct = resolvePrimaryImages(productIds);
         List<CollectionProductDto> items = new ArrayList<>();
-        for (com.dreamy.domain.product.entity.ProductCollection pc : rows) {
+        for (ProductCollection pc : rows) {
             Product p = productById.get(pc.getProductId());
             if (p == null) {
                 // 商品被逻辑删除但挂载未清理：跳过（与 listByCollectionId 不一致容忍）

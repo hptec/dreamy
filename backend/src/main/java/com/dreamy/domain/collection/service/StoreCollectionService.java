@@ -70,7 +70,6 @@ public class StoreCollectionService {
             List<StoreCollectionItem> items = collectionsByGroup.getOrDefault(group.getId(), List.of()).stream()
                     .map(c -> new StoreCollectionItem(c.getId(),
                             collectionNames.getOrDefault(c.getId(), c.getName()),
-                            c.getCover(),
                             counts.getOrDefault(c.getId(), 0)))
                     .toList();
             groupsResult.add(new StoreCollectionGroup(group.getId(),

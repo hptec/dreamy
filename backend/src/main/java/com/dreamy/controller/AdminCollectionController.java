@@ -117,7 +117,7 @@ public class AdminCollectionController {
     public ResponseEntity<R<Void>> replaceProducts(@PathVariable String id,
                                                    @RequestBody CollectionProductsUpsert req) {
         collectionAdminService.replaceCollectionProducts(parseId(id), req);
-        return ResponseEntity.ok(R.ok(null));
+        return ResponseEntity.ok(R.ok());
     }
 
     /** E-CAT-37 removeAdminCollectionProduct（TX-CAT-022；单条摘除） */

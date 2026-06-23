@@ -47,13 +47,13 @@ public final class AdminCatalogDtos {
     }
 
     /** openapi CollectionUpsert（V-CAT-063~066） */
-    public record CollectionUpsert(Long collectionGroupId, String name, String cover, Integer status,
+    public record CollectionUpsert(Long collectionGroupId, String name, Integer status,
                                    List<CollectionTranslationDto> translations) {
     }
 
-    /** openapi Collection（product_count 全量口径——MAP-CAT-010；fallback_cover_url 为 cover 缺失时回退到集合内首个商品主图） */
-    public record CollectionDto(Long id, Long collectionGroupId, String name, String cover, Integer status,
-                                Integer productCount, String fallbackCoverUrl,
+    /** openapi Collection（product_count 全量口径——MAP-CAT-010；fallback_cover_urls 为集合内前 N 个商品主图，用于卡片拼图） */
+    public record CollectionDto(Long id, Long collectionGroupId, String name, Integer status,
+                                Integer productCount, List<String> fallbackCoverUrls,
                                 List<CollectionTranslationDto> translations) {
     }
 

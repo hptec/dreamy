@@ -205,7 +205,7 @@ export interface StoreCollectionGroup {
   id: number
   name: string
   description?: string
-  collections: { id: number; name: string; cover?: string | null; productCount?: number }[]
+  collections: { id: number; name: string; productCount?: number }[]
 }
 
 // ===== trading =====

@@ -3,7 +3,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { catalogApi } from '@/api'
-import type { Collection, CollectionGroup, CollectionGroupUpsert, CollectionUpsert } from '@/api/types'
+import type {
+  Collection,
+  CollectionGroup,
+  CollectionGroupUpsert,
+  CollectionProduct,
+  CollectionUpsert,
+} from '@/api/types'
 
 export const useCollectionsStore = defineStore('collections', () => {
   const groups = ref<CollectionGroup[]>([])
@@ -59,6 +65,26 @@ export const useCollectionsStore = defineStore('collections', () => {
     collections.value = collections.value.filter((c) => c.id !== id)
   }
 
+  // ===== 集合内商品管理 E-CAT-35~37 =====
+
+  async function fetchCollectionProducts(id: number): Promise<CollectionProduct[]> {
+    const res = await catalogApi.listCollectionProducts(id)
+    return res.items
+  }
+
+  async function replaceCollectionProducts(id: number, productIds: number[]): Promise<void> {
+    await catalogApi.replaceCollectionProducts(id, productIds)
+    // 本地刷新该集合 productCount（避免整页重拉）
+    const c = collections.value.find((x) => x.id === id)
+    if (c) c.productCount = productIds.length
+  }
+
+  async function removeCollectionProduct(id: number, productId: number): Promise<void> {
+    await catalogApi.removeCollectionProduct(id, productId)
+    const c = collections.value.find((x) => x.id === id)
+    if (c && c.productCount != null) c.productCount = Math.max(0, c.productCount - 1)
+  }
+
   return {
     groups,
     collections,
@@ -70,5 +96,8 @@ export const useCollectionsStore = defineStore('collections', () => {
     removeGroup,
     saveCollection,
     removeCollection,
+    fetchCollectionProducts,
+    replaceCollectionProducts,
+    removeCollectionProduct,
   }
 })

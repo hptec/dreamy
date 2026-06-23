@@ -15,6 +15,7 @@ import type {
   Collection,
   CollectionGroup,
   CollectionGroupUpsert,
+  CollectionProduct,
   CollectionUpsert,
   PageResult,
   PresignRequest,
@@ -180,6 +181,20 @@ export function updateCollection(id: number, body: CollectionUpsert): Promise<Co
 
 export function deleteCollection(id: number): Promise<void> {
   return del<void>(`/api/admin/collections/${id}`)
+}
+
+// ===== 集合内商品管理 E-CAT-35~37 =====
+
+export function listCollectionProducts(id: number): Promise<{ items: CollectionProduct[] }> {
+  return get<{ items: CollectionProduct[] }>(`/api/admin/collections/${id}/products`)
+}
+
+export function replaceCollectionProducts(id: number, productIds: number[]): Promise<void> {
+  return put<void>(`/api/admin/collections/${id}/products`, { productIds })
+}
+
+export function removeCollectionProduct(id: number, productId: number): Promise<void> {
+  return del<void>(`/api/admin/collections/${id}/products/${productId}`)
 }
 
 // ===== 预签名上传 E-CAT-35（FLOW-P17 两步：presign → PUT 直传） =====
