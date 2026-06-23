@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -38,14 +39,16 @@ public class ProductCollectionRepository {
         return mapper.selectList(new LambdaQueryWrapper<ProductCollection>().in(ProductCollection::getProductId, productIds));
     }
 
-    /** RM-CAT-142 replaceAll —— collection_ids 整单覆盖 */
+    /** RM-CAT-142 replaceAll —— collection_ids 整单覆盖（按入参顺序写 sort） */
     public void replaceAll(Long productId, List<Long> collectionIds) {
         deleteByProductId(productId);
         if (collectionIds != null) {
+            int sort = 0;
             for (Long collectionId : collectionIds) {
                 ProductCollection pc = new ProductCollection();
                 pc.setProductId(productId);
                 pc.setCollectionId(collectionId);
+                pc.setSort(sort++);
                 mapper.insert(pc);
             }
         }
@@ -59,6 +62,13 @@ public class ProductCollectionRepository {
     /** RM-CAT-144 deleteByCollectionId —— 删集合级联摘除（TX-CAT-020） */
     public void deleteByCollectionId(Long collectionId) {
         mapper.delete(new LambdaQueryWrapper<ProductCollection>().eq(ProductCollection::getCollectionId, collectionId));
+    }
+
+    /** 删除单条挂载（集合维度摘除商品） */
+    public void deleteByCollectionIdAndProductId(Long collectionId, Long productId) {
+        mapper.delete(new LambdaQueryWrapper<ProductCollection>()
+                .eq(ProductCollection::getCollectionId, collectionId)
+                .eq(ProductCollection::getProductId, productId));
     }
 
     /** RM-CAT-145 countByCollectionIds —— product_count 两口径（NP-CAT-002 单条 GROUP BY） */
@@ -81,8 +91,50 @@ public class ProductCollectionRepository {
     public List<Long> listProductIdsByCollectionId(Long collectionId, int limit) {
         return mapper.selectList(new LambdaQueryWrapper<ProductCollection>()
                         .eq(ProductCollection::getCollectionId, collectionId)
+                        .orderByAsc(ProductCollection::getSort)
                         .orderByAsc(ProductCollection::getId)
                         .last("LIMIT " + limit))
                 .stream().map(ProductCollection::getProductId).toList();
+    }
+
+    /** 列出集合内全部挂载（按 sort 升序，sort 相同按 id 升序） */
+    public List<ProductCollection> listByCollectionId(Long collectionId) {
+        return mapper.selectList(new LambdaQueryWrapper<ProductCollection>()
+                .eq(ProductCollection::getCollectionId, collectionId)
+                .orderByAsc(ProductCollection::getSort)
+                .orderByAsc(ProductCollection::getId));
+    }
+
+    /** 批量取每个集合 sort 最小的 productId（用于 fallback cover 装配，防 N+1） */
+    public Map<Long, Long> listFirstProductIdsByCollections(Collection<Long> collectionIds) {
+        if (collectionIds == null || collectionIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ProductCollection> rows = mapper.selectList(new LambdaQueryWrapper<ProductCollection>()
+                .in(ProductCollection::getCollectionId, collectionIds)
+                .orderByAsc(ProductCollection::getCollectionId)
+                .orderByAsc(ProductCollection::getSort)
+                .orderByAsc(ProductCollection::getId));
+        Map<Long, Long> result = new LinkedHashMap<>();
+        for (ProductCollection pc : rows) {
+            // 每个 collectionId 只取首条（sort 最小）
+            result.putIfAbsent(pc.getCollectionId(), pc.getProductId());
+        }
+        return result;
+    }
+
+    /** 按集合维度全量覆盖（先删后插，sort 按入参顺序 0,1,2,...） */
+    public void replaceAllByCollection(Long collectionId, List<Long> productIds) {
+        deleteByCollectionId(collectionId);
+        if (productIds != null) {
+            int sort = 0;
+            for (Long productId : productIds) {
+                ProductCollection pc = new ProductCollection();
+                pc.setProductId(productId);
+                pc.setCollectionId(collectionId);
+                pc.setSort(sort++);
+                mapper.insert(pc);
+            }
+        }
     }
 }

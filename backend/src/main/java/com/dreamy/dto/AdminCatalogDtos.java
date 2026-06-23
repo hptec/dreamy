@@ -51,8 +51,18 @@ public final class AdminCatalogDtos {
                                    List<CollectionTranslationDto> translations) {
     }
 
-    /** openapi Collection（product_count 全量口径——MAP-CAT-010） */
+    /** openapi Collection（product_count 全量口径——MAP-CAT-010；fallback_cover_url 为 cover 缺失时回退到集合内首个商品主图） */
     public record CollectionDto(Long id, Long collectionGroupId, String name, String cover, Integer status,
-                                Integer productCount, List<CollectionTranslationDto> translations) {
+                                Integer productCount, String fallbackCoverUrl,
+                                List<CollectionTranslationDto> translations) {
+    }
+
+    /** openapi CollectionProduct（集合内商品项，含主图与 sort） */
+    public record CollectionProductDto(Long productId, String name, String slug, Integer status,
+                                       String imageUrl, Integer sort) {
+    }
+
+    /** openapi CollectionProductsUpsert（按入参顺序写 sort，全量覆盖） */
+    public record CollectionProductsUpsert(List<Long> productIds) {
     }
 }

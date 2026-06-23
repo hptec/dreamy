@@ -4,6 +4,8 @@ import com.dreamy.domain.collection.service.CollectionAdminService;
 import com.dreamy.dto.AdminCatalogDtos.CollectionGroupDto;
 import com.dreamy.dto.AdminCatalogDtos.CollectionGroupUpsert;
 import com.dreamy.dto.AdminCatalogDtos.CollectionDto;
+import com.dreamy.dto.AdminCatalogDtos.CollectionProductDto;
+import com.dreamy.dto.AdminCatalogDtos.CollectionProductsUpsert;
 import com.dreamy.dto.AdminCatalogDtos.CollectionUpsert;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
@@ -97,6 +99,32 @@ public class AdminCollectionController {
     @DeleteMapping("/api/admin/collections/{id}")
     public ResponseEntity<Void> deleteCollection(@PathVariable String id) {
         collectionAdminService.deleteCollection(parseId(id));
+        return ResponseEntity.noContent().build();
+    }
+
+    // ==================== 集合内商品管理 E-CAT-35~37 ====================
+
+    /** E-CAT-35 listAdminCollectionProducts */
+    @RequirePermission(PERMISSION)
+    @GetMapping("/api/admin/collections/{id}/products")
+    public ResponseEntity<R<Map<String, List<CollectionProductDto>>>> listProducts(@PathVariable String id) {
+        return ResponseEntity.ok(R.ok(Map.of("items", collectionAdminService.listCollectionProducts(parseId(id)))));
+    }
+
+    /** E-CAT-36 replaceAdminCollectionProducts（TX-CAT-021；全量覆盖写 sort） */
+    @RequirePermission(PERMISSION)
+    @PutMapping("/api/admin/collections/{id}/products")
+    public ResponseEntity<R<Void>> replaceProducts(@PathVariable String id,
+                                                   @RequestBody CollectionProductsUpsert req) {
+        collectionAdminService.replaceCollectionProducts(parseId(id), req);
+        return ResponseEntity.ok(R.ok(null));
+    }
+
+    /** E-CAT-37 removeAdminCollectionProduct（TX-CAT-022；单条摘除） */
+    @RequirePermission(PERMISSION)
+    @DeleteMapping("/api/admin/collections/{id}/products/{productId}")
+    public ResponseEntity<Void> removeProduct(@PathVariable String id, @PathVariable String productId) {
+        collectionAdminService.removeCollectionProduct(parseId(id), parseId(productId));
         return ResponseEntity.noContent().build();
     }
 

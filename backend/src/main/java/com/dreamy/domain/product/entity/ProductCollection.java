@@ -18,7 +18,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "product_collection", comment = "商品-集合挂载", indexes = {
         @Index(name = "uk_pcol", columns = {"product_id", "collection_id"}, unique = true, local = false),
-        @Index(name = "idx_pcol_collection", columns = {"collection_id"}, unique = false, local = false)
+        @Index(name = "idx_pcol_collection", columns = {"collection_id"}, unique = false, local = false),
+        @Index(name = "idx_pcol_collection_sort", columns = {"collection_id", "sort"}, unique = false, local = false)
 })
 @TableName(value = "product_collection", autoResultMap = true)
 public class ProductCollection extends LongAuditableEntity {
@@ -28,4 +29,7 @@ public class ProductCollection extends LongAuditableEntity {
 
     @Column(name = ProductCollectionDBConst.COLLECTION_ID, definition = "bigint NOT NULL COMMENT '逻辑外键 collection.id'")
     private Long collectionId;
+
+    @Column(name = ProductCollectionDBConst.SORT, definition = "int NOT NULL DEFAULT 0 COMMENT '集合内商品显示顺序（小在前）'")
+    private Integer sort;
 }

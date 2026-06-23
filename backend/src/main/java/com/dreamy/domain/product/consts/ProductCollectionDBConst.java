@@ -8,4 +8,5 @@ public interface ProductCollectionDBConst extends CatalogCommonDBConst {
     String TABLE = "product_collection";
 
     String COLLECTION_ID = "collection_id";
+    String SORT = "sort";
 }
