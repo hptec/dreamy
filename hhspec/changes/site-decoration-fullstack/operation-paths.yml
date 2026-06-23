@@ -1,0 +1,222 @@
+schema_version: "1.0"
+
+meta:
+  change_name: site-decoration-fullstack
+  portal_id: ""
+  extracted_at: "2026-06-23T15:42:50+08:00"
+  extraction_method: script
+  source_files:
+    - file: portal-admin/src/views/AdminList.vue
+      page_id: admin-list
+      hash: "sha256:666707d6eaa49604a6229279ef817d1f89ab4b678c17ef7bb21d72967f6adc8a"
+    - file: portal-admin/src/views/AuthSettings.vue
+      page_id: auth-settings
+      hash: "sha256:2de9e7cab916f20fca1d983b032aa7b42e5f48cbf7df6653b8b2fb48273456aa"
+    - file: portal-admin/src/views/CustomerDetail.vue
+      page_id: customer-detail
+      hash: "sha256:0c97f5350461416f65e6a969452c438b96e989140ded823c6faf9db060f1f9cb"
+    - file: portal-admin/src/views/Customers.vue
+      page_id: customers
+      hash: "sha256:666c2d676700460c07d634b6721a38234f86c0ba12d9db4a425e00d8f80311f2"
+    - file: portal-admin/src/views/EmailMarketing.vue
+      page_id: email-marketing
+      hash: "sha256:1056800e03c6bc0d93b4c0430843c342012c6661e9c105256fd56fae21d52392"
+    - file: portal-admin/src/views/HomeBuilder.vue
+      page_id: home-builder
+      hash: "sha256:14189e2cd9c9b819a1e7355ba7491ffd8995b7520d30d3fb5f1f31a19e58b2af"
+    - file: portal-admin/src/views/Login.vue
+      page_id: login
+      hash: "sha256:143dfb5c60e62a3de343ac37c98ddfbc00bf0eec91a99969273239c34cabb80d"
+    - file: portal-admin/src/views/NavigationConfig.vue
+      page_id: navigation-config
+      hash: "sha256:8cb5f9a1d9aaac16c11b4cb0e3ac584330f401b780e476a7e507b9d4486b2c3a"
+    - file: portal-admin/src/views/OperationLogs.vue
+      page_id: operation-logs
+      hash: "sha256:a43ec4c9a3566400e96de500d6ec96c2af8d6a2eb7ca29a165f0f0225d8133c4"
+    - file: portal-admin/src/views/Publish.vue
+      page_id: publish
+      hash: "sha256:f7891b67cba0f895e89f51d6d8f040dd14d03a8f00c488cc28d94a16197a9f3c"
+    - file: portal-admin/src/views/RoleManagement.vue
+      page_id: role-management
+      hash: "sha256:5d8effb5be5e894fd26dd0676c5aebdf8b0b1f8b5e7945661e5e5458e973aed9"
+    - file: portal-admin/src/views/Settings.vue
+      page_id: settings
+      hash: "sha256:d6c66cd93d3cd2513cdaf80fcac7b9f0b01ece1d9e78046f3b6dbb657c0cb549"
+  stats:
+    total_operations: 6
+    by_type:
+      api_call: 2
+      dialog_open: 3
+      download: 1
+    by_page:
+      admin-list: 1
+      auth-settings: 1
+      customer-detail: 2
+      operation-logs: 1
+      role-management: 1
+
+operations:
+
+  - id: OP-001
+    page_id: admin-list
+
+    source:
+      file: portal-admin/src/views/AdminList.vue
+      selector: button.btn-primary
+      selector_confidence: medium
+      label: 新增管理员
+      element_type: button
+
+    type: dialog_open
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: "<dialog> → visible"
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [dialog, create]
+
+  - id: OP-002
+    page_id: auth-settings
+
+    source:
+      file: portal-admin/src/views/AuthSettings.vue
+      selector: button.btn-primary
+      selector_confidence: medium
+      label: 保存配置
+      element_type: button
+
+    type: api_call
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: 数据更新
+        notification: {type: toast, level: success, text: 操作成功}
+        navigation: null
+      - condition: api_error
+        state_change: 无变化
+        notification: {type: toast, level: error, text: 操作失败}
+        navigation: null
+      - condition: confirm_cancel
+        state_change: 无变化
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [api]
+
+  - id: OP-003
+    page_id: customer-detail
+
+    source:
+      file: portal-admin/src/views/CustomerDetail.vue
+      selector: button.btn-ghost
+      selector_confidence: medium
+      label: 返回
+      element_type: button
+
+    type: api_call
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: 数据更新
+        notification: {type: toast, level: success, text: 操作成功}
+        navigation: null
+      - condition: api_error
+        state_change: 无变化
+        notification: {type: toast, level: error, text: 操作失败}
+        navigation: null
+      - condition: confirm_cancel
+        state_change: 无变化
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [api]
+
+  - id: OP-004
+    page_id: customer-detail
+
+    source:
+      file: portal-admin/src/views/CustomerDetail.vue
+      selector: button.btn-outline
+      selector_confidence: medium
+      label: 强制下线
+      element_type: button
+
+    type: dialog_open
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: "<dialog> → visible"
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [dialog]
+
+  - id: OP-005
+    page_id: operation-logs
+
+    source:
+      file: portal-admin/src/views/OperationLogs.vue
+      selector: button.btn-ghost
+      selector_confidence: medium
+      label: 导出 CSV
+      element_type: button
+
+    type: download
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: 触发文件下载
+        notification: null
+        navigation: null
+      - condition: api_error
+        state_change: 下载失败提示
+        notification: {type: toast, level: error, text: 导出失败}
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [export, file_io]
+
+  - id: OP-006
+    page_id: role-management
+
+    source:
+      file: portal-admin/src/views/RoleManagement.vue
+      selector: button.btn-primary
+      selector_confidence: medium
+      label: 新增角色
+      element_type: button
+
+    type: dialog_open
+    trigger: click
+    pre_conditions: []
+    outcomes:
+      - condition: success
+        state_change: "<dialog> → visible"
+        notification: null
+        navigation: null
+    related_api: null
+    impl_file: ""
+    impl_method: ""
+    fields: []
+    tags: [dialog, create]

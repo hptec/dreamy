@@ -1,0 +1,67 @@
+change_name: site-decoration-fullstack
+generated_at: "2026-06-23T08:29:57Z"
+
+entity_impact:
+  skipped: false
+entities_analyzed:
+  - id: HomePageSection
+  - id: HomeSectionTranslation
+  - id: NavigationItem
+  - id: NavigationTranslation
+  - id: FooterColumn
+  - id: FooterLink
+  - id: Announcement
+  - id: AnnouncementTranslation
+  - id: Subscriber
+  - id: Banner
+  - id: BannerTranslation
+  - id: Taxonomy
+  - id: Product
+  - id: RealWedding
+  - id: CacheInvalidationLog
+  - id: NewsletterSubscriber
+  - id: NewsletterSubscriber
+  - id: CacheInvalidationLog
+  - id: OQ-1
+
+state_impact:
+  skipped: true
+
+flow_impact:
+  skipped: false
+flows_analyzed:
+  - id: FLOW-001
+  - id: FLOW-002
+  - id: FLOW-003
+  - id: FLOW-004
+  - id: FLOW-005
+  - id: FLOW-006
+  - id: FLOW-007
+  - id: FLOW-008
+  - id: FLOW-009
+  - id: FLOW-010
+  - id: BF-OQ-1
+  - id: BF-OQ-2
+  - id: BF-OQ-3
+  - id: BF-OQ-4
+  - id: BF-OQ-5
+
+cross_domain_impacts:
+  []
+
+
+affected_specs:
+  []
+
+affected_domains:
+  []
+
+breaking_changes:
+  []
+
+summary:
+  total_affected_specs: 0
+  regression_risk_score: 4
+  regression_risk_level: medium
+  must_review:
+    []

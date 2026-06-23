@@ -1,0 +1,56 @@
+gaps:
+- id: ALIGN-001
+  page: HomeBuilder
+  type: missing_module
+  prototype_has: 区块列表（拖拽排序 + 显示开关）
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-002
+  page: NavigationConfig
+  type: missing_module
+  prototype_has: 主导航 + Mega Menu 列编辑（引用品类/主题）
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-003
+  page: Banners
+  type: wrong_purpose
+  prototype_has: 原型用 mock 数据，实际已接入 AdminBannerController（E-MKT-21~25）+ BannerTranslation
+    i18n
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-004
+  page: Banners
+  type: wrong_purpose
+  prototype_has: 原型无 i18n 字段，实际已实现 BannerTranslation 多语言表
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-005
+  page: Banners
+  type: wrong_purpose
+  prototype_has: '原型无状态枚举，实际 status: 1=草稿/2=已发布/3=已归档'
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-006
+  page: Publish
+  type: missing_module
+  prototype_has: 待发布改动 diff（勾选纳入）
+  impl_has: NOT_FOUND (no implementation code exists)
+  severity: high
+- id: ALIGN-007
+  page: Publish
+  type: wrong_purpose
+  prototype_has: 原型描述 SSG 发布中心，实际仅缓存失效日志（GET /api/admin/cache/invalidation-logs +
+    POST /api/admin/cache/invalidate）
+  impl_has: MISALIGNED
+  severity: medium
+- id: ALIGN-008
+  page: Publish
+  type: wrong_purpose
+  prototype_has: 当前实现是 Publish.vue + AdminCacheController，与原型 SSG-PUBLISH 差距大
+  impl_has: MISALIGNED
+  severity: medium
+summary:
+  total: 8
+  by_portal:
+    unknown: 8
+  change_type: alignment

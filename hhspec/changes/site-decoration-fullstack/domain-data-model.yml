@@ -1,0 +1,280 @@
+# domain-data-model.yml — site-decoration-fullstack
+# 来源：field-inventory.yml（置信度低）+ operation-paths.yml + 直接阅读原型/实际代码
+# Phase 1.9 LLM 推断产物
+
+meta:
+  generated_at: "2026-06-23T07:43:00Z"
+  change_name: site-decoration-fullstack
+  inference_basis:
+    - "原型 portal-admin/src/views/HomeBuilder.vue（homeBlocks mock 结构）"
+    - "原型 portal-admin/src/views/NavigationConfig.vue（navConfig + announcements）"
+    - "原型 portal-admin/src/views/Banners.vue（banners mock）"
+    - "实际 backend AdminBannerController + Banner entity + BannerPosition enum"
+    - "实际 frontend/portal-store/app/[locale]/page.tsx（消费端首页硬编码区块顺序）"
+    - "实际 frontend/portal-admin/src/api/* + Banners/Publish 已接入后端 API"
+  confidence: medium
+
+# ====================================================================
+# 实体聚合：本变更涉及 4 个聚合根，其中 2 个已存在，2 个待新建
+# ====================================================================
+
+aggregates:
+
+  # ----------------------------------------------------------------
+  # 聚合 1：首页区块配置（待新建）— HomeBuilder 管理对象
+  # ----------------------------------------------------------------
+  - id: home_page_section
+    name: 首页区块配置
+    aggregate_root: HomePageSection
+    description: |
+      管理后台 HomeBuilder 页面可视化编排的首页区块。
+      每个区块代表消费端首页的一段内容（Hero/公告/色板/主题卡/商品推荐/编辑特写/Newsletter）。
+      消费端首页按 sort_order 升序渲染所有 enabled=true 的区块。
+    entities:
+      - name: HomePageSection
+        is_root: true
+        fields:
+          - { name: id, type: Long, desc: 主键自增 }
+          - { name: section_type, type: enum, desc: "Hero/Announcement/ShopByColor/ThemeCards/ProductRail/EditorialFeature/Newsletter" }
+          - { name: label, type: String, desc: "后台显示名称（如 'Hero 主视觉'）" }
+          - { name: enabled, type: Boolean, desc: "是否启用（消费端只渲染 enabled=true）" }
+          - { name: sort_order, type: Integer, desc: "排序（升序）" }
+          - { name: data_json, type: JSON, desc: "区块数据（按 section_type 不同结构）" }
+          - { name: created_at, type: LocalDateTime }
+          - { name: updated_at, type: LocalDateTime }
+        notes:
+          - "data_json 的多语言字段（eyebrow/title/subtitle/cta_text）需考虑 i18n 翻译策略"
+          - "Hero 区块与 Banner 存在数据源重叠：方案 A 是 Hero 区块独立存数据，方案 B 是 Hero 区块引用 Banner position=HERO 的数据（L1 决策）"
+          - "ProductRail.source 枚举：isNew/isBest/recommend（recommend 需要关联商品 ID 列表）"
+          - "ThemeCards.cards 数组：theme 名称，实际图片/描述从分类派生"
+
+  # ----------------------------------------------------------------
+  # 聚合 2：导航配置（待新建）— NavigationConfig 管理对象
+  # ----------------------------------------------------------------
+  - id: navigation_config
+    name: 导航配置
+    aggregate_root: NavigationItem
+    description: |
+      管理后台 NavigationConfig 页面配置的三大对象：
+      1) 主导航 & Mega Menu（引用品类/主题，子链接派生）
+      2) 页脚栏目（多个栏目，每栏目多条链接）
+      3) 顶部公告条（多条滚动公告）
+    entities:
+      - name: NavigationItem
+        is_root: true
+        fields:
+          - { name: id, type: Long }
+          - { name: label, type: String, desc: "导航项文案（i18n）" }
+          - { name: link_type, type: enum, desc: "taxonomy/custom" }
+          - { name: taxonomy_id, type: Long, desc: "link_type=taxonomy 时引用 taxonomy.id" }
+          - { name: custom_href, type: String, desc: "link_type=custom 时自定义 URL" }
+          - { name: sort_order, type: Integer }
+          - { name: enabled, type: Boolean }
+        notes:
+          - "主导航引用 taxonomy（品类/主题），子链接从 taxonomy 派生（只读）"
+          - "mega_menu 列也是派生：source=category-children 引用品类子类，source=taxonomy-type 引用全部上线主题"
+
+      - name: NavigationMegaMenuColumn
+        is_root: false
+        fields:
+          - { name: id, type: Long }
+          - { name: navigation_item_id, type: Long, desc: "所属主导航项" }
+          - { name: title, type: String, desc: "列标题（i18n）" }
+          - { name: source, type: enum, desc: "custom/category-children/taxonomy-type" }
+          - { name: ref_id, type: Long, desc: "source=category-children 时引用品类 ID" }
+          - { name: ref_type, type: String, desc: "source=taxonomy-type 时引用类型（theme/category）" }
+          - { name: custom_links_json, type: JSON, desc: "source=custom 时自定义链接数组" }
+          - { name: sort_order, type: Integer }
+
+      - name: FooterColumn
+        is_root: false
+        fields:
+          - { name: id, type: Long }
+          - { name: title, type: String, desc: "栏目标题（i18n）" }
+          - { name: sort_order, type: Integer }
+
+      - name: FooterLink
+        is_root: false
+        fields:
+          - { name: id, type: Long }
+          - { name: footer_column_id, type: Long }
+          - { name: label, type: String, desc: "链接文案（i18n）" }
+          - { name: href, type: String }
+          - { name: sort_order, type: Integer }
+
+      - name: Announcement
+        is_root: false
+        fields:
+          - { name: id, type: Long }
+          - { name: content, type: String, desc: "公告文案（i18n）" }
+          - { name: sort_order, type: Integer }
+          - { name: enabled, type: Boolean }
+
+  # ----------------------------------------------------------------
+  # 聚合 3：Banner（已存在）— Banners 管理对象
+  # ----------------------------------------------------------------
+  - id: banner
+    name: Banner 广告位
+    aggregate_root: Banner
+    description: |
+      已实现：AdminBannerController (E-MKT-21~25) + StoreContentController.listBanners (E-MKT-01)。
+      Banner + BannerTranslation（i18n）双表。
+      本变更涉及：与 HomeBuilder 的 Hero 区块数据源打通（是否复用 Banner position=HERO）。
+    entities:
+      - name: Banner
+        is_root: true
+        existing: true
+        fields:
+          - { name: id, type: Long }
+          - { name: name, type: String }
+          - { name: image_url, type: String }
+          - { name: position, type: enum, desc: "HERO(1)/FEATURED(2)/TOPBAR(3)" }
+          - { name: start_time, type: LocalDateTime }
+          - { name: end_time, type: LocalDateTime }
+          - { name: status, type: enum, desc: "1=草稿/2=已发布/3=已归档" }
+          - { name: sort, type: Integer }
+          - { name: clicks, type: Integer, desc: "只读" }
+          - { name: title, type: String }
+          - { name: subtitle, type: String }
+          - { name: cta_text, type: String }
+
+  # ----------------------------------------------------------------
+  # 聚合 4：缓存失效日志（已存在）— Publish 管理对象
+  # ----------------------------------------------------------------
+  - id: cache_invalidation_log
+    name: 缓存失效日志
+    aggregate_root: CacheInvalidationLog
+    description: |
+      已实现：AdminCacheController。
+      GET /api/admin/cache/invalidation-logs（日志列表）
+      POST /api/admin/cache/invalidate（手动失效）
+      本变更涉及：HomeBuilder/NavigationConfig 保存后自动触发缓存失效，日志中应体现。
+    entities:
+      - name: CacheInvalidationLog
+        is_root: true
+        existing: true
+
+# ====================================================================
+# 状态机：本变更涉及的显式状态转换
+# ====================================================================
+
+state_machines:
+
+  - id: home_page_section_status
+    target_entity: HomePageSection
+    description: 首页区块启用/禁用切换
+    states:
+      - enabled
+      - disabled
+    transitions:
+      - { from: disabled, to: enabled, trigger: "admin_enable" }
+      - { from: enabled, to: disabled, trigger: "admin_disable" }
+
+  - id: banner_status
+    target_entity: Banner
+    description: Banner 状态机（已有，保留参考）
+    states:
+      - draft       # 1
+      - published   # 2
+      - archived    # 3
+    transitions:
+      - { from: draft, to: published, trigger: "admin_publish" }
+      - { from: published, to: archived, trigger: "admin_archive" }
+      - { from: archived, to: published, trigger: "admin_republish" }
+
+  - id: navigation_item_status
+    target_entity: NavigationItem
+    description: 导航项启用/禁用
+    states:
+      - enabled
+      - disabled
+    transitions:
+      - { from: disabled, to: enabled, trigger: "admin_enable" }
+      - { from: enabled, to: disabled, trigger: "admin_disable" }
+
+# ====================================================================
+# 数据流：管理端写入 → DB → 消费端读取
+# ====================================================================
+
+data_flows:
+
+  - id: home_page_section_flow
+    description: 首页区块配置数据流
+    path:
+      - "管理端 HomeBuilder.vue"
+      - "POST/PUT /api/admin/home-sections（新建）"
+      - "DB: home_sections 表（新建）"
+      - "GET /api/store/content/home/sections（新建，JetCache 两级缓存）"
+      - "消费端 portal-store/app/[locale]/page.tsx 动态渲染"
+    cache_strategy: "消费端读 API 走 JetCache（Caffeine + Redis）；管理端写操作触发缓存失效"
+    invalidation: "保存后调用 POST /api/admin/cache/invalidate（已有端点）"
+
+  - id: navigation_config_flow
+    description: 导航配置数据流
+    path:
+      - "管理端 NavigationConfig.vue"
+      - "POST/PUT /api/admin/navigation（新建）"
+      - "DB: navigation_items / footer_columns / footer_links / announcements 表（新建）"
+      - "GET /api/store/content/navigation（新建，JetCache 两级缓存）"
+      - "消费端 portal-store/app/[locale]/layout.tsx 动态渲染 header/footer"
+      - "消费端 portal-store 顶部公告条组件动态渲染"
+    cache_strategy: "同上"
+    invalidation: "保存后调用 POST /api/admin/cache/invalidate"
+
+  - id: banner_flow
+    description: Banner 数据流（已有，保留参考）
+    path:
+      - "管理端 Banners.vue（已接入）"
+      - "POST/PUT /api/admin/banners（已有 E-MKT-21~25）"
+      - "DB: banners + banner_translations"
+      - "GET /api/store/content/banners（已有 E-MKT-01，JetCache）"
+      - "消费端首页 Hero + 顶部条"
+    existing: true
+
+  - id: publish_flow
+    description: 发布中心数据流（已有，保留参考）
+    path:
+      - "管理端 Publish.vue（已接入）"
+      - "POST /api/admin/cache/invalidate（已有）"
+      - "DB: cache_invalidation_logs"
+      - "GET /api/admin/cache/invalidation-logs（已有）"
+    existing: true
+    extension: "HomeBuilder/NavigationConfig 保存后自动触发缓存失效，日志中记录触发源（home_section/navigation）"
+
+# ====================================================================
+# 关键设计决策（待 Phase 2 与用户讨论确认）
+# ====================================================================
+
+open_design_questions:
+  - id: DQ-1
+    topic: "Hero 区块数据源"
+    question: "HomeBuilder 的 Hero 区块是否复用 Banner position=HERO 的数据，还是独立存？"
+    options:
+      - "复用 Banner：Hero 区块只存 enabled/sort_order，文案/图片从 Banner position=HERO 读取"
+      - "独立存储：Hero 区块独立存 data_json，与 Banner 解耦"
+    impact: "影响 HomePageSection 表结构、管理端编辑表单、消费端渲染逻辑"
+
+  - id: DQ-2
+    topic: "区块数据 i18n"
+    question: "HomePageSection.data_json 中的文案字段（eyebrow/title/subtitle/cta）如何做多语言？"
+    options:
+      - "data_json 内嵌多语言对象（{en: {...}, zh: {...}}）"
+      - "单独 home_section_translations 表（与 Banner 翻译表对齐）"
+      - "本期只支持单语言（EN 基准），后续 change 扩展 i18n"
+    impact: "影响表结构、API 契约、管理端表单"
+
+  - id: DQ-3
+    topic: "导航 Mega Menu 列存储"
+    question: "NavigationMegaMenuColumn 是单独表还是 NavigationItem.mega_menu_json？"
+    options:
+      - "单独表（规范化，便于查询和约束）"
+      - "JSON 字段（简单，便于管理端整体保存）"
+    impact: "影响表结构、Repository 复杂度"
+
+  - id: DQ-4
+    topic: "发布机制"
+    question: "HomeBuilder/NavigationConfig 的保存与发布是同一动作还是分离？"
+    options:
+      - "保存即发布（与 Banners 一致，保存后立即生效）"
+      - "保存为草稿，单独发布动作（与 Publish 中心联动）"
+    impact: "影响状态机、API 设计、UI 交互"

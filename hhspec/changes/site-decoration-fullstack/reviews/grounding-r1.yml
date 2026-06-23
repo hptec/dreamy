@@ -1,0 +1,163 @@
+review_round: 1
+change_name: site-decoration-fullstack
+verdict: fail
+
+must_fix_issues:
+  - id: GRD-001
+    title: "NewsletterSubscriber 基线无 status/unsubscribed_at 字段，subscriber_status 状态机无法落地"
+    code_ref: "backend/src/main/java/com/dreamy/domain/subscriber/entity/NewsletterSubscriber.java:26-39 + backend/src/main/java/com/dreamy/domain/subscriber/service/NewsletterService.java:33-61"
+    requirement_gap: |
+      state-machine.yml > subscriber_status 定义了 pending→subscribed→unsubscribed 三态机，
+      acceptance.yml s-015~s-022 测试 6 个状态转换场景，er-diagram.yml > Subscriber 实体声明
+      status/subscribed_at/unsubscribed_at 字段。但基线 NewsletterSubscriber 实体只有
+      email/source/locale/subscribedAt 四个业务字段，无 status、无 unsubscribed_at。
+    suggestion: |
+      在 modified_entities 显式补齐 NewsletterSubscriber 的 added_fields
+      (status: enum[pending,subscribed,unsubscribed] DEFAULT pending,
+      unsubscribed_at: datetime NULL) + changed_constraints (unique email →
+      unique(email,source))，或修改 OQ-2 推荐方案明确本期不实现退订/重订阅状态机。
+
+  - id: GRD-002
+    title: "Taxonomy 实体引用不存在的 CustomTag 实体和 Category.slug/enabled 字段"
+    code_ref: "backend/src/main/java/com/dreamy/domain/category/entity/Category.java:28-52 + backend/src/main/java/com/dreamy/domain/collection/entity/Collection.java:15-17 注释"
+    requirement_gap: |
+      er-diagram.yml > Taxonomy (meta.source=baseline) 声明 slug 字段 source="baseline Category.slug | CustomTag.slug"
+      但 Category 实体无 slug 字段；online 字段 source="baseline Category.enabled | CustomTag.enabled"
+      但 Category 无 enabled/online 字段；relation 引用 CustomTag 但基线无此实体
+      （Collection.java 注释明确"合并承载 CustomTag，不建 custom_tag 表"）。
+      KD-8 ThemeCards 引用 Taxonomy type=theme 的数据源建模因此失效。
+    suggestion: |
+      修正 Taxonomy 实体 source 描述：type=category 映射 Category；type=theme 映射
+      Collection（collectionGroupId 指向名为"主题"的 CollectionGroup），移除 CustomTag 引用。
+
+  - id: GRD-003
+    title: "acceptance.yml 的 error_code 与基线 MarketingErrorCode 枚举不匹配"
+    code_ref: "backend/src/main/java/com/dreamy/error/MarketingErrorCode.java:12-28 + backend/src/main/java/com/dreamy/error/MarketingExceptionHandler.java:97-99"
+    requirement_gap: |
+      acceptance.yml 使用三个基线不存在的 error_code 字面量：
+      (1) "FIELD_REQUIRED"（50 处）——基线是 FIELD_VALIDATION_FAILED(422704)；
+      (2) "GUARD_NOT_SATISFIED"（6 处）——基线是 CONTENT_STATE_INVALID(409703, HTTP 409)，
+      且 acceptance 写 http_status:422 与基线 409 冲突；
+      (3) "SUCCESS"（201 响应）——基线 R 包络成功是 {code:0, message:"ok"}。
+    suggestion: |
+      全局替换：FIELD_REQUIRED → FIELD_VALIDATION_FAILED；
+      GUARD_NOT_SATISFIED → CONTENT_STATE_INVALID 且 http_status 422→409；
+      SUCCESS → 0（或显式声明 success 用 code:0 校验）。
+
+  - id: GRD-004
+    title: "MarketingCacheService.Family 枚举缺少 home_section/navigation/announcement 缓存族"
+    code_ref: "backend/src/main/java/com/dreamy/infra/MarketingCacheService.java:37-46"
+    requirement_gap: |
+      business-flow.yml 三个新流程的 side_effect 均声明"JetCache @CacheInvalidate 失效缓存族"，
+      但基线 MarketingCacheService.Family 枚举仅 9 个族，无 HOME_SECTION/NAVIGATION/ANNOUNCEMENT。
+      缺少族定义则 cache.invalidateFamily(Family.X) 无法编译，整套失效链断裂。
+    suggestion: |
+      在 modified_entities 或新增 modified_enums 段声明 MarketingCacheService.Family 新增
+      HOME_SECTION/NAVIGATION/ANNOUNCEMENT 三个枚举值。
+
+  - id: GRD-005
+    title: "MarketingContentInvalidatedPublisher 缺少新事件类型常量与路径构建分支 + event_type 命名 _saved vs _changed 不一致"
+    code_ref: "backend/src/main/java/com/dreamy/mq/MarketingContentInvalidatedPublisher.java:30-35,96-133 + backend/src/main/java/com/dreamy/domain/cache/service/AdminCacheService.java:79-117"
+    requirement_gap: |
+      (1) 基线 publisher 仅 6 个 TYPE_* 常量，无 HOME_SECTION_CHANGED/NAVIGATION_CHANGED/ANNOUNCEMENT_CHANGED；
+      extractResourceType 与 buildAffectedPaths 无对应分支。
+      (2) 命名不一致：business-flow 用 _changed 后缀，er-diagram/state-machine 用 _saved 后缀。
+      基线 logInvalidation(type,...) 的 type 参数与 MQ 事件 type 同字符串，故应为 _changed。
+    suggestion: |
+      modified_entities 声明 Publisher 新增 3 个 TYPE_* 常量；
+      统一 event_type 命名为 _changed 后缀，修正 er-diagram added_vals 与 state-machine side_effects。
+
+  - id: GRD-006
+    title: "新 Controller 必须登记到 MarketingExceptionHandler @RestControllerAdvice assignableTypes"
+    code_ref: "backend/src/main/java/com/dreamy/error/MarketingExceptionHandler.java:39"
+    requirement_gap: |
+      基线 MarketingExceptionHandler 用 @RestControllerAdvice(assignableTypes={...}) 显式枚举
+      10 个 marketing 域 Controller。新增 AdminHomeSectionController/AdminNavigationController/
+      AdminAnnouncementController 若不登记到此列表，MarketingException 会穿透到 identity
+      GlobalExceptionHandler，返回的错误结构与 marketing 域契约不符。
+    suggestion: |
+      在 business-flow 或 modified_entities 显式声明：新 Controller 须加入
+      MarketingExceptionHandler assignableTypes 列表。
+
+  - id: GRD-007
+    title: "/site/announcement 权限码未在 DataInitializer 种子数据中声明"
+    code_ref: "backend/src/main/java/com/dreamy/config/DataInitializer.java:90-94"
+    requirement_gap: |
+      KD-BE-2 声明 AdminAnnouncementController 用 @RequirePermission("/site/announcement")，
+      但 DataInitializer 种子仅 /site/home、/site/navigation、/site/banners，无 /site/announcement。
+      未种子则除超管外所有角色 403。
+    suggestion: |
+      在 modified_entities 或 modified_seed_data 段声明 DataInitializer 新增
+      {"/site/announcement","站点装修","公告条"} 权限种子，并补对应角色权限分配。
+
+  - id: GRD-008
+    title: "基线公告条实现复用 TOPBAR Banner，KD-7 独立 Announcement 域的迁移路径未覆盖"
+    code_ref: "frontend/portal-store/app/[locale]/layout.tsx:53-54 + frontend/portal-store/components/layout/site-header.tsx:24-31"
+    requirement_gap: |
+      基线消费端公告条通过 fetchStoreBanners(BannerPosition.TOPBAR) 取数据。KD-7 决定新建独立
+      Announcement 域，但未说明：(1) 现有 TOPBAR Banner 公告数据是否迁移到 announcements 表；
+      (2) BannerPosition.TOPBAR 是否废弃或保留；(3) layout.tsx 改调新 API 后 TOPBAR Banner 去留。
+    suggestion: |
+      在 business-flow 或新增 open_question 显式声明 TOPBAR Banner 公告数据的迁移策略。
+
+  - id: GRD-009
+    title: "订阅 API 路径与基线 POST /api/store/newsletter 重复，source 枚举类型 IntEnum vs 字符串冲突"
+    code_ref: "backend/src/main/java/com/dreamy/controller/StoreLeadController.java:30-38 + backend/src/main/java/com/dreamy/enums/NewsletterSource.java:13-16"
+    requirement_gap: |
+      KD-11/er-diagram/state-machine 声明"新建 POST /api/store/subscribers/subscribe"，
+      但基线已有 POST /api/store/newsletter（StoreLeadController.java:34，E-MKT-11）。
+      且 er-diagram Subscriber.source 描述为字符串枚举，基线 NewsletterSource 是 IntEnum
+      (1=FOOTER,2=MODAL,3=EXIT_INTENT)，modified_entities 的 added_enum_values: source:[home_block]
+      未指定 IntEnum key=4，类型描述与基线冲突。
+    suggestion: |
+      明确 API 路径决策：方案 A 扩展基线 /api/store/newsletter 新增 source=4(HOME_BLOCK)；
+      方案 B 新建独立端点并废弃旧的。modified_entities 的 source 枚举扩展改为
+      added_enum_values: [HOME_BLOCK(4)] 显式 IntEnum key。
+
+  - id: GRD-010
+    title: "Hero 区块需要 2 个 CTA 但 Banner 实体仅支持 1 个 cta_text，KD-2 数据源派生不完整"
+    code_ref: "frontend/portal-admin/src/data/mock.js:211 + backend/src/main/java/com/dreamy/domain/banner/entity/Banner.java:60-61"
+    requirement_gap: |
+      原型 mock.js homeBlocks Hero 的 data 含 cta1("Shop the Collection") + cta2("Explore Outdoor")
+      两个 CTA。KD-2 决定 Hero 文案/CTA 从 Banner position=HERO 派生。但基线 Banner 实体仅
+      cta_text 单字段。第二个 CTA 无数据源，er-diagram 未建模。消费端 page.tsx 实际渲染了
+      两个 CTA，KD-2 派生后第二个 CTA 会丢失。
+    suggestion: |
+      二选一：(A) Banner 实体新增 cta_text_secondary 字段；
+      (B) er-diagram 放宽 Hero data_json 约束，允许存 cta2_label+cta2_href；
+      (C) 明确第二个 CTA 走硬编码/导航配置派生。
+
+warning_issues:
+  - id: GRD-W01
+    title: "business-flow 误描述缓存失效为'同步调 POST /api/admin/cache/invalidate'"
+    suggestion: |
+      基线 Banner 失效链是 in-process cache.invalidateFamily + publisher.publish，
+      并非 HTTP 自调。business-flow 三个新流程的 side_effect 应改为 in-process 调用模式。
+  - id: GRD-W02
+    title: "business-flow 声称 JetCache TTL 600s 与基线 300s 不符"
+    suggestion: 统一为 300s 或在 modified_entities 显式声明新族采用 600s。
+  - id: GRD-W03
+    title: "portal-admin 有 26 个 Pinia store 但 HomeBuilder/NavigationConfig 无 store 建模"
+    suggestion: 新域应建 useHomeBuilderStore/useNavigationConfigStore 对齐模式。
+  - id: GRD-W04
+    title: "portal-store 首页 force-dynamic 无 SSG，KD-1 'SSG 发布中心'表述与实际架构不符"
+    suggestion: KD-1 措辞改为"不引入 SSG，保持 force-dynamic + 缓存失效"。
+  - id: GRD-W05
+    title: "消费端首页现有 4 类区块不在 HomePageSection.section_type 7 种枚举内"
+    suggestion: 现有首页含 FlashSaleRail/Lookbook Editorial/ColorPalette Moodboard/ValueProps 四类区块，建议在 open_question 显式处理。
+  - id: GRD-W06
+    title: "er-diagram CacheInvalidationLog baseline 字段描述多处不准"
+    suggestion: resource_id 声明 String 实为 Long；paths_json 声明 JSON 实为 affected_paths(List<String>)；status 声明 enum 实为 Integer。
+  - id: GRD-W07
+    title: "新实体未声明 LongAuditableEntity 基类与软删除策略"
+    suggestion: 显式声明 extends LongAuditableEntity + 是否软删除。
+  - id: GRD-W08
+    title: "FooterColumn/FooterLink i18n 缺失（OQ-3）与基线双表模式不一致"
+    suggestion: 按 OQ-3 方案 B 补 FooterColumnTranslation/FooterLinkTranslation 实体。
+
+info_issues: []
+
+summary:
+  total_issues: 18
+  must_fix_count: 10
+  warning_count: 8

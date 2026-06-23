@@ -1,0 +1,38 @@
+skipped: false
+analyzed_at: "2026-06-23T08:29:26Z"
+er_diagram_hash: "f961b6c2f6db44606ac9e0291ba322d3a93bf19198e25e855c87f00336b6c7f3"
+
+entities_analyzed:
+  - id: HomePageSection
+  - id: HomeSectionTranslation
+  - id: NavigationItem
+  - id: NavigationTranslation
+  - id: FooterColumn
+  - id: FooterLink
+  - id: Announcement
+  - id: AnnouncementTranslation
+  - id: Subscriber
+  - id: Banner
+  - id: BannerTranslation
+  - id: Taxonomy
+  - id: Product
+  - id: RealWedding
+  - id: CacheInvalidationLog
+  - id: NewsletterSubscriber
+  - id: NewsletterSubscriber
+  - id: CacheInvalidationLog
+  - id: OQ-1
+  - id: OQ-2
+  - id: OQ-3
+  - id: OQ-4
+  - id: OQ-5
+  - id: OQ-6
+
+affected_specs:
+  []
+
+downstream_consumers:
+  []
+
+breaking_changes:
+  []

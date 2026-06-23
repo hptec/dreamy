@@ -1,0 +1,36 @@
+analyzed_at: '2026-06-23T09:44:56Z'
+session_id: 48b341c8-a957-40f2-b77a-5d82d87152f8
+transcript_path: /Users/harryhe/.claude/projects/-Volumes-MAC-workspace-hh-factory-hh-marketplace/48b341c8-a957-40f2-b77a-5d82d87152f8.jsonl
+summary:
+  total_entries: 206
+  session_duration_s: 1047.6
+  turn_count: 68
+  phase_count: 0
+  error_count: 0
+  warning_count: 0
+performance:
+  session_duration_ms: 1047605
+  session_duration_s: 1047.6
+  turn_count: 68
+  total_input_tokens: 3196073
+  total_output_tokens: 21516
+  total_cache_read_tokens: 3130368
+  total_cache_create_tokens: 0
+  cache_hit_ratio: 0.979
+  avg_turn_ms: 11277
+  median_turn_ms: 6289
+  tool_count: 1
+  total_tool_ms: 250
+  slowest_tools:
+  - name: Glob
+    duration_ms: 250
+    command: '{"pattern": "plugins/pd/pd/commands/monitor*"}'
+phases: []
+errors: []
+warnings:
+- level: warn
+  message: Session 总时长 1048s 超过阈值 600s
+  suggestion: 建议对耗时阶段进行脚本化或任务原子化，锁定精确输入参数避免重复上下文加载
+- level: warn
+  message: Turn 数 68 超过阈值 20
+  suggestion: 检查是否存在死循环或无限 retry，考虑设置 max_iterations 上限

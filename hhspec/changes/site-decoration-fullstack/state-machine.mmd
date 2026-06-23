@@ -1,0 +1,26 @@
+stateDiagram-v2
+  [*] --> enabled
+  disabled --> enabled : admin_enable
+  enabled --> disabled : admin_disable
+  [*] --> enabled
+  disabled --> enabled : admin_enable
+  enabled --> disabled : admin_disable
+  [*] --> enabled
+  disabled --> enabled : admin_enable
+  enabled --> disabled : admin_disable
+  [*] --> draft
+  draft --> published : publish
+  published --> archived : take_offline
+  published --> archived : schedule_expire
+  archived --> published : republish
+  draft --> deleted : delete
+  published --> deleted : delete
+  archived --> deleted : delete
+  [*] --> subscribed
+  subscribed --> subscribed : subscribe
+  [*] --> enabled
+  disabled --> enabled : admin_enable
+  enabled --> disabled : admin_disable
+  classDef deprecated stroke:#999,stroke-dasharray:4 4,color:#999
+  classDef new stroke:#0a0,stroke-width:2px
+  classDef modified stroke:#fa0,stroke-width:2px

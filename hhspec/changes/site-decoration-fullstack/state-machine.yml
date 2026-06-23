@@ -1,0 +1,292 @@
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/state-machine.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T10:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-1, KD-4, KD-7, KD-11, KD-12, KD-13, KD-14, KD-BE-2]
+  inference_confidence: high
+  review_round: 2
+  review_fixes: [GRD-001, GRD-005, GRD-W01, GRD-W04]
+  notes: |
+    KD-4 保存即发布（与 Banners 一致），无草稿态：HomePageSection/NavigationItem/Announcement/FooterColumn 状态机均仅 enabled/disabled 二态。
+    Banner 状态机引用基线 banner_lifecycle（meta.source=baseline）。
+    GRD-001/KD-12 修正：Subscriber 状态机简化为单态 subscribed（移除 pending/unsubscribed），本期不扩展退订/重订阅状态机。
+    GRD-005 修正：所有缓存失效 event_type 命名统一 _changed 后缀（home_section_changed/navigation_changed/announcement_changed），对齐基线 banner_changed 等命名。
+    GRD-W01 修正：side_effect 缓存失效改为 in-process cache.invalidateFamily + publisher.publish（非 HTTP 自调 POST /api/admin/cache/invalidate）。
+    GRD-W04 修正：KD-1 措辞已修正为"不引入 SSG，保持 force-dynamic + JetCache 两级缓存 + in-process 失效链"。
+
+machines:
+  - id: home_page_section_status
+    desc: 首页区块启用/禁用切换。KD-4 保存即发布，无草稿态；与 Banners 一致。管理端 Toggle v-model=b.enabled 切换，保存 API 直接写入 DB + 触发 in-process 缓存失效（GRD-W01 修正）。
+    meta: {source: new}
+    entity: HomePageSection
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 区块启用，消费端首页按 sort_order 升序渲染
+      - id: disabled
+        desc: 区块禁用，消费端不渲染（管理端列表显示删除线 + 灰色）
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端 Toggle 切换为 on（需 /site/home 权限，KD-BE-2）
+        source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle :model-value=b.enabled @update:model-value'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端 Toggle 切换为 off（需 /site/home 权限）
+        source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle :model-value=b.enabled @update:model-value'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.HOME_SECTION)（GRD-004 新增族）
+          2. publisher.publish(TYPE_HOME_SECTION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("home_section_changed", "home_section", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: home_section_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: navigation_item_status
+    desc: 主导航项启用/禁用切换。KD-4 保存即发布。管理端可对单个导航项启停，影响全站 header 渲染。
+    meta: {source: new}
+    entity: NavigationItem
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 导航项启用，消费端 header 渲染
+      - id: disabled
+        desc: 导航项禁用，消费端 header 不渲染
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用导航项（需 /site/navigation 权限，KD-BE-2）
+        source: '[INFERRED] 对齐 HomePageSection Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用导航项（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐 HomePageSection Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.NAVIGATION)（GRD-004 新增族）
+          2. publisher.publish(TYPE_NAVIGATION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("navigation_changed", "navigation", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: navigation_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: announcement_status
+    desc: 公告条启用/禁用切换。KD-7 独立 announcement 域。KD-4 保存即发布。管理端可对单条公告启停，影响消费端顶部公告条轮播。
+    meta: {source: new}
+    entity: Announcement
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 公告启用，消费端按 sort_order 升序轮播
+      - id: disabled
+        desc: 公告禁用，消费端不轮播
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用公告（需 /site/announcement 权限，KD-BE-2 + GRD-007 种子）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用公告（需 /site/announcement 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.ANNOUNCEMENT)（GRD-004 新增族）
+          2. publisher.publish(TYPE_ANNOUNCEMENT_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("announcement_changed", "announcement", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效，layout 级）
+        event_type: announcement_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: banner_status
+    desc: Banner 状态机（基线已有，本变更引用）。KD-2 Hero 区块通过 Banner position=HERO 关联，Banner 自身状态机不变。draft=1/published=2/archived=3（ContentStatus IntEnum）。KD-14 Banner 新增 cta_text_secondary/cta_link_secondary 字段不影响状态机。
+    meta: {source: baseline}
+    entity: Banner
+    state_field: status
+    initial: draft
+    states:
+      - id: draft
+        desc: 草稿（status=1，ContentStatus.DRAFT）
+      - id: published
+        desc: 已发布（status=2，ContentStatus.PUBLISHED）；HomePageSection.Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner
+      - id: archived
+        desc: 已归档（status=3，ContentStatus.ARCHIVED）
+      - id: deleted
+        desc: 物理删除（基线 banner_lifecycle 含 deleted 终态；Banner.deletedAt 软删除标记）
+    transitions:
+      - from: draft
+        to: published
+        event: publish
+        trigger: 管理端 Banners 页"保存并发布"按钮（需 /site/banners 权限）
+        guard: name != null && image_url != null
+        source: 'prototype/portal-admin/src/views/Banners.vue > 保存并发布 + 基线 banner_lifecycle'
+      - from: published
+        to: archived
+        event: take_offline
+        trigger: 管理端 Toggle 切换为 off
+        source: 'prototype/portal-admin/src/views/Banners.vue > Toggle v-model=b.online + 基线 banner_lifecycle'
+      - from: published
+        to: archived
+        event: schedule_expire
+        trigger: 定时任务检测 now > end_time（基线 banner_lifecycle；项目当前无 @Scheduled 实现，待后续补）
+        guard: now > end_time
+        source: '基线 banner_lifecycle'
+      - from: archived
+        to: published
+        event: republish
+        trigger: 管理端重新发布
+        source: '基线 banner_lifecycle'
+      - from: draft
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: 'prototype/portal-admin/src/views/Banners.vue > TrashIcon + 基线 banner_lifecycle'
+      - from: published
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: '基线 banner_lifecycle'
+      - from: archived
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: '基线 banner_lifecycle'
+    side_effects:
+      - on: [publish, take_offline, republish, delete]
+        action: |
+          基线 in-process 缓存失效链（参考）：
+          1. cache.invalidateFamily(Family.BANNERS)
+          2. publisher.publish(TYPE_BANNER_CHANGED, slug, oldSlug, id)
+             → 内部调用 cacheService.logInvalidation + cdnService.invalidatePaths(["/", "/es", "/fr"])
+        event_type: banner_changed
+        source: '基线 banner_lifecycle + MarketingContentInvalidatedPublisher'
+    notes: '本变更不修改 Banner 状态机；KD-2 仅引用 position=HERO && status=published 的 Banner 作为 Hero 区块数据源；KD-14 新增 cta_text_secondary/cta_link_secondary 字段不影响状态机。'
+
+  - id: subscriber_status
+    desc: Newsletter 订阅者状态机（KD-11/KD-12 修正）。GRD-001/KD-12 修正：本期不扩展退订状态机，简化为单态 subscribed（移除 pending/unsubscribed）。订阅即生效，无双重确认，无退订/重订阅转换。GRD-009/KD-13 修正：订阅 API 扩展基线 POST /api/store/newsletter，新增 source=HOME_BLOCK(4)（不新建 /api/store/subscribers/subscribe）。GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 (email) 迁移到 (email, source) 复合唯一，保证 KD-13 source 数据完整性（同邮箱同来源幂等短路，不同来源新增记录）。
+    meta: {source: new}
+    entity: Subscriber
+    state_field: subscribedAt
+    initial: subscribed
+    states:
+      - id: subscribed
+        desc: 已订阅（subscribedAt 非空，订阅即生效；KD-12 单态，无 pending/unsubscribed 状态）
+    transitions:
+      - from: subscribed
+        to: subscribed
+        event: subscribe
+        trigger: 消费端 POST /api/store/newsletter（GRD-009/KD-13 修正：扩展基线端点，source=HOME_BLOCK(4) 表示首页 Newsletter 区块订阅入口）
+        guard: email 格式合法 && email 小写归一后 (email, source) 唯一性校验通过（重复订阅幂等返回成功，KD-11）
+        source: 'KD-11 完整订阅表单（邮箱输入 + API）+ KD-12 单态订阅 + KD-13 扩展基线 API'
+    side_effects:
+      - on: [subscribe]
+        action: |
+          订阅副作用（KD-11）：
+          1. NewsletterSubscriber 持久化（email/source/locale/subscribedAt）
+          2. 可选触发欢迎邮件（本期不发邮件，对齐基线 NewsletterSubscriber 决策26）
+          3. 无缓存失效副作用（订阅数据不进消费端缓存，无 cache.invalidateFamily 调用）
+        source: 'KD-11 + 基线 NewsletterSubscriber 模式 + KD-12 不扩展状态机'
+    notes: |
+      GRD-001/KD-12 修正记录：
+        - 移除 pending 态（基线 NewsletterSubscriber 无 status 字段，本期不扩展）。
+        - 移除 unsubscribed 态与 unsubscribe/resubscribe/resubmit 转换（本期不实现退订/重订阅）。
+        - 状态机简化为单态 subscribed + subscribe 自转换（重复订阅幂等）。
+        - acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
+      GRD-009/KD-13 修正记录：
+        - 订阅 API 路径扩展基线 POST /api/store/newsletter，不新建 /api/store/subscribers/subscribe。
+        - source 字段改为 IntEnum NewsletterSource [1=FOOTER, 2=MODAL, 3=EXIT_INTENT, 4=HOME_BLOCK]。
+
+  - id: footer_column_status
+    desc: 页脚栏目启用/禁用切换。KD-4 保存即发布。管理端可对单个页脚栏目启停，影响全站 footer 渲染。GRD-W08 修正：本期补齐 FooterColumnTranslation/FooterLinkTranslation 双表 i18n。
+    meta: {source: new}
+    entity: FooterColumn
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 栏目启用，消费端 footer 渲染
+      - id: disabled
+        desc: 栏目禁用，消费端 footer 不渲染
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用栏目（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用栏目（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调；页脚与导航共享 NAVIGATION 缓存族）：
+          1. cache.invalidateFamily(Family.NAVIGATION)（GRD-004 新增族；footer 渲染数据与 header 共用 navigation 缓存族）
+          2. publisher.publish(TYPE_NAVIGATION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("navigation_changed", "navigation", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: navigation_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+open_questions:
+  - id: SM-OQ-1
+    topic: Banner schedule_expire 定时任务缺失
+    question: 基线 banner_lifecycle 包含 schedule_expire 转换（now > end_time → archived），但项目当前无 @Scheduled 实现（backend-flow-inference iteration 5 确认）。本变更是否需要补齐此定时任务？
+    options:
+      - '方案 A：本变更不补齐，保持基线现状（Banner 时间窗仅消费端读路径过滤，状态不翻转）'
+      - '方案 B：本变更补齐 @Scheduled 任务（每分钟扫描 status=published && end_time < now 的 Banner，转 archived）'
+      - '方案 C：单独 change 补齐定时任务（与 site-decoration 解耦）'
+    impact: '影响 Banner 状态机实际行为、Hero 区块数据源准确性'
+    recommendation: '方案 A（保持基线现状，本变更不扩展定时任务范围）'
+
+  - id: SM-OQ-2
+    topic: Subscriber 单态订阅的扩展性（GRD-001/KD-12 修正后）
+    question: GRD-001/KD-12 修正后 subscriber_status 简化为单态 subscribed（移除 pending/unsubscribed）。未来如需引入双重确认或退订功能，扩展路径如何？
+    options:
+      - '方案 A：本期单态 subscribed，未来扩展时新增 pending/unsubscribed 状态 + NewsletterSubscriber.status/unsubscribed_at 字段（向后兼容）'
+      - '方案 B：本期单态 subscribed，未来扩展时新建独立 unsubscribe_log 表记录退订事件（不改主表）'
+      - '方案 C：本期单态 subscribed，未来扩展时新建独立 subscriber_lifecycle 状态机表'
+    impact: '影响未来退订/双重确认功能的迁移成本'
+    recommendation: '方案 A（单态订阅最简，未来扩展时补字段+状态机，向后兼容；本期不引入不必要复杂度）'
+
+  - id: SM-OQ-3
+    topic: Announcement 时间窗状态机
+    question: Announcement 是否需要支持时间窗投放（如 Banner 的 start_time/end_time）？当前状态机仅 enabled/disabled 二态，无时间窗。
+    options:
+      - '方案 A：不支持时间窗，运营手动启停（当前状态机方案）'
+      - '方案 B：支持时间窗，增加 start_time/end_time 字段 + schedule_expire 转换（对齐 Banner 模式）'
+      - '方案 C：本期不支持，后续 change 扩展'
+    impact: '影响 Announcement 表结构、状态机、管理端表单'
+    recommendation: '方案 A（保持简单，运营手动启停）'
+
+  - id: SM-OQ-4
+    topic: 缓存族复用策略（GRD-004/GRD-W01 修正后）
+    question: GRD-004 新增 3 个缓存族 HOME_SECTION/NAVIGATION/ANNOUNCEMENT。FooterColumn/FooterLink 启停复用 NAVIGATION 族（与 header 导航共享），是否合理？还是应独立 FOOTER 族？
+    options:
+      - '方案 A：FooterColumn/FooterLink 复用 NAVIGATION 族（当前方案；消费端 layout.tsx 同时渲染 header+footer，一次失效即可）'
+      - '方案 B：新增 FOOTER 族独立失效（精细化控制但增加缓存族数量）'
+      - '方案 C：合并 NAVIGATION+FOOTER 为 SITE_CHROME 单一族（粗粒度失效）'
+    impact: '影响缓存族数量、失效精度、消费端 layout.tsx 渲染逻辑'
+    recommendation: '方案 A（复用 NAVIGATION 族；消费端 layout.tsx 同时渲染 header+footer，复用族减少缓存族数量与失效次数）'

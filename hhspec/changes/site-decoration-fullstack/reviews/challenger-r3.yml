@@ -1,0 +1,224 @@
+review_round: 3
+change_name: site-decoration-fullstack
+verdict: pass
+previous_review: hhspec/changes/site-decoration-fullstack/reviews/challenger-r2.yml
+review_scope: [GRD-001, GRD-002, GRD-003, GRD-004, GRD-005, GRD-006, GRD-007, GRD-008, GRD-009, GRD-010]
+
+grounding_fix_verification:
+  GRD-001: fixed
+  verification: |
+    主修复位置已正确落地：
+    1. state-machine.yml > subscriber_status（L186-218）简化为单态 subscribed，
+       states 仅 [subscribed]，transitions 仅 subscribe 自转换（from subscribed to subscribed），
+       notes 明确"移除 pending 态、移除 unsubscribed 态与 unsubscribe/resubscribe/resubmit 转换"。
+    2. er-diagram.yml > Subscriber 实体（L207-222）字段列表为 id/email/source/locale/subscribedAt/
+       created_at/updated_at，无 status、无 unsubscribed_at；constraints 引用 KD-12 单态订阅。
+    3. er-diagram.yml > modified_entities.NewsletterSubscriber.notes（L387-392）明确
+       "不添加 status 字段、不添加 unsubscribed_at 字段、不修改 unique 约束"。
+    4. pd-explore.local.md KD-12（L108-112）记录决策"本期不扩展退订状态机，保留基线模式"。
+    残留一致性警告（非阻塞，见 dimensions.consistency.issues）：acceptance.yml s-015~s-022、
+    boundary-scenarios.yml bs-057/059/176-178/262-268、business-flow.yml newsletter_subscribe_flow
+    step 4-5 仍引用 pending/unsubscribed/unsubscribe/resubscribe/confirm_subscribe——er-diagram
+    note 明确"acceptance s-017~s-022 由父代理裁剪"为已记录后续动作。
+
+  GRD-002: fixed
+  verification: |
+    主修复位置已正确落地：
+    1. er-diagram.yml > Taxonomy 实体（L266-287）desc 明确"GRD-002 修正：移除 CustomTag 引用
+       （基线 Collection.java 注释明确'合并承载 CustomTag，不建 custom_tag 表'）"。
+    2. slug 字段（L273）标记 derived: true，source 说明"派生字段不存表"。
+    3. online 字段（L275）标记 derived: true，source 说明"派生字段不存表"。
+    4. notes 段（L279-287）详细记录 GRD-002 修正 4 点：基线无 CustomTag、Category 无 slug/enabled、
+       Collection 无 slug/enabled、slug 与 online 均为运行时派生。
+    残留一致性警告（非阻塞）：boundary-scenarios.yml bs-085 仍测试 taxonomy.online 为必填字段
+      （应为 derived 不存表）——派生产物未同步 regeneration。
+
+  GRD-003: fixed
+  verification: |
+    acceptance.yml 全局替换已完成（Grep 验证）：
+    1. FIELD_REQUIRED：0 处残留（基线 FIELD_VALIDATION_FAILED 422704 已全量替换）。
+    2. GUARD_NOT_SATISFIED：0 处残留（基线 CONTENT_STATE_INVALID 409703 已全量替换）。
+    3. CONTENT_STATE_INVALID 配 http_status: 409（L57/71/113/127/141/155 等 6 处 + 41 处
+       CONCURRENT_CONFLICT/STATE_NOT_ALLOWED 同 409）。
+    4. FIELD_VALIDATION_FAILED 配 http_status: 422（L187/196/205/214/259/268/322/331/380/389 等，
+       与基线 422704 一致）。
+    成功响应用 error_code: "0"（如 L177/223/232/241/250），对齐基线 R 包络 {code:0, message:"ok"}。
+
+  GRD-004: fixed
+  verification: |
+    er-diagram.yml > modified_enums.MarketingCacheService.Family（L363-371）已声明：
+    - added_enum_values: [HOME_SECTION, NAVIGATION, ANNOUNCEMENT]
+    - new_enum_ttls: 3 个族均 ttl: 300s（GRD-W02 统一 300s，非 600s）
+    - notes 明确"GRD-004 MUST_FIX：缺少族定义则 cache.invalidateFamily(Family.X) 无法编译"
+    state-machine.yml 三个新状态机 side_effects 均引用 Family.HOME_SECTION/NAVIGATION/ANNOUNCEMENT。
+
+  GRD-005: fixed
+  verification: |
+    er-diagram.yml > modified_entities.MarketingContentInvalidatedPublisher（L408-420）已声明：
+    1. added_constants: TYPE_HOME_SECTION_CHANGED / TYPE_NAVIGATION_CHANGED / TYPE_ANNOUNCEMENT_CHANGED
+       （3 个 _changed 后缀常量）。
+    2. added_code_branches: extractResourceType 3 个 if 分支 + buildAffectedPaths 3 个 else if 分支
+       （全站级失效 ["/", "/es", "/fr"]）。
+    3. event_type_naming 明确"统一 _changed 后缀，对齐基线 TYPE_BANNER_CHANGED 等命名"。
+    state-machine.yml 三个新状态机 side_effects.event_type 均为 home_section_changed/
+    navigation_changed/announcement_changed（无 _saved 残留）。
+    er-diagram.yml > CacheInvalidationLog.event_type 字段（L324）取值集合含 home_section_changed/
+    navigation_changed/announcement_changed。
+    CONSTRAINT-002（L488-492）声明"所有缓存失效 event_type 命名统一 _changed 后缀，不允许 _saved"。
+
+  GRD-006: fixed
+  verification: |
+    er-diagram.yml > modified_entities.MarketingExceptionHandler（L422-432）已声明：
+    - changed_assignable_types.add: [AdminHomeSectionController, AdminNavigationController,
+      AdminAnnouncementController]
+    - baseline_vals 列出基线 10 个 Controller，add 列出 3 个新 Controller。
+    - notes 明确"GRD-006 MUST_FIX：新 Controller 必须登记到此列表，否则异常处理链断裂"。
+    CONSTRAINT-001（L482-486）声明"新增 3 个 Controller 必须登记到 assignableTypes"。
+
+  GRD-007: fixed
+  verification: |
+    er-diagram.yml > modified_entities.DataInitializer（L434-448）已声明：
+    - added_seed_data: table=permission, rows=[{perm_code: '/site/announcement', group: '站点装修',
+      label: '公告条'}]
+    - table=role_permission, rows=[{role: '超管', permission: '/site/announcement'}]
+    - notes 明确"GRD-007 MUST_FIX：在 DataInitializer.initPermissions() 的 perms 数组中新增
+      {"/site/announcement","站点装修","公告条"} 一行（按 perm_code 幂等）"。
+    state-machine.yml > announcement_status transitions trigger 引用"需 /site/announcement 权限，
+    KD-BE-2 + GRD-007 种子"。
+
+  GRD-008: fixed
+  verification: |
+    er-diagram.yml > open_questions.OQ-7（L573-582）已声明 TOPBAR Banner 迁移策略：
+    - question 详述基线 fetchStoreBanners(BannerPosition.TOPBAR) 取数据 + 3 个未决子问题
+      （数据迁移/枚举废弃/消费端切换）。
+    - options 4 个方案：A 双写兼容、B 一次性迁移、C 不迁移、D @Deprecated + 数据迁移 + 消费端切流。
+    - recommendation: 方案 D（@Deprecated + 数据迁移 + 消费端切流）。
+    er-diagram.yml > Banner.position 字段（L231）source 引用"GRD-008 TOPBAR 公告迁移策略见 OQ-7"。
+    er-diagram.yml > Banner.notes（L247）引用"GRD-008 TOPBAR Banner 公告迁移策略见 OQ-7"。
+
+  GRD-009: fixed
+  verification: |
+    主修复位置已正确落地：
+    1. er-diagram.yml > modified_entities.StoreLeadController（L450-460）changed_api 声明
+       endpoint=POST /api/store/newsletter，after="扩展接收 source=HOME_BLOCK(4)"，
+       notes 明确"GRD-009 MUST_FIX：方案 A 扩展基线端点，source 枚举新增 HOME_BLOCK(4)"。
+    2. er-diagram.yml > modified_enums.NewsletterSource（L373-377）added_enum_values: [HOME_BLOCK(4)]，
+       notes 明确"基线 NewsletterSource 是 IntEnum，本变更必须显式声明 key=4"。
+    3. er-diagram.yml > Subscriber.source 字段（L213）类型为 IntEnum<NewsletterSource>，
+       vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)]。
+    4. er-diagram.yml > NewsletterSubscriber.source 字段（L350）同上 IntEnum 描述。
+    5. state-machine.yml > subscriber_status notes（L216-218）明确"订阅 API 路径扩展基线
+       POST /api/store/newsletter，不新建 /api/store/subscribers/subscribe"。
+    6. pd-explore.local.md KD-13（L113-117）记录决策"扩展基线 POST /api/store/newsletter，
+       新增 source=4(HOME_BLOCK)"。
+    7. CONSTRAINT-005（L507-510）声明"NewsletterSource 是 IntEnum，er-diagram Subscriber.source /
+       NewsletterSubscriber.source 字段类型必须声明为 IntEnum<NewsletterSource>"。
+    残留一致性警告（非阻塞）：business-flow.yml newsletter_subscribe_flow 部分步骤仍用小写
+      "home_block"（L248/249/263/268/301）；boundary-scenarios.yml bs-138/165/303 仍用小写字符串
+      枚举 ['footer','modal','exit_intent','home_block']——派生产物未同步 IntEnum 描述。
+
+  GRD-010: fixed
+  verification: |
+    er-diagram.yml > modified_entities.Banner（L462-471）已声明：
+    - added_fields: cta_text_secondary (varchar(64) NULL) + cta_link_secondary (varchar(255) NULL)
+    - notes 明确"GRD-010/KD-14 MUST_FIX：原型 Hero 区块有 2 个 CTA，KD-2 决定 Hero 从 Banner
+      position=HERO 派生，但基线 Banner 仅 cta_text 单字段。决策：方案 A 新增
+      cta_text_secondary + cta_link_secondary"。
+    er-diagram.yml > modified_entities.BannerTranslation（L473-479）已声明：
+    - added_fields: cta_text_secondary (varchar(64) NULL)
+    - notes 明确"BannerTranslation 同步新增 cta_text_secondary 翻译字段"。
+    er-diagram.yml > Banner 实体（L240-241）字段列表含 cta_text_secondary + cta_link_secondary。
+    er-diagram.yml > BannerTranslation 实体（L259）字段列表含 cta_text_secondary。
+    er-diagram.yml > HomePageSection.constraints（L48）js_guard 引用"section_type=Hero 时 data_json
+      应为空（文案/图片/CTA 含第二 CTA 全部从 Banner position=HERO 派生，KD-14）"。
+    pd-explore.local.md KD-14（L118-122）记录决策"Banner 实体新增 cta_text_secondary +
+      cta_link_secondary 字段（含 BannerTranslation）"。
+
+dimensions:
+  consistency:
+    status: pass
+    issues:
+      - severity: warning
+        id: CONS-W01
+        title: "acceptance.yml s-015~s-022 仍引用 subscriber pending/unsubscribed/unsubscribe/resubscribe/confirm_subscribe/resubmit（与 KD-12/GRD-001 单态机不一致）"
+        affected_files: [acceptance.yml]
+        detail: |
+          s-015 (pending→subscribed via confirm_subscribe)、s-016 (pending guard fail)、
+          s-017 (subscribed→unsubscribed via unsubscribe)、s-018 (subscribed guard fail)、
+          s-019 (unsubscribed→subscribed via resubscribe)、s-020 (unsubscribed guard fail)、
+          s-021 (pending→pending via resubmit)、s-022 (pending guard fail)。
+          state-machine.yml 已简化为单态 subscribed + subscribe 自转换，这些场景测试的转换均不存在。
+        grounding_note: "er-diagram.yml L358 已明确'acceptance s-017~s-022 退订/重订阅场景由父代理裁剪'——已记录后续动作"
+        blocking: false
+      - severity: warning
+        id: CONS-W02
+        title: "boundary-scenarios.yml 多处仍引用已移除/已改型字段（subscriber.status/unsubscribed_at、taxonomy.online 必填、cache_invalidation_log.paths_json）"
+        affected_files: [boundary-scenarios.yml]
+        detail: |
+          bs-057 (subscriber.status 必填)、bs-059 (subscriber.unsubscribed_at 可选)、
+          bs-085 (taxonomy.online 必填——GRD-002 已改为 derived 不存表)、
+          bs-106 (cache_invalidation_log.paths_json——GRD-W06 已改为 affected_paths)。
+        blocking: false
+      - severity: warning
+        id: CONS-W03
+        title: "boundary-scenarios.yml bs-138/140/165/292/303 仍用小写字符串枚举描述 subscriber.source/status（与 GRD-009 IntEnum 不一致）"
+        affected_files: [boundary-scenarios.yml]
+        detail: |
+          bs-138/165/303: source 枚举 ['footer','modal','exit_intent','home_block']（应 IntEnum
+          [FOOTER(1),MODAL(2),EXIT_INTENT(3),HOME_BLOCK(4)]）；
+          bs-140/292: status 枚举 ['pending','subscribed','unsubscribed']（GRD-001 已移除 status 字段）。
+        blocking: false
+      - severity: warning
+        id: CONS-W04
+        title: "boundary-scenarios.yml bs-176-178/262-268 仍测试 subscriber pending/unsubscribe/resubscribe 并发与状态场景（与单态机不一致）"
+        affected_files: [boundary-scenarios.yml]
+        detail: |
+          bs-176 (pending 并发 confirm_subscribe vs resubmit)、bs-177 (subscribed 并发 unsubscribe)、
+          bs-178 (unsubscribed 并发 resubscribe)、bs-262 (pending guard fail confirm_subscribe)、
+          bs-263 (subscribed guard fail unsubscribe)、bs-264 (unsubscribed guard fail resubscribe)、
+          bs-265 (pending guard fail resubmit)、bs-266/267/268 (状态不允许场景)。
+        blocking: false
+      - severity: warning
+        id: CONS-W05
+        title: "business-flow.yml newsletter_subscribe_flow step 4-5 仍引用 status=pending/confirm_subscribe/resubmit（与 KD-12/GRD-001 不一致）"
+        affected_files: [business-flow.yml]
+        detail: |
+          L268: "事务写入 Subscriber（status=pending, source=home_block...）"——应为直接 subscribed；
+          L273-284: state_transition from=pending to=subscribed event=confirm_subscribe——应改为
+          subscribed 自转换 event=subscribe；
+          L301: "state-machine.yml > resubmit 转换"——resubmit 在简化机中不存在。
+          另 L248/249/263/268/301 用小写 home_block（应为 HOME_BLOCK(4) IntEnum）。
+        blocking: false
+      - severity: info
+        id: CONS-I01
+        title: "completeness-report.yml 仅校验存在性与计数，未校验派生产物与 er-diagram/state-machine 语义一致性"
+        affected_files: [completeness-report.yml]
+        detail: |
+          completeness-report.yml verdict=pass 仅基于 er-diagram/state-machine/business-flow/
+          boundary-scenarios/acceptance 5 文件存在 + 6 状态机/338 场景/7 类边界覆盖，未检测
+          acceptance s-015~s-022 与 state-machine subscriber_status 的语义冲突。
+        blocking: false
+
+  acceptability:
+    status: pass
+    issues: []
+
+summary:
+  total_issues: 6
+  blocking_count: 0
+  warning_count: 5
+  info_count: 1
+  must_fix_verified: 10
+  must_fix_fixed: 10
+  must_fix_not_fixed: 0
+
+key_findings:
+  - "10 个 MUST_FIX 全部在主修复位置（er-diagram.yml / state-machine.yml / acceptance.yml）正确落地"
+  - "GRD-001/GRD-009/GRD-010 通过新增 KD-12/KD-13/KD-14 决策记录固化修复方案，可追溯"
+  - "GRD-003 acceptance.yml 全局替换彻底：FIELD_REQUIRED/GUARD_NOT_SATISFIED 0 残留，CONTENT_STATE_INVALID 配 409，FIELD_VALIDATION_FAILED 配 422"
+  - "GRD-004/005/006/007 modified_enums + modified_entities 声明完整，含 added_enum_values/added_constants/added_code_branches/changed_assignable_types/added_seed_data 全维度"
+  - "GRD-008 OQ-7 声明 4 个迁移方案 + recommendation 方案 D，覆盖 TOPBAR Banner 数据迁移/枚举废弃/消费端切流三子问题"
+  - "5 个 warning 均为派生产物（acceptance s-015~s-022、boundary-scenarios 多处、business-flow newsletter_subscribe_flow step 4-5）未同步 regeneration 的 stale 内容，非阻塞"
+  - "er-diagram.yml L358 已明确记录'acceptance s-017~s-022 由父代理裁剪'为后续动作，属已识别待办"
+
+next_action: "pass → 进入 Phase 4 L1 决策（建议父代理在 L1 前同步裁剪 acceptance s-015~s-022 + regeneration boundary-scenarios.yml + 修正 business-flow.yml newsletter_subscribe_flow step 4-5，消除 5 个 consistency warning）"

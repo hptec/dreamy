@@ -1,0 +1,2818 @@
+scenarios:
+- id: s-001
+  title: "home_page_section 状态从 disabled 流转到 enabled"
+  source: sm
+  source_id: "home_page_section_status.disabled→enabled"
+  ctx: {entity: home_page_section, state: disabled}
+  act: {op: admin_enable}
+  expect: {state: enabled, http_status: 200}
+- id: s-002
+  title: "home_page_section 状态从 enabled 流转到 disabled"
+  source: sm
+  source_id: "home_page_section_status.enabled→disabled"
+  ctx: {entity: home_page_section, state: enabled}
+  act: {op: admin_disable}
+  expect: {state: disabled, http_status: 200}
+- id: s-003
+  title: "navigation_item 状态从 disabled 流转到 enabled"
+  source: sm
+  source_id: "navigation_item_status.disabled→enabled"
+  ctx: {entity: navigation_item, state: disabled}
+  act: {op: admin_enable}
+  expect: {state: enabled, http_status: 200}
+- id: s-004
+  title: "navigation_item 状态从 enabled 流转到 disabled"
+  source: sm
+  source_id: "navigation_item_status.enabled→disabled"
+  ctx: {entity: navigation_item, state: enabled}
+  act: {op: admin_disable}
+  expect: {state: disabled, http_status: 200}
+- id: s-005
+  title: "announcement 状态从 disabled 流转到 enabled"
+  source: sm
+  source_id: "announcement_status.disabled→enabled"
+  ctx: {entity: announcement, state: disabled}
+  act: {op: admin_enable}
+  expect: {state: enabled, http_status: 200}
+- id: s-006
+  title: "announcement 状态从 enabled 流转到 disabled"
+  source: sm
+  source_id: "announcement_status.enabled→disabled"
+  ctx: {entity: announcement, state: enabled}
+  act: {op: admin_disable}
+  expect: {state: disabled, http_status: 200}
+- id: s-007
+  title: "banner 状态从 draft 流转到 published"
+  source: sm
+  source_id: "banner_status.draft→published"
+  ctx: {entity: banner, state: draft}
+  act: {op: publish}
+  expect: {state: published, http_status: 200}
+- id: s-008
+  title: "banner 在 draft 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "banner_status.draft→published.guard_fail"
+  ctx: {entity: banner, state: draft, guard_satisfied: false}
+  act: {op: publish}
+  expect: {state: draft, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-009
+  title: "banner 状态从 published 流转到 archived"
+  source: sm
+  source_id: "banner_status.published→archived"
+  ctx: {entity: banner, state: published}
+  act: {op: schedule_expire}
+  expect: {state: archived, http_status: 200}
+- id: s-010
+  title: "banner 在 published 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "banner_status.published→archived.guard_fail"
+  ctx: {entity: banner, state: published, guard_satisfied: false}
+  act: {op: schedule_expire}
+  expect: {state: published, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-011
+  title: "banner 状态从 archived 流转到 published"
+  source: sm
+  source_id: "banner_status.archived→published"
+  ctx: {entity: banner, state: archived}
+  act: {op: republish}
+  expect: {state: published, http_status: 200}
+- id: s-012
+  title: "banner 状态从 draft 流转到 deleted"
+  source: sm
+  source_id: "banner_status.draft→deleted"
+  ctx: {entity: banner, state: draft}
+  act: {op: delete}
+  expect: {state: deleted, http_status: 200}
+- id: s-013
+  title: "banner 状态从 published 流转到 deleted"
+  source: sm
+  source_id: "banner_status.published→deleted"
+  ctx: {entity: banner, state: published}
+  act: {op: delete}
+  expect: {state: deleted, http_status: 200}
+- id: s-014
+  title: "banner 状态从 archived 流转到 deleted"
+  source: sm
+  source_id: "banner_status.archived→deleted"
+  ctx: {entity: banner, state: archived}
+  act: {op: delete}
+  expect: {state: deleted, http_status: 200}
+- id: s-015
+  title: "subscriber 状态从 pending 流转到 subscribed"
+  source: sm
+  source_id: "subscriber_status.pending→subscribed"
+  ctx: {entity: subscriber, state: pending}
+  act: {op: confirm_subscribe}
+  expect: {state: subscribed, http_status: 200}
+- id: s-016
+  title: "subscriber 在 pending 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "subscriber_status.pending→subscribed.guard_fail"
+  ctx: {entity: subscriber, state: pending, guard_satisfied: false}
+  act: {op: confirm_subscribe}
+  expect: {state: pending, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-017
+  title: "subscriber 状态从 subscribed 流转到 unsubscribed"
+  source: sm
+  source_id: "subscriber_status.subscribed→unsubscribed"
+  ctx: {entity: subscriber, state: subscribed}
+  act: {op: unsubscribe}
+  expect: {state: unsubscribed, http_status: 200}
+- id: s-018
+  title: "subscriber 在 subscribed 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "subscriber_status.subscribed→unsubscribed.guard_fail"
+  ctx: {entity: subscriber, state: subscribed, guard_satisfied: false}
+  act: {op: unsubscribe}
+  expect: {state: subscribed, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-019
+  title: "subscriber 状态从 unsubscribed 流转到 subscribed"
+  source: sm
+  source_id: "subscriber_status.unsubscribed→subscribed"
+  ctx: {entity: subscriber, state: unsubscribed}
+  act: {op: resubscribe}
+  expect: {state: subscribed, http_status: 200}
+- id: s-020
+  title: "subscriber 在 unsubscribed 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "subscriber_status.unsubscribed→subscribed.guard_fail"
+  ctx: {entity: subscriber, state: unsubscribed, guard_satisfied: false}
+  act: {op: resubscribe}
+  expect: {state: unsubscribed, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-021
+  title: "subscriber 状态从 pending 流转到 pending"
+  source: sm
+  source_id: "subscriber_status.pending→pending"
+  ctx: {entity: subscriber, state: pending}
+  act: {op: resubmit}
+  expect: {state: pending, http_status: 200}
+- id: s-022
+  title: "subscriber 在 pending 状态因 guard 条件不满足拒绝转换"
+  source: sm
+  source_id: "subscriber_status.pending→pending.guard_fail"
+  ctx: {entity: subscriber, state: pending, guard_satisfied: false}
+  act: {op: resubmit}
+  expect: {state: pending, http_status: 409, error_code: "CONTENT_STATE_INVALID"}
+- id: s-023
+  title: "footer_column 状态从 disabled 流转到 enabled"
+  source: sm
+  source_id: "footer_column_status.disabled→enabled"
+  ctx: {entity: footer_column, state: disabled}
+  act: {op: admin_enable}
+  expect: {state: enabled, http_status: 200}
+- id: s-024
+  title: "footer_column 状态从 enabled 流转到 disabled"
+  source: sm
+  source_id: "footer_column_status.enabled→disabled"
+  ctx: {entity: footer_column, state: enabled}
+  act: {op: admin_disable}
+  expect: {state: disabled, http_status: 200}
+- id: s-025
+  title: "null 类边界场景 bs-001"
+  source: bs
+  source_id: "bs-001"
+  ctx: {entity: home_page_section, field: id, description: home_page_section 的可选字段
+      id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-026
+  title: "null 类边界场景 bs-002"
+  source: bs
+  source_id: "bs-002"
+  ctx: {entity: home_page_section, field: section_type, description: home_page_section
+      创建或更新时缺少必填字段 section_type}
+  act: {op: trigger_boundary_case, field: section_type, detail: 提交 section_type=null
+      的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      section_type, field: section_type}
+- id: s-027
+  title: "null 类边界场景 bs-003"
+  source: bs
+  source_id: "bs-003"
+  ctx: {entity: home_page_section, field: label, description: home_page_section 创建或更新时缺少必填字段
+      label}
+  act: {op: trigger_boundary_case, field: label, detail: 提交 label=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      label, field: label}
+- id: s-028
+  title: "null 类边界场景 bs-004"
+  source: bs
+  source_id: "bs-004"
+  ctx: {entity: home_page_section, field: enabled, description: home_page_section
+      创建或更新时缺少必填字段 enabled}
+  act: {op: trigger_boundary_case, field: enabled, detail: 提交 enabled=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      enabled, field: enabled}
+- id: s-029
+  title: "null 类边界场景 bs-005"
+  source: bs
+  source_id: "bs-005"
+  ctx: {entity: home_page_section, field: sort_order, description: home_page_section
+      创建或更新时缺少必填字段 sort_order}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort_order, field: sort_order}
+- id: s-030
+  title: "null 类边界场景 bs-006"
+  source: bs
+  source_id: "bs-006"
+  ctx: {entity: home_page_section, field: data_json, description: home_page_section
+      的可选字段 data_json 未提供}
+  act: {op: trigger_boundary_case, field: data_json, detail: 提交 data_json=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 data_json
+      为空，不报错, field: data_json}
+- id: s-031
+  title: "null 类边界场景 bs-007"
+  source: bs
+  source_id: "bs-007"
+  ctx: {entity: home_page_section, field: created_at, description: home_page_section
+      的可选字段 created_at 未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-032
+  title: "null 类边界场景 bs-008"
+  source: bs
+  source_id: "bs-008"
+  ctx: {entity: home_page_section, field: updated_at, description: home_page_section
+      的可选字段 updated_at 未提供}
+  act: {op: trigger_boundary_case, field: updated_at, detail: 提交 updated_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 updated_at
+      为空，不报错, field: updated_at}
+- id: s-033
+  title: "null 类边界场景 bs-009"
+  source: bs
+  source_id: "bs-009"
+  ctx: {entity: home_section_translation, field: id, description: home_section_translation
+      的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-034
+  title: "null 类边界场景 bs-010"
+  source: bs
+  source_id: "bs-010"
+  ctx: {entity: home_section_translation, field: section_id, description: home_section_translation
+      创建或更新时缺少必填字段 section_id}
+  act: {op: trigger_boundary_case, field: section_id, detail: 提交 section_id=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      section_id, field: section_id}
+- id: s-035
+  title: "null 类边界场景 bs-011"
+  source: bs
+  source_id: "bs-011"
+  ctx: {entity: home_section_translation, field: locale, description: home_section_translation
+      创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-036
+  title: "null 类边界场景 bs-012"
+  source: bs
+  source_id: "bs-012"
+  ctx: {entity: home_section_translation, field: eyebrow, description: home_section_translation
+      的可选字段 eyebrow 未提供}
+  act: {op: trigger_boundary_case, field: eyebrow, detail: 提交 eyebrow=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 eyebrow
+      为空，不报错, field: eyebrow}
+- id: s-037
+  title: "null 类边界场景 bs-013"
+  source: bs
+  source_id: "bs-013"
+  ctx: {entity: home_section_translation, field: title, description: home_section_translation
+      的可选字段 title 未提供}
+  act: {op: trigger_boundary_case, field: title, detail: 提交 title=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 title 为空，不报错,
+    field: title}
+- id: s-038
+  title: "null 类边界场景 bs-014"
+  source: bs
+  source_id: "bs-014"
+  ctx: {entity: home_section_translation, field: subtitle, description: home_section_translation
+      的可选字段 subtitle 未提供}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交 subtitle=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 subtitle
+      为空，不报错, field: subtitle}
+- id: s-039
+  title: "null 类边界场景 bs-015"
+  source: bs
+  source_id: "bs-015"
+  ctx: {entity: home_section_translation, field: cta_text, description: home_section_translation
+      的可选字段 cta_text 未提供}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交 cta_text=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 cta_text
+      为空，不报错, field: cta_text}
+- id: s-040
+  title: "null 类边界场景 bs-016"
+  source: bs
+  source_id: "bs-016"
+  ctx: {entity: navigation_item, field: id, description: navigation_item 的可选字段 id
+      未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-041
+  title: "null 类边界场景 bs-017"
+  source: bs
+  source_id: "bs-017"
+  ctx: {entity: navigation_item, field: label, description: navigation_item 创建或更新时缺少必填字段
+      label}
+  act: {op: trigger_boundary_case, field: label, detail: 提交 label=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      label, field: label}
+- id: s-042
+  title: "null 类边界场景 bs-018"
+  source: bs
+  source_id: "bs-018"
+  ctx: {entity: navigation_item, field: link_type, description: navigation_item 创建或更新时缺少必填字段
+      link_type}
+  act: {op: trigger_boundary_case, field: link_type, detail: 提交 link_type=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      link_type, field: link_type}
+- id: s-043
+  title: "null 类边界场景 bs-019"
+  source: bs
+  source_id: "bs-019"
+  ctx: {entity: navigation_item, field: taxonomy_id, description: navigation_item
+      的可选字段 taxonomy_id 未提供}
+  act: {op: trigger_boundary_case, field: taxonomy_id, detail: 提交 taxonomy_id=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 taxonomy_id
+      为空，不报错, field: taxonomy_id}
+- id: s-044
+  title: "null 类边界场景 bs-020"
+  source: bs
+  source_id: "bs-020"
+  ctx: {entity: navigation_item, field: taxonomy_type, description: navigation_item
+      的可选字段 taxonomy_type 未提供}
+  act: {op: trigger_boundary_case, field: taxonomy_type, detail: 提交 taxonomy_type=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 taxonomy_type
+      为空，不报错, field: taxonomy_type}
+- id: s-045
+  title: "null 类边界场景 bs-021"
+  source: bs
+  source_id: "bs-021"
+  ctx: {entity: navigation_item, field: custom_href, description: navigation_item
+      的可选字段 custom_href 未提供}
+  act: {op: trigger_boundary_case, field: custom_href, detail: 提交 custom_href=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 custom_href
+      为空，不报错, field: custom_href}
+- id: s-046
+  title: "null 类边界场景 bs-022"
+  source: bs
+  source_id: "bs-022"
+  ctx: {entity: navigation_item, field: mega_menu_json, description: navigation_item
+      的可选字段 mega_menu_json 未提供}
+  act: {op: trigger_boundary_case, field: mega_menu_json, detail: 提交 mega_menu_json=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 mega_menu_json
+      为空，不报错, field: mega_menu_json}
+- id: s-047
+  title: "null 类边界场景 bs-023"
+  source: bs
+  source_id: "bs-023"
+  ctx: {entity: navigation_item, field: enabled, description: navigation_item 创建或更新时缺少必填字段
+      enabled}
+  act: {op: trigger_boundary_case, field: enabled, detail: 提交 enabled=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      enabled, field: enabled}
+- id: s-048
+  title: "null 类边界场景 bs-024"
+  source: bs
+  source_id: "bs-024"
+  ctx: {entity: navigation_item, field: sort_order, description: navigation_item 创建或更新时缺少必填字段
+      sort_order}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort_order, field: sort_order}
+- id: s-049
+  title: "null 类边界场景 bs-025"
+  source: bs
+  source_id: "bs-025"
+  ctx: {entity: navigation_item, field: created_at, description: navigation_item 的可选字段
+      created_at 未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-050
+  title: "null 类边界场景 bs-026"
+  source: bs
+  source_id: "bs-026"
+  ctx: {entity: navigation_item, field: updated_at, description: navigation_item 的可选字段
+      updated_at 未提供}
+  act: {op: trigger_boundary_case, field: updated_at, detail: 提交 updated_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 updated_at
+      为空，不报错, field: updated_at}
+- id: s-051
+  title: "null 类边界场景 bs-027"
+  source: bs
+  source_id: "bs-027"
+  ctx: {entity: navigation_translation, field: id, description: navigation_translation
+      的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-052
+  title: "null 类边界场景 bs-028"
+  source: bs
+  source_id: "bs-028"
+  ctx: {entity: navigation_translation, field: navigation_item_id, description: navigation_translation
+      创建或更新时缺少必填字段 navigation_item_id}
+  act: {op: trigger_boundary_case, field: navigation_item_id, detail: 提交 navigation_item_id=null
+      的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      navigation_item_id, field: navigation_item_id}
+- id: s-053
+  title: "null 类边界场景 bs-029"
+  source: bs
+  source_id: "bs-029"
+  ctx: {entity: navigation_translation, field: locale, description: navigation_translation
+      创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-054
+  title: "null 类边界场景 bs-030"
+  source: bs
+  source_id: "bs-030"
+  ctx: {entity: navigation_translation, field: label, description: navigation_translation
+      创建或更新时缺少必填字段 label}
+  act: {op: trigger_boundary_case, field: label, detail: 提交 label=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      label, field: label}
+- id: s-055
+  title: "null 类边界场景 bs-031"
+  source: bs
+  source_id: "bs-031"
+  ctx: {entity: navigation_translation, field: mega_menu_titles_json, description: navigation_translation
+      的可选字段 mega_menu_titles_json 未提供}
+  act: {op: trigger_boundary_case, field: mega_menu_titles_json, detail: 提交 mega_menu_titles_json=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 mega_menu_titles_json
+      为空，不报错, field: mega_menu_titles_json}
+- id: s-056
+  title: "null 类边界场景 bs-032"
+  source: bs
+  source_id: "bs-032"
+  ctx: {entity: footer_column, field: id, description: footer_column 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-057
+  title: "null 类边界场景 bs-033"
+  source: bs
+  source_id: "bs-033"
+  ctx: {entity: footer_column, field: title, description: footer_column 创建或更新时缺少必填字段
+      title}
+  act: {op: trigger_boundary_case, field: title, detail: 提交 title=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      title, field: title}
+- id: s-058
+  title: "null 类边界场景 bs-034"
+  source: bs
+  source_id: "bs-034"
+  ctx: {entity: footer_column, field: enabled, description: footer_column 创建或更新时缺少必填字段
+      enabled}
+  act: {op: trigger_boundary_case, field: enabled, detail: 提交 enabled=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      enabled, field: enabled}
+- id: s-059
+  title: "null 类边界场景 bs-035"
+  source: bs
+  source_id: "bs-035"
+  ctx: {entity: footer_column, field: sort_order, description: footer_column 创建或更新时缺少必填字段
+      sort_order}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort_order, field: sort_order}
+- id: s-060
+  title: "null 类边界场景 bs-036"
+  source: bs
+  source_id: "bs-036"
+  ctx: {entity: footer_column, field: created_at, description: footer_column 的可选字段
+      created_at 未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-061
+  title: "null 类边界场景 bs-037"
+  source: bs
+  source_id: "bs-037"
+  ctx: {entity: footer_column, field: updated_at, description: footer_column 的可选字段
+      updated_at 未提供}
+  act: {op: trigger_boundary_case, field: updated_at, detail: 提交 updated_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 updated_at
+      为空，不报错, field: updated_at}
+- id: s-062
+  title: "null 类边界场景 bs-038"
+  source: bs
+  source_id: "bs-038"
+  ctx: {entity: footer_link, field: id, description: footer_link 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-063
+  title: "null 类边界场景 bs-039"
+  source: bs
+  source_id: "bs-039"
+  ctx: {entity: footer_link, field: footer_column_id, description: footer_link 创建或更新时缺少必填字段
+      footer_column_id}
+  act: {op: trigger_boundary_case, field: footer_column_id, detail: 提交 footer_column_id=null
+      的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      footer_column_id, field: footer_column_id}
+- id: s-064
+  title: "null 类边界场景 bs-040"
+  source: bs
+  source_id: "bs-040"
+  ctx: {entity: footer_link, field: label, description: footer_link 创建或更新时缺少必填字段 label}
+  act: {op: trigger_boundary_case, field: label, detail: 提交 label=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      label, field: label}
+- id: s-065
+  title: "null 类边界场景 bs-041"
+  source: bs
+  source_id: "bs-041"
+  ctx: {entity: footer_link, field: href, description: footer_link 创建或更新时缺少必填字段 href}
+  act: {op: trigger_boundary_case, field: href, detail: 提交 href=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      href, field: href}
+- id: s-066
+  title: "null 类边界场景 bs-042"
+  source: bs
+  source_id: "bs-042"
+  ctx: {entity: footer_link, field: sort_order, description: footer_link 创建或更新时缺少必填字段
+      sort_order}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort_order, field: sort_order}
+- id: s-067
+  title: "null 类边界场景 bs-043"
+  source: bs
+  source_id: "bs-043"
+  ctx: {entity: announcement, field: id, description: announcement 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-068
+  title: "null 类边界场景 bs-044"
+  source: bs
+  source_id: "bs-044"
+  ctx: {entity: announcement, field: enabled, description: announcement 创建或更新时缺少必填字段
+      enabled}
+  act: {op: trigger_boundary_case, field: enabled, detail: 提交 enabled=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      enabled, field: enabled}
+- id: s-069
+  title: "null 类边界场景 bs-045"
+  source: bs
+  source_id: "bs-045"
+  ctx: {entity: announcement, field: sort_order, description: announcement 创建或更新时缺少必填字段
+      sort_order}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort_order, field: sort_order}
+- id: s-070
+  title: "null 类边界场景 bs-046"
+  source: bs
+  source_id: "bs-046"
+  ctx: {entity: announcement, field: content, description: announcement 创建或更新时缺少必填字段
+      content}
+  act: {op: trigger_boundary_case, field: content, detail: 提交 content=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      content, field: content}
+- id: s-071
+  title: "null 类边界场景 bs-047"
+  source: bs
+  source_id: "bs-047"
+  ctx: {entity: announcement, field: created_at, description: announcement 的可选字段 created_at
+      未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-072
+  title: "null 类边界场景 bs-048"
+  source: bs
+  source_id: "bs-048"
+  ctx: {entity: announcement, field: updated_at, description: announcement 的可选字段 updated_at
+      未提供}
+  act: {op: trigger_boundary_case, field: updated_at, detail: 提交 updated_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 updated_at
+      为空，不报错, field: updated_at}
+- id: s-073
+  title: "null 类边界场景 bs-049"
+  source: bs
+  source_id: "bs-049"
+  ctx: {entity: announcement_translation, field: id, description: announcement_translation
+      的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-074
+  title: "null 类边界场景 bs-050"
+  source: bs
+  source_id: "bs-050"
+  ctx: {entity: announcement_translation, field: announcement_id, description: announcement_translation
+      创建或更新时缺少必填字段 announcement_id}
+  act: {op: trigger_boundary_case, field: announcement_id, detail: 提交 announcement_id=null
+      的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      announcement_id, field: announcement_id}
+- id: s-075
+  title: "null 类边界场景 bs-051"
+  source: bs
+  source_id: "bs-051"
+  ctx: {entity: announcement_translation, field: locale, description: announcement_translation
+      创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-076
+  title: "null 类边界场景 bs-052"
+  source: bs
+  source_id: "bs-052"
+  ctx: {entity: announcement_translation, field: content, description: announcement_translation
+      创建或更新时缺少必填字段 content}
+  act: {op: trigger_boundary_case, field: content, detail: 提交 content=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      content, field: content}
+- id: s-077
+  title: "null 类边界场景 bs-053"
+  source: bs
+  source_id: "bs-053"
+  ctx: {entity: subscriber, field: id, description: subscriber 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-078
+  title: "null 类边界场景 bs-054"
+  source: bs
+  source_id: "bs-054"
+  ctx: {entity: subscriber, field: email, description: subscriber 创建或更新时缺少必填字段 email}
+  act: {op: trigger_boundary_case, field: email, detail: 提交 email=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      email, field: email}
+- id: s-079
+  title: "null 类边界场景 bs-055"
+  source: bs
+  source_id: "bs-055"
+  ctx: {entity: subscriber, field: source, description: subscriber 创建或更新时缺少必填字段 source}
+  act: {op: trigger_boundary_case, field: source, detail: 提交 source=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      source, field: source}
+- id: s-080
+  title: "null 类边界场景 bs-056"
+  source: bs
+  source_id: "bs-056"
+  ctx: {entity: subscriber, field: locale, description: subscriber 创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-081
+  title: "null 类边界场景 bs-057"
+  source: bs
+  source_id: "bs-057"
+  ctx: {entity: subscriber, field: status, description: subscriber 创建或更新时缺少必填字段 status}
+  act: {op: trigger_boundary_case, field: status, detail: 提交 status=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      status, field: status}
+- id: s-082
+  title: "null 类边界场景 bs-058"
+  source: bs
+  source_id: "bs-058"
+  ctx: {entity: subscriber, field: subscribed_at, description: subscriber 的可选字段 subscribed_at
+      未提供}
+  act: {op: trigger_boundary_case, field: subscribed_at, detail: 提交 subscribed_at=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 subscribed_at
+      为空，不报错, field: subscribed_at}
+- id: s-083
+  title: "null 类边界场景 bs-059"
+  source: bs
+  source_id: "bs-059"
+  ctx: {entity: subscriber, field: unsubscribed_at, description: subscriber 的可选字段
+      unsubscribed_at 未提供}
+  act: {op: trigger_boundary_case, field: unsubscribed_at, detail: 提交 unsubscribed_at=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 unsubscribed_at
+      为空，不报错, field: unsubscribed_at}
+- id: s-084
+  title: "null 类边界场景 bs-060"
+  source: bs
+  source_id: "bs-060"
+  ctx: {entity: subscriber, field: created_at, description: subscriber 的可选字段 created_at
+      未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-085
+  title: "null 类边界场景 bs-061"
+  source: bs
+  source_id: "bs-061"
+  ctx: {entity: subscriber, field: updated_at, description: subscriber 的可选字段 updated_at
+      未提供}
+  act: {op: trigger_boundary_case, field: updated_at, detail: 提交 updated_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 updated_at
+      为空，不报错, field: updated_at}
+- id: s-086
+  title: "null 类边界场景 bs-062"
+  source: bs
+  source_id: "bs-062"
+  ctx: {entity: banner, field: id, description: banner 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-087
+  title: "null 类边界场景 bs-063"
+  source: bs
+  source_id: "bs-063"
+  ctx: {entity: banner, field: name, description: banner 创建或更新时缺少必填字段 name}
+  act: {op: trigger_boundary_case, field: name, detail: 提交 name=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      name, field: name}
+- id: s-088
+  title: "null 类边界场景 bs-064"
+  source: bs
+  source_id: "bs-064"
+  ctx: {entity: banner, field: image_url, description: banner 创建或更新时缺少必填字段 image_url}
+  act: {op: trigger_boundary_case, field: image_url, detail: 提交 image_url=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      image_url, field: image_url}
+- id: s-089
+  title: "null 类边界场景 bs-065"
+  source: bs
+  source_id: "bs-065"
+  ctx: {entity: banner, field: position, description: banner 创建或更新时缺少必填字段 position}
+  act: {op: trigger_boundary_case, field: position, detail: 提交 position=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      position, field: position}
+- id: s-090
+  title: "null 类边界场景 bs-066"
+  source: bs
+  source_id: "bs-066"
+  ctx: {entity: banner, field: start_time, description: banner 的可选字段 start_time 未提供}
+  act: {op: trigger_boundary_case, field: start_time, detail: 提交 start_time=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 start_time
+      为空，不报错, field: start_time}
+- id: s-091
+  title: "null 类边界场景 bs-067"
+  source: bs
+  source_id: "bs-067"
+  ctx: {entity: banner, field: end_time, description: banner 的可选字段 end_time 未提供}
+  act: {op: trigger_boundary_case, field: end_time, detail: 提交 end_time=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 end_time
+      为空，不报错, field: end_time}
+- id: s-092
+  title: "null 类边界场景 bs-068"
+  source: bs
+  source_id: "bs-068"
+  ctx: {entity: banner, field: status, description: banner 创建或更新时缺少必填字段 status}
+  act: {op: trigger_boundary_case, field: status, detail: 提交 status=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      status, field: status}
+- id: s-093
+  title: "null 类边界场景 bs-069"
+  source: bs
+  source_id: "bs-069"
+  ctx: {entity: banner, field: sort, description: banner 创建或更新时缺少必填字段 sort}
+  act: {op: trigger_boundary_case, field: sort, detail: 提交 sort=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      sort, field: sort}
+- id: s-094
+  title: "null 类边界场景 bs-070"
+  source: bs
+  source_id: "bs-070"
+  ctx: {entity: banner, field: clicks, description: banner 的可选字段 clicks 未提供}
+  act: {op: trigger_boundary_case, field: clicks, detail: 提交 clicks=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 clicks
+      为空，不报错, field: clicks}
+- id: s-095
+  title: "null 类边界场景 bs-071"
+  source: bs
+  source_id: "bs-071"
+  ctx: {entity: banner, field: title, description: banner 的可选字段 title 未提供}
+  act: {op: trigger_boundary_case, field: title, detail: 提交 title=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 title 为空，不报错,
+    field: title}
+- id: s-096
+  title: "null 类边界场景 bs-072"
+  source: bs
+  source_id: "bs-072"
+  ctx: {entity: banner, field: subtitle, description: banner 的可选字段 subtitle 未提供}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交 subtitle=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 subtitle
+      为空，不报错, field: subtitle}
+- id: s-097
+  title: "null 类边界场景 bs-073"
+  source: bs
+  source_id: "bs-073"
+  ctx: {entity: banner, field: cta_text, description: banner 的可选字段 cta_text 未提供}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交 cta_text=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 cta_text
+      为空，不报错, field: cta_text}
+- id: s-098
+  title: "null 类边界场景 bs-074"
+  source: bs
+  source_id: "bs-074"
+  ctx: {entity: banner_translation, field: id, description: banner_translation 的可选字段
+      id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-099
+  title: "null 类边界场景 bs-075"
+  source: bs
+  source_id: "bs-075"
+  ctx: {entity: banner_translation, field: banner_id, description: banner_translation
+      创建或更新时缺少必填字段 banner_id}
+  act: {op: trigger_boundary_case, field: banner_id, detail: 提交 banner_id=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      banner_id, field: banner_id}
+- id: s-100
+  title: "null 类边界场景 bs-076"
+  source: bs
+  source_id: "bs-076"
+  ctx: {entity: banner_translation, field: locale, description: banner_translation
+      创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-101
+  title: "null 类边界场景 bs-077"
+  source: bs
+  source_id: "bs-077"
+  ctx: {entity: banner_translation, field: title, description: banner_translation
+      的可选字段 title 未提供}
+  act: {op: trigger_boundary_case, field: title, detail: 提交 title=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 title 为空，不报错,
+    field: title}
+- id: s-102
+  title: "null 类边界场景 bs-078"
+  source: bs
+  source_id: "bs-078"
+  ctx: {entity: banner_translation, field: subtitle, description: banner_translation
+      的可选字段 subtitle 未提供}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交 subtitle=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 subtitle
+      为空，不报错, field: subtitle}
+- id: s-103
+  title: "null 类边界场景 bs-079"
+  source: bs
+  source_id: "bs-079"
+  ctx: {entity: banner_translation, field: cta_text, description: banner_translation
+      的可选字段 cta_text 未提供}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交 cta_text=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 cta_text
+      为空，不报错, field: cta_text}
+- id: s-104
+  title: "null 类边界场景 bs-080"
+  source: bs
+  source_id: "bs-080"
+  ctx: {entity: taxonomy, field: id, description: taxonomy 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-105
+  title: "null 类边界场景 bs-081"
+  source: bs
+  source_id: "bs-081"
+  ctx: {entity: taxonomy, field: type, description: taxonomy 创建或更新时缺少必填字段 type}
+  act: {op: trigger_boundary_case, field: type, detail: 提交 type=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      type, field: type}
+- id: s-106
+  title: "null 类边界场景 bs-082"
+  source: bs
+  source_id: "bs-082"
+  ctx: {entity: taxonomy, field: name, description: taxonomy 创建或更新时缺少必填字段 name}
+  act: {op: trigger_boundary_case, field: name, detail: 提交 name=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      name, field: name}
+- id: s-107
+  title: "null 类边界场景 bs-083"
+  source: bs
+  source_id: "bs-083"
+  ctx: {entity: taxonomy, field: slug, description: taxonomy 的可选字段 slug 未提供}
+  act: {op: trigger_boundary_case, field: slug, detail: 提交 slug=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 slug 为空，不报错,
+    field: slug}
+- id: s-108
+  title: "null 类边界场景 bs-084"
+  source: bs
+  source_id: "bs-084"
+  ctx: {entity: taxonomy, field: parent_id, description: taxonomy 的可选字段 parent_id
+      未提供}
+  act: {op: trigger_boundary_case, field: parent_id, detail: 提交 parent_id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 parent_id
+      为空，不报错, field: parent_id}
+- id: s-109
+  title: "null 类边界场景 bs-085"
+  source: bs
+  source_id: "bs-085"
+  ctx: {entity: taxonomy, field: online, description: taxonomy 创建或更新时缺少必填字段 online}
+  act: {op: trigger_boundary_case, field: online, detail: 提交 online=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      online, field: online}
+- id: s-110
+  title: "null 类边界场景 bs-086"
+  source: bs
+  source_id: "bs-086"
+  ctx: {entity: product, field: id, description: product 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-111
+  title: "null 类边界场景 bs-087"
+  source: bs
+  source_id: "bs-087"
+  ctx: {entity: product, field: name, description: product 创建或更新时缺少必填字段 name}
+  act: {op: trigger_boundary_case, field: name, detail: 提交 name=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      name, field: name}
+- id: s-112
+  title: "null 类边界场景 bs-088"
+  source: bs
+  source_id: "bs-088"
+  ctx: {entity: product, field: slug, description: product 创建或更新时缺少必填字段 slug}
+  act: {op: trigger_boundary_case, field: slug, detail: 提交 slug=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      slug, field: slug}
+- id: s-113
+  title: "null 类边界场景 bs-089"
+  source: bs
+  source_id: "bs-089"
+  ctx: {entity: product, field: status, description: product 创建或更新时缺少必填字段 status}
+  act: {op: trigger_boundary_case, field: status, detail: 提交 status=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      status, field: status}
+- id: s-114
+  title: "null 类边界场景 bs-090"
+  source: bs
+  source_id: "bs-090"
+  ctx: {entity: product, field: isNew, description: product 的可选字段 isNew 未提供}
+  act: {op: trigger_boundary_case, field: isNew, detail: 提交 isNew=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 isNew 为空，不报错,
+    field: isNew}
+- id: s-115
+  title: "null 类边界场景 bs-091"
+  source: bs
+  source_id: "bs-091"
+  ctx: {entity: product, field: isBest, description: product 的可选字段 isBest 未提供}
+  act: {op: trigger_boundary_case, field: isBest, detail: 提交 isBest=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 isBest
+      为空，不报错, field: isBest}
+- id: s-116
+  title: "null 类边界场景 bs-092"
+  source: bs
+  source_id: "bs-092"
+  ctx: {entity: product, field: recommend, description: product 的可选字段 recommend 未提供}
+  act: {op: trigger_boundary_case, field: recommend, detail: 提交 recommend=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 recommend
+      为空，不报错, field: recommend}
+- id: s-117
+  title: "null 类边界场景 bs-093"
+  source: bs
+  source_id: "bs-093"
+  ctx: {entity: product, field: sort, description: product 的可选字段 sort 未提供}
+  act: {op: trigger_boundary_case, field: sort, detail: 提交 sort=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 sort 为空，不报错,
+    field: sort}
+- id: s-118
+  title: "null 类边界场景 bs-094"
+  source: bs
+  source_id: "bs-094"
+  ctx: {entity: real_wedding, field: id, description: real_wedding 的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-119
+  title: "null 类边界场景 bs-095"
+  source: bs
+  source_id: "bs-095"
+  ctx: {entity: real_wedding, field: couple, description: real_wedding 创建或更新时缺少必填字段
+      couple}
+  act: {op: trigger_boundary_case, field: couple, detail: 提交 couple=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      couple, field: couple}
+- id: s-120
+  title: "null 类边界场景 bs-096"
+  source: bs
+  source_id: "bs-096"
+  ctx: {entity: real_wedding, field: location, description: real_wedding 的可选字段 location
+      未提供}
+  act: {op: trigger_boundary_case, field: location, detail: 提交 location=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 location
+      为空，不报错, field: location}
+- id: s-121
+  title: "null 类边界场景 bs-097"
+  source: bs
+  source_id: "bs-097"
+  ctx: {entity: real_wedding, field: theme, description: real_wedding 的可选字段 theme
+      未提供}
+  act: {op: trigger_boundary_case, field: theme, detail: 提交 theme=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 theme 为空，不报错,
+    field: theme}
+- id: s-122
+  title: "null 类边界场景 bs-098"
+  source: bs
+  source_id: "bs-098"
+  ctx: {entity: real_wedding, field: weddingDate, description: real_wedding 的可选字段
+      weddingDate 未提供}
+  act: {op: trigger_boundary_case, field: weddingDate, detail: 提交 weddingDate=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 weddingDate
+      为空，不报错, field: weddingDate}
+- id: s-123
+  title: "null 类边界场景 bs-099"
+  source: bs
+  source_id: "bs-099"
+  ctx: {entity: real_wedding, field: cover, description: real_wedding 的可选字段 cover
+      未提供}
+  act: {op: trigger_boundary_case, field: cover, detail: 提交 cover=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 cover 为空，不报错,
+    field: cover}
+- id: s-124
+  title: "null 类边界场景 bs-100"
+  source: bs
+  source_id: "bs-100"
+  ctx: {entity: real_wedding, field: status, description: real_wedding 创建或更新时缺少必填字段
+      status}
+  act: {op: trigger_boundary_case, field: status, detail: 提交 status=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      status, field: status}
+- id: s-125
+  title: "null 类边界场景 bs-101"
+  source: bs
+  source_id: "bs-101"
+  ctx: {entity: cache_invalidation_log, field: id, description: cache_invalidation_log
+      的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-126
+  title: "null 类边界场景 bs-102"
+  source: bs
+  source_id: "bs-102"
+  ctx: {entity: cache_invalidation_log, field: event_type, description: cache_invalidation_log
+      的可选字段 event_type 未提供}
+  act: {op: trigger_boundary_case, field: event_type, detail: 提交 event_type=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 event_type
+      为空，不报错, field: event_type}
+- id: s-127
+  title: "null 类边界场景 bs-103"
+  source: bs
+  source_id: "bs-103"
+  ctx: {entity: cache_invalidation_log, field: resource_type, description: cache_invalidation_log
+      的可选字段 resource_type 未提供}
+  act: {op: trigger_boundary_case, field: resource_type, detail: 提交 resource_type=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 resource_type
+      为空，不报错, field: resource_type}
+- id: s-128
+  title: "null 类边界场景 bs-104"
+  source: bs
+  source_id: "bs-104"
+  ctx: {entity: cache_invalidation_log, field: resource_id, description: cache_invalidation_log
+      的可选字段 resource_id 未提供}
+  act: {op: trigger_boundary_case, field: resource_id, detail: 提交 resource_id=null
+      的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 resource_id
+      为空，不报错, field: resource_id}
+- id: s-129
+  title: "null 类边界场景 bs-105"
+  source: bs
+  source_id: "bs-105"
+  ctx: {entity: cache_invalidation_log, field: status, description: cache_invalidation_log
+      创建或更新时缺少必填字段 status}
+  act: {op: trigger_boundary_case, field: status, detail: 提交 status=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      status, field: status}
+- id: s-130
+  title: "null 类边界场景 bs-106"
+  source: bs
+  source_id: "bs-106"
+  ctx: {entity: cache_invalidation_log, field: paths_json, description: cache_invalidation_log
+      的可选字段 paths_json 未提供}
+  act: {op: trigger_boundary_case, field: paths_json, detail: 提交 paths_json=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 paths_json
+      为空，不报错, field: paths_json}
+- id: s-131
+  title: "null 类边界场景 bs-107"
+  source: bs
+  source_id: "bs-107"
+  ctx: {entity: cache_invalidation_log, field: created_at, description: cache_invalidation_log
+      的可选字段 created_at 未提供}
+  act: {op: trigger_boundary_case, field: created_at, detail: 提交 created_at=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 created_at
+      为空，不报错, field: created_at}
+- id: s-132
+  title: "null 类边界场景 bs-108"
+  source: bs
+  source_id: "bs-108"
+  ctx: {entity: newsletter_subscriber, field: id, description: newsletter_subscriber
+      的可选字段 id 未提供}
+  act: {op: trigger_boundary_case, field: id, detail: 提交 id=null 的请求}
+  expect: {http_status: 201, error_code: "0", description: 系统正常处理并保持 id 为空，不报错,
+    field: id}
+- id: s-133
+  title: "null 类边界场景 bs-109"
+  source: bs
+  source_id: "bs-109"
+  ctx: {entity: newsletter_subscriber, field: email, description: newsletter_subscriber
+      创建或更新时缺少必填字段 email}
+  act: {op: trigger_boundary_case, field: email, detail: 提交 email=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      email, field: email}
+- id: s-134
+  title: "null 类边界场景 bs-110"
+  source: bs
+  source_id: "bs-110"
+  ctx: {entity: newsletter_subscriber, field: source, description: newsletter_subscriber
+      创建或更新时缺少必填字段 source}
+  act: {op: trigger_boundary_case, field: source, detail: 提交 source=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      source, field: source}
+- id: s-135
+  title: "null 类边界场景 bs-111"
+  source: bs
+  source_id: "bs-111"
+  ctx: {entity: newsletter_subscriber, field: locale, description: newsletter_subscriber
+      创建或更新时缺少必填字段 locale}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交 locale=null 的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      locale, field: locale}
+- id: s-136
+  title: "null 类边界场景 bs-112"
+  source: bs
+  source_id: "bs-112"
+  ctx: {entity: newsletter_subscriber, field: subscribedAt, description: newsletter_subscriber
+      创建或更新时缺少必填字段 subscribedAt}
+  act: {op: trigger_boundary_case, field: subscribedAt, detail: 提交 subscribedAt=null
+      的请求}
+  expect: {http_status: 422, error_code: "FIELD_VALIDATION_FAILED", description: 系统返回字段必填错误，拒绝写入
+      subscribedAt, field: subscribedAt}
+- id: s-137
+  title: "extreme 类边界场景 bs-113"
+  source: bs
+  source_id: "bs-113"
+  ctx: {entity: home_page_section, field: section_type, description: "section_type\
+      \ 的合法枚举为 ['Hero', 'Announcement', 'ShopByColor', 'ThemeCards', 'ProductRail',\
+      \ 'EditorialFeature', 'Newsletter']"}
+  act: {op: trigger_boundary_case, field: section_type, detail: 提交枚举外的 section_type=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      section_type 枚举错误, field: section_type}
+- id: s-138
+  title: "extreme 类边界场景 bs-114"
+  source: bs
+  source_id: "bs-114"
+  ctx: {entity: home_page_section, field: label, description: label 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: label, detail: 提交长度为 65 的 label}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      label 长度超限错误, field: label}
+- id: s-139
+  title: "extreme 类边界场景 bs-115"
+  source: bs
+  source_id: "bs-115"
+  ctx: {entity: home_page_section, field: sort_order, description: sort_order 的最小值约束为
+      0}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=-1}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝低于最小值的输入，返回
+      sort_order 边界错误, field: sort_order}
+- id: s-140
+  title: "extreme 类边界场景 bs-116"
+  source: bs
+  source_id: "bs-116"
+  ctx: {entity: home_section_translation, field: locale, description: "locale 的合法枚举为\
+      \ ['es', 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-141
+  title: "extreme 类边界场景 bs-117"
+  source: bs
+  source_id: "bs-117"
+  ctx: {entity: home_section_translation, field: eyebrow, description: eyebrow 的最大长度为
+      64}
+  act: {op: trigger_boundary_case, field: eyebrow, detail: 提交长度为 65 的 eyebrow}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      eyebrow 长度超限错误, field: eyebrow}
+- id: s-142
+  title: "extreme 类边界场景 bs-118"
+  source: bs
+  source_id: "bs-118"
+  ctx: {entity: home_section_translation, field: title, description: title 的最大长度为
+      255}
+  act: {op: trigger_boundary_case, field: title, detail: 提交长度为 256 的 title}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      title 长度超限错误, field: title}
+- id: s-143
+  title: "extreme 类边界场景 bs-119"
+  source: bs
+  source_id: "bs-119"
+  ctx: {entity: home_section_translation, field: subtitle, description: subtitle 的最大长度为
+      512}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交长度为 513 的 subtitle}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      subtitle 长度超限错误, field: subtitle}
+- id: s-144
+  title: "extreme 类边界场景 bs-120"
+  source: bs
+  source_id: "bs-120"
+  ctx: {entity: home_section_translation, field: cta_text, description: cta_text 的最大长度为
+      64}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交长度为 65 的 cta_text}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      cta_text 长度超限错误, field: cta_text}
+- id: s-145
+  title: "extreme 类边界场景 bs-121"
+  source: bs
+  source_id: "bs-121"
+  ctx: {entity: navigation_item, field: label, description: label 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: label, detail: 提交长度为 65 的 label}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      label 长度超限错误, field: label}
+- id: s-146
+  title: "extreme 类边界场景 bs-122"
+  source: bs
+  source_id: "bs-122"
+  ctx: {entity: navigation_item, field: link_type, description: "link_type 的合法枚举为\
+      \ ['taxonomy', 'custom']"}
+  act: {op: trigger_boundary_case, field: link_type, detail: 提交枚举外的 link_type=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      link_type 枚举错误, field: link_type}
+- id: s-147
+  title: "extreme 类边界场景 bs-123"
+  source: bs
+  source_id: "bs-123"
+  ctx: {entity: navigation_item, field: taxonomy_type, description: "taxonomy_type\
+      \ 的合法枚举为 ['category', 'theme']"}
+  act: {op: trigger_boundary_case, field: taxonomy_type, detail: 提交枚举外的 taxonomy_type=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      taxonomy_type 枚举错误, field: taxonomy_type}
+- id: s-148
+  title: "extreme 类边界场景 bs-124"
+  source: bs
+  source_id: "bs-124"
+  ctx: {entity: navigation_item, field: custom_href, description: custom_href 的最大长度为
+      255}
+  act: {op: trigger_boundary_case, field: custom_href, detail: 提交长度为 256 的 custom_href}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      custom_href 长度超限错误, field: custom_href}
+- id: s-149
+  title: "extreme 类边界场景 bs-125"
+  source: bs
+  source_id: "bs-125"
+  ctx: {entity: navigation_item, field: sort_order, description: sort_order 的最小值约束为
+      0}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=-1}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝低于最小值的输入，返回
+      sort_order 边界错误, field: sort_order}
+- id: s-150
+  title: "extreme 类边界场景 bs-126"
+  source: bs
+  source_id: "bs-126"
+  ctx: {entity: navigation_translation, field: locale, description: "locale 的合法枚举为\
+      \ ['es', 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-151
+  title: "extreme 类边界场景 bs-127"
+  source: bs
+  source_id: "bs-127"
+  ctx: {entity: navigation_translation, field: label, description: label 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: label, detail: 提交长度为 65 的 label}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      label 长度超限错误, field: label}
+- id: s-152
+  title: "extreme 类边界场景 bs-128"
+  source: bs
+  source_id: "bs-128"
+  ctx: {entity: footer_column, field: title, description: title 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: title, detail: 提交长度为 65 的 title}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      title 长度超限错误, field: title}
+- id: s-153
+  title: "extreme 类边界场景 bs-129"
+  source: bs
+  source_id: "bs-129"
+  ctx: {entity: footer_column, field: sort_order, description: sort_order 的最小值约束为
+      0}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=-1}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝低于最小值的输入，返回
+      sort_order 边界错误, field: sort_order}
+- id: s-154
+  title: "extreme 类边界场景 bs-130"
+  source: bs
+  source_id: "bs-130"
+  ctx: {entity: footer_link, field: label, description: label 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: label, detail: 提交长度为 65 的 label}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      label 长度超限错误, field: label}
+- id: s-155
+  title: "extreme 类边界场景 bs-131"
+  source: bs
+  source_id: "bs-131"
+  ctx: {entity: footer_link, field: href, description: href 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: href, detail: 提交长度为 256 的 href}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      href 长度超限错误, field: href}
+- id: s-156
+  title: "extreme 类边界场景 bs-132"
+  source: bs
+  source_id: "bs-132"
+  ctx: {entity: footer_link, field: sort_order, description: sort_order 的最小值约束为 0}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=-1}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝低于最小值的输入，返回
+      sort_order 边界错误, field: sort_order}
+- id: s-157
+  title: "extreme 类边界场景 bs-133"
+  source: bs
+  source_id: "bs-133"
+  ctx: {entity: announcement, field: sort_order, description: sort_order 的最小值约束为 0}
+  act: {op: trigger_boundary_case, field: sort_order, detail: 提交 sort_order=-1}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝低于最小值的输入，返回
+      sort_order 边界错误, field: sort_order}
+- id: s-158
+  title: "extreme 类边界场景 bs-134"
+  source: bs
+  source_id: "bs-134"
+  ctx: {entity: announcement, field: content, description: content 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: content, detail: 提交长度为 256 的 content}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      content 长度超限错误, field: content}
+- id: s-159
+  title: "extreme 类边界场景 bs-135"
+  source: bs
+  source_id: "bs-135"
+  ctx: {entity: announcement_translation, field: locale, description: "locale 的合法枚举为\
+      \ ['es', 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-160
+  title: "extreme 类边界场景 bs-136"
+  source: bs
+  source_id: "bs-136"
+  ctx: {entity: announcement_translation, field: content, description: content 的最大长度为
+      255}
+  act: {op: trigger_boundary_case, field: content, detail: 提交长度为 256 的 content}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      content 长度超限错误, field: content}
+- id: s-161
+  title: "extreme 类边界场景 bs-137"
+  source: bs
+  source_id: "bs-137"
+  ctx: {entity: subscriber, field: email, description: email 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: email, detail: 提交长度为 256 的 email}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      email 长度超限错误, field: email}
+- id: s-162
+  title: "extreme 类边界场景 bs-138"
+  source: bs
+  source_id: "bs-138"
+  ctx: {entity: subscriber, field: source, description: "source 的合法枚举为 ['footer',\
+      \ 'modal', 'exit_intent', 'home_block']"}
+  act: {op: trigger_boundary_case, field: source, detail: 提交枚举外的 source=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      source 枚举错误, field: source}
+- id: s-163
+  title: "extreme 类边界场景 bs-139"
+  source: bs
+  source_id: "bs-139"
+  ctx: {entity: subscriber, field: locale, description: "locale 的合法枚举为 ['en', 'es',\
+      \ 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-164
+  title: "extreme 类边界场景 bs-140"
+  source: bs
+  source_id: "bs-140"
+  ctx: {entity: subscriber, field: status, description: "status 的合法枚举为 ['pending',\
+      \ 'subscribed', 'unsubscribed']"}
+  act: {op: trigger_boundary_case, field: status, detail: 提交枚举外的 status=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      status 枚举错误, field: status}
+- id: s-165
+  title: "extreme 类边界场景 bs-141"
+  source: bs
+  source_id: "bs-141"
+  ctx: {entity: banner, field: name, description: name 的最大长度为 128}
+  act: {op: trigger_boundary_case, field: name, detail: 提交长度为 129 的 name}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      name 长度超限错误, field: name}
+- id: s-166
+  title: "extreme 类边界场景 bs-142"
+  source: bs
+  source_id: "bs-142"
+  ctx: {entity: banner, field: image_url, description: image_url 的最大长度为 512}
+  act: {op: trigger_boundary_case, field: image_url, detail: 提交长度为 513 的 image_url}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      image_url 长度超限错误, field: image_url}
+- id: s-167
+  title: "extreme 类边界场景 bs-143"
+  source: bs
+  source_id: "bs-143"
+  ctx: {entity: banner, field: position, description: "position 的合法枚举为 ['HERO', 'FEATURED',\
+      \ 'TOPBAR']"}
+  act: {op: trigger_boundary_case, field: position, detail: 提交枚举外的 position=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      position 枚举错误, field: position}
+- id: s-168
+  title: "extreme 类边界场景 bs-144"
+  source: bs
+  source_id: "bs-144"
+  ctx: {entity: banner, field: status, description: "status 的合法枚举为 ['draft', 'published',\
+      \ 'archived']"}
+  act: {op: trigger_boundary_case, field: status, detail: 提交枚举外的 status=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      status 枚举错误, field: status}
+- id: s-169
+  title: "extreme 类边界场景 bs-145"
+  source: bs
+  source_id: "bs-145"
+  ctx: {entity: banner, field: title, description: title 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: title, detail: 提交长度为 256 的 title}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      title 长度超限错误, field: title}
+- id: s-170
+  title: "extreme 类边界场景 bs-146"
+  source: bs
+  source_id: "bs-146"
+  ctx: {entity: banner, field: subtitle, description: subtitle 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交长度为 256 的 subtitle}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      subtitle 长度超限错误, field: subtitle}
+- id: s-171
+  title: "extreme 类边界场景 bs-147"
+  source: bs
+  source_id: "bs-147"
+  ctx: {entity: banner, field: cta_text, description: cta_text 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交长度为 65 的 cta_text}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      cta_text 长度超限错误, field: cta_text}
+- id: s-172
+  title: "extreme 类边界场景 bs-148"
+  source: bs
+  source_id: "bs-148"
+  ctx: {entity: banner_translation, field: locale, description: "locale 的合法枚举为 ['es',\
+      \ 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-173
+  title: "extreme 类边界场景 bs-149"
+  source: bs
+  source_id: "bs-149"
+  ctx: {entity: banner_translation, field: title, description: title 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: title, detail: 提交长度为 256 的 title}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      title 长度超限错误, field: title}
+- id: s-174
+  title: "extreme 类边界场景 bs-150"
+  source: bs
+  source_id: "bs-150"
+  ctx: {entity: banner_translation, field: subtitle, description: subtitle 的最大长度为
+      255}
+  act: {op: trigger_boundary_case, field: subtitle, detail: 提交长度为 256 的 subtitle}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      subtitle 长度超限错误, field: subtitle}
+- id: s-175
+  title: "extreme 类边界场景 bs-151"
+  source: bs
+  source_id: "bs-151"
+  ctx: {entity: banner_translation, field: cta_text, description: cta_text 的最大长度为
+      64}
+  act: {op: trigger_boundary_case, field: cta_text, detail: 提交长度为 65 的 cta_text}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      cta_text 长度超限错误, field: cta_text}
+- id: s-176
+  title: "extreme 类边界场景 bs-152"
+  source: bs
+  source_id: "bs-152"
+  ctx: {entity: taxonomy, field: type, description: "type 的合法枚举为 ['category', 'theme']"}
+  act: {op: trigger_boundary_case, field: type, detail: 提交枚举外的 type=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      type 枚举错误, field: type}
+- id: s-177
+  title: "extreme 类边界场景 bs-153"
+  source: bs
+  source_id: "bs-153"
+  ctx: {entity: taxonomy, field: name, description: name 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: name, detail: 提交长度为 65 的 name}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      name 长度超限错误, field: name}
+- id: s-178
+  title: "extreme 类边界场景 bs-154"
+  source: bs
+  source_id: "bs-154"
+  ctx: {entity: product, field: name, description: name 的最大长度为 128}
+  act: {op: trigger_boundary_case, field: name, detail: 提交长度为 129 的 name}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      name 长度超限错误, field: name}
+- id: s-179
+  title: "extreme 类边界场景 bs-155"
+  source: bs
+  source_id: "bs-155"
+  ctx: {entity: product, field: slug, description: slug 的最大长度为 128}
+  act: {op: trigger_boundary_case, field: slug, detail: 提交长度为 129 的 slug}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      slug 长度超限错误, field: slug}
+- id: s-180
+  title: "extreme 类边界场景 bs-156"
+  source: bs
+  source_id: "bs-156"
+  ctx: {entity: product, field: status, description: "status 的合法枚举为 ['draft', 'published']"}
+  act: {op: trigger_boundary_case, field: status, detail: 提交枚举外的 status=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      status 枚举错误, field: status}
+- id: s-181
+  title: "extreme 类边界场景 bs-157"
+  source: bs
+  source_id: "bs-157"
+  ctx: {entity: real_wedding, field: couple, description: couple 的最大长度为 64}
+  act: {op: trigger_boundary_case, field: couple, detail: 提交长度为 65 的 couple}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      couple 长度超限错误, field: couple}
+- id: s-182
+  title: "extreme 类边界场景 bs-158"
+  source: bs
+  source_id: "bs-158"
+  ctx: {entity: real_wedding, field: location, description: location 的最大长度为 128}
+  act: {op: trigger_boundary_case, field: location, detail: 提交长度为 129 的 location}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      location 长度超限错误, field: location}
+- id: s-183
+  title: "extreme 类边界场景 bs-159"
+  source: bs
+  source_id: "bs-159"
+  ctx: {entity: real_wedding, field: theme, description: theme 的最大长度为 32}
+  act: {op: trigger_boundary_case, field: theme, detail: 提交长度为 33 的 theme}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      theme 长度超限错误, field: theme}
+- id: s-184
+  title: "extreme 类边界场景 bs-160"
+  source: bs
+  source_id: "bs-160"
+  ctx: {entity: real_wedding, field: weddingDate, description: weddingDate 的最大长度为
+      16}
+  act: {op: trigger_boundary_case, field: weddingDate, detail: 提交长度为 17 的 weddingDate}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      weddingDate 长度超限错误, field: weddingDate}
+- id: s-185
+  title: "extreme 类边界场景 bs-161"
+  source: bs
+  source_id: "bs-161"
+  ctx: {entity: real_wedding, field: cover, description: cover 的最大长度为 512}
+  act: {op: trigger_boundary_case, field: cover, detail: 提交长度为 513 的 cover}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      cover 长度超限错误, field: cover}
+- id: s-186
+  title: "extreme 类边界场景 bs-162"
+  source: bs
+  source_id: "bs-162"
+  ctx: {entity: real_wedding, field: status, description: "status 的合法枚举为 ['draft',\
+      \ 'published']"}
+  act: {op: trigger_boundary_case, field: status, detail: 提交枚举外的 status=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      status 枚举错误, field: status}
+- id: s-187
+  title: "extreme 类边界场景 bs-163"
+  source: bs
+  source_id: "bs-163"
+  ctx: {entity: cache_invalidation_log, field: status, description: "status 的合法枚举为\
+      \ ['pending', 'completed', 'failed']"}
+  act: {op: trigger_boundary_case, field: status, detail: 提交枚举外的 status=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      status 枚举错误, field: status}
+- id: s-188
+  title: "extreme 类边界场景 bs-164"
+  source: bs
+  source_id: "bs-164"
+  ctx: {entity: newsletter_subscriber, field: email, description: email 的最大长度为 255}
+  act: {op: trigger_boundary_case, field: email, detail: 提交长度为 256 的 email}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝超长输入，返回
+      email 长度超限错误, field: email}
+- id: s-189
+  title: "extreme 类边界场景 bs-165"
+  source: bs
+  source_id: "bs-165"
+  ctx: {entity: newsletter_subscriber, field: source, description: "source 的合法枚举为\
+      \ ['footer', 'modal', 'exit_intent', 'home_block']"}
+  act: {op: trigger_boundary_case, field: source, detail: 提交枚举外的 source=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      source 枚举错误, field: source}
+- id: s-190
+  title: "extreme 类边界场景 bs-166"
+  source: bs
+  source_id: "bs-166"
+  ctx: {entity: newsletter_subscriber, field: locale, description: "locale 的合法枚举为\
+      \ ['en', 'es', 'fr']"}
+  act: {op: trigger_boundary_case, field: locale, detail: 提交枚举外的 locale=__invalid__}
+  expect: {http_status: 422, error_code: "VALUE_OUT_OF_RANGE", description: 系统拒绝非法枚举值，返回
+      locale 枚举错误, field: locale}
+- id: s-191
+  title: "concurrent 类边界场景 bs-167"
+  source: bs
+  source_id: "bs-167"
+  ctx: {entity: home_page_section, field: state, description: home_page_section 当前处于
+      disabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_enable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-192
+  title: "concurrent 类边界场景 bs-168"
+  source: bs
+  source_id: "bs-168"
+  ctx: {entity: home_page_section, field: state, description: home_page_section 当前处于
+      enabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_disable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-193
+  title: "concurrent 类边界场景 bs-169"
+  source: bs
+  source_id: "bs-169"
+  ctx: {entity: navigation_item, field: state, description: navigation_item 当前处于 disabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_enable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-194
+  title: "concurrent 类边界场景 bs-170"
+  source: bs
+  source_id: "bs-170"
+  ctx: {entity: navigation_item, field: state, description: navigation_item 当前处于 enabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_disable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-195
+  title: "concurrent 类边界场景 bs-171"
+  source: bs
+  source_id: "bs-171"
+  ctx: {entity: announcement, field: state, description: announcement 当前处于 disabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_enable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-196
+  title: "concurrent 类边界场景 bs-172"
+  source: bs
+  source_id: "bs-172"
+  ctx: {entity: announcement, field: state, description: announcement 当前处于 enabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_disable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-197
+  title: "concurrent 类边界场景 bs-173"
+  source: bs
+  source_id: "bs-173"
+  ctx: {entity: banner, field: state, description: banner 当前处于 draft，两个互斥转换同时触发}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交 publish 与 delete}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统只允许一个转换成功，后一个请求失败或等待重试}
+- id: s-198
+  title: "concurrent 类边界场景 bs-174"
+  source: bs
+  source_id: "bs-174"
+  ctx: {entity: banner, field: state, description: banner 当前处于 published，两个互斥转换同时触发}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交 take_offline 与 schedule_expire}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统只允许一个转换成功，后一个请求失败或等待重试}
+- id: s-199
+  title: "concurrent 类边界场景 bs-175"
+  source: bs
+  source_id: "bs-175"
+  ctx: {entity: banner, field: state, description: banner 当前处于 archived，两个互斥转换同时触发}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交 republish 与 delete}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统只允许一个转换成功，后一个请求失败或等待重试}
+- id: s-200
+  title: "concurrent 类边界场景 bs-176"
+  source: bs
+  source_id: "bs-176"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 pending，两个互斥转换同时触发}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交 confirm_subscribe 与
+      resubmit}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统只允许一个转换成功，后一个请求失败或等待重试}
+- id: s-201
+  title: "concurrent 类边界场景 bs-177"
+  source: bs
+  source_id: "bs-177"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 subscribed，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 unsubscribe 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-202
+  title: "concurrent 类边界场景 bs-178"
+  source: bs
+  source_id: "bs-178"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 unsubscribed，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 resubscribe 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-203
+  title: "concurrent 类边界场景 bs-179"
+  source: bs
+  source_id: "bs-179"
+  ctx: {entity: footer_column, field: state, description: footer_column 当前处于 disabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_enable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-204
+  title: "concurrent 类边界场景 bs-180"
+  source: bs
+  source_id: "bs-180"
+  ctx: {entity: footer_column, field: state, description: footer_column 当前处于 enabled，同一转换被重复提交}
+  act: {op: trigger_boundary_case, field: state, detail: 并发提交两个 admin_disable 请求}
+  expect: {http_status: 409, error_code: "CONCURRENT_CONFLICT", description: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理}
+- id: s-205
+  title: "auth 类边界场景 bs-181"
+  source: bs
+  source_id: "bs-181"
+  ctx: {entity: home_page_section, description: 用户角色为 viewer，无权执行流程 管理员配置首页区块}
+  act: {op: trigger_boundary_case, detail: 触发 管理员配置首页区块 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-206
+  title: "auth 类边界场景 bs-182"
+  source: bs
+  source_id: "bs-182"
+  ctx: {entity: home_page_section, description: 用户已开始执行流程 管理员配置首页区块，管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-207
+  title: "auth 类边界场景 bs-183"
+  source: bs
+  source_id: "bs-183"
+  ctx: {entity: home_page_section, description: 用户属于 tenant-A，尝试访问 home_page_section
+      的 tenant-B 资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-208
+  title: "auth 类边界场景 bs-184"
+  source: bs
+  source_id: "bs-184"
+  ctx: {entity: navigation_item, description: 用户角色为 viewer，无权执行流程 管理员配置导航与页脚}
+  act: {op: trigger_boundary_case, detail: 触发 管理员配置导航与页脚 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-209
+  title: "auth 类边界场景 bs-185"
+  source: bs
+  source_id: "bs-185"
+  ctx: {entity: navigation_item, description: 用户已开始执行流程 管理员配置导航与页脚，管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-210
+  title: "auth 类边界场景 bs-186"
+  source: bs
+  source_id: "bs-186"
+  ctx: {entity: navigation_item, description: 用户属于 tenant-A，尝试访问 navigation_item 的
+      tenant-B 资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-211
+  title: "auth 类边界场景 bs-187"
+  source: bs
+  source_id: "bs-187"
+  ctx: {entity: announcement, description: 用户角色为 viewer，无权执行流程 管理员配置公告条}
+  act: {op: trigger_boundary_case, detail: 触发 管理员配置公告条 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-212
+  title: "auth 类边界场景 bs-188"
+  source: bs
+  source_id: "bs-188"
+  ctx: {entity: announcement, description: 用户已开始执行流程 管理员配置公告条，管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-213
+  title: "auth 类边界场景 bs-189"
+  source: bs
+  source_id: "bs-189"
+  ctx: {entity: announcement, description: 用户属于 tenant-A，尝试访问 announcement 的 tenant-B
+      资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-214
+  title: "auth 类边界场景 bs-190"
+  source: bs
+  source_id: "bs-190"
+  ctx: {entity: banner, description: 用户角色为 viewer，无权执行流程 管理员管理 Banner（含 Hero 数据源）}
+  act: {op: trigger_boundary_case, detail: 触发 管理员管理 Banner（含 Hero 数据源） 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-215
+  title: "auth 类边界场景 bs-191"
+  source: bs
+  source_id: "bs-191"
+  ctx: {entity: banner, description: 用户已开始执行流程 管理员管理 Banner（含 Hero 数据源），管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-216
+  title: "auth 类边界场景 bs-192"
+  source: bs
+  source_id: "bs-192"
+  ctx: {entity: banner, description: 用户属于 tenant-A，尝试访问 banner 的 tenant-B 资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-217
+  title: "auth 类边界场景 bs-193"
+  source: bs
+  source_id: "bs-193"
+  ctx: {entity: cache_invalidation_log, description: 用户角色为 viewer，无权执行流程 管理员手动失效缓存（Publish
+      页）}
+  act: {op: trigger_boundary_case, detail: 触发 管理员手动失效缓存（Publish 页） 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-218
+  title: "auth 类边界场景 bs-194"
+  source: bs
+  source_id: "bs-194"
+  ctx: {entity: cache_invalidation_log, description: 用户已开始执行流程 管理员手动失效缓存（Publish 页），管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-219
+  title: "auth 类边界场景 bs-195"
+  source: bs
+  source_id: "bs-195"
+  ctx: {entity: cache_invalidation_log, description: 用户属于 tenant-A，尝试访问 cache_invalidation_log
+      的 tenant-B 资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-220
+  title: "auth 类边界场景 bs-196"
+  source: bs
+  source_id: "bs-196"
+  ctx: {entity: home_page_section, description: 用户角色为 viewer，无权执行流程 消费者访问首页（动态渲染区块）}
+  act: {op: trigger_boundary_case, detail: 触发 消费者访问首页（动态渲染区块） 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-221
+  title: "auth 类边界场景 bs-197"
+  source: bs
+  source_id: "bs-197"
+  ctx: {entity: home_page_section, description: 用户已开始执行流程 消费者访问首页（动态渲染区块），管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-222
+  title: "auth 类边界场景 bs-198"
+  source: bs
+  source_id: "bs-198"
+  ctx: {entity: navigation_item, description: 用户角色为 viewer，无权执行流程 消费者访问任意页面（header/footer
+      渲染）}
+  act: {op: trigger_boundary_case, detail: 触发 消费者访问任意页面（header/footer 渲染） 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-223
+  title: "auth 类边界场景 bs-199"
+  source: bs
+  source_id: "bs-199"
+  ctx: {entity: navigation_item, description: 用户已开始执行流程 消费者访问任意页面（header/footer 渲染），管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-224
+  title: "auth 类边界场景 bs-200"
+  source: bs
+  source_id: "bs-200"
+  ctx: {entity: subscriber, description: 用户角色为 viewer，无权执行流程 消费者订阅 Newsletter（首页区块入口）}
+  act: {op: trigger_boundary_case, detail: 触发 消费者订阅 Newsletter（首页区块入口） 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-225
+  title: "auth 类边界场景 bs-201"
+  source: bs
+  source_id: "bs-201"
+  ctx: {entity: subscriber, description: 用户已开始执行流程 消费者订阅 Newsletter（首页区块入口），管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-226
+  title: "auth 类边界场景 bs-202"
+  source: bs
+  source_id: "bs-202"
+  ctx: {entity: subscriber, description: 用户属于 tenant-A，尝试访问 subscriber 的 tenant-B
+      资源}
+  act: {op: trigger_boundary_case, detail: 发起跨组或跨租户查询/写入请求}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝访问目标资源，返回无权访问错误}
+- id: s-227
+  title: "auth 类边界场景 bs-203"
+  source: bs
+  source_id: "bs-203"
+  ctx: {entity: banner, description: 用户角色为 viewer，无权执行流程 HomeBuilder Hero 区块跨域读取 Banner}
+  act: {op: trigger_boundary_case, detail: 触发 HomeBuilder Hero 区块跨域读取 Banner 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-228
+  title: "auth 类边界场景 bs-204"
+  source: bs
+  source_id: "bs-204"
+  ctx: {entity: banner, description: 用户已开始执行流程 HomeBuilder Hero 区块跨域读取 Banner，管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-229
+  title: "auth 类边界场景 bs-205"
+  source: bs
+  source_id: "bs-205"
+  ctx: {entity: navigation_item, description: 用户角色为 viewer，无权执行流程 NavigationConfig
+      跨域引用 Taxonomy}
+  act: {op: trigger_boundary_case, detail: 触发 NavigationConfig 跨域引用 Taxonomy 所需的写操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统拒绝越权操作，返回 403
+      或权限不足错误}
+- id: s-230
+  title: "auth 类边界场景 bs-206"
+  source: bs
+  source_id: "bs-206"
+  ctx: {entity: navigation_item, description: 用户已开始执行流程 NavigationConfig 跨域引用 Taxonomy，管理员在会话内撤销其权限}
+  act: {op: trigger_boundary_case, detail: 用户继续提交当前操作}
+  expect: {http_status: 403, error_code: "FORBIDDEN", description: 系统检测权限已变更，终止操作并返回权限不足错误}
+- id: s-231
+  title: "network 类边界场景 bs-207"
+  source: bs
+  source_id: "bs-207"
+  ctx: {entity: home_page_section, description: 流程 管理员配置首页区块 依赖的外部系统 RabbitMQ 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 RabbitMQ 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-232
+  title: "network 类边界场景 bs-208"
+  source: bs
+  source_id: "bs-208"
+  ctx: {entity: home_page_section, description: 流程 管理员配置首页区块 调用 RabbitMQ 超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-233
+  title: "network 类边界场景 bs-209"
+  source: bs
+  source_id: "bs-209"
+  ctx: {entity: home_page_section, description: 流程 管理员配置首页区块 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-234
+  title: "network 类边界场景 bs-210"
+  source: bs
+  source_id: "bs-210"
+  ctx: {entity: navigation_item, description: 流程 管理员配置导航与页脚 依赖的外部系统 RabbitMQ 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 RabbitMQ 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-235
+  title: "network 类边界场景 bs-211"
+  source: bs
+  source_id: "bs-211"
+  ctx: {entity: navigation_item, description: 流程 管理员配置导航与页脚 调用 RabbitMQ 超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-236
+  title: "network 类边界场景 bs-212"
+  source: bs
+  source_id: "bs-212"
+  ctx: {entity: navigation_item, description: 流程 管理员配置导航与页脚 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-237
+  title: "network 类边界场景 bs-213"
+  source: bs
+  source_id: "bs-213"
+  ctx: {entity: announcement, description: 流程 管理员配置公告条 依赖的外部系统 RabbitMQ 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 RabbitMQ 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-238
+  title: "network 类边界场景 bs-214"
+  source: bs
+  source_id: "bs-214"
+  ctx: {entity: announcement, description: 流程 管理员配置公告条 调用 RabbitMQ 超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-239
+  title: "network 类边界场景 bs-215"
+  source: bs
+  source_id: "bs-215"
+  ctx: {entity: announcement, description: 流程 管理员配置公告条 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-240
+  title: "network 类边界场景 bs-216"
+  source: bs
+  source_id: "bs-216"
+  ctx: {entity: banner, description: 流程 管理员管理 Banner（含 Hero 数据源） 依赖的外部系统 ObjectStorage-CDN
+      不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 ObjectStorage-CDN 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-241
+  title: "network 类边界场景 bs-217"
+  source: bs
+  source_id: "bs-217"
+  ctx: {entity: banner, description: 流程 管理员管理 Banner（含 Hero 数据源） 调用 ObjectStorage-CDN
+      超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-242
+  title: "network 类边界场景 bs-218"
+  source: bs
+  source_id: "bs-218"
+  ctx: {entity: banner, description: 流程 管理员管理 Banner（含 Hero 数据源） 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-243
+  title: "network 类边界场景 bs-219"
+  source: bs
+  source_id: "bs-219"
+  ctx: {entity: cache_invalidation_log, description: 流程 管理员手动失效缓存（Publish 页） 依赖的外部系统
+      CDN 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 CDN 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-244
+  title: "network 类边界场景 bs-220"
+  source: bs
+  source_id: "bs-220"
+  ctx: {entity: cache_invalidation_log, description: 流程 管理员手动失效缓存（Publish 页） 调用 CDN
+      超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-245
+  title: "network 类边界场景 bs-221"
+  source: bs
+  source_id: "bs-221"
+  ctx: {entity: cache_invalidation_log, description: 流程 管理员手动失效缓存（Publish 页） 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-246
+  title: "network 类边界场景 bs-222"
+  source: bs
+  source_id: "bs-222"
+  ctx: {entity: home_page_section, description: 流程 消费者访问首页（动态渲染区块） 依赖的外部系统 JetCache
+      不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 JetCache 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-247
+  title: "network 类边界场景 bs-223"
+  source: bs
+  source_id: "bs-223"
+  ctx: {entity: home_page_section, description: 流程 消费者访问首页（动态渲染区块） 调用 JetCache 超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-248
+  title: "network 类边界场景 bs-224"
+  source: bs
+  source_id: "bs-224"
+  ctx: {entity: home_page_section, description: 流程 消费者访问首页（动态渲染区块） 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-249
+  title: "network 类边界场景 bs-225"
+  source: bs
+  source_id: "bs-225"
+  ctx: {entity: navigation_item, description: 流程 消费者访问任意页面（header/footer 渲染） 依赖的外部系统
+      JetCache 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 JetCache 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-250
+  title: "network 类边界场景 bs-226"
+  source: bs
+  source_id: "bs-226"
+  ctx: {entity: navigation_item, description: 流程 消费者访问任意页面（header/footer 渲染） 调用 JetCache
+      超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-251
+  title: "network 类边界场景 bs-227"
+  source: bs
+  source_id: "bs-227"
+  ctx: {entity: navigation_item, description: 流程 消费者访问任意页面（header/footer 渲染） 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-252
+  title: "network 类边界场景 bs-228"
+  source: bs
+  source_id: "bs-228"
+  ctx: {entity: banner, description: 流程 HomeBuilder Hero 区块跨域读取 Banner 依赖的外部系统 JetCache
+      不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 JetCache 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-253
+  title: "network 类边界场景 bs-229"
+  source: bs
+  source_id: "bs-229"
+  ctx: {entity: banner, description: 流程 HomeBuilder Hero 区块跨域读取 Banner 调用 JetCache
+      超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-254
+  title: "network 类边界场景 bs-230"
+  source: bs
+  source_id: "bs-230"
+  ctx: {entity: banner, description: 流程 HomeBuilder Hero 区块跨域读取 Banner 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-255
+  title: "network 类边界场景 bs-231"
+  source: bs
+  source_id: "bs-231"
+  ctx: {entity: navigation_item, description: 流程 NavigationConfig 跨域引用 Taxonomy 依赖的外部系统
+      JetCache 不可用}
+  act: {op: trigger_boundary_case, detail: 触发需要访问 JetCache 的业务流程}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统降级处理或返回明确的服务暂时不可用错误}
+- id: s-256
+  title: "network 类边界场景 bs-232"
+  source: bs
+  source_id: "bs-232"
+  ctx: {entity: navigation_item, description: 流程 NavigationConfig 跨域引用 Taxonomy 调用
+      JetCache 超时，客户端自动重试}
+  act: {op: trigger_boundary_case, detail: 重复发送相同业务请求}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: 系统保证幂等，仅执行一次副作用，不产生重复数据}
+- id: s-257
+  title: "network 类边界场景 bs-233"
+  source: bs
+  source_id: "bs-233"
+  ctx: {entity: navigation_item, description: 流程 NavigationConfig 跨域引用 Taxonomy 请求已发出后网络中断}
+  act: {op: trigger_boundary_case, detail: 网络恢复后前端重新拉取状态}
+  expect: {http_status: 503, error_code: "UPSTREAM_UNAVAILABLE", description: UI 与后端状态重新同步，不遗留脏数据或错误提示}
+- id: s-258
+  title: "integrity 类边界场景 bs-234"
+  source: bs
+  source_id: "bs-234"
+  ctx: {entity: home_page_section, description: home_page_section 关联的 banner 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 banner 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      banner 不存在错误，拒绝写入}
+- id: s-259
+  title: "integrity 类边界场景 bs-235"
+  source: bs
+  source_id: "bs-235"
+  ctx: {entity: home_page_section, description: home_page_section 关联的 home_section_translation
+      记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 home_section_translation 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      home_section_translation 不存在错误，拒绝写入}
+- id: s-260
+  title: "integrity 类边界场景 bs-236"
+  source: bs
+  source_id: "bs-236"
+  ctx: {entity: home_page_section, description: home_page_section 关联的 product 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 product 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      product 不存在错误，拒绝写入}
+- id: s-261
+  title: "integrity 类边界场景 bs-237"
+  source: bs
+  source_id: "bs-237"
+  ctx: {entity: home_page_section, description: home_page_section 关联的 real_wedding
+      记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 real_wedding 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      real_wedding 不存在错误，拒绝写入}
+- id: s-262
+  title: "integrity 类边界场景 bs-238"
+  source: bs
+  source_id: "bs-238"
+  ctx: {entity: home_page_section, description: home_page_section 关联的 taxonomy 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 taxonomy 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      taxonomy 不存在错误，拒绝写入}
+- id: s-263
+  title: "integrity 类边界场景 bs-239"
+  source: bs
+  source_id: "bs-239"
+  ctx: {entity: home_section_translation, description: home_section_translation 关联的
+      home_page_section 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 home_page_section 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      home_page_section 不存在错误，拒绝写入}
+- id: s-264
+  title: "integrity 类边界场景 bs-240"
+  source: bs
+  source_id: "bs-240"
+  ctx: {entity: navigation_item, description: navigation_item 关联的 navigation_translation
+      记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 navigation_translation 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      navigation_translation 不存在错误，拒绝写入}
+- id: s-265
+  title: "integrity 类边界场景 bs-241"
+  source: bs
+  source_id: "bs-241"
+  ctx: {entity: navigation_item, description: navigation_item 关联的 taxonomy 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 taxonomy 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      taxonomy 不存在错误，拒绝写入}
+- id: s-266
+  title: "integrity 类边界场景 bs-242"
+  source: bs
+  source_id: "bs-242"
+  ctx: {entity: navigation_translation, description: navigation_translation 关联的 navigation_item
+      记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 navigation_item 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      navigation_item 不存在错误，拒绝写入}
+- id: s-267
+  title: "integrity 类边界场景 bs-243"
+  source: bs
+  source_id: "bs-243"
+  ctx: {entity: footer_column, description: footer_column 关联的 footer_link 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 footer_link 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      footer_link 不存在错误，拒绝写入}
+- id: s-268
+  title: "integrity 类边界场景 bs-244"
+  source: bs
+  source_id: "bs-244"
+  ctx: {entity: footer_link, description: footer_link 关联的 footer_column 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 footer_column 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      footer_column 不存在错误，拒绝写入}
+- id: s-269
+  title: "integrity 类边界场景 bs-245"
+  source: bs
+  source_id: "bs-245"
+  ctx: {entity: announcement, description: announcement 关联的 announcement_translation
+      记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 announcement_translation 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      announcement_translation 不存在错误，拒绝写入}
+- id: s-270
+  title: "integrity 类边界场景 bs-246"
+  source: bs
+  source_id: "bs-246"
+  ctx: {entity: announcement_translation, description: announcement_translation 关联的
+      announcement 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 announcement 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      announcement 不存在错误，拒绝写入}
+- id: s-271
+  title: "integrity 类边界场景 bs-247"
+  source: bs
+  source_id: "bs-247"
+  ctx: {entity: banner, description: banner 关联的 banner_translation 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 banner_translation 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      banner_translation 不存在错误，拒绝写入}
+- id: s-272
+  title: "integrity 类边界场景 bs-248"
+  source: bs
+  source_id: "bs-248"
+  ctx: {entity: banner_translation, description: banner_translation 关联的 banner 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 banner 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      banner 不存在错误，拒绝写入}
+- id: s-273
+  title: "integrity 类边界场景 bs-249"
+  source: bs
+  source_id: "bs-249"
+  ctx: {entity: real_wedding, description: real_wedding 关联的 product 记录不存在}
+  act: {op: trigger_boundary_case, detail: 提交引用不存在 product 的写请求}
+  expect: {http_status: 422, error_code: "REFERENCE_NOT_FOUND", description: 系统返回关联实体
+      product 不存在错误，拒绝写入}
+- id: s-274
+  title: "state 类边界场景 bs-250"
+  source: bs
+  source_id: "bs-250"
+  ctx: {entity: home_page_section, field: state, description: home_page_section 当前处于
+      enabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_disable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-275
+  title: "state 类边界场景 bs-251"
+  source: bs
+  source_id: "bs-251"
+  ctx: {entity: home_page_section, field: state, description: home_page_section 当前处于
+      disabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_enable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-276
+  title: "state 类边界场景 bs-252"
+  source: bs
+  source_id: "bs-252"
+  ctx: {entity: navigation_item, field: state, description: navigation_item 当前处于 enabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_disable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-277
+  title: "state 类边界场景 bs-253"
+  source: bs
+  source_id: "bs-253"
+  ctx: {entity: navigation_item, field: state, description: navigation_item 当前处于 disabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_enable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-278
+  title: "state 类边界场景 bs-254"
+  source: bs
+  source_id: "bs-254"
+  ctx: {entity: announcement, field: state, description: announcement 当前处于 enabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_disable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-279
+  title: "state 类边界场景 bs-255"
+  source: bs
+  source_id: "bs-255"
+  ctx: {entity: announcement, field: state, description: announcement 当前处于 disabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_enable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-280
+  title: "state 类边界场景 bs-256"
+  source: bs
+  source_id: "bs-256"
+  ctx: {entity: banner, field: state, description: "banner 当前处于 draft，但 guard 条件不满足:\
+      \ name != null && image_url != null"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 publish，尝试从 draft 转到
+      published}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，banner
+      保持在 draft}
+- id: s-281
+  title: "state 类边界场景 bs-257"
+  source: bs
+  source_id: "bs-257"
+  ctx: {entity: banner, field: state, description: "banner 当前处于 published，但 guard\
+      \ 条件不满足: now > end_time"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 schedule_expire，尝试从
+      published 转到 archived}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，banner
+      保持在 published}
+- id: s-282
+  title: "state 类边界场景 bs-258"
+  source: bs
+  source_id: "bs-258"
+  ctx: {entity: banner, field: state, description: banner 当前处于 draft}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 publish_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-283
+  title: "state 类边界场景 bs-259"
+  source: bs
+  source_id: "bs-259"
+  ctx: {entity: banner, field: state, description: banner 当前处于 published}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 take_offline_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-284
+  title: "state 类边界场景 bs-260"
+  source: bs
+  source_id: "bs-260"
+  ctx: {entity: banner, field: state, description: banner 当前处于 archived}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 republish_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-285
+  title: "state 类边界场景 bs-261"
+  source: bs
+  source_id: "bs-261"
+  ctx: {entity: banner, field: state, description: banner 当前处于 deleted}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 invalid_event}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-286
+  title: "state 类边界场景 bs-262"
+  source: bs
+  source_id: "bs-262"
+  ctx: {entity: subscriber, field: state, description: "subscriber 当前处于 pending，但\
+      \ guard 条件不满足: email 格式合法 && (email, source) 唯一性校验通过（重复订阅幂等返回成功）"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 confirm_subscribe，尝试从
+      pending 转到 subscribed}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，subscriber
+      保持在 pending}
+- id: s-287
+  title: "state 类边界场景 bs-263"
+  source: bs
+  source_id: "bs-263"
+  ctx: {entity: subscriber, field: state, description: "subscriber 当前处于 subscribed，但\
+      \ guard 条件不满足: subscribed_at 非空"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 unsubscribe，尝试从 subscribed
+      转到 unsubscribed}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，subscriber
+      保持在 subscribed}
+- id: s-288
+  title: "state 类边界场景 bs-264"
+  source: bs
+  source_id: "bs-264"
+  ctx: {entity: subscriber, field: state, description: "subscriber 当前处于 unsubscribed，但\
+      \ guard 条件不满足: email 格式合法"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 resubscribe，尝试从 unsubscribed
+      转到 subscribed}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，subscriber
+      保持在 unsubscribed}
+- id: s-289
+  title: "state 类边界场景 bs-265"
+  source: bs
+  source_id: "bs-265"
+  ctx: {entity: subscriber, field: state, description: "subscriber 当前处于 pending，但\
+      \ guard 条件不满足: (email, source) 已存在 → 幂等返回成功（不重复创建）"}
+  act: {op: trigger_boundary_case, field: state, detail: 触发事件 resubmit，尝试从 pending
+      转到 pending}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统拒绝状态转换，subscriber
+      保持在 pending}
+- id: s-290
+  title: "state 类边界场景 bs-266"
+  source: bs
+  source_id: "bs-266"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 pending}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 confirm_subscribe_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-291
+  title: "state 类边界场景 bs-267"
+  source: bs
+  source_id: "bs-267"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 subscribed}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 unsubscribe_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-292
+  title: "state 类边界场景 bs-268"
+  source: bs
+  source_id: "bs-268"
+  ctx: {entity: subscriber, field: state, description: subscriber 当前处于 unsubscribed}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 resubscribe_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-293
+  title: "state 类边界场景 bs-269"
+  source: bs
+  source_id: "bs-269"
+  ctx: {entity: footer_column, field: state, description: footer_column 当前处于 enabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_disable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-294
+  title: "state 类边界场景 bs-270"
+  source: bs
+  source_id: "bs-270"
+  ctx: {entity: footer_column, field: state, description: footer_column 当前处于 disabled}
+  act: {op: trigger_boundary_case, field: state, detail: 触发该状态下不允许的操作 admin_enable_again}
+  expect: {http_status: 409, error_code: "STATE_NOT_ALLOWED", description: 系统返回状态不允许错误，拒绝执行操作}
+- id: s-295
+  title: "callsite-compat 类边界场景 bs-271"
+  source: bs
+  source_id: "bs-271"
+  ctx: {entity: home_page_section, field: section_type, description: "home_page_section.section_type\
+      \ 枚举值集合 ['Hero', 'Announcement', 'ShopByColor', 'ThemeCards', 'ProductRail',\
+      \ 'EditorialFeature', 'Newsletter']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: section_type, detail: 为 section_type 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-296
+  title: "callsite-compat 类边界场景 bs-272"
+  source: bs
+  source_id: "bs-272"
+  ctx: {entity: home_page_section, description: banner 实体结构变更，home_page_section 通过
+      外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 banner 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_page_section
+      能正常读取 banner 变更后的数据，不因字段增删而崩溃}
+- id: s-297
+  title: "callsite-compat 类边界场景 bs-273"
+  source: bs
+  source_id: "bs-273"
+  ctx: {entity: home_page_section, description: home_section_translation 实体结构变更，home_page_section
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 home_section_translation 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_page_section
+      能正常读取 home_section_translation 变更后的数据，不因字段增删而崩溃}
+- id: s-298
+  title: "callsite-compat 类边界场景 bs-274"
+  source: bs
+  source_id: "bs-274"
+  ctx: {entity: home_page_section, description: product 实体结构变更，home_page_section 通过
+      外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 product 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_page_section
+      能正常读取 product 变更后的数据，不因字段增删而崩溃}
+- id: s-299
+  title: "callsite-compat 类边界场景 bs-275"
+  source: bs
+  source_id: "bs-275"
+  ctx: {entity: home_page_section, description: real_wedding 实体结构变更，home_page_section
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 real_wedding 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_page_section
+      能正常读取 real_wedding 变更后的数据，不因字段增删而崩溃}
+- id: s-300
+  title: "callsite-compat 类边界场景 bs-276"
+  source: bs
+  source_id: "bs-276"
+  ctx: {entity: home_page_section, description: taxonomy 实体结构变更，home_page_section
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 taxonomy 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_page_section
+      能正常读取 taxonomy 变更后的数据，不因字段增删而崩溃}
+- id: s-301
+  title: "callsite-compat 类边界场景 bs-277"
+  source: bs
+  source_id: "bs-277"
+  ctx: {entity: home_section_translation, field: locale, description: "home_section_translation.locale\
+      \ 枚举值集合 ['es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-302
+  title: "callsite-compat 类边界场景 bs-278"
+  source: bs
+  source_id: "bs-278"
+  ctx: {entity: home_section_translation, description: home_page_section 实体结构变更，home_section_translation
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 home_page_section 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: home_section_translation
+      能正常读取 home_page_section 变更后的数据，不因字段增删而崩溃}
+- id: s-303
+  title: "callsite-compat 类边界场景 bs-279"
+  source: bs
+  source_id: "bs-279"
+  ctx: {entity: navigation_item, field: link_type, description: "navigation_item.link_type\
+      \ 枚举值集合 ['taxonomy', 'custom']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: link_type, detail: 为 link_type 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-304
+  title: "callsite-compat 类边界场景 bs-280"
+  source: bs
+  source_id: "bs-280"
+  ctx: {entity: navigation_item, field: taxonomy_type, description: "navigation_item.taxonomy_type\
+      \ 枚举值集合 ['category', 'theme']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: taxonomy_type, detail: 为 taxonomy_type 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-305
+  title: "callsite-compat 类边界场景 bs-281"
+  source: bs
+  source_id: "bs-281"
+  ctx: {entity: navigation_item, description: navigation_translation 实体结构变更，navigation_item
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 navigation_translation 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: navigation_item
+      能正常读取 navigation_translation 变更后的数据，不因字段增删而崩溃}
+- id: s-306
+  title: "callsite-compat 类边界场景 bs-282"
+  source: bs
+  source_id: "bs-282"
+  ctx: {entity: navigation_item, description: taxonomy 实体结构变更，navigation_item 通过 外键
+      引用}
+  act: {op: trigger_boundary_case, detail: 修改 taxonomy 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: navigation_item
+      能正常读取 taxonomy 变更后的数据，不因字段增删而崩溃}
+- id: s-307
+  title: "callsite-compat 类边界场景 bs-283"
+  source: bs
+  source_id: "bs-283"
+  ctx: {entity: navigation_translation, field: locale, description: "navigation_translation.locale\
+      \ 枚举值集合 ['es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-308
+  title: "callsite-compat 类边界场景 bs-284"
+  source: bs
+  source_id: "bs-284"
+  ctx: {entity: navigation_translation, description: navigation_item 实体结构变更，navigation_translation
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 navigation_item 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: navigation_translation
+      能正常读取 navigation_item 变更后的数据，不因字段增删而崩溃}
+- id: s-309
+  title: "callsite-compat 类边界场景 bs-285"
+  source: bs
+  source_id: "bs-285"
+  ctx: {entity: footer_column, description: footer_link 实体结构变更，footer_column 通过 外键
+      引用}
+  act: {op: trigger_boundary_case, detail: 修改 footer_link 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: footer_column
+      能正常读取 footer_link 变更后的数据，不因字段增删而崩溃}
+- id: s-310
+  title: "callsite-compat 类边界场景 bs-286"
+  source: bs
+  source_id: "bs-286"
+  ctx: {entity: footer_link, description: footer_column 实体结构变更，footer_link 通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 footer_column 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: footer_link
+      能正常读取 footer_column 变更后的数据，不因字段增删而崩溃}
+- id: s-311
+  title: "callsite-compat 类边界场景 bs-287"
+  source: bs
+  source_id: "bs-287"
+  ctx: {entity: announcement, description: announcement_translation 实体结构变更，announcement
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 announcement_translation 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: announcement
+      能正常读取 announcement_translation 变更后的数据，不因字段增删而崩溃}
+- id: s-312
+  title: "callsite-compat 类边界场景 bs-288"
+  source: bs
+  source_id: "bs-288"
+  ctx: {entity: announcement_translation, field: locale, description: "announcement_translation.locale\
+      \ 枚举值集合 ['es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-313
+  title: "callsite-compat 类边界场景 bs-289"
+  source: bs
+  source_id: "bs-289"
+  ctx: {entity: announcement_translation, description: announcement 实体结构变更，announcement_translation
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 announcement 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: announcement_translation
+      能正常读取 announcement 变更后的数据，不因字段增删而崩溃}
+- id: s-314
+  title: "callsite-compat 类边界场景 bs-290"
+  source: bs
+  source_id: "bs-290"
+  ctx: {entity: subscriber, field: source, description: "subscriber.source 枚举值集合 ['footer',\
+      \ 'modal', 'exit_intent', 'home_block']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: source, detail: 为 source 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-315
+  title: "callsite-compat 类边界场景 bs-291"
+  source: bs
+  source_id: "bs-291"
+  ctx: {entity: subscriber, field: locale, description: "subscriber.locale 枚举值集合 ['en',\
+      \ 'es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-316
+  title: "callsite-compat 类边界场景 bs-292"
+  source: bs
+  source_id: "bs-292"
+  ctx: {entity: subscriber, field: status, description: "subscriber.status 枚举值集合 ['pending',\
+      \ 'subscribed', 'unsubscribed']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: status, detail: 为 status 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-317
+  title: "callsite-compat 类边界场景 bs-293"
+  source: bs
+  source_id: "bs-293"
+  ctx: {entity: banner, field: position, description: "banner.position 枚举值集合 ['HERO',\
+      \ 'FEATURED', 'TOPBAR']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: position, detail: 为 position 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-318
+  title: "callsite-compat 类边界场景 bs-294"
+  source: bs
+  source_id: "bs-294"
+  ctx: {entity: banner, field: status, description: "banner.status 枚举值集合 ['draft',\
+      \ 'published', 'archived']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: status, detail: 为 status 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-319
+  title: "callsite-compat 类边界场景 bs-295"
+  source: bs
+  source_id: "bs-295"
+  ctx: {entity: banner, description: banner_translation 实体结构变更，banner 通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 banner_translation 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: banner 能正常读取
+      banner_translation 变更后的数据，不因字段增删而崩溃}
+- id: s-320
+  title: "callsite-compat 类边界场景 bs-296"
+  source: bs
+  source_id: "bs-296"
+  ctx: {entity: banner_translation, field: locale, description: "banner_translation.locale\
+      \ 枚举值集合 ['es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-321
+  title: "callsite-compat 类边界场景 bs-297"
+  source: bs
+  source_id: "bs-297"
+  ctx: {entity: banner_translation, description: banner 实体结构变更，banner_translation
+      通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 banner 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: banner_translation
+      能正常读取 banner 变更后的数据，不因字段增删而崩溃}
+- id: s-322
+  title: "callsite-compat 类边界场景 bs-298"
+  source: bs
+  source_id: "bs-298"
+  ctx: {entity: taxonomy, field: type, description: "taxonomy.type 枚举值集合 ['category',\
+      \ 'theme']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: type, detail: 为 type 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-323
+  title: "callsite-compat 类边界场景 bs-299"
+  source: bs
+  source_id: "bs-299"
+  ctx: {entity: product, field: status, description: "product.status 枚举值集合 ['draft',\
+      \ 'published']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: status, detail: 为 status 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-324
+  title: "callsite-compat 类边界场景 bs-300"
+  source: bs
+  source_id: "bs-300"
+  ctx: {entity: real_wedding, field: status, description: "real_wedding.status 枚举值集合\
+      \ ['draft', 'published']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: status, detail: 为 status 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-325
+  title: "callsite-compat 类边界场景 bs-301"
+  source: bs
+  source_id: "bs-301"
+  ctx: {entity: real_wedding, description: product 实体结构变更，real_wedding 通过 外键 引用}
+  act: {op: trigger_boundary_case, detail: 修改 product 的字段定义（添加/删除/修改类型）}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: real_wedding
+      能正常读取 product 变更后的数据，不因字段增删而崩溃}
+- id: s-326
+  title: "callsite-compat 类边界场景 bs-302"
+  source: bs
+  source_id: "bs-302"
+  ctx: {entity: cache_invalidation_log, field: status, description: "cache_invalidation_log.status\
+      \ 枚举值集合 ['pending', 'completed', 'failed']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: status, detail: 为 status 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-327
+  title: "callsite-compat 类边界场景 bs-303"
+  source: bs
+  source_id: "bs-303"
+  ctx: {entity: newsletter_subscriber, field: source, description: "newsletter_subscriber.source\
+      \ 枚举值集合 ['footer', 'modal', 'exit_intent', 'home_block']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: source, detail: 为 source 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-328
+  title: "callsite-compat 类边界场景 bs-304"
+  source: bs
+  source_id: "bs-304"
+  ctx: {entity: newsletter_subscriber, field: locale, description: "newsletter_subscriber.locale\
+      \ 枚举值集合 ['en', 'es', 'fr']，调用方依赖当前值"}
+  act: {op: trigger_boundary_case, field: locale, detail: 为 locale 新增枚举值}
+  expect: {http_status: 422, error_code: "REQUEST_REJECTED", description: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理}
+- id: s-329
+  title: "FLOW-001 管理员配置首页区块"
+  source: func
+  source_id: FLOW-001
+  ctx: {role: admin, authenticated: true, permission: "/site/home", page: HomeBuilder,
+    pre_state: "home_sections 表已有 7 条区块记录（原型 mock seed）", locale: en}
+  act: {op: FLOW-001, description: "拖拽排序（ChevronUp/Down 调整 sort_order）/ Toggle 启停切换 / 编辑区块属性（section_type/data_json/translations） → 点击保存",
+    endpoint: "PUT /api/admin/home-sections"}
+  expect: {http_status: 200, response_body: {items: "Array<HomePageSectionDto>", updated_count: "<N>"},
+    db_state: "home_sections + home_section_translations 双表事务提交", side_effects: "POST /api/admin/cache/invalidate 被调用（key=portal:store+locale:*）",
+    cache_state: "首页区块配置缓存失效，下次 GET /api/store/content/home/sections 重新查 DB"}
+- id: s-330
+  title: "FLOW-002 管理员配置导航与页脚"
+  source: func
+  source_id: FLOW-002
+  ctx: {role: admin, authenticated: true, permission: "/site/navigation", page: NavigationConfig,
+    pre_state: "navigation_items 已有 5 条主导航 + 4 条 footer_columns", locale: en}
+  act: {op: FLOW-002, description: "编辑导航项（label/link_type=taxonomy|custom/taxonomy_id/custom_href/mega_menu_json）+ 拖拽排序 + Toggle 启停 → 保存",
+    endpoint: "PUT /api/admin/navigation"}
+  expect: {http_status: 200, response_body: {items: "Array<NavigationItemDto>"},
+    db_state: "navigation_items + navigation_translations + footer_columns + footer_links 事务提交",
+    side_effects: "POST /api/admin/cache/invalidate 被调用（key=portal:store+locale:nav）",
+    cache_state: "导航配置缓存失效"}
+- id: s-331
+  title: "FLOW-003 管理员配置公告条"
+  source: func
+  source_id: FLOW-003
+  ctx: {role: admin, authenticated: true, permission: "/site/announcement", page: NavigationConfig,
+    tab: announce, pre_state: "announcements 表已有 3 条公告", locale: en}
+  act: {op: FLOW-003, description: "编辑公告（content EN 基准 + es/fr 翻译 + enabled + sort_order 轮播顺序） → 保存",
+    endpoint: "PUT /api/admin/announcements"}
+  expect: {http_status: 200, response_body: {items: "Array<AnnouncementDto>"},
+    db_state: "announcements + announcement_translations 事务提交", side_effects: "POST /api/admin/cache/invalidate 被调用",
+    cache_state: "公告条缓存失效"}
+- id: s-332
+  title: "FLOW-004 管理员管理 Banner（已有 baseline）"
+  source: func
+  source_id: FLOW-004
+  ctx: {role: admin, authenticated: true, permission: "/banners", page: Banners,
+    pre_state: "banners 表已有 4 条 Banner（position=HERO/FEATURED/TOPBAR）", locale: en}
+  act: {op: FLOW-004, description: "新增/编辑 Banner（name/image_url/position=HERO|FEATURED|TOPBAR/start_time/end_time/sort + title/subtitle/cta_text EN + BannerTranslation es/fr）",
+    endpoint: "POST/PUT /api/admin/banners"}
+  expect: {http_status: 201, response_body: BannerDto, db_state: "banners + banner_translations 事务提交",
+    side_effects: "POST /api/admin/cache/invalidate 被调用（banner 数据源变更）",
+    cache_state: "Banner 缓存失效"}
+- id: s-333
+  title: "FLOW-005 管理员手动失效缓存（已有 baseline）"
+  source: func
+  source_id: FLOW-005
+  ctx: {role: admin, authenticated: true, permission: "/publish", page: Publish,
+    pre_state: "JetCache 中存在 portal:store+locale:* 的缓存条目", locale: en}
+  act: {op: FLOW-005, description: "点击'一键发布/手动失效'按钮", endpoint: "POST /api/admin/cache/invalidate"}
+  expect: {http_status: 200, response_body: {invalidated_keys: "Array<String>", count: "<N>"},
+    db_state: "cache_invalidation_logs 新增一条记录（event_type=manual, resource_type=cache）",
+    cache_state: "指定 key 的缓存条目被清除", side_effects: "GET /api/admin/cache/invalidation-logs 可查到新日志"}
+- id: s-334
+  title: "FLOW-006 消费者访问首页"
+  source: func
+  source_id: FLOW-006
+  ctx: {role: anonymous, authenticated: false, page: "GET /", locale: en, pre_state: "home_sections 表有 7 条区块，其中 6 条 enabled=true"}
+  act: {op: FLOW-006, description: "访问首页", endpoint: "GET /api/store/content/home/sections"}
+  expect: {http_status: 200, response_body: {sections: "Array<HomePageSectionDto> (enabled=true, sorted by sort_order ASC)"},
+    sections_count: 6, hero_section: "引用 Banner position=HERO 数据（title/subtitle/cta_text/image_url）",
+    product_rail: "source=isNew 时返回最新商品 limit 条", editorial_feature: "返回 weddings limit 条",
+    cache_state: "JetCache 两级缓存命中（Caffeine 本地 + Redis 远程），TTL=300s"}
+- id: s-335
+  title: "FLOW-007 消费者访问任意页面（header/footer 渲染）"
+  source: func
+  source_id: FLOW-007
+  ctx: {role: anonymous, authenticated: false, page: "任意页面", locale: en,
+    pre_state: "navigation_items 有 5 条 enabled + footer_columns 有 4 条 + announcements 有 3 条 enabled"}
+  act: {op: FLOW-007, description: "访问任意页面，layout.tsx 读取导航配置", endpoint: "GET /api/store/content/navigation"}
+  expect: {http_status: 200, response_body: {main: "Array<NavigationItemDto>", footer: "Array<FooterColumnDto>",
+      announcements: "Array<AnnouncementDto> (enabled=true, sorted by sort_order)"},
+    mega_menu: "每个主导航项的 mega_menu_json 派生子链接（通过 TaxonomyService 查询）",
+    cache_state: "JetCache 两级缓存命中，TTL=300s"}
+- id: s-336
+  title: "FLOW-008 消费者订阅 Newsletter"
+  source: func
+  source_id: FLOW-008
+  ctx: {role: anonymous, authenticated: false, page: "首页 Newsletter 区块", locale: en,
+    pre_state: "subscribers 表无此 email 记录", input: {email: "user@example.com", source: HOME_BLOCK}}
+  act: {op: FLOW-008, description: "POST /api/store/newsletter（body: email + source=HOME_BLOCK + locale）",
+    endpoint: "POST /api/store/newsletter"}
+  expect: {http_status: 201, response_body: {subscriber_id: "<Long>", status: subscribed},
+    db_state: "subscribers 新增一条记录（status=subscribed, source=HOME_BLOCK）",
+    state_change: "subscriber_status: pending → subscribed", side_effects: "可选：触发欢迎邮件发送"}
+- id: s-337
+  title: "FLOW-009 HomeBuilder Hero 区块跨域读取 Banner"
+  source: func
+  source_id: FLOW-009
+  ctx: {role: anonymous, authenticated: false, page: "首页渲染 Hero 区块", locale: en,
+    pre_state: "banners 表有 1 条 position=HERO && status=published && now ∈ [start_time, end_time] 的记录"}
+  act: {op: FLOW-009, description: "消费端首页渲染 Hero 区块时，后端通过 BannerService.findByPosition(HERO) 跨域查询",
+    endpoint: "BannerService.findByPosition(HERO)（内部调用，非 HTTP）"}
+  expect: {return_value: "BannerDto（含 title/subtitle/cta_text/image_url from BannerTranslation）",
+    no_direct_table_query: "不直接查 banners 表，通过 BannerService 接口",
+    time_window_filter: "now ∈ [start_time, end_time]", status_filter: "status=published",
+    fallback: "无符合条件的 Banner 时返回 null（消费端显示静态占位）"}
+- id: s-338
+  title: "FLOW-010 NavigationConfig 引用 Taxonomy 跨域校验"
+  source: func
+  source_id: FLOW-010
+  ctx: {role: admin, authenticated: true, permission: "/site/navigation", page: NavigationConfig,
+    pre_state: "taxonomy 表有 id=1 type=category, id=2 type=theme 的记录", locale: en,
+    input: {link_type: taxonomy, taxonomy_id: 1}}
+  act: {op: FLOW-010, description: "保存导航项时，通过 TaxonomyService.findById 校验 taxonomy_id 存在性",
+    endpoint: "TaxonomyService.findById(1)（内部调用）"}
+  expect: {validation_result: "校验通过，冗余存 taxonomy_type=category 到 NavigationItem 主表",
+    no_direct_table_query: "不直接查 taxonomy 表，通过 TaxonomyService 接口",
+    error_case: "taxonomy_id 不存在时返回 422704 VALIDATION_ERROR",
+    mega_menu_derivation: "Mega Menu 列 source=category-children 时通过 TaxonomyService.findChildren 派生子链接"}

@@ -1,0 +1,88 @@
+skipped: false
+analyzed_at: "2026-06-23T08:29:45Z"
+business_flow_hash: "6b9f911ec85f6c09d93e1f8c19fefe838b854872ccc59f191423471502d463a3"
+
+flows_analyzed:
+  - id: FLOW-001
+  - id: FLOW-002
+  - id: FLOW-003
+  - id: FLOW-004
+  - id: FLOW-005
+  - id: FLOW-006
+  - id: FLOW-007
+  - id: FLOW-008
+  - id: FLOW-009
+  - id: FLOW-010
+  - id: BF-OQ-1
+  - id: BF-OQ-2
+  - id: BF-OQ-3
+  - id: BF-OQ-4
+  - id: BF-OQ-5
+
+cross_domain_impacts:
+  []
+
+affected_specs:
+  []
+
+regression_risks:
+  - flow_id: FLOW-001
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-002
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-003
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: FLOW-004
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-005
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: FLOW-006
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-007
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-008
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: FLOW-009
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: FLOW-010
+    risk_level: high
+    reason: "cross-domain flow change may break downstream consumers"
+    affected_domains: []
+  - flow_id: BF-OQ-1
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: BF-OQ-2
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: BF-OQ-3
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: BF-OQ-4
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []
+  - flow_id: BF-OQ-5
+    risk_level: low
+    reason: "simple flow with few steps"
+    affected_domains: []

@@ -1,0 +1,14 @@
+report_meta:
+  report_type: challenger-verdict
+  generated_at: "2026-06-23T09:25:48Z"
+  change_name: site-decoration-fullstack
+  round: 3
+verdict: PASS
+summary: >-
+  completeness=pass semantic=pass — all checks passed
+completeness_verdict: pass
+semantic_verdict: pass
+issue_type: none
+fix_target_phase: none
+
+fix_targets: []

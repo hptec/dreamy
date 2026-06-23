@@ -1,0 +1,438 @@
+# business-flow.yml — site-decoration-fullstack
+# 极简 YAML：每个流程含 id/name/trigger/actor/steps，每步含 actor/action/entity/state_transition/side_effect
+# 流程节点与 state-machine.yml 转换严格对齐（KD-4 保存即发布、KD-1 仅缓存失效、KD-BE-4 两级缓存+同步失效）
+
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/business-flow.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T09:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-1, KD-2, KD-3, KD-4, KD-5, KD-6, KD-7, KD-8, KD-9, KD-10, KD-11, KD-BE-1, KD-BE-2, KD-BE-3, KD-BE-4, KD-BE-5]
+  inference_confidence: high
+  notes: |
+    增量对齐型变更。KD-4 保存即发布：HomeBuilder/NavigationConfig/Announcement 保存即触发缓存失效，无草稿态。
+    KD-1 Publish.vue 仅保持缓存失效能力，不扩展 SSG 发布中心。
+    KD-BE-4 JetCache 两级缓存（Caffeine 本地 + Redis 远程）+ 保存触发同步失效（@CacheInvalidate + POST /api/admin/cache/invalidate）。
+    KD-BE-5 跨 domain 通过 Service 接口调用（Hero→BannerService / ThemeCards→TaxonomyService / Navigation→TaxonomyService / ProductRail→ProductService / EditorialFeature→WeddingService）。
+    新建流程 meta.source=new；引用基线流程 meta.source=baseline + baseline_ref 指向原 flow id。
+
+flows:
+  # ============================================================
+  # 新增流程（source: new）— 4 条
+  # ============================================================
+
+  - id: home_builder_publish_flow
+    name: 首页区块编排保存即发布
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 HomeBuilder 页编辑区块（启停 Toggle / 拖拽排序 / 属性抽屉编辑）后点击「保存并生成首页」
+    cross_domain: true
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-3/KD-4/KD-5 + state-machine.yml > home_page_section_status
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑区块（Toggle 启停 / ChevronUp/Down 排序 / 属性抽屉编辑 section_type/data_json/translations）
+        entity: HomePageSection
+        type: user_input
+        source: prototype/portal-admin/src/views/HomeBuilder.vue
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/home')
+        type: guard
+        source: KD-BE-2
+      - n: 3
+        actor: system
+        action: 跨域引用校验（KD-BE-5 Service 接口调用，不跨表查询）
+        type: integration
+        sub_actions:
+          - Hero → BannerService.findByPosition(HERO) 校验有 published Banner
+          - ThemeCards → TaxonomyService.findByType(theme) 校验存在
+          - ProductRail source=recommend → ProductService.findByIds 校验 product_ids
+          - EditorialFeature → WeddingService.findByIds 校验 wedding_ids
+        source: KD-2/KD-8/KD-9/KD-10 + KD-BE-5
+      - n: 4
+        actor: system
+        action: 事务写入 HomePageSection（含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，对齐 Banner 模式）
+        entity: HomePageSection
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-BE-1 + KD-3
+      - n: 5
+        actor: system
+        action: Toggle 切换触发状态转换
+        entity: HomePageSection
+        type: state_change
+        state_transition:
+          machine: home_page_section_status
+          events: [admin_enable, admin_disable]
+          states: [enabled, disabled]
+        source: state-machine.yml > home_page_section_status
+      - n: 6
+        actor: system
+        action: after-commit 异步发布 home_section_changed 事件到 RabbitMQ（MarketingAfterCommitRunner 模式）
+        type: notification
+        side_effect: JetCache @CacheInvalidate 失效缓存族 + in-process cache.invalidateFamily(Family.HOME_SECTION) + publisher.publish(TYPE_HOME_SECTION_CHANGED)（resource_type=home_section, event_type=home_section_changed）+ InvalidateEventConsumer → CdnInvalidationService CDN purge（payload locales=["en","es","fr"] 全失效）
+        source: backend-flow-inference > [异步] after-commit + [消息队列] event type 扩展 + KD-BE-4
+      - n: 7
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=home_section_changed, resource_type=home_section)
+        source: KD-BE-3 审计走 OperationLogs + 缓存失效日志
+      - n: 8
+        actor: consumer
+        action: 消费端 portal-store/app/[locale]/page.tsx 调 GET /api/store/content/home/sections（JetCache 两级 TTL 300s）按 sort_order 升序动态渲染 enabled=true 区块
+        entity: HomePageSection
+        type: display
+        source: KD-5 消费端首页动态渲染
+    exceptions:
+      - cond: 权限不足
+        handle: 403 拒绝，操作中止
+        source: KD-BE-2
+      - cond: 跨域引用校验失败（taxonomy_id/product_ids/wedding_ids 不存在）
+        handle: 422 悬挂引用错误，事务不提交，不触发缓存失效
+        source: backend-flow-inference > 确认事项5 推荐强校验
+      - cond: MQ 投递失败
+        handle: 死信队列重试，缓存按 TTL 兜底过期
+        source: 基线 content_publish_invalidate n10 同模式
+
+  - id: navigation_config_publish_flow
+    name: 导航配置（主导航+Mega Menu+页脚）保存即发布
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 NavigationConfig 页编辑主导航/Mega Menu/页脚栏目后点击「保存并重新生成 header/footer」
+    cross_domain: true
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-6/KD-4/KD-5 + state-machine.yml > navigation_item_status/footer_column_status
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑导航项（Bars3Icon 拖拽排序 / Mega Menu 列配置 / 页脚栏目 / Toggle 启停）
+        entity: NavigationItem
+        type: user_input
+        source: prototype/portal-admin/src/views/NavigationConfig.vue
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/navigation')
+        type: guard
+        source: KD-BE-2
+      - n: 3
+        actor: system
+        action: 跨域校验（KD-BE-5 TaxonomyService 调用，强校验避免悬挂引用）
+        type: integration
+        sub_actions:
+          - link_type=taxonomy → TaxonomyService.findById 校验 taxonomy_id 存在 + 派生 href
+          - mega_menu source=category-children → TaxonomyService.findChildren(ref_id) 派生子链接
+          - mega_menu source=taxonomy-type → TaxonomyService.findByType(ref_type) 派生全部上线 taxonomy
+        source: KD-BE-5 + er-diagram.yml > NavigationItem.relations Taxonomy
+      - n: 4
+        actor: system
+        action: 事务写入 NavigationItem + FooterColumn + FooterLink（各表含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，KD-6 mega_menu_json 内嵌不建独立表）
+        entity: NavigationItem
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-BE-1 + KD-6 + KD-3 i18n 双表
+      - n: 5
+        actor: system
+        action: Toggle 切换触发状态转换（导航项 + 页脚栏目分别走各自状态机）
+        type: state_change
+        state_transition:
+          machines:
+            - {machine: navigation_item_status, events: [admin_enable, admin_disable], states: [enabled, disabled]}
+            - {machine: footer_column_status, events: [admin_enable, admin_disable], states: [enabled, disabled]}
+        source: state-machine.yml > navigation_item_status + footer_column_status
+      - n: 6
+        actor: system
+        action: after-commit 异步发布 navigation_changed 事件到 RabbitMQ
+        type: notification
+        side_effect: JetCache @CacheInvalidate + in-process cache.invalidateFamily(Family.NAVIGATION) + publisher.publish(TYPE_NAVIGATION_CHANGED)（resource_type=navigation, event_type=navigation_changed）+ CDN purge
+        source: KD-1/KD-4 + backend-flow-inference > [消息队列] event type 扩展 + KD-BE-4
+      - n: 7
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=navigation_changed, resource_type=navigation)
+        source: KD-BE-3
+      - n: 8
+        actor: consumer
+        action: 消费端 layout.tsx 调 GET /api/store/content/navigation（JetCache 两级）动态渲染 header + footer
+        entity: NavigationItem
+        type: display
+        source: KD-5 消费端 header/footer 全量改造
+    exceptions:
+      - cond: 权限不足
+        handle: 403 拒绝
+        source: KD-BE-2
+      - cond: taxonomy_id 悬挂引用
+        handle: 422 强校验失败，事务回滚
+        source: backend-flow-inference > 确认事项5 推荐强校验
+
+  - id: announcement_publish_flow
+    name: 公告条保存即发布（KD-7 独立域）
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 NavigationConfig 公告条 Tab 编辑公告后保存（KD-7 独立 announcement 域，不归属 navigation）
+    cross_domain: false
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-7/KD-4/KD-5 + state-machine.yml > announcement_status
+    notes: KD-7 公告条独立域，与 navigation 解耦。原型放在 NavigationConfig 公告条 Tab，但后端走独立 AdminAnnouncementController + announcements 表。
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑公告（content EN 基准 + es/fr 翻译 + enabled + sort_order 轮播顺序）
+        entity: Announcement
+        type: user_input
+        source: prototype/portal-admin/src/views/NavigationConfig.vue > announcements 数组
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/announcement')
+        type: guard
+        source: KD-BE-2 + KD-7
+      - n: 3
+        actor: system
+        action: 事务写入 Announcement（含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，EN 存主表 content，es/fr 存 i18n_json）
+        entity: Announcement
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-7 + KD-3 对齐 BannerTranslation
+      - n: 4
+        actor: system
+        action: Toggle 切换触发状态转换
+        type: state_change
+        state_transition:
+          machine: announcement_status
+          events: [admin_enable, admin_disable]
+          states: [enabled, disabled]
+        source: state-machine.yml > announcement_status
+      - n: 5
+        actor: system
+        action: after-commit 异步发布 announcement_changed 事件到 RabbitMQ
+        type: notification
+        side_effect: JetCache @CacheInvalidate + in-process cache.invalidateFamily(Family.ANNOUNCEMENT) + publisher.publish(TYPE_ANNOUNCEMENT_CHANGED)（resource_type=announcement, event_type=announcement_changed）+ CDN purge
+        source: KD-1/KD-4 + backend-flow-inference > [消息队列] event type 扩展 + KD-BE-4
+      - n: 6
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=announcement_changed, resource_type=announcement)
+        source: KD-BE-3 + er-diagram.yml > modified_entities CacheInvalidationLog 扩展枚举
+      - n: 7
+        actor: consumer
+        action: 消费端顶部公告条组件调 GET /api/store/content/announcements（JetCache 两级）按 sort_order 升序轮播 enabled=true 公告
+        entity: Announcement
+        type: display
+        source: KD-5 消费端公告条全量改造 + KD-7 独立域
+    exceptions:
+      - cond: content 为空（trim 后长度 0）
+        handle: 422 校验失败
+        source: er-diagram.yml > Announcement.constraints js_guard
+      - cond: 权限不足
+        handle: 403 拒绝
+        source: KD-BE-2
+
+  - id: newsletter_subscribe_flow
+    name: 首页 Newsletter 区块订阅（KD-11 完整订阅表单）
+    meta: {source: new}
+    actor: consumer + system
+    trigger: 消费者在首页 Newsletter 区块（HomePageSection.section_type=Newsletter）填写邮箱并提交（KD-11 扩展 POST /api/store/newsletter 新增 source=HOME_BLOCK(4)（GRD-009 方案 A））
+    cross_domain: false
+    external_systems: [SMTP]
+    source: pd-explore.local.md > KD-11 + state-machine.yml > subscriber_status
+    notes: |
+      KD-11 完整订阅表单（邮箱+API）。基线 newsletter_subscribe 覆盖 footer/modal/exit_intent 三入口；
+      本流程为首页 Newsletter 区块入口（source=home_block）。物理实现合并到基线 NewsletterSubscriber 表
+      + 扩展 source 枚举新增 home_block（OQ-2 推荐方案 A）。
+    steps:
+      - n: 1
+        actor: consumer
+        action: 在首页 Newsletter 区块填写邮箱并点击 CTA（title/subtitle/cta_text 三语渲染自 HomePageSection.i18n_json JSON 列）
+        type: user_input
+        source: KD-11 + er-diagram.yml > HomePageSection.i18n_json（KD-16 合并翻译表）
+      - n: 2
+        actor: system
+        action: 邮箱格式校验（前端 pattern=email + 后端双重校验）
+        type: guard
+        source: er-diagram.yml > Subscriber.constraints js_guard
+      - n: 3
+        actor: system
+        action: 唯一性校验 (email, source=home_block) 幂等检查
+        type: guard
+        source: er-diagram.yml > Subscriber unique(email, source) + state-machine.yml > subscriber_status resubmit
+      - n: 4
+        actor: system
+        action: 事务写入 Subscriber（status=pending, source=home_block, locale=当前页面语言）+ 复用 NewsletterSubscriber 表扩展 source 枚举
+        entity: Subscriber
+        type: persist
+        meta: {tx_boundary: true, idempotent: true}
+        source: KD-11 + er-diagram.yml > modified_entities NewsletterSubscriber 扩展 home_block
+      - n: 5
+        actor: system
+        action: 状态转换 pending→subscribed（本期默认直接订阅成功，预留双重确认扩展，SM-OQ-2 方案 A）
+        entity: Subscriber
+        type: state_change
+        state_transition:
+          machine: subscriber_status
+          event: confirm_subscribe
+          from: pending
+          to: subscribed
+        side_effect: 写入 subscribed_at
+        source: state-machine.yml > subscriber_status confirm_subscribe
+      - n: 6
+        actor: system
+        action: 可选触发欢迎邮件（本期不发邮件，对齐基线决策26；后续扩展可复用基线 transactional_email 流程）
+        type: notification
+        side_effect: 本期无 side_effect，预留 MailRecord + SMTP 链路
+        source: state-machine.yml > subscriber_status side_effects + 基线 transactional_email
+      - n: 7
+        actor: consumer
+        action: 返回订阅成功确认文案（HomePageSection.i18n_json.subtitle i18n 渲染，KD-16 合并翻译表）
+        type: display
+        source: KD-11 + KD-3 i18n
+    exceptions:
+      - cond: 邮箱格式非法
+        handle: 422 三语提示
+        source: 基线 newsletter_subscribe n3 同模式
+      - cond: (email, source=home_block) 已存在
+        handle: 幂等返回订阅成功（不重复创建，state-machine.yml > resubmit 转换）
+        source: state-machine.yml > subscriber_status resubmit guard
+
+  # ============================================================
+  # 复用基线流程（source: baseline）— 5 条
+  # ============================================================
+
+  - id: content_publish_invalidate
+    name: 商品/内容发布与缓存失效链（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
+    actor: admin + system
+    trigger: 管理员编辑并发布商品或内容（Banner/Blog/Lookbook 等同模式）
+    reuse_context: |
+      本变更复用基线 Banner 发布链路：图片预签名上传 → 保存 → 发布 → 审计 → MQ → JetCache @CacheInvalidate + Next.js revalidatePath + CDN purge。
+      KD-2 Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner，Banner 自身状态机不变（state-machine.yml > banner_status source=baseline）。
+      新增 event type（home_section_changed/navigation_changed/announcement_changed）复用同一 MQ 链路与消费端 InvalidateEventConsumer。
+    relevant_to: [home_builder_publish_flow, navigation_config_publish_flow, announcement_publish_flow, banner_lifecycle]
+    key_steps:
+      - n: 1
+        action: 管理员编辑 Banner/商品/内容 + 权限校验 + 图片预签名上传
+      - n: 2
+        action: 保存草稿 → 发布（state_transition: product_lifecycle/banner_lifecycle draft→published）
+      - n: 3
+        action: 记录 OperationLog 审计
+      - n: 4
+        action: MQ publish content.invalidated + 失效链 JetCache @CacheInvalidate → Next.js revalidatePath → CDN 边缘秒级更新
+    source: pd-explore.local.md > BE-DIM-8 三层缓存秒级主动失效链
+
+  - id: order_event_dispatch
+    name: 订单事件分发（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > order_event_dispatch
+    actor: system
+    trigger: 订单事件产生（支付成功/发货/取消/退款）
+    reuse_context: |
+      本变更不直接修改订单事件分发，但 content.invalidated 事件复用同一 RabbitMQ 基建（DomainEventPublisher + InvalidateEventConsumer）。
+      缓存失效事件投递失败走死信队列重试 + TTL 兜底，与基线 order_event_dispatch n3/n8 同模式。
+      新增 home_section_changed/navigation_changed/announcement_changed 三种 event type 复用此 MQ 链路。
+    relevant_to: [home_builder_publish_flow, navigation_config_publish_flow, announcement_publish_flow]
+    source: pd-explore.local.md > BE-DIM-4 消息队列
+
+  - id: banner_lifecycle
+    name: Banner 状态机生命周期（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate（Banner 走同一发布链路）
+    state_machine_ref: hhspec/specs/architecture/state-machine.yml > banner_lifecycle
+    actor: admin + system
+    trigger: 管理员在 Banners 页新增/编辑/删除/上下线 Banner
+    reuse_context: |
+      本变更不修改 Banner 状态机（draft→published→archived→deleted）；KD-2 仅引用 position=HERO && status=published 的 Banner 作为 Hero 区块数据源。
+      Banner 写操作（create/update/delete/toggleStatus）已实现 @Transactional + after-commit 缓存失效 + MarketingAuditRecorder 审计，新域对齐该模式。
+      SM-OQ-1：Banner schedule_expire 定时任务缺失，本变更保持基线现状（方案 A 不补齐）。
+    relevant_to: [home_builder_publish_flow]
+    key_steps:
+      - n: 1
+        action: 管理员编辑 Banner（name/image_url/position=HERO|FEATURED|TOPBAR/title/subtitle/cta_text EN + BannerTranslation es/fr）
+        entity: Banner
+      - n: 2
+        action: 事务双写 banner + banner_translation（@Transactional，基线 AdminBannerService 已实现）
+      - n: 3
+        action: 状态转换（state_transition: banner_status draft→published publish / published→archived take_offline / archived→published republish / *→deleted delete）
+        entity: Banner
+      - n: 4
+        action: MarketingAuditRecorder 记审计 + after-commit 发布 TYPE_BANNER_CHANGED 到 RabbitMQ + MarketingCacheService.invalidateFamily(BANNERS) + CDN purge
+    source: state-machine.yml > banner_status (baseline) + backend-flow-inference > 事务/异步/审计 ✅ Banner 已实现
+
+  - id: transactional_email
+    name: 交易性邮件发送（基线复用，预留）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > transactional_email
+    actor: system + mq + smtp
+    trigger: 订单确认/OTP 验证码/退款通知等事件触发邮件发送
+    reuse_context: |
+      KD-11 Subscriber 状态机 side_effects 预留欢迎邮件触发；本期不发邮件（对齐决策26），后续扩展时复用基线 transactional_email 的 MQ→MailRecord→SMTP 链路 + 三语模板渲染 + retryCount<3 重试机制。
+    relevant_to: [newsletter_subscribe_flow]
+    source: decision.md 决策16 + KD-11
+
+  - id: checkout_order
+    name: 消费端购物下单与支付（基线复用，无变更）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > checkout_order
+    actor: consumer + system + stripe
+    trigger: 消费者浏览商品加购并结算支付
+    reuse_context: 本变更不涉及下单支付链路，仅因消费端首页动态渲染间接关联（订单完成事件触发的 ISR revalidate 不受 HomeBuilder 影响）。保留基线引用以维持流程图完整性。
+    relevant_to: []
+    source: pd-explore.local.md > BE-DIM-4 事务/幂等 + BE-DIM-5 外部集成
+
+open_questions:
+  - id: BF-OQ-1
+    topic: 缓存失效防抖策略
+    question: 'KD-BE-4 明确"不做防抖（保存频率低）"，但 backend-flow-inference.md > 限流降级建议"后端合并 5-10s 窗口内多次保存合并为一次失效事件"。管理员频繁连续点击保存（如拖拽排序过程中多次保存）是否需要防抖？'
+    options:
+      - '方案 A：不防抖（KD-BE-4 决策，每次保存都触发缓存失效 + CDN purge，简单可靠）'
+      - '方案 B：后端合并 5-10s 窗口（backend-flow-inference 建议，减少 CDN purge 次数）'
+      - '方案 C：前端节流（保存按钮点击间隔限制，体验差）'
+    impact: '影响缓存失效频率、CDN purge 成本、管理端保存响应时间'
+    recommendation: '方案 A（遵循 KD-BE-4 明确决策，保存频率低无需防抖）'
+
+  - id: BF-OQ-2
+    topic: 消费端 navigation API 是否合并公告条
+    question: 'KD-7 公告条独立域，但 KD-5 消费端 layout.tsx 读取导航配置时需要同时渲染顶部公告条。GET /api/store/content/navigation 是否应合并返回公告条数据，还是消费端分别调用 GET /api/store/content/navigation + GET /api/store/content/announcements？'
+    options:
+      - '方案 A：合并到 navigation DTO（一次请求拿全部 layout 数据，减少请求数）'
+      - '方案 B：分别调用两个 API（保持 domain 解耦，但多一次请求）'
+      - '方案 C：navigation DTO 含公告条引用 announcement_ids，消费端按需调用 announcements API'
+    impact: '影响消费端 layout.tsx 实现复杂度、API 契约、缓存 key 设计'
+    recommendation: '方案 A（合并到 navigation DTO，对齐原型 layout 一次渲染全站 header/footer/公告条的诉求）'
+
+  - id: BF-OQ-3
+    topic: AdminCacheController.manualInvalidate 实现时机
+    question: 'backend-flow-inference.md > 异步确认 AdminCacheController.manualInvalidate 当前是未实现占位（返回"手动失效功能开发中"）。KD-1 明确不扩展 SSG 发布中心，但 Publish.vue 的"一键发布"按钮若要可用需实现该端点。本变更是否实现 manualInvalidate？'
+    options:
+      - '方案 A：本变更实现 manualInvalidate（调用 ContentInvalidatedPublisher 或直接 CdnInvalidationService，使 Publish.vue 手动失效按钮可用）'
+      - '方案 B：本变更不实现，Publish.vue 保留 mock 提示（KD-1 不扩展 SSG，手动失效可后续补）'
+      - '方案 C：本变更仅实现 manualInvalidate 端点，不改造 Publish.vue UI（最小可用）'
+    impact: '影响 Publish.vue 可用性、AdminCacheController 完整性、KD-1 解读'
+    recommendation: '方案 A（实现 manualInvalidate 端点，符合 KD-1 保持当前缓存失效能力的诉求）'
+
+  - id: BF-OQ-4
+    topic: Hero 区块无 HERO Banner 时的降级策略
+    question: 'home_builder_publish_flow 跨域校验 Hero → BannerService.findByPosition(HERO) 无结果时，Hero 区块应如何降级？'
+    options:
+      - '方案 A：Hero 区块不渲染（跳过该 sort_order，消费端无感知）'
+      - '方案 B：Hero 区块渲染占位文案（如"敬请期待"i18n 文案）'
+      - '方案 C：管理端 Hero 区块保存时强制校验至少有一条 published HERO Banner，否则拒绝保存'
+    impact: '影响消费端首页渲染稳定性、管理端保存校验逻辑'
+    recommendation: '方案 A（不渲染，简单可靠，对齐其他区块 enabled=false 时不渲染的模式）'
+
+  - id: BF-OQ-5
+    topic: 跨 domain Service 接口的失败降级
+    question: 'home_builder_publish_flow 步骤3跨 domain 调用 BannerService/TaxonomyService/ProductService/WeddingService。若被调方超时或失败，调用方应如何降级？是否需要熔断？'
+    options:
+      - '方案 A：失败即降级（校验失败则 422 拒绝保存；消费端读取失败则跳过该区块继续渲染其余区块）'
+      - '方案 B：失败重试 3 次（增加延迟但提高成功率）'
+      - '方案 C：加熔断器（Resilience4j，超过阈值快速失败）'
+    impact: '影响消费端首页/导航渲染可用性、跨 domain 调用延迟'
+    recommendation: '方案 A（失败即降级，对齐项目现有简单模式，KD-BE-5 未提熔断要求）'

@@ -1,0 +1,559 @@
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/er-diagram.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T10:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-2, KD-3, KD-4, KD-6, KD-7, KD-8, KD-9, KD-10, KD-11, KD-12, KD-13, KD-14, KD-BE-5]
+  inference_confidence: high
+  review_round: 2
+  review_fixes: [GRD-001, GRD-002, GRD-004, GRD-005, GRD-006, GRD-007, GRD-008, GRD-009, GRD-010, GRD-W01, GRD-W02, GRD-W04, GRD-W05, GRD-W06, GRD-W07, GRD2-001, GRD2-002, GRD2-003]
+  notes: |
+    字段类型用 Java 类型（Long/String/Boolean/Integer/LocalDateTime/JSON/enum）。
+    新建实体 meta.source=new；引用已有实体 meta.source=baseline。
+    增量对齐型变更：基线已有 Banner/BannerTranslation/RealWedding/CacheInvalidationLog/NewsletterSubscriber 等；
+    本变更新增首页区块/导航/页脚/公告/订阅者域实体，并复用 Banner position=HERO 作为 Hero 区块数据源（KD-2）。
+    跨 domain 引用通过 Service 接口调用，不跨表查询（KD-BE-5）。
+    第 2 轮 grounding 复核修正：Taxonomy 引用基线实体（GRD-002）；Subscriber 简化为单态订阅（KD-12/GRD-001）；
+    NewsletterSource 扩展 IntEnum HOME_BLOCK(4)（KD-13/GRD-009）；Banner 新增 cta_text_secondary/cta_link_secondary（KD-14/GRD-010）；
+    MarketingCacheService.Family 新增 3 个族（GRD-004）；Publisher 新增 3 个 TYPE_* 常量 + 代码分支（GRD-005）；
+    MarketingExceptionHandler assignableTypes 登记 3 个新 Controller（GRD-006）；DataInitializer 新增 /site/announcement 权限种子（GRD-007）；
+    CacheInvalidationLog 基线字段全面修正（GRD-W06）；新实体统一 extends LongAuditableEntity + 物理删除（GRD-W07）；
+    event_type 命名统一 _changed 后缀（GRD-005）。
+    第 3 轮 grounding 复核修正（KD-16 落地）：GRD2-001 移除 5 个翻译表实体（HomeSectionTranslation/NavigationTranslation/FooterColumnTranslation/FooterLinkTranslation/AnnouncementTranslation），
+    HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement 5 个主实体新增 i18n_json JSON 列（JacksonTypeHandler + autoResultMap=true，对齐 Category.attrOverrides 模式）；
+    GRD2-002 修正 HomePageSection.data_json 描述（Newsletter 文案存 i18n_json，Hero/Announcement 数据从其他域派生）；
+    GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 uk_newsletter_email(email) 迁移到 uk_newsletter_email_source(email, source) 复合唯一，保证 KD-13 source 数据完整性。
+    KD-16 决策覆盖 KD-3 和 GRD-W08：不建独立 *_translations 表，GRD-W08 推荐的 FooterColumnTranslation/FooterLinkTranslation 不采纳。
+
+entities:
+  - id: HomePageSection
+    desc: 首页区块配置聚合根，HomeBuilder 可视化编排对象。消费端首页按 sort_order 升序渲染所有 enabled=true 的区块。KD-16 修正：合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表）；KD-4 保存即发布无草稿态。GRD-W07 修正：extends LongAuditableEntity（基类提供 id/created_at/updated_at/version）；物理删除无 deleted_at（配置类误删可重建）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED]' + LongAuditableEntity 基类"}
+      - {n: section_type, t: enum, vals: [Hero, Announcement, ShopByColor, ThemeCards, ProductRail, EditorialFeature, Newsletter], req: true, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > b.type 7 种区块 + homeBlocks mock'}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > b.label 后台显示名称（如 Hero 主视觉）'}
+      - {n: enabled, t: Boolean, req: true, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle v-model=b.enabled + blocks.filter(x=>x.enabled)'}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > move(i,dir) ChevronUp/Down 排序'}
+      - {n: data_json, t: JSON, source: 'GRD2-002 修正：区块配置数据。ShopByColor{count}, ThemeCards{count}, ProductRail{source(string enum [isNew,isBest,recommend]),limit,product_ids[]}, EditorialFeature{limit,wedding_ids[]}；Hero/Announcement 类型 data_json 为空（数据从 Banner/Announcement 域派生）；Newsletter 类型 data_json 为空（文案存 i18n_json JSON 列，KD-11+KD-16）'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{...}, es:{...}, fr:{...}}，字段随 section_type 变化（Newsletter: title/subtitle/cta_text；ShopByColor/ThemeCards/ProductRail/EditorialFeature: eyebrow/title/subtitle/cta_text）。使用 JacksonTypeHandler + @TableName(autoResultMap=true)（对齐 Category.attrOverrides 模式）。Hero/Announcement 类型 i18n_json 为 null（数据从 Banner/Announcement 域派生）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Banner, type: nm, source: 'KD-2 Hero 类型通过 Banner position=HERO 关联（不跨表查询，走 BannerService）'}
+      - {to: Taxonomy, type: nm, source: 'KD-8 ThemeCards 类型引用 Taxonomy type=theme（走 TaxonomyService）'}
+      - {to: Product, type: nm, source: 'KD-9 ProductRail source=recommend 时 data_json.product_ids 引用（走 ProductService）'}
+      - {to: RealWedding, type: nm, source: 'KD-10 EditorialFeature 引用 data_json.wedding_ids（走 WeddingService）'}
+    constraints:
+      - {type: index, expr: '(enabled, sort_order)', desc: '消费端按 sort_order 升序渲染 enabled=true 区块'}
+      - {type: js_guard, expr: 'section_type=Hero 时 data_json 应为空且 i18n_json 为 null（文案/图片/CTA 含第二 CTA 全部从 Banner position=HERO 派生，KD-14）', source: 'KD-2/KD-14'}
+      - {type: js_guard, expr: 'section_type=Announcement 时 data_json 应为空且 i18n_json 为 null（公告内容从 Announcement 域派生）', source: 'KD-7'}
+      - {type: js_guard, expr: 'section_type=Newsletter 时 data_json 应为空且 i18n_json 非空（title/subtitle/cta_text 文案存 i18n_json，KD-11+KD-16）', source: 'KD-11'}
+      - {type: js_guard, expr: 'section_type=ProductRail && data_json.source=recommend 时 data_json.product_ids 非空数组', source: 'KD-9'}
+      - {type: js_guard, expr: 'section_type=ProductRail 时 data_json.limit ∈ [1, 12]', source: 'prototype/portal-admin/src/views/HomeBuilder.vue > input type=number 展示数量'}
+      - {type: js_guard, expr: 'section_type=ShopByColor 时 data_json.count ∈ [1, 8]', source: 'prototype/portal-admin/src/views/HomeBuilder.vue > palette.slice(0, b.data.count) + mock palette 8 色'}
+
+  - id: NavigationItem
+    desc: 主导航项聚合根（NavigationConfig 主导航 & Mega Menu Tab）。link_type=taxonomy 时引用 Taxonomy（品类/主题），href 从派生；link_type=custom 时存 custom_href。mega_menu_json 内嵌列定义（KD-6 不单独建表）。KD-BE-5 引用 Taxonomy 通过 TaxonomyService 校验和派生。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。KD-16 修正：label i18n 走主表 i18n_json JSON 列（不建 NavigationTranslation 翻译表）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.label EN 基准'}
+      - {n: link_type, t: enum, vals: [taxonomy, custom], req: true, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.linkType taxonomy|custom'}
+      - {n: taxonomy_id, t: Long, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.taxonomyId（link_type=taxonomy 时引用 Taxonomy.id；逻辑外键，不跨表查询）'}
+      - {n: taxonomy_type, t: enum, vals: [category, theme], source: 'prototype/portal-admin/src/views/NavigationConfig.vue > taxonomyOptions type=category|theme（派生字段，标识引用的是品类还是主题）'}
+      - {n: custom_href, t: String, maxlen: 255, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > linkTargetLabel item.href（link_type=custom 时自定义 URL）'}
+      - {n: mega_menu_json, t: JSON, source: 'KD-6 Mega Menu 列数组 [{title, source, ref_id, ref_type, custom_links[], sort_order}]；source=category-children|taxonomy-type|custom'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{label, mega_menu_titles:{col_idx:title}}, es:{...}, fr:{...}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐 HomePageSection.enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > Bars3Icon 拖拽手柄'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Taxonomy, type: nm, source: 'KD-BE-5 link_type=taxonomy 时引用（走 TaxonomyService 校验和派生）'}
+    constraints:
+      - {type: unique, expr: '(label, sort_order)', desc: '同位置导航项标签不重复（防误操作）'}
+      - {type: js_guard, expr: 'link_type=taxonomy 时 taxonomy_id 非空', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > v-if item.linkType===taxonomy'}
+      - {type: js_guard, expr: 'link_type=custom 时 custom_href 非空', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > linkTargetLabel item.href'}
+      - {type: js_guard, expr: 'mega_menu_json.source=category-children 时 ref_id 非空（引用品类 ID）', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.refId'}
+      - {type: js_guard, expr: 'mega_menu_json.source=taxonomy-type 时 ref_type ∈ [theme, category]', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.refType'}
+
+  - id: FooterColumn
+    desc: 页脚栏目（NavigationConfig 页脚栏目 Tab）。每栏目包含多条 FooterLink。KD-16 修正：title i18n 走主表 i18n_json JSON 列（不建 FooterColumnTranslation 翻译表，GRD-W08 不采纳）。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: title, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.title EN 基准（如 Shop/Help/Company/Account）'}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐其他实体 enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > footer 数组顺序'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{title}, es:{title}, fr:{title}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: FooterLink, type: 1n, source: '栏目包含多条链接'}
+    constraints:
+      - {type: unique, expr: '(title, sort_order)', desc: '栏目标题不重复'}
+
+  - id: FooterLink
+    desc: 页脚链接（FooterColumn 子表）。EN label 存主表，i18n 走主表 i18n_json JSON 列（KD-16，不建 FooterLinkTranslation 翻译表）。GRD-W07 修正：extends LongAuditableEntity，物理删除。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: footer_column_id, t: Long, req: true, source: '逻辑外键 FooterColumn.id'}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > footer 链接 placeholder 链接 N'}
+      - {n: href, t: String, req: true, maxlen: 255, source: "'[INFERRED] 链接 URL'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > Bars3Icon 拖拽手柄'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{label}, es:{label}, fr:{label}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: FooterColumn, type: n1, source: 'footer_column_id 逻辑外键'}
+    constraints:
+      - {type: js_guard, expr: 'href 非空（链接必须指向有效 URL）', source: "'[INFERRED]'"}
+
+  - id: Announcement
+    desc: 公告条独立域（KD-7 不归属 navigation）。可复用于首页、分类页、活动页等位置。消费端顶部公告条组件按 sort_order 升序轮播 enabled=true 的公告。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。KD-16 修正：content i18n 走主表 i18n_json JSON 列（不建 AnnouncementTranslation 翻译表）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐其他实体 enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > announcements 数组顺序'}
+      - {n: content, t: String, req: true, maxlen: 255, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > announcements[i] EN 基准文案'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{content}, es:{content}, fr:{content}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    constraints:
+      - {type: js_guard, expr: 'content 非空字符串（trim 后长度 > 0）', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > input v-model=announcements[i]'}
+
+  - id: Subscriber
+    desc: Newsletter 订阅者逻辑视图（KD-11/KD-12/KD-13）。首页 Newsletter 区块订阅转化主入口。GRD-001/KD-12 修正：本期不扩展退订状态机，subscriber_status 简化为单态 subscribed（移除 pending/unsubscribed）。GRD-009/KD-13 修正：source 字段改为 IntEnum NewsletterSource [1=FOOTER,2=MODAL,3=EXIT_INTENT,4=HOME_BLOCK]；扩展基线 POST /api/store/newsletter 接收 source=HOME_BLOCK(4)，不新建 /api/store/subscribers/subscribe。物理表合并到基线 NewsletterSubscriber 表（见 OQ-2 推荐方案 A）。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: email, t: String, req: true, maxlen: 255, source: 'KD-11 邮箱输入；pattern=email；存储时小写归一（对齐基线 NewsletterSubscriber.email 唯一约束）'}
+      - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：IntEnum 类型对齐基线 NewsletterSource；HOME_BLOCK(4) 为本变更新增（首页区块订阅入口）'}
+      - {n: locale, t: String, req: true, maxlen: 8, source: '订阅时页面语言（en|es|fr，对齐基线 NewsletterSubscriber.locale）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: '订阅时间（订阅即生效，KD-12 单态 subscribed）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    constraints:
+      - {type: unique, expr: '(email, source)', desc: 'GRD-001/KD-12 修正：同邮箱同来源订阅幂等（重复订阅返回成功）；与基线 NewsletterSubscriber 的 uk_newsletter_email(email) 兼容（合并方案下需迁移到 uk(email, source)，详见 modified_entities.NewsletterSubscriber.changed_constraints）'}
+      - {type: js_guard, expr: 'email 格式校验（pattern=email，存储前小写归一）', source: "'prototype/portal-admin/src/views/HomeBuilder.vue > Newsletter 区块邮箱输入 + 基线 NewsletterService.normalizeEmail [INFERRED]'"}
+      - {type: js_guard, expr: 'subscribedAt 非空（订阅即生效，无 pending 态）', source: 'KD-12 单态 subscribed 状态机'}
+
+  - id: Banner
+    desc: 站点广告位图文配置（基线已有，本变更引用 + 扩展）。本变更通过 Banner position=HERO 为 HomePageSection.Hero 区块提供数据源（KD-2），并新增 cta_text_secondary/cta_link_secondary 字段支持 Hero 双 CTA（KD-14/GRD-010）。基线字段：id/name/image_url/position/start_time/end_time/status/sort/clicks/title/subtitle/cta_text/deleted_at（基线 extends LongAuditableEntity + 软删除）。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Banner.id'}
+      - {n: name, t: String, req: true, maxlen: 128, source: 'baseline Banner.name'}
+      - {n: image_url, t: String, req: true, maxlen: 512, source: 'baseline Banner.image_url'}
+      - {n: position, t: 'IntEnum<BannerPosition>', vals: [HERO(1), FEATURED(2), TOPBAR(3)], req: true, source: 'baseline BannerPosition 枚举（HERO=1/FEATURED=2/TOPBAR=3）；KD-2 Hero 区块引用 position=HERO；GRD-008 TOPBAR 公告迁移策略见 OQ-7'}
+      - {n: start_time, t: LocalDateTime, source: 'baseline Banner.start_time'}
+      - {n: end_time, t: LocalDateTime, source: 'baseline Banner.end_time'}
+      - {n: status, t: 'IntEnum<ContentStatus>', vals: [DRAFT(1), PUBLISHED(2), ARCHIVED(3)], req: true, source: 'baseline ContentStatus（draft=1/published=2/archived=3）'}
+      - {n: sort, t: Integer, req: true, source: 'baseline Banner.sort'}
+      - {n: clicks, t: Integer, source: 'baseline Banner.clicks 只读统计'}
+      - {n: title, t: String, maxlen: 255, source: 'baseline Banner.title EN 基准'}
+      - {n: subtitle, t: String, maxlen: 255, source: 'baseline Banner.subtitle EN 基准'}
+      - {n: cta_text, t: String, maxlen: 64, source: 'baseline Banner.cta_text 第一 CTA 文案'}
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 文案（如 "Explore Outdoor"），AdminBannerController BannerUpsert DTO 同步扩展'}
+      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 链接，与 cta_text_secondary 配对'}
+      - {n: deleted_at, t: LocalDateTime, source: 'baseline Banner.deletedAt 软删除标记'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: BannerTranslation, type: 1n, source: 'baseline i18n 附表'}
+    notes: 'KD-2 Hero 区块通过 BannerService 查询 position=HERO 的 Banner（KD-BE-5 不跨表查询）；管理端 Hero 区块属性编辑表单联动 Banner 编辑。KD-14 第二 CTA 也从 Banner 派生（cta_text_secondary/cta_link_secondary）。GRD-008 TOPBAR Banner 公告迁移策略见 OQ-7。'
+
+  - id: BannerTranslation
+    desc: Banner 多语言附表（基线已有，本变更引用 + 扩展）。locale=es/fr，EN 存主表。HomePageSection.Hero 区块通过 Banner 派生时连带读取此表 i18n 文案。KD-14 同步新增 cta_text_secondary 翻译字段。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline BannerTranslation.id'}
+      - {n: banner_id, t: Long, req: true, source: 'baseline BannerTranslation.bannerId 逻辑外键'}
+      - {n: locale, t: String, maxlen: 8, req: true, source: 'baseline BannerTranslation.locale（es|fr，EN 存主表）'}
+      - {n: title, t: String, maxlen: 255, source: 'baseline BannerTranslation.title'}
+      - {n: subtitle, t: String, maxlen: 255, source: 'baseline BannerTranslation.subtitle'}
+      - {n: cta_text, t: String, maxlen: 64, source: 'baseline BannerTranslation.ctaText 第一 CTA 文案'}
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, source: 'GRD-010/KD-14 新增：第二 CTA 文案 i18n 翻译'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Banner, type: n1, source: 'baseline banner_id 逻辑外键'}
+    notes: '唯一键 (banner_id, locale)（基线 uk_bt 索引）。KD-14 第二 CTA 翻译字段同步新增。'
+
+  - id: Taxonomy
+    desc: 分类逻辑实体（基线 polymorphic 引用，GRD-002 修正）。原型 NavigationConfig/HomeBuilder 中的 taxonomy 是 Category（type=category）与 Collection（type=theme，collectionGroupId 指向名为"主题"的 CollectionGroup）的统一抽象。本变更通过此逻辑引用表达 NavigationItem.taxonomy_id 和 HomePageSection.ThemeCards 对分类/主题的引用。基线无独立 Taxonomy 表，物理实现见 open_questions OQ-1。GRD-002 修正：移除 CustomTag 引用（基线 Collection.java 注释明确"合并承载 CustomTag，不建 custom_tag 表"）；Category 无 slug/enabled 字段，相关属性由 Service 运行时派生。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Category.id | Collection.id（多态）'}
+      - {n: type, t: enum, vals: [category, theme], req: true, source: 'prototype/portal-admin/src/data/mock.js > taxonomies.type=category|theme'}
+      - {n: name, t: String, req: true, maxlen: 64, source: 'baseline Category.name | Collection.name'}
+      - {n: slug, t: String, derived: true, source: 'GRD-002 修正：派生字段不存表。type=theme 时取 baseline Collection.name 派生 href（Collection 无独立 slug 字段）；type=category 时由 CategoryService 运行时按 name 生成（Category 实体无 slug 字段）'}
+      - {n: parent_id, t: Long, source: 'baseline Category.parent_id（仅 type=category 时有效，用于 Mega Menu source=category-children 派生）'}
+      - {n: online, t: Boolean, derived: true, source: 'GRD-002 修正：派生字段不存表。type=theme 时取 baseline Collection.status (CollectionStatus.PUBLISHED=1→true)；type=category 时由 CategoryService 按 deleted_at IS NULL 派生（Category 实体无 enabled/online 字段）'}
+    relations:
+      - {to: Category, type: 11, source: 'GRD-002 修正：type=category 时映射到 Category（仅 id/name/parent_id 可用）'}
+      - {to: Collection, type: 11, source: 'GRD-002 修正：type=theme 时映射到 Collection（collectionGroupId 指向名为"主题"的 CollectionGroup，Collection 合并承载 CustomTag 语义）'}
+    notes: |
+      KD-8 ThemeCards 引用 Taxonomy type=theme（即 baseline Collection where collectionGroupId=主题组）。
+      KD-BE-5 NavigationItem 引用 Taxonomy 通过 TaxonomyService 校验和派生（不跨表查询）。
+      原型 taxonomies 数组是 Category + Collection(dim-theme) 的合并视图（见 prototype/portal-admin/src/data/mock.js L480-483）。
+      GRD-002 修正记录：
+        1. 基线无 CustomTag 实体（Collection.java:15-17 注释明确"合并承载 CustomTag，不建 custom_tag 表"）。
+        2. Category 实体（Category.java:28-52）字段仅 name/parentId/level/attributeSetId/attrOverrides/sort/deletedAt，无 slug/enabled/online 字段。
+        3. Collection 实体（Collection.java:25-41）字段仅 collectionGroupId/name/cover/status/deletedAt，无 slug/enabled 字段，status 是 CollectionStatus IntEnum（1=启用 2=禁用）。
+        4. slug 与 online 均为 TaxonomyService 运行时派生字段，不存 Taxonomy 表（也无 Taxonomy 物理表）。
+
+  - id: Product
+    desc: 商品主档（基线已有，本变更引用）。HomePageSection.ProductRail source=recommend 时通过 data_json.product_ids 引用商品；source=isNew/isBest 时通过 ProductService 查询标记商品。基线字段：id/name/slug/status/isNew/isBest/recommend/sort 等。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Product.id'}
+      - {n: name, t: String, req: true, maxlen: 128, source: 'baseline Product.name'}
+      - {n: slug, t: String, req: true, maxlen: 128, source: 'baseline Product.slug'}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: 'baseline Product.status'}
+      - {n: isNew, t: Boolean, source: 'baseline Product.isNew（ProductRail source=isNew 时筛选）'}
+      - {n: isBest, t: Boolean, source: 'baseline Product.isBest（ProductRail source=isBest 时筛选）'}
+      - {n: recommend, t: Boolean, source: 'baseline Product.recommend（ProductRail source=recommend 时筛选）'}
+      - {n: sort, t: Integer, source: 'baseline Product.sort'}
+    relations: []
+    notes: 'KD-9 ProductRail source=recommend 时 data_json.product_ids 引用 Product.id 列表；source=isNew/isBest 时通过 ProductService 按 flag + sort 取前 N 条。'
+
+  - id: RealWedding
+    desc: 真实婚礼案例（基线已有，本变更引用）。HomePageSection.EditorialFeature 通过 data_json.wedding_ids 引用；为空时按 sort_order 取前 N 条。基线字段：id/couple/location/theme/weddingDate/cover/status。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline RealWedding.id'}
+      - {n: couple, t: String, req: true, maxlen: 64, source: 'baseline RealWedding.couple'}
+      - {n: location, t: String, maxlen: 128, source: 'baseline RealWedding.location'}
+      - {n: theme, t: String, maxlen: 32, source: 'baseline RealWedding.theme'}
+      - {n: weddingDate, t: String, maxlen: 16, source: 'baseline RealWedding.weddingDate'}
+      - {n: cover, t: String, maxlen: 512, source: 'baseline RealWedding.cover'}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: 'baseline RealWedding.status'}
+    relations:
+      - {to: Product, type: nm, source: 'baseline RealWedding-Product nm（Shop the Look）'}
+    notes: 'KD-10 EditorialFeature 存储 limit + 可选 wedding_ids；消费端调用 StoreWeddingService 渲染卡片列表。本变更使用 RealWedding 作为 Wedding 别名（基线无独立 Wedding 实体）。'
+
+  - id: CacheInvalidationLog
+    desc: 缓存失效日志（基线已有，本变更引用 + 扩展取值集合）。HomeBuilder/NavigationConfig/Announcement 保存后通过 in-process cache.invalidateFamily + publisher.publish 触发缓存失效（GRD-W01 修正：非 HTTP 自调 POST /api/admin/cache/invalidate），日志中应体现触发源（home_section/navigation/announcement）。GRD-W06 修正：基线字段全面校正（resource_id: Long 非 String；affected_paths: List<String> 非 JSON 字段名；status: Integer tinyint 非 enum；补 slug/old_slug/locales/triggered_by/triggered_at/completed_at/error_message 字段）。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline CacheInvalidationLog.id（LongAuditableEntity 基类）'}
+      - {n: event_type, t: String, maxlen: 50, req: true, source: 'GRD-W06 修正：baseline String（如 banner_changed/blog_changed/wedding_changed/lookbook_changed/guide_changed/flash_sale_changed；本变更新增 home_section_changed/navigation_changed/announcement_changed，GRD-005 _changed 后缀）'}
+      - {n: resource_type, t: String, maxlen: 20, req: true, source: 'GRD-W06 修正：baseline String（如 banner/blog/wedding/lookbook/guide/flash_sale；本变更新增 home_section/navigation/announcement）'}
+      - {n: resource_id, t: Long, nullable: true, source: 'GRD-W06 修正：baseline bigint NULL（非 String）；home_section/navigation/announcement 等全站级失效时为 NULL'}
+      - {n: slug, t: String, maxlen: 255, nullable: true, source: 'GRD-W06 修正补字段：baseline slug（资源 slug，全站级失效时为 NULL）'}
+      - {n: old_slug, t: String, maxlen: 255, nullable: true, source: 'GRD-W06 修正补字段：baseline old_slug（旧 slug，变更时双失效）'}
+      - {n: affected_paths, t: 'List<String>', nullable: true, source: 'GRD-W06 修正：baseline affected_paths（List<String>，JacksonTypeHandler 序列化为 JSON 存库；非字段名 paths_json）'}
+      - {n: locales, t: 'List<String>', nullable: true, source: 'GRD-W06 修正补字段：baseline locales（List<String>，受影响语言）'}
+      - {n: triggered_by, t: String, maxlen: 100, nullable: true, source: 'GRD-W06 修正补字段：baseline triggered_by（触发者，如 system/admin 邮箱）'}
+      - {n: triggered_at, t: LocalDateTime, req: true, source: 'GRD-W06 修正补字段：baseline triggered_at（触发时间）'}
+      - {n: status, t: Integer, req: true, source: 'GRD-W06 修正：baseline tinyint（0=pending/1=completed/2=failed，非 enum）；类内常量 STATUS_PENDING=0/STATUS_COMPLETED=1/STATUS_FAILED=2'}
+      - {n: completed_at, t: LocalDateTime, nullable: true, source: 'GRD-W06 修正补字段：baseline completed_at（完成时间）'}
+      - {n: error_message, t: String, nullable: true, source: 'GRD-W06 修正补字段：baseline error_message（text NULL，失败错误信息）'}
+      - {n: created_at, t: LocalDateTime, source: 'baseline CacheInvalidationLog.created_at（datetime(3) DEFAULT CURRENT_TIMESTAMP(3)）'}
+    relations: []
+    notes: |
+      GRD-W06 修正：基线 CacheInvalidationLog 实体（CacheInvalidationLog.java:31-78）字段全面校正，避免 acceptance 测试与基线 DDL 不一致。
+      本变更扩展 event_type/resource_type 取值集合（新增 home_section_changed/navigation_changed/announcement_changed + home_section/navigation/announcement），不修改表结构。
+      索引：idx_event_type(event_type) / idx_resource(resource_type, resource_id) / idx_slug(slug) / idx_triggered_at(triggered_at) / idx_status(status)。
+      GRD-W01 修正：触发链为 in-process cache.invalidateFamily + publisher.publish，日志由 publisher 调用 cacheService.logInvalidation 落表（非 HTTP 自调）。
+
+  - id: NewsletterSubscriber
+    desc: 基线 Newsletter 订阅记录（NewsletterSubscriber.java:26-39，F-008 页脚 + F-056 弹窗/Exit Intent）。KD-11/KD-12/KD-13 复用此存储扩展首页 Newsletter 区块订阅。GRD-001/KD-12 修正：本期不扩展退订状态机，保留基线模式（仅 subscribedAt 单字段，无 status/unsubscribed_at）；GRD-009/KD-13 修正：source 字段为 IntEnum NewsletterSource，本变更新增 HOME_BLOCK(4)。物理表合并方案见 OQ-2 推荐方案 A。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline NewsletterSubscriber.id（LongAuditableEntity 基类）'}
+      - {n: email, t: String, req: true, maxlen: 255, source: 'baseline NewsletterSubscriber.email（小写归一唯一，uk_newsletter_email 索引）'}
+      - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：baseline IntEnum NewsletterSource（1=页脚/2=弹窗/3=退出挽留），本变更 added HOME_BLOCK(4)（首页区块订阅）'}
+      - {n: locale, t: String, req: true, maxlen: 8, source: 'baseline NewsletterSubscriber.locale（en|es|fr）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: 'baseline NewsletterSubscriber.subscribedAt（订阅时间，KD-12 单态订阅）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    notes: |
+      基线字段：email/source/locale/subscribedAt（NewsletterSubscriber.java:28-38），无 status/unsubscribed_at 字段。
+      GRD-001/KD-12 决定本期不扩展退订状态机，保留基线 subscribedAt 单字段模式；acceptance s-017~s-022 退订/重订阅场景裁剪。
+      GRD-009/KD-13 决定扩展基线 POST /api/store/newsletter 接收 source=HOME_BLOCK(4)，不新建独立端点。
+      本变更 source 枚举新增 HOME_BLOCK(4)，详见 modified_entities.NewsletterSource / NewsletterSubscriber。
+
+modified_enums:
+  - id: MarketingCacheService.Family
+    meta: {source: modified_enum, baseline_ref: 'backend/src/main/java/com/dreamy/infra/MarketingCacheService.java:37-46'}
+    added_enum_values:
+      - {enum: Family, added_vals: [HOME_SECTION, NAVIGATION, ANNOUNCEMENT], source: 'GRD-004 修正：business-flow 三个新流程的 side_effect 声明 JetCache @CacheInvalidate 失效缓存族，基线 Family 枚举仅 9 个族（BANNERS/BLOGS/BLOG/WEDDINGS/WEDDING/LOOKBOOKS/LOOKBOOK/GUIDES/FLASH）无此三者，需新增以支持 cache.invalidateFamily(Family.HOME_SECTION) 编译'}
+    new_enum_ttls:
+      - {enum_val: HOME_SECTION, prefix: 'marketing:home_section:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s（对齐 BANNERS/BLOGS 等基线族，非 600s）'}
+      - {enum_val: NAVIGATION, prefix: 'marketing:navigation:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s'}
+      - {enum_val: ANNOUNCEMENT, prefix: 'marketing:announcement:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s'}
+    notes: 'GRD-004 MUST_FIX：缺少族定义则 cache.invalidateFamily(Family.X) 无法编译，整套失效链断裂。新增 3 个族与基线 9 个族一致采用两级缓存（Caffeine+Redis）+ cacheNullValue=false + localLimit=2000 + syncLocal=false 配置。'
+
+  - id: NewsletterSource
+    meta: {source: modified_enum, baseline_ref: 'backend/src/main/java/com/dreamy/enums/NewsletterSource.java:13-16'}
+    added_enum_values:
+      - {enum: NewsletterSource, added_vals: [HOME_BLOCK(4)], source: 'GRD-009/KD-13 修正：首页 Newsletter 区块订阅入口；IntEnum key=4，desc="首页区块"；与基线 FOOTER(1)/MODAL(2)/EXIT_INTENT(3) 连续递增'}
+    notes: 'GRD-009 MUST_FIX：基线 NewsletterSource 是 IntEnum（非字符串枚举），本变更必须显式声明 key=4。er-diagram Subscriber.source / NewsletterSubscriber.source 同步改为 IntEnum 描述。'
+
+modified_entities:
+  - id: NewsletterSubscriber
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/subscriber/entity/NewsletterSubscriber.java:26-39'}
+    added_enum_values:
+      - field: source
+        added_vals: [HOME_BLOCK(4)]
+        source: 'KD-11/KD-13 首页 Newsletter 区块订阅入口（GRD-009 修正：IntEnum key=4，对齐基线 NewsletterSource FOOTER=1/MODAL=2/EXIT_INTENT=3）'
+    changed_constraints:
+      - type: unique_index_migration
+        before: 'uk_newsletter_email(email) — 单字段 email 唯一（NewsletterSubscriber.java:23）'
+        after: 'uk_newsletter_email_source(email, source) — 复合唯一（GRD2-003 方案 A：同邮箱同来源幂等短路，不同来源新增记录）'
+        rationale: |
+          GRD2-003 修正：KD-13 新增 source=HOME_BLOCK(4) 用于区分订阅入口（首页/页脚/弹窗/退出意图）。
+          若保留 email 单字段唯一，同邮箱先从 FOOTER 订阅后再从 HOME_BLOCK 订阅会被短路，HOME_BLOCK 订阅"丢失"但响应 {subscribed:true}，
+          source 数据失真，无法分析订阅入口转化率（电商 Newsletter 核心运营能力）。
+          方案 A 复合唯一保证 source 数据完整性；NewsletterService.insertIgnoreDuplicate 语义变为"同邮箱同来源重复订阅幂等短路，不同来源新增记录"。
+        ddl: 'ALTER TABLE newsletter_subscriber DROP INDEX uk_newsletter_email, ADD UNIQUE KEY uk_newsletter_email_source (email, source);'
+        acceptance_impact: 'acceptance.yml s-336 等订阅场景需校验同邮箱不同来源可创建多条记录（GRD2-003 方案 A）'
+    notes: |
+      GRD-001/KD-12 修正：本期不扩展退订状态机，保留基线模式。
+      - 不添加 status 字段（基线无此字段，KD-12 决定本期不扩展）。
+      - 不添加 unsubscribed_at 字段（同上）。
+      - GRD2-003 方案 A：修改 unique 约束为 (email, source) 复合唯一，保证 KD-13 source 数据完整性。
+      - 扩展 source 枚举值新增 HOME_BLOCK(4)（IntEnum key=4）。
+      acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
+
+  - id: CacheInvalidationLog
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/cache/entity/CacheInvalidationLog.java:31-78'}
+    added_enum_values:
+      - field: event_type
+        added_vals: [home_section_changed, navigation_changed, announcement_changed]
+        source: 'KD-1 HomeBuilder/NavigationConfig/Announcement 保存后触发缓存失效（GRD-005 修正：统一 _changed 后缀，对齐基线 banner_changed/blog_changed 等命名）'
+      - field: resource_type
+        added_vals: [home_section, navigation, announcement]
+        source: 'KD-1 缓存失效日志中体现触发源'
+    notes: |
+      GRD-W06 修正：基线 CacheInvalidationLog 字段全面校正（详见 entities.CacheInvalidationLog 段）。
+      本变更仅扩展 event_type/resource_type 取值集合以记录新域的缓存失效事件，不修改表结构。
+      GRD-W01 修正：触发链为 in-process cache.invalidateFamily + publisher.publish，日志由 publisher 调用 cacheService.logInvalidation 落表。
+
+  - id: MarketingContentInvalidatedPublisher
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/mq/MarketingContentInvalidatedPublisher.java:30-35,96-133'}
+    added_constants:
+      - {name: TYPE_HOME_SECTION_CHANGED, value: '"home_section_changed"', source: 'GRD-005 修正：HomePageSection 保存后发布的事件类型（Hero/Announcement/ProductRail 等区块均触发，全站级失效）'}
+      - {name: TYPE_NAVIGATION_CHANGED, value: '"navigation_changed"', source: 'GRD-005 修正：NavigationItem/FooterColumn 保存后发布的事件类型（影响 header/footer 全站渲染）'}
+      - {name: TYPE_ANNOUNCEMENT_CHANGED, value: '"announcement_changed"', source: 'GRD-005 修正：Announcement 保存后发布的事件类型（影响顶部公告条全站渲染）'}
+    added_code_branches:
+      - {method: extractResourceType, branch: 'eventType.contains("home_section") → "home_section"; eventType.contains("navigation") → "navigation"; eventType.contains("announcement") → "announcement"', source: 'GRD-005 修正：基线 extractResourceType（MarketingContentInvalidatedPublisher.java:96-104）无对应分支，新增 3 个 if 分支'}
+      - {method: buildAffectedPaths, branch: 'TYPE_HOME_SECTION_CHANGED/TYPE_NAVIGATION_CHANGED/TYPE_ANNOUNCEMENT_CHANGED → 全站级失效 ["/", "/es", "/fr"]（layout 级，影响所有 locale 首页）', source: 'GRD-005 修正：基线 buildAffectedPaths（MarketingContentInvalidatedPublisher.java:106-133）无对应分支，新增 3 个 else if 分支对齐 TYPE_BANNER_CHANGED 全站失效模式'}
+    event_type_naming: 'GRD-005 统一 _changed 后缀（对齐基线 TYPE_BANNER_CHANGED/TYPE_BLOG_CHANGED 等命名）；er-diagram 与 state-machine 中所有 _saved 命名修正为 _changed'
+    notes: |
+      GRD-005 MUST_FIX：基线 publisher 仅 6 个 TYPE_* 常量（TYPE_BANNER_CHANGED/TYPE_BLOG_CHANGED/TYPE_WEDDING_CHANGED/TYPE_LOOKBOOK_CHANGED/TYPE_GUIDE_CHANGED/TYPE_FLASH_SALE_CHANGED），无 HOME_SECTION_CHANGED/NAVIGATION_CHANGED/ANNOUNCEMENT_CHANGED；extractResourceType 与 buildAffectedPaths 无对应分支。
+      修正：新增 3 个 TYPE_* 常量 + extractResourceType 3 个分支 + buildAffectedPaths 3 个分支；event_type 命名统一 _changed 后缀。
+
+  - id: MarketingExceptionHandler
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/error/MarketingExceptionHandler.java:39'}
+    changed_assignable_types:
+      - annotation: '@RestControllerAdvice(assignableTypes={...})'
+        baseline_vals: [AdminBannerController, AdminBlogController, AdminCouponController, AdminFlashSaleController, AdminGuideController, AdminLookbookController, AdminWeddingController, StoreContentController, StoreLeadController, StorePromotionController]
+        add: [AdminHomeSectionController, AdminNavigationController, AdminAnnouncementController]
+        source: 'GRD-006 修正：基线 assignableTypes 显式枚举 10 个 marketing 域 Controller（MarketingExceptionHandler.java:39），新 Controller 若不登记则 MarketingException 穿透到 identity GlobalExceptionHandler，错误结构与 marketing 域契约不符'
+    notes: |
+      GRD-006 MUST_FIX：新 Controller 必须登记到此列表，否则异常处理链断裂。
+      AdminHomeSectionController/AdminNavigationController/AdminAnnouncementController 三个新 Controller 须在 @RestControllerAdvice(assignableTypes={...}) 注解中加入。
+      新 Controller 抛 MarketingException 时由本处理器返回 6 位码 R 包络（FIELD_VALIDATION_FAILED=422704/CONTENT_STATE_INVALID=409703 等），与 marketing 域契约一致。
+
+  - id: DataInitializer
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/config/DataInitializer.java:88-114'}
+    added_seed_data:
+      - table: permission
+        rows:
+          - {perm_code: '/site/announcement', group: '站点装修', label: '公告条'}
+        source: 'GRD-007 修正：KD-BE-2 声明 AdminAnnouncementController 用 @RequirePermission("/site/announcement")，但基线种子仅 /site/home、/site/navigation、/site/banners（DataInitializer.java:90-94 perms 数组），未种子则除超管外所有角色 403'
+      - table: role_permission
+        rows:
+          - {role: '超管', permission: '/site/announcement', source: 'GRD-007：超管角色自动关联全部权限（DataInitializer.initSuperRole 已实现）'}
+        source: 'GRD-007：超管自动拥有；其他角色按需分配（本期不强制）'
+    notes: |
+      GRD-007 MUST_FIX：在 DataInitializer.initPermissions() 的 perms 数组中新增 {"/site/announcement","站点装修","公告条"} 一行（按 perm_code 幂等）。
+      超管角色通过 initSuperRole() 自动关联全部权限（含新权限），无需额外处理。
+      其他角色（如运营/内容编辑）如需访问公告条管理，需在管理端角色权限页手动分配。
+
+  - id: StoreLeadController
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/controller/StoreLeadController.java:30-38'}
+    changed_api:
+      - endpoint: 'POST /api/store/newsletter'
+        before: '接收 email + source(FOOTER=1/MODAL=2/EXIT_INTENT=3) + locale'
+        after: '扩展接收 source=HOME_BLOCK(4)（首页 Newsletter 区块订阅入口）；其他参数与响应不变'
+        source: 'GRD-009/KD-13 修正方案 A：扩展基线端点新增 source=4，不新建独立 /api/store/subscribers/subscribe 端点（避免重复）'
+    notes: |
+      GRD-009 MUST_FIX：KD-11 原声明新建 POST /api/store/subscribers/subscribe，但基线已有 POST /api/store/newsletter（StoreLeadController.java:34，E-MKT-11）。
+      决策：方案 A 扩展基线端点，source 枚举新增 HOME_BLOCK(4)（IntEnum key=4）。
+      acceptance.yml s-336 的 endpoint 由父代理同步修正为 POST /api/store/newsletter。
+
+  - id: Banner
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/banner/entity/Banner.java:60-61'}
+    added_fields:
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, ddl: 'varchar(64) NULL COMMENT "第二 CTA 文案(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 文案（原型 mock.js homeBlocks Hero data.cta2 "Explore Outdoor"），基线 Banner 仅 cta_text 单字段，新增此字段以支持双 CTA'}
+      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, ddl: 'varchar(255) NULL COMMENT "第二 CTA 链接(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 链接，与 cta_text_secondary 配对'}
+    notes: |
+      GRD-010/KD-14 MUST_FIX：原型 Hero 区块有 2 个 CTA（cta1 + cta2），KD-2 决定 Hero 从 Banner position=HERO 派生，但基线 Banner 仅 cta_text 单字段。
+      决策：方案 A 新增 cta_text_secondary + cta_link_secondary 字段，DDL 改动通过 modified_entities 显式声明。
+      AdminBannerController 的 BannerUpsert DTO 同步扩展接收这两个字段。
+      Hero 区块 data_json 保持为空（文案/图片/CTA 含第二 CTA 全部从 Banner 派生，KD-2 纯派生原则不变）。
+
+  - id: BannerTranslation
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/banner/entity/BannerTranslation.java:22-38'}
+    added_fields:
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, ddl: 'varchar(64) NULL', source: 'GRD-010/KD-14：第二 CTA 文案 i18n 翻译（es/fr），与 Banner.cta_text_secondary 配对'}
+    notes: |
+      GRD-010/KD-14：BannerTranslation 同步新增 cta_text_secondary 翻译字段，对齐基线 title/subtitle/cta_text 双表 i18n 模式。
+      唯一键 (banner_id, locale) 不变（基线 uk_bt 索引）。
+
+constraints:
+  - id: CONSTRAINT-001
+    type: assignable_types_registration
+    desc: 'GRD-006 MUST_FIX：新增 AdminHomeSectionController/AdminNavigationController/AdminAnnouncementController 三个 Controller 必须登记到 MarketingExceptionHandler @RestControllerAdvice(assignableTypes={...}) 注解列表（详见 modified_entities.MarketingExceptionHandler.changed_assignable_types）'
+    rationale: '基线 MarketingExceptionHandler 用 assignableTypes 显式枚举 10 个 marketing 域 Controller（不依赖 basePackages 包扫描），新 Controller 不登记则 MarketingException 穿透到 identity GlobalExceptionHandler，返回的错误结构与 marketing 域契约不符（如 422704 字段级结构、409703 内容状态码等）'
+    enforcement: '代码审查 + 启动期校验（建议补 ApplicationContextInitializedEvent 监听器扫描 marketing 域 Controller 是否全部在 assignableTypes 列表内）'
+
+  - id: CONSTRAINT-002
+    type: enum_naming_convention
+    desc: 'GRD-005：所有缓存失效 event_type 命名统一 _changed 后缀（home_section_changed/navigation_changed/announcement_changed），对齐基线 banner_changed/blog_changed 等命名；er-diagram 与 state-machine 中不允许出现 _saved 后缀'
+    rationale: '基线 logInvalidation(type,...) 的 type 参数与 MQ 事件 type 同字符串，基线 publisher 6 个 TYPE_* 常量均为 _changed 后缀，命名一致性保证日志检索与 MQ 路由正确'
+    enforcement: '代码审查 + 单元测试断言 event_type 集合 ⊆ {banner_changed, blog_changed, wedding_changed, lookbook_changed, guide_changed, flash_sale_changed, home_section_changed, navigation_changed, announcement_changed}'
+
+  - id: CONSTRAINT-003
+    type: in_process_cache_invalidation
+    desc: 'GRD-W01：HomeBuilder/NavigationConfig/Announcement 保存后的缓存失效走 in-process cache.invalidateFamily + publisher.publish，不允许 HTTP 自调 POST /api/admin/cache/invalidate'
+    rationale: '基线 Banner 失效链是 in-process 调用（MarketingAfterCommitRunner 事务提交后触发 publisher.publish → cacheService.logInvalidation + cdnService.invalidatePaths），HTTP 自调引入额外网络开销且破坏事务一致性'
+    enforcement: '代码审查 + 集成测试断言 AdminHomeSectionService.save 后无 HTTP 调用 /api/admin/cache/invalidate（MockMvc 断言）'
+
+  - id: CONSTRAINT-004
+    type: physical_delete
+    desc: 'GRD-W07：新建实体（HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement/Subscriber）统一 extends LongAuditableEntity + 物理删除（无 deleted_at 字段）。GRD2-001/KD-16：不建独立 *_translations 表，多语言文案存主表 i18n_json JSON 列'
+    rationale: '配置类实体误删可重建（管理端有保存按钮）；与基线 Category（软删除）/Banner（软删除）不同，本变更新实体是站点装修配置，不需要软删除回收站。i18n_json JSON 列模式减少表数量，简化 DDL 和 Repository（KD-16 决策）'
+    enforcement: 'DDL 审查 + 实体类审查（所有新实体 extends LongAuditableEntity，无 @TableField deleted_at 字段；i18n_json 字段使用 @TableField(typeHandler = JacksonTypeHandler.class) + @TableName(autoResultMap = true)）'
+
+  - id: CONSTRAINT-005
+    type: int_enum_consistency
+    desc: 'GRD-009：NewsletterSource 是 IntEnum（非字符串枚举），er-diagram Subscriber.source / NewsletterSubscriber.source 字段类型必须声明为 IntEnum<NewsletterSource>，vals 声明为 [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)]'
+    rationale: '基线 NewsletterSource（NewsletterSource.java:13-16）实现 IntEnum 接口，数据库存储 tinyint（1/2/3/4）；er-diagram 若描述为字符串枚举则 acceptance 测试与基线 DDL 不一致'
+    enforcement: 'er-diagram 审查 + 代码审查（Subscriber.source / NewsletterSubscriber.source 字段类型为 NewsletterSource）'
+
+open_questions:
+  - id: OQ-1
+    topic: Taxonomy 实体物理实现（GRD-002 修正后）
+    question: GRD-002 修正后 Taxonomy 是 Category（type=category）+ Collection（type=theme，collectionGroupId 指向"主题" CollectionGroup）的多态逻辑视图，基线无独立 Taxonomy 表。NavigationItem.taxonomy_id 和 HomePageSection.ThemeCards 应如何物理实现跨域引用？
+    options:
+      - '方案 A：保持多态引用（taxonomy_id + taxonomy_type 双字段），运行时 TaxonomyService 路由到 Category/Collection 表查询（推荐，对齐原型 taxonomies 数组的合并视图语义）'
+      - '方案 B：拆分为 category_id + collection_id 两个可空外键字段（语义清晰但表结构冗余）'
+      - '方案 C：新建独立 Taxonomy 表作为统一抽象层（不推荐，破坏 baseline）'
+    impact: '影响 NavigationItem 表结构、TaxonomyService 接口设计、ThemeCards 数据查询逻辑'
+    recommendation: '方案 A（保持多态引用，对齐原型 taxonomies 数组的合并视图语义；TaxonomyService 内部按 taxonomy_type 路由到 CategoryService/CollectionService）'
+
+  - id: OQ-2
+    topic: Subscriber vs NewsletterSubscriber 实体身份（KD-12 修正后）
+    question: KD-11 说"复用 EmailMarketing 模块订阅者存储"，本变更 er-diagram 保留 Subscriber 逻辑视图实体。基线已有 NewsletterSubscriber。物理实现应合并到 NewsletterSubscriber 表（仅扩展 source=HOME_BLOCK(4)）还是新建独立 subscribers 表？
+    options:
+      - '方案 A：合并到基线 NewsletterSubscriber 表，扩展 source=HOME_BLOCK(4)（推荐，KD-11 明确复用 + KD-12 不扩展状态机）'
+      - '方案 B：新建独立 subscribers 表（与基线 NewsletterSubscriber 解耦，但违反 KD-11 复用原则）'
+      - '方案 C：Subscriber 作为逻辑视图实体，物理仍是 NewsletterSubscriber（er-diagram 保留 Subscriber 逻辑建模，DDL 不新建表）'
+    impact: '影响 DDL 脚本、订阅 API 实现、消费端查询逻辑'
+    recommendation: '方案 A（合并到 NewsletterSubscriber + 扩展 source=HOME_BLOCK(4)；er-diagram 中 Subscriber 是逻辑视图，物理落 NewsletterSubscriber 表）'
+
+  - id: OQ-3
+    topic: FooterColumn/FooterLink i18n 策略（KD-16 已采纳 i18n_json 方案，覆盖 GRD-W08）
+    question: 'KD-16 决定合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表），覆盖原 GRD-W08 双表方案。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：本期仅 EN 基准（与原型一致），后续 change 补 footer_column_translations/footer_link_translations 表（已废弃）'
+      - '方案 B：本期补齐 FooterColumnTranslation/FooterLinkTranslation 双表（对齐其他实体 i18n 模式）（GRD-W08 采纳后又被 KD-16 覆盖，已废弃）'
+      - '方案 C：FooterColumn/FooterLink 文案内嵌 i18n JSON 字段（KD-16 采纳此方案变体：所有新实体统一 i18n_json JSON 列）'
+    impact: '影响表结构、API 契约、消费端 layout.tsx 渲染逻辑'
+    recommendation: '方案 C（KD-16 已采纳；er-diagram 已移除 FooterColumnTranslation/FooterLinkTranslation 实体，FooterColumn/FooterLink 新增 i18n_json JSON 列）'
+
+  - id: OQ-4
+    topic: NavigationItem.taxonomy_type 派生字段存储
+    question: NavigationItem.taxonomy_type 是从 Taxonomy 派生的字段（标识引用品类还是主题）。是否需要在 NavigationItem 表中冗余存储此字段？
+    options:
+      - '方案 A：冗余存储 taxonomy_type（查询性能优，但需在 Taxonomy 变更时同步更新）'
+      - '方案 B：不存储，运行时通过 TaxonomyService 查询派生（无冗余但多一次服务调用）'
+      - '方案 C：仅存 taxonomy_id + taxonomy_type 复合唯一约束（强制类型一致性）'
+    impact: '影响 NavigationItem 表结构、TaxonomyService 接口、管理端表单校验'
+    recommendation: '方案 A（冗余存储，对齐原型 taxonomies 数组的 type 字段）'
+
+  - id: OQ-5
+    topic: Mega Menu 列 i18n 策略（KD-16 修正后）
+    question: 'KD-6 决定 Mega Menu 列存 JSON 字段（mega_menu_json）。列标题（title）的 i18n 如何处理？KD-16 修正后：列标题 i18n 存主表 NavigationItem.i18n_json JSON 列（结构 {en:{label, mega_menu_titles:{col_idx:title}}, es:{...}, fr:{...}}），与主表 mega_menu_json 列顺序对齐。是否合理？'
+    options:
+      - '方案 A：i18n_json.mega_menu_titles 映射（KD-16 修正方案，简单但依赖列顺序稳定）'
+      - '方案 B：mega_menu_json 内嵌多语言对象（{title: {en, es, fr}, ...}）'
+      - '方案 C：本期仅 EN 基准，mega_menu_json.title 存 EN，后续 change 扩展 i18n'
+    impact: '影响 NavigationItem 表结构、管理端表单交互、消费端渲染逻辑'
+    recommendation: '方案 A（KD-16 修正后；mega_menu_titles 作为 i18n_json JSON 列的子字段，与主表 mega_menu_json 列顺序对齐）'
+
+  - id: OQ-6
+    topic: HomePageSection.Announcement 区块与 Announcement 域的关系
+    question: KD-7 决定 Announcement 独立域，但 HomePageSection.section_type 仍包含 Announcement 类型。此类型的 HomePageSection 行只存 enabled/sort_order（data_json 为空），实际公告内容从 Announcement 域派生。这种"占位区块"模式是否需要单独建模？
+    options:
+      - '方案 A：保持现状（HomePageSection.Announcement 行仅占位，消费端按 sort_order 渲染 Announcement 域所有 enabled 公告）'
+      - '方案 B：移除 section_type=Announcement，消费端固定渲染 Announcement 域（位置不可配置）'
+      - '方案 C：HomePageSection.Announcement 的 data_json 存 announcement_ids 数组（人工精选哪些公告上首页）'
+    impact: '影响 HomePageSection 表结构、消费端渲染逻辑、管理端编辑表单'
+    recommendation: '方案 A（保持现状，对齐 Hero 区块同样不存数据的模式）'
+
+  - id: OQ-7
+    topic: TOPBAR Banner 公告数据迁移策略（GRD-008）
+    question: '基线消费端公告条通过 fetchStoreBanners(BannerPosition.TOPBAR) 取数据（frontend/portal-store/app/[locale]/layout.tsx:53-54 + site-header.tsx:24-31）。KD-7 决定新建独立 Announcement 域，但未说明：(1) 现有 TOPBAR Banner 公告数据是否迁移到 announcements 表；(2) BannerPosition.TOPBAR 是否废弃或保留；(3) layout.tsx 改调新 API 后 TOPBAR Banner 去留。'
+    options:
+      - '方案 A：本期双写兼容——新 Announcement 域为权威源，BannerPosition.TOPBAR 保留但停止管理端入口（只读降级），消费端优先读 Announcement 域，空时回退 TOPBAR Banner（平滑迁移）'
+      - '方案 B：本期一次性迁移——删除 BannerPosition.TOPBAR 枚举值，现有 TOPBAR Banner 数据脚本迁移到 announcements 表，消费端只读 Announcement 域（干净但风险高）'
+      - '方案 C：本期不迁移——Announcement 域仅服务首页区块，TOPBAR Banner 继续服务全局公告条（两套并存，语义重叠）'
+      - '方案 D：BannerPosition.TOPBAR 标记 @Deprecated 但保留枚举值，管理端 Banners 页隐藏 TOPBAR 选项，存量 TOPBAR Banner 公告数据脚本迁入 announcements 表，消费端 layout.tsx 改调 StoreAnnouncement API（过渡期保留 TOPBAR 给非公告用途）'
+    impact: '影响 BannerPosition 枚举、DataMigration 脚本、消费端 layout.tsx 渲染逻辑、管理端 Banners 页面'
+    recommendation: '方案 D（@Deprecated + 数据迁移 + 消费端切流，既保留枚举兼容性又完成语义迁移；过渡期内非公告用途的 TOPBAR Banner 仍可使用，公告用途强制走 Announcement 域）'
+
+  - id: OQ-8
+    topic: Hero 区块 2 个 CTA 的数据源（GRD-010/KD-14 已采纳方案 A）
+    question: 'GRD-010/KD-14 已采纳方案 A（Banner 实体新增 cta_text_secondary + cta_link_secondary 字段）。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：Banner 实体新增 cta_text_secondary + cta_link_secondary 字段（DDL 改动基线表，需 modified_entities 声明）（GRD-010/KD-14 采纳）'
+      - '方案 B：er-diagram 放宽 Hero data_json 约束，允许存 cta2_label + cta2_href（Hero 区块不再"数据为空"，违反 KD-2 纯派生原则）（已废弃）'
+      - '方案 C：第二个 CTA 走导航配置派生（cta2 固定指向"Explore Outdoor"导航项，从 NavigationConfig 读取，不存 Banner）（已废弃）'
+      - '方案 D：本期仅渲染 1 个 CTA（对齐基线 Banner 单 cta_text），原型 cta2 降级为后续 change（已废弃）'
+    impact: '影响 Banner 实体表结构、Hero 区块消费端渲染逻辑、管理端 Banner 编辑表单、原型还原度'
+    recommendation: '方案 A（GRD-010/KD-14 已采纳；er-diagram modified_entities.Banner/BannerTranslation 已声明 added_fields）'
+
+  - id: OQ-9
+    topic: 消费端首页现有 4 类区块未在 section_type 枚举内（GRD-W05）
+    question: '消费端首页现有 FlashSaleRail/Lookbook Editorial/ColorPalette Moodboard/ValueProps 四类区块，但 HomePageSection.section_type 枚举仅 7 种（Hero/Announcement/ShopByColor/ThemeCards/ProductRail/EditorialFeature/Newsletter），未覆盖此 4 类。迁移时如何处理？'
+    options:
+      - '方案 A：本期不迁移此 4 类区块，消费端保留硬编码渲染（与 HomeBuilder 动态渲染并存，后续 change 统一）'
+      - '方案 B：扩展 section_type 枚举新增 FlashSale/Lookbook/ColorPalette/ValueProps 四值，补全 er-diagram 建模（范围扩大）'
+      - '方案 C：本期将此 4 类区块映射到现有枚举（Lookbook→EditorialFeature, ColorPalette→ShopByColor, ValueProps→自定义 data_json, FlashSale→ProductRail source=flash_sale）'
+    impact: '影响 HomePageSection 表结构、消费端首页渲染逻辑、管理端 HomeBuilder 编辑表单、原型还原度'
+    recommendation: '方案 A（本期不迁移，聚焦原型 7 种区块；现有 4 类区块保留硬编码，后续 change 统一迁移，避免范围蔓延）'
+
+  - id: OQ-10
+    topic: 新实体基类与软删除策略（GRD-W07 已采纳方案 C 变体）
+    question: 'GRD-W07 修正已采纳：新建实体统一 extends LongAuditableEntity + 物理删除（无 deleted_at 字段）。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：全部 extends LongAuditableEntity + 软删除（对齐基线 Category/Collection 模式）（已废弃）'
+      - '方案 B：配置类实体（HomePageSection/NavigationItem/FooterColumn/Announcement）软删除，翻译表硬删除（避免翻译残留）（已废弃；KD-16 修正后不建翻译表）'
+      - '方案 C：全部 extends LongAuditableEntity + 物理删除（配置类误删可重建，不需要软删除）（GRD-W07 采纳）'
+    impact: '影响 DDL 脚本、Repository 查询逻辑、审计日志完整性'
+    recommendation: '方案 C（GRD-W07 已采纳；所有新实体 extends LongAuditableEntity + 物理删除，详见 CONSTRAINT-004）'
+
+  - id: OQ-11
+    topic: KD-1 措辞修正（GRD-W04）
+    question: 'GRD-W04 修正：KD-1 原描述"SSG 发布中心"与实际架构不符（portal-store 首页为 force-dynamic 无 SSG）。KD-1 决策已修正为"不引入 SSG，保持 force-dynamic + 缓存失效"。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：KD-1 措辞修正为"不引入 SSG，保持 force-dynamic + JetCache 两级缓存 + in-process 失效链"（GRD-W04 采纳）'
+      - '方案 B：保留原"SSG 发布中心"措辞（已废弃，与实际架构不符）'
+    impact: '影响 Publish.vue 范围、KD-1 决策记录、acceptance 测试断言'
+    recommendation: '方案 A（GRD-W04 已采纳；KD-1 decision/rationale/impact 已在 pd-explore.local.md 中修正）'

@@ -1,0 +1,10 @@
+meta:
+  source: field-inventory
+  stateful_types:
+  - lifecycle
+  - phase
+  - stage
+  - state
+  - status
+  machine_count: 0
+machines: []

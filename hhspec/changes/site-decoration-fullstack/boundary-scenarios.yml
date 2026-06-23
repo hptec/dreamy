@@ -1,0 +1,2350 @@
+scenarios:
+- id: bs-001
+  cat: "null"
+  entity: home_page_section
+  field: id
+  ctx: home_page_section 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-002
+  cat: "null"
+  entity: home_page_section
+  field: section_type
+  ctx: home_page_section 创建或更新时缺少必填字段 section_type
+  act: 提交 section_type=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 section_type
+  source: er
+- id: bs-003
+  cat: "null"
+  entity: home_page_section
+  field: label
+  ctx: home_page_section 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-004
+  cat: "null"
+  entity: home_page_section
+  field: enabled
+  ctx: home_page_section 创建或更新时缺少必填字段 enabled
+  act: 提交 enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 enabled
+  source: er
+- id: bs-005
+  cat: "null"
+  entity: home_page_section
+  field: sort_order
+  ctx: home_page_section 创建或更新时缺少必填字段 sort_order
+  act: 提交 sort_order=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort_order
+  source: er
+- id: bs-006
+  cat: "null"
+  entity: home_page_section
+  field: data_json
+  ctx: home_page_section 的可选字段 data_json 未提供
+  act: 提交 data_json=null 的请求
+  expect: 系统正常处理并保持 data_json 为空，不报错
+  source: er
+- id: bs-007
+  cat: "null"
+  entity: home_page_section
+  field: created_at
+  ctx: home_page_section 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-008
+  cat: "null"
+  entity: home_page_section
+  field: updated_at
+  ctx: home_page_section 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-009
+  cat: "null"
+  entity: home_section_translation
+  field: id
+  ctx: home_section_translation 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-010
+  cat: "null"
+  entity: home_section_translation
+  field: section_id
+  ctx: home_section_translation 创建或更新时缺少必填字段 section_id
+  act: 提交 section_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 section_id
+  source: er
+- id: bs-011
+  cat: "null"
+  entity: home_section_translation
+  field: locale
+  ctx: home_section_translation 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-012
+  cat: "null"
+  entity: home_section_translation
+  field: eyebrow
+  ctx: home_section_translation 的可选字段 eyebrow 未提供
+  act: 提交 eyebrow=null 的请求
+  expect: 系统正常处理并保持 eyebrow 为空，不报错
+  source: er
+- id: bs-013
+  cat: "null"
+  entity: home_section_translation
+  field: title
+  ctx: home_section_translation 的可选字段 title 未提供
+  act: 提交 title=null 的请求
+  expect: 系统正常处理并保持 title 为空，不报错
+  source: er
+- id: bs-014
+  cat: "null"
+  entity: home_section_translation
+  field: subtitle
+  ctx: home_section_translation 的可选字段 subtitle 未提供
+  act: 提交 subtitle=null 的请求
+  expect: 系统正常处理并保持 subtitle 为空，不报错
+  source: er
+- id: bs-015
+  cat: "null"
+  entity: home_section_translation
+  field: cta_text
+  ctx: home_section_translation 的可选字段 cta_text 未提供
+  act: 提交 cta_text=null 的请求
+  expect: 系统正常处理并保持 cta_text 为空，不报错
+  source: er
+- id: bs-016
+  cat: "null"
+  entity: navigation_item
+  field: id
+  ctx: navigation_item 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-017
+  cat: "null"
+  entity: navigation_item
+  field: label
+  ctx: navigation_item 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-018
+  cat: "null"
+  entity: navigation_item
+  field: link_type
+  ctx: navigation_item 创建或更新时缺少必填字段 link_type
+  act: 提交 link_type=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 link_type
+  source: er
+- id: bs-019
+  cat: "null"
+  entity: navigation_item
+  field: taxonomy_id
+  ctx: navigation_item 的可选字段 taxonomy_id 未提供
+  act: 提交 taxonomy_id=null 的请求
+  expect: 系统正常处理并保持 taxonomy_id 为空，不报错
+  source: er
+- id: bs-020
+  cat: "null"
+  entity: navigation_item
+  field: taxonomy_type
+  ctx: navigation_item 的可选字段 taxonomy_type 未提供
+  act: 提交 taxonomy_type=null 的请求
+  expect: 系统正常处理并保持 taxonomy_type 为空，不报错
+  source: er
+- id: bs-021
+  cat: "null"
+  entity: navigation_item
+  field: custom_href
+  ctx: navigation_item 的可选字段 custom_href 未提供
+  act: 提交 custom_href=null 的请求
+  expect: 系统正常处理并保持 custom_href 为空，不报错
+  source: er
+- id: bs-022
+  cat: "null"
+  entity: navigation_item
+  field: mega_menu_json
+  ctx: navigation_item 的可选字段 mega_menu_json 未提供
+  act: 提交 mega_menu_json=null 的请求
+  expect: 系统正常处理并保持 mega_menu_json 为空，不报错
+  source: er
+- id: bs-023
+  cat: "null"
+  entity: navigation_item
+  field: enabled
+  ctx: navigation_item 创建或更新时缺少必填字段 enabled
+  act: 提交 enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 enabled
+  source: er
+- id: bs-024
+  cat: "null"
+  entity: navigation_item
+  field: sort_order
+  ctx: navigation_item 创建或更新时缺少必填字段 sort_order
+  act: 提交 sort_order=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort_order
+  source: er
+- id: bs-025
+  cat: "null"
+  entity: navigation_item
+  field: created_at
+  ctx: navigation_item 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-026
+  cat: "null"
+  entity: navigation_item
+  field: updated_at
+  ctx: navigation_item 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-027
+  cat: "null"
+  entity: navigation_translation
+  field: id
+  ctx: navigation_translation 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-028
+  cat: "null"
+  entity: navigation_translation
+  field: navigation_item_id
+  ctx: navigation_translation 创建或更新时缺少必填字段 navigation_item_id
+  act: 提交 navigation_item_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 navigation_item_id
+  source: er
+- id: bs-029
+  cat: "null"
+  entity: navigation_translation
+  field: locale
+  ctx: navigation_translation 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-030
+  cat: "null"
+  entity: navigation_translation
+  field: label
+  ctx: navigation_translation 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-031
+  cat: "null"
+  entity: navigation_translation
+  field: mega_menu_titles_json
+  ctx: navigation_translation 的可选字段 mega_menu_titles_json 未提供
+  act: 提交 mega_menu_titles_json=null 的请求
+  expect: 系统正常处理并保持 mega_menu_titles_json 为空，不报错
+  source: er
+- id: bs-032
+  cat: "null"
+  entity: footer_column
+  field: id
+  ctx: footer_column 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-033
+  cat: "null"
+  entity: footer_column
+  field: title
+  ctx: footer_column 创建或更新时缺少必填字段 title
+  act: 提交 title=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 title
+  source: er
+- id: bs-034
+  cat: "null"
+  entity: footer_column
+  field: enabled
+  ctx: footer_column 创建或更新时缺少必填字段 enabled
+  act: 提交 enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 enabled
+  source: er
+- id: bs-035
+  cat: "null"
+  entity: footer_column
+  field: sort_order
+  ctx: footer_column 创建或更新时缺少必填字段 sort_order
+  act: 提交 sort_order=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort_order
+  source: er
+- id: bs-036
+  cat: "null"
+  entity: footer_column
+  field: created_at
+  ctx: footer_column 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-037
+  cat: "null"
+  entity: footer_column
+  field: updated_at
+  ctx: footer_column 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-038
+  cat: "null"
+  entity: footer_link
+  field: id
+  ctx: footer_link 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-039
+  cat: "null"
+  entity: footer_link
+  field: footer_column_id
+  ctx: footer_link 创建或更新时缺少必填字段 footer_column_id
+  act: 提交 footer_column_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 footer_column_id
+  source: er
+- id: bs-040
+  cat: "null"
+  entity: footer_link
+  field: label
+  ctx: footer_link 创建或更新时缺少必填字段 label
+  act: 提交 label=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 label
+  source: er
+- id: bs-041
+  cat: "null"
+  entity: footer_link
+  field: href
+  ctx: footer_link 创建或更新时缺少必填字段 href
+  act: 提交 href=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 href
+  source: er
+- id: bs-042
+  cat: "null"
+  entity: footer_link
+  field: sort_order
+  ctx: footer_link 创建或更新时缺少必填字段 sort_order
+  act: 提交 sort_order=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort_order
+  source: er
+- id: bs-043
+  cat: "null"
+  entity: announcement
+  field: id
+  ctx: announcement 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-044
+  cat: "null"
+  entity: announcement
+  field: enabled
+  ctx: announcement 创建或更新时缺少必填字段 enabled
+  act: 提交 enabled=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 enabled
+  source: er
+- id: bs-045
+  cat: "null"
+  entity: announcement
+  field: sort_order
+  ctx: announcement 创建或更新时缺少必填字段 sort_order
+  act: 提交 sort_order=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort_order
+  source: er
+- id: bs-046
+  cat: "null"
+  entity: announcement
+  field: content
+  ctx: announcement 创建或更新时缺少必填字段 content
+  act: 提交 content=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 content
+  source: er
+- id: bs-047
+  cat: "null"
+  entity: announcement
+  field: created_at
+  ctx: announcement 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-048
+  cat: "null"
+  entity: announcement
+  field: updated_at
+  ctx: announcement 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-049
+  cat: "null"
+  entity: announcement_translation
+  field: id
+  ctx: announcement_translation 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-050
+  cat: "null"
+  entity: announcement_translation
+  field: announcement_id
+  ctx: announcement_translation 创建或更新时缺少必填字段 announcement_id
+  act: 提交 announcement_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 announcement_id
+  source: er
+- id: bs-051
+  cat: "null"
+  entity: announcement_translation
+  field: locale
+  ctx: announcement_translation 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-052
+  cat: "null"
+  entity: announcement_translation
+  field: content
+  ctx: announcement_translation 创建或更新时缺少必填字段 content
+  act: 提交 content=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 content
+  source: er
+- id: bs-053
+  cat: "null"
+  entity: subscriber
+  field: id
+  ctx: subscriber 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-054
+  cat: "null"
+  entity: subscriber
+  field: email
+  ctx: subscriber 创建或更新时缺少必填字段 email
+  act: 提交 email=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email
+  source: er
+- id: bs-055
+  cat: "null"
+  entity: subscriber
+  field: source
+  ctx: subscriber 创建或更新时缺少必填字段 source
+  act: 提交 source=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 source
+  source: er
+- id: bs-056
+  cat: "null"
+  entity: subscriber
+  field: locale
+  ctx: subscriber 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-057
+  cat: "null"
+  entity: subscriber
+  field: status
+  ctx: subscriber 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-058
+  cat: "null"
+  entity: subscriber
+  field: subscribed_at
+  ctx: subscriber 的可选字段 subscribed_at 未提供
+  act: 提交 subscribed_at=null 的请求
+  expect: 系统正常处理并保持 subscribed_at 为空，不报错
+  source: er
+- id: bs-059
+  cat: "null"
+  entity: subscriber
+  field: unsubscribed_at
+  ctx: subscriber 的可选字段 unsubscribed_at 未提供
+  act: 提交 unsubscribed_at=null 的请求
+  expect: 系统正常处理并保持 unsubscribed_at 为空，不报错
+  source: er
+- id: bs-060
+  cat: "null"
+  entity: subscriber
+  field: created_at
+  ctx: subscriber 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-061
+  cat: "null"
+  entity: subscriber
+  field: updated_at
+  ctx: subscriber 的可选字段 updated_at 未提供
+  act: 提交 updated_at=null 的请求
+  expect: 系统正常处理并保持 updated_at 为空，不报错
+  source: er
+- id: bs-062
+  cat: "null"
+  entity: banner
+  field: id
+  ctx: banner 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-063
+  cat: "null"
+  entity: banner
+  field: name
+  ctx: banner 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-064
+  cat: "null"
+  entity: banner
+  field: image_url
+  ctx: banner 创建或更新时缺少必填字段 image_url
+  act: 提交 image_url=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 image_url
+  source: er
+- id: bs-065
+  cat: "null"
+  entity: banner
+  field: position
+  ctx: banner 创建或更新时缺少必填字段 position
+  act: 提交 position=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 position
+  source: er
+- id: bs-066
+  cat: "null"
+  entity: banner
+  field: start_time
+  ctx: banner 的可选字段 start_time 未提供
+  act: 提交 start_time=null 的请求
+  expect: 系统正常处理并保持 start_time 为空，不报错
+  source: er
+- id: bs-067
+  cat: "null"
+  entity: banner
+  field: end_time
+  ctx: banner 的可选字段 end_time 未提供
+  act: 提交 end_time=null 的请求
+  expect: 系统正常处理并保持 end_time 为空，不报错
+  source: er
+- id: bs-068
+  cat: "null"
+  entity: banner
+  field: status
+  ctx: banner 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-069
+  cat: "null"
+  entity: banner
+  field: sort
+  ctx: banner 创建或更新时缺少必填字段 sort
+  act: 提交 sort=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 sort
+  source: er
+- id: bs-070
+  cat: "null"
+  entity: banner
+  field: clicks
+  ctx: banner 的可选字段 clicks 未提供
+  act: 提交 clicks=null 的请求
+  expect: 系统正常处理并保持 clicks 为空，不报错
+  source: er
+- id: bs-071
+  cat: "null"
+  entity: banner
+  field: title
+  ctx: banner 的可选字段 title 未提供
+  act: 提交 title=null 的请求
+  expect: 系统正常处理并保持 title 为空，不报错
+  source: er
+- id: bs-072
+  cat: "null"
+  entity: banner
+  field: subtitle
+  ctx: banner 的可选字段 subtitle 未提供
+  act: 提交 subtitle=null 的请求
+  expect: 系统正常处理并保持 subtitle 为空，不报错
+  source: er
+- id: bs-073
+  cat: "null"
+  entity: banner
+  field: cta_text
+  ctx: banner 的可选字段 cta_text 未提供
+  act: 提交 cta_text=null 的请求
+  expect: 系统正常处理并保持 cta_text 为空，不报错
+  source: er
+- id: bs-074
+  cat: "null"
+  entity: banner_translation
+  field: id
+  ctx: banner_translation 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-075
+  cat: "null"
+  entity: banner_translation
+  field: banner_id
+  ctx: banner_translation 创建或更新时缺少必填字段 banner_id
+  act: 提交 banner_id=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 banner_id
+  source: er
+- id: bs-076
+  cat: "null"
+  entity: banner_translation
+  field: locale
+  ctx: banner_translation 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-077
+  cat: "null"
+  entity: banner_translation
+  field: title
+  ctx: banner_translation 的可选字段 title 未提供
+  act: 提交 title=null 的请求
+  expect: 系统正常处理并保持 title 为空，不报错
+  source: er
+- id: bs-078
+  cat: "null"
+  entity: banner_translation
+  field: subtitle
+  ctx: banner_translation 的可选字段 subtitle 未提供
+  act: 提交 subtitle=null 的请求
+  expect: 系统正常处理并保持 subtitle 为空，不报错
+  source: er
+- id: bs-079
+  cat: "null"
+  entity: banner_translation
+  field: cta_text
+  ctx: banner_translation 的可选字段 cta_text 未提供
+  act: 提交 cta_text=null 的请求
+  expect: 系统正常处理并保持 cta_text 为空，不报错
+  source: er
+- id: bs-080
+  cat: "null"
+  entity: taxonomy
+  field: id
+  ctx: taxonomy 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-081
+  cat: "null"
+  entity: taxonomy
+  field: type
+  ctx: taxonomy 创建或更新时缺少必填字段 type
+  act: 提交 type=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 type
+  source: er
+- id: bs-082
+  cat: "null"
+  entity: taxonomy
+  field: name
+  ctx: taxonomy 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-083
+  cat: "null"
+  entity: taxonomy
+  field: slug
+  ctx: taxonomy 的可选字段 slug 未提供
+  act: 提交 slug=null 的请求
+  expect: 系统正常处理并保持 slug 为空，不报错
+  source: er
+- id: bs-084
+  cat: "null"
+  entity: taxonomy
+  field: parent_id
+  ctx: taxonomy 的可选字段 parent_id 未提供
+  act: 提交 parent_id=null 的请求
+  expect: 系统正常处理并保持 parent_id 为空，不报错
+  source: er
+- id: bs-085
+  cat: "null"
+  entity: taxonomy
+  field: online
+  ctx: taxonomy 创建或更新时缺少必填字段 online
+  act: 提交 online=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 online
+  source: er
+- id: bs-086
+  cat: "null"
+  entity: product
+  field: id
+  ctx: product 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-087
+  cat: "null"
+  entity: product
+  field: name
+  ctx: product 创建或更新时缺少必填字段 name
+  act: 提交 name=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 name
+  source: er
+- id: bs-088
+  cat: "null"
+  entity: product
+  field: slug
+  ctx: product 创建或更新时缺少必填字段 slug
+  act: 提交 slug=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 slug
+  source: er
+- id: bs-089
+  cat: "null"
+  entity: product
+  field: status
+  ctx: product 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-090
+  cat: "null"
+  entity: product
+  field: isNew
+  ctx: product 的可选字段 isNew 未提供
+  act: 提交 isNew=null 的请求
+  expect: 系统正常处理并保持 isNew 为空，不报错
+  source: er
+- id: bs-091
+  cat: "null"
+  entity: product
+  field: isBest
+  ctx: product 的可选字段 isBest 未提供
+  act: 提交 isBest=null 的请求
+  expect: 系统正常处理并保持 isBest 为空，不报错
+  source: er
+- id: bs-092
+  cat: "null"
+  entity: product
+  field: recommend
+  ctx: product 的可选字段 recommend 未提供
+  act: 提交 recommend=null 的请求
+  expect: 系统正常处理并保持 recommend 为空，不报错
+  source: er
+- id: bs-093
+  cat: "null"
+  entity: product
+  field: sort
+  ctx: product 的可选字段 sort 未提供
+  act: 提交 sort=null 的请求
+  expect: 系统正常处理并保持 sort 为空，不报错
+  source: er
+- id: bs-094
+  cat: "null"
+  entity: real_wedding
+  field: id
+  ctx: real_wedding 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-095
+  cat: "null"
+  entity: real_wedding
+  field: couple
+  ctx: real_wedding 创建或更新时缺少必填字段 couple
+  act: 提交 couple=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 couple
+  source: er
+- id: bs-096
+  cat: "null"
+  entity: real_wedding
+  field: location
+  ctx: real_wedding 的可选字段 location 未提供
+  act: 提交 location=null 的请求
+  expect: 系统正常处理并保持 location 为空，不报错
+  source: er
+- id: bs-097
+  cat: "null"
+  entity: real_wedding
+  field: theme
+  ctx: real_wedding 的可选字段 theme 未提供
+  act: 提交 theme=null 的请求
+  expect: 系统正常处理并保持 theme 为空，不报错
+  source: er
+- id: bs-098
+  cat: "null"
+  entity: real_wedding
+  field: weddingDate
+  ctx: real_wedding 的可选字段 weddingDate 未提供
+  act: 提交 weddingDate=null 的请求
+  expect: 系统正常处理并保持 weddingDate 为空，不报错
+  source: er
+- id: bs-099
+  cat: "null"
+  entity: real_wedding
+  field: cover
+  ctx: real_wedding 的可选字段 cover 未提供
+  act: 提交 cover=null 的请求
+  expect: 系统正常处理并保持 cover 为空，不报错
+  source: er
+- id: bs-100
+  cat: "null"
+  entity: real_wedding
+  field: status
+  ctx: real_wedding 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-101
+  cat: "null"
+  entity: cache_invalidation_log
+  field: id
+  ctx: cache_invalidation_log 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-102
+  cat: "null"
+  entity: cache_invalidation_log
+  field: event_type
+  ctx: cache_invalidation_log 的可选字段 event_type 未提供
+  act: 提交 event_type=null 的请求
+  expect: 系统正常处理并保持 event_type 为空，不报错
+  source: er
+- id: bs-103
+  cat: "null"
+  entity: cache_invalidation_log
+  field: resource_type
+  ctx: cache_invalidation_log 的可选字段 resource_type 未提供
+  act: 提交 resource_type=null 的请求
+  expect: 系统正常处理并保持 resource_type 为空，不报错
+  source: er
+- id: bs-104
+  cat: "null"
+  entity: cache_invalidation_log
+  field: resource_id
+  ctx: cache_invalidation_log 的可选字段 resource_id 未提供
+  act: 提交 resource_id=null 的请求
+  expect: 系统正常处理并保持 resource_id 为空，不报错
+  source: er
+- id: bs-105
+  cat: "null"
+  entity: cache_invalidation_log
+  field: status
+  ctx: cache_invalidation_log 创建或更新时缺少必填字段 status
+  act: 提交 status=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 status
+  source: er
+- id: bs-106
+  cat: "null"
+  entity: cache_invalidation_log
+  field: paths_json
+  ctx: cache_invalidation_log 的可选字段 paths_json 未提供
+  act: 提交 paths_json=null 的请求
+  expect: 系统正常处理并保持 paths_json 为空，不报错
+  source: er
+- id: bs-107
+  cat: "null"
+  entity: cache_invalidation_log
+  field: created_at
+  ctx: cache_invalidation_log 的可选字段 created_at 未提供
+  act: 提交 created_at=null 的请求
+  expect: 系统正常处理并保持 created_at 为空，不报错
+  source: er
+- id: bs-108
+  cat: "null"
+  entity: newsletter_subscriber
+  field: id
+  ctx: newsletter_subscriber 的可选字段 id 未提供
+  act: 提交 id=null 的请求
+  expect: 系统正常处理并保持 id 为空，不报错
+  source: er
+- id: bs-109
+  cat: "null"
+  entity: newsletter_subscriber
+  field: email
+  ctx: newsletter_subscriber 创建或更新时缺少必填字段 email
+  act: 提交 email=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 email
+  source: er
+- id: bs-110
+  cat: "null"
+  entity: newsletter_subscriber
+  field: source
+  ctx: newsletter_subscriber 创建或更新时缺少必填字段 source
+  act: 提交 source=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 source
+  source: er
+- id: bs-111
+  cat: "null"
+  entity: newsletter_subscriber
+  field: locale
+  ctx: newsletter_subscriber 创建或更新时缺少必填字段 locale
+  act: 提交 locale=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 locale
+  source: er
+- id: bs-112
+  cat: "null"
+  entity: newsletter_subscriber
+  field: subscribedAt
+  ctx: newsletter_subscriber 创建或更新时缺少必填字段 subscribedAt
+  act: 提交 subscribedAt=null 的请求
+  expect: 系统返回字段必填错误，拒绝写入 subscribedAt
+  source: er
+- id: bs-113
+  cat: extreme
+  entity: home_page_section
+  field: section_type
+  ctx: "section_type 的合法枚举为 ['Hero', 'Announcement', 'ShopByColor', 'ThemeCards',\
+    \ 'ProductRail', 'EditorialFeature', 'Newsletter']"
+  act: 提交枚举外的 section_type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 section_type 枚举错误
+  source: er
+- id: bs-114
+  cat: extreme
+  entity: home_page_section
+  field: label
+  ctx: label 的最大长度为 64
+  act: 提交长度为 65 的 label
+  expect: 系统拒绝超长输入，返回 label 长度超限错误
+  source: er
+- id: bs-115
+  cat: extreme
+  entity: home_page_section
+  field: sort_order
+  ctx: sort_order 的最小值约束为 0
+  act: 提交 sort_order=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-116
+  cat: extreme
+  entity: home_section_translation
+  field: locale
+  ctx: "locale 的合法枚举为 ['es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-117
+  cat: extreme
+  entity: home_section_translation
+  field: eyebrow
+  ctx: eyebrow 的最大长度为 64
+  act: 提交长度为 65 的 eyebrow
+  expect: 系统拒绝超长输入，返回 eyebrow 长度超限错误
+  source: er
+- id: bs-118
+  cat: extreme
+  entity: home_section_translation
+  field: title
+  ctx: title 的最大长度为 255
+  act: 提交长度为 256 的 title
+  expect: 系统拒绝超长输入，返回 title 长度超限错误
+  source: er
+- id: bs-119
+  cat: extreme
+  entity: home_section_translation
+  field: subtitle
+  ctx: subtitle 的最大长度为 512
+  act: 提交长度为 513 的 subtitle
+  expect: 系统拒绝超长输入，返回 subtitle 长度超限错误
+  source: er
+- id: bs-120
+  cat: extreme
+  entity: home_section_translation
+  field: cta_text
+  ctx: cta_text 的最大长度为 64
+  act: 提交长度为 65 的 cta_text
+  expect: 系统拒绝超长输入，返回 cta_text 长度超限错误
+  source: er
+- id: bs-121
+  cat: extreme
+  entity: navigation_item
+  field: label
+  ctx: label 的最大长度为 64
+  act: 提交长度为 65 的 label
+  expect: 系统拒绝超长输入，返回 label 长度超限错误
+  source: er
+- id: bs-122
+  cat: extreme
+  entity: navigation_item
+  field: link_type
+  ctx: "link_type 的合法枚举为 ['taxonomy', 'custom']"
+  act: 提交枚举外的 link_type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 link_type 枚举错误
+  source: er
+- id: bs-123
+  cat: extreme
+  entity: navigation_item
+  field: taxonomy_type
+  ctx: "taxonomy_type 的合法枚举为 ['category', 'theme']"
+  act: 提交枚举外的 taxonomy_type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 taxonomy_type 枚举错误
+  source: er
+- id: bs-124
+  cat: extreme
+  entity: navigation_item
+  field: custom_href
+  ctx: custom_href 的最大长度为 255
+  act: 提交长度为 256 的 custom_href
+  expect: 系统拒绝超长输入，返回 custom_href 长度超限错误
+  source: er
+- id: bs-125
+  cat: extreme
+  entity: navigation_item
+  field: sort_order
+  ctx: sort_order 的最小值约束为 0
+  act: 提交 sort_order=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-126
+  cat: extreme
+  entity: navigation_translation
+  field: locale
+  ctx: "locale 的合法枚举为 ['es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-127
+  cat: extreme
+  entity: navigation_translation
+  field: label
+  ctx: label 的最大长度为 64
+  act: 提交长度为 65 的 label
+  expect: 系统拒绝超长输入，返回 label 长度超限错误
+  source: er
+- id: bs-128
+  cat: extreme
+  entity: footer_column
+  field: title
+  ctx: title 的最大长度为 64
+  act: 提交长度为 65 的 title
+  expect: 系统拒绝超长输入，返回 title 长度超限错误
+  source: er
+- id: bs-129
+  cat: extreme
+  entity: footer_column
+  field: sort_order
+  ctx: sort_order 的最小值约束为 0
+  act: 提交 sort_order=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-130
+  cat: extreme
+  entity: footer_link
+  field: label
+  ctx: label 的最大长度为 64
+  act: 提交长度为 65 的 label
+  expect: 系统拒绝超长输入，返回 label 长度超限错误
+  source: er
+- id: bs-131
+  cat: extreme
+  entity: footer_link
+  field: href
+  ctx: href 的最大长度为 255
+  act: 提交长度为 256 的 href
+  expect: 系统拒绝超长输入，返回 href 长度超限错误
+  source: er
+- id: bs-132
+  cat: extreme
+  entity: footer_link
+  field: sort_order
+  ctx: sort_order 的最小值约束为 0
+  act: 提交 sort_order=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-133
+  cat: extreme
+  entity: announcement
+  field: sort_order
+  ctx: sort_order 的最小值约束为 0
+  act: 提交 sort_order=-1
+  expect: 系统拒绝低于最小值的输入，返回 sort_order 边界错误
+  source: er
+- id: bs-134
+  cat: extreme
+  entity: announcement
+  field: content
+  ctx: content 的最大长度为 255
+  act: 提交长度为 256 的 content
+  expect: 系统拒绝超长输入，返回 content 长度超限错误
+  source: er
+- id: bs-135
+  cat: extreme
+  entity: announcement_translation
+  field: locale
+  ctx: "locale 的合法枚举为 ['es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-136
+  cat: extreme
+  entity: announcement_translation
+  field: content
+  ctx: content 的最大长度为 255
+  act: 提交长度为 256 的 content
+  expect: 系统拒绝超长输入，返回 content 长度超限错误
+  source: er
+- id: bs-137
+  cat: extreme
+  entity: subscriber
+  field: email
+  ctx: email 的最大长度为 255
+  act: 提交长度为 256 的 email
+  expect: 系统拒绝超长输入，返回 email 长度超限错误
+  source: er
+- id: bs-138
+  cat: extreme
+  entity: subscriber
+  field: source
+  ctx: "source 的合法枚举为 ['footer', 'modal', 'exit_intent', 'home_block']"
+  act: 提交枚举外的 source=__invalid__
+  expect: 系统拒绝非法枚举值，返回 source 枚举错误
+  source: er
+- id: bs-139
+  cat: extreme
+  entity: subscriber
+  field: locale
+  ctx: "locale 的合法枚举为 ['en', 'es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-140
+  cat: extreme
+  entity: subscriber
+  field: status
+  ctx: "status 的合法枚举为 ['pending', 'subscribed', 'unsubscribed']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-141
+  cat: extreme
+  entity: banner
+  field: name
+  ctx: name 的最大长度为 128
+  act: 提交长度为 129 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-142
+  cat: extreme
+  entity: banner
+  field: image_url
+  ctx: image_url 的最大长度为 512
+  act: 提交长度为 513 的 image_url
+  expect: 系统拒绝超长输入，返回 image_url 长度超限错误
+  source: er
+- id: bs-143
+  cat: extreme
+  entity: banner
+  field: position
+  ctx: "position 的合法枚举为 ['HERO', 'FEATURED', 'TOPBAR']"
+  act: 提交枚举外的 position=__invalid__
+  expect: 系统拒绝非法枚举值，返回 position 枚举错误
+  source: er
+- id: bs-144
+  cat: extreme
+  entity: banner
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published', 'archived']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-145
+  cat: extreme
+  entity: banner
+  field: title
+  ctx: title 的最大长度为 255
+  act: 提交长度为 256 的 title
+  expect: 系统拒绝超长输入，返回 title 长度超限错误
+  source: er
+- id: bs-146
+  cat: extreme
+  entity: banner
+  field: subtitle
+  ctx: subtitle 的最大长度为 255
+  act: 提交长度为 256 的 subtitle
+  expect: 系统拒绝超长输入，返回 subtitle 长度超限错误
+  source: er
+- id: bs-147
+  cat: extreme
+  entity: banner
+  field: cta_text
+  ctx: cta_text 的最大长度为 64
+  act: 提交长度为 65 的 cta_text
+  expect: 系统拒绝超长输入，返回 cta_text 长度超限错误
+  source: er
+- id: bs-148
+  cat: extreme
+  entity: banner_translation
+  field: locale
+  ctx: "locale 的合法枚举为 ['es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-149
+  cat: extreme
+  entity: banner_translation
+  field: title
+  ctx: title 的最大长度为 255
+  act: 提交长度为 256 的 title
+  expect: 系统拒绝超长输入，返回 title 长度超限错误
+  source: er
+- id: bs-150
+  cat: extreme
+  entity: banner_translation
+  field: subtitle
+  ctx: subtitle 的最大长度为 255
+  act: 提交长度为 256 的 subtitle
+  expect: 系统拒绝超长输入，返回 subtitle 长度超限错误
+  source: er
+- id: bs-151
+  cat: extreme
+  entity: banner_translation
+  field: cta_text
+  ctx: cta_text 的最大长度为 64
+  act: 提交长度为 65 的 cta_text
+  expect: 系统拒绝超长输入，返回 cta_text 长度超限错误
+  source: er
+- id: bs-152
+  cat: extreme
+  entity: taxonomy
+  field: type
+  ctx: "type 的合法枚举为 ['category', 'theme']"
+  act: 提交枚举外的 type=__invalid__
+  expect: 系统拒绝非法枚举值，返回 type 枚举错误
+  source: er
+- id: bs-153
+  cat: extreme
+  entity: taxonomy
+  field: name
+  ctx: name 的最大长度为 64
+  act: 提交长度为 65 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-154
+  cat: extreme
+  entity: product
+  field: name
+  ctx: name 的最大长度为 128
+  act: 提交长度为 129 的 name
+  expect: 系统拒绝超长输入，返回 name 长度超限错误
+  source: er
+- id: bs-155
+  cat: extreme
+  entity: product
+  field: slug
+  ctx: slug 的最大长度为 128
+  act: 提交长度为 129 的 slug
+  expect: 系统拒绝超长输入，返回 slug 长度超限错误
+  source: er
+- id: bs-156
+  cat: extreme
+  entity: product
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-157
+  cat: extreme
+  entity: real_wedding
+  field: couple
+  ctx: couple 的最大长度为 64
+  act: 提交长度为 65 的 couple
+  expect: 系统拒绝超长输入，返回 couple 长度超限错误
+  source: er
+- id: bs-158
+  cat: extreme
+  entity: real_wedding
+  field: location
+  ctx: location 的最大长度为 128
+  act: 提交长度为 129 的 location
+  expect: 系统拒绝超长输入，返回 location 长度超限错误
+  source: er
+- id: bs-159
+  cat: extreme
+  entity: real_wedding
+  field: theme
+  ctx: theme 的最大长度为 32
+  act: 提交长度为 33 的 theme
+  expect: 系统拒绝超长输入，返回 theme 长度超限错误
+  source: er
+- id: bs-160
+  cat: extreme
+  entity: real_wedding
+  field: weddingDate
+  ctx: weddingDate 的最大长度为 16
+  act: 提交长度为 17 的 weddingDate
+  expect: 系统拒绝超长输入，返回 weddingDate 长度超限错误
+  source: er
+- id: bs-161
+  cat: extreme
+  entity: real_wedding
+  field: cover
+  ctx: cover 的最大长度为 512
+  act: 提交长度为 513 的 cover
+  expect: 系统拒绝超长输入，返回 cover 长度超限错误
+  source: er
+- id: bs-162
+  cat: extreme
+  entity: real_wedding
+  field: status
+  ctx: "status 的合法枚举为 ['draft', 'published']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-163
+  cat: extreme
+  entity: cache_invalidation_log
+  field: status
+  ctx: "status 的合法枚举为 ['pending', 'completed', 'failed']"
+  act: 提交枚举外的 status=__invalid__
+  expect: 系统拒绝非法枚举值，返回 status 枚举错误
+  source: er
+- id: bs-164
+  cat: extreme
+  entity: newsletter_subscriber
+  field: email
+  ctx: email 的最大长度为 255
+  act: 提交长度为 256 的 email
+  expect: 系统拒绝超长输入，返回 email 长度超限错误
+  source: er
+- id: bs-165
+  cat: extreme
+  entity: newsletter_subscriber
+  field: source
+  ctx: "source 的合法枚举为 ['footer', 'modal', 'exit_intent', 'home_block']"
+  act: 提交枚举外的 source=__invalid__
+  expect: 系统拒绝非法枚举值，返回 source 枚举错误
+  source: er
+- id: bs-166
+  cat: extreme
+  entity: newsletter_subscriber
+  field: locale
+  ctx: "locale 的合法枚举为 ['en', 'es', 'fr']"
+  act: 提交枚举外的 locale=__invalid__
+  expect: 系统拒绝非法枚举值，返回 locale 枚举错误
+  source: er
+- id: bs-167
+  cat: concurrent
+  entity: home_page_section
+  field: state
+  ctx: home_page_section 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 admin_enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-168
+  cat: concurrent
+  entity: home_page_section
+  field: state
+  ctx: home_page_section 当前处于 enabled，同一转换被重复提交
+  act: 并发提交两个 admin_disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-169
+  cat: concurrent
+  entity: navigation_item
+  field: state
+  ctx: navigation_item 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 admin_enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-170
+  cat: concurrent
+  entity: navigation_item
+  field: state
+  ctx: navigation_item 当前处于 enabled，同一转换被重复提交
+  act: 并发提交两个 admin_disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-171
+  cat: concurrent
+  entity: announcement
+  field: state
+  ctx: announcement 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 admin_enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-172
+  cat: concurrent
+  entity: announcement
+  field: state
+  ctx: announcement 当前处于 enabled，同一转换被重复提交
+  act: 并发提交两个 admin_disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-173
+  cat: concurrent
+  entity: banner
+  field: state
+  ctx: banner 当前处于 draft，两个互斥转换同时触发
+  act: 并发提交 publish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-174
+  cat: concurrent
+  entity: banner
+  field: state
+  ctx: banner 当前处于 published，两个互斥转换同时触发
+  act: 并发提交 take_offline 与 schedule_expire
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-175
+  cat: concurrent
+  entity: banner
+  field: state
+  ctx: banner 当前处于 archived，两个互斥转换同时触发
+  act: 并发提交 republish 与 delete
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-176
+  cat: concurrent
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 pending，两个互斥转换同时触发
+  act: 并发提交 confirm_subscribe 与 resubmit
+  expect: 系统只允许一个转换成功，后一个请求失败或等待重试
+  source: sm
+- id: bs-177
+  cat: concurrent
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 subscribed，同一转换被重复提交
+  act: 并发提交两个 unsubscribe 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-178
+  cat: concurrent
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 unsubscribed，同一转换被重复提交
+  act: 并发提交两个 resubscribe 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-179
+  cat: concurrent
+  entity: footer_column
+  field: state
+  ctx: footer_column 当前处于 disabled，同一转换被重复提交
+  act: 并发提交两个 admin_enable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-180
+  cat: concurrent
+  entity: footer_column
+  field: state
+  ctx: footer_column 当前处于 enabled，同一转换被重复提交
+  act: 并发提交两个 admin_disable 请求
+  expect: 系统识别重复状态变更，只执行一次副作用，另一请求失败或返回已处理
+  source: sm
+- id: bs-181
+  cat: auth
+  entity: home_page_section
+  ctx: 用户角色为 viewer，无权执行流程 管理员配置首页区块
+  act: 触发 管理员配置首页区块 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-182
+  cat: auth
+  entity: home_page_section
+  ctx: 用户已开始执行流程 管理员配置首页区块，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-183
+  cat: auth
+  entity: home_page_section
+  ctx: 用户属于 tenant-A，尝试访问 home_page_section 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-184
+  cat: auth
+  entity: navigation_item
+  ctx: 用户角色为 viewer，无权执行流程 管理员配置导航与页脚
+  act: 触发 管理员配置导航与页脚 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-185
+  cat: auth
+  entity: navigation_item
+  ctx: 用户已开始执行流程 管理员配置导航与页脚，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-186
+  cat: auth
+  entity: navigation_item
+  ctx: 用户属于 tenant-A，尝试访问 navigation_item 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-187
+  cat: auth
+  entity: announcement
+  ctx: 用户角色为 viewer，无权执行流程 管理员配置公告条
+  act: 触发 管理员配置公告条 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-188
+  cat: auth
+  entity: announcement
+  ctx: 用户已开始执行流程 管理员配置公告条，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-189
+  cat: auth
+  entity: announcement
+  ctx: 用户属于 tenant-A，尝试访问 announcement 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-190
+  cat: auth
+  entity: banner
+  ctx: 用户角色为 viewer，无权执行流程 管理员管理 Banner（含 Hero 数据源）
+  act: 触发 管理员管理 Banner（含 Hero 数据源） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-191
+  cat: auth
+  entity: banner
+  ctx: 用户已开始执行流程 管理员管理 Banner（含 Hero 数据源），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-192
+  cat: auth
+  entity: banner
+  ctx: 用户属于 tenant-A，尝试访问 banner 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-193
+  cat: auth
+  entity: cache_invalidation_log
+  ctx: 用户角色为 viewer，无权执行流程 管理员手动失效缓存（Publish 页）
+  act: 触发 管理员手动失效缓存（Publish 页） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-194
+  cat: auth
+  entity: cache_invalidation_log
+  ctx: 用户已开始执行流程 管理员手动失效缓存（Publish 页），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-195
+  cat: auth
+  entity: cache_invalidation_log
+  ctx: 用户属于 tenant-A，尝试访问 cache_invalidation_log 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-196
+  cat: auth
+  entity: home_page_section
+  ctx: 用户角色为 viewer，无权执行流程 消费者访问首页（动态渲染区块）
+  act: 触发 消费者访问首页（动态渲染区块） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-197
+  cat: auth
+  entity: home_page_section
+  ctx: 用户已开始执行流程 消费者访问首页（动态渲染区块），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-198
+  cat: auth
+  entity: navigation_item
+  ctx: 用户角色为 viewer，无权执行流程 消费者访问任意页面（header/footer 渲染）
+  act: 触发 消费者访问任意页面（header/footer 渲染） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-199
+  cat: auth
+  entity: navigation_item
+  ctx: 用户已开始执行流程 消费者访问任意页面（header/footer 渲染），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-200
+  cat: auth
+  entity: subscriber
+  ctx: 用户角色为 viewer，无权执行流程 消费者订阅 Newsletter（首页区块入口）
+  act: 触发 消费者订阅 Newsletter（首页区块入口） 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-201
+  cat: auth
+  entity: subscriber
+  ctx: 用户已开始执行流程 消费者订阅 Newsletter（首页区块入口），管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-202
+  cat: auth
+  entity: subscriber
+  ctx: 用户属于 tenant-A，尝试访问 subscriber 的 tenant-B 资源
+  act: 发起跨组或跨租户查询/写入请求
+  expect: 系统拒绝访问目标资源，返回无权访问错误
+  source: flow
+- id: bs-203
+  cat: auth
+  entity: banner
+  ctx: 用户角色为 viewer，无权执行流程 HomeBuilder Hero 区块跨域读取 Banner
+  act: 触发 HomeBuilder Hero 区块跨域读取 Banner 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-204
+  cat: auth
+  entity: banner
+  ctx: 用户已开始执行流程 HomeBuilder Hero 区块跨域读取 Banner，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-205
+  cat: auth
+  entity: navigation_item
+  ctx: 用户角色为 viewer，无权执行流程 NavigationConfig 跨域引用 Taxonomy
+  act: 触发 NavigationConfig 跨域引用 Taxonomy 所需的写操作
+  expect: 系统拒绝越权操作，返回 403 或权限不足错误
+  source: flow
+- id: bs-206
+  cat: auth
+  entity: navigation_item
+  ctx: 用户已开始执行流程 NavigationConfig 跨域引用 Taxonomy，管理员在会话内撤销其权限
+  act: 用户继续提交当前操作
+  expect: 系统检测权限已变更，终止操作并返回权限不足错误
+  source: flow
+- id: bs-207
+  cat: network
+  entity: home_page_section
+  ctx: 流程 管理员配置首页区块 依赖的外部系统 RabbitMQ 不可用
+  act: 触发需要访问 RabbitMQ 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-208
+  cat: network
+  entity: home_page_section
+  ctx: 流程 管理员配置首页区块 调用 RabbitMQ 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-209
+  cat: network
+  entity: home_page_section
+  ctx: 流程 管理员配置首页区块 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-210
+  cat: network
+  entity: navigation_item
+  ctx: 流程 管理员配置导航与页脚 依赖的外部系统 RabbitMQ 不可用
+  act: 触发需要访问 RabbitMQ 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-211
+  cat: network
+  entity: navigation_item
+  ctx: 流程 管理员配置导航与页脚 调用 RabbitMQ 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-212
+  cat: network
+  entity: navigation_item
+  ctx: 流程 管理员配置导航与页脚 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-213
+  cat: network
+  entity: announcement
+  ctx: 流程 管理员配置公告条 依赖的外部系统 RabbitMQ 不可用
+  act: 触发需要访问 RabbitMQ 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-214
+  cat: network
+  entity: announcement
+  ctx: 流程 管理员配置公告条 调用 RabbitMQ 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-215
+  cat: network
+  entity: announcement
+  ctx: 流程 管理员配置公告条 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-216
+  cat: network
+  entity: banner
+  ctx: 流程 管理员管理 Banner（含 Hero 数据源） 依赖的外部系统 ObjectStorage-CDN 不可用
+  act: 触发需要访问 ObjectStorage-CDN 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-217
+  cat: network
+  entity: banner
+  ctx: 流程 管理员管理 Banner（含 Hero 数据源） 调用 ObjectStorage-CDN 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-218
+  cat: network
+  entity: banner
+  ctx: 流程 管理员管理 Banner（含 Hero 数据源） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-219
+  cat: network
+  entity: cache_invalidation_log
+  ctx: 流程 管理员手动失效缓存（Publish 页） 依赖的外部系统 CDN 不可用
+  act: 触发需要访问 CDN 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-220
+  cat: network
+  entity: cache_invalidation_log
+  ctx: 流程 管理员手动失效缓存（Publish 页） 调用 CDN 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-221
+  cat: network
+  entity: cache_invalidation_log
+  ctx: 流程 管理员手动失效缓存（Publish 页） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-222
+  cat: network
+  entity: home_page_section
+  ctx: 流程 消费者访问首页（动态渲染区块） 依赖的外部系统 JetCache 不可用
+  act: 触发需要访问 JetCache 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-223
+  cat: network
+  entity: home_page_section
+  ctx: 流程 消费者访问首页（动态渲染区块） 调用 JetCache 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-224
+  cat: network
+  entity: home_page_section
+  ctx: 流程 消费者访问首页（动态渲染区块） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-225
+  cat: network
+  entity: navigation_item
+  ctx: 流程 消费者访问任意页面（header/footer 渲染） 依赖的外部系统 JetCache 不可用
+  act: 触发需要访问 JetCache 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-226
+  cat: network
+  entity: navigation_item
+  ctx: 流程 消费者访问任意页面（header/footer 渲染） 调用 JetCache 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-227
+  cat: network
+  entity: navigation_item
+  ctx: 流程 消费者访问任意页面（header/footer 渲染） 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-228
+  cat: network
+  entity: banner
+  ctx: 流程 HomeBuilder Hero 区块跨域读取 Banner 依赖的外部系统 JetCache 不可用
+  act: 触发需要访问 JetCache 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-229
+  cat: network
+  entity: banner
+  ctx: 流程 HomeBuilder Hero 区块跨域读取 Banner 调用 JetCache 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-230
+  cat: network
+  entity: banner
+  ctx: 流程 HomeBuilder Hero 区块跨域读取 Banner 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-231
+  cat: network
+  entity: navigation_item
+  ctx: 流程 NavigationConfig 跨域引用 Taxonomy 依赖的外部系统 JetCache 不可用
+  act: 触发需要访问 JetCache 的业务流程
+  expect: 系统降级处理或返回明确的服务暂时不可用错误
+  source: flow
+- id: bs-232
+  cat: network
+  entity: navigation_item
+  ctx: 流程 NavigationConfig 跨域引用 Taxonomy 调用 JetCache 超时，客户端自动重试
+  act: 重复发送相同业务请求
+  expect: 系统保证幂等，仅执行一次副作用，不产生重复数据
+  source: flow
+- id: bs-233
+  cat: network
+  entity: navigation_item
+  ctx: 流程 NavigationConfig 跨域引用 Taxonomy 请求已发出后网络中断
+  act: 网络恢复后前端重新拉取状态
+  expect: UI 与后端状态重新同步，不遗留脏数据或错误提示
+  source: flow
+- id: bs-234
+  cat: integrity
+  entity: home_page_section
+  ctx: home_page_section 关联的 banner 记录不存在
+  act: 提交引用不存在 banner 的写请求
+  expect: 系统返回关联实体 banner 不存在错误，拒绝写入
+  source: er
+- id: bs-235
+  cat: integrity
+  entity: home_page_section
+  ctx: home_page_section 关联的 home_section_translation 记录不存在
+  act: 提交引用不存在 home_section_translation 的写请求
+  expect: 系统返回关联实体 home_section_translation 不存在错误，拒绝写入
+  source: er
+- id: bs-236
+  cat: integrity
+  entity: home_page_section
+  ctx: home_page_section 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-237
+  cat: integrity
+  entity: home_page_section
+  ctx: home_page_section 关联的 real_wedding 记录不存在
+  act: 提交引用不存在 real_wedding 的写请求
+  expect: 系统返回关联实体 real_wedding 不存在错误，拒绝写入
+  source: er
+- id: bs-238
+  cat: integrity
+  entity: home_page_section
+  ctx: home_page_section 关联的 taxonomy 记录不存在
+  act: 提交引用不存在 taxonomy 的写请求
+  expect: 系统返回关联实体 taxonomy 不存在错误，拒绝写入
+  source: er
+- id: bs-239
+  cat: integrity
+  entity: home_section_translation
+  ctx: home_section_translation 关联的 home_page_section 记录不存在
+  act: 提交引用不存在 home_page_section 的写请求
+  expect: 系统返回关联实体 home_page_section 不存在错误，拒绝写入
+  source: er
+- id: bs-240
+  cat: integrity
+  entity: navigation_item
+  ctx: navigation_item 关联的 navigation_translation 记录不存在
+  act: 提交引用不存在 navigation_translation 的写请求
+  expect: 系统返回关联实体 navigation_translation 不存在错误，拒绝写入
+  source: er
+- id: bs-241
+  cat: integrity
+  entity: navigation_item
+  ctx: navigation_item 关联的 taxonomy 记录不存在
+  act: 提交引用不存在 taxonomy 的写请求
+  expect: 系统返回关联实体 taxonomy 不存在错误，拒绝写入
+  source: er
+- id: bs-242
+  cat: integrity
+  entity: navigation_translation
+  ctx: navigation_translation 关联的 navigation_item 记录不存在
+  act: 提交引用不存在 navigation_item 的写请求
+  expect: 系统返回关联实体 navigation_item 不存在错误，拒绝写入
+  source: er
+- id: bs-243
+  cat: integrity
+  entity: footer_column
+  ctx: footer_column 关联的 footer_link 记录不存在
+  act: 提交引用不存在 footer_link 的写请求
+  expect: 系统返回关联实体 footer_link 不存在错误，拒绝写入
+  source: er
+- id: bs-244
+  cat: integrity
+  entity: footer_link
+  ctx: footer_link 关联的 footer_column 记录不存在
+  act: 提交引用不存在 footer_column 的写请求
+  expect: 系统返回关联实体 footer_column 不存在错误，拒绝写入
+  source: er
+- id: bs-245
+  cat: integrity
+  entity: announcement
+  ctx: announcement 关联的 announcement_translation 记录不存在
+  act: 提交引用不存在 announcement_translation 的写请求
+  expect: 系统返回关联实体 announcement_translation 不存在错误，拒绝写入
+  source: er
+- id: bs-246
+  cat: integrity
+  entity: announcement_translation
+  ctx: announcement_translation 关联的 announcement 记录不存在
+  act: 提交引用不存在 announcement 的写请求
+  expect: 系统返回关联实体 announcement 不存在错误，拒绝写入
+  source: er
+- id: bs-247
+  cat: integrity
+  entity: banner
+  ctx: banner 关联的 banner_translation 记录不存在
+  act: 提交引用不存在 banner_translation 的写请求
+  expect: 系统返回关联实体 banner_translation 不存在错误，拒绝写入
+  source: er
+- id: bs-248
+  cat: integrity
+  entity: banner_translation
+  ctx: banner_translation 关联的 banner 记录不存在
+  act: 提交引用不存在 banner 的写请求
+  expect: 系统返回关联实体 banner 不存在错误，拒绝写入
+  source: er
+- id: bs-249
+  cat: integrity
+  entity: real_wedding
+  ctx: real_wedding 关联的 product 记录不存在
+  act: 提交引用不存在 product 的写请求
+  expect: 系统返回关联实体 product 不存在错误，拒绝写入
+  source: er
+- id: bs-250
+  cat: state
+  entity: home_page_section
+  field: state
+  ctx: home_page_section 当前处于 enabled
+  act: 触发该状态下不允许的操作 admin_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-251
+  cat: state
+  entity: home_page_section
+  field: state
+  ctx: home_page_section 当前处于 disabled
+  act: 触发该状态下不允许的操作 admin_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-252
+  cat: state
+  entity: navigation_item
+  field: state
+  ctx: navigation_item 当前处于 enabled
+  act: 触发该状态下不允许的操作 admin_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-253
+  cat: state
+  entity: navigation_item
+  field: state
+  ctx: navigation_item 当前处于 disabled
+  act: 触发该状态下不允许的操作 admin_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-254
+  cat: state
+  entity: announcement
+  field: state
+  ctx: announcement 当前处于 enabled
+  act: 触发该状态下不允许的操作 admin_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-255
+  cat: state
+  entity: announcement
+  field: state
+  ctx: announcement 当前处于 disabled
+  act: 触发该状态下不允许的操作 admin_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-256
+  cat: state
+  entity: banner
+  field: state
+  ctx: "banner 当前处于 draft，但 guard 条件不满足: name != null && image_url != null"
+  act: 触发事件 publish，尝试从 draft 转到 published
+  expect: 系统拒绝状态转换，banner 保持在 draft
+  source: sm
+- id: bs-257
+  cat: state
+  entity: banner
+  field: state
+  ctx: "banner 当前处于 published，但 guard 条件不满足: now > end_time"
+  act: 触发事件 schedule_expire，尝试从 published 转到 archived
+  expect: 系统拒绝状态转换，banner 保持在 published
+  source: sm
+- id: bs-258
+  cat: state
+  entity: banner
+  field: state
+  ctx: banner 当前处于 draft
+  act: 触发该状态下不允许的操作 publish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-259
+  cat: state
+  entity: banner
+  field: state
+  ctx: banner 当前处于 published
+  act: 触发该状态下不允许的操作 take_offline_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-260
+  cat: state
+  entity: banner
+  field: state
+  ctx: banner 当前处于 archived
+  act: 触发该状态下不允许的操作 republish_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-261
+  cat: state
+  entity: banner
+  field: state
+  ctx: banner 当前处于 deleted
+  act: 触发该状态下不允许的操作 invalid_event
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-262
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: "subscriber 当前处于 pending，但 guard 条件不满足: email 格式合法 && (email, source) 唯一性校验通过（重复订阅幂等返回成功）"
+  act: 触发事件 confirm_subscribe，尝试从 pending 转到 subscribed
+  expect: 系统拒绝状态转换，subscriber 保持在 pending
+  source: sm
+- id: bs-263
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: "subscriber 当前处于 subscribed，但 guard 条件不满足: subscribed_at 非空"
+  act: 触发事件 unsubscribe，尝试从 subscribed 转到 unsubscribed
+  expect: 系统拒绝状态转换，subscriber 保持在 subscribed
+  source: sm
+- id: bs-264
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: "subscriber 当前处于 unsubscribed，但 guard 条件不满足: email 格式合法"
+  act: 触发事件 resubscribe，尝试从 unsubscribed 转到 subscribed
+  expect: 系统拒绝状态转换，subscriber 保持在 unsubscribed
+  source: sm
+- id: bs-265
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: "subscriber 当前处于 pending，但 guard 条件不满足: (email, source) 已存在 → 幂等返回成功（不重复创建）"
+  act: 触发事件 resubmit，尝试从 pending 转到 pending
+  expect: 系统拒绝状态转换，subscriber 保持在 pending
+  source: sm
+- id: bs-266
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 pending
+  act: 触发该状态下不允许的操作 confirm_subscribe_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-267
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 subscribed
+  act: 触发该状态下不允许的操作 unsubscribe_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-268
+  cat: state
+  entity: subscriber
+  field: state
+  ctx: subscriber 当前处于 unsubscribed
+  act: 触发该状态下不允许的操作 resubscribe_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-269
+  cat: state
+  entity: footer_column
+  field: state
+  ctx: footer_column 当前处于 enabled
+  act: 触发该状态下不允许的操作 admin_disable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-270
+  cat: state
+  entity: footer_column
+  field: state
+  ctx: footer_column 当前处于 disabled
+  act: 触发该状态下不允许的操作 admin_enable_again
+  expect: 系统返回状态不允许错误，拒绝执行操作
+  source: sm
+- id: bs-271
+  cat: callsite-compat
+  entity: home_page_section
+  field: section_type
+  ctx: "home_page_section.section_type 枚举值集合 ['Hero', 'Announcement', 'ShopByColor',\
+    \ 'ThemeCards', 'ProductRail', 'EditorialFeature', 'Newsletter']，调用方依赖当前值"
+  act: 为 section_type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-272
+  cat: callsite-compat
+  entity: home_page_section
+  ctx: banner 实体结构变更，home_page_section 通过 外键 引用
+  act: 修改 banner 的字段定义（添加/删除/修改类型）
+  expect: home_page_section 能正常读取 banner 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-273
+  cat: callsite-compat
+  entity: home_page_section
+  ctx: home_section_translation 实体结构变更，home_page_section 通过 外键 引用
+  act: 修改 home_section_translation 的字段定义（添加/删除/修改类型）
+  expect: home_page_section 能正常读取 home_section_translation 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-274
+  cat: callsite-compat
+  entity: home_page_section
+  ctx: product 实体结构变更，home_page_section 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: home_page_section 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-275
+  cat: callsite-compat
+  entity: home_page_section
+  ctx: real_wedding 实体结构变更，home_page_section 通过 外键 引用
+  act: 修改 real_wedding 的字段定义（添加/删除/修改类型）
+  expect: home_page_section 能正常读取 real_wedding 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-276
+  cat: callsite-compat
+  entity: home_page_section
+  ctx: taxonomy 实体结构变更，home_page_section 通过 外键 引用
+  act: 修改 taxonomy 的字段定义（添加/删除/修改类型）
+  expect: home_page_section 能正常读取 taxonomy 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-277
+  cat: callsite-compat
+  entity: home_section_translation
+  field: locale
+  ctx: "home_section_translation.locale 枚举值集合 ['es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-278
+  cat: callsite-compat
+  entity: home_section_translation
+  ctx: home_page_section 实体结构变更，home_section_translation 通过 外键 引用
+  act: 修改 home_page_section 的字段定义（添加/删除/修改类型）
+  expect: home_section_translation 能正常读取 home_page_section 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-279
+  cat: callsite-compat
+  entity: navigation_item
+  field: link_type
+  ctx: "navigation_item.link_type 枚举值集合 ['taxonomy', 'custom']，调用方依赖当前值"
+  act: 为 link_type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-280
+  cat: callsite-compat
+  entity: navigation_item
+  field: taxonomy_type
+  ctx: "navigation_item.taxonomy_type 枚举值集合 ['category', 'theme']，调用方依赖当前值"
+  act: 为 taxonomy_type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-281
+  cat: callsite-compat
+  entity: navigation_item
+  ctx: navigation_translation 实体结构变更，navigation_item 通过 外键 引用
+  act: 修改 navigation_translation 的字段定义（添加/删除/修改类型）
+  expect: navigation_item 能正常读取 navigation_translation 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-282
+  cat: callsite-compat
+  entity: navigation_item
+  ctx: taxonomy 实体结构变更，navigation_item 通过 外键 引用
+  act: 修改 taxonomy 的字段定义（添加/删除/修改类型）
+  expect: navigation_item 能正常读取 taxonomy 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-283
+  cat: callsite-compat
+  entity: navigation_translation
+  field: locale
+  ctx: "navigation_translation.locale 枚举值集合 ['es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-284
+  cat: callsite-compat
+  entity: navigation_translation
+  ctx: navigation_item 实体结构变更，navigation_translation 通过 外键 引用
+  act: 修改 navigation_item 的字段定义（添加/删除/修改类型）
+  expect: navigation_translation 能正常读取 navigation_item 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-285
+  cat: callsite-compat
+  entity: footer_column
+  ctx: footer_link 实体结构变更，footer_column 通过 外键 引用
+  act: 修改 footer_link 的字段定义（添加/删除/修改类型）
+  expect: footer_column 能正常读取 footer_link 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-286
+  cat: callsite-compat
+  entity: footer_link
+  ctx: footer_column 实体结构变更，footer_link 通过 外键 引用
+  act: 修改 footer_column 的字段定义（添加/删除/修改类型）
+  expect: footer_link 能正常读取 footer_column 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-287
+  cat: callsite-compat
+  entity: announcement
+  ctx: announcement_translation 实体结构变更，announcement 通过 外键 引用
+  act: 修改 announcement_translation 的字段定义（添加/删除/修改类型）
+  expect: announcement 能正常读取 announcement_translation 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-288
+  cat: callsite-compat
+  entity: announcement_translation
+  field: locale
+  ctx: "announcement_translation.locale 枚举值集合 ['es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-289
+  cat: callsite-compat
+  entity: announcement_translation
+  ctx: announcement 实体结构变更，announcement_translation 通过 外键 引用
+  act: 修改 announcement 的字段定义（添加/删除/修改类型）
+  expect: announcement_translation 能正常读取 announcement 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-290
+  cat: callsite-compat
+  entity: subscriber
+  field: source
+  ctx: "subscriber.source 枚举值集合 ['footer', 'modal', 'exit_intent', 'home_block']，调用方依赖当前值"
+  act: 为 source 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-291
+  cat: callsite-compat
+  entity: subscriber
+  field: locale
+  ctx: "subscriber.locale 枚举值集合 ['en', 'es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-292
+  cat: callsite-compat
+  entity: subscriber
+  field: status
+  ctx: "subscriber.status 枚举值集合 ['pending', 'subscribed', 'unsubscribed']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-293
+  cat: callsite-compat
+  entity: banner
+  field: position
+  ctx: "banner.position 枚举值集合 ['HERO', 'FEATURED', 'TOPBAR']，调用方依赖当前值"
+  act: 为 position 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-294
+  cat: callsite-compat
+  entity: banner
+  field: status
+  ctx: "banner.status 枚举值集合 ['draft', 'published', 'archived']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-295
+  cat: callsite-compat
+  entity: banner
+  ctx: banner_translation 实体结构变更，banner 通过 外键 引用
+  act: 修改 banner_translation 的字段定义（添加/删除/修改类型）
+  expect: banner 能正常读取 banner_translation 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-296
+  cat: callsite-compat
+  entity: banner_translation
+  field: locale
+  ctx: "banner_translation.locale 枚举值集合 ['es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-297
+  cat: callsite-compat
+  entity: banner_translation
+  ctx: banner 实体结构变更，banner_translation 通过 外键 引用
+  act: 修改 banner 的字段定义（添加/删除/修改类型）
+  expect: banner_translation 能正常读取 banner 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-298
+  cat: callsite-compat
+  entity: taxonomy
+  field: type
+  ctx: "taxonomy.type 枚举值集合 ['category', 'theme']，调用方依赖当前值"
+  act: 为 type 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-299
+  cat: callsite-compat
+  entity: product
+  field: status
+  ctx: "product.status 枚举值集合 ['draft', 'published']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-300
+  cat: callsite-compat
+  entity: real_wedding
+  field: status
+  ctx: "real_wedding.status 枚举值集合 ['draft', 'published']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-301
+  cat: callsite-compat
+  entity: real_wedding
+  ctx: product 实体结构变更，real_wedding 通过 外键 引用
+  act: 修改 product 的字段定义（添加/删除/修改类型）
+  expect: real_wedding 能正常读取 product 变更后的数据，不因字段增删而崩溃
+  source: er
+- id: bs-302
+  cat: callsite-compat
+  entity: cache_invalidation_log
+  field: status
+  ctx: "cache_invalidation_log.status 枚举值集合 ['pending', 'completed', 'failed']，调用方依赖当前值"
+  act: 为 status 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-303
+  cat: callsite-compat
+  entity: newsletter_subscriber
+  field: source
+  ctx: "newsletter_subscriber.source 枚举值集合 ['footer', 'modal', 'exit_intent', 'home_block']，调用方依赖当前值"
+  act: 为 source 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er
+- id: bs-304
+  cat: callsite-compat
+  entity: newsletter_subscriber
+  field: locale
+  ctx: "newsletter_subscriber.locale 枚举值集合 ['en', 'es', 'fr']，调用方依赖当前值"
+  act: 为 locale 新增枚举值
+  expect: 既有调用方不因新增枚举值而异常，新值和旧值均可正常处理
+  source: er

@@ -1,0 +1,124 @@
+schema_version: "1.0"
+
+meta:
+  change_name: site-decoration-fullstack
+  generated_at: "2026-06-23T09:42:00Z"
+  phase: L1_decisions_done
+  change_type: alignment
+  portal_id: portal-admin
+
+scope:
+  description: "站点装修全栈接入：HomeBuilder 首页区块装修 + NavigationConfig 导航/页脚/公告配置 + Banners 扩展 + Publish 保持现状 + 消费端首页/layout 改造"
+
+  primary_portal:
+    portal_id: portal-admin
+    base_dir: frontend/portal-admin
+    entry_files:
+      - src/views/HomeBuilder.vue
+      - src/views/NavigationConfig.vue
+      - src/views/Banners.vue
+      - src/views/Publish.vue
+
+  implementation_files:
+    frontend:
+      admin:
+        modify:
+          - path: src/views/HomeBuilder.vue
+            role: 首页装修页面（接入后端 API + Pinia store）
+          - path: src/views/NavigationConfig.vue
+            role: 导航配置页面（接入后端 API + Pinia store）
+          - path: src/views/Banners.vue
+            role: Banner 管理（扩展 cta_text_secondary 字段编辑）
+          - path: src/data/mock.js
+            role: 移除 homeBlocks/navConfig mock，改为 API 调用
+          - path: src/api/
+            role: 新增 home-sections / navigation / announcements API 客户端
+          - path: src/api/types.ts
+            role: GRD2-W10：Banner/BannerTranslation/BannerUpsert 接口新增 ctaTextSecondary?/ctaLinkSecondary? 字段；新增 HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement 接口定义（含 i18n_json JSON 字段）
+          - path: src/config/translatableFields.ts
+            role: GRD2-W09：扩展 banner.ctaTextSecondary='translate'（URL ctaLinkSecondary='none'）；按 KD-16 i18n_json 整块 JSON 模式新增 home_page_section/navigation_item/footer_column/footer_link/announcement 实体字段策略（i18n_json 字段标记为 'json_i18n' 类型，与现有字段级 'translate' 模式区分）
+        new:
+          - path: src/stores/home-builder.ts
+            role: HomeBuilder Pinia store
+          - path: src/stores/navigation-config.ts
+            role: NavigationConfig Pinia store
+          - path: src/components/ProductSelector.vue
+            role: ProductRail source=recommend 商品选择器
+      store:
+        modify:
+          - path: app/[locale]/page.tsx
+            role: 消费端首页（动态渲染区块配置）
+          - path: app/[locale]/layout.tsx
+            role: 消费端 layout（读取导航配置渲染 header/footer + 公告条）
+          - path: lib/api/marketing-server.ts
+            role: 新增 fetchStoreHomeSections / fetchStoreNavigation / fetchStoreAnnouncements
+          - path: components/layout/site-header.tsx
+            role: 消费端 header（GRD2-004：mainNav 改为从 fetchStoreNavigation API 读取，announcements 改为从 fetchStoreAnnouncements API 读取，原 import @/data/navigation 移除）
+          - path: components/layout/site-footer.tsx
+            role: 消费端 footer（GRD2-004：footerNav 改为从 fetchStoreNavigation API 读取，原 import @/data/navigation 移除）
+          - path: data/navigation.ts
+            role: 静态导航数据源（GRD2-004：mainNav/footerNav/announcements 改为 API 调用兜底回退，或移除静态数据）
+          - path: lib/api/store-types.ts
+            role: 消费端类型扩展（GRD2-005：NewsletterSource 新增 HOME_BLOCK(4)；StoreBanner 新增 ctaTextSecondary/ctaLinkSecondary；BannerPosition.TOPBAR 标记 @Deprecated）
+        new:
+          - path: components/home-sections/
+            role: 首页区块动态渲染组件（Hero/Announcement/ShopByColor/ThemeCards/ProductRail/EditorialFeature/Newsletter）
+
+    backend:
+      new:
+        - path: src/main/java/com/dreamy/controller/AdminHomeSectionController.java
+          role: 管理端首页区块 CRUD API（/api/admin/home-sections）
+        - path: src/main/java/com/dreamy/controller/AdminNavigationController.java
+          role: 管理端导航配置 CRUD API（/api/admin/navigation）
+        - path: src/main/java/com/dreamy/controller/AdminAnnouncementController.java
+          role: 管理端公告条 CRUD API（/api/admin/announcements）
+        - path: src/main/java/com/dreamy/domain/sitebuilder/
+          role: site_builder 限界上下文（entity/repository/service）
+      modify:
+        - path: src/main/java/com/dreamy/controller/StoreContentController.java
+          role: 消费端新增 GET /api/store/content/home/sections + /navigation + /announcements
+        - path: src/main/java/com/dreamy/controller/StoreLeadController.java
+          role: 扩展 /api/store/newsletter 支持 source=HOME_BLOCK(4)
+        - path: src/main/java/com/dreamy/domain/banner/entity/Banner.java
+          role: 新增 cta_text_secondary + cta_link_secondary 字段
+        - path: src/main/java/com/dreamy/domain/banner/entity/BannerTranslation.java
+          role: 新增 cta_text_secondary 字段
+        - path: src/main/java/com/dreamy/enums/NewsletterSource.java
+          role: 新增 HOME_BLOCK(4) 枚举值
+        - path: src/main/java/com/dreamy/enums/BannerPosition.java
+          role: TOPBAR 标记 @Deprecated
+        - path: src/main/java/com/dreamy/infra/MarketingCacheService.java
+          role: Family 枚举新增 HOME_SECTION/NAVIGATION/ANNOUNCEMENT
+        - path: src/main/java/com/dreamy/mq/MarketingContentInvalidatedPublisher.java
+          role: 新增 TYPE_HOME_SECTION_CHANGED/TYPE_NAVIGATION_CHANGED/TYPE_ANNOUNCEMENT_CHANGED
+        - path: src/main/java/com/dreamy/error/MarketingExceptionHandler.java
+          role: assignableTypes 新增 3 个 Controller
+        - path: src/main/java/com/dreamy/config/DataInitializer.java
+          role: 新增 /site/announcement 权限种子
+
+  database:
+    new_tables:
+      - home_sections
+      - navigation_items
+      - footer_columns
+      - footer_links
+      - announcements
+    modified_tables:
+      - banners (add cta_text_secondary, cta_link_secondary)
+      - banner_translations (add cta_text_secondary)
+      - newsletter_subscriber (GRD2-003 方案 A：uk_newsletter_email(email) → uk_newsletter_email_source(email, source) 复合唯一)
+    migration_scripts:
+      - path: scripts/migrate-topbar-banner-to-announcements.sql
+        role: KD-17/GRD2-W03：TOPBAR Banner 公告数据迁移到 announcements 表（INSERT INTO announcements(enabled, sort_order, content, i18n_json) SELECT status=2, sort, title, JSON_OBJECT('en', title) FROM banner WHERE position=3）
+      - path: scripts/migrate-uk-newsletter-email-to-composite.sql
+        role: GRD2-003 方案 A：newsletter_subscriber 唯一约束从 (email) 迁移到 (email, source) 复合唯一（ALTER TABLE DROP INDEX + ADD UNIQUE KEY）
+    migration_note: "项目无 Flyway，DDL 手动执行"
+
+  constraints:
+    - "KD-16: 翻译表合并到主表 JSON 列（i18n_json），不建独立 *_translations 表"
+    - "KD-2: Hero 区块复用 Banner position=HERO"
+    - "KD-7: Announcement 独立域"
+    - "KD-17: BannerPosition.TOPBAR 废弃公告语义"
+    - "GRD2-001+002: er-diagram.yml 移除 5 个翻译表实体 + 5 个主实体新增 i18n_json JSON 列 + HomePageSection.data_json 描述修正（Newsletter 文案存 i18n_json）"
+    - "GRD2-003: NewsletterSubscriber 唯一约束采用方案 A 复合唯一 (email, source)，保证 KD-13 source 数据完整性"
+    - "GRD2-004+005: scope-manifest.yml 补 4 个消费端文件（site-header.tsx/site-footer.tsx/data/navigation.ts/lib/api/store-types.ts）+ 2 个 admin 文件（api/types.ts/config/translatableFields.ts）"

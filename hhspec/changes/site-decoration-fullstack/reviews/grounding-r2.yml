@@ -1,0 +1,185 @@
+review_round: 2
+change_name: site-decoration-fullstack
+verdict: fail
+
+must_fix_issues:
+  - id: GRD2-001
+    title: "er-diagram.yml 翻译表模式与 KD-16 决策直接矛盾（保留 5 个 *_translations 实体 vs KD-16 合并到 i18n_json JSON 列）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/er-diagram.yml:54-71 (HomeSectionTranslation) + :98-112 (NavigationTranslation) + :147-160 (FooterColumnTranslation) + :162-175 (FooterLinkTranslation) + :192-205 (AnnouncementTranslation) + :13 (review_fixes 列出 GRD-W08) + decision.md:85-92 (KD-16) + backend/src/main/java/com/dreamy/domain/category/entity/Category.java:43-45 (JacksonTypeHandler JSON 模式参考)"
+    requirement_gap: |
+      KD-16（L1 决策，覆盖 KD-3 和 GRD-W08）明确决定："合并翻译表到主表 JSON 列（i18n_json），不建独立 *_translations 表"，
+      "home_sections / navigation_items / footer_columns / footer_links / announcements 表均增加 i18n_json JSON 列"，
+      "不建 *_translations 表（包括 GRD-W08 推荐的 FooterColumnTranslation/FooterLinkTranslation）"。
+      但 er-diagram.yml 仍然保留了 5 个独立翻译表实体（HomeSectionTranslation/NavigationTranslation/FooterColumnTranslation/FooterLinkTranslation/AnnouncementTranslation），
+      且 entities 段所有新实体的 relations 都引用了这些翻译表。
+      er-diagram.yml:13 的 review_fixes 列出 GRD-W08（采纳双表），直接与 KD-16"GRD-W08 不采纳"矛盾。
+      这是 r1 之后的 L1 决策（KD-16）修正了 r1 的 GRD-W08，但 er-diagram.yml 未同步更新到 KD-16 的 JSON 列方案。
+      代码接地：基线有现成 JSON TypeHandler 模式（Category.java:43-45 attrOverrides 用 JacksonTypeHandler + autoResultMap=true），KD-16 的 i18n_json 方案技术上可行。
+    suggestion: |
+      全局修正 er-diagram.yml：
+      1. 移除 HomeSectionTranslation/NavigationTranslation/FooterColumnTranslation/FooterLinkTranslation/AnnouncementTranslation 5 个实体
+      2. HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement 实体新增 i18n_json JSON 字段（type: JSON, nullable: true）
+      3. 各实体 relations 移除对 Translation 实体的引用
+      4. review_fixes 移除 GRD-W08，新增 KD-16
+      5. CONSTRAINT-004 物理删除约束保留，新增 i18n_json TypeHandler 约束（@TableField(typeHandler = JacksonTypeHandler.class) + @TableName(autoResultMap = true)）
+      6. scope-manifest.yml database.new_tables 移除 5 个 *_translations 表（若已声明）
+
+  - id: GRD2-002
+    title: "er-diagram.yml HomePageSection.data_json 描述与 KD-11 Newsletter 决策矛盾（Newsletter 文案存储位置不明）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/er-diagram.yml:37 (data_json 描述 'Newsletter 类型 data_json 为空') + decision.md:61-63 (KD-11 'Newsletter 区块存储 title + 副文案 + CTA 文案') + frontend/portal-admin/src/views/HomeBuilder.vue:110 (Newsletter 区块渲染 b.data.title) + :142 (属性编辑允许编辑 title) + er-diagram.yml:64 (HomeSectionTranslation.cta_text 字段)"
+    requirement_gap: |
+      er-diagram.yml:37 HomePageSection.data_json 描述："Hero/Announcement/Newsletter 类型 data_json 为空（数据从其他域派生，KD-14 第二 CTA 也从 Banner 派生）"。
+      但 KD-11 决定："Newsletter 区块存储 title + 副文案 + CTA 文案；消费端渲染邮箱输入 + 提交按钮"。
+      原型 HomeBuilder.vue:110 Newsletter 区块从 b.data.title 读取标题，第 142 行属性编辑允许编辑 title。
+      Newsletter 的文案既不从 Banner 派生（KD-2 只覆盖 Hero），也不从 Announcement 域派生（KD-7 只覆盖 Announcement 区块）。
+      如果 data_json 为空，Newsletter 的 title/subtitle/cta_text 无处存储。
+      er-diagram.yml:54-71 HomeSectionTranslation 实体有 title/subtitle/cta_text 字段，但 KD-16 决定不建双表（见 GRD2-001），改用 i18n_json JSON 列。
+      er-diagram 既保留双表又声明 data_json 为空，Newsletter 文案存储位置矛盾。
+    suggestion: |
+      修正 er-diagram.yml:37 HomePageSection.data_json 描述：
+      - Hero/Announcement 类型 data_json 为空（数据从 Banner/Announcement 域派生）
+      - Newsletter 类型 data_json 为空，文案（title/subtitle/cta_text）存 i18n_json JSON 列（KD-11 + KD-16）
+      - ShopByColor/ThemeCards/ProductRail/EditorialFeature 类型 data_json 存区块配置（count/source/limit/product_ids/wedding_ids）
+      同步修正 HomeSectionTranslation 实体移除（GRD2-001），Newsletter 文案迁移到 i18n_json。
+
+  - id: GRD2-003
+    title: "er-diagram.yml Subscriber 唯一约束与 modified_entities.NewsletterSubscriber.notes 矛盾（email 单字段唯一 vs (email, source) 复合唯一）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/er-diagram.yml:220 (Subscriber.constraints (email, source) 复合唯一 + '需迁移到 uk(email, source)，详见 modified_entities.NewsletterSubscriber.changed_constraints') + :386-392 (modified_entities.NewsletterSubscriber.notes '不修改 unique 约束，基线 uk_newsletter_email(email) 保留') + backend/src/main/java/com/dreamy/domain/subscriber/entity/NewsletterSubscriber.java:23 (uk_newsletter_email email 单字段唯一) + backend/src/main/java/com/dreamy/domain/subscriber/service/NewsletterService.java:53-59 (insertIgnoreDuplicate 依赖 email 唯一短路) + state-machine.yml:200 (subscribe guard '(email, source) 唯一性校验')"
+    requirement_gap: |
+      er-diagram.yml 内部直接矛盾：
+      (1) entities.Subscriber.constraints:220 声明 (email, source) 复合唯一，描述说"合并方案下需迁移到 uk(email, source)，详见 modified_entities.NewsletterSubscriber.changed_constraints"
+      (2) modified_entities.NewsletterSubscriber.notes:390 明确说"不修改 unique 约束（基线 uk_newsletter_email(email) 保留，KD-12 单态订阅无需 email+source 复合唯一）"，且没有 changed_constraints 字段
+      基线代码 NewsletterSubscriber.java:23 是 uk_newsletter_email(email) 单字段唯一。
+      基线 NewsletterService.subscribe:53-59 依赖 email 唯一约束 + INSERT ON DUPLICATE KEY UPDATE id=id 实现幂等。
+      如果保留 email 单字段唯一（modified_entities 声明），KD-13 新增 source=HOME_BLOCK(4) 的语义失效：
+      同邮箱先从 FOOTER 订阅（source=1），后从首页 HOME_BLOCK 订阅（source=4），第二条被 email 唯一约束短路，
+      HOME_BLOCK 订阅"丢失"但响应 {subscribed:true}（用户无感，但 source 数据失真，无法区分订阅入口）。
+      state-machine.yml:200 subscriber_status.subscribe guard 写"(email, source) 唯一性校验通过"，也与此矛盾。
+    suggestion: |
+      二选一明确决策：
+      方案 A（推荐）：modified_entities.NewsletterSubscriber 新增 changed_constraints 段，声明 uk_newsletter_email(email) → uk_newsletter_email_source(email, source) 复合唯一迁移；
+      entities.Subscriber.constraints 保留 (email, source)；state-machine.yml guard 保留；
+      NewsletterService.subscribe 的 insertIgnoreDuplicate 语义变为"同邮箱同来源重复订阅幂等短路，不同来源新增记录"。
+      方案 B：entities.Subscriber.constraints 改为 (email) 单字段唯一（对齐基线）；state-machine.yml guard 改为 email 唯一性校验；
+      明确声明 KD-13 source=HOME_BLOCK(4) 仅用于响应埋点，不保证 source 数据完整性（同邮箱多入口订阅只保留首写 source）。
+
+  - id: GRD2-004
+    title: "scope-manifest.yml 遗漏消费端 header/footer/导航静态数据源文件（KD-5 全量改造无法落地）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/scope-manifest.yml:43-52 (store.modify 仅列 page.tsx/layout.tsx/marketing-server.ts) + frontend/portal-store/components/layout/site-header.tsx:14 (import { mainNav, announcements } from '@/data/navigation') + :95 ({mainNav.map(item => ...)} 渲染主导航) + :187 (const item = mainNav.find(...) 渲染 Mega Menu) + frontend/portal-store/components/layout/site-footer.tsx:10 (import { footerNav } from '@/data/navigation') + :86 ({footerNav.map(col => ...)} 渲染页脚导航) + frontend/portal-store/data/navigation.ts:22-157 (mainNav + footerNav + announcements 静态数据源) + decision.md:31-33 (KD-5 'header/footer/公告条 全量改造')"
+    requirement_gap: |
+      KD-5 决定"首页动态渲染 + header/footer/公告条 全量改造"，decision.md:33 impact 明确
+      "消费端改造点：(1)portal-store/app/[locale]/page.tsx 动态渲染区块；(2)portal-store/app/[locale]/layout.tsx 读取导航配置渲染 header/footer；(3)顶部公告条组件动态渲染"。
+      但 scope-manifest.yml store.modify 仅列出 3 个文件（page.tsx/layout.tsx/marketing-server.ts），遗漏了实际渲染 header/footer 的组件文件和静态数据源文件：
+      - site-header.tsx 第 14 行 import mainNav + announcements，第 95 行用 mainNav 渲染主导航，第 187 行用 mainNav 渲染 Mega Menu。KD-5 要求 header 从 API 读取导航配置，必须修改此文件。
+      - site-footer.tsx 第 10 行 import footerNav，第 86 行用 footerNav 渲染页脚导航。KD-5 要求 footer 从 API 读取导航配置，必须修改此文件。
+      - data/navigation.ts 第 22-157 行是 mainNav + footerNav + announcements 静态数据源。KD-5 要求改为 API 调用，必须修改或废弃此文件。
+      不修改这些文件，KD-5"header/footer 全量改造"无法落地——主导航和页脚仍渲染硬编码静态数据。
+    suggestion: |
+      scope-manifest.yml store.modify 新增：
+      - path: components/layout/site-header.tsx, role: 消费端 header（mainNav 改为从 fetchStoreNavigation API 读取，announcements 改为从 fetchStoreAnnouncements API 读取）
+      - path: components/layout/site-footer.tsx, role: 消费端 footer（footerNav 改为从 fetchStoreNavigation API 读取）
+      - path: data/navigation.ts, role: 静态导航数据源（mainNav/footerNav/announcements 改为 API 调用兜底回退，或移除静态数据）
+
+  - id: GRD2-005
+    title: "scope-manifest.yml 遗漏消费端 store-types.ts 类型扩展（KD-13/KD-14/KD-17 前端类型无法落地）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/scope-manifest.yml:43-52 (store.modify 未列 store-types.ts) + frontend/portal-store/lib/api/store-types.ts:42 (NewsletterSource = { FOOTER: 1, MODAL: 2, EXIT_INTENT: 3 }，缺 HOME_BLOCK: 4) + :36 (BannerPosition = { HERO: 1, FEATURED: 2, TOPBAR: 3 }，TOPBAR 未标记 @Deprecated) + :426-435 (StoreBanner 接口仅 ctaText，缺 ctaTextSecondary/ctaLinkSecondary) + decision.md:73 (KD-13) + :76-78 (KD-14) + :94-100 (KD-17)"
+    requirement_gap: |
+      KD-13/KD-14/KD-17 三个决策都要求消费端前端类型同步扩展，但 scope-manifest.yml 完全没列出 store-types.ts 的修改：
+      (1) KD-13 新增 NewsletterSource HOME_BLOCK(4)：store-types.ts:42 的 NewsletterSource 仅 3 值，需扩展为 { FOOTER: 1, MODAL: 2, EXIT_INTENT: 3, HOME_BLOCK: 4 }。
+      首页 Newsletter 区块组件需调用 subscribeNewsletter(email, NewsletterSource.HOME_BLOCK, locale)，不扩展则无法传 source=4。
+      (2) KD-14 新增 Banner cta_text_secondary + cta_link_secondary：store-types.ts:426-435 的 StoreBanner 接口仅 ctaText，需扩展 ctaTextSecondary? + ctaLinkSecondary?。
+      page.tsx:57 第二个 CTA "Explore Outdoor" 需从 hero?.ctaTextSecondary 派生，不扩展则类型不匹配。
+      (3) KD-17 TOPBAR 标记 @Deprecated：store-types.ts:36 的 BannerPosition.TOPBAR 需同步标记 @Deprecated（JSDoc 注释），不扩展则前端无 deprecation 提示。
+    suggestion: |
+      scope-manifest.yml store.modify 新增：
+      - path: lib/api/store-types.ts, role: 消费端类型扩展（NewsletterSource 新增 HOME_BLOCK(4)；StoreBanner 新增 ctaTextSecondary/ctaLinkSecondary；BannerPosition.TOPBAR 标记 @Deprecated）
+
+warning_issues:
+  - id: GRD2-W01
+    title: "er-diagram.yml modified_entities 段缺失 StoreContentController 条目"
+    code_ref: "hhspec/changes/site-decoration-fullstack/er-diagram.yml:379-479 (modified_entities 段无 StoreContentController) + scope-manifest.yml:66-67 (声明 StoreContentController 新增 3 个 GET 端点) + backend/src/main/java/com/dreamy/controller/StoreContentController.java:58-169 (基线 8 个 GET 端点)"
+    suggestion: "er-diagram.yml modified_entities 新增 StoreContentController 条目，changed_api 声明新增 GET /api/store/content/home/sections + /navigation + /announcements 三个端点（对齐 StoreLeadController.changed_api 模式）。"
+
+  - id: GRD2-W02
+    title: "消费端 API 路径模式不一致（/home/sections 嵌套 vs 基线平铺复数名词）"
+    code_ref: "backend/src/main/java/com/dreamy/controller/StoreContentController.java:58,78,109,137,161 (基线 /banners,/blogs,/weddings,/lookbooks,/guides 平铺复数名词) + scope-manifest.yml:67 (新增 /home/sections 嵌套 + /navigation 单数 + /announcements 复数)"
+    suggestion: "统一路径模式。推荐 /api/store/content/home-sections（连字符平铺，对齐基线复数名词模式）；/navigation 保持单数（全局单例资源语义合理）或改 /navigations；/announcements 保持复数。"
+
+  - id: GRD2-W03
+    title: "KD-17 TOPBAR Banner 迁移脚本未在 scope-manifest / er-diagram 显式声明"
+    code_ref: "decision.md:98 (KD-17 '存量 TOPBAR Banner 公告数据脚本迁入 announcements 表') + scope-manifest.yml:87-97 (database 段仅 new_tables/modified_tables，无 migration_scripts) + er-diagram.yml:573-582 (OQ-7 方案 D 提到数据迁移但未声明脚本位置)"
+    suggestion: "scope-manifest.yml database 段新增 migration_scripts 段，声明 TOPBAR Banner → announcements 表迁移脚本（路径如 scripts/migrate-topbar-banner-to-announcements.sql，含 INSERT INTO announcements(content, enabled, sort_order) SELECT title, status=2, sort FROM banner WHERE position=3）。"
+
+  - id: GRD2-W04
+    title: "HomePageSection.data_json ProductRail source 类型未明确（字符串 vs IntEnum）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/er-diagram.yml:37 (data_json 'ProductRail{source,limit,product_ids[]}' 未声明 source 类型) + frontend/portal-admin/src/views/HomeBuilder.vue:138 (source 选项 isNew/isBest/recommend 字符串) + backend/src/main/java/com/dreamy/enums/NewsletterSource.java:13-16 (IntEnum 模式参考)"
+    suggestion: "er-diagram.yml:37 明确 ProductRail.source 类型为字符串枚举 [isNew, isBest, recommend]（非 IntEnum，与 NewsletterSource 区分），data_json 结构补全类型声明。"
+
+  - id: GRD2-W05
+    title: "KD-16 i18n_json 与现有字段级 i18n 策略模式（translatableFields.ts）兼容性未验证"
+    code_ref: "frontend/portal-admin/src/config/translatableFields.ts:13-67 (fieldI18nPolicy 字段级 i18n 策略，banner/blog_post/flash_sale 等实体声明 translate 字段) + decision.md:85-92 (KD-16 i18n_json JSON 列方案) + backend/src/main/java/com/dreamy/domain/category/entity/Category.java:43-45 (JacksonTypeHandler JSON 模式参考)"
+    suggestion: "验证 KD-16 i18n_json JSON 列方案与 portal-admin translatableFields.ts 字段级 i18n 策略模式的兼容性。i18n_json 是整块 JSON（{en:{...}, es:{...}, fr:{...}}），与现有字段级翻译（每个字段独立 ES/FR 输入框）模式不同。需在 L2 详设明确 admin 前端 i18n_json 编辑组件设计（LocaleTabs + JSON 字段映射）。"
+
+  - id: GRD2-W06
+    title: "新 Controller 的 OperationLog 写入模式未明确（基线是手动写，非注解）"
+    code_ref: "backend/src/main/java/com/dreamy/domain/product/service/AdminProductBatchService.java:171 (STEP-04 写 OperationLog 手动模式) + backend/src/main/java/com/dreamy/controller/StoreLeadController.java:16 (注释'不写 OperationLog') + decision.md:126-129 (KD-BE-3 '复用 OperationLogs 模块')"
+    suggestion: "基线 OperationLog 是 Service 层手动写入（非 @OperationLog 注解）。er-diagram.yml 或 decision.md KD-BE-3 明确新 Controller（AdminHomeSectionController/AdminNavigationController/AdminAnnouncementController）的 OperationLog 写入模式：在 Service 层手动写 OperationLog（action=保存首页区块/导航配置/公告，detail 含变更摘要）。"
+
+  - id: GRD2-W07
+    title: "JetCache key 后缀格式未明确（基线 StoreBannerService 是 {position_key}:{locale}）"
+    code_ref: "backend/src/main/java/com/dreamy/domain/banner/service/StoreBannerService.java:40 (cacheKey = position.getKey() + ':' + locale) + hhspec/changes/site-decoration-fullstack/er-diagram.yml:367-370 (modified_enums Family prefix 仅声明 marketing:home_section: 等前缀，未声明 key 后缀格式)"
+    suggestion: "er-diagram.yml modified_enums.MarketingCacheService.Family 新增 key_pattern 字段，声明 key 后缀格式。对齐 StoreBannerService 模式：HOME_SECTION key = {locale}（无 position 维度），NAVIGATION key = {locale}，ANNOUNCEMENT key = {locale}。完整 key 如 marketing:home_section:en。"
+
+  - id: GRD2-W08
+    title: "acceptance.yml s-015~s-022 stale 残留未裁剪（已登记 L2 裁剪）"
+    code_ref: "hhspec/changes/site-decoration-fullstack/acceptance.yml:100-155 (s-015~s-022 pending/unsubscribed 状态机场景) + acceptance-baseline.md:39 (注'L2 详设阶段须同步裁剪') + decision.md:162 (派生产物 stale 残留待 L2 裁剪)"
+    suggestion: "已登记技术债，L2 详设阶段裁剪 s-015~s-022（移除 pending/unsubscribed 场景，保留 s-013/s-014 subscribed 单态场景）。"
+
+  - id: GRD2-W09
+    title: "portal-admin translatableFields.ts 缺失新实体字段策略 + Banner ctaTextSecondary 策略"
+    code_ref: "frontend/portal-admin/src/config/translatableFields.ts:37-41 (banner 策略 title/subtitle/ctaText，缺 ctaTextSecondary) + :13-67 (无 home_page_section/navigation_item/footer_column/footer_link/announcement 实体策略) + scope-manifest.yml:25-35 (admin.modify 未列 translatableFields.ts)"
+    suggestion: "scope-manifest.yml admin.modify 新增 src/config/translatableFields.ts，扩展 banner.ctaTextSecondary='translate' + ctaLinkSecondary='none'（URL 不翻译），新增 home_page_section/navigation_item/footer_column/footer_link/announcement 实体字段策略（或按 KD-16 i18n_json 整块 JSON 模式调整策略）。"
+
+  - id: GRD2-W10
+    title: "portal-admin src/api/types.ts 的 Banner 接口需扩展 ctaTextSecondary/ctaLinkSecondary"
+    code_ref: "frontend/portal-admin/src/api/types.ts:685-690 (BannerTranslation 仅 ctaText) + :692-705 (Banner 仅 ctaText) + :708-719 (BannerUpsert 仅 ctaText) + scope-manifest.yml:25-35 (admin.modify 仅列 src/api/ 目录级别，未显式列 types.ts)"
+    suggestion: "scope-manifest.yml admin.modify 显式列出 src/api/types.ts，声明 Banner/BannerTranslation/BannerUpsert 接口新增 ctaTextSecondary?/ctaLinkSecondary? 字段。"
+
+info_issues:
+  - id: GRD2-I01
+    title: "HomeBuilder.vue 原型按钮文案与 KD-4 决策不一致"
+    code_ref: "frontend/portal-admin/src/views/HomeBuilder.vue:35 ('保存并生成首页' 按钮) + :31 (subtitle '保存后在发布中心生成静态首页') + decision.md:26-28 (KD-4 'UI 无发布按钮，只有保存按钮')"
+    suggestion: "L3 实现时调整原型按钮文案'保存并生成首页'→'保存'（KD-4 保存即发布），subtitle 移除'发布中心生成静态首页'SSG 语义（KD-1 已修正为 force-dynamic）。"
+
+  - id: GRD2-I02
+    title: "NavigationConfig.vue 原型按钮文案与 KD-4 决策不一致"
+    code_ref: "frontend/portal-admin/src/views/NavigationConfig.vue:28 ('保存并重新生成 header' 按钮) + decision.md:26-28 (KD-4 '只有保存按钮')"
+    suggestion: "L3 实现时调整原型按钮文案'保存并重新生成 header'→'保存'（KD-4 保存即发布）。"
+
+  - id: GRD2-I03
+    title: "HomeBuilder.vue Hero 属性编辑与 KD-2 派生原则不一致"
+    code_ref: "frontend/portal-admin/src/views/HomeBuilder.vue:121-132 (Hero 属性编辑直接编辑 eyebrow/title/subtitle/cta1/cta2/image) + decision.md:18 (KD-2 '管理端 Hero 区块属性编辑表单联动 Banner 编辑')"
+    suggestion: "L3 实现时 Hero 属性编辑表单改为联动 Banner 编辑（跳转 Banner 编辑页或内嵌 Banner 编辑组件），不直接编辑文案。"
+
+summary:
+  total_issues: 18
+  must_fix_count: 5
+  warning_count: 10
+  info_count: 3
+  r1_fix_verification:
+    grd_001_landed: true
+    grd_002_landed: true
+    grd_003_landed: true
+    grd_004_landed: true
+    grd_005_landed: true
+    grd_006_landed: true
+    grd_007_landed: true
+    grd_008_landed: true
+    grd_009_landed: true
+    grd_010_landed: true
+  r2_new_findings_note: |
+    r1 的 10 个 MUST_FIX 全部落地。本轮 5 个新 MUST_FIX 主要源于：
+    (1) KD-16（L1 决策）修正了 r1 的 GRD-W08（双表 → JSON 列），但 er-diagram.yml 未同步更新（GRD2-001/GRD2-002）
+    (2) KD-12/KD-13 对 NewsletterSubscriber 唯一约束的处理在 er-diagram.yml 内部自相矛盾（GRD2-003）
+    (3) scope-manifest.yml 对 KD-5 消费端全量改造的范围遗漏（GRD2-004/GRD2-005）
+    10 个 WARNING 主要是声明完整性缺失（StoreContentController modified_entities 缺失、迁移脚本未声明、key 后缀格式未明确等），可在 L2 详设阶段补齐。
