@@ -7,7 +7,6 @@ import com.dreamy.domain.collection.entity.CollectionTranslation;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,7 +44,7 @@ public class CollectionRepository {
     }
 
     /** RM-CAT-062 listByIds —— collection_ids 存在性校验（V-CAT-034） */
-    public List<Collection> listByIds(Collection<Long> ids) {
+    public List<Collection> listByIds(java.util.Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
@@ -122,7 +121,7 @@ public class CollectionRepository {
     }
 
     /** RM-CAT-069 listTranslationsByCollectionIds */
-    public List<CollectionTranslation> listTranslationsByCollectionIds(Collection<Long> collectionIds) {
+    public List<CollectionTranslation> listTranslationsByCollectionIds(java.util.Collection<Long> collectionIds) {
         if (collectionIds == null || collectionIds.isEmpty()) {
             return List.of();
         }

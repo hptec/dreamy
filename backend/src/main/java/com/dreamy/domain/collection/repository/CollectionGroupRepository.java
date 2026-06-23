@@ -6,7 +6,6 @@ import com.dreamy.domain.collection.entity.CollectionGroup;
 import com.dreamy.domain.collection.entity.CollectionGroupTranslation;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +60,7 @@ public class CollectionGroupRepository {
     }
 
     /** RM-CAT-055 listTranslationsByGroupIds */
-    public List<CollectionGroupTranslation> listTranslationsByGroupIds(Collection<Long> ids) {
+    public List<CollectionGroupTranslation> listTranslationsByGroupIds(java.util.Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
