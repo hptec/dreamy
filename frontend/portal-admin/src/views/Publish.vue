@@ -37,8 +37,12 @@ const resourceTypeOptions = [
   { value: 'product', label: '商品' },
   { value: 'blog', label: '博客' },
   { value: 'wedding', label: '真实婚礼' },
+  { value: 'lookbook', label: 'Lookbook' },
+  { value: 'guide', label: '攻略' },
+  { value: 'banner', label: 'Banner' },
+  { value: 'flash_sale', label: '限时特卖' },
   { value: 'category', label: '分类' },
-  { value: 'tag', label: '标签' },
+  { value: 'collection', label: '集合' },
 ]
 
 // 状态徽章配置
@@ -56,9 +60,13 @@ const eventTypeLabel = (type: string): string => {
     'product_status_changed': '商品状态变更',
     'product_flags_changed': '商品标记变更',
     'category_changed': '分类变更',
-    'tag_changed': '标签变更',
+    'collection_changed': '集合变更',
     'blog_changed': '博客变更',
     'wedding_changed': '真实婚礼变更',
+    'lookbook_changed': 'Lookbook 变更',
+    'guide_changed': '攻略变更',
+    'banner_changed': 'Banner 变更',
+    'flash_sale_changed': '限时特卖变更',
   }
   return map[type] || type
 }
@@ -72,8 +80,8 @@ async function fetchLogs() {
       status: filterStatus.value,
       resourceType: filterResourceType.value,
     })
-    logs.value = result.records
-    total.value = result.total
+    logs.value = result.data
+    total.value = result.totalElements
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '加载失败')
   } finally {
@@ -91,29 +99,8 @@ function applyFilters() {
   fetchLogs()
 }
 
-// 轮询刷新（每 5 秒）
-let pollTimer: ReturnType<typeof setInterval> | null = null
-function startPolling() {
-  pollTimer = setInterval(() => {
-    fetchLogs()
-  }, 5000)
-}
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
 onMounted(() => {
   fetchLogs()
-  startPolling()
-})
-
-// 组件销毁时停止轮询
-import { onBeforeUnmount } from 'vue'
-onBeforeUnmount(() => {
-  stopPolling()
 })
 </script>
 
@@ -144,7 +131,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="ml-auto flex items-center gap-2 text-[12px] text-ink-faint">
           <InformationCircleIcon class="h-4 w-4" />
-          自动刷新：每 5 秒
+          点击右上角刷新按钮更新
         </div>
       </div>
     </div>

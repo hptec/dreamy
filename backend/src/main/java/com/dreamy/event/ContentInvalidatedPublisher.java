@@ -61,20 +61,22 @@ public class ContentInvalidatedPublisher {
         eventPublisher.publish(ROUTING_KEY, payload);
 
         // 方案 B：记录失效日志到数据库（失败不影响主流程）
+        Long logId = null;
         List<String> affectedPaths = null;
         try {
             String resourceType = extractResourceType(type);
-            cacheService.logInvalidation(type, resourceType, null, slug, oldSlug, ALL_LOCALES, "system");
-
-            // 获取受影响的路径用于 CDN 清除
+            logId = cacheService.logInvalidation(type, resourceType, null, slug, oldSlug, ALL_LOCALES, "system");
             affectedPaths = buildAffectedPaths(resourceType, slug, oldSlug);
         } catch (Exception e) {
             // 日志记录失败不影响主流程（MQ 已发送）
         }
 
-        // 异步调用 CDN API 清除缓存
+        // 异步调用 CDN API 清除缓存，并回写日志状态
         if (affectedPaths != null && !affectedPaths.isEmpty()) {
-            cdnService.invalidatePaths(affectedPaths);
+            cdnService.invalidatePaths(affectedPaths, logId);
+        } else if (logId != null) {
+            // 无路径需清除，直接标记完成
+            cacheService.updateLogStatus(logId, 1, null);
         }
     }
 

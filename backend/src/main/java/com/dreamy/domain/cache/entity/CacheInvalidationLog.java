@@ -68,9 +68,6 @@ public class CacheInvalidationLog extends LongAuditableEntity {
     @Column(name = "error_message", definition = "text NULL COMMENT '失败错误信息'")
     private String errorMessage;
 
-    @Column(name = "created_at", definition = "datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间'")
-    private LocalDateTime createdAt;
-
     // 状态常量
     public static final int STATUS_PENDING = 0;
     public static final int STATUS_COMPLETED = 1;

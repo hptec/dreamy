@@ -64,18 +64,22 @@ public class MarketingContentInvalidatedPublisher {
         eventPublisher.publish(ROUTING_KEY, payload);
 
         // 记录日志并触发 CDN 清除
+        Long logId = null;
         List<String> affectedPaths = null;
         try {
             String resourceType = extractResourceType(type);
-            cacheService.logInvalidation(type, resourceType, id, slug, oldSlug, ALL_LOCALES, "system");
+            logId = cacheService.logInvalidation(type, resourceType, id, slug, oldSlug, ALL_LOCALES, "system");
             affectedPaths = buildAffectedPaths(type, slug, oldSlug, id);
         } catch (Exception e) {
             // 失败不影响主流程
         }
 
-        // 异步调用 CDN API 清除缓存
+        // 异步调用 CDN API 清除缓存，并回写日志状态
         if (affectedPaths != null && !affectedPaths.isEmpty()) {
-            cdnService.invalidatePaths(affectedPaths);
+            cdnService.invalidatePaths(affectedPaths, logId);
+        } else if (logId != null) {
+            // 无路径需清除（如 lookbook/guide/flash_sale 未实现路径映射），直接标记完成
+            cacheService.updateLogStatus(logId, 1, null);
         }
     }
 

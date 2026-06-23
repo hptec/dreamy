@@ -59,10 +59,23 @@ public class AdminCacheService {
 
     /**
      * 记录缓存失效日志（由 ContentInvalidatedPublisher 调用）。
+     * @return 新建日志记录的 ID，供 CDN 回写状态用；失败返回 null
      */
     @Transactional
-    public void logInvalidation(String eventType, String resourceType, Long resourceId,
+    public Long logInvalidation(String eventType, String resourceType, Long resourceId,
                                 String slug, String oldSlug, List<String> locales, String triggeredBy) {
+        return logInvalidation(eventType, resourceType, resourceId, slug, oldSlug, locales, triggeredBy, null);
+    }
+
+    /**
+     * 记录缓存失效日志（带显式 affectedPaths，手动失效场景用）。
+     * @param affectedPaths 显式指定受影响路径；非 null 时覆盖自动推测的路径
+     * @return 新建日志记录的 ID；失败返回 null
+     */
+    @Transactional
+    public Long logInvalidation(String eventType, String resourceType, Long resourceId,
+                                String slug, String oldSlug, List<String> locales,
+                                String triggeredBy, List<String> affectedPaths) {
         CacheInvalidationLog log = new CacheInvalidationLog();
         log.setEventType(eventType);
         log.setResourceType(resourceType);
@@ -113,8 +126,33 @@ public class AdminCacheService {
             paths.add("/fr/products");
         }
 
-        log.setAffectedPaths(paths.isEmpty() ? null : paths);
+        // 显式传入的 paths 优先于自动推测
+        List<String> finalPaths = (affectedPaths != null && !affectedPaths.isEmpty())
+                ? affectedPaths
+                : (paths.isEmpty() ? null : paths);
+        log.setAffectedPaths(finalPaths);
         repository.insert(log);
+        return log.getId();
+    }
+
+    /**
+     * 回写日志状态（由 CdnInvalidationService 在 CDN 调用完成后调用）。
+     */
+    @Transactional
+    public void updateLogStatus(Long logId, int status, String errorMessage) {
+        if (logId == null) {
+            return;
+        }
+        CacheInvalidationLog log = repository.selectById(logId);
+        if (log == null) {
+            return;
+        }
+        log.setStatus(status);
+        log.setCompletedAt(LocalDateTime.now());
+        if (errorMessage != null) {
+            log.setErrorMessage(errorMessage);
+        }
+        repository.updateById(log);
     }
 
     private CacheInvalidationLogDto toDto(CacheInvalidationLog log) {

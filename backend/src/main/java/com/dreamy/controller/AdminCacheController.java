@@ -1,8 +1,12 @@
 package com.dreamy.controller;
 
+import com.dreamy.domain.cache.entity.CacheInvalidationLog;
 import com.dreamy.domain.cache.service.AdminCacheService;
 import com.dreamy.dto.CacheInvalidationLogDto;
 import com.dreamy.aspect.RequirePermission;
+import com.dreamy.infra.CdnInvalidationService;
+import com.dreamy.security.AuthContext;
+import com.dreamy.security.AuthPrincipal;
 import huihao.page.Paginated;
 import huihao.web.R;
 import org.springframework.http.ResponseEntity;
@@ -12,19 +16,24 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 后台缓存管理控制器（发布中心 - 缓存失效监控）。
- * 权限点：/cache（运维功能，通常限超管或运维角色）。
+ * 权限点：/publish（与前端路由一致，permission 表 id=18）。
  */
 @RestController
 public class AdminCacheController {
 
-    private static final String PERMISSION = "/cache";
+    private static final String PERMISSION = "/publish";
 
     private final AdminCacheService cacheService;
+    private final CdnInvalidationService cdnService;
 
-    public AdminCacheController(AdminCacheService cacheService) {
+    public AdminCacheController(AdminCacheService cacheService, CdnInvalidationService cdnService) {
         this.cacheService = cacheService;
+        this.cdnService = cdnService;
     }
 
     /**
@@ -53,14 +62,49 @@ public class AdminCacheController {
      * 手动触发缓存失效（运维工具）。
      * POST /api/admin/cache/invalidate
      * @param request 包含 paths（路径数组）或 slug + resourceType
-     * @return 触发结果
+     * @return 触发结果，包含新建日志 ID
      */
     @RequirePermission(PERMISSION)
     @PostMapping("/api/admin/cache/invalidate")
-    public ResponseEntity<R<String>> manualInvalidate(@RequestBody ManualInvalidateRequest request) {
-        // TODO: 实现手动触发逻辑（调用 ContentInvalidatedPublisher 或直接调用 CDN API）
-        // 这里先返回占位响应
-        return ResponseEntity.ok(R.ok("手动失效功能开发中"));
+    public ResponseEntity<R<ManualInvalidateResponse>> manualInvalidate(@RequestBody ManualInvalidateRequest request) {
+        AuthPrincipal principal = AuthContext.get();
+        String triggeredBy = principal != null ? "admin:" + principal.subject() : "admin";
+
+        List<String> paths = new ArrayList<>();
+        if (request.paths() != null && request.paths().length > 0) {
+            for (String p : request.paths()) {
+                if (p != null && !p.isBlank()) {
+                    paths.add(p);
+                }
+            }
+        } else if (request.slug() != null && request.resourceType() != null) {
+            // 根据 slug + resourceType 推测路径
+            String slug = request.slug();
+            for (String locale : List.of("en", "es", "fr")) {
+                String prefix = "en".equals(locale) ? "" : "/" + locale;
+                paths.add(prefix + "/" + request.resourceType() + "/" + slug);
+            }
+        }
+
+        if (paths.isEmpty()) {
+            return ResponseEntity.badRequest().body(R.fail(400, "paths 或 slug+resourceType 至少提供一项"));
+        }
+
+        Long logId = cacheService.logInvalidation(
+                "manual_invalidate",
+                request.resourceType() != null ? request.resourceType() : "manual",
+                null,
+                request.slug(),
+                null,
+                List.of("en", "es", "fr"),
+                triggeredBy,
+                paths
+        );
+
+        // 异步触发 CDN 清除并回写状态
+        cdnService.invalidatePaths(paths, logId);
+
+        return ResponseEntity.ok(R.ok(new ManualInvalidateResponse(logId, paths.size())));
     }
 
     /**
@@ -71,4 +115,9 @@ public class AdminCacheController {
             String slug,
             String resourceType
     ) {}
+
+    /**
+     * 手动失效响应。
+     */
+    public record ManualInvalidateResponse(Long logId, int pathCount) {}
 }

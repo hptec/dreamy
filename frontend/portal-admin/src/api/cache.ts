@@ -1,5 +1,5 @@
 import { http } from './client'
-import type { Paginated } from './types'
+import type { PageResult } from './types'
 
 /**
  * 缓存失效日志 DTO
@@ -30,8 +30,8 @@ export async function getInvalidationLogs(params?: {
   eventType?: string
   resourceType?: string
   status?: number
-}): Promise<Paginated<CacheInvalidationLog>> {
-  const { data } = await http.get<Paginated<CacheInvalidationLog>>('/api/admin/cache/invalidation-logs', { params })
+}): Promise<PageResult<CacheInvalidationLog>> {
+  const { data } = await http.get<PageResult<CacheInvalidationLog>>('/api/admin/cache/invalidation-logs', { params })
   return data
 }
 
