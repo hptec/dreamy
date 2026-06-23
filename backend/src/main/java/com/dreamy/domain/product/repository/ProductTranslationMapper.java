@@ -15,12 +15,12 @@ import java.util.List;
 @Mapper
 public interface ProductTranslationMapper extends BaseMapper<ProductTranslation> {
 
-    /** RM-CAT-103 ES/FR 附表检索：MATCH(name, subtitle) AGAINST(?) AND locale=?，JOIN 主表 published */
+    /** RM-CAT-103 ES/FR 附表检索：MATCH(name) AGAINST(?) AND locale=?，JOIN 主表 published */
     @Select("SELECT pt.product_id FROM product_translation pt "
             + "JOIN product p ON p.id = pt.product_id AND p.status = 2 "
             + "WHERE pt.locale = #{locale} "
-            + "AND MATCH(pt.name, pt.subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
-            + "ORDER BY MATCH(pt.name, pt.subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) DESC "
+            + "AND MATCH(pt.name) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
+            + "ORDER BY MATCH(pt.name) AGAINST(#{q} IN NATURAL LANGUAGE MODE) DESC "
             + "LIMIT 500")
     List<Long> fulltextSearch(@Param("q") String q, @Param("locale") String locale);
 }

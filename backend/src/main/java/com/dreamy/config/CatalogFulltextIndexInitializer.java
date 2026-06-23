@@ -28,9 +28,9 @@ public class CatalogFulltextIndexInitializer {
     @EventListener(ApplicationReadyEvent.class)
     public void ensureFulltextIndexes() {
         ensureIndex("product", "ft_product_search",
-                "ALTER TABLE product ADD FULLTEXT INDEX ft_product_search (name, subtitle) WITH PARSER ngram");
+                "ALTER TABLE product ADD FULLTEXT INDEX ft_product_search (name) WITH PARSER ngram");
         ensureIndex("product_translation", "ft_pt_search",
-                "ALTER TABLE product_translation ADD FULLTEXT INDEX ft_pt_search (name, subtitle) WITH PARSER ngram");
+                "ALTER TABLE product_translation ADD FULLTEXT INDEX ft_pt_search (name) WITH PARSER ngram");
     }
 
     private void ensureIndex(String table, String indexName, String ddl) {

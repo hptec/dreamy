@@ -18,10 +18,10 @@ import java.util.Map;
 @Mapper
 public interface ProductMapper extends BaseMapper<Product> {
 
-    /** RM-CAT-084 EN 主检索：MATCH(name, subtitle) AGAINST(? IN NATURAL LANGUAGE MODE) AND status=published */
+    /** RM-CAT-084 EN 主检索：MATCH(name) AGAINST(? IN NATURAL LANGUAGE MODE) AND status=published */
     @Select("SELECT id FROM product WHERE status = 2 "
-            + "AND MATCH(name, subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
-            + "ORDER BY MATCH(name, subtitle) AGAINST(#{q} IN NATURAL LANGUAGE MODE) DESC "
+            + "AND MATCH(name) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
+            + "ORDER BY MATCH(name) AGAINST(#{q} IN NATURAL LANGUAGE MODE) DESC "
             + "LIMIT 500")
     List<Long> fulltextSearchMain(@Param("q") String q);
 
