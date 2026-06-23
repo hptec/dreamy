@@ -597,6 +597,8 @@ export interface ShowroomSummary {
   weddingDate?: string
   itemCount?: number
   memberCount?: number
+  /** 列表卡片封面：最近添加款式的商品图（至多 4 张），空房省略 */
+  coverImages?: string[]
 }
 
 export interface ShowroomComment {

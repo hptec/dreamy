@@ -17,12 +17,15 @@ import com.dreamy.dto.ShowroomDtos.ShowroomUpsert;
 import com.dreamy.error.ShowroomErrorCode;
 import com.dreamy.error.ShowroomException;
 import com.dreamy.infra.ShowroomTxRunner;
+import com.dreamy.port.ShowroomCatalogSnapshotPort;
+import com.dreamy.port.ShowroomCatalogSnapshotPort.ProductCardBrief;
 import com.dreamy.support.ShowroomFieldErrors;
 import com.dreamy.support.ShowroomValidation;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,24 +40,29 @@ import java.util.UUID;
 @Service
 public class StoreShowroomService {
 
+    /** 列表封面拼贴每房最多取图数（最近添加优先） */
+    private static final int COVER_LIMIT = 4;
+
     private final ShowroomRepository showroomRepository;
     private final ShowroomItemRepository itemRepository;
     private final ShowroomMemberRepository memberRepository;
     private final ShowroomVoteRepository voteRepository;
     private final ShowroomCommentRepository commentRepository;
     private final ShowroomDetailAssembler assembler;
+    private final ShowroomCatalogSnapshotPort catalogPort;
     private final ShowroomTxRunner tx;
 
     public StoreShowroomService(ShowroomRepository showroomRepository, ShowroomItemRepository itemRepository,
                                 ShowroomMemberRepository memberRepository, ShowroomVoteRepository voteRepository,
                                 ShowroomCommentRepository commentRepository, ShowroomDetailAssembler assembler,
-                                ShowroomTxRunner tx) {
+                                ShowroomCatalogSnapshotPort catalogPort, ShowroomTxRunner tx) {
         this.showroomRepository = showroomRepository;
         this.itemRepository = itemRepository;
         this.memberRepository = memberRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
         this.assembler = assembler;
+        this.catalogPort = catalogPort;
         this.tx = tx;
     }
 
@@ -97,18 +105,39 @@ public class StoreShowroomService {
     public ShowroomListDto list(Long ownerId) {
         // STEP-SHR-01 仅返回当前用户创建的（owner 强隔离读侧形态，RM-SHR-004）
         List<Showroom> showrooms = showroomRepository.listByOwner(ownerId);
+        List<Long> showroomIds = showrooms.stream().map(Showroom::getId).toList();
         // STEP-SHR-02 批量派生计数（RM-SHR-009 两条 GROUP BY IN，NP-SHR-001）
-        Map<Long, SummaryCounts> counts = showroomRepository.countSummary(
-                showrooms.stream().map(Showroom::getId).toList());
+        Map<Long, SummaryCounts> counts = showroomRepository.countSummary(showroomIds);
+        // STEP-SHR-02b 封面拼贴：批查每房最近 4 个 product_id，单次 catalogPort 解析图 URL（NP-SHR-001）
+        Map<Long, List<Long>> coverIdsByRoom = showroomRepository.coverProductIds(showroomIds, COVER_LIMIT);
+        List<Long> allCoverIds = coverIdsByRoom.values().stream().flatMap(List::stream).distinct().toList();
+        Map<Long, ProductCardBrief> cards = allCoverIds.isEmpty()
+                ? Map.of() : catalogPort.getProductCards(allCoverIds, "en");
         // STEP-SHR-03 MAP-SHR-001（不含 invite_token）
         List<ShowroomSummaryDto> items = showrooms.stream()
                 .map(s -> {
                     SummaryCounts c = counts.getOrDefault(s.getId(), new SummaryCounts(0, 0));
+                    List<String> coverImages = resolveCoverImages(coverIdsByRoom.get(s.getId()), cards);
                     return new ShowroomSummaryDto(s.getId(), s.getOwnerId(), s.getName(), s.getWeddingDate(),
-                            c.itemCount(), c.memberCount());
+                            c.itemCount(), c.memberCount(), coverImages);
                 })
                 .toList();
         return new ShowroomListDto(items);
+    }
+
+    /** 按 product_id 顺序（最近添加优先）取已发布商品的非空 image_url；无图省略，全空返回 null（NON_NULL 不输出字段） */
+    private static List<String> resolveCoverImages(List<Long> productIds, Map<Long, ProductCardBrief> cards) {
+        if (productIds == null || productIds.isEmpty()) {
+            return null;
+        }
+        List<String> urls = new ArrayList<>();
+        for (Long pid : productIds) {
+            ProductCardBrief card = cards.get(pid);
+            if (card != null && card.imageUrl() != null && !card.imageUrl().isBlank()) {
+                urls.add(card.imageUrl());
+            }
+        }
+        return urls.isEmpty() ? null : urls;
     }
 
     // ==================== E-SHR-03 getShowroom（owner 分支；guest 分支见 Controller 分流） ===========

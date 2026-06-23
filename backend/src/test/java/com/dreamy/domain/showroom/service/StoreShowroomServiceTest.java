@@ -63,13 +63,15 @@ class StoreShowroomServiceTest {
     ShowroomCommentRepository commentRepository;
     @Mock
     ShowroomDetailAssembler assembler;
+    @Mock
+    com.dreamy.port.ShowroomCatalogSnapshotPort catalogPort;
 
     StoreShowroomService service;
 
     @BeforeEach
     void setUp() {
         service = new StoreShowroomService(showroomRepository, itemRepository, memberRepository,
-                voteRepository, commentRepository, assembler, new ImmediateShowroomTxRunner());
+                voteRepository, commentRepository, assembler, catalogPort, new ImmediateShowroomTxRunner());
     }
 
     @Test
@@ -110,6 +112,29 @@ class StoreShowroomServiceTest {
         assertThat(list.items()).hasSize(1);
         assertThat(list.items().get(0).itemCount()).isEqualTo(3);
         assertThat(list.items().get(0).memberCount()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("列表：封面取最近添加款式商品图（按 product_id 顺序，缺图省略）")
+    void listResolvesCoverImages() {
+        Showroom room = new Showroom();
+        room.setId(ROOM);
+        room.setOwnerId(OWNER);
+        room.setName("R");
+        when(showroomRepository.listByOwner(OWNER)).thenReturn(List.of(room));
+        when(showroomRepository.countSummary(List.of(ROOM)))
+                .thenReturn(Map.of(ROOM, new ShowroomRepository.SummaryCounts(2, 0)));
+        when(showroomRepository.coverProductIds(List.of(ROOM), 4))
+                .thenReturn(Map.of(ROOM, List.of(101L, 102L)));
+        when(catalogPort.getProductCards(List.of(101L, 102L), "en")).thenReturn(Map.of(
+                101L, new com.dreamy.port.ShowroomCatalogSnapshotPort.ProductCardBrief(
+                        101L, "s1", "Dress 1", null, "https://cdn/img1.jpg", null, null, true),
+                102L, new com.dreamy.port.ShowroomCatalogSnapshotPort.ProductCardBrief(
+                        102L, "s2", "Dress 2", null, "https://cdn/img2.jpg", null, null, true)));
+
+        var list = service.list(OWNER);
+        assertThat(list.items().get(0).coverImages())
+                .containsExactly("https://cdn/img1.jpg", "https://cdn/img2.jpg");
     }
 
     @Test

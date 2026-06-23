@@ -53,10 +53,13 @@ public final class ShowroomDtos {
                                 Boolean customSizeAvailable, Integer leadTimeDays) {
     }
 
-    /** ShowroomSummary（MAP-SHR-001：不含 invite_token/invite_version/invite_token_prev） */
+    /**
+     * ShowroomSummary（MAP-SHR-001：不含 invite_token/invite_version/invite_token_prev）。
+     * coverImages：最近添加款式（id DESC）的商品图 URL，至多 4 张，供列表卡片拼贴封面；空房省略。
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ShowroomSummaryDto(Long id, Long ownerId, String name, LocalDate weddingDate,
-                                     Integer itemCount, Integer memberCount) {
+                                     Integer itemCount, Integer memberCount, List<String> coverImages) {
     }
 
     /** ShowroomComment（MAP-SHR-005：nickname 联 member 派生） */

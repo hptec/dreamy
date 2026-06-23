@@ -87,12 +87,7 @@ export default function ShowroomListPage() {
             return (
               <article key={s.id} className="group relative flex flex-col rounded-sm border border-line bg-surface transition-shadow hover:shadow-card">
                 <Link href={`/showroom/${s.id}`} className="block p-6 pb-0">
-                  {/* 封面占位（显式偏离①：Summary 无 items，封面图改计数占位） */}
-                  <div className="flex h-32 items-center justify-center gap-2 overflow-hidden rounded-sm bg-muted">
-                    <span className="flex items-center gap-2 text-xs text-ink-faint">
-                      <Shirt className="h-4 w-4 text-gold" /> {s.itemCount ?? 0} {s.itemCount === 1 ? 'style' : 'styles'} saved
-                    </span>
-                  </div>
+                  <CoverCollage images={s.coverImages} itemCount={s.itemCount ?? 0} />
                   <h2 className="mt-4 font-display text-2xl font-medium leading-snug transition-colors group-hover:text-gold-deep">{s.name}</h2>
                 </Link>
                 <div className="flex flex-1 flex-col p-6 pt-2">
@@ -154,6 +149,36 @@ export default function ShowroomListPage() {
           {toast}
         </div>
       )}
+    </div>
+  )
+}
+
+/** 封面拼贴（E-SHR-02）：1-4 张商品图按数量自适应网格；空房回退到精致渐变占位 */
+function CoverCollage({ images, itemCount }: { images?: string[]; itemCount: number }) {
+  const pics = (images ?? []).slice(0, 4)
+
+  if (pics.length === 0) {
+    return (
+      <div className="relative flex h-32 items-center justify-center overflow-hidden rounded-sm bg-gradient-to-br from-blush-light via-muted to-canvas">
+        <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #2B2925 1px, transparent 0)', backgroundSize: '12px 12px' }} aria-hidden="true" />
+        <span className="relative flex flex-col items-center gap-1.5 text-ink-faint">
+          <Shirt className="h-6 w-6 text-gold" strokeWidth={1.5} />
+          <span className="text-[11px] uppercase tracking-luxe">{itemCount === 0 ? 'No styles yet' : `${itemCount} ${itemCount === 1 ? 'style' : 'styles'} saved`}</span>
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`grid h-32 gap-0.5 overflow-hidden rounded-sm bg-muted ${pics.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} ${pics.length >= 3 ? 'grid-rows-2' : ''}`}>
+      {pics.map((src, i) => {
+        // 3 图：首图占左列竖向通栏；其余右列堆叠
+        const span = pics.length === 3 && i === 0 ? 'row-span-2' : ''
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={src} alt="" aria-hidden="true" className={`h-full w-full object-cover ${span}`} />
+        )
+      })}
     </div>
   )
 }

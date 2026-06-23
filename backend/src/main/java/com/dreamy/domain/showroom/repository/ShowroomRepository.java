@@ -10,6 +10,7 @@ import com.dreamy.domain.showroom.entity.ShowroomItem;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -124,6 +125,29 @@ public class ShowroomRepository {
                         .groupBy("showroom_id")));
         for (Long id : showroomIds) {
             result.put(id, new SummaryCounts(itemCounts.getOrDefault(id, 0), memberCounts.getOrDefault(id, 0)));
+        }
+        return result;
+    }
+
+    /**
+     * 列表卡片封面 product_id 批查（E-SHR-02 封面拼贴）：单条 IN 取相关行的
+     * (showroom_id, product_id)，按 id DESC（最近添加优先）分组，每房至多 maxPerRoom 个去重 product_id。
+     * 单次查询防 N+1（NP-SHR-001 同范式）；图 URL 解析交由 catalogPort 批量完成。
+     */
+    public Map<Long, List<Long>> coverProductIds(Collection<Long> showroomIds, int maxPerRoom) {
+        Map<Long, List<Long>> result = new HashMap<>();
+        if (showroomIds == null || showroomIds.isEmpty() || maxPerRoom <= 0) {
+            return result;
+        }
+        List<ShowroomItem> rows = itemMapper.selectList(new LambdaQueryWrapper<ShowroomItem>()
+                .select(ShowroomItem::getShowroomId, ShowroomItem::getProductId)
+                .in(ShowroomItem::getShowroomId, showroomIds)
+                .orderByDesc(ShowroomItem::getId));
+        for (ShowroomItem row : rows) {
+            List<Long> ids = result.computeIfAbsent(row.getShowroomId(), k -> new ArrayList<>());
+            if (ids.size() < maxPerRoom && !ids.contains(row.getProductId())) {
+                ids.add(row.getProductId());
+            }
         }
         return result;
     }

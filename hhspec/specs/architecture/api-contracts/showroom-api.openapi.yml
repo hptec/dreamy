@@ -642,6 +642,11 @@ components:
         member_count:
           type: integer
           description: 成员数（派生）
+        cover_images:
+          type: array
+          items:
+            type: string
+          description: 列表卡片封面图 URL（最近添加款式商品图，至多 4 张；空房省略该字段）
     ShowroomDetail:
       allOf:
         - $ref: '#/components/schemas/ShowroomSummary'
