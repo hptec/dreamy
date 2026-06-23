@@ -11,7 +11,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -78,6 +80,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<R<Object>> handleNoResource(NoResourceFoundException ex, HttpServletRequest req) {
         log.debug("[NOT_FOUND] {}", reqLine(req));
         return build(ErrorCode.NOT_FOUND, null);
+    }
+
+    /**
+     * 请求方法不支持（如 GET 访问仅 POST 的端点）→ 40500 METHOD_NOT_ALLOWED。
+     * 客户端错误，不打 ERROR 堆栈（符合 LOG-02「预期客户端错误不打日志」）。
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<R<Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
+        log.debug("[METHOD_NOT_ALLOWED] {} method={}", reqLine(req), ex.getMethod());
+        return build(ErrorCode.METHOD_NOT_ALLOWED, null);
+    }
+
+    /**
+     * 请求体不可读（如 body 缺失、JSON 格式错误）→ 40010 BAD_REQUEST_BODY。
+     * 客户端错误，不打 ERROR 堆栈（符合 LOG-02）。
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<R<Object>> handleNotReadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+        log.debug("[BAD_REQUEST_BODY] {}", reqLine(req));
+        return build(ErrorCode.BAD_REQUEST_BODY, null);
     }
 
     /** 兜底：未预期异常（PATH-04 EX-30）→ 50000 INTERNAL_ERROR，不暴露细节 */

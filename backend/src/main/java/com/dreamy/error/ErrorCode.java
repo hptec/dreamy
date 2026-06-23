@@ -14,6 +14,7 @@ public enum ErrorCode {
     VALIDATION_ERROR(40000, 422, "error.40000"),
     INVALID_EMAIL(40001, 422, "error.40001"),
     CONFIG_OUT_OF_RANGE(40002, 422, "error.40002"),
+    BAD_REQUEST_BODY(40010, 400, "error.40010"),
 
     // ===== 401 未认证 =====
     UNAUTHORIZED(40100, 401, "error.40100"),
@@ -34,6 +35,9 @@ public enum ErrorCode {
 
     // ===== 404 不存在 =====
     NOT_FOUND(40400, 404, "error.40400"),
+
+    // ===== 405 方法不允许 =====
+    METHOD_NOT_ALLOWED(40500, 405, "error.40500"),
 
     // ===== 409 冲突 =====
     EMAIL_EXISTS(40901, 409, "error.40901"),
