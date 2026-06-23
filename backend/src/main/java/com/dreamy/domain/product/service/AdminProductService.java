@@ -493,7 +493,6 @@ public class AdminProductService {
         product.setName(req.name().trim());
         product.setSlug(req.slug());
         product.setCategoryId(req.categoryId());
-        product.setProductType(req.productType());
         product.setDescription(req.description());
         product.setDesignerNote(req.designerNote());
         product.setSellingPoints(req.sellingPoints());
@@ -580,7 +579,7 @@ public class AdminProductService {
                         t.getSeoTitle(), t.getSeoDescription()))
                 .toList();
         return new AdminProductDetail(product.getId(), product.getName(), product.getSlug(),
-                product.getCategoryId(), product.getProductType(),
+                product.getCategoryId(),
                 product.getDescription(), product.getDesignerNote(), product.getSellingPoints(),
                 product.getPrice(), product.getCompareAt(),
                 product.getInstallment(), product.getMultiCurrencyPrices(),

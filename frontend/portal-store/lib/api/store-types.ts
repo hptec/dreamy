@@ -131,7 +131,6 @@ export interface StoreFilterDim {
 export interface StoreProductDetail extends StoreProductCard {
   categoryId: number
   categoryName?: string
-  productType?: string
   description?: string
   designerNote?: string
   leadTimeDays: number

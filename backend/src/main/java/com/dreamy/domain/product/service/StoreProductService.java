@@ -254,7 +254,7 @@ public class StoreProductService {
         return new StoreProductDetail(
                 product.getId(), product.getSlug(),
                 ProductCardAssembler.pick(tr == null ? null : tr.getName(), product.getName()),
-                product.getCategoryId(), categoryName, product.getProductType(),
+                product.getCategoryId(), categoryName,
                 ProductCardAssembler.pick(tr == null ? null : tr.getDescription(), product.getDescription()),
                 ProductCardAssembler.pick(tr == null ? null : tr.getDesignerNote(), product.getDesignerNote()),
                 ProductCardAssembler.pickList(tr == null ? null : tr.getSellingPoints(), product.getSellingPoints()),

@@ -47,9 +47,6 @@ public class Product extends LongAuditableEntity {
     @Column(name = ProductDBConst.CATEGORY_ID, definition = "bigint NOT NULL COMMENT '逻辑外键 category.id（CV-CAT-005）'")
     private Long categoryId;
 
-    @Column(name = ProductDBConst.PRODUCT_TYPE, definition = "varchar(64) NULL")
-    private String productType;
-
     @Column(name = ProductDBConst.DESCRIPTION, definition = "text NULL COMMENT '富文本介绍'")
     private String description;
 

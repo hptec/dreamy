@@ -15,7 +15,6 @@ public record AdminProductUpsert(
         String name,
         String slug,
         Long categoryId,
-        String productType,
         String description,
         String designerNote,
         List<String> sellingPoints,

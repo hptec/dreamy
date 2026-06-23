@@ -292,7 +292,6 @@ export interface AdminProductUpsert {
   slug: string
   sellingPoints?: string[] | null
   categoryId: number | null
-  productType?: string | null
   description?: string | null
   designerNote?: string | null
   price: number | string

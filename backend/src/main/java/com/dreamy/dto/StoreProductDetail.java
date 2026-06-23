@@ -15,7 +15,6 @@ public record StoreProductDetail(
         String name,
         Long categoryId,
         String categoryName,
-        String productType,
         String description,
         String designerNote,
         List<String> sellingPoints,

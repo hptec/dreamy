@@ -20,7 +20,6 @@ export const fieldI18nPolicy: Record<string, Record<string, FieldI18nPolicy>> = 
     seoDescription: 'translate',
     fabricCareNote: 'translate',
     status: 'system',
-    productType: 'system',
     slug: 'none',
     styleNo: 'none',
   },

@@ -298,7 +298,6 @@ public final class ProductUpsertValidator {
 
     /** V-CAT-036 文本长度上限（er-diagram 对齐，CV-CAT-002） */
     private static void validateTextLimits(AdminProductUpsert u, CatalogFieldErrors errors) {
-        check(u.productType(), 64, "product_type", errors);
         check(u.styleNo(), 32, "style_no", errors);
         check(u.seoTitle(), 128, "seo_title", errors);
         check(u.seoDesc(), 255, "seo_desc", errors);

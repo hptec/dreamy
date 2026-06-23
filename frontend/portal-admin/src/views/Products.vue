@@ -32,10 +32,9 @@ const collections = useCollectionsStore()
 const toast = useToastStore()
 
 // 更多筛选状态（COMP-CAT-A01：当前页内存过滤，与原型行为一致并 tooltip 标注；
-// ISS-L4U-001 修复：补 productTypes 字段并接通 商品类型/主题标签 两组 UI——原型 L143-153/L190-200）
+// ISS-L4U-001 修复：接通 主题标签 筛选 UI——原型 L190-200）
 const showMoreFilters = ref(false)
 const moreFilters = ref({
-  productTypes: [] as string[],
   priceMin: '' as string,
   priceMax: '' as string,
   stockLevel: 'all' as 'all' | 'inStock' | 'low' | 'out',
@@ -78,10 +77,10 @@ function toggleIn<T>(list: T[], value: T) {
   else list.splice(i, 1)
 }
 
-// ISS-L4U-001：productType/collectionIds 非 AdminProductListItem 契约字段（catalog-api listAdminProducts），
+// ISS-L4U-001：collectionIds 非 AdminProductListItem 契约字段（catalog-api listAdminProducts），
 // 面板展开时经详情接口（GET /api/admin/products/{id}）按页懒加载缓存，沿用现有 api 层；
-// 行级失败静默降级（该行不参与两组新筛选），不阻断面板其余筛选
-const rowMeta = ref<Record<number, { productType: string | null; collectionIds: number[] }>>({})
+// 行级失败静默降级（该行不参与集合筛选），不阻断面板其余筛选
+const rowMeta = ref<Record<number, { collectionIds: number[] }>>({})
 const metaLoading = ref(false)
 async function ensureRowMeta() {
   const missing = store.list.filter((p) => !(p.id in rowMeta.value))
@@ -92,7 +91,7 @@ async function ensureRowMeta() {
       missing.map((p) => catalogApi.getProduct(p.id).catch(() => null)),
     )
     for (const d of details) {
-      if (d) rowMeta.value[d.id] = { productType: d.productType ?? null, collectionIds: d.collectionIds ?? [] }
+      if (d) rowMeta.value[d.id] = { collectionIds: d.collectionIds ?? [] }
     }
   } finally {
     metaLoading.value = false
@@ -102,19 +101,8 @@ watch([showMoreFilters, () => store.list], ([open]) => {
   if (open) ensureRowMeta()
 })
 
-// 商品类型选项：自当前页数据去重（原型 L31 同口径；服务端分页下以本页为界，与「当前页过滤」语义一致）
-const productTypeOptions = computed(() => {
-  const set = new Set<string>()
-  for (const p of store.list) {
-    const t = rowMeta.value[p.id]?.productType
-    if (t) set.add(t)
-  }
-  return [...set]
-})
-
 const activeMoreCount = computed(() => {
   let n = 0
-  n += moreFilters.value.productTypes.length
   n += moreFilters.value.flags.length
   n += moreFilters.value.collectionIds.length
   if (moreFilters.value.priceMin !== '' || moreFilters.value.priceMax !== '') n++
@@ -123,10 +111,10 @@ const activeMoreCount = computed(() => {
 })
 
 function resetMoreFilters() {
-  moreFilters.value = { productTypes: [], priceMin: '', priceMax: '', stockLevel: 'all', flags: [], collectionIds: [] }
+  moreFilters.value = { priceMin: '', priceMax: '', stockLevel: 'all', flags: [], collectionIds: [] }
 }
 
-/** 当前页内存过滤（高级项；productType/collectionIds 因 admin 列表契约无对应字段/参数，经 rowMeta 同为当前页过滤——设计标注） */
+/** 当前页内存过滤（高级项；collectionIds 因 admin 列表契约无对应字段/参数，经 rowMeta 同为当前页过滤——设计标注） */
 const filtered = computed(() =>
   store.list.filter((p) => {
     const f = moreFilters.value
@@ -139,9 +127,8 @@ const filtered = computed(() =>
     if (f.flags.includes('isNew') && !p.isNew) return false
     if (f.flags.includes('recommend') && !p.recommend) return false
     if (f.flags.includes('onSale') && !p.compareAt) return false
-    // ISS-L4U-001：meta 未就绪（懒加载中/行级失败）时该行暂不被两组新筛选排除，加载完成后响应式重算
+    // ISS-L4U-001：meta 未就绪（懒加载中/行级失败）时该行暂不被集合筛选排除，加载完成后响应式重算
     const meta = rowMeta.value[p.id]
-    if (f.productTypes.length && meta && !f.productTypes.includes(meta.productType ?? '')) return false
     if (f.collectionIds.length && meta && !f.collectionIds.some((id) => meta.collectionIds.includes(id))) return false
     return true
   }),
@@ -333,25 +320,9 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- 展开卡片（高级项为当前页过滤——tooltip 标注；5 组对照原型 L141-208，ISS-L4U-001 修复） -->
+      <!-- 展开卡片（高级项为当前页过滤——tooltip 标注；对照原型 L141-208，ISS-L4U-001 修复） -->
       <div v-if="showMoreFilters" class="border-t border-line px-4 pb-4 pt-4" title="高级筛选为当前页过滤">
-        <div class="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
-          <!-- 商品类型（原型 L143-153；选项自当前页数据去重，详情接口懒加载） -->
-          <div>
-            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">商品类型<span class="ml-1 normal-case tracking-normal">（当前页过滤）</span></p>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-if="metaLoading && !productTypeOptions.length" class="text-[12px] text-ink-faint">加载中…</span>
-              <span v-else-if="!productTypeOptions.length" class="text-[12px] text-ink-faint">本页商品未填写类型</span>
-              <button
-                v-for="t in productTypeOptions"
-                :key="t"
-                :class="moreFilters.productTypes.includes(t) ? 'bg-gold/10 border-gold text-ink font-medium' : 'border-line text-ink-soft hover:border-gold/50'"
-                class="rounded-full border px-2.5 py-0.5 text-[12px] transition"
-                @click="toggleIn(moreFilters.productTypes, t)"
-              >{{ t }}</button>
-            </div>
-          </div>
-
+        <div class="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-3">
           <!-- 库存状态 -->
           <div>
             <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">库存状态<span class="ml-1 normal-case tracking-normal">（当前页过滤）</span></p>

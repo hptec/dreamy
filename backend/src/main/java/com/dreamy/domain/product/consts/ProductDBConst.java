@@ -9,7 +9,6 @@ public interface ProductDBConst extends CatalogCommonDBConst {
 
     String SLUG = "slug";
     String CATEGORY_ID = "category_id";
-    String PRODUCT_TYPE = "product_type";
     String DESCRIPTION = "description";
     String DESIGNER_NOTE = "designer_note";
     String SELLING_POINTS = "selling_points";

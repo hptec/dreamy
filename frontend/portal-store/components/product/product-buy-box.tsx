@@ -174,7 +174,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
   return (
     <div className="lg:sticky lg:top-28">
       {badge && <div className="mb-3"><Badge variant={badge.variant}>{badge.label}</Badge></div>}
-      <p className="eyebrow">{product.categoryName ?? product.productType ?? ''}</p>
+      <p className="eyebrow">{product.categoryName ?? ''}</p>
       <h1 className="mt-1 font-display text-3xl font-medium leading-tight lg:text-4xl">{product.name}</h1>
       {(product.ratingCount ?? 0) > 0 && (
         <div className="mt-3 flex items-center gap-2">

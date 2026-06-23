@@ -25,7 +25,7 @@ import {
   PlusIcon, XMarkIcon, RocketLaunchIcon, ArrowLeftIcon, InformationCircleIcon, TrashIcon,
 } from '@heroicons/vue/24/outline'
 import { AttrVisibility, AttributeDefType, ImageKind, ProductStatus } from '@/api/types'
-import type { AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow, FabricComposition } from '@/api/types'
+import type { AdminProductDetail, AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow, FabricComposition } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -100,7 +100,6 @@ const form = ref({
   name: '',
   slug: '',
   categoryId: null as number | null,
-  productType: '',
   description: '',
   designerNote: '',
   sellingPoints: [] as string[],
@@ -384,6 +383,94 @@ function removeSizeRow(i: number) {
 
 /* ===================== 回读（编辑态） ===================== */
 
+/**
+ * 把后端返回的完整商品数据应用到本地状态。
+ * 抽出独立函数：保存成功后也复用同一份应用逻辑（用 updateProduct 返回的 saved 数据回填
+ * SKU id/version + serverUpdatedAt），避免再走 loadProduct 触发 loading 切换 ——
+ * v-if="loading" 会卸载右侧整个内容区导致浏览器滚动位置重置。
+ */
+function applyServerState(p: AdminProductDetail) {
+  serverUpdatedAt.value = p.updatedAt ?? null
+  Object.assign(form.value, {
+    name: p.name,
+    slug: p.slug,
+    categoryId: p.categoryId,
+    description: p.description || '',
+    designerNote: p.designerNote || '',
+    sellingPoints: [...(p.sellingPoints || [])],
+    price: p.price ?? '',
+    compareAt: p.compareAt ?? '',
+    installment: p.installment ?? true,
+    status: p.status,
+    isNew: !!p.isNew,
+    isBest: !!p.isBest,
+    recommend: !!p.recommend,
+    sort: p.sort ?? 0,
+    leadTimeDays: p.leadTimeDays ?? 14,
+    rushAvailable: !!p.rushAvailable,
+    customSizeAvailable: !!p.customSizeAvailable,
+    styleNo: p.styleNo || '',
+    seoTitle: p.seoTitle || '',
+    seoDesc: p.seoDesc || '',
+    collectionIds: [...(p.collectionIds || [])],
+    // [L2-COMP-FC-03] 面料成分/护理标签回填（缺失会导致保存时被整单删除）
+    fabricCompositions: (p.fabricCompositions || []).map((c) => ({ ...c })),
+    care: (p.care || []).map((c) => ({ ...c })),
+    fabricCareNote: p.fabricCareNote || '',
+  })
+  // 动态属性 entries 回读 → attrValues
+  const loadedAttrs: Record<string, string[]> = {}
+  for (const entry of p.attributes || []) {
+    if (entry.key && entry.values?.length) loadedAttrs[entry.key] = [...entry.values]
+  }
+  attrValues.value = loadedAttrs
+  loadedAttrKeys.value = new Set(Object.keys(loadedAttrs))
+  for (const cur of CURRENCIES) {
+    multiCurrency.value[cur] = p.multiCurrencyPrices?.[cur] != null ? String(p.multiCurrencyPrices[cur]) : ''
+  }
+  const byLocale = (l: 'es' | 'fr') => p.translations?.find((t) => t.locale === l)
+  const toTrans = (l: 'es' | 'fr'): Trans => {
+    const t = byLocale(l)
+    return {
+      name: t?.name || '',
+      description: t?.description || '',
+      sellingPoints: [...(t?.sellingPoints || [])],
+      seoTitle: t?.seoTitle || '',
+      seoDescription: t?.seoDescription || '',
+      designerNote: t?.designerNote || '',
+    }
+  }
+  trans.value = { es: toTrans('es'), fr: toTrans('fr') }
+
+  // 媒体分区
+  const imgs = (p.images || []).slice().sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+  gallery.value = imgs.filter((i) => i.kind === ImageKind.GALLERY)
+  lifestyle.value = imgs.filter((i) => i.kind === ImageKind.LIFESTYLE)
+  videos.value = imgs.filter((i) => i.kind === ImageKind.VIDEO)
+  swatches.value = imgs.filter((i) => i.kind === ImageKind.SWATCH)
+
+  // SKU 矩阵回读（携带 id+version 防并发——V-CAT-038）
+  const colors: string[] = []
+  const sizes: string[] = []
+  const map: Record<string, SkuCell> = {}
+  for (const s of p.skus || []) {
+    if (!colors.includes(s.color)) colors.push(s.color)
+    if (!sizes.includes(s.size)) sizes.push(s.size)
+    map[cellKey(s.color, s.size)] = {
+      id: s.id,
+      version: s.version,
+      skuCode: s.skuCode,
+      stock: String(s.stock ?? 0),
+    }
+  }
+  skuColors.value = colors
+  skuSizes.value = sizes
+  skuMap.value = map
+
+  sizeChart.value = (p.sizeChart || []).map((r) => ({ ...r }))
+  syncCascadeFromCategoryId()
+}
+
 async function loadProduct() {
   if (productId.value == null) {
     syncCascadeFromCategoryId()
@@ -392,86 +479,7 @@ async function loadProduct() {
   loading.value = true
   try {
     const p = await catalogApi.getProduct(productId.value)
-    serverUpdatedAt.value = p.updatedAt ?? null
-    Object.assign(form.value, {
-      name: p.name,
-      slug: p.slug,
-      categoryId: p.categoryId,
-      productType: p.productType || '',
-      description: p.description || '',
-      designerNote: p.designerNote || '',
-      sellingPoints: [...(p.sellingPoints || [])],
-      price: p.price ?? '',
-      compareAt: p.compareAt ?? '',
-      installment: p.installment ?? true,
-      status: p.status,
-      isNew: !!p.isNew,
-      isBest: !!p.isBest,
-      recommend: !!p.recommend,
-      sort: p.sort ?? 0,
-      leadTimeDays: p.leadTimeDays ?? 14,
-      rushAvailable: !!p.rushAvailable,
-      customSizeAvailable: !!p.customSizeAvailable,
-      styleNo: p.styleNo || '',
-      seoTitle: p.seoTitle || '',
-      seoDesc: p.seoDesc || '',
-      collectionIds: [...(p.collectionIds || [])],
-      // [L2-COMP-FC-03] 面料成分/护理标签回填（缺失会导致保存时被整单删除）
-      fabricCompositions: (p.fabricCompositions || []).map((c) => ({ ...c })),
-      care: (p.care || []).map((c) => ({ ...c })),
-      fabricCareNote: p.fabricCareNote || '',
-    })
-    // 动态属性 entries 回读 → attrValues
-    const loadedAttrs: Record<string, string[]> = {}
-    for (const entry of p.attributes || []) {
-      if (entry.key && entry.values?.length) loadedAttrs[entry.key] = [...entry.values]
-    }
-    attrValues.value = loadedAttrs
-    loadedAttrKeys.value = new Set(Object.keys(loadedAttrs))
-    for (const cur of CURRENCIES) {
-      multiCurrency.value[cur] = p.multiCurrencyPrices?.[cur] != null ? String(p.multiCurrencyPrices[cur]) : ''
-    }
-    const byLocale = (l: 'es' | 'fr') => p.translations?.find((t) => t.locale === l)
-    const toTrans = (l: 'es' | 'fr'): Trans => {
-      const t = byLocale(l)
-      return {
-        name: t?.name || '',
-        description: t?.description || '',
-        sellingPoints: [...(t?.sellingPoints || [])],
-        seoTitle: t?.seoTitle || '',
-        seoDescription: t?.seoDescription || '',
-        designerNote: t?.designerNote || '',
-      }
-    }
-    trans.value = { es: toTrans('es'), fr: toTrans('fr') }
-
-    // 媒体分区
-    const imgs = (p.images || []).slice().sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-    gallery.value = imgs.filter((i) => i.kind === ImageKind.GALLERY)
-    lifestyle.value = imgs.filter((i) => i.kind === ImageKind.LIFESTYLE)
-    videos.value = imgs.filter((i) => i.kind === ImageKind.VIDEO)
-    swatches.value = imgs.filter((i) => i.kind === ImageKind.SWATCH)
-
-    // SKU 矩阵回读（携带 id+version 防并发——V-CAT-038）
-    const colors: string[] = []
-    const sizes: string[] = []
-    const map: Record<string, SkuCell> = {}
-    for (const s of p.skus || []) {
-      if (!colors.includes(s.color)) colors.push(s.color)
-      if (!sizes.includes(s.size)) sizes.push(s.size)
-      map[cellKey(s.color, s.size)] = {
-        id: s.id,
-        version: s.version,
-        skuCode: s.skuCode,
-        stock: String(s.stock ?? 0),
-      }
-    }
-    skuColors.value = colors
-    skuSizes.value = sizes
-    skuMap.value = map
-
-    sizeChart.value = (p.sizeChart || []).map((r) => ({ ...r }))
-    syncCascadeFromCategoryId()
+    applyServerState(p)
   } catch (e) {
     toast.error(bizMsg(e, '加载商品失败'))
   } finally {
@@ -527,7 +535,6 @@ function buildPayload(status: ProductStatus): AdminProductUpsert {
       ? form.value.sellingPoints.filter(p => p.trim())
       : [],
     categoryId: form.value.categoryId,
-    productType: form.value.productType.trim() || null,
     description: form.value.description || null,
     designerNote: form.value.designerNote || null,
     price: form.value.price,
@@ -590,8 +597,9 @@ async function save() {
       // 新建商品：替换 URL 为编辑态
       router.replace(`/products/${saved.id}/edit`)
     } else {
-      // 编辑商品：重新加载数据
-      await loadProduct()
+      // 编辑商品：用接口返回数据局部更新（回填 SKU id/version + serverUpdatedAt），
+      // 不走 loadProduct —— 避免 loading 切换卸载内容区导致滚动位置重置
+      applyServerState(saved)
     }
   } catch (e) {
     if (e instanceof BizError) {
@@ -743,23 +751,16 @@ onMounted(async () => {
                 示例：Free Custom Sizing / 14-Day Production Time / Free Worldwide Shipping
               </p>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="field-label">标准品类 *（决定属性表单字段配置）</label>
-                <div class="flex gap-3">
-                  <SelectMenu v-model="parentCategoryIdLocal" :options="parentCategoryOptions" class="flex-1" @change="onParentChange" />
-                  <SelectMenu v-if="subcategories.length" v-model="form.categoryId" :options="subCategoryOptions" class="flex-1" />
-                </div>
-                <p class="mt-1.5 text-[11px] text-ink-faint">
-                  属性集：<strong>{{ attrSet.label }}</strong> · {{ visibleFieldCount }} 个字段
-                </p>
-                <p v-if="errors.categoryId" class="mt-1 text-[11px] text-danger">{{ errors.categoryId }}</p>
+            <div>
+              <label class="field-label">标准品类 *（决定属性表单字段配置）</label>
+              <div class="flex gap-3">
+                <SelectMenu v-model="parentCategoryIdLocal" :options="parentCategoryOptions" class="flex-1" @change="onParentChange" />
+                <SelectMenu v-if="subcategories.length" v-model="form.categoryId" :options="subCategoryOptions" class="flex-1" />
               </div>
-              <div>
-                <label class="field-label">商品类型（自由填写，用于筛选规则）</label>
-                <input v-model="form.productType" class="field" placeholder="如 Bridal Gown / Party Dress" />
-                <p class="mt-1.5 text-[11px] text-ink-faint">不影响属性表单，仅用于内部分组和自动化规则。</p>
-              </div>
+              <p class="mt-1.5 text-[11px] text-ink-faint">
+                属性集：<strong>{{ attrSet.label }}</strong> · {{ visibleFieldCount }} 个字段
+              </p>
+              <p v-if="errors.categoryId" class="mt-1 text-[11px] text-danger">{{ errors.categoryId }}</p>
             </div>
             <div>
               <label class="field-label">商品介绍（EN）</label>
