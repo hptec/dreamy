@@ -25,13 +25,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * Store 认证控制器（/api/store/auth/*）。
+/** Store 认证控制器（/api/store/auth/*）。
  * 约束: FLOW-01~04；V-001~007；FUNC-001~005/030；EDGE-001~006/022/024/025。
+ * 缓存：认证类接口一律不缓存（含 GET /config，因 authConfig 可被 admin 热更新，
+ *       CDN/浏览器缓存会导致旧 Google/Apple 开关残留）。
  */
 @RestController
 @RequestMapping("/api/store/auth")
 public class StoreAuthController {
+
+    private static final String NO_STORE = "private, no-store";
 
     private final OtpService otpService;
     private final IdentityService identityService;
@@ -98,7 +101,11 @@ public class StoreAuthController {
         return ResponseEntity.ok(R.ok(Map.of("tokens", tokenMap(pair))));
     }
 
-    /** 1.5 getStoreAuthConfig — GET /api/store/auth/config（FUNC-003） */
+    /** 1.5 getStoreAuthConfig — GET /api/store/auth/config（FUNC-003）
+     *  不缓存：admin 可热更新 Google/Apple 开关，CDN/浏览器缓存会导致登录页残留旧按钮。
+     *  前端 auth-config-store 已改为无客户端缓存（每次进登录页都请求），配合此处 no-store
+     *  实现 admin 改配置 → 用户刷新登录页立即生效，无需主动刷新 CDN。
+     */
     @GetMapping("/config")
     public ResponseEntity<R<Map<String, Object>>> getAuthConfig() {
         AuthConfigView cfg = authConfigService.getConfigView();
@@ -109,7 +116,7 @@ public class StoreAuthController {
         body.put("otp_length", cfg.otpLength());
         body.put("google_client_id", cfg.googleClientId());
         body.put("apple_service_id", cfg.appleServiceId());
-        return ResponseEntity.ok(R.ok(body));
+        return ResponseEntity.ok().header("Cache-Control", NO_STORE).body(R.ok(body));
     }
 
     // ===== helpers =====
