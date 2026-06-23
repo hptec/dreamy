@@ -5,6 +5,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CareItem } from '@/api/types'
 import { CheckIcon } from '@heroicons/vue/20/solid'
+import CareSymbolIcon from '@/components/CareSymbolIcon.vue'
 
 interface Props {
   modelValue: CareItem[]
@@ -125,14 +126,14 @@ watch(() => props.modelValue, (newItems) => {
           :disabled="readonly"
           @click="toggleSelection(item)"
         >
-          <!-- Unicode 符号 -->
-          <span
+          <!-- ISO 护理符号图标（与消费端同构 SVG） -->
+          <CareSymbolIcon
+            :symbol="item.symbol"
             :class="[
-              'text-3xl leading-none transition-colors',
+              'h-8 w-8 transition-colors',
               selectedSymbols.has(item.symbol) ? 'text-ink' : 'text-ink-soft group-hover:text-ink'
             ]"
-            aria-hidden="true"
-          >{{ item.symbol }}</span>
+          />
 
           <!-- 标签文本 -->
           <span

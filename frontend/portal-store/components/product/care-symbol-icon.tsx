@@ -71,3 +71,22 @@ export function CareSymbolIcon({ symbol, className = 'h-7 w-7' }: { symbol: stri
   if (!icon) return <span className="text-xl leading-none">{symbol}</span>
   return <span className={`inline-flex items-center justify-center ${className}`}>{icon}</span>
 }
+
+// symbol → i18n key（t.fabric.care[key]）。后端存的 label 是中文兜底，消费端按 symbol 取本地化文案。
+export const CARE_SYMBOL_KEYS = {
+  '🫧': 'handWashCold',
+  '🌀': 'machineWash30',
+  '🚫': 'doNotWash',
+  '🧊': 'doNotBleach',
+  '△': 'bleachOk',
+  '🌡': 'tumbleDryLow',
+  '🪝': 'lineDry',
+  '❌': 'doNotTumbleDry',
+  '♨': 'ironLow',
+  '💨': 'steamOnly',
+  '🚷': 'doNotIron',
+  '⭕': 'dryCleanOnly',
+  '⊗': 'doNotDryClean',
+} as const
+
+export type CareSymbolKey = (typeof CARE_SYMBOL_KEYS)[keyof typeof CARE_SYMBOL_KEYS]

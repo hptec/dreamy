@@ -143,6 +143,21 @@ export interface UiMessages {
       overlay: string
       trim: string
     }
+    care: {
+      handWashCold: string
+      machineWash30: string
+      doNotWash: string
+      doNotBleach: string
+      bleachOk: string
+      tumbleDryLow: string
+      lineDry: string
+      doNotTumbleDry: string
+      ironLow: string
+      steamOnly: string
+      doNotIron: string
+      dryCleanOnly: string
+      doNotDryClean: string
+    }
   }
   cookieConsent: {
     body: string
@@ -371,6 +386,21 @@ const en: UiMessages = {
       lining: 'Lining',
       overlay: 'Overlay',
       trim: 'Trim'
+    },
+    care: {
+      handWashCold: 'Hand wash cold',
+      machineWash30: 'Machine wash 30°C',
+      doNotWash: 'Do not wash',
+      doNotBleach: 'Do not bleach',
+      bleachOk: 'Bleach when needed',
+      tumbleDryLow: 'Tumble dry low',
+      lineDry: 'Line dry',
+      doNotTumbleDry: 'Do not tumble dry',
+      ironLow: 'Iron low heat',
+      steamOnly: 'Steam only',
+      doNotIron: 'Do not iron',
+      dryCleanOnly: 'Dry clean only',
+      doNotDryClean: 'Do not dry clean'
     }
   },
   cookieConsent: {
@@ -605,6 +635,21 @@ const es: DeepPartial<UiMessages> = {
       lining: 'Forro',
       overlay: 'Sobrecapa',
       trim: 'Ribete'
+    },
+    care: {
+      handWashCold: 'Lavar a mano en frio',
+      machineWash30: 'Lavar a maquina 30°C',
+      doNotWash: 'No lavar',
+      doNotBleach: 'No usar lejia',
+      bleachOk: 'Usar lejia si es necesario',
+      tumbleDryLow: 'Secadora temperatura baja',
+      lineDry: 'Secar al aire',
+      doNotTumbleDry: 'No usar secadora',
+      ironLow: 'Planchar a baja temperatura',
+      steamOnly: 'Solo vapor',
+      doNotIron: 'No planchar',
+      dryCleanOnly: 'Solo limpieza en seco',
+      doNotDryClean: 'No limpiar en seco'
     }
   },
   cookieConsent: {
@@ -839,6 +884,21 @@ const fr: DeepPartial<UiMessages> = {
       lining: 'Doublure',
       overlay: 'Surcouche',
       trim: 'Garniture'
+    },
+    care: {
+      handWashCold: 'Lavage a la main a froid',
+      machineWash30: 'Lavage en machine 30°C',
+      doNotWash: 'Ne pas laver',
+      doNotBleach: 'Ne pas blanchir',
+      bleachOk: 'Blanchir si necessaire',
+      tumbleDryLow: 'Sechage en machine doux',
+      lineDry: 'Sechage a l air libre',
+      doNotTumbleDry: 'Ne pas secher en machine',
+      ironLow: 'Repasser a basse temperature',
+      steamOnly: 'Vapeur uniquement',
+      doNotIron: 'Ne pas repasser',
+      dryCleanOnly: 'Nettoyage a sec uniquement',
+      doNotDryClean: 'Ne pas nettoyer a sec'
     }
   },
   cookieConsent: {

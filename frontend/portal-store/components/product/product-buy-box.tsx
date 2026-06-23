@@ -26,7 +26,7 @@ import { FindMySizeModal } from './find-my-size-modal'
 import { AddToShowroomModal } from '@/components/showroom/add-to-showroom-modal'
 import { badgeOf } from './product-card'
 import { colorOptionsOf, sizesFor, skuFor, swatchImageOf, primaryImageOf } from './product-utils'
-import { CareSymbolIcon } from './care-symbol-icon'
+import { CareSymbolIcon, CARE_SYMBOL_KEYS } from './care-symbol-icon'
 
 /** 根据卖点文本智能匹配图标 */
 function getIconForSellingPoint(point: string) {
@@ -43,12 +43,12 @@ function getIconForSellingPoint(point: string) {
   return <Check className="h-4 w-4 text-gold" />
 }
 
-// layer 数字 → 展示名（面料分组标签）
-const FABRIC_LAYER_NAMES: Record<number, string> = {
-  1: 'Shell',
-  2: 'Lining',
-  3: 'Overlay',
-  4: 'Trim'
+// layer 数字 → i18n key（t.fabric.layers[key]）
+const FABRIC_LAYER_KEYS: Record<number, 'shell' | 'lining' | 'overlay' | 'trim'> = {
+  1: 'shell',
+  2: 'lining',
+  3: 'overlay',
+  4: 'trim'
 }
 
 export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
@@ -337,13 +337,13 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
           </ul>
         </Accordion>
         {hasFabricCare && (
-          <Accordion title="Fabric & Care">
+          <Accordion title={t.fabric.headingFabricCare}>
             {hasFabric && (
               <div className="space-y-3">
                 {Array.from(compositionsByLayer.entries()).map(([layer, items]) => (
                   <div key={layer}>
                     <p className="mb-1 text-[11px] uppercase tracking-luxe text-gold">
-                      {FABRIC_LAYER_NAMES[layer] ?? `Layer ${layer}`}
+                      {t.fabric.layers[FABRIC_LAYER_KEYS[layer]] ?? `Layer ${layer}`}
                     </p>
                     <p>{items.map((c) => `${c.material} ${c.percentage}%`).join(', ')}</p>
                   </div>
@@ -352,12 +352,16 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
             )}
             {hasCare && (
               <div className={cn('flex flex-wrap gap-x-8 gap-y-3', hasFabric && 'mt-4')}>
-                {product.careInstructions!.map((item, idx) => (
-                  <div key={idx} className="flex flex-col items-center gap-1.5">
-                    <CareSymbolIcon symbol={item.symbol} className="h-7 w-7 text-ink" />
-                    <span className="text-[10px] uppercase tracking-luxe text-ink-faint">{item.label}</span>
-                  </div>
-                ))}
+                {product.careInstructions!.map((item, idx) => {
+                  const key = CARE_SYMBOL_KEYS[item.symbol as keyof typeof CARE_SYMBOL_KEYS]
+                  const label = key ? t.fabric.care[key] : item.label
+                  return (
+                    <div key={idx} className="flex flex-col items-center gap-1.5">
+                      <CareSymbolIcon symbol={item.symbol} className="h-7 w-7 text-ink" />
+                      <span className="text-[10px] uppercase tracking-luxe text-ink-faint">{label}</span>
+                    </div>
+                  )
+                })}
               </div>
             )}
             {product.fabricCareNote && (
