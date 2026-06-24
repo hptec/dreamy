@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Locale;
+
 /**
  * site_builder 消费端内容控制器（/api/store/content/*）。
  * 全部匿名公开（security: []）。
@@ -60,9 +62,12 @@ public class StoreSiteBuilderController {
             return fromQuery;
         }
         try {
-            String ctxLocale = RequestLocaleContext.current();
-            if (ctxLocale != null && !ctxLocale.isEmpty()) {
-                return ctxLocale;
+            Locale ctxLocale = RequestLocaleContext.get();
+            if (ctxLocale != null) {
+                String language = ctxLocale.getLanguage();
+                if (language != null && !language.isEmpty()) {
+                    return language;
+                }
             }
         } catch (Exception ignored) {
         }

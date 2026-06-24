@@ -1,7 +1,6 @@
 package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.banner.entity.Banner;
-import com.dreamy.domain.banner.entity.BannerTranslation;
 import com.dreamy.domain.banner.service.StoreBannerService;
 import com.dreamy.domain.category.service.StoreCategoryService;
 import com.dreamy.domain.product.service.StoreProductService;
@@ -15,7 +14,10 @@ import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
+import com.dreamy.dto.StoreCategoryNode;
 import com.dreamy.dto.StoreMarketingDtos.StoreBanner;
+import com.dreamy.dto.StoreMarketingDtos.StoreRealWedding;
+import com.dreamy.dto.StoreProductCard;
 import com.dreamy.dto.SiteBuilderDtos.StoreAnnouncementDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreAnnouncementListDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreFooterColumnDto;
@@ -28,6 +30,7 @@ import com.dreamy.dto.SiteBuilderDtos.StoreNavigationItemDto;
 import com.dreamy.enums.BannerPosition;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import huihao.page.Paginated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -104,8 +107,14 @@ public class StoreContentService {
                 data.putAll(i18n);
                 break;
             case "theme_cards":
+                data.putAll(deriveThemeCardsData(section, locale));
+                break;
             case "product_rail":
+                data.putAll(deriveProductRailData(section, locale));
+                break;
             case "editorial_feature":
+                data.putAll(deriveEditorialFeatureData(section, locale));
+                break;
             case "custom":
             default:
                 if (section.getDataJson() != null) {
@@ -123,9 +132,12 @@ public class StoreContentService {
         return data;
     }
 
+    /**
+     * Hero 派生：调用 StoreBannerService.list(HERO, locale) 取首个 banner。
+     * KD-14：返回 title/subtitle/cta_text/cta_link/cta_text_secondary/cta_link_secondary/image_url。
+     * 失败降级空 Hero + WARN（DG-01, 502801）。
+     */
     private Map<String, Object> deriveHeroData(String locale) {
-        // 跨域调用 BannerService.findByPosition(HERO, locale)（FLOW-SB05 STEP-03a）
-        // 失败降级空 Hero + WARN（DG-01, 502801）
         Map<String, Object> hero = new HashMap<>();
         try {
             List<StoreBanner> banners = bannerService.list(BannerPosition.HERO, locale);
@@ -134,14 +146,154 @@ public class StoreContentService {
                 hero.put("title", banner.title());
                 hero.put("subtitle", banner.subtitle());
                 hero.put("cta_text", banner.ctaText());
+                hero.put("cta_link", banner.ctaLink());
+                hero.put("cta_text_secondary", banner.ctaTextSecondary());
+                hero.put("cta_link_secondary", banner.ctaLinkSecondary());
                 hero.put("image_url", banner.imageUrl());
-                // KD-14：次要 CTA 字段（Banner record 当前未支持，后续扩展）
                 log.debug("[StoreContent] Hero data derived from Banner id={}", banner.id());
             }
         } catch (Exception e) {
             log.warn("[StoreContent] Hero BannerService unavailable, degrade to empty (DG-01)", e);
         }
         return hero;
+    }
+
+    /**
+     * ThemeCards 派生：调用 StoreCategoryService.listTree(locale) 取根分类（level=0）。
+     * data_json 可选 config：{ limit: 6 } 限制卡片数量。
+     * 失败降级空 cards + WARN（DG-02）。
+     */
+    private Map<String, Object> deriveThemeCardsData(HomePageSection section, String locale) {
+        Map<String, Object> data = new HashMap<>();
+        int limit = readIntConfig(section.getDataJson(), "limit", 6);
+        try {
+            List<StoreCategoryNode> tree = categoryService.listTree(locale);
+            List<Map<String, Object>> cards = new ArrayList<>();
+            for (StoreCategoryNode node : tree) {
+                if (cards.size() >= limit) break;
+                Map<String, Object> card = new HashMap<>();
+                card.put("id", node.id());
+                card.put("name", node.name());
+                card.put("product_count", node.productCount());
+                cards.add(card);
+            }
+            data.put("cards", cards);
+            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
+            data.putAll(sec);
+            log.debug("[StoreContent] ThemeCards derived {} categories", cards.size());
+        } catch (Exception e) {
+            log.warn("[StoreContent] ThemeCards CategoryService unavailable, degrade to empty (DG-02)", e);
+            data.put("cards", List.of());
+        }
+        return data;
+    }
+
+    /**
+     * ProductRail 派生：调用 StoreProductService.listProducts 取商品卡片。
+     * data_json config：{ limit: 8, category_id: 123, sort: "new" }。
+     * 失败降级空 products + WARN（DG-03）。
+     */
+    private Map<String, Object> deriveProductRailData(HomePageSection section, String locale) {
+        Map<String, Object> data = new HashMap<>();
+        int limit = readIntConfig(section.getDataJson(), "limit", 8);
+        Long categoryId = readLongConfig(section.getDataJson(), "category_id");
+        String sort = readStringConfig(section.getDataJson(), "sort", "new");
+        try {
+            StoreProductService.ListQuery q = new StoreProductService.ListQuery(
+                    locale, 1, limit, categoryId, null, null, null, null, null, sort, Map.of());
+            Paginated<StoreProductCard> page = productService.listProducts(q);
+            List<Map<String, Object>> products = page.getData().stream()
+                    .map(p -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("id", p.id());
+                        m.put("slug", p.slug());
+                        m.put("name", p.name());
+                        m.put("price", p.price());
+                        m.put("image_url", p.imageUrl());
+                        m.put("is_new", p.isNew());
+                        m.put("is_best", p.isBest());
+                        return m;
+                    })
+                    .collect(Collectors.toList());
+            data.put("products", products);
+            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
+            data.putAll(sec);
+            log.debug("[StoreContent] ProductRail derived {} products", products.size());
+        } catch (Exception e) {
+            log.warn("[StoreContent] ProductRail ProductService unavailable, degrade to empty (DG-03)", e);
+            data.put("products", List.of());
+        }
+        return data;
+    }
+
+    /**
+     * EditorialFeature 派生：调用 StoreWeddingService.page 取真实婚礼故事。
+     * data_json config：{ limit: 3 }。
+     * 失败降级空 stories + WARN（DG-04）。
+     */
+    private Map<String, Object> deriveEditorialFeatureData(HomePageSection section, String locale) {
+        Map<String, Object> data = new HashMap<>();
+        int limit = readIntConfig(section.getDataJson(), "limit", 3);
+        try {
+            Paginated<StoreRealWedding> page = weddingService.page(1, limit, locale);
+            List<Map<String, Object>> stories = page.getData().stream()
+                    .map(w -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("id", w.id());
+                        m.put("couple", w.couple());
+                        m.put("location", w.location());
+                        m.put("theme", w.theme());
+                        m.put("wedding_date", w.weddingDate());
+                        m.put("cover", w.cover());
+                        m.put("title", w.title());
+                        return m;
+                    })
+                    .collect(Collectors.toList());
+            data.put("stories", stories);
+            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
+            data.putAll(sec);
+            log.debug("[StoreContent] EditorialFeature derived {} stories", stories.size());
+        } catch (Exception e) {
+            log.warn("[StoreContent] EditorialFeature WeddingService unavailable, degrade to empty (DG-04)", e);
+            data.put("stories", List.of());
+        }
+        return data;
+    }
+
+    private int readIntConfig(String dataJson, String key, int defaultValue) {
+        if (dataJson == null) return defaultValue;
+        try {
+            JsonNode node = objectMapper.readTree(dataJson);
+            if (node.has(key) && node.get(key).isInt()) {
+                return node.get(key).asInt();
+            }
+        } catch (Exception ignored) {
+        }
+        return defaultValue;
+    }
+
+    private Long readLongConfig(String dataJson, String key) {
+        if (dataJson == null) return null;
+        try {
+            JsonNode node = objectMapper.readTree(dataJson);
+            if (node.has(key) && node.get(key).isLong()) {
+                return node.get(key).asLong();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private String readStringConfig(String dataJson, String key, String defaultValue) {
+        if (dataJson == null) return defaultValue;
+        try {
+            JsonNode node = objectMapper.readTree(dataJson);
+            if (node.has(key) && node.get(key).isTextual()) {
+                return node.get(key).asText();
+            }
+        } catch (Exception ignored) {
+        }
+        return defaultValue;
     }
 
     public StoreNavigationDto getNavigation(String locale) {

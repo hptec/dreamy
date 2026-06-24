@@ -119,14 +119,11 @@ VALUES (1, 0, 0, NOW())
 ON DUPLICATE KEY UPDATE updated_at = NOW();
 
 -- ===== 7. permission 表新增 site_builder 域权限点（KD-15） =====
-INSERT INTO permission (key, name, domain_code, description) VALUES
-('/site/home', '首页区块管理', 'site_builder', 'HomeBuilder 页面管理权限'),
-('/site/navigation', '导航与页脚管理', 'site_builder', 'NavigationConfig 页面管理权限'),
-('/site/announcement', '公告管理', 'site_builder', 'Announcement 管理权限')
-ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description);
+-- 注：权限点由 DataInitializer.initPermissions() 幂等种入（perm_code/group/label 字段），
+-- 已包含 /site/home, /site/navigation, /site/announcement 三条记录，此处不再重复 INSERT。
 
 -- ===== 8. BannerTranslation 扩展字段（KD-14：cta_*_secondary） =====
-ALTER TABLE banner_translations
+ALTER TABLE banner_translation
   ADD COLUMN cta_text_secondary VARCHAR(255) NULL COMMENT '次要 CTA 文案（KD-14）',
   ADD COLUMN cta_link_secondary VARCHAR(512) NULL COMMENT '次要 CTA 链接（KD-14）';
 

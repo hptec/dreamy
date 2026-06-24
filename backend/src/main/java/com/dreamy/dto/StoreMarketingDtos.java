@@ -16,9 +16,10 @@ public final class StoreMarketingDtos {
     private StoreMarketingDtos() {
     }
 
-    /** openapi StoreBanner（MAP-MKT-001：不暴露 clicks/status/start_time/end_time） */
+    /** openapi StoreBanner（MAP-MKT-001：不暴露 clicks/status/start_time/end_time；KD-14 扩展 cta_link + cta_*_secondary） */
     public record StoreBanner(Long id, String name, String imageUrl, Integer position, Integer sort,
-                              String title, String subtitle, String ctaText) implements Serializable {
+                              String title, String subtitle, String ctaText, String ctaLink,
+                              String ctaTextSecondary, String ctaLinkSecondary) implements Serializable {
     }
 
     /** openapi StoreBlogPostCard（MAP-MKT-003：excerpt——EN content strip 截断 200 / es·fr translation.excerpt 回退） */

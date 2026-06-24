@@ -53,7 +53,10 @@ public class StoreBannerService {
             items.add(new StoreBanner(b.getId(), b.getName(), b.getImageUrl(), b.getPosition().getKey(), b.getSort(),
                     Translations.coalesce(t == null ? null : t.getTitle(), b.getTitle()),
                     Translations.coalesce(t == null ? null : t.getSubtitle(), b.getSubtitle()),
-                    Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText())));
+                    Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText()),
+                    b.getCtaLink(),
+                    t == null ? null : t.getCtaTextSecondary(),
+                    t == null ? null : t.getCtaLinkSecondary()));
         }
         cache.put(Family.BANNERS, cacheKey, items);
         return items;

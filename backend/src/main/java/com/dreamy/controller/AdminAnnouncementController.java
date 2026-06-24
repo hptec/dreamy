@@ -42,7 +42,7 @@ public class AdminAnnouncementController {
             @RequestParam(defaultValue = "20") int page_size) {
         IPage<Announcement> p = announcementService.list(page, page_size, enabled_only);
         List<AnnouncementDto> items = p.getRecords().stream()
-                .map(announcementService::get)
+                .map(a -> announcementService.get(a.getId()))
                 .collect(Collectors.toList());
         Map<String, Object> paginated = Map.of(
                 "data", items,
