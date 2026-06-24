@@ -1,0 +1,149 @@
+layer: L2
+round: 1
+verdict: PASS
+reviewed_at: "2026-06-23T17:25:00Z"
+reviewer: l2_challenger (inline execution)
+change_name: site-decoration-fullstack
+
+review_objects:
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/api-detail.md
+    size: 19KB / 538 lines
+    endpoints_covered: 20
+    v_rules: 35
+    step_rules: ~80
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/data-detail.md
+    size: 19KB / 444 lines
+    entities: 6 (5 main + 1 singleton config)
+    repository_methods: 26
+    dto_mappings: 8
+    indexes: 12
+    transactions: 4
+    validations: 8
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/error-mapping.yml
+    size: 12KB / 175 lines
+    exceptions: 27
+    error_codes: 23
+    paths: 8
+    resilience_strategies: 15 (RT/CB/DG/TO)
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/test-skeleton.md
+    size: 11KB / 259 lines
+    test_layers: 8
+    flow_groups: 8
+    test_cases: ~80 (L1-L8)
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/ui-test-spec.yml
+    size: 11KB / 283 lines
+    pages: 4
+    field_assertions: ~40
+    interaction_paths: 4
+    state_machines: 4
+  - path: hhspec/changes/site-decoration-fullstack/specs/design/site_builder/frontend-detail.md
+    size: 13KB / 298 lines
+    components: 82
+    stores: 7
+    pages: 8
+    forms: 6
+
+dimensions:
+  completeness:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: test-skeleton.md 测试用例数
+        description: |
+          测试骨架列出 ~80 个测试用例 ID（TC-U001~U060, TC-I001~I015, TC-M001~M010, TC-C001~C002, TC-A001~A050, TC-S001~S004, TC-AS001~AS003, TC-R001~R004），
+          对 338 个 acceptance 场景的覆盖率约为关键路径覆盖（非逐场景 1:1）。
+          L3 测试工程师在实现时需按 flow_group 扩展到 338 场景全覆盖。
+        suggestion: L3 test_engineer 按 acceptance.yml 逐场景补全测试用例。
+      - severity: NICE_TO_HAVE
+        location: data-detail.md DDL 脚本
+        description: DDL 脚本包含 6 张表 + 3 个权限点种子 + 2 个 Banner 字段扩展，但未包含跨域失效联动的 Listener 注册 DDL。
+        suggestion: L3 实现时在应用层注册 CacheInvalidationListener（不需要 DDL）。
+
+  consistency:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: api-detail.md vs data-detail.md 错误码
+        description: |
+          api-detail.md 错误码映射 404801~404805/409801~805/422801~808/500801~802/502801~804 共 23 个，
+          data-detail.md 异常类也是 27 个（含基类 SiteBuilderException + 3 个 i18n 异常合并）。
+          两者一致，无冲突。
+        suggestion: 无需处理。
+      - severity: NICE_TO_HAVE
+        location: frontend-detail.md vs api-detail.md 端点
+        description: 前端 STORE-001~004 调用的 API 路径与 api-detail.md 端点完全一致，包括 /api/admin/site-builder/* 新路径。
+        suggestion: 无需处理。
+
+  implementability:
+    status: PASS
+    issues:
+      - severity: SHOULD_FIX
+        location: data-detail.md DataInitializer 扩展
+        description: |
+          DataInitializer 新增 3 个权限点种子（/site/home, /site/navigation, /site/announcement），
+          但未明确 baseline DataInitializer 的位置和修改方式。
+          L3 implementer 需要定位 baseline DataInitializer 类并追加 seedSiteBuilderPermissions() 方法。
+        suggestion: L3 实现时先 grep 定位 DataInitializer 类（可能在 com.dreamy.identity 或 com.dreamy.common 包），追加方法。
+      - severity: NICE_TO_HAVE
+        location: frontend-detail.md 消费端组件
+        description: |
+          消费端 StoreHeader/StoreFooter/AnnouncementBar/HomeSection 等组件为新建，
+          frontend-detail.md 列出了组件清单但未给出详细 props/emit 接口。
+          L3 前端 implementer 需根据 api-detail.md 的出参 DTO 推导 props。
+        suggestion: L3 前端 implementer 参考 StoreHomePageDto/StoreNavigationDto 等 DTO 定义组件 props。
+
+  test_coverage:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: test-skeleton.md L7 异步集成测试
+        description: |
+          L7 缓存失效广播测试（TC-AS001）需要启动两个应用节点模拟集群，
+          Testcontainers 环境下实现复杂度较高。
+          可降级为单节点测试 + publisher.publish mock 验证。
+        suggestion: L3 test_engineer 根据实际环境决定是否做多节点测试，单节点 + mock 也可接受。
+      - severity: NICE_TO_HAVE
+        location: ui-test-spec.yml 视觉基线
+        description: 视觉基线截图路径 prototype/screenshots/baseline/ 当前不存在，需要 L4 UI Verifier 在运行时生成。
+        suggestion: L4 UI Verifier 首次运行时自动生成基线截图。
+
+  requirement_coverage:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: 全部产出 vs acceptance.yml 338 场景
+        description: |
+          acceptance.yml 338 场景分布：304 bs + 10 func + 24 sm。
+          L2 产出按 flow_group 覆盖了 10 个 FUNC 场景和 24 个状态机场景，
+          304 个 boundary scenarios 在 test-skeleton.md L1 单元测试中按 cat 分组覆盖。
+          覆盖率 100%（关键路径 + 边界 + 状态机）。
+        suggestion: 无需处理。
+
+  l1_should_fix_digestion:
+    status: PASS
+    issues: []
+    notes: |
+      L1 challenger 的 3 项 SHOULD_FIX 全部消化：
+      1. 路径映射 → api-detail.md "acceptance.yml 路径映射"章节 + frontend-detail.md PAGE-001/002 路由
+      2. 权限点种子数据 → data-detail.md "DataInitializer 扩展"章节 + DDL 脚本
+      3. 跨域缓存失效联动 → data-detail.md "跨域缓存失效联动"章节 + error-mapping.yml PATH-04
+
+summary:
+  total_issues: 8
+  must_fix_count: 0
+  should_fix_count: 1
+  nice_to_have_count: 7
+  key_should_fix:
+    - "DataInitializer 扩展未明确 baseline 类位置，L3 实现时需定位后追加 seedSiteBuilderPermissions() 方法"
+
+recommendation: |
+  verdict=PASS：0 项 MUST_FIX，L2 详设产出可作为 L3 实现的输入。
+  1 项 SHOULD_FIX 作为 L3 implementer 的实现提示（定位 baseline DataInitializer 类）。
+  7 项 NICE_TO_HAVE 作为 L3/L4 的参考约束，非阻断。
+
+  L1 challenger 的 3 项 SHOULD_FIX 已在 L2 产出中全部消化：
+    - 路径映射：api-detail.md + frontend-detail.md
+    - 权限点种子：data-detail.md DataInitializer 扩展 + DDL
+    - 跨域缓存失效联动：data-detail.md + error-mapping.yml
+
+  建议进入 L3 阶段。

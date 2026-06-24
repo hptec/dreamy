@@ -1,43 +1,128 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Toggle from '@/components/Toggle.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
-import { homeBlocks, palette, products } from '@/data/mock'
+import { useHomeSectionStore } from '@/stores/homeSection'
+import { useToast } from '@/composables/useToast'
 import {
   Bars3Icon, EyeIcon, PencilSquareIcon, RocketLaunchIcon,
   ChevronUpIcon, ChevronDownIcon, ArrowUpTrayIcon, ComputerDesktopIcon, DevicePhoneMobileIcon
 } from '@heroicons/vue/24/outline'
 
-const blocks = ref(homeBlocks.map((b) => ({ ...b, data: { ...b.data } })))
-const activeId = ref('hero')
+const store = useHomeSectionStore()
+const toast = useToast()
+
+// 本地可编辑副本（从 store 同步）
+const blocks = ref([])
+const activeId = ref(null)
 const preview = ref('desktop')
 const dirty = ref(false)
 
+// locale tab（EN/ES/FR）
+const localeTab = ref('en')
+
+onMounted(async () => {
+  await store.fetch()
+  syncFromStore()
+})
+
+function syncFromStore() {
+  blocks.value = store.sections.map((s) => ({
+    id: s.id,
+    sectionType: s.sectionType,
+    type: typeLabel(s.sectionType),
+    label: s.label || typeLabel(s.sectionType),
+    enabled: s.enabled,
+    sortOrder: s.sortOrder,
+    data: parseJson(s.dataJson, {}),
+    i18n: parseJson(s.i18nJson, {}),
+    version: s.version,
+  }))
+  if (blocks.value.length > 0 && !activeId.value) {
+    activeId.value = blocks.value[0].id
+  }
+  dirty.value = false
+}
+
+function parseJson(str, fallback) {
+  if (!str) return fallback
+  try { return typeof str === 'string' ? JSON.parse(str) : str } catch { return fallback }
+}
+
+function typeLabel(t) {
+  const map = { hero: 'Hero', theme_cards: 'ThemeCards', product_rail: 'ProductRail',
+    editorial_feature: 'EditorialFeature', newsletter: 'Newsletter', custom: 'Custom' }
+  return map[t] || t
+}
+
 const active = () => blocks.value.find((b) => b.id === activeId.value)
+
 function move(i, dir) {
   const j = i + dir
   if (j < 0 || j >= blocks.value.length) return
   const arr = blocks.value
   ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  // 重新计算 sortOrder
+  arr.forEach((b, idx) => { b.sortOrder = idx })
   dirty.value = true
 }
+
 function touch() { dirty.value = true }
-const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
+
+function currentLabel(b) {
+  if (!b) return ''
+  return (b.i18n && b.i18n[localeTab.value] && b.i18n[localeTab.value].label) || b.label
+}
+
+async function saveAll() {
+  try {
+    // 1. 批量排序
+    await store.sort(blocks.value.map((b) => ({ id: b.id, sortOrder: b.sortOrder })))
+    // 2. 逐个更新（如有 dirty 字段）
+    for (const b of blocks.value) {
+      await store.update(b.id, {
+        sectionType: b.sectionType,
+        enabled: b.enabled,
+        sortOrder: b.sortOrder,
+        dataJson: b.data,
+        i18nJson: b.i18n,
+        label: b.label,
+        version: b.version,
+      })
+    }
+    toast.success('保存成功')
+    syncFromStore()
+  } catch (e) {
+    toast.error(e.message ?? '保存失败')
+  }
+}
+
+async function onToggle(b, val) {
+  b.enabled = val
+  try {
+    await store.toggle(b.id, val)
+  } catch (e) {
+    b.enabled = !val
+    toast.error(e.message ?? '切换失败')
+  }
+}
 </script>
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Site Builder" title="首页装修" subtitle="可视化编排首页区块，实时预览，保存后在发布中心生成静态首页">
+    <PageHeader eyebrow="Site Builder" title="首页装修" subtitle="可视化编排首页区块，实时预览，保存后即时生效">
       <template #actions>
         <span v-if="dirty" class="badge bg-warn/14 text-warn"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>未发布改动</span>
         <button class="btn-outline"><EyeIcon class="h-4 w-4" />前台预览</button>
-        <button class="btn-gold"><RocketLaunchIcon class="h-4 w-4" />保存并生成首页</button>
+        <button class="btn-gold" @click="saveAll" :disabled="!dirty"><RocketLaunchIcon class="h-4 w-4" />保存</button>
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_300px]">
-      <!-- 区块列表（可拖拽排序） -->
+    <div v-if="store.loading" class="panel p-8 text-center text-ink-faint">加载中...</div>
+    <div v-else-if="store.error" class="panel p-8 text-center text-danger">{{ store.error }}</div>
+    <div v-else class="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_300px]">
+      <!-- 区块列表 -->
       <div class="panel p-4">
         <p class="eyebrow mb-3">页面区块</p>
         <div class="space-y-2">
@@ -47,14 +132,14 @@ const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
             :class="activeId === b.id ? 'border-gold bg-gold/8' : 'border-line hover:bg-canvas-warm'">
             <Bars3Icon class="h-4 w-4 cursor-grab text-ink-faint" />
             <div class="min-w-0 flex-1">
-              <p class="truncate font-medium" :class="b.enabled ? 'text-ink' : 'text-ink-faint line-through'">{{ b.label }}</p>
+              <p class="truncate font-medium" :class="b.enabled ? 'text-ink' : 'text-ink-faint line-through'">{{ currentLabel(b) }}</p>
               <p class="text-[11px] text-ink-faint">{{ b.type }}</p>
             </div>
             <div class="flex flex-col">
               <button @click.stop="move(i, -1)" class="text-ink-faint hover:text-ink"><ChevronUpIcon class="h-3.5 w-3.5" /></button>
               <button @click.stop="move(i, 1)" class="text-ink-faint hover:text-ink"><ChevronDownIcon class="h-3.5 w-3.5" /></button>
             </div>
-            <Toggle :model-value="b.enabled" @update:model-value="b.enabled = $event; touch()" @click.stop />
+            <Toggle :model-value="b.enabled" @update:model-value="onToggle(b, $event)" @click.stop />
           </div>
         </div>
       </div>
@@ -71,43 +156,22 @@ const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
         <div class="max-h-[640px] overflow-y-auto bg-canvas-warm/40 p-4">
           <div class="mx-auto bg-canvas transition-all" :class="preview === 'mobile' ? 'max-w-[380px]' : 'max-w-full'">
             <template v-for="b in blocks.filter(x => x.enabled)" :key="b.id">
-              <!-- Hero -->
-              <div v-if="b.type === 'Hero'" class="grid min-h-[260px] sm:grid-cols-2">
+              <div v-if="b.sectionType === 'hero'" class="grid min-h-[260px] sm:grid-cols-2">
                 <div class="flex items-center bg-canvas p-6">
                   <div>
-                    <p class="text-[10px] uppercase tracking-luxe text-gold-deep">{{ b.data.eyebrow }}</p>
-                    <h2 class="mt-2 whitespace-pre-line font-display text-2xl font-medium leading-tight text-ink">{{ b.data.title }}</h2>
-                    <div class="mt-4 flex gap-2"><span class="rounded bg-ink px-3 py-1.5 text-[11px] text-canvas">{{ b.data.cta1 }}</span><span class="rounded border border-ink px-3 py-1.5 text-[11px]">{{ b.data.cta2 }}</span></div>
+                    <p class="text-[10px] uppercase tracking-luxe text-gold-deep">{{ b.data.eyebrow || 'Hero' }}</p>
+                    <h2 class="mt-2 whitespace-pre-line font-display text-2xl font-medium leading-tight text-ink">{{ currentLabel(b) }}</h2>
                   </div>
                 </div>
-                <img :src="b.data.image" class="h-full min-h-[200px] w-full object-cover object-top" />
+                <div class="bg-canvas-warm/40 flex items-center justify-center text-ink-faint text-[12px]">Hero 图片（派生自 Banner）</div>
               </div>
-              <!-- 公告 -->
-              <div v-else-if="b.type === 'Announcement'" class="bg-ink px-4 py-2 text-center text-[11px] text-canvas">{{ b.data.lines[0] }}</div>
-              <!-- Shop by Color -->
-              <div v-else-if="b.type === 'ShopByColor'" class="p-6 text-center">
-                <h3 class="font-display text-xl text-ink">{{ b.data.title }}</h3>
-                <div class="mt-4 flex justify-center gap-3">
-                  <div v-for="c in palette.slice(0, b.data.count)" :key="c.name" class="text-center">
-                    <span class="block h-8 w-8 rounded-full border border-line" :style="{ background: c.hex }"></span>
-                  </div>
-                </div>
+              <div v-else-if="b.sectionType === 'newsletter'" class="bg-sage/12 p-6 text-center">
+                <h3 class="font-display text-lg text-ink">{{ currentLabel(b) }}</h3>
               </div>
-              <!-- 主题卡 -->
-              <div v-else-if="b.type === 'ThemeCards'" class="grid grid-cols-4 gap-2 p-6">
-                <div v-for="c in b.data.cards" :key="c" class="aspect-[3/4] rounded-luxe bg-sage/20 p-2 text-[10px] text-ink-soft">{{ c }}</div>
+              <div v-else class="p-6 text-center">
+                <h3 class="font-display text-xl text-ink">{{ currentLabel(b) }}</h3>
+                <p class="mt-2 text-[12px] text-ink-faint">{{ b.type }} 区块</p>
               </div>
-              <!-- 推荐位 -->
-              <div v-else-if="b.type === 'ProductRail'" class="p-6">
-                <h3 class="mb-3 font-display text-xl text-ink">{{ b.data.title }}</h3>
-                <div class="grid grid-cols-4 gap-3">
-                  <div v-for="p in newArrivals" :key="p.id"><img :src="p.img" class="aspect-[3/4] w-full rounded-luxe object-cover" /><p class="mt-1 truncate text-[10px]">{{ p.name }}</p></div>
-                </div>
-              </div>
-              <!-- 编辑特写 -->
-              <div v-else-if="b.type === 'EditorialFeature'" class="bg-canvas-warm/60 p-6 text-center"><h3 class="font-display text-xl text-ink">{{ b.data.title }}</h3></div>
-              <!-- Newsletter -->
-              <div v-else-if="b.type === 'Newsletter'" class="bg-sage/12 p-6 text-center"><h3 class="font-display text-lg text-ink">{{ b.data.title }}</h3></div>
             </template>
           </div>
         </div>
@@ -117,30 +181,63 @@ const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
       <div class="panel p-4">
         <p class="eyebrow mb-3 flex items-center gap-1.5"><PencilSquareIcon class="h-3.5 w-3.5" />区块属性</p>
         <div v-if="active()" :key="activeId" class="space-y-4">
-          <p class="text-[13px] font-medium text-ink">{{ active().label }}</p>
-          <template v-if="active().type === 'Hero'">
-            <div><label class="field-label">Eyebrow</label><input v-model="active().data.eyebrow" @input="touch" class="field text-[12px]" /></div>
-            <div><label class="field-label">主标题</label><textarea v-model="active().data.title" @input="touch" rows="2" class="field resize-none text-[12px]"></textarea></div>
-            <div><label class="field-label">副文案</label><textarea v-model="active().data.subtitle" @input="touch" rows="3" class="field resize-none text-[12px]"></textarea></div>
-            <div class="grid grid-cols-2 gap-2">
-              <div><label class="field-label">主按钮</label><input v-model="active().data.cta1" @input="touch" class="field text-[12px]" /></div>
-              <div><label class="field-label">次按钮</label><input v-model="active().data.cta2" @input="touch" class="field text-[12px]" /></div>
+          <p class="text-[13px] font-medium text-ink">{{ active().type }} 区块</p>
+
+          <!-- i18n locale tab -->
+          <div class="flex gap-1 border-b border-line">
+            <button v-for="loc in ['en', 'es', 'fr']" :key="loc" @click="localeTab = loc"
+              class="px-3 py-1 text-[11px] uppercase"
+              :class="localeTab === loc ? 'border-b-2 border-gold text-ink' : 'text-ink-faint'">
+              {{ loc }}
+            </button>
+          </div>
+
+          <div>
+            <label class="field-label">标签（{{ localeTab }}）</label>
+            <input :value="(active().i18n[localeTab] || {}).label || active().label"
+              @input="((active().i18n[localeTab] = active().i18n[localeTab] || {}), (active().i18n[localeTab].label = $event.target.value), touch())"
+              class="field text-[12px]" />
+          </div>
+
+          <template v-if="active().sectionType === 'product_rail'">
+            <div>
+              <label class="field-label">商品来源</label>
+              <SelectMenu :model-value="active().data.source"
+                :options="[{ value: 'new_arrival', label: '新品 New Arrivals' }, { value: 'recommend', label: '人工推荐' }]"
+                @change="(v) => { active().data.source = v; touch() }" />
             </div>
-            <div><label class="field-label">背景图</label>
-              <button class="flex w-full items-center justify-center gap-2 rounded-luxe border-2 border-dashed border-line py-3 text-[12px] text-ink-faint hover:border-gold"><ArrowUpTrayIcon class="h-4 w-4" />更换图片</button>
+            <div>
+              <label class="field-label">展示数量（1-12）</label>
+              <input v-model="active().data.limit" @input="touch" type="number" min="1" max="12" class="field text-[12px]" />
+            </div>
+            <div v-if="active().data.source === 'recommend'">
+              <label class="field-label">商品 ID 列表（逗号分隔）</label>
+              <input :value="(active().data.product_ids || []).join(',')"
+                @input="active().data.product_ids = $event.target.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)); touch()"
+                class="field text-[12px]" />
             </div>
           </template>
-          <template v-else-if="active().type === 'Announcement'">
-            <div v-for="(l, i) in active().data.lines" :key="i"><label class="field-label">公告 {{ i+1 }}</label><input v-model="active().data.lines[i]" @input="touch" class="field text-[12px]" /></div>
+
+          <template v-else-if="active().sectionType === 'theme_cards'">
+            <div>
+              <label class="field-label">展示数量（1-8）</label>
+              <input v-model="active().data.count" @input="touch" type="number" min="1" max="8" class="field text-[12px]" />
+            </div>
           </template>
-          <template v-else-if="active().type === 'ProductRail'">
-            <div><label class="field-label">标题</label><input v-model="active().data.title" @input="touch" class="field text-[12px]" /></div>
-            <div><label class="field-label">商品来源</label><SelectMenu v-model="active().data.source" :options="[{ value: 'isNew', label: '新品 New Arrivals' }, { value: 'isBest', label: '热销 Best Sellers' }, { value: 'recommend', label: '人工推荐' }]" @change="touch" /></div>
-            <div><label class="field-label">展示数量</label><input v-model="active().data.limit" @input="touch" type="number" class="field text-[12px]" /></div>
+
+          <template v-else-if="active().sectionType === 'editorial_feature'">
+            <div>
+              <label class="field-label">展示数量（1-6）</label>
+              <input v-model="active().data.limit" @input="touch" type="number" min="1" max="6" class="field text-[12px]" />
+            </div>
           </template>
-          <template v-else>
-            <div><label class="field-label">标题</label><input v-model="active().data.title" @input="touch" class="field text-[12px]" /></div>
-            <p class="text-[12px] text-ink-faint">该区块内容从对应数据源自动获取，可在「显示开关」与排序中控制。</p>
+
+          <template v-else-if="active().sectionType === 'hero'">
+            <p class="text-[12px] text-ink-faint">Hero 区块数据派生自 Banner position=HERO（KD-2），无需配置 data_json。</p>
+          </template>
+
+          <template v-else-if="active().sectionType === 'newsletter'">
+            <p class="text-[12px] text-ink-faint">Newsletter 区块仅存 i18n 文案（title/subtitle/cta_text），无 data_json。</p>
           </template>
         </div>
       </div>

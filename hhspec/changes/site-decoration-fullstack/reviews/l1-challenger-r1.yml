@@ -1,0 +1,137 @@
+layer: L1
+round: 1
+verdict: PASS
+reviewed_at: "2026-06-23T15:55:00Z"
+reviewer: l1_challenger (inline execution)
+change_name: site-decoration-fullstack
+
+review_objects:
+  - path: hhspec/changes/site-decoration-fullstack/specs/architecture/api-contracts/site-builder-api.openapi.yml
+    size: 61KB / 1494 lines
+    endpoints: 20
+    schemas: 23
+    error_codes: 15 (site_builder domain)
+  - path: hhspec/changes/site-decoration-fullstack/specs/architecture/data-flow.md
+    flows: 10 (FLOW-SB01~SB10)
+    edge_coverage: 24/24
+  - path: hhspec/changes/site-decoration-fullstack/specs/architecture/error-strategy.md
+    error_codes: 23
+    edge_coverage: 24/24
+
+dimensions:
+  consistency:
+    status: PASS_WITH_WARNINGS
+    issues:
+      - severity: SHOULD_FIX
+        location: site-builder-api.openapi.yml paths vs acceptance.yml FLOW-001/002/003/006/007
+        description: |
+          L1.2 契约使用 /api/admin/site-builder/* 和 /api/store/content/* 路径（KD-15 新建 site_builder 限界上下文），
+          但 acceptance.yml FLOW 场景使用旧路径 /api/admin/home-sections、/api/admin/navigation、/api/admin/announcements、/api/store/content/home/sections。
+          路径不一致会导致 L3 实现时 traceability map 难以建立。
+        suggestion: |
+          两种方案择一：
+          (A) 在 L2 详设阶段，为 acceptance.yml 场景在测试骨架中补路径映射注释（推荐，AC-06 不修改 L0 产出）；
+          (B) L1.2 契约新增 incremental.md 说明 acceptance.yml 旧路径到新路径的映射关系。
+      - severity: NICE_TO_HAVE
+        location: site-builder-api.openapi.yml FLOW-007 响应结构
+        description: |
+          acceptance.yml FLOW-007 期望合并响应 {main, footer, announcements}，
+          L1.2 拆为 3 个独立端点（GET /navigation + GET /footer + GET /announcements）。
+          消费端 layout.tsx 需 3 次请求，性能略差但符合 REST 单一职责。
+        suggestion: 如 L2 详设确认需要合并端点，可补 GET /api/store/content/chrome 合并端点；否则保持现状。
+      - severity: NICE_TO_HAVE
+        location: site-builder-api.openapi.yml FLOW-001/003 批量 vs CRUD
+        description: |
+          acceptance.yml FLOW-001/003 期望批量 PUT（整体保存），
+          L1.2 按 CRUD 拆为 POST/PUT/{id}/DELETE/{id} + sort + toggle。
+          两种语义都可行，但批量保存更符合运营交互（一次保存所有区块）。
+        suggestion: L2 详设阶段决策；如选批量，补 PUT /api/admin/site-builder/home-sections（批量）端点。
+
+  completeness:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: error-strategy.md 502 错误码完整性
+        description: 502801~502804 覆盖了 Banner/Taxonomy/Wedding/Product 四个跨域调用，但 Subscriber 跨域调用（FLOW-SB09）沿用 marketing 域 500705，未在 site_builder 域错误码表中重复声明。
+        suggestion: 已在 error-strategy.md 注释中说明，符合 KD-13 扩展基线约定，可保持现状。
+      - severity: NICE_TO_HAVE
+        location: data-flow.md 缓存 family 粒度
+        description: |
+          Family 分组为 home/navigation/footer/announcement 四个，
+          但 Hero 区块依赖 Banner，Banner 写操作（marketing 域）是否需要失效 site_builder 的 home family？
+          data-flow.md 未明确跨域缓存失效联动。
+        suggestion: L2 详设阶段补充：marketing 域 Banner 写操作 → publisher.publish 触发 site_builder home family 失效。
+
+  feasibility:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: data-flow.md FLOW-SB10 publisher.publish 实现
+        description: |
+          Redis pub/sub 失效广播需要各节点订阅 CacheInvalidationEvent，
+          实现复杂度较高。是否已有基线组件可复用？
+        suggestion: L3 实现阶段确认基线是否有 publisher 组件；如无，可用 Spring ApplicationEvent + Redis MessageListener 简化实现。
+      - severity: NICE_TO_HAVE
+        location: site-builder-api.openapi.yml i18n_json MySQL JSON 列
+        description: MySQL 5.7+ 支持 JSON 类型，但索引和查询性能需注意。i18n_json 整块 JSON 写入，无法对单个 locale 字段建索引。
+        suggestion: 可接受（KD-16 已声明为技术债）；如未来需要按 locale 查询，可考虑生成列 + 索引。
+
+  evolution:
+    status: PASS
+    issues:
+      - severity: NICE_TO_HAVE
+        location: site-builder-api.openapi.yml section_type 枚举扩展
+        description: |
+          section_type 当前为 [hero, theme_cards, product_rail, editorial_feature, newsletter, custom]，
+          未来新增类型（如 video_gallery、lookbook）需要扩展枚举。
+          data_json schema 按类型区分，扩展时需同步更新 Schema 定义。
+        suggestion: 可接受，当前设计支持扩展；L2 详设可考虑 data_json 用 discriminator 模式。
+      - severity: NICE_TO_HAVE
+        location: error-strategy.md 错误码号段余量
+        description: |
+          site_builder 域段=8，当前用了 01~08（422）和 01~05（404）和 01~05（409）和 01~02（500）和 01~04（502），
+          余量充足（每个 HTTP 状态下还有 80+ 序号可用）。
+        suggestion: 无需处理，余量充足。
+
+  compliance:
+    status: PASS
+    issues:
+      - severity: SHOULD_FIX
+        location: site-builder-api.openapi.yml AdminBearerAuth 权限点
+        description: |
+          契约声明权限点 /site/home、/site/navigation、/site/announcement，
+          但未在 baseline identity-api 的 Permission 表中声明这三个权限点。
+          L3 实现时需要在 DataInitializer 中新增种子数据。
+        suggestion: L2 详设阶段补充：DataInitializer 新增 /site/home、/site/navigation、/site/announcement 三个权限点种子数据。
+      - severity: NICE_TO_HAVE
+        location: error-strategy.md MarketingExceptionHandler assignableTypes
+        description: |
+          KD-15 要求新 Controller 登记到 MarketingExceptionHandler assignableTypes，
+          error-strategy.md 已列出 5 个 Controller，但未明确登记路径。
+        suggestion: L3 实现阶段在 @RestControllerAdvice(assignableTypes={...}) 中补充 5 个 Controller。
+      - severity: NICE_TO_HAVE
+        location: i18n locale 键一致性
+        description: |
+          复查确认 L1.2 契约和 L1.3 文档均使用 en/es/fr（与项目 baseline 一致），无 zh 引用。
+          之前初判误报，已撤销 MUST_FIX。
+        suggestion: 无需处理。
+
+summary:
+  total_issues: 10
+  must_fix_count: 0
+  should_fix_count: 3
+  nice_to_have_count: 7
+  key_should_fix:
+    - "acceptance.yml 路径与 L1.2 契约路径不一致，L2 阶段需补路径映射说明"
+    - "新权限点 /site/home|navigation|announcement 需在 DataInitializer 新增种子数据"
+    - "跨域缓存失效联动：marketing 域 Banner 写操作是否触发 site_builder home family 失效，L2 阶段需明确"
+
+recommendation: |
+  verdict=PASS：0 项 MUST_FIX，L1 架构产出可作为 L2 详设的输入。
+  3 项 SHOULD_FIX 作为 L2 详设的输入约束，L2 Designer 须在详设中消化：
+    - api-detail.md 补 acceptance.yml 旧路径到新路径的映射说明
+    - data-detail.md 补 DataInitializer 扩展（新权限点种子数据）
+    - data-detail.md 补跨域缓存失效联动设计（Banner 写 → site_builder home family 失效）
+  7 项 NICE_TO_HAVE 作为 L3 实现的参考约束，非阻断。
+
+  建议进入 L2 阶段。

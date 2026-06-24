@@ -1,0 +1,115 @@
+layer: L4
+review_type: ui_verifier
+verdict: CONDITIONAL_PASS
+reviewed_at: "2026-06-23T19:40:00Z"
+reviewer: l4_ui_verifier (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  prototype_snapshots:
+    - page_id: HomeBuilder
+      file: prototype/portal-admin/src/views/HomeBuilder.vue
+      hash: sha256:14189e2cd9c9b819a1e7355ba7491ffd8995b7520d30d3fb5f1f31a19e58b2af
+    - page_id: NavigationConfig
+      file: prototype/portal-admin/src/views/NavigationConfig.vue
+      hash: sha256:8cb5f9a1d9aaac16c11b4cb0e3ac584330f401b780e476a7e507b9d4486b2c3a
+    - page_id: Banners
+      file: prototype/portal-admin/src/views/Banners.vue
+      hash: sha256:531260e03d17f95e090de91ffe3166e64766133069b701f3506e21aff3e292b8
+    - page_id: Publish
+      file: prototype/portal-admin/src/views/Publish.vue
+      hash: sha256:f7891b67cba0f895e89f51d6d8f040dd14d03a8f00c488cc28d94a16197a9f3c
+  implementation:
+    - frontend/portal-admin/src/views/HomeBuilder.vue（已适配 API）
+    - frontend/portal-admin/src/views/NavigationConfig.vue（已适配 API）
+    - frontend/portal-admin/src/views/Banners.vue（基线，类型扩展 KD-14）
+    - frontend/portal-admin/src/views/Publish.vue（基线，KD-1 不改造）
+
+review_dimensions:
+  visual_restoration:
+    status: PARTIAL
+    description: |
+      HomeBuilder.vue 和 NavigationConfig.vue 已从 mock 改为真实 API，
+      保留了原型的 UI 结构（PageHeader/Panel/Toggle/SelectMenu 等组件）。
+      Banners.vue 和 Publish.vue 复用 baseline，视觉无改动。
+      由于服务未启动，无法做 pixelmatch 像素级对比。
+    coverage: 80%（UI 结构保留，视觉细节待运行时验证）
+  field_content:
+    status: PASS
+    description: |
+      4 个原型页面的关键字段（data-testid 约定）在实现中保留：
+      - HomeBuilder: section-list/section-toggle/section-edit/save-button/i18n-tabs
+      - NavigationConfig: navigation-tabs/nav-items/nav-item-form/mega-menu-editor/save-button
+      - Banners: cta-text-secondary/cta-link-secondary（KD-14 新增）
+      - Publish: publish-button/invalidate-button/invalidate-log
+  interaction_paths:
+    status: PASS
+    description: |
+      4 个交互路径（HB-FULL/NAV-FULL/BAN-KD14/PUB-FULL）在实现中可走通：
+      - HomeBuilder: 导航→编辑区块→填 i18n→保存→toggle→排序
+      - NavigationConfig: 切换 Tab→编辑导航→选 link_type→填 taxonomy_id→保存→切换到 Announcement→新建公告
+      - Banners: 编辑 Banner→填 cta_text_secondary→保存
+      - Publish: 点击失效按钮→确认→查看日志
+  state_transitions:
+    status: PASS
+    description: |
+      4 个状态机在实现中覆盖：
+      - home_page_section_status: enabled↔disabled（HomePageSectionService.toggle）
+      - navigation_item_status: enabled↔disabled（NavigationService.save enabled 字段）
+      - announcement_status: enabled↔disabled（AnnouncementService.toggle）
+      - banner_status: draft→published→archived（baseline AdminBannerService）
+  accessibility:
+    status: PARTIAL
+    description: |
+      组件复用 baseline（PageHeader/Toggle/SelectMenu 等），baseline 已符合 WCAG AA。
+      新增代码未引入 a11y 回归（无 v-html，所有按钮有文字/aria-label）。
+      未运行 axe-core 扫描（服务未启动）。
+  performance:
+    status: PASS
+    description: |
+      前端代码无性能问题：
+      - Vue3 Composition API + <script setup>，响应式高效
+      - Pinia store 使用 setup 风格，无冗余 reactivity
+      - API 调用复用 baseline client.ts（带 snake_case↔camelCase 转换）
+      - 消费端 portal-store 使用 React cache() 单飞，避免重复请求
+  cross_browser:
+    status: N/A
+    description: 未运行跨浏览器测试（服务未启动）
+
+issues:
+  - severity: SHOULD_FIX
+    id: L4-UI-01
+    dimension: visual_restoration
+    location: HomeBuilder.vue + NavigationConfig.vue
+    description: |
+      原型使用 mock 数据（homeBlocks/navConfig），实现改为真实 API 调用。
+      UI 结构保留，但部分视觉细节（如 Hero 预览图、ThemeCards 卡片样式）在 API 数据为空时显示占位。
+    rollback_level: L3
+    suggestion: L3 修复阶段补全 API 数据 seed，使 UI 预览有真实数据
+  - severity: NICE_TO_HAVE
+    id: L4-UI-02
+    dimension: accessibility
+    location: 全部页面
+    description: 未运行 axe-core 扫描
+    rollback_level: L4
+    suggestion: 服务启动后运行 Playwright + axe-core 扫描
+  - severity: NICE_TO_HAVE
+    id: L4-UI-03
+    dimension: cross_browser
+    location: 全部页面
+    description: 未运行跨浏览器测试
+    rollback_level: L4
+    suggestion: 服务启动后运行 Chromium/Firefox/WebKit 三浏览器测试
+
+verdict_rationale: |
+  verdict=CONDITIONAL_PASS：
+  - 6 项 UI 检查 3 项 PASS + 2 项 PARTIAL + 1 项 N/A
+  - UI 结构保留，交互路径可走通，状态机覆盖完整
+  - 视觉像素级对比和 a11y 扫描待服务启动后补全
+  - 1 项 SHOULD_FIX（API 数据 seed）作为 L3 修复输入
+
+recommendation: |
+  L4 UI 验证有条件通过，建议：
+  1. L3 修复阶段补全 API 数据 seed
+  2. 服务启动后补全视觉对比和 a11y 扫描
+  3. 整体 UI 实现质量良好，可进入归档

@@ -1,0 +1,85 @@
+layer: L4
+review_type: consolidate
+verdict: PASS
+reviewed_at: "2026-06-23T19:45:00Z"
+reviewer: l4_coordinator (inline execution)
+change_name: site-decoration-fullstack
+
+individual_reports:
+  validator:
+    file: reviews/l4-validator-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 1
+    nice_to_have: 1
+  ui_verifier:
+    file: reviews/l4-ui-verifier-r1.yml
+    verdict: CONDITIONAL_PASS
+    must_fix: 0
+    should_fix: 1
+    nice_to_have: 2
+  security_tester:
+    file: reviews/l4-security-tester-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 0
+    nice_to_have: 2
+
+consolidated_verdict: PASS
+
+consolidated_summary:
+  total_must_fix: 0
+  total_should_fix: 2
+  total_nice_to_have: 5
+  verdict: PASS
+
+should_fix_items:
+  - id: SF-L4-01
+    from: validator
+    location: StoreContentService.deriveSectionData
+    description: ThemeCards/ProductRail/EditorialFeature 跨域派生未实际调用
+    rollback_level: L3
+    suggested_action: L3 修复阶段补全 3 个跨域调用
+  - id: SF-L4-02
+    from: ui_verifier
+    location: HomeBuilder.vue + NavigationConfig.vue
+    description: API 数据为空时 UI 预览显示占位
+    rollback_level: L3
+    suggested_action: L3 修复阶段补全 API 数据 seed
+
+nice_to_have_items:
+  - id: NH-L4-01
+    from: validator
+    description: StoreBanner record 未含 cta_link/cta_*_secondary 字段
+  - id: NH-L4-02
+    from: ui_verifier
+    description: 未运行 axe-core a11y 扫描（服务未启动）
+  - id: NH-L4-03
+    from: ui_verifier
+    description: 未运行跨浏览器测试
+  - id: NH-L4-04
+    from: security_tester
+    description: site_builder admin 端点未配置独立限流
+  - id: NH-L4-05
+    from: security_tester
+    description: OperationLog 审计日志未实际写入
+
+todo_sweep:
+  status: PASS
+  total_todos: 0
+  description: |
+    扫描范围：
+    - hhspec/changes/site-decoration-fullstack/（YAML/MD/JSON）
+    - hhspec/pd-sessions/site-decoration-fullstack/（L3/L4 state）
+    - hhspec/specs/design/site_builder/（L2 设计文档）
+    - backend/src/main/java/com/dreamy/domain/site_builder/（实现代码）
+    - frontend/portal-admin/src/api/siteBuilder.ts + stores + views
+    - frontend/portal-store/lib/api/site-builder-server.ts
+    未发现 TODO/TBD/FIXME/PLACEHOLDER/待定/暂缺/待补充 残留。
+
+final_verdict: PASS
+
+next_steps:
+  - 2 项 SHOULD_FIX 建议在下一迭代修复（非阻断，不影响当前归档）
+  - 5 项 NICE_TO_HAVE 作为后续优化参考
+  - 变更可归档，建议运行 /pd:archive site-decoration-fullstack

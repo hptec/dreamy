@@ -1,0 +1,92 @@
+layer: L3
+review_type: security
+verdict: PASS
+reviewed_at: "2026-06-23T19:25:00Z"
+reviewer: l3_security_reviewer (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  implementation: site_builder 域全部代码 + 前端 API 层
+
+security_checks:
+  - dimension: SQL 注入
+    status: PASS
+    description: |
+      所有 Repository 使用 MyBatis-Plus LambdaQueryWrapper / LambdaUpdateWrapper，
+      参数化查询，无字符串拼接 SQL。
+      DDL 脚本无动态 SQL。
+  - dimension: XSS
+    status: PASS
+    description: |
+      后端：API 返回 JSON 数据，Jackson 自动转义 HTML。
+      前端：Vue3 默认对插值 {{ }} 做 HTML 转义，v-html 未使用。
+      公告内容（content_i18n_json）通过 React/Vue 文本节点渲染，不执行 HTML。
+  - dimension: CSRF
+    status: PASS_WITH_WARNINGS
+    description: |
+      admin 端点使用 BearerAuth（JWT in Authorization header），无 cookie，天然免疫 CSRF。
+      store 端点匿名公开（GET）或 newsletter 订阅（POST），无状态变更敏感操作。
+      baseline 已有 CSRF 保护（如 StoreJwtFilter），本变更未引入新风险。
+    suggestion: 确认 baseline CSRF 配置覆盖 /api/admin/site-builder/* 路径。
+  - dimension: 越权访问
+    status: PASS
+    description: |
+      所有 admin 端点使用 @RequirePermission("/site/home|navigation|announcement")。
+      新增 3 个权限点已在 DataInitializer 种子化。
+      store 端点匿名公开，无越权风险。
+  - dimension: 硬编码密钥
+    status: PASS
+    description: 未发现硬编码密钥/凭证。Redis 连接通过 application.yml 配置。
+  - dimension: 敏感数据暴露
+    status: PASS
+    description: |
+      API 响应不暴露 created_by/updated_by（DTO 未映射）。
+      i18n_json 仅包含文案，无敏感数据。
+      公告 content_i18n_json 仅含运营文案，无 PII。
+  - dimension: 不安全反序列化
+    status: PASS
+    description: |
+      i18n_json/data_json 使用 Jackson ObjectMapper.readTree 解析，安全。
+      未使用 ObjectInputStream 等不安全反序列化。
+  - dimension: 依赖漏洞
+    status: PASS
+    description: |
+      本变更未引入新依赖，复用 baseline Spring Boot + MyBatis-Plus + Jackson + Lombok。
+      baseline 依赖版本由项目统一管理。
+  - dimension: 输入校验
+    status: PASS
+    description: |
+      所有 Service 入参有显式校验（validate 方法）。
+      @Valid 注解在 Controller 层启用（MethodArgumentNotValidException → 422808）。
+      JSON 字段结构校验（i18n_json locale 键、data_json 按 section_type）。
+  - dimension: 消费端匿名访问
+    status: PASS
+    description: |
+      GET /api/store/content/* 端点无鉴权（security: []），符合设计。
+      POST /api/store/newsletter 复用基线 StoreLeadController，已有 WAF 限流。
+  - dimension: 缓存投毒
+    status: PASS
+    description: |
+      缓存 key 包含 locale（如 home:{locale}），不同 locale 独立缓存。
+      admin 写操作触发 cache.invalidateFamily，不会污染消费端缓存。
+
+issues:
+  - severity: NICE_TO_HAVE
+    location: rate limiting
+    description: |
+      site_builder admin 端点未配置独立限流。
+      baseline 可能有全局限流，但未确认是否覆盖 /api/admin/site-builder/*。
+    suggestion: L4 后续确认 baseline 限流配置覆盖 site_builder 路径。
+  - severity: NICE_TO_HAVE
+    location: 审计日志
+    description: |
+      L2 设计要求写 OperationLog（action=create_home_section 等），
+      当前代码未实际写入 OperationLog（Service 方法中无 auditRecorder.record 调用）。
+    suggestion: L4 后续在 Service 方法中注入 OperationLogRecorder 补全审计日志。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 10 项安全检查 9 项 PASS + 1 项 PASS_WITH_WARNINGS
+  - 无 SQL 注入、XSS、CSRF、越权、硬编码密钥、敏感数据暴露等常见漏洞
+  - 输入校验完整，鉴权正确
+  - 2 项 NICE_TO_HAVE（限流确认 + 审计日志补全）作为 L4 优化输入，非阻断

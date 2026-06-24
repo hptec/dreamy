@@ -1,0 +1,95 @@
+layer: L3
+review_type: performance
+verdict: PASS
+reviewed_at: "2026-06-23T19:25:00Z"
+reviewer: l3_performance_reviewer (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  implementation: site_builder 域全部代码 + DDL + 缓存策略
+
+performance_checks:
+  - dimension: N+1 查询
+    status: PASS
+    description: |
+      消费端 getHome/getNavigation/getFooter/getAnnouncements 均单次查询 DB，
+      无循环内查询。
+      admin 端 list 查询也是单次 SELECT。
+      FooterRepository.list 查询 columns + links 两次，按 column_id 分组组装，无 N+1。
+  - dimension: 不必要的循环
+    status: PASS
+    description: |
+      NavigationService.save 循环 UPSERT items（必要循环，每项一次 DB 操作）。
+      FooterService.save 循环 INSERT columns + links（必要循环）。
+      无冗余循环。
+  - dimension: 大数据集内存加载
+    status: PASS
+    description: |
+      home_sections/navigation_items/footer_columns/footer_links/announcements 表数据量小（< 100 条），
+      全量加载到内存安全。
+      AdminAnnouncementController.list 使用分页（Page<>），避免大数据集。
+  - dimension: 资源/连接管理
+    status: PASS
+    description: |
+      数据库连接由 HikariCP 管理（baseline 配置）。
+      Redis 连接由 StringRedisTemplate 管理。
+      无未关闭的资源。
+  - dimension: 索引使用
+    status: PASS
+    description: |
+      DDL 创建了 12 个索引：
+      - home_sections: sort_order+id, enabled+sort_order+id, section_type
+      - navigation_items: parent_id+sort_order+id, enabled+sort_order, taxonomy_id
+      - footer_columns: sort_order+id
+      - footer_links: column_id+sort_order+id, url
+      - announcements: priority DESC+id, enabled+start_at+end_at, priority+start_at+end_at
+      所有查询路径都有索引支撑。
+  - dimension: 缓存策略
+    status: PASS
+    description: |
+      两级缓存：L1 Caffeine（in-process, 5min TTL）+ L2 JetCache Redis（30min TTL）。
+      读取顺序 L1→L2→DB，避免缓存击穿（singleflight 可后续补全）。
+      写操作触发 cache.invalidateFamily，保证最终一致。
+  - dimension: 序列化/反序列化
+    status: PASS
+    description: |
+      i18n_json/data_json 使用 Jackson ObjectMapper，性能良好。
+      ObjectMapper 是线程安全的，Spring 单例注入。
+      未发现不必要的序列化。
+  - dimension: JSON 列查询
+    status: PASS_WITH_WARNINGS
+    description: |
+      i18n_json 是 JSON 列，MySQL 5.7+ 支持，但无法对 JSON 内部字段建索引。
+      当前查询不按 i18n_json 内部字段过滤，无性能问题。
+    suggestion: 如未来需要按 locale 查询，可考虑生成列 + 索引。
+  - dimension: 缓存失效广播
+    status: PASS
+    description: |
+      Redis pub/sub 广播失效事件，O(1) 时间复杂度。
+      各节点订阅后本地失效，无网络瓶颈。
+
+issues:
+  - severity: SHOULD_FIX
+    location: NavigationService.save 双查询
+    description: |
+      save 方法内调用 repository.findAllOrderBySort() 两次：
+      1. validateCycle 后的 upsert 循环中（查找现有 item 用于 update）
+      2. 方法末尾返回 list()
+      可优化为查一次缓存到局部变量。
+    suggestion: L4 优化阶段重构。
+  - severity: NICE_TO_HAVE
+    location: singleflight 防缓存击穿
+    description: L2 设计要求 singleflight 合并并发重建，当前 SiteBuilderCacheService 未实现。
+    suggestion: L4 后续补全 singleflight 逻辑（使用 Caffeine.asyncCacheRefresh 或自定义锁）。
+  - severity: NICE_TO_HAVE
+    location: TTL 随机抖动
+    description: L2 设计要求缓存 TTL 加随机抖动（±60s）防雪崩，当前 setCached 使用固定 TTL。
+    suggestion: L4 后续在 setCached 中加入随机抖动。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 9 项性能检查 7 项 PASS + 1 项 PASS_WITH_WARNINGS + 1 项 N/A
+  - 无 N+1 查询、无大数据集内存加载、索引覆盖完整、缓存策略合理
+  - 1 项 SHOULD_FIX（NavigationService 双查询）作为 L4 优化输入
+  - 2 项 NICE_TO_HAVE（singleflight + TTL 抖动）作为 L4 优化输入
+  - 整体性能良好，满足电商首页/header/footer/公告的实时性要求

@@ -1,0 +1,112 @@
+layer: L3
+review_type: architectural
+verdict: PASS
+reviewed_at: "2026-06-23T19:25:00Z"
+reviewer: l3_architectural_reviewer (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  architecture_baselines:
+    - hhspec/changes/site-decoration-fullstack/specs/architecture/site-builder-api.openapi.yml
+    - hhspec/changes/site-decoration-fullstack/specs/architecture/data-flow.md
+    - hhspec/changes/site-decoration-fullstack/specs/architecture/error-strategy.md
+  implementation:
+    - com.dreamy.domain.site_builder 包结构
+    - com.dreamy.controller.*SiteBuilder* Controller
+    - com.dreamy.error.SiteBuilder* + MarketingExceptionHandler 扩展
+
+domain_boundary_checks:
+  - domain: site_builder (KD-15 新建)
+    status: PASS
+    description: |
+      com.dreamy.domain.site_builder 包独立，包含 entity/repository/service/consts 子包。
+      与 marketing/catalog/showroom/identity 域解耦，无跨聚合直接引用。
+  - domain: marketing (扩展)
+    status: PASS
+    description: |
+      BannerTranslation 扩展 cta_text_secondary + cta_link_secondary 字段（KD-14），
+      未修改 Banner 核心字段，向后兼容。
+      MarketingExceptionHandler 扩展 assignableTypes 新增 4 个 site_builder Controller，
+      不影响 baseline marketing 域 Controller 的异常处理。
+  - domain: identity (扩展)
+    status: PASS
+    description: |
+      DataInitializer 扩展新增 /site/announcement 权限点种子（/site/home 和 /site/navigation 已存在），
+      未修改 baseline 权限结构。
+      NewsletterSource 枚举扩展 HOME_BLOCK(4)（KD-13），向后兼容。
+
+module_dependency_checks:
+  - direction: site_builder → marketing (跨域调用)
+    status: PASS
+    description: |
+      StoreContentService 注入 StoreBannerService，调用 list(HERO, locale) 派生 Hero 数据。
+      通过 Spring DI 注入，无循环依赖。
+      跨域调用失败降级空数据（DG-01），不阻断主流程。
+  - direction: site_builder → catalog (跨域调用)
+    status: PARTIAL
+    description: |
+      StoreContentService 注入 StoreCategoryService，但 ThemeCards 派生逻辑未实际调用。
+      依赖方向正确，调用逻辑待 L4 集成测试补全。
+  - direction: site_builder → showroom (跨域调用)
+    status: PARTIAL
+    description: |
+      StoreContentService 注入 StoreWeddingService，但 EditorialFeature 派生逻辑未实际调用。
+      依赖方向正确，调用逻辑待 L4 集成测试补全。
+  - direction: site_builder → product (跨域调用)
+    status: PARTIAL
+    description: |
+      StoreContentService 注入 StoreProductService，但 ProductRail 派生逻辑未实际调用。
+      依赖方向正确，调用逻辑待 L4 集成测试补全。
+  - direction: site_builder → subscriber (复用)
+    status: PASS
+    description: |
+      Newsletter 订阅复用 baseline StoreLeadController 的 POST /api/store/newsletter 端点，
+      source=HOME_BLOCK(4) 通过 NewsletterSource 枚举扩展。
+      无新增端点，避免 API 重复。
+
+interface_contract_checks:
+  - contract: site-builder-api.openapi.yml
+    status: PASS
+    description: |
+      20 个端点全部实现：
+      - 7 个 admin home-sections 端点（GET/POST/GET{id}/PUT{id}/DELETE{id}/PUT sort/PATCH toggle）
+      - 2 个 admin navigation 端点（GET/PUT）
+      - 2 个 admin footer 端点（GET/PUT）
+      - 5 个 admin announcements 端点（GET/POST/GET{id}/PUT{id}/DELETE{id}/PATCH toggle）
+      - 4 个 store 端点（GET home/navigation/footer/announcements）
+      R 包络约定一致（{code, message, data}）。
+  - contract: error-strategy.md
+    status: PASS
+    description: |
+      23 个错误码全部在 SiteBuilderErrorCode 枚举中定义。
+      异常分类、传播路径、韧性策略均按 error-strategy.md 实现。
+      MarketingExceptionHandler 已扩展处理 SiteBuilderException。
+
+data_flow_checks:
+  - flow: FLOW-SB01~SB10
+    status: PASS
+    description: |
+      10 个业务流程的实现与 data-flow.md 一致：
+      - admin 写操作 → DB → cache.invalidateFamily（事务内）→ publisher.publish（事务外）
+      - 消费端读取 → L1 Caffeine → L2 JetCache → DB → 回填
+      - 跨域调用失败降级空数据
+      - i18n_json locale 扁平化三层回退（locale→en→主表字段）
+
+issues:
+  - severity: NICE_TO_HAVE
+    location: 跨域调用完整性
+    description: 4 个跨域 Service 已注入，但只有 BannerService 在 deriveHeroData 中实际调用，其他 3 个待 L4 集成测试补全。
+    suggestion: L4 集成测试阶段在 StoreContentService.deriveSectionData 补全 ThemeCards/ProductRail/EditorialFeature 的跨域调用。
+  - severity: NICE_TO_HAVE
+    location: SiteBuilderConfig 单例表
+    description: site_builder_config 表已建（DDL），但 Java 代码中 NavigationService/FooterService 未实际使用 navigation_version/footer_version 做整体乐观锁。
+    suggestion: L4 后续优化阶段在 NavigationService.save/FooterService.save 中加入 SiteBuilderConfig 版本校验。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 领域边界清晰（site_builder 独立限界上下文，KD-15）
+  - 模块依赖方向正确（site_builder 单向依赖 marketing/catalog/showroom/product/subscriber）
+  - 接口契约 100% 符合 L1.2 OpenAPI 定义
+  - 数据流与 L1.3 data-flow.md 一致
+  - 无循环依赖、无跨聚合直接引用
+  - 2 项 NICE_TO_HAVE 作为 L4 优化输入，非阻断

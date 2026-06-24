@@ -1,0 +1,83 @@
+layer: L3
+review_type: code_quality
+verdict: PASS
+reviewed_at: "2026-06-23T19:25:00Z"
+reviewer: l3_code_reviewer (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  implementation_files:
+    total: 34 个 Java 文件 + 5 个 TS/Vue 文件
+    backend: 23 Entity/Repository/Service + 4 Controller + DTO + Error + ExceptionHandler扩展
+    frontend: 1 API client + 3 Pinia stores + 2 Vue 适配 + 1 portal-store API + 3 改造文件
+
+code_quality_checks:
+  - dimension: 命名规范
+    status: PASS
+    description: |
+      Java 类名 PascalCase，方法名 camelCase，常量 UPPER_SNAKE。
+      Entity 字段 camelCase，@Column name 用 snake_case。
+      与 baseline 风格一致。
+  - dimension: 代码可读性
+    status: PASS
+    description: |
+      方法长度适中（< 50 行），复杂逻辑有注释。
+      Service 方法按 CRUD 分组，Controller 按端点分组。
+  - dimension: 错误处理完整性
+    status: PASS
+    description: |
+      所有 Service 方法对异常路径有处理：
+      - 不存在 → 对应 NotFound 异常
+      - 乐观锁冲突 → 对应 Conflict 异常
+      - 校验失败 → 对应 Validation 异常
+      - 跨域调用失败 → 降级空数据 + WARN 日志
+  - dimension: 资源管理
+    status: PASS
+    description: |
+      @Transactional 注解正确使用，事务边界清晰。
+      无资源泄漏（Repository 通过 Spring DI 管理）。
+  - dimension: 边界条件
+    status: PASS
+    description: |
+      空值检查：Optional.ofNullable + orElseThrow
+      集合检查：isEmpty() + size() > 0
+      数值范围：sort_order >= 0, priority >= 0, limit ∈ [1,12], count ∈ [1,8]
+  - dimension: 逻辑错误
+    status: PASS
+    description: 未发现明显逻辑错误，CRUD/乐观锁/循环依赖检测/时间窗冲突逻辑均正确。
+  - dimension: 代码重复
+    status: PASS_WITH_WARNINGS
+    description: |
+      5 个 Service 的 toDto 方法有少量重复（Entity → DTO 映射），
+      可用 MapStruct 抽象，但当前手动实现可读性更好。
+    suggestion: 保持现状，后续如 DTO 增多再引入 MapStruct。
+  - dimension: 前端代码质量
+    status: PASS
+    description: |
+      Vue3 Composition API + <script setup>，TypeScript 类型完整。
+      Pinia store 使用 defineStore + setup 风格，与 baseline 一致。
+      前端 API client 复用 baseline client.ts 的 get/post/put/patch/del 方法。
+
+issues:
+  - severity: SHOULD_FIX
+    location: NavigationService.save
+    description: |
+      save 方法内调用 repository.findAllOrderBySort() 两次（一次校验，一次返回），
+      可能导致同一事务内多次查询。
+    suggestion: 优化为查一次缓存到局部变量。
+  - severity: NICE_TO_HAVE
+    location: HomePageSectionService.validate
+    description: |
+      validate 方法较长（~50 行），可拆分为 validateType/validateJsGuard/validateI18n 三个子方法。
+    suggestion: 重构提升可读性（非阻断）。
+  - severity: NICE_TO_HAVE
+    location: StoreContentService.deriveSectionData
+    description: switch 语句处理 6 种 section_type，每种派生逻辑不同，可考虑策略模式。
+    suggestion: 后续如 section_type 增多再重构为策略模式。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 8 项代码质量检查 7 项 PASS + 1 项 PASS_WITH_WARNINGS
+  - 1 项 SHOULD_FIX（NavigationService.save 双查询）作为 L4 优化输入
+  - 2 项 NICE_TO_HAVE 非阻断
+  - 整体代码质量良好，与 baseline 风格一致

@@ -1,0 +1,1494 @@
+openapi: 3.0.3
+info:
+  title: Site Builder API (site-decoration-fullstack)
+  description: |
+    site_builder 限界上下文 API 契约（KD-15 新建 domain_code=site_builder），覆盖站点装修后台与消费端内容读取：
+    - 后台 `/api/admin/site-builder/`：首页区块 CRUD/排序/启停、主导航整体保存、页脚栏目整体保存、公告条 CRUD/启停。
+    - 消费端 `/api/store/content/`：首页区块聚合渲染、主导航、页脚、公告条；以及 `/api/store/newsletter` 首页区块订阅入口（扩展基线 marketing-api 端点，KD-13）。
+
+    ## R 包络映射（与 marketing-api 一致，L3 勿按字面实现）
+    实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
+    失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
+    本契约各端点 response schema 仅建模 **data 载荷（payload）**。分页载荷统一为 huihao.page.Paginated 形状
+    （snake_case：`{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`）。
+
+    ## 鉴权约定（KD-BE-6 / BE-DIM-6）
+    - 后台端点 `AdminBearerAuth + @RequirePermission(perm_code)`；本域新增权限点：`/site/home`、`/site/navigation`、`/site/announcement`
+      （`/site/announcement` 由 DataInitializer 新增种子，GRD-007）。
+    - 消费端内容读端点公开匿名（`security: []`）；newsletter 订阅匿名提交（扩展基线，KD-13/KD-11）。
+    - **鉴权基建提示（L2 明确设计）**：现有 StoreJwtFilter 对 /api/store/* 默认强制鉴权。本域全部消费端
+      内容读端点与 newsletter 提交端点为匿名公开，需纳入 filter 的**配置化公开路径白名单**
+      （与 marketing 域 store-content/store-newsletter 端点共用同一机制，勿逐端点硬编码）。
+
+    ## i18n 策略（KD-16，覆盖 KD-3 / GRD-W08）
+    HomePageSection / NavigationItem / FooterColumn / FooterLink / Announcement 五个主实体均使用主表 `i18n_json` JSON 列承载多语言文案，
+    **不建独立 `*_translations` 表**。`i18n_json` 结构：`{ "en": {...}, "es": {...}, "fr": {...} }`；EN 为基准语言（主表 `label`/`content`/`title` 字段同步存 EN 值），
+    ES/FR 翻译存 `i18n_json` 内。后台 API 透传 `i18n_json` 整块对象；消费端 API 由后端按 `locale` 参数解析后返回扁平字符串字段。
+    BannerTranslation 是基线已有翻译表（与本域 KD-16 模式偏离，作为技术债保留，KD-16 已声明）。
+
+    ## 发布机制（KD-4 保存即发布，无草稿态）
+    HomePageSection / NavigationItem / FooterColumn / FooterLink / Announcement 均无草稿状态机，状态字段为 `enabled: boolean`（二态）。
+    后台保存 API 直接写入 DB（单表 @Transactional，BE-DIM-4），保存成功后通过 in-process `cache.invalidateFamily(Family.HOME_SECTION|NAVIGATION|ANNOUNCEMENT)`
+    + `publisher.publish(TYPE_*_CHANGED, ...)` 触发缓存失效链（GRD-004/GRD-005/GRD-W01 修正，**非 HTTP 自调** `/api/admin/cache/invalidate`）。
+
+    ## 缓存标注（BE-DIM-8）
+    - 消费端内容读端点（home/navigation/footer/announcements）：JetCache 两级缓存（Caffeine 本地 + Redis 远程，TTL=300s）；
+      key 按 `portal+locale` 维度（`marketing:home_section:{locale}` / `marketing:navigation:{locale}` / `marketing:announcement:{locale}`）。
+    - 失效触发者：后台对应写操作 @CacheInvalidate → `MarketingContentInvalidatedPublisher.publish` →
+      `cacheService.logInvalidation` + `cdnService.invalidatePaths(["/", "/es", "/fr"])`（全站级失效，GRD-005）。
+    - newsletter 订阅端点不缓存（订阅数据不进消费端缓存）。
+
+    ## 错误响应（6 位码，与 marketing-api 一致格式）
+    `{ code, message, details? }`；6 位码：高 3 位 HTTP 状态 + 域段（**site_builder=8**）+ 序号。
+
+    ### site_builder 域错误码表
+    | code | 含义 | HTTP |
+    |---|---|---|
+    | 404801 | SECTION_NOT_FOUND 首页区块不存在 | 404 |
+    | 404802 | NAVIGATION_ITEM_NOT_FOUND 导航项不存在 | 404 |
+    | 404803 | FOOTER_COLUMN_NOT_FOUND 页脚栏目不存在 | 404 |
+    | 404804 | ANNOUNCEMENT_NOT_FOUND 公告条不存在 | 404 |
+    | 409801 | SECTION_LABEL_EXISTS 首页区块 label 重复（同 sort_order 唯一约束） | 409 |
+    | 409802 | NAVIGATION_LABEL_EXISTS 导航项 label 重复（label+sort_order 唯一约束） | 409 |
+    | 409803 | FOOTER_COLUMN_TITLE_EXISTS 页脚栏目 title 重复（title+sort_order 唯一约束） | 409 |
+    | 409804 | ANNOUNCEMENT_CONTENT_EXISTS 公告 content 文案重复 | 409 |
+    | 422801 | FIELD_VALIDATION_FAILED 字段校验失败（必填缺失/枚举非法/长度超限等 js_guard） | 422 |
+    | 422802 | TAXONOMY_REF_INVALID NavigationItem.taxonomy_id 不存在或 taxonomy_type 不匹配（TaxonomyService 校验失败，FLOW-010） | 422 |
+    | 422803 | BANNER_REF_INVALID Hero 区块关联的 Banner position=HERO 不存在或未发布（FLOW-009 兜底） | 422 |
+    | 422804 | PRODUCT_REF_INVALID ProductRail source=recommend 时 product_ids 含不存在商品（ProductService 校验失败） | 422 |
+    | 422805 | WEDDING_REF_INVALID EditorialFeature wedding_ids 含不存在案例（WeddingService 校验失败） | 422 |
+    | 422806 | MEGA_MENU_CONFIG_INVALID mega_menu_json 配置非法（source/ref_id/ref_type 组合不满足 js_guard） | 422 |
+    | 422807 | I18N_JSON_INVALID i18n_json 结构非法（locale key 不在 {en,es,fr} 或必填文案缺失） | 422 |
+    | 422808 | SECTION_TYPE_DATA_MISMATCH section_type 与 data_json/i18n_json 组合不满足 js_guard（如 Hero data_json 非空 / Newsletter i18n_json 为空） | 422 |
+
+    注：`/api/store/newsletter` 扩展基线 marketing-api 端点（KD-13），错误码沿用 marketing 域（422704 FIELD_VALIDATION_FAILED 等），
+    本契约不重复声明；`source=home_block` 枚举值为本变更新增（NewsletterSource.HOME_BLOCK(4)，GRD-009）。
+
+    ## 端点总数
+    - admin 端 15 个（home-sections 6 + navigation 2 + footer 2 + announcements 5）
+    - store 端 5 个（home/navigation/footer/announcements 4 + newsletter 1）
+    - 合计 **20 个**
+
+    ## 版本历史
+    - v1.0.0 (2026-06-23): 初始版本（site-decoration-fullstack L1.2 产出，KD-1~17 + GRD/GRD2 修正全量落地）
+  version: 1.0.0
+  contact:
+    name: site_builder domain team
+    email: York_Morinkts@madonnafan.com
+
+servers:
+  - url: http://localhost:8080
+    description: 本地（backend 单工程，端口 8080）
+
+tags:
+  - name: admin-home-sections
+    description: 后台首页区块管理（HomeBuilder.vue，KD-2/4/8/9/10/11，权限 /site/home）
+  - name: admin-navigation
+    description: 后台主导航整体保存（NavigationConfig.vue 主导航 Tab，权限 /site/navigation）
+  - name: admin-footer
+    description: 后台页脚栏目整体保存（NavigationConfig.vue 页脚栏目 Tab，权限 /site/navigation）
+  - name: admin-announcements
+    description: 后台公告条管理（NavigationConfig.vue 公告条 Tab，KD-7，权限 /site/announcement）
+  - name: store-content
+    description: 消费端内容读取（首页区块/导航/页脚/公告条，匿名公开，JetCache 两级缓存）
+  - name: store-newsletter
+    description: 消费端 Newsletter 订阅（KD-11/KD-13，扩展基线 marketing-api POST /api/store/newsletter，source=home_block）
+
+paths:
+  # ============ ADMIN HOME SECTIONS ============
+  /api/admin/site-builder/home-sections:
+    get:
+      summary: 首页区块列表
+      description: |
+        返回所有 HomePageSection 记录（含禁用），按 sort_order 升序。
+        管理端 HomeBuilder.vue 区块列表渲染数据源（含 enabled=false 区块，前端显示删除线 + 灰色）。
+        缓存：后台读端点不缓存（实时读 DB）；消费端读走 /api/store/content/home（带 JetCache 两级）。
+      operationId: listAdminHomeSections
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HomePageSection'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增首页区块
+      description: |
+        KD-4 保存即发布（无草稿态）。BE-DIM-4 单表 @Transactional 事务原子写入。
+        js_guard：section_type=Hero 时 data_json 应为空且 i18n_json 为 null（文案/图片/CTA 全部从 Banner position=HERO 派生，KD-2/KD-14）；
+        section_type=Announcement 时 data_json 应为空且 i18n_json 为 null（公告内容从 Announcement 域派生，KD-7）；
+        section_type=Newsletter 时 data_json 应为空且 i18n_json 非空（title/subtitle/cta_text 文案存 i18n_json，KD-11+KD-16）；
+        section_type=ProductRail && data_json.source=recommend 时 data_json.product_ids 非空数组（KD-9）；
+        section_type=ProductRail 时 data_json.limit ∈ [1, 12]；
+        section_type=ShopByColor 时 data_json.count ∈ [1, 8]。
+        保存成功触发 in-process 缓存失效链（cache.invalidateFamily(Family.HOME_SECTION) + publisher.publish(TYPE_HOME_SECTION_CHANGED)）。
+        写 OperationLog（action=创建首页区块）。
+      operationId: createAdminHomeSection
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomePageSectionUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomePageSection'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409801
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801~422808
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/home-sections/{id}:
+    put:
+      summary: 编辑首页区块
+      description: |
+        KD-4 保存即发布。BE-DIM-4 单表 @Transactional。
+        js_guard 同 POST（section_type 与 data_json/i18n_json 组合校验，422808 SECTION_TYPE_DATA_MISMATCH）。
+        保存成功触发 in-process 缓存失效链（HOME_SECTION 族）。写 OperationLog（action=编辑首页区块）。
+      operationId: updateAdminHomeSection
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomePageSectionUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomePageSection'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404801
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409801
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除首页区块（物理删除）
+      description: |
+        KD-4/CONSTRAINT-004 物理删除（无 deleted_at 字段，配置类误删可重建）。
+        保存成功触发 in-process 缓存失效链（HOME_SECTION 族）。写 OperationLog（action=删除首页区块）。
+      operationId: deleteAdminHomeSection
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/home-sections/sort:
+    put:
+      summary: 批量调整首页区块排序
+      description: |
+        HomeBuilder.vue ChevronUp/ChevronDown 调整 sort_order 后的批量保存。
+        入参为有序 ID 数组，后端按数组下标重写 sort_order（0-based 连续整数）。
+        BE-DIM-4 单 @Transactional 批量更新；保存成功触发 HOME_SECTION 族缓存失效。
+        写 OperationLog（action=排序首页区块）。
+      operationId: sortAdminHomeSections
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  description: 有序区块 ID 数组（数组下标即新 sort_order）
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HomePageSection'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404801 任一 id 不存在
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801 ids 为空或含重复
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/home-sections/{id}/toggle:
+    patch:
+      summary: 切换首页区块启用状态（行内 Toggle）
+      description: |
+        HomeBuilder.vue Toggle v-model=b.enabled 切换；状态机 home_page_section_status（enabled ↔ disabled，KD-4）。
+        BE-DIM-4 单字段更新 @Transactional；保存成功触发 HOME_SECTION 族缓存失效（GRD-W01 in-process）。
+        写 OperationLog（action=切换首页区块启停）。
+      operationId: toggleAdminHomeSection
+      tags: [admin-home-sections]
+      security:
+        - AdminBearerAuth: [/site/home]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomePageSection'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404801
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN NAVIGATION (整体保存) ============
+  /api/admin/site-builder/navigation:
+    get:
+      summary: 主导航项列表（含 Mega Menu 配置）
+      description: |
+        返回所有 NavigationItem 记录（含禁用），按 sort_order 升序。
+        管理端 NavigationConfig.vue 主导航 Tab 渲染数据源。
+        Mega Menu 列定义内嵌在 NavigationItem.mega_menu_json（KD-6 不单独建表）。
+        缓存：后台读端点不缓存。
+      operationId: getAdminNavigation
+      tags: [admin-navigation]
+      security:
+        - AdminBearerAuth: [/site/navigation]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NavigationItem'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 整体保存主导航（批量 upsert + 排序 + 启停）
+      description: |
+        NavigationConfig.vue 主导航 Tab "保存并重新生成 header" 按钮触发（KD-4 保存即发布）。
+        入参为完整导航项数组，后端 diff 当前 DB 状态：新增/更新/删除/重排 sort_order 一次性 @Transactional 完成（BE-DIM-4）。
+        js_guard：link_type=taxonomy 时 taxonomy_id 非空（TaxonomyService.findById 校验，422802 TAXONOMY_REF_INVALID，FLOW-010）；
+        link_type=custom 时 custom_href 非空；
+        mega_menu_json.source=category-children 时 ref_id 非空；source=taxonomy-type 时 ref_type ∈ [theme, category]（422806 MEGA_MENU_CONFIG_INVALID）。
+        保存成功触发 in-process 缓存失效链（NAVIGATION 族，header+footer 共用，GRD-004/GRD-W01）。
+        写 OperationLog（action=保存主导航配置）。
+      operationId: saveAdminNavigation
+      tags: [admin-navigation]
+      security:
+        - AdminBearerAuth: [/site/navigation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NavigationItemUpsert'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NavigationItem'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409802
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801/422802/422806/422807/422808
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN FOOTER (整体保存) ============
+  /api/admin/site-builder/footer:
+    get:
+      summary: 页脚栏目列表（含链接）
+      description: |
+        返回所有 FooterColumn 记录（含禁用），按 sort_order 升序，每栏目内嵌 FooterLink 数组（按 sort_order 升序）。
+        管理端 NavigationConfig.vue 页脚栏目 Tab 渲染数据源。缓存：后台读端点不缓存。
+      operationId: getAdminFooter
+      tags: [admin-footer]
+      security:
+        - AdminBearerAuth: [/site/navigation]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FooterColumn'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 整体保存页脚（批量 upsert 栏目+链接+排序+启停）
+      description: |
+        NavigationConfig.vue 页脚栏目 Tab 保存按钮触发（KD-4 保存即发布）。
+        入参为完整栏目数组（含内嵌 links），后端 diff 当前 DB 状态：新增/更新/删除栏目与链接、重排 sort_order 一次性 @Transactional 完成（BE-DIM-4）。
+        js_guard：栏目 title 不重复（409803 FOOTER_COLUMN_TITLE_EXISTS）；链接 href 非空（422801）。
+        保存成功触发 in-process 缓存失效链（NAVIGATION 族，与 header 共用，GRD-004 方案 A）。写 OperationLog（action=保存页脚配置）。
+      operationId: saveAdminFooter
+      tags: [admin-footer]
+      security:
+        - AdminBearerAuth: [/site/navigation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FooterColumnUpsert'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FooterColumn'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409803
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801/422807
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ ADMIN ANNOUNCEMENTS ============
+  /api/admin/site-builder/announcements:
+    get:
+      summary: 公告条列表
+      description: |
+        返回所有 Announcement 记录（含禁用），按 sort_order 升序。
+        管理端 NavigationConfig.vue 公告条 Tab 渲染数据源。缓存：后台读端点不缓存。
+      operationId: listAdminAnnouncements
+      tags: [admin-announcements]
+      security:
+        - AdminBearerAuth: [/site/announcement]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Announcement'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: 新增公告条
+      description: |
+        KD-7 独立 announcement 域；KD-4 保存即发布。BE-DIM-4 单表 @Transactional。
+        js_guard：content 非空字符串（trim 后长度 > 0，422801）；i18n_json 结构合法（422807）。
+        保存成功触发 in-process 缓存失效链（ANNOUNCEMENT 族）。写 OperationLog（action=创建公告条）。
+      operationId: createAdminAnnouncement
+      tags: [admin-announcements]
+      security:
+        - AdminBearerAuth: [/site/announcement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementUpsert'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409804
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422801/422807
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/announcements/{id}:
+    put:
+      summary: 编辑公告条
+      description: |
+        KD-4 保存即发布。BE-DIM-4 单表 @Transactional。
+        js_guard 同 POST。保存成功触发 ANNOUNCEMENT 族缓存失效。写 OperationLog（action=编辑公告条）。
+      operationId: updateAdminAnnouncement
+      tags: [admin-announcements]
+      security:
+        - AdminBearerAuth: [/site/announcement]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementUpsert'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404804
+        '409':
+          $ref: '#/components/responses/Conflict'        # 409804
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: 删除公告条（物理删除）
+      description: |
+        KD-4/CONSTRAINT-004 物理删除。保存成功触发 ANNOUNCEMENT 族缓存失效。写 OperationLog（action=删除公告条）。
+      operationId: deleteAdminAnnouncement
+      tags: [admin-announcements]
+      security:
+        - AdminBearerAuth: [/site/announcement]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/announcements/{id}/toggle:
+    patch:
+      summary: 切换公告条启用状态（行内 Toggle）
+      description: |
+        状态机 announcement_status（enabled ↔ disabled，KD-4）。
+        BE-DIM-4 单字段更新 @Transactional；保存成功触发 ANNOUNCEMENT 族缓存失效（GRD-W01 in-process）。
+        写 OperationLog（action=切换公告条启停）。
+      operationId: toggleAdminAnnouncement
+      tags: [admin-announcements]
+      security:
+        - AdminBearerAuth: [/site/announcement]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundError'   # 404804
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE CONTENT ============
+  /api/store/content/home:
+    get:
+      summary: 首页区块聚合（按 locale 渲染）
+      description: |
+        消费端 portal-store/app/[locale]/page.tsx 渲染数据源（KD-5 消费端首页动态渲染）。
+        返回所有 enabled=true 的 HomePageSection，按 sort_order 升序，每个区块携带类型相关的派生数据：
+        - Hero：从 Banner position=HERO && status=published && now ∈ [start_time, end_time] 派生（BannerService.findByPosition，KD-2/KD-14，含 cta_text_secondary/cta_link_secondary 第二 CTA，FLOW-009）；
+          无符合条件的 Banner 时 hero 字段为 null（消费端显示静态占位）。
+        - Announcement：占位区块，无派生数据（公告内容消费端调 GET /api/store/content/announcements 独立获取，KD-7）。
+        - ShopByColor：data_json.count + 消费端静态调色板（mock palette 8 色，prototype/portal-admin/src/data/mock.js）。
+        - ThemeCards：从 Taxonomy type=theme 派生前 N 个（TaxonomyService，KD-8）。
+        - ProductRail：source=isNew/isBest 时从 ProductService 按 flag + sort 取前 limit 条；source=recommend 时按 data_json.product_ids 顺序取（KD-9）。
+        - EditorialFeature：从 RealWeddingService 取 published 前 limit 条，或按 data_json.wedding_ids 顺序取（KD-10）。
+        - Newsletter：从 i18n_json 按 locale 解析 title/subtitle/cta_text（KD-11+KD-16）。
+        缓存：JetCache 两级（Caffeine + Redis，TTL=300s，key=marketing:home_section:{locale}）；失效：后台写操作 → publisher.publish(TYPE_HOME_SECTION_CHANGED) → cache.invalidateFamily(Family.HOME_SECTION) + cdnService.invalidatePaths(["/", "/es", "/fr"])。
+      operationId: getStoreHome
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sections]
+                properties:
+                  sections:
+                    type: array
+                    description: enabled=true 的区块列表，按 sort_order 升序
+                    items:
+                      $ref: '#/components/schemas/StoreHomePageSection'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/navigation:
+    get:
+      summary: 主导航（按 locale 渲染）
+      description: |
+        消费端 portal-store/app/[locale]/layout.tsx 渲染 header 数据源（KD-5）。
+        返回所有 enabled=true 的 NavigationItem，按 sort_order 升序；label 按 locale 解析（i18n_json 优先，缺翻译回退 EN 主表 label）。
+        Mega Menu 列子链接从 TaxonomyService 派生（source=category-children → TaxonomyService.findChildren(ref_id)；source=taxonomy-type → TaxonomyService.findByType(ref_type)，FLOW-010）。
+        缓存：JetCache 两级（TTL=300s，key=marketing:navigation:{locale}）；失效：后台写操作 → publisher.publish(TYPE_NAVIGATION_CHANGED) → cache.invalidateFamily(Family.NAVIGATION) + cdnService.invalidatePaths。
+      operationId: getStoreNavigation
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreNavigationItem'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/footer:
+    get:
+      summary: 页脚栏目（按 locale 渲染）
+      description: |
+        消费端 portal-store/app/[locale]/layout.tsx 渲染 footer 数据源（KD-5）。
+        返回所有 enabled=true 的 FooterColumn，按 sort_order 升序，每栏目内嵌 enabled=true 的 FooterLink 数组（按 sort_order 升序）；
+        title/label 按 locale 解析（i18n_json 优先，缺翻译回退 EN 主表字段）。
+        缓存：JetCache 两级（TTL=300s，key=marketing:navigation:{locale}，与 header 共用 NAVIGATION 族，GRD-004 方案 A）；
+        失效：同 /api/store/content/navigation。
+      operationId: getStoreFooter
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreFooterColumn'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/content/announcements:
+    get:
+      summary: 启用公告条列表（按 locale 渲染）
+      description: |
+        消费端顶部公告条组件渲染数据源（KD-5/KD-7）。
+        返回所有 enabled=true 的 Announcement，按 sort_order 升序；content 按 locale 解析（i18n_json 优先，缺翻译回退 EN 主表 content）。
+        本期不支持时间窗投放（SM-OQ-3 方案 A，运营手动启停）；"按时间窗 + 启用状态过滤"在本期简化为仅 enabled=true 过滤，后续若引入 start_time/end_time 字段可平滑扩展。
+        缓存：JetCache 两级（TTL=300s，key=marketing:announcement:{locale}）；失效：后台写操作 → publisher.publish(TYPE_ANNOUNCEMENT_CHANGED) → cache.invalidateFamily(Family.ANNOUNCEMENT) + cdnService.invalidatePaths。
+      operationId: listStoreAnnouncements
+      tags: [store-content]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreAnnouncement'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ============ STORE NEWSLETTER（扩展基线 marketing-api，KD-11/KD-13） ============
+  /api/store/newsletter:
+    post:
+      summary: Newsletter 订阅（首页区块入口）
+      description: |
+        KD-11/KD-13 扩展基线 marketing-api POST /api/store/newsletter（不新建独立端点，GRD-009）。
+        首页 Newsletter 区块订阅入口，source=home_block(4) 表示首页区块来源（NewsletterSource.HOME_BLOCK，GRD-009）。
+        GRD2-003 方案 A：(email, source) 复合唯一约束，同邮箱同来源重复订阅幂等返回成功（200 + subscribed=true）；
+        不同来源新增记录（如先 FOOTER 订阅后再 HOME_BLOCK 订阅，新增一条 source=HOME_BLOCK 记录）。
+        GRD-001/KD-12：本期不扩展退订状态机，subscriber_status 单态 subscribed，订阅即生效；不发码不发邮件（对齐基线决策 26）。
+        email 存储前小写归一（对齐基线 NewsletterService.normalizeEmail）。
+        限流靠 Cloudflare WAF（与基线一致）。不缓存。
+        错误码沿用 marketing 域（422704 FIELD_VALIDATION_FAILED 邮箱格式非法等），本契约不重复声明。
+      operationId: subscribeNewsletterFromHomeBlock
+      tags: [store-newsletter]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, source, locale]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                  description: 订阅邮箱（后端存储前小写归一）
+                source:
+                  type: string
+                  enum: [footer, modal, exit_intent, home_block]
+                  description: |
+                    订阅来源 IntEnum NewsletterSource（1=FOOTER / 2=MODAL / 3=EXIT_INTENT / 4=HOME_BLOCK）。
+                    本变更新增 home_block(4)（GRD-009/KD-13），其他三个值沿用基线。
+                locale:
+                  type: string
+                  enum: [en, es, fr]
+                  description: 订阅时页面语言（写入 NewsletterSubscriber.locale）
+      responses:
+        '200':
+          description: 已订阅（含重复订阅幂等返回）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscribed]
+                properties:
+                  subscribed:
+                    type: boolean
+                    description: 成功订阅或重复订阅幂等均返回 true
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422704（marketing 域码）邮箱格式非法
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: 资源唯一标识（Long 自增主键）
+      schema:
+        type: integer
+        format: int64
+    LocaleParam:
+      name: locale
+      in: query
+      description: |
+        内容语言（KD-16 i18n_json JSON 列承载多语言文案；EN 为基准语言，ES/FR 翻译存 i18n_json 内）。
+        后端按 locale 参数解析 i18n_json：locale=en 取主表字段，locale=es/fr 取 i18n_json[locale] 内对应字段，缺翻译回退 EN。
+        缓存 key 含此维度（marketing:home_section:{locale} 等）。
+      schema:
+        type: string
+        enum: [en, es, fr]
+        default: en
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          description: 数字业务错误码（高 3 位对应 HTTP 状态，第 4 位域段 site_builder=8，见 info 码表）
+          example: 422801
+        message:
+          type: string
+          description: 当前语言默认文案（store EN/ES/FR；admin 中文）
+        details:
+          type: object
+          additionalProperties: true
+
+    # ============ i18n_json 共享结构 ============
+    I18nJson:
+      type: object
+      description: |
+        KD-16 多语言文案 JSON 列结构。顶层 key 为 locale（en/es/fr），value 为该 locale 下的文案字段对象。
+        EN 为基准语言，主表 label/content/title 字段同步存 EN 值；ES/FR 翻译存 i18n_json 内。
+        缺翻译时消费端回退 EN 主表字段。使用 JacksonTypeHandler + @TableName(autoResultMap=true)（对齐 Category.attrOverrides 模式）。
+        各实体 i18n_json 字段结构：
+        - HomePageSection（非 Hero/Announcement 类型）：{ eyebrow, title, subtitle, cta_text }；Newsletter 类型：{ title, subtitle, cta_text }
+        - NavigationItem：{ label, mega_menu_titles: { "<col_sort_order>": "<title>" } }
+        - FooterColumn：{ title }
+        - FooterLink：{ label }
+        - Announcement：{ content }
+        空 locale 对象允许（如仅提供 EN 翻译时 { "en": {...} }）。
+      additionalProperties:
+        type: object
+        additionalProperties: true
+      example:
+        en:
+          title: "Shop by Color"
+          subtitle: "Find your perfect shade"
+          cta_text: "Explore"
+        es:
+          title: "Comprar por Color"
+          subtitle: "Encuentra tu tono perfecto"
+          cta_text: "Explorar"
+        fr:
+          title: "Acheter par Couleur"
+          subtitle: "Trouvez votre teinte parfaite"
+          cta_text: "Explorer"
+
+    # ============ HomePageSection ============
+    HomePageSectionUpsert:
+      type: object
+      required: [section_type, label, enabled, sort_order]
+      properties:
+        section_type:
+          type: string
+          enum: [Hero, Announcement, ShopByColor, ThemeCards, ProductRail, EditorialFeature, Newsletter]
+          description: |
+            区块类型（原型 HomeBuilder.vue b.type 7 种）。不同类型 data_json/i18n_json 约束不同（422808 SECTION_TYPE_DATA_MISMATCH）：
+            - Hero/Announcement：data_json 为空且 i18n_json 为 null（数据从其他域派生）
+            - Newsletter：data_json 为空且 i18n_json 非空（文案存 i18n_json）
+            - ShopByColor/ThemeCards/ProductRail/EditorialFeature：data_json 存区块配置，i18n_json 存文案（可选）
+        label:
+          type: string
+          maxLength: 64
+          description: 后台显示名称（如 "Hero 主视觉"）
+        enabled:
+          type: boolean
+          description: 启用状态（KD-4 保存即发布，无草稿态）
+        sort_order:
+          type: integer
+          minimum: 0
+          description: 排序序号（消费端按 sort_order 升序渲染）
+        data_json:
+          type: object
+          nullable: true
+          description: |
+            区块配置数据（GRD2-002 修正）。结构随 section_type 变化：
+            - Hero/Announcement/Newsletter：应为 null（数据从其他域派生或 i18n_json 承载）
+            - ShopByColor：{ count: integer ∈ [1, 8] }
+            - ThemeCards：{ count: integer ∈ [1, 8] }
+            - ProductRail：{ source: "isNew"|"isBest"|"recommend", limit: integer ∈ [1, 12], product_ids?: long[] (source=recommend 时必填) }
+            - EditorialFeature：{ limit: integer ∈ [1, 12], wedding_ids?: long[] }
+          additionalProperties: true
+        i18n_json:
+          $ref: '#/components/schemas/I18nJson'
+          nullable: true
+
+    HomePageSection:
+      allOf:
+        - $ref: '#/components/schemas/HomePageSectionUpsert'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # ============ NavigationItem ============
+    NavigationItemUpsert:
+      type: object
+      required: [label, link_type, enabled, sort_order]
+      properties:
+        label:
+          type: string
+          maxLength: 64
+          description: 导航项标签（EN 基准，存主表；ES/FR 翻译存 i18n_json.label）
+        link_type:
+          type: string
+          enum: [taxonomy, custom]
+          description: |
+            链接类型。taxonomy 时引用 Taxonomy（品类/主题），href 从 TaxonomyService 派生；
+            custom 时存 custom_href 自定义 URL。
+        taxonomy_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: link_type=taxonomy 时必填；引用 Taxonomy.id（Category 或 Collection 多态，GRD-002）。
+        taxonomy_type:
+          type: string
+          enum: [category, theme]
+          nullable: true
+          description: |
+            派生字段（OQ-4 方案 A 冗余存储）。link_type=taxonomy 时必填；
+            标识引用的是品类（Category）还是主题（Collection with collectionGroupId=主题组）。
+            TaxonomyService.findById 校验存在性 + 类型一致性（422802 TAXONOMY_REF_INVALID）。
+        custom_href:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: link_type=custom 时必填；自定义 URL。
+        mega_menu_json:
+          type: array
+          nullable: true
+          description: |
+            KD-6 Mega Menu 列数组（内嵌 JSON 字段，不单独建表）。每列结构：
+            { title: string, source: "category-children"|"taxonomy-type"|"custom", ref_id?: long, ref_type?: "category"|"theme", custom_links?: string[], sort_order: integer }
+            js_guard（422806 MEGA_MENU_CONFIG_INVALID）：
+            - source=category-children 时 ref_id 非空（引用品类 ID，派生子类）
+            - source=taxonomy-type 时 ref_type ∈ [theme, category]（派生全部上线品类/主题）
+            - source=custom 时 custom_links 非空数组
+            列标题 i18n 存主表 i18n_json.mega_menu_titles（{ "<col_sort_order>": "<title>" }，OQ-5 方案 A）。
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                maxLength: 64
+                description: 列标题（EN 基准）
+              source:
+                type: string
+                enum: [category-children, taxonomy-type, custom]
+              ref_id:
+                type: integer
+                format: int64
+                nullable: true
+              ref_type:
+                type: string
+                enum: [category, theme]
+                nullable: true
+              custom_links:
+                type: array
+                nullable: true
+                items:
+                  type: string
+                  maxLength: 255
+              sort_order:
+                type: integer
+                minimum: 0
+        i18n_json:
+          $ref: '#/components/schemas/I18nJson'
+          nullable: true
+        enabled:
+          type: boolean
+        sort_order:
+          type: integer
+          minimum: 0
+
+    NavigationItem:
+      allOf:
+        - $ref: '#/components/schemas/NavigationItemUpsert'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # ============ FooterColumn / FooterLink ============
+    FooterLinkUpsert:
+      type: object
+      required: [label, href, sort_order]
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+          description: 已有链接更新时传 id；新增链接不传 id（后端自增生成）。
+        label:
+          type: string
+          maxLength: 64
+          description: 链接文案（EN 基准，存主表；ES/FR 翻译存 i18n_json.label）
+        href:
+          type: string
+          maxLength: 255
+          description: 链接 URL
+        sort_order:
+          type: integer
+          minimum: 0
+        i18n_json:
+          $ref: '#/components/schemas/I18nJson'
+          nullable: true
+
+    FooterLink:
+      allOf:
+        - $ref: '#/components/schemas/FooterLinkUpsert'
+        - type: object
+          required: [id, footer_column_id, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+            footer_column_id:
+              type: integer
+              format: int64
+              description: 逻辑外键 FooterColumn.id
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    FooterColumnUpsert:
+      type: object
+      required: [title, enabled, sort_order, links]
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+          description: 已有栏目更新时传 id；新增栏目不传 id。
+        title:
+          type: string
+          maxLength: 64
+          description: 栏目标题（EN 基准，存主表；ES/FR 翻译存 i18n_json.title）
+        enabled:
+          type: boolean
+        sort_order:
+          type: integer
+          minimum: 0
+        links:
+          type: array
+          description: 栏目下的链接列表（按 sort_order 升序）；整体保存时后端 diff 已有链接：传 id 的更新、不传 id 的新增、未传的删除。
+          items:
+            $ref: '#/components/schemas/FooterLinkUpsert'
+        i18n_json:
+          $ref: '#/components/schemas/I18nJson'
+          nullable: true
+
+    FooterColumn:
+      allOf:
+        - $ref: '#/components/schemas/FooterColumnUpsert'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+            links:
+              type: array
+              items:
+                $ref: '#/components/schemas/FooterLink'
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # ============ Announcement ============
+    AnnouncementUpsert:
+      type: object
+      required: [enabled, sort_order, content]
+      properties:
+        enabled:
+          type: boolean
+        sort_order:
+          type: integer
+          minimum: 0
+        content:
+          type: string
+          maxLength: 255
+          description: 公告文案（EN 基准，存主表；ES/FR 翻译存 i18n_json.content）
+        i18n_json:
+          $ref: '#/components/schemas/I18nJson'
+          nullable: true
+
+    Announcement:
+      allOf:
+        - $ref: '#/components/schemas/AnnouncementUpsert'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: integer
+              format: int64
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # ============ 消费端 Schema（已按 locale 解析） ============
+    StoreHeroData:
+      type: object
+      description: |
+        Hero 区块派生数据（KD-2 从 Banner position=HERO && status=published && now ∈ [start_time, end_time] 派生，FLOW-009）。
+        文案/图片/CTA（含第二 CTA，KD-14）全部从 Banner + BannerTranslation 按 locale 解析派生。
+        无符合条件的 Banner 时整个对象为 null（消费端显示静态占位）。
+      nullable: true
+      properties:
+        banner_id:
+          type: integer
+          format: int64
+        eyebrow:
+          type: string
+          description: Banner 位置标签（如 "Featured Collection"）
+        title:
+          type: string
+          description: Banner title（BannerTranslation.title，已按 locale 解析）
+        subtitle:
+          type: string
+        image_url:
+          type: string
+          description: Banner 主图 URL
+        cta1_text:
+          type: string
+          description: 第一 CTA 文案（Banner.cta_text，已按 locale 解析）
+        cta1_link:
+          type: string
+          description: 第一 CTA 链接（Banner 规范化链接，可空）
+        cta2_text:
+          type: string
+          nullable: true
+          description: 第二 CTA 文案（Banner.cta_text_secondary，KD-14 新增字段，已按 locale 解析；可空）
+        cta2_link:
+          type: string
+          nullable: true
+          description: 第二 CTA 链接（Banner.cta_link_secondary，KD-14 新增字段；可空）
+
+    StoreShopByColorData:
+      type: object
+      description: ShopByColor 区块派生数据（KD-5 消费端首页动态渲染）。count 来自 HomePageSection.data_json.count；colors 来自消费端静态调色板。
+      properties:
+        count:
+          type: integer
+          minimum: 1
+          maximum: 8
+        colors:
+          type: array
+          description: 颜色列表（前 count 个，prototype/portal-admin/src/data/mock.js palette 8 色）
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              hex:
+                type: string
+
+    StoreThemeCardsData:
+      type: object
+      description: ThemeCards 区块派生数据（KD-8 从 Taxonomy type=theme 派生，TaxonomyService.findByType(theme)）。
+      properties:
+        count:
+          type: integer
+        themes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                format: int64
+              name:
+                type: string
+                description: Collection.name（已按 locale 解析，若 CollectionTranslation 存在）
+              href:
+                type: string
+                description: 派生链接（如 /themes/{slug}）
+              image_url:
+                type: string
+                nullable: true
+                description: Collection.cover（可空）
+
+    StoreProductRailData:
+      type: object
+      description: |
+        ProductRail 区块派生数据（KD-9）。
+        source=isNew/isBest 时通过 ProductService 按 flag + sort 取前 limit 条；
+        source=recommend 时按 data_json.product_ids 顺序取（ProductService.findByIds 校验，422804 PRODUCT_REF_INVALID）。
+      properties:
+        source:
+          type: string
+          enum: [isNew, isBest, recommend]
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 12
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreProductCard'
+
+    StoreProductCard:
+      type: object
+      description: 商品卡片（catalog 域 ProductService 派生，跨 domain 通过 Service 接口调用，KD-BE-5 不跨表查询）
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+          description: USD 基准现价
+        image_url:
+          type: string
+          nullable: true
+
+    StoreEditorialFeatureData:
+      type: object
+      description: |
+        EditorialFeature 区块派生数据（KD-10 引用 weddings 数据 + limit）。
+        wedding_ids 非空时按 ID 顺序取（WeddingService.findByIds 校验，422805 WEDDING_REF_INVALID）；
+        为空时按 sort_order 取前 limit 条 published 案例。
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 12
+        weddings:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                format: int64
+              couple:
+                type: string
+              location:
+                type: string
+                nullable: true
+              theme:
+                type: string
+                nullable: true
+              wedding_date:
+                type: string
+                nullable: true
+              cover:
+                type: string
+                nullable: true
+              title:
+                type: string
+                nullable: true
+                description: RealWeddingTranslation.title（已按 locale 解析，可空）
+
+    StoreNewsletterData:
+      type: object
+      description: Newsletter 区块派生数据（KD-11+KD-16，文案从 i18n_json 按 locale 解析）。
+      properties:
+        title:
+          type: string
+          description: i18n_json[locale].title（缺翻译回退 EN）
+        subtitle:
+          type: string
+          nullable: true
+        cta_text:
+          type: string
+          nullable: true
+
+    StoreHomePageSection:
+      type: object
+      required: [id, section_type, sort_order]
+      description: |
+        消费端首页区块（已按 locale 解析）。section_type 决定哪个派生字段非空：
+        - Hero：hero 非空（其他为 null）
+        - Announcement：所有派生字段为 null（公告内容消费端独立调 /api/store/content/announcements）
+        - ShopByColor：shop_by_color 非空
+        - ThemeCards：theme_cards 非空
+        - ProductRail：product_rail 非空
+        - EditorialFeature：editorial_feature 非空
+        - Newsletter：newsletter 非空
+      properties:
+        id:
+          type: integer
+          format: int64
+        section_type:
+          type: string
+          enum: [Hero, Announcement, ShopByColor, ThemeCards, ProductRail, EditorialFeature, Newsletter]
+        sort_order:
+          type: integer
+        label:
+          type: string
+          description: 后台显示名称（消费端通常不渲染，调试用）
+        hero:
+          $ref: '#/components/schemas/StoreHeroData'
+        shop_by_color:
+          $ref: '#/components/schemas/StoreShopByColorData'
+          nullable: true
+        theme_cards:
+          $ref: '#/components/schemas/StoreThemeCardsData'
+          nullable: true
+        product_rail:
+          $ref: '#/components/schemas/StoreProductRailData'
+          nullable: true
+        editorial_feature:
+          $ref: '#/components/schemas/StoreEditorialFeatureData'
+          nullable: true
+        newsletter:
+          $ref: '#/components/schemas/StoreNewsletterData'
+          nullable: true
+
+    StoreNavigationItem:
+      type: object
+      required: [id, label, link_type, sort_order]
+      description: 消费端主导航项（已按 locale 解析 label；mega_menu 列子链接从 TaxonomyService 派生）。
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+          description: i18n_json[locale].label（缺翻译回退 EN 主表 label）
+        link_type:
+          type: string
+          enum: [taxonomy, custom]
+        href:
+          type: string
+          description: |
+            派生链接。link_type=taxonomy 时由 TaxonomyService 派生（type=category → /categories/{slug}；type=theme → /themes/{slug}）；
+            link_type=custom 时取 custom_href。
+        sort_order:
+          type: integer
+        mega_menu:
+          type: array
+          nullable: true
+          description: |
+            Mega Menu 列派生数据（KD-6）。每列含 title（i18n_json.mega_menu_titles[locale] 解析）+ 子链接数组（TaxonomyService 派生）。
+            无 Mega Menu 配置时为 null。
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              sort_order:
+                type: integer
+              links:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                    href:
+                      type: string
+
+    StoreFooterColumn:
+      type: object
+      required: [id, title, sort_order, links]
+      description: 消费端页脚栏目（已按 locale 解析 title/label）。
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+          description: i18n_json[locale].title（缺翻译回退 EN 主表 title）
+        sort_order:
+          type: integer
+        links:
+          type: array
+          items:
+            type: object
+            required: [id, label, href, sort_order]
+            properties:
+              id:
+                type: integer
+                format: int64
+              label:
+                type: string
+                description: i18n_json[locale].label（缺翻译回退 EN 主表 label）
+              href:
+                type: string
+              sort_order:
+                type: integer
+
+    StoreAnnouncement:
+      type: object
+      required: [id, content, sort_order]
+      description: 消费端公告条（已按 locale 解析 content）。
+      properties:
+        id:
+          type: integer
+          format: int64
+        content:
+          type: string
+          description: i18n_json[locale].content（缺翻译回退 EN 主表 content）
+        sort_order:
+          type: integer
+
+  responses:
+    ValidationError:
+      description: 参数/业务校验失败（422801~422808；newsletter 端点沿用 marketing 域 422704）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 token 无效（40100 系列沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限（RBAC 菜单权限 key 校验失败，40300；本域权限点 /site/home、/site/navigation、/site/announcement）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: 资源不存在（404801~404804）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 冲突（409801~409804）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: 服务器内部错误（50000 沿用 identity）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    StoreBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        消费端 store JWT（与 identity-api 同基建）。本域消费端内容读端点与 newsletter 提交端点为匿名公开（security: []），
+        StoreBearerAuth 仅作占位（本域暂无需要登录态的 store 端点）。
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        后台 admin JWT（与 identity-api 同基建）。security 列表中的字符串数组表示所需菜单权限 key
+        （本域权限点：/site/home、/site/navigation、/site/announcement，KD-BE-6 / BE-DIM-6），由 RBAC 守卫校验。
+        /site/announcement 由 DataInitializer 新增种子（GRD-007）。
+
+security: []

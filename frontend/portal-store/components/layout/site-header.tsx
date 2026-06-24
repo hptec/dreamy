@@ -21,7 +21,15 @@ import { useI18n, stripLocale } from '@/lib/i18n/i18n-context'
 import type { Locale } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
 
-export function SiteHeader({ announcements: serverAnnouncements }: { announcements?: string[] }) {
+import type { StoreNavigationItem } from '@/lib/api/site-builder-server'
+
+export function SiteHeader({
+  announcements: serverAnnouncements,
+  navigationItems,
+}: {
+  announcements?: string[]
+  navigationItems?: StoreNavigationItem[]
+}) {
   const pathname = usePathname()
   const { t } = useI18n()
   const { cartCount, wishlist, currency, setCurrency, language, setLanguage, setCartOpen } = useStore()
@@ -29,6 +37,14 @@ export function SiteHeader({ announcements: serverAnnouncements }: { announcemen
   const hydrate = useAuthStore((s) => s.hydrate)
   const accountHref = isAuthenticated ? '/account' : '/account/login'
   const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
+  // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav
+  const navItems = navigationItems && navigationItems.length > 0
+    ? navigationItems.filter((i) => i.parent_id === null).map((i) => ({
+        label: i.label,
+        href: i.link_type === 'custom' ? (i.url ?? '/') : `/categories/${i.taxonomy_id}`,
+        megaMenu: i.mega_menu,
+      }))
+    : mainNav
   const activePath = stripLocale(pathname ?? '/')
   const [announceIdx, setAnnounceIdx] = useState(0)
   const [openMenu, setOpenMenu] = useState<string | null>(null)

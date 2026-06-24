@@ -35,4 +35,10 @@ public class BannerTranslation extends LongAuditableEntity {
 
     @Column(name = BannerTranslationDBConst.CTA_TEXT, definition = "varchar(64) NULL")
     private String ctaText;
+
+    @Column(name = "cta_text_secondary", definition = "varchar(255) NULL COMMENT '次要 CTA 文案（KD-14）'")
+    private String ctaTextSecondary;
+
+    @Column(name = "cta_link_secondary", definition = "varchar(512) NULL COMMENT '次要 CTA 链接（KD-14）'")
+    private String ctaLinkSecondary;
 }

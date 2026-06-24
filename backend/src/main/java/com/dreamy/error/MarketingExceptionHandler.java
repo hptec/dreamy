@@ -7,9 +7,13 @@ import com.dreamy.controller.AdminFlashSaleController;
 import com.dreamy.controller.AdminGuideController;
 import com.dreamy.controller.AdminLookbookController;
 import com.dreamy.controller.AdminWeddingController;
+import com.dreamy.controller.AdminHomePageSectionController;
+import com.dreamy.controller.AdminNavigationController;
+import com.dreamy.controller.AdminAnnouncementController;
 import com.dreamy.controller.StoreContentController;
 import com.dreamy.controller.StoreLeadController;
 import com.dreamy.controller.StorePromotionController;
+import com.dreamy.controller.StoreSiteBuilderController;
 
 import com.dreamy.i18n.RequestLocaleContext;
 import com.dreamy.i18n.MarketingMessageResolver;
@@ -36,7 +40,7 @@ import java.util.Map;
  * `{ fields: { <field>: <reason_key> } }`（marketing-api-detail §0 横切）；4xx WARN / 5xx ERROR 分级。
  * identity 复用码（40100/40300/50000 等 BizException）仍由 identity GlobalExceptionHandler 兜底处理。
  */
-@RestControllerAdvice(assignableTypes = {AdminBannerController.class, AdminBlogController.class, AdminCouponController.class, AdminFlashSaleController.class, AdminGuideController.class, AdminLookbookController.class, AdminWeddingController.class, StoreContentController.class, StoreLeadController.class, StorePromotionController.class})
+@RestControllerAdvice(assignableTypes = {AdminBannerController.class, AdminBlogController.class, AdminCouponController.class, AdminFlashSaleController.class, AdminGuideController.class, AdminLookbookController.class, AdminWeddingController.class, AdminHomePageSectionController.class, AdminNavigationController.class, AdminAnnouncementController.class, StoreContentController.class, StoreLeadController.class, StorePromotionController.class, StoreSiteBuilderController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class MarketingExceptionHandler {
 
@@ -57,6 +61,17 @@ public class MarketingExceptionHandler {
             log.warn("[MKT] {} code={} details={}", reqLine(req), ex.getErrorCode().getCode(), ex.getDetails());
         }
         return build(ex.getErrorCode(), ex.getDetails());
+    }
+
+    /** site_builder 域业务异常 → 6 位码映射（KD-15 assignableTypes 复用 MarketingExceptionHandler） */
+    @ExceptionHandler(SiteBuilderException.class)
+    public ResponseEntity<R<Object>> handleSiteBuilder(SiteBuilderException ex, HttpServletRequest req) {
+        if (ex.getErrorCode().getHttpStatus() >= 500) {
+            log.error("[SB] {} code={} details={}", reqLine(req), ex.getErrorCode().getCode(), ex.getDetails(), ex);
+        } else {
+            log.warn("[SB] {} code={} details={}", reqLine(req), ex.getErrorCode().getCode(), ex.getDetails());
+        }
+        return buildSiteBuilder(ex.getErrorCode(), ex.getDetails());
     }
 
     /** Bean Validation 字段校验失败 → 422704 + fields 字典（error-strategy L2 要求 1） */
@@ -96,6 +111,12 @@ public class MarketingExceptionHandler {
     /** R 包络：{code, message(locale), data=details}；HTTP 状态取码高 3 位 */
     private ResponseEntity<R<Object>> build(MarketingErrorCode code, Map<String, Object> details) {
         String message = messageResolver.resolve(code, RequestLocaleContext.get());
+        return ResponseEntity.status(code.getHttpStatus()).body(new R<>(code.getCode(), message, details));
+    }
+
+    /** site_builder 域 R 包络（message 暂用 code，后续接入 site_builder message bundle） */
+    private ResponseEntity<R<Object>> buildSiteBuilder(SiteBuilderErrorCode code, Map<String, Object> details) {
+        String message = code.name();
         return ResponseEntity.status(code.getHttpStatus()).body(new R<>(code.getCode(), message, details));
     }
 }

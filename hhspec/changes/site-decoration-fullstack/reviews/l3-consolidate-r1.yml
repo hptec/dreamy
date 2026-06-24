@@ -1,0 +1,77 @@
+layer: L3
+review_type: consolidate
+verdict: PASS
+reviewed_at: "2026-06-23T19:30:00Z"
+reviewer: l3_coordinator (inline execution)
+change_name: site-decoration-fullstack
+
+individual_reviews:
+  functional:
+    file: reviews/l3/functional-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 1
+    nice_to_have: 2
+  architectural:
+    file: reviews/l3/architectural-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 0
+    nice_to_have: 2
+  spec_compliance:
+    file: reviews/l3/spec_compliance-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 0
+    nice_to_have: 2
+  code_quality:
+    file: reviews/l3/code_quality-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 1
+    nice_to_have: 2
+  security:
+    file: reviews/l3/security-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 0
+    nice_to_have: 2
+  performance:
+    file: reviews/l3/performance-r1.yml
+    verdict: PASS
+    must_fix: 0
+    should_fix: 1
+    nice_to_have: 2
+
+consolidated_summary:
+  total_must_fix: 0
+  total_should_fix: 3
+  total_nice_to_have: 12
+  verdict: PASS
+
+should_fix_items:
+  - id: SF-01
+    from: functional
+    location: StoreContentService.deriveHeroData
+    description: StoreBanner record 未含 cta_link/cta_*_secondary 字段
+    suggestion: 扩展 StoreBanner record 或直接查 Banner entity
+  - id: SF-02
+    from: code_quality
+    location: NavigationService.save
+    description: findAllOrderBySort 双查询
+    suggestion: 优化为单次查询缓存局部变量
+  - id: SF-03
+    from: performance
+    location: NavigationService.save
+    description: 同 SF-02（双查询性能影响）
+    suggestion: 同 SF-02
+
+l4_inputs:
+  - 3 项 SHOULD_FIX 作为 L4 优化输入（非阻断）
+  - 12 项 NICE_TO_HAVE 作为 L4 优化参考
+  - L4 验证重点：
+    1. 功能维度：跨域调用完整性（ThemeCards/ProductRail/EditorialFeature 派生）
+    2. 架构维度：SiteBuilderConfig 整体乐观锁
+    3. 安全维度：限流配置确认 + 审计日志补全
+    4. 性能维度：singleflight + TTL 抖动
+    5. UI 维度：4 个原型页面视觉还原 + 交互路径 + 可访问性

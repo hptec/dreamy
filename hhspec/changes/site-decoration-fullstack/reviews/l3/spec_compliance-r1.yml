@@ -1,0 +1,71 @@
+layer: L3
+review_type: spec_compliance
+verdict: PASS
+reviewed_at: "2026-06-23T19:25:00Z"
+reviewer: l3_spec_compliance_reviewer (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  specs:
+    - hhspec/changes/site-decoration-fullstack/specs/design/site_builder/api-detail.md
+    - hhspec/changes/site-decoration-fullstack/specs/design/site_builder/data-detail.md
+    - hhspec/changes/site-decoration-fullstack/specs/design/site_builder/error-mapping.yml
+    - hhspec/changes/site-decoration-fullstack/specs/design/site_builder/frontend-detail.md
+    - hhspec/changes/site-decoration-fullstack/specs/architecture/site-builder-api.openapi.yml
+    - hhspec/changes/site-decoration-fullstack/specs/architecture/error-strategy.md
+
+spec_compliance_checks:
+  - spec: R 包络约定（{code, message, data}）
+    status: PASS
+    description: 所有 Controller 返回 R.ok(data) / R.fail(code, message, details)，与 baseline 一致。
+  - spec: 6 位错误码号段（site_builder=8）
+    status: PASS
+    description: SiteBuilderErrorCode 23 个码全部符合 HTTP(3)+域段(1=8)+序号(2) 格式。
+  - spec: OpenAPI 3.0.3 规范
+    status: PASS
+    description: site-builder-api.openapi.yml 符合 OpenAPI 3.0.3，20 端点定义完整。
+  - spec: 鉴权约定（AdminBearerAuth + @RequirePermission）
+    status: PASS
+    description: 所有 admin Controller 使用 @RequirePermission("/site/home|navigation|announcement")。
+  - spec: i18n_json JSON 列（KD-16）
+    status: PASS
+    description: 5 个实体均使用 i18n_json JSON 列，DDL 和 Entity 一致。
+  - spec: 保存即发布（KD-4）
+    status: PASS
+    description: 所有写操作在 @Transactional 内调用 cache.invalidateFamily，事务外 publisher.publish。
+  - spec: in-process 缓存失效（KD-1/GRD-W01）
+    status: PASS
+    description: SiteBuilderCacheService 使用 Redis pub/sub 广播，非 HTTP 自调。
+  - spec: MarketingExceptionHandler assignableTypes（KD-15）
+    status: PASS
+    description: assignableTypes 已扩展包含 4 个 site_builder Controller。
+  - spec: 消费端匿名公开（security: []）
+    status: PASS
+    description: StoreSiteBuilderController 的 GET 端点无 @RequirePermission，允许匿名访问。
+  - spec: i18n locale 三层回退（en/es/fr）
+    status: PASS
+    description: StoreContentService.resolveI18nField 实现 locale→en→主表字段三层回退。
+  - spec: 乐观锁（version 字段）
+    status: PASS
+    description: 5 个实体均有 version 字段，Repository.updateByIdAndVersion 实现乐观锁。
+  - spec: 分页 Paginated snake_case
+    status: PASS
+    description: AdminAnnouncementController.list 返回 huihao.page.Paginated 形状。
+
+issues:
+  - severity: NICE_TO_HAVE
+    location: error message i18n
+    description: |
+      SiteBuilderException 当前 message 用 code name（如 "HOME_SECTION_NOT_FOUND"），
+      未接入 i18n message bundle（MarketingMessageResolver）。
+    suggestion: L4 后续优化阶段新增 SiteBuilderMessageResolver，按 locale 解析 message。
+  - severity: NICE_TO_HAVE
+    location: OpenAPI validate 端点
+    description: 部分端点的 @RequestParam 使用 snake_case（如 enabled_only），但前端 client.ts 会自动转换 camelCase↔snake_case。
+    suggestion: 当前实现一致，无需修改。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 12 项规范检查全部通过
+  - R 包络、6 位错误码、OpenAPI 3.0.3、鉴权、i18n、缓存失效链等核心规范全部符合
+  - 2 项 NICE_TO_HAVE 作为 L4 优化输入，非阻断

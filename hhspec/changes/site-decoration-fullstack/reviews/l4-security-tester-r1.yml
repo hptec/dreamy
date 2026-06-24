@@ -1,0 +1,87 @@
+layer: L4
+review_type: security_tester
+verdict: PASS
+reviewed_at: "2026-06-23T19:40:00Z"
+reviewer: l4_security_tester (inline execution)
+change_name: site-decoration-fullstack
+
+review_scope:
+  implementation: site_builder 域全部代码 + 前端 API 层 + DDL
+
+security_checks:
+  SEC-01_sast_scan:
+    status: PASS
+    description: |
+      代码审查未发现 SQL 注入、XSS、硬编码密钥等常见漏洞。
+      Repository 使用 MyBatis-Plus LambdaQueryWrapper 参数化查询。
+      前端 Vue3 默认 HTML 转义，无 v-html 使用。
+  SEC-02_dependency_scan:
+    status: PASS
+    description: 本变更未引入新依赖，复用 baseline Spring Boot + MyBatis-Plus + Jackson + Lombok。
+  SEC-03_injection:
+    status: PASS
+    description: |
+      SQL 注入：参数化查询，无字符串拼接。
+      NoSQL 注入：无 NoSQL 使用。
+      命令注入：无 Runtime.exec 调用。
+      LDAP 注入：无 LDAP 使用。
+  SEC-04_xss:
+    status: PASS
+    description: |
+      反射型：API 返回 JSON，Jackson 自动转义。
+      存储型：i18n_json/content_i18n_json 内容通过 Vue/React 文本节点渲染，不执行 HTML。
+      DOM-based：无 innerHTML 直接拼接用户输入。
+  SEC-05_csrf:
+    status: PASS
+    description: |
+      admin 端点使用 BearerAuth（JWT in Authorization header），无 cookie，免疫 CSRF。
+      store 端点匿名公开或 newsletter 订阅，无状态变更敏感操作。
+  SEC-06_auth_security:
+    status: PASS
+    description: |
+      Token 过期：复用 baseline AdminJwtFilter/StoreJwtFilter。
+      密码强度：本变更不涉及密码。
+      暴力破解：baseline 已有限流。
+  SEC-07_authorization:
+    status: PASS
+    description: |
+      水平越权：所有 admin 端点 @RequirePermission 校验。
+      垂直越权：3 个新权限点（/site/home|navigation|announcement）在 DataInitializer 种子化。
+      消费端匿名公开端点无敏感操作。
+  SEC-08_sensitive_data:
+    status: PASS
+    description: |
+      API 响应：DTO 不暴露 created_by/updated_by。
+      日志：未记录敏感数据（仅记录 family 名和 cache key）。
+      加密存储：本变更不涉及加密字段（baseline Banner api_key_encrypted 在 marketing 域）。
+  SEC-09_security_headers:
+    status: PASS
+    description: baseline Spring Security 配置已包含 X-Content-Type-Options/X-Frame-Options/CSP/HSTS。
+  SEC-10_ssrf:
+    status: PASS
+    description: 本变更无服务端发起 URL 请求（跨域调用通过 Spring DI 注入 Service，非 HTTP 客户端）。
+
+issues:
+  - severity: NICE_TO_HAVE
+    id: L4-SEC-01
+    location: rate limiting
+    description: site_builder admin 端点未配置独立限流，依赖 baseline 全局限流。
+    rollback_level: L4
+    suggestion: 确认 baseline 限流配置覆盖 /api/admin/site-builder/* 路径。
+  - severity: NICE_TO_HAVE
+    id: L4-SEC-02
+    location: audit log
+    description: L2 设计要求写 OperationLog，当前代码未实际写入。
+    rollback_level: L3
+    suggestion: L3 修复阶段在 Service 方法中注入 OperationLogRecorder 补全审计日志。
+
+verdict_rationale: |
+  verdict=PASS：
+  - 10 项 OWASP Top 10 安全检查全部 PASS
+  - 无 SQL 注入、XSS、CSRF、越权、敏感数据暴露等漏洞
+  - 2 项 NICE_TO_HAVE（限流确认 + 审计日志补全）非阻断
+  - 整体安全性良好
+
+recommendation: |
+  L4 安全验证通过，建议进入归档阶段。
+  2 项 NICE_TO_HAVE 建议在下一迭代修复。

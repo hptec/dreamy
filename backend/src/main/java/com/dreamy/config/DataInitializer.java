@@ -91,6 +91,7 @@ public class DataInitializer {
                 {"/", "工作台", "工作台"},
                 {"/site/home", "站点装修", "首页装修"},
                 {"/site/navigation", "站点装修", "导航与页脚"},
+                {"/site/announcement", "站点装修", "公告管理"},
                 {"/site/banners", "站点装修", "Banner 管理"},
                 {"/products", "商品管理", "商品列表"},
                 {"/categories", "商品管理", "品类与主题"},

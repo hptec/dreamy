@@ -17,8 +17,17 @@ import { cn } from '@/lib/utils'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export function SiteFooter() {
+import type { StoreFooterColumn } from '@/lib/api/site-builder-server'
+
+export function SiteFooter({ columns: serverColumns }: { columns?: StoreFooterColumn[] }) {
   const { locale, te, t } = useI18n()
+  // KD-5：页脚栏目从 site_builder 域读取，空回退静态 footerNav
+  const columns = serverColumns && serverColumns.length > 0
+    ? serverColumns.map((c) => ({
+        title: c.title,
+        links: (c.links ?? []).map((l) => ({ label: l.label, href: l.url })),
+      }))
+    : footerNav
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
   const [invalid, setInvalid] = useState(false)

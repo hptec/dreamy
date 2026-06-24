@@ -685,6 +685,8 @@ export interface BannerTranslation {
   title?: string | null
   subtitle?: string | null
   ctaText?: string | null
+  ctaTextSecondary?: string | null
+  ctaLinkSecondary?: string | null
 }
 
 export interface Banner {
@@ -700,6 +702,8 @@ export interface Banner {
   title?: string | null
   subtitle?: string | null
   ctaText?: string | null
+  ctaTextSecondary?: string | null
+  ctaLinkSecondary?: string | null
   translations?: BannerTranslation[] | null
 }
 
@@ -714,6 +718,8 @@ export interface BannerUpsert {
   title?: string | null
   subtitle?: string | null
   ctaText?: string | null
+  ctaTextSecondary?: string | null
+  ctaLinkSecondary?: string | null
   translations?: BannerTranslation[] | null
 }
 

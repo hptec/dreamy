@@ -3,6 +3,7 @@ import { ArrowRight, Truck, Sparkles, Globe, Heart } from 'lucide-react'
 import { palette } from '@/data/products'
 import { fetchStoreCollections } from '@/lib/api/catalog-server'
 import { fetchStoreBanners, fetchStoreFlashSales, fetchStoreWeddings } from '@/lib/api/marketing-server'
+import { fetchStoreHome } from '@/lib/api/site-builder-server'
 import { BannerPosition } from '@/lib/api/store-types'
 import { RecommendationRail } from '@/components/product/recommendation-rail'
 import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
@@ -26,18 +27,24 @@ const themeCards = [
   { theme: 'Forest', image: '/competitor-refs/kissprom/wedding-aline-longsleeve-06.jpg', desc: 'Woodland fairytale' }
 ]
 
-export default async function HomePage() {
-  const [heroBanners, flashSales, collectionGroups, weddingsPage] = await Promise.all([
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  const activeLocale = (['en', 'es', 'fr'] as const).includes(locale as any) ? locale : 'en'
+
+  const [heroBanners, flashSales, collectionGroups, weddingsPage, homePage] = await Promise.all([
     fetchStoreBanners(BannerPosition.HERO),
     fetchStoreFlashSales(),
     fetchStoreCollections(),
-    fetchStoreWeddings({ page: 1, pageSize: 3 })
+    fetchStoreWeddings({ page: 1, pageSize: 3 }),
+    fetchStoreHome(activeLocale),
   ])
 
   const hero = heroBanners[0]
   const colorGroup = collectionGroups.find((g) => /color/i.test(g.name))
   const colorTags = colorGroup?.collections ?? []
   const weddings = weddingsPage?.data ?? []
+  // KD-5：首页区块从 site_builder 域读取（FLOW-SB05），按 section_type 分发渲染
+  const homeSections = homePage?.sections ?? []
 
   return (
     <div>
