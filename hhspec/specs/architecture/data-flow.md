@@ -1,492 +1,439 @@
-# 数据流 - i18n-complete-with-ai-assist（增量）
+# 数据流 - site-decoration-fullstack（增量）
 
-本文档定义 i18n 变更新增的 AI 翻译、网关配置、术语表管理、locale 路由、数据级翻译回退等数据流转，逐条响应 `decision.md` 决策 1~14 与 `boundary-scenarios.yml` 24 个 EDGE 场景。与 baseline 七域 data-flow.md 并列（baseline 无 gateway/glossary/ai_translation 域，本变更新增）。
+本文档定义 site-decoration-fullstack 变更新增的 site_builder 限界上下文（KD-15）的数据流转，覆盖 HomeBuilder / NavigationConfig / Announcement 三页后台 CRUD、消费端首页动态渲染、header/footer/公告条全量改造、Newsletter 订阅扩展、缓存失效链等场景。逐条响应 `decision.md` KD-1~KD-17 与 `boundary-scenarios.yml` 边界场景。与 baseline 各域 data-flow.md 并列（baseline 无 site_builder 域，本变更新增）。
 
-**参与者命名**：`Admin`（portal-admin Vue3 运营）、`User`（portal-store Next.js 消费端登录用户）、`Guest`（匿名访客）、`AdminAPI`（AdminGatewayController/AdminAiController/AdminGlossaryController）、`Svc`（gateway/ai_translation/glossary 三域服务）、`DB`（MySQL）、`Gateway`（外部 AI 网关，OpenAI-compatible /v1/chat/completions + /v1/models）、`Sched`（@Scheduled 定时任务）、`Middleware`（Next.js middleware locale 检测）、`CDN`（Cloudflare 边缘）。
+**参与者命名**：
+- `Admin`（portal-admin Vue3 运营）
+- `User`（portal-store Next.js 消费端登录用户）
+- `Guest`（匿名访客）
+- `AdminAPI`（AdminHomePageSectionController / AdminNavigationController / AdminFooterController / AdminAnnouncementController）
+- `StoreAPI`（StoreContentController 扩展 + 基线 NewsletterController 扩展）
+- `Svc`（site_builder 域服务：HomePageSectionService / NavigationService / FooterService / AnnouncementService / StoreContentService）
+- `DB`（MySQL：home_sections / navigation_items / footer_columns / footer_links / announcements 新表，banner / banner_translations / taxonomy / product / weddings / newsletter_subscriber 基线表）
+- `Cache`（JetCache Redis + in-process Caffeine 两级缓存）
+- `Publisher`（Redis pub/sub 广播缓存失效事件，KD-1/GRD-W01）
+- `BannerSvc` / `TaxonomySvc` / `ProductSvc` / `WeddingSvc` / `SubscriberSvc`（跨域调用）
+- `CDN`（Cloudflare 边缘）
+- `Middleware`（Next.js middleware locale 检测）
 
 ## 各层数据转换约定（增量）
 
 | 边界 | 转换 | 说明 |
 |------|------|------|
-| AdminAPI ⇄ Svc | Request DTO（@Valid 校验）⇄ 领域入参；响应装入 R 包络 `{code,message,data}` | API Key 字段：前端提交明文或掩码（sk-****xxxx），后端判定：明文→AES 加密存储；掩码→保持原密文不变 |
-| Svc ⇄ Gateway | OpenAI-compatible JSON | /v1/chat/completions POST {model, messages[{role,content}], max_tokens?}；/v1/models GET 返回 [{id, name, context_length}] |
-| Svc ⇄ DB | ExternalGatewayConfig.api_key_encrypted（AES-256-GCM IV+密文）⇄ 明文 Key；model_list/extra_config JSON 列 | 解密仅在调用时内存中进行，任何响应/日志均掩码（sk-****1234） |
-| portal-store locale 路由 | URL 路径 `/es/product/xxx` → middleware 提取 locale=es → cookie `NEXT_LOCALE` → SSR context | EN 为根路径（无前缀），ES/FR 为 `/es/`、`/fr/` 前缀（决策 11） |
-| 数据级翻译回退 | product_translation.designer_note(ES) 为空 → pick() 回退读 product.designer_note(EN 主表) | 消费端 assembleDetail 输出扁平字段，已按 locale 解析（决策 12） |
-| 邮件 locale 选择 | user.locale_pref → orders.locale_snapshot → 默认 EN | 模板路径 `templates/email/{name}_{locale}.html`（决策 13） |
+| AdminAPI ⇄ Svc | Request DTO（@Valid 校验）⇄ 领域入参；响应装入 R 包络 `{code,message,data}` | i18n_json 字段：整体透传 JSON 对象（`{en:{...}, es:{...}, fr:{...}}`），Svc 内部按 locale 解析或整体持久化 |
+| Svc ⇄ DB | Entity.i18n_json（JSON 列）⇄ 领域对象；主表 `label`/`title`/`content` 列同步存 EN 基准值 | i18n_json 结构：`{en:{...}, es:{...}, fr:{...}}`；EN 为基准，主表字段冗余 EN 值便于查询（KD-16） |
+| StoreAPI ⇄ Svc | Request（locale 参数从 URL 路径或 Accept-Language 提取）⇄ 领域入参；响应按 locale 扁平化 | 消费端响应将 i18n_json 按 locale 解析后返回扁平字符串字段（如 `title`/`content`/`label`） |
+| 跨域调用（Hero → Banner） | Svc 调 BannerService.findByPosition(HERO) | 返回 Banner + BannerTranslation，site_builder 不持有 Banner 实体，仅运行时派生 Hero 数据（KD-2） |
+| 跨域调用（Navigation → Taxonomy） | NavigationItem.taxonomy_id（可选）→ TaxonomyService.findById | 仅校验存在性，不加载 Taxonomy 实体到导航响应 |
+| 跨域调用（ProductRail → Product） | HomePageSection.data_json.product_ids[] → ProductService.findByIds | 批量查询，按 sort_order 排序返回 |
+| 跨域调用（EditorialFeature → Wedding） | HomePageSection.data_json.limit + 可选 wedding_ids → WeddingService.fetchStoreWeddings | 复用基线 fetchStoreWeddings API |
+| 跨域调用（Newsletter → Subscriber） | POST /api/store/newsletter source=HOME_BLOCK → SubscriberService.subscribe | 扩展基线端点（KD-13），复用 NewsletterSubscriber 持久化 |
+| 缓存失效链 | admin 写操作 → cache.invalidateFamily(family) → publisher.publish(event) → 各节点订阅 → 本地 Caffeine 失效 | in-process 失效，非 HTTP 自调（KD-1/GRD-W01）；family 粒度：home / navigation / footer / announcement |
+| 消费端 locale 路由 | URL `/es/...` → middleware 提取 locale=es → SSR context | EN 为根路径，ES/FR 为 `/es/`、`/fr/` 前缀（复用 baseline 约定） |
+| i18n_json locale 回退 | i18n_json[locale] 缺失 → 回退 i18n_json.en → 再缺失回退主表 label/title/content | EN 为基准语言（KD-16），三层回退保证消费端永不返回 null |
+
+## 缓存策略
+
+**两级缓存（JetCache + in-process Caffeine）**：
+- **L1 in-process Caffeine**：进程本地缓存，5 分钟 TTL，最大 1000 条；按 family 分组（home/navigation/footer/announcement）
+- **L2 JetCache Redis**：跨节点共享缓存，30 分钟 TTL，按 family + locale 分 key
+- **读取顺序**：L1 命中 → 返回；L1 miss → L2 命中 → 回填 L1 → 返回；L2 miss → DB → 回填 L1+L2
+
+**缓存失效链（KD-4 保存即发布）**：
+1. admin 写操作提交事务后，同事务内调用 `cache.invalidateFamily(family)`
+2. 失效 L1（本节点）+ L2（Redis）
+3. 通过 `publisher.publish(CacheInvalidationEvent)` 广播到所有节点
+4. 各节点订阅事件 → 失效本地 L1
+5. 下一次消费端读取触发缓存重建
+
+**Family 分组**：
+- `home`：HomePageSection 全部 + Hero Banner 派生数据
+- `navigation`：NavigationItem 全部
+- `footer`：FooterColumn + FooterLink 全部
+- `announcement`：Announcement 全部
+
+**失败处理**：
+- 缓存失效失败：记录 ERROR 日志，不阻断主流程（最终一致性，下一次读会触发刷新）
+- 缓存读取异常：降级直读 DB，记录 WARN 日志
 
 ## 核心业务流程清单
 
 | 流程编号 | 流程名称 | 域 | 触发条件 | 参与模块 | 验收 |
-|---------|---------|----|---------|---------|----- |
-| FLOW-I01 | AI 翻译请求流（后端代理 + 术语表注入） | ai_translation/glossary | 后台点击「AI 翻译」按钮 | Admin, AdminAPI, Svc, Gateway, DB | FUNC-008~010, 决策 2/6/14, EDGE-001~003/015~017 |
-| FLOW-I02 | 网关配置保存 + 自动模型发现 | gateway | 后台创建/更新 AI 网关配置 | Admin, AdminAPI, Svc, Gateway, DB | FUNC-004~007, 决策 1/3/5, EDGE-006/007/014 |
-| FLOW-I03 | 模型列表定时刷新 | gateway | @Scheduled 扫描 model_refresh_strategy=scheduled 配置 | Sched, Svc, Gateway, DB | 决策 5, EDGE-014 |
-| FLOW-I04 | 测试网关连接 | gateway | 后台点击「测试连接」按钮 | Admin, AdminAPI, Svc, Gateway | 决策 14, EDGE-023 |
-| FLOW-I05 | 术语表 CRUD | glossary | 后台术语表管理页 | Admin, AdminAPI, Svc, DB | FUNC-022, 决策 14, EDGE-022/024 |
-| FLOW-I06 | 调用日志清理 | ai_translation | @Scheduled 每日 3:00 | Sched, Svc, DB | 决策 7 |
-| FLOW-I07 | 消费端 locale 路由检测 | identity（复用现有） | 用户访问任意 URL | User/Guest, CDN, Middleware, Next | 决策 11, EDGE-018/019 |
-| FLOW-I08 | designerNote 数据级翻译回退 | catalog（增强现有 FLOW-P01） | 消费端 PDP 请求 | User, StoreAPI, Svc, DB | 决策 12, EDGE-020 |
-| FLOW-I09 | 邮件三语发送 | identity/trading/showroom（增强现有 FLOW-P11） | MQ 邮件事件触发 | MQ, Svc, DB, SMTP | 决策 13, EDGE-021 |
+|---------|---------|----|---------|---------|-----|
+| FLOW-SB01 | 后台保存首页区块 | site_builder | 后台 HomeBuilder 页编辑区块 → 保存 | Admin, AdminAPI, Svc, DB, Cache, Publisher | FUNC-001~003, 决策 KD-4/KD-16, EDGE-001~005 |
+| FLOW-SB02 | 后台保存导航配置 | site_builder | 后台 NavigationConfig 页编辑 → 保存 | Admin, AdminAPI, Svc, DB, Cache, Publisher | FUNC-004~006, 决策 KD-4/KD-6, EDGE-006~010 |
+| FLOW-SB03 | 后台保存页脚配置 | site_builder | 后台 FooterConfig 页编辑 → 保存 | Admin, AdminAPI, Svc, DB, Cache, Publisher | FUNC-007~008, 决策 KD-4/KD-16, EDGE-011~012 |
+| FLOW-SB04 | 后台公告条 CRUD | site_builder | 后台 AnnouncementConfig 页 → 创建/更新/删除/启停 | Admin, AdminAPI, Svc, DB, Cache, Publisher | FUNC-009~011, 决策 KD-7/KD-17, EDGE-013~015 |
+| FLOW-SB05 | 消费端首页动态渲染 | site_builder + 跨域 | 用户访问 `/` 或 `/es` 或 `/fr` | User/Guest, CDN, StoreAPI, Svc, BannerSvc, TaxonomySvc, ProductSvc, WeddingSvc, DB, Cache | FUNC-012~014, 决策 KD-2/KD-5/KD-8/KD-9/KD-10/KD-16, EDGE-016~020 |
+| FLOW-SB06 | 消费端 header 渲染 | site_builder | 任意消费端页面加载 | User/Guest, CDN, StoreAPI, Svc, Cache | FUNC-015, 决策 KD-5/KD-6, EDGE-021 |
+| FLOW-SB07 | 消费端 footer 渲染 | site_builder | 任意消费端页面加载 | User/Guest, CDN, StoreAPI, Svc, Cache | FUNC-016, 决策 KD-5, EDGE-022 |
+| FLOW-SB08 | 消费端公告条渲染 | site_builder | 任意消费端页面加载（顶部） | User/Guest, CDN, StoreAPI, Svc, Cache | FUNC-017, 决策 KD-7/KD-17, EDGE-023 |
+| FLOW-SB09 | Newsletter 订阅 | site_builder + identity | 首页 Newsletter 区块提交邮箱 | User/Guest, StoreAPI, Svc, SubscriberSvc, DB | FUNC-018, 决策 KD-11/KD-13, EDGE-024 |
+| FLOW-SB10 | 缓存失效广播 | site_builder | admin 任意写操作后 | Svc, Cache, Publisher, 各节点 | 决策 KD-1/KD-4, GRD-W01 |
 
 ## 决策响应映射
 
 | 决策 | 本文档响应位置 |
 |------|---------------|
-| 决策 1 单表多类型存储 | FLOW-I02 external_gateway_config 表结构 |
-| 决策 2 后端代理模式 | FLOW-I01 AdminAiController 代理 Gateway 调用 |
-| 决策 3 OpenAI-compatible 协议 | FLOW-I01/I02/I04 /v1/chat/completions + /v1/models |
-| 决策 4 两级模型选择 | FLOW-I01 请求参数 model 优先，否则 gateway.default_model |
-| 决策 5 模型自动发现 + 刷新策略 | FLOW-I02 保存时拉取、FLOW-I03 定时刷新 |
-| 决策 6 翻译弹窗交互 | FLOW-I01 system prompt（锁定） + custom_requirement（用户追加） |
-| 决策 7 调用记录 90 天保留 | FLOW-I01 落 ai_translation_log、FLOW-I06 定时清理 |
-| 决策 10 失败允许继续 | FLOW-I01 异常路径：502/504 返回错误，log status=failed，前端 toast 不阻塞保存 |
-| 决策 11 locale 路径前缀 | FLOW-I07 middleware 检测、301/302 重定向、hreflang/sitemap |
-| 决策 12 designerNote 纳入翻译 | FLOW-I08 product_translation.designer_note 新增列 + pick() 回退 |
-| 决策 13 邮件三语 + locale 持久化 | FLOW-I09 user.locale_pref / orders.locale_snapshot + 模板选择 |
-| 决策 14 测试连接 + 术语表 | FLOW-I04 测试连接、FLOW-I01/I05 术语表注入 |
+| KD-1 Publish.vue 不改造 | FLOW-SB10 缓存失效链（in-process，非 HTTP 自调） |
+| KD-2 Hero 区块复用 Banner | FLOW-SB05 跨域调用 BannerSvc.findByPosition(HERO) |
+| KD-4 保存即发布 | FLOW-SB01~SB04 写操作后立即触发缓存失效 |
+| KD-5 消费端全量改造 | FLOW-SB05~SB08 消费端首页/header/footer/公告条 |
+| KD-6 Mega Menu JSON 列 | FLOW-SB02 navigation_items.mega_menu_json |
+| KD-7 公告独立域 | FLOW-SB04/SB08 Announcement 独立 CRUD + 渲染 |
+| KD-8 ThemeCards 引用 taxonomy | FLOW-SB05 跨域调用 TaxonomySvc.findByType(theme) |
+| KD-9 ProductRail 人工推荐 | FLOW-SB05 跨域调用 ProductSvc.findByIds(product_ids) |
+| KD-10 EditorialFeature 引用 weddings | FLOW-SB05 跨域调用 WeddingSvc.fetchStoreWeddings |
+| KD-11 Newsletter 完整订阅 | FLOW-SB09 扩展基线 /api/store/newsletter |
+| KD-13 扩展基线 newsletter | FLOW-SB09 source=HOME_BLOCK(4) |
+| KD-14 Banner 新增 cta_*_secondary | FLOW-SB05 Hero 派生数据含 secondary CTA |
+| KD-15 新建 site_builder 域 | FLOW-SB01~SB10 全部为本变更新增 |
+| KD-16 i18n_json JSON 列 | 各层数据转换约定 i18n_json 列结构 |
+| KD-17 Breaking change TOPBAR 废弃 | FLOW-SB08 公告独立读取，不再 fetchStoreBanners(TOPBAR) |
 
 ---
 
-## FLOW-I01: AI 翻译请求流（后端代理 + 术语表注入 + 调用日志）
+## FLOW-SB01: 后台保存首页区块
 
-**触发条件**: 后台运营在商品/分类/标签/Banner/Blog 等编辑页点击「AI 翻译」按钮（决策 2/6）。
+**触发条件**: 后台运营在 HomeBuilder 页面编辑区块（启用/禁用、排序、data_json 配置、i18n_json 多语言文案）→ 点击保存。
 
 ```mermaid
 sequenceDiagram
     actor Admin
     participant AdminAPI
-    participant Svc as ai_translation Svc
-    participant GlossarySvc as glossary Svc
-    participant GatewaySvc as gateway Svc
+    participant Svc as HomePageSectionService
     participant DB
-    participant Gateway as External AI Gateway
+    participant Cache
+    participant Publisher
 
-    Admin->>AdminAPI: POST /api/admin/ai/translate {source_lang:en, target_lang:es, source_text, custom_requirement?, model?, biz_type, biz_ref}
-    Note over AdminAPI: AdminJwtFilter + 根据 biz_type 校验权限（如 product 需 /catalog/products 权限）
-    
-    alt EN 主字段为空（EDGE-002）
-        AdminAPI-->>Admin: 422 {422301} "source_text 不能为空"
-    end
-    
-    AdminAPI->>Svc: translate(request, operatorId=JWT.subject)
-    
-    Svc->>GatewaySvc: 读取当前启用的 AI 网关配置
-    GatewaySvc->>DB: SELECT * FROM external_gateway_config WHERE gateway_type=1 AND enabled=true ORDER BY updated_at DESC LIMIT 1
-    
-    alt 无启用网关配置（EDGE-001）
-        GatewaySvc-->>Svc: null
-        Svc-->>AdminAPI: 400 {400301 NO_ENABLED_GATEWAY}
-        AdminAPI-->>Admin: 弹窗提示"尚未配置 AI 网关，请前往系统管理 > 外部网关配置"
-    end
-    
-    GatewaySvc->>DB: 解密 api_key_encrypted（AES-256-GCM）
-    Note over GatewaySvc: IV + 密文 → 明文 Key（仅内存中，不落日志）
-    
-    Svc->>Svc: 确定使用模型：request.model 存在 → 校验在 gateway.model_list 中；不存在 → 用 gateway.default_model
-    alt 模型无效（EDGE-004）
-        Svc-->>AdminAPI: 400 {400302 INVALID_MODEL} details: {model, available_models}
-    end
-    
-    Svc->>GlossarySvc: 读取启用的术语表
-    GlossarySvc->>DB: SELECT * FROM ai_translation_glossary WHERE enabled=true AND (term_es IS NOT NULL OR term_fr IS NOT NULL)
-    Note over Svc: 术语注入优化（EDGE-024）：仅注入 source_text 中实际命中的术语（精确匹配 term_en），上限 50 条；超出按 category 优先级截断（廓形>领型>面料>工艺>其他）
-    
-    Svc->>Svc: 组装 system prompt
-    Note over Svc: 1. 固定前缀（锁定）："You are a professional translator for a bridal e-commerce platform..."<br/>2. 注入命中术语："Use these standard terms: A-line→línea A, sweetheart neckline→escote corazón..."<br/>3. 追加 custom_requirement（可选）
-
-    Svc->>Gateway: POST {base_url}/v1/chat/completions {model, messages:[{role:system, content:拼接的 prompt},{role:user, content:source_text}], max_tokens:配置值}
-    Note over Svc: 超时 30s（决策 10）
-    
-    alt 网关超时（EDGE-015）
-        Gateway-->>Svc: timeout
-        Svc->>DB: INSERT ai_translation_log(status=timeout, latency_ms=30000, operator_id, biz_type, biz_ref)
-        Svc-->>AdminAPI: 504 {504301 GATEWAY_TIMEOUT}
-        AdminAPI-->>Admin: toast "翻译超时，请重试" + 允许继续保存（不阻塞工作流）
-    else 网关 5xx/429（EDGE-016/017）
-        Gateway-->>Svc: 500/502/503/429 {error}
-        Svc->>DB: INSERT ai_translation_log(status=failed, error_message=网关返回的错误, latency_ms)
-        Svc-->>AdminAPI: 502 {502301 GATEWAY_CALL_FAILED} details: {gateway_error, gateway_name}
-        AdminAPI-->>Admin: toast 具体错误 + 允许继续保存
-    else 网关返回空译文（EDGE-003）
-        Gateway-->>Svc: 200 {choices:[{message:{content:""}}]}
-        Svc->>DB: INSERT ai_translation_log(status=empty_result, translated_text=null)
-        Svc-->>AdminAPI: 502 {502301} "翻译结果为空"
-        AdminAPI-->>Admin: toast "翻译结果为空，请重试或手动填写" + 允许继续保存
-    else 成功
-        Gateway-->>Svc: 200 {choices:[{message:{content:译文}}], usage:{prompt_tokens, completion_tokens, total_tokens}}
-        Svc->>DB: INSERT ai_translation_log(gateway_config_id, model, source_lang, target_lang, source_text, translated_text, custom_requirement, biz_type, biz_ref, status=success, latency_ms, token_usage JSON, operator_id, created_at)
-        Svc-->>AdminAPI: 200 TranslateResponse{translated_text, model, latency_ms, token_usage}
-        AdminAPI-->>Admin: 回写表单对应字段（ES/FR tab）
-    end
+    Admin->>AdminAPI: PUT /api/admin/site-builder/home-sections/{id}
+    AdminAPI->>Svc: update(id, upsert)
+    Svc->>Svc: 校验 section_type + data_json 结构 + i18n_json 结构
+    Svc->>DB: UPDATE home_sections SET ... WHERE id=?
+    DB-->>Svc: 更新成功
+    Svc->>Cache: invalidateFamily(home)
+    Cache-->>Svc: L1+L2 失效成功
+    Svc->>Publisher: publish(CacheInvalidationEvent{family=home})
+    Publisher-->>Svc: 广播成功
+    Svc-->>AdminAPI: R.ok(section)
+    AdminAPI-->>Admin: 200 {code,message,data}
 ```
+
+**关键步骤**：
+1. STEP-01：入参校验（V-001~V-005）— section_type 合法、data_json 符合 type 对应 schema、i18n_json 结构 `{en,es,fr}`、enabled 为 boolean、sort_order 非负
+2. STEP-02：事务开启（TX-001）
+3. STEP-03：UPDATE home_sections（含 data_json、i18n_json、enabled、sort_order）
+4. STEP-04：事务提交前触发 cache.invalidateFamily(home)
+5. STEP-05：事务提交
+6. STEP-06：事务外 publisher.publish 广播失效事件
+7. STEP-07：异常路径：DB 异常 → 事务回滚 → 不触发缓存失效 → 500801 INTERNAL_ERROR
+
+**边界场景**：
+- EDGE-001：i18n_json 缺失 es/fr → 接受（EN 为基准，回退策略）
+- EDGE-002：data_json 字段缺失 → 422801 FIELD_VALIDATION_FAILED
+- EDGE-003：section_type 不在枚举 → 422802
+- EDGE-004：sort_order 重复 → 接受（前端按 sort_order 排序，同序按 id）
+- EDGE-005：并发更新（乐观锁）→ 409801 HOME_SECTION_SORT_CONFLICT
 
 ---
 
-## FLOW-I02: 网关配置保存 + 自动模型发现（决策 1/3/5）
+## FLOW-SB02: 后台保存导航配置
 
-**触发条件**: 后台「外部系统配置 > AI 网关」页面创建/更新配置。
+**触发条件**: 后台 NavigationConfig 页编辑导航项（含 mega_menu_json）→ 整体保存（KD-4 保存即发布）。
 
 ```mermaid
 sequenceDiagram
     actor Admin
     participant AdminAPI
-    participant Svc as gateway Svc
+    participant Svc as NavigationService
+    participant TaxonomySvc
     participant DB
-    participant Gateway as External AI Gateway
+    participant Cache
+    participant Publisher
 
-    Admin->>AdminAPI: POST /api/admin/gateway/configs {gateway_type:1, name, protocol:1, base_url, api_key, model_refresh_strategy, model_refresh_interval_min?, enabled}
-    Note over AdminAPI: AdminJwtFilter + RBAC(/system/gateways) + EDGE-008 权限校验
-    
-    alt URL 协议非法（EDGE-007）
-        AdminAPI-->>Admin: 422 {422201} "网关地址格式不正确"
-    end
-    
-    AdminAPI->>Svc: createGatewayConfig(...)
-    
-    Svc->>Svc: API Key 处理：trim() 后校验非空，AES-256-GCM 加密（生成随机 IV，IV+密文存 api_key_encrypted）
-    
-    Svc->>DB: SELECT COUNT(*) FROM external_gateway_config WHERE gateway_type=? AND name=? AND deleted_at IS NULL
-    alt 同名配置已存在（EDGE-012 并发保护在乐观锁层）
-        Svc-->>AdminAPI: 409 {409201 GATEWAY_NAME_EXISTS}
-    end
-    
-    Svc->>DB: INSERT external_gateway_config(gateway_type, name, protocol, base_url, api_key_encrypted, default_model, model_refresh_strategy, model_refresh_interval_min, enabled, extra_config, created_at, updated_at)
-    Note over Svc: model_list 初始为空数组 []，models_synced_at 为 NULL
-    
-    alt gateway_type=AI（决策 5 自动拉取）
-        Svc->>Gateway: GET {base_url}/v1/models（Authorization: Bearer {解密后的 api_key}）
-        Note over Svc: 超时 10s
-        alt 拉取成功
-            Gateway-->>Svc: 200 {data: [{id, object, created, owned_by}]}
-            Svc->>Svc: 映射为 GatewayModel[]{id, name=id（若无 name 字段）, context_length?}
-            Svc->>DB: UPDATE external_gateway_config SET model_list=JSON数组, models_synced_at=now() WHERE id=?
-        else 拉取失败/超时（EDGE-014）
-            Gateway-->>Svc: 401/500/timeout
-            Note over Svc: 不阻断配置保存：model_list 保持空，models_synced_at 为 NULL，记录 WARN 日志
-        end
-    end
-    
-    Svc-->>AdminAPI: 200 GatewayConfigDetail{id, api_key_masked="sk-****1234"（取明文前缀+后4位掩码，EDGE-010）, model_list, models_synced_at, ...}
-    AdminAPI-->>Admin: 配置已保存（模型列表自动拉取成功/失败提示）
+    Admin->>AdminAPI: PUT /api/admin/site-builder/navigation
+    AdminAPI->>Svc: save(navigationUpsert)
+    Svc->>Svc: 校验 tree 结构 + 检测循环依赖 + 校验 taxonomy_id
+    Svc->>TaxonomySvc: findById(taxonomy_id) [可选, 跨域]
+    TaxonomySvc-->>Svc: taxonomy 存在/不存在
+    Svc->>DB: BEGIN
+    DB->>DB: DELETE navigation_items WHERE id NOT IN upserted_ids
+    DB->>DB: UPSERT navigation_items (含 mega_menu_json)
+    DB->>DB: COMMIT
+    Svc->>Cache: invalidateFamily(navigation)
+    Svc->>Publisher: publish(CacheInvalidationEvent{family=navigation})
+    Svc-->>AdminAPI: R.ok(navigation)
+    AdminAPI-->>Admin: 200
 ```
 
-**更新路径特殊处理**：PUT `/api/admin/gateway/configs/{id}` 若 api_key 字段值为掩码格式（正则匹配 `^[a-z]{2,4}-\*{4,}\w{4}$`），后端保持原 api_key_encrypted 密文不变；否则视为明文新 Key，重新加密存储。base_url/api_key 变更时重新拉取模型列表。
+**关键步骤**：
+1. STEP-01：入参校验（V-006~V-010）— tree 结构合法、parent_id 无环、label_key 非空、url 格式、target 枚举、mega_menu_json 结构
+2. STEP-02：循环依赖检测（CV-001）— DFS 检测 parent_id 链，发现环 → 409802 NAVIGATION_ITEM_CYCLE_DETECTED
+3. STEP-03：跨域校验 taxonomy_id 存在性（若 NavigationItem.taxonomy_id 非空）
+4. STEP-04：事务开启（TX-002）
+5. STEP-05：DELETE 已移除的 navigation_items
+6. STEP-06：UPSERT 保留的和新增的 navigation_items（含 mega_menu_json）
+7. STEP-07：事务提交前触发 cache.invalidateFamily(navigation)
+8. STEP-08：事务提交
+9. STEP-09：事务外 publisher.publish
+10. STEP-10：异常路径：循环依赖 → 409802；taxonomy 不存在 → 404805 TAXONOMY_NOT_FOUND（跨域）；DB 异常 → 500801
+
+**边界场景**：
+- EDGE-006：parent_id 形成环 → 409802
+- EDGE-007：mega_menu_json 为 null → 接受（非 mega menu 项）
+- EDGE-008：taxonomy_id 指向不存在的分类 → 404805
+- EDGE-009：整体替换时 id 缺失 → 视为新增
+- EDGE-010：并发保存（乐观锁 version）→ 409805 NAVIGATION_VERSION_CONFLICT
 
 ---
 
-## FLOW-I03: 模型列表定时刷新（决策 5）
+## FLOW-SB03: 后台保存页脚配置
 
-**触发条件**: Spring `@Scheduled(fixedDelay=60000)` 每分钟扫描所有 `model_refresh_strategy=scheduled` 的 AI 网关配置，按各自 `model_refresh_interval_min` 间隔执行。
+**触发条件**: 后台 FooterConfig 页编辑栏目和链接 → 整体保存。
 
-```mermaid
-sequenceDiagram
-    participant Sched
-    participant Svc as gateway Svc
-    participant DB
-    participant Gateway as External AI Gateway
+**关键步骤**：
+1. STEP-01：校验 columns 和 links 结构
+2. STEP-02：校验 column_id 引用完整性（links.column_id 必须在 columns 中存在）
+3. STEP-03：事务（TX-003）— DELETE footer_columns + footer_links → UPSERT 全量
+4. STEP-04：cache.invalidateFamily(footer) + publisher.publish
+5. STEP-05：异常 → 500801 或 409803 FOOTER_COLUMN_SORT_CONFLICT
 
-    Note over Sched: 每分钟触发 @Scheduled
-    Sched->>Svc: refreshScheduledGatewayModels()
-    Svc->>DB: SELECT * FROM external_gateway_config WHERE gateway_type=1 AND enabled=true AND model_refresh_strategy=2 AND (models_synced_at IS NULL OR models_synced_at < now() - INTERVAL model_refresh_interval_min MINUTE)
-    
-    loop 每个待刷新配置
-        Svc->>Svc: 解密 api_key_encrypted
-        Svc->>Gateway: GET {base_url}/v1/models（超时 10s）
-        
-        alt 拉取成功
-            Gateway-->>Svc: 200 {data: [...]}
-            Svc->>DB: UPDATE external_gateway_config SET model_list=JSON数组, models_synced_at=now(), consecutive_failures=0 WHERE id=?
-            Note over Svc: 记录 INFO 日志：网关 {name} 模型列表刷新成功，{count} 个模型
-        else 拉取失败（EDGE-014 连续失败降级）
-            Gateway-->>Svc: 401/500/timeout
-            Svc->>DB: UPDATE consecutive_failures=consecutive_failures+1 WHERE id=?
-            Svc->>DB: SELECT consecutive_failures FROM external_gateway_config WHERE id=?
-            alt 连续失败 ≥ 3 次（决策 5 降级策略）
-                Svc->>DB: UPDATE model_refresh_strategy=1(manual), enabled=false WHERE id=?
-                Note over Svc: 发告警通知（邮件/钉钉）："AI 网关 {name} 连续刷新失败 3 次，已自动降级为手动刷新并禁用，请检查配置"
-            else 失败 < 3 次
-                Note over Svc: 记录 WARN 日志：网关 {name} 模型刷新失败（{consecutive_failures}/3），下次继续尝试
-            end
-        end
-    end
-```
-
-**降级后恢复**：运营在网关配置页手动点击「刷新模型列表」（POST `/api/admin/gateway/configs/{id}/sync-models`）成功，consecutive_failures 归零，可重新启用并切回 scheduled。
+**边界场景**：
+- EDGE-011：column_id 引用不存在 → 422803
+- EDGE-012：link.url 格式非法 → 422804
 
 ---
 
-## FLOW-I04: 测试网关连接（决策 14）
+## FLOW-SB04: 后台公告条 CRUD
 
-**触发条件**: 后台网关配置页点击「测试连接」按钮。
+**触发条件**: 后台 AnnouncementConfig 页创建/更新/删除/启停公告。
 
-```mermaid
-sequenceDiagram
-    actor Admin
-    participant AdminAPI
-    participant Svc as gateway Svc
-    participant DB
-    participant Gateway as External AI Gateway
+**关键步骤**：
+1. STEP-01：校验 content_i18n_json 结构 + 时间窗（start_at < end_at）
+2. STEP-02：唯一性校验 — 同 priority + 时间窗重叠 → 409804 ANNOUNCEMENT_TIME_WINDOW_CONFLICT
+3. STEP-03：事务（TX-004）— INSERT/UPDATE/DELETE announcements
+4. STEP-04：cache.invalidateFamily(announcement) + publisher.publish
+5. STEP-05：异常 → 500801 或对应 4xx
 
-    Admin->>AdminAPI: POST /api/admin/gateway/configs/{id}/test
-    Note over AdminAPI: AdminJwtFilter + RBAC(/system/gateways)
-    AdminAPI->>Svc: testConnection(configId)
-    
-    Svc->>DB: SELECT * FROM external_gateway_config WHERE id=?
-    alt 配置不存在
-        Svc-->>AdminAPI: 404 {404201 GATEWAY_CONFIG_NOT_FOUND}
-    end
-    
-    alt gateway_type != AI
-        Svc-->>AdminAPI: 501 "该网关类型暂不支持测试"
-    end
-    
-    Svc->>Svc: 解密 api_key_encrypted
-    Note over Svc: 记录测试开始时间 startMs
-    Svc->>Gateway: GET {base_url}/v1/models（超时 10s，EDGE-023）
-    
-    alt 测试成功
-        Gateway-->>Svc: 200 {data: [...]}
-        Svc->>Svc: latency_ms = now() - startMs
-        Svc-->>AdminAPI: 200 GatewayTestResult{reachable:true, available_models_count, latency_ms}
-        AdminAPI-->>Admin: 弹窗显示"连接成功 ✓ | 可用模型 {count} 个 | 耗时 {ms}ms"
-    else DNS 解析失败
-        Gateway-->>Svc: UnknownHostException
-        Svc-->>AdminAPI: 200 GatewayTestResult{reachable:false, error_code:502201, error_message:"DNS 解析失败，请检查网关地址", latency_ms}
-        AdminAPI-->>Admin: 弹窗显示错误原因（红色）
-    else 鉴权失败（EDGE-023）
-        Gateway-->>Svc: 401 Unauthorized
-        Svc-->>AdminAPI: 200 GatewayTestResult{reachable:false, error_code:502202, error_message:"API Key 鉴权失败（401 Unauthorized）", latency_ms}
-    else 超时
-        Gateway-->>Svc: timeout
-        Svc-->>AdminAPI: 200 GatewayTestResult{reachable:false, error_code:504201, error_message:"连接超时（10s）", latency_ms:10000}
-    end
-```
-
-**测试结果不落库**：测试操作不影响已保存配置、不写 ai_translation_log、不更新 model_list/models_synced_at，仅返回即时连通状态。
+**边界场景**：
+- EDGE-013：时间窗 start_at >= end_at → 422805
+- EDGE-014：同 priority 时间窗重叠 → 409804
+- EDGE-015：启用状态切换不影响时间窗外可见性 → 接受
 
 ---
 
-## FLOW-I05: 术语表 CRUD（决策 14）
+## FLOW-SB05: 消费端首页动态渲染
 
-**触发条件**: 后台「外部系统配置 > 翻译术语表」页面增删改查术语。
-
-```mermaid
-sequenceDiagram
-    actor Admin
-    participant AdminAPI
-    participant Svc as glossary Svc
-    participant DB
-
-    Admin->>AdminAPI: POST /api/admin/glossary/terms {term_en, term_es?, term_fr?, category?, enabled:true}
-    Note over AdminAPI: AdminJwtFilter + RBAC(/system/glossary) + EDGE-022 权限校验
-    AdminAPI->>Svc: createTerm(...)
-    
-    Svc->>DB: SELECT * FROM ai_translation_glossary WHERE LOWER(term_en)=LOWER(?) AND deleted_at IS NULL
-    alt 英文术语已存在（不区分大小写）
-        Svc-->>AdminAPI: 409 {409401 TERM_EN_EXISTS} details: {term_en, existing_id}
-    end
-    
-    Svc->>DB: INSERT ai_translation_glossary(term_en, term_es, term_fr, category, enabled, created_at, updated_at)
-    Svc-->>AdminAPI: 200 GlossaryTerm{id, ...}
-    AdminAPI-->>Admin: 术语已保存（enabled=true 时立即生效，下次翻译注入 prompt）
-    
-    Note over Admin,DB: 列表查询 GET /api/admin/glossary/terms?category=&enabled=&keyword=&page=1&page_size=50
-    Admin->>AdminAPI: GET 请求
-    AdminAPI->>Svc: list(filters, pagination)
-    Svc->>DB: SELECT * FROM ai_translation_glossary WHERE ... ORDER BY term_en ASC
-    Svc-->>AdminAPI: GlossaryTermPage{data[], total_elements, ...}
-    
-    Note over Admin,DB: 更新/删除：PUT /DELETE /api/admin/glossary/terms/{id}
-    Admin->>AdminAPI: PUT {id} {term_en（可修改）, term_es, term_fr, category, enabled}
-    Svc->>DB: SELECT WHERE LOWER(term_en)=LOWER(?) AND id!=?（检查新 term_en 冲突）
-    alt 冲突
-        Svc-->>AdminAPI: 409 {409401}
-    else
-        Svc->>DB: UPDATE ai_translation_glossary SET ... WHERE id=?
-    end
-    
-    Admin->>AdminAPI: DELETE {id}
-    Svc->>DB: DELETE FROM ai_translation_glossary WHERE id=?（硬删除，无关联约束）
-    AdminAPI-->>Admin: 204（术语删除后不再注入翻译 prompt）
-```
-
-**术语注入规模边界（EDGE-024）**：FLOW-I01 中已处理，仅注入 source_text 中实际命中的术语（精确匹配 term_en 出现在原文中），上限 50 条；命中超 50 条时按 category 优先级截断（廓形 > 领型 > 面料 > 工艺 > 其他），日志记录截断数。
-
----
-
-## FLOW-I06: 调用日志清理（决策 7）
-
-**触发条件**: Spring `@Scheduled(cron="0 0 3 * * ?")` 每日凌晨 3:00 执行。
-
-```mermaid
-sequenceDiagram
-    participant Sched
-    participant Svc as ai_translation Svc
-    participant DB
-
-    Note over Sched: 每日 3:00 触发 @Scheduled
-    Sched->>Svc: cleanupOldTranslationLogs()
-    
-    loop 分批删除（避免长事务锁表）
-        Svc->>DB: DELETE FROM ai_translation_log WHERE created_at < NOW() - INTERVAL 90 DAY LIMIT 5000
-        Note over Svc: 记录删除行数 deletedRows
-        alt deletedRows < 5000
-            Note over Svc: 已删完，退出循环
-        else
-            Note over Svc: 继续下批，避免一次删除过多行
-        end
-    end
-    
-    Note over Svc: 记录 INFO 日志：清理 90 天前 ai_translation_log 记录，共删除 {totalDeleted} 条
-```
-
-**未来扩展预留**：决策 7 提到「统计汇总数据（按日/模型/biz_type 聚合的调用次数和 token 总量）持久保留」，首版可手动导出，后续 change 补建 ai_translation_daily_stats 聚合表，清理任务在删除前先聚合写入。
-
----
-
-## FLOW-I07: 消费端 locale 路由检测（决策 11，EDGE-018/019）
-
-**触发条件**: 用户访问 portal-store 任意 URL。
+**触发条件**: 用户访问 `/`、`/es`、`/fr` 首页。
 
 ```mermaid
 sequenceDiagram
     actor User
     participant CDN
-    participant Middleware as Next.js Middleware
-    participant Next
-    participant Cookie
+    participant StoreAPI
+    participant Svc as StoreContentService
+    participant Cache
+    participant BannerSvc
+    participant TaxonomySvc
+    participant ProductSvc
+    participant WeddingSvc
+    participant DB
 
-    User->>CDN: GET /es/product/aurelia-gown（或 /de/xxx 非法 locale / /product/xxx 无前缀旧链接）
-    CDN->>Middleware: 回源（动态路由不缓存 middleware 逻辑）
-    
-    Middleware->>Middleware: 从 URL pathname 提取 locale 前缀
-    alt pathname 匹配 /^\\/(es|fr)\\//
-        Note over Middleware: locale=es 或 fr
-    else pathname 无前缀（如 /product/xxx）
-        Note over Middleware: locale=en（默认）
-    else pathname 匹配 /^\\/([a-z]{2})\\// 但非支持语言（EDGE-018）
-        Middleware->>User: 302 临时重定向到 /（对应页面无前缀 EN 路径，如 /de/product/xxx → /product/xxx）
-        Note over Middleware: 302 因用户输入错误，非永久 URL 变更
-    end
-    
-    alt 旧链接无前缀（EDGE-019 向后兼容）
-        Middleware->>Cookie: 读取 NEXT_LOCALE cookie
-        alt cookie 存在且为 es/fr
-            Middleware->>User: 301 永久重定向到 /{cookie_locale}{pathname}（如 /product/xxx → /es/product/xxx）
-        else cookie 不存在或为 en
-            Middleware->>Middleware: 读取 Accept-Language 头
-            alt 首选语言为 es/fr
-                Middleware->>User: 301 永久重定向到 /{detected_locale}{pathname}
-            else
-                Note over Middleware: EN 为根路径，不重定向，继续渲染
+    User->>CDN: GET /{locale}
+    CDN->>StoreAPI: GET /api/store/content/home?locale=es
+    StoreAPI->>Svc: getHome(locale=es)
+    Svc->>Cache: get(home:es)
+    alt L1+L2 命中
+        Cache-->>Svc: home_data
+    else miss
+        Svc->>DB: SELECT home_sections WHERE enabled=true ORDER BY sort_order
+        DB-->>Svc: sections[]
+        loop 每个 section
+            alt section_type=hero
+                Svc->>BannerSvc: findByPosition(HERO, locale=es)
+                BannerSvc-->>Svc: banner + translation
+            else section_type=theme_cards
+                Svc->>TaxonomySvc: findByType(theme, locale=es, limit=section.data_json.limit)
+                TaxonomySvc-->>Svc: themes[]
+            else section_type=product_rail
+                alt source=recommend
+                    Svc->>ProductSvc: findByIds(product_ids, locale=es)
+                else source=new_arrival
+                    Svc->>ProductSvc: findNewArrivals(limit, locale=es)
+                end
+                ProductSvc-->>Svc: products[]
+            else section_type=editorial_feature
+                Svc->>WeddingSvc: fetchStoreWeddings(limit, locale=es)
+                WeddingSvc-->>Svc: weddings[]
+            else section_type=newsletter
+                Svc->>Svc: 按 locale 解析 i18n_json
             end
         end
-        Note over Middleware: 301 确保搜索引擎传递链接权重到新 URL
+        Svc->>Svc: 按 locale 扁平化 i18n_json
+        Svc->>Cache: set(home:es, home_data)
     end
-    
-    Middleware->>Cookie: 写入 NEXT_LOCALE={locale}（Max-Age=1 年）
-    Middleware->>Next: 注入 locale 到 SSR context（page props / useParams）
-    Next->>Next: 渲染页面（读取对应 locale 的 messages.ts / 数据库翻译字段）
-    Next-->>User: HTML（含 <link rel="alternate" hreflang="en" href="/product/xxx" />、<link rel="alternate" hreflang="es" href="/es/product/xxx" />、<link rel="alternate" hreflang="fr" href="/fr/product/xxx" />）
+    Svc-->>StoreAPI: home_data
+    StoreAPI-->>CDN: R.ok(home_data)
+    CDN-->>User: 200 HTML
 ```
 
-**localStorage 降级角色**：决策 11 移除 localStorage 作为 locale 唯一来源，但保留作为「用户显式切换语言时的记忆」（如点击 footer 语言选择器，写 localStorage 并跳转新 locale 路径，下次访问根路径时 middleware 优先读 cookie，cookie 不存在时 Accept-Language 兜底）。
+**关键步骤**：
+1. STEP-01：从 cache 读取 `home:{locale}`
+2. STEP-02：miss 时查 DB — `SELECT * FROM home_sections WHERE enabled=true ORDER BY sort_order, id`
+3. STEP-03：按 section_type 派生数据：
+   - hero → BannerSvc.findByPosition(HERO, locale)（KD-2）
+   - theme_cards → TaxonomySvc.findByType(theme, locale, limit)（KD-8）
+   - product_rail → ProductSvc.findByIds 或 findNewArrivals（KD-9）
+   - editorial_feature → WeddingSvc.fetchStoreWeddings(limit, locale)（KD-10）
+   - newsletter → 仅 i18n_json 文案，无跨域
+   - custom → 仅 i18n_json + data_json
+4. STEP-04：按 locale 扁平化 i18n_json（三层回退：locale → en → 主表字段）
+5. STEP-05：写入 cache `home:{locale}`
+6. STEP-06：异常路径：
+   - BannerSvc 失败 → 502801，降级返回空 Hero + WARN 日志
+   - TaxonomySvc 失败 → 502802，降级返回空 themes
+   - ProductSvc 失败 → 502804，降级返回空 products
+   - WeddingSvc 失败 → 502803，降级返回空 weddings
+   - DB 异常 → 500801
 
-**sitemap 多语言**：生成 `sitemap-en.xml`、`sitemap-es.xml`、`sitemap-fr.xml` 分别提交各语言 URL，sitemap index 引用三者。
+**边界场景**：
+- EDGE-016：所有 section disabled → 返回空数组
+- EDGE-017：Hero Banner 不存在 → 降级空 Hero（不报错）
+- EDGE-018：i18n_json[locale] 缺失 → 回退 en，再回退主表 label
+- EDGE-019：跨域服务全部失败 → 仍返回 custom 类型 section
+- EDGE-020：cache 失效窗口期并发重建 → 用 singleflight 防击穿
 
 ---
 
-## FLOW-I08: designerNote 数据级翻译回退（决策 12，EDGE-020）
+## FLOW-SB06: 消费端 header 渲染
 
-**触发条件**: 消费端 PDP 请求（增强 baseline FLOW-P01）。
+**触发条件**: 任意消费端页面加载，layout.tsx 调用 GET /api/store/content/navigation?locale=xx。
+
+**关键步骤**：
+1. STEP-01：从 cache 读取 `navigation:{locale}`
+2. STEP-02：miss 时查 DB — `SELECT * FROM navigation_items WHERE enabled=true ORDER BY sort_order, id`，组装树结构
+3. STEP-03：按 locale 扁平化 i18n_json
+4. STEP-04：写入 cache
+5. STEP-05：异常 → 500801 或 502802（taxonomy 跨域校验失败降级）
+
+**边界场景**：
+- EDGE-021：所有 navigation_items disabled → 返回空树
+
+---
+
+## FLOW-SB07: 消费端 footer 渲染
+
+**触发条件**: 任意消费端页面加载，layout.tsx 调用 GET /api/store/content/footer?locale=xx。
+
+**关键步骤**：
+1. STEP-01：cache 读取 `footer:{locale}`
+2. STEP-02：miss 时查 DB — `SELECT * FROM footer_columns + footer_links`，组装 columns + links 结构
+3. STEP-03：按 locale 扁平化 i18n_json
+4. STEP-04：写入 cache
+5. STEP-05：异常 → 500801
+
+**边界场景**：
+- EDGE-022：footer 为空 → 返回空 columns 数组
+
+---
+
+## FLOW-SB08: 消费端公告条渲染
+
+**触发条件**: 任意消费端页面加载（顶部），layout.tsx 调用 GET /api/store/content/announcements?locale=xx。
+
+**关键步骤**：
+1. STEP-01：cache 读取 `announcement:{locale}`
+2. STEP-02：miss 时查 DB — `SELECT * FROM announcements WHERE enabled=true AND (start_at IS NULL OR start_at<=NOW()) AND (end_at IS NULL OR end_at>=NOW()) ORDER BY priority DESC, id`
+3. STEP-03：按 locale 扁平化 content_i18n_json + i18n_json
+4. STEP-04：写入 cache
+5. STEP-05：异常 → 500801
+
+**边界场景**：
+- EDGE-023：无有效公告 → 返回空数组（不报错）
+
+---
+
+## FLOW-SB09: Newsletter 订阅
+
+**触发条件**: 首页 Newsletter 区块提交邮箱。
+
+**关键步骤**：
+1. STEP-01：入参校验 — email 格式、locale 合法
+2. STEP-02：跨域调用 SubscriberService.subscribe(email, source=HOME_BLOCK(4), locale)
+3. STEP-03：SubscriberService 持久化到基线 newsletter_subscriber 表（KD-13）
+4. STEP-04：异常路径：
+   - email 重复 → 409704（沿用 marketing 域错误码）
+   - email 格式非法 → 422704
+   - SubscriberService 失败 → 500705
+
+**边界场景**：
+- EDGE-024：重复订阅 → 返回成功（幂等，避免泄露订阅状态）
+
+---
+
+## FLOW-SB10: 缓存失效广播
+
+**触发条件**: FLOW-SB01~SB04 任意 admin 写操作后。
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant StoreAPI
-    participant Svc as catalog Svc
-    participant DB
+    participant Svc
+    participant Cache as L1+L2
+    participant Publisher
+    participant Node1 as 节点1 L1
+    participant Node2 as 节点2 L1
 
-    User->>StoreAPI: GET /api/store/products/{slug}?locale=es
-    Note over StoreAPI: StoreJwtFilter 公开路径白名单放行
-    StoreAPI->>Svc: getProduct(slug, locale=es)
-    
-    Svc->>DB: SELECT Product (id, name, description, designer_note, ...) WHERE slug=? AND status=published
-    Svc->>DB: SELECT ProductTranslation (name, subtitle, description, designer_note, ...) WHERE product_id=? AND locale='es'
-    
-    Svc->>Svc: 数据转换（pick() 回退逻辑，EDGE-020）
-    Note over Svc: 1. ES 翻译字段非空 → 取 translation 值<br/>2. ES 翻译字段为空/NULL → 回退 EN 主表值<br/>3. 应用于：name, subtitle, description, designer_note（决策 12 新增）<br/>输出扁平 DTO：{name: ES值或EN回退, designer_note: ES值或EN回退, ...}
-    
-    Svc-->>StoreAPI: StoreProductDetail{...所有字段已按 locale 解析，前端无需再处理回退}
-    StoreAPI-->>User: 200 R{data: {...}}
-    Note over User: PDP Description 折叠区展示 designerNote（已按用户 locale 语言）
+    Svc->>Cache: invalidateFamily(home)
+    Cache->>Cache: 清除本节点 L1 + Redis L2
+    Svc->>Publisher: publish(CacheInvalidationEvent{family=home})
+    Publisher->>Node1: 订阅事件
+    Node1->>Node1: 清除本地 L1 (home)
+    Publisher->>Node2: 订阅事件
+    Node2->>Node2: 清除本地 L1 (home)
 ```
 
-**后台编辑三语 tab**：商品编辑页「内容详情」tab 新增 designerNote 字段（EN 主表 + ES/FR tab 各一个 textarea），保存时同步到 product.designer_note(EN) 和 product_translation.designer_note(ES/FR)。
+**关键步骤**：
+1. STEP-01：admin 写操作事务提交前，同事务内 cache.invalidateFamily(family)
+2. STEP-02：失效本节点 L1（Caffeine）+ L2（Redis JetCache）
+3. STEP-03：事务提交
+4. STEP-04：事务外 publisher.publish（Redis pub/sub）
+5. STEP-05：各节点订阅事件 → 失效本地 L1
+6. STEP-06：下一次消费端读触发缓存重建
+
+**失败处理**：
+- publisher.publish 失败：记录 ERROR 日志，不阻断主流程（最终一致性）
+- 订阅节点失败：该节点 L1 可能脏，但 L2 已失效，下次读会从 DB 重建
+- 整体原则：缓存一致性最终一致，不追求强一致
+
+**GRD-W01 修正**：缓存失效为 in-process 调用（cache.invalidateFamily + publisher.publish），**非 HTTP 自调**（如不调用 /api/admin/cache/invalidate 端点）。
 
 ---
 
-## FLOW-I09: 邮件三语发送（决策 13，EDGE-021）
+## 边界场景覆盖汇总
 
-**触发条件**: MQ 邮件事件触发（增强 baseline FLOW-P11）。
-
-```mermaid
-sequenceDiagram
-    participant MQ
-    participant Svc as MailConsumer
-    participant DB
-    participant SMTP
-
-    MQ->>Svc: order.paid / order.shipped / refund.resolved（含 customer_id, order_no, locale?）
-    
-    Svc->>DB: SELECT user.locale_pref FROM user WHERE id=customer_id
-    alt user 不存在（匿名下单）
-        Svc->>DB: SELECT orders.locale_snapshot FROM orders WHERE order_no=?
-        Note over Svc: locale = orders.locale_snapshot（下单时从页面 URL 路径提取的 locale，FLOW-I07 已写入）
-    else user 存在
-        Note over Svc: locale = user.locale_pref（登录态用户语言偏好，注册/下单时保存）
-    end
-    
-    alt locale 为空（兜底）
-        Note over Svc: locale = 'en'（默认英文）
-    end
-    
-    Svc->>Svc: 确定模板路径：templates/email/{type}_{locale}.html
-    Note over Svc: type=order_confirmed/shipped/refund_result 等<br/>如：templates/email/order_confirmed_es.html
-    
-    alt 模板文件不存在（EDGE-021）
-        Svc->>Svc: 回退使用 EN 模板：templates/email/{type}_en.html
-        Note over Svc: 记录 WARN 日志："邮件模板 {type}_{locale}.html 不存在，回退使用 EN 模板"
-    end
-    
-    Svc->>Svc: Thymeleaf 渲染模板（传入订单/退款/Showroom 数据 + locale）
-    Svc->>DB: INSERT MailRecord(type, order_id, recipient, locale, status=pending) ON DUPLICATE KEY（orderId+type 幂等）
-    Svc->>SMTP: send(recipient, subject(按 locale), rendered_html_body)
-    
-    alt 发送成功
-        Svc->>DB: UPDATE MailRecord status=sent, sent_at
-    else 临时失败
-        Svc->>DB: UPDATE status=failed, retry_count+1
-        Note over MQ: nack → 延迟重试队列（指数退避 ×3）→ 超限进死信
-    end
-```
-
-**user.locale_pref 写入时机**：1) 注册时从 URL 路径提取 locale 写入；2) 用户在 Account Settings 页显式切换语言时更新。**orders.locale_snapshot 写入时机**：下单时从当前页面 locale 快照（FLOW-I07 中间件已注入）。
-
-**模板三语化覆盖**：订单确认（order_confirmed）、发货通知（shipped）、退款结果（refund_result）、OTP 验证码（otp_code）、Showroom 邀请（showroom_invite）、Showroom 提醒（showroom_remind）各 3 个语言版本 = 18 个模板文件。
-
----
-
-## 检查清单
-
-- [x] 覆盖 i18n 变更新增的全部核心流程（FLOW-I01~I09，对应决策 1~14）
-- [x] 每条流程包含正常路径和异常路径（EDGE-001~024 场景全部落图）
-- [x] 参与者命名清晰（Admin/AdminAPI/Svc/Gateway/DB/Sched/Middleware/CDN/SMTP）
-- [x] 各层数据转换显式定义（API Key 加解密/掩码、术语注入优化、locale 路由、翻译回退、邮件模板选择）
-- [x] 外部依赖失败路径（Gateway 超时/5xx/429、模型刷新连续失败降级、测试连接失败反馈）
-- [x] 定时任务调度机制（模型刷新 fixedDelay 扫描、日志清理 cron 分批删除）
-- [x] 数据流与 L1.2 三份 OpenAPI 契约端点一一对应（gateway-api/ai-translation-api/glossary-api）
-- [x] 逐条响应 decision.md 14 个决策（见决策响应映射表）
-- [x] 逐条响应 boundary-scenarios.yml 24 个 EDGE 场景（流程图中标注 EDGE-*）
-
+| 场景 | 流程 | 处理策略 |
+|------|------|----------|
+| EDGE-001 i18n_json 部分缺失 | FLOW-SB01 | 接受，EN 为基准 |
+| EDGE-002 data_json 字段缺失 | FLOW-SB01 | 422801 拒绝 |
+| EDGE-003 section_type 非法 | FLOW-SB01 | 422802 拒绝 |
+| EDGE-004 sort_order 重复 | FLOW-SB01 | 接受，按 id 次序 |
+| EDGE-005 并发更新 | FLOW-SB01 | 409801 乐观锁 |
+| EDGE-006 导航 parent_id 环 | FLOW-SB02 | 409802 拒绝 |
+| EDGE-007 mega_menu_json null | FLOW-SB02 | 接受 |
+| EDGE-008 taxonomy_id 不存在 | FLOW-SB02 | 404805 拒绝 |
+| EDGE-009 整体替换 id 缺失 | FLOW-SB02 | 视为新增 |
+| EDGE-010 导航并发保存 | FLOW-SB02 | 409805 乐观锁 |
+| EDGE-011 column_id 引用缺失 | FLOW-SB03 | 422803 拒绝 |
+| EDGE-012 link.url 格式非法 | FLOW-SB03 | 422804 拒绝 |
+| EDGE-013 公告时间窗颠倒 | FLOW-SB04 | 422805 拒绝 |
+| EDGE-014 公告 priority+时间窗冲突 | FLOW-SB04 | 409804 拒绝 |
+| EDGE-015 公告启停不影响时间窗 | FLOW-SB04 | 接受 |
+| EDGE-016 所有 section disabled | FLOW-SB05 | 返回空数组 |
+| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 降级空 Hero |
+| EDGE-018 i18n locale 缺失 | FLOW-SB05 | 三层回退 |
+| EDGE-019 跨域全失败 | FLOW-SB05 | 仅返回 custom |
+| EDGE-020 缓存击穿 | FLOW-SB05 | singleflight |
+| EDGE-021 所有导航 disabled | FLOW-SB06 | 返回空树 |
+| EDGE-022 footer 为空 | FLOW-SB07 | 返回空 columns |
+| EDGE-023 无有效公告 | FLOW-SB08 | 返回空数组 |
+| EDGE-024 重复 Newsletter 订阅 | FLOW-SB09 | 幂等成功 |

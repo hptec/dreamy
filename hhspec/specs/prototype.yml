@@ -1,7 +1,5 @@
 # 全局原型 Hash 基线
 # 由 /pd:archive 归档时增量写入，不自动删除条目（基线只增不减）。
-# 若需清理已删除页面的记录，可手动删除条目，
-# 或通过 /pd:archive --clean-baseline 触发自动检测并确认删除。
 pages:
 - page_id: portal-admin/Dashboard
   file: portal-admin/src/views/Dashboard.vue
@@ -99,4 +97,20 @@ pages:
   file: app/checkout/page.tsx
   baseline_hash: 4ca7b1287066024c4054a3e110c48e9e34b389d39f257cdb17d5f34b236a7dfb
   updated_at: '2026-06-11T02:39:37Z'
+- page_id: HomeBuilder
+  file: prototype/portal-admin/src/views/HomeBuilder.vue
+  baseline_hash: 14189e2cd9c9b819a1e7355ba7491ffd8995b7520d30d3fb5f1f31a19e58b2af
+  updated_at: '2026-06-24T05:28:02Z'
+- page_id: NavigationConfig
+  file: prototype/portal-admin/src/views/NavigationConfig.vue
+  baseline_hash: 8cb5f9a1d9aaac16c11b4cb0e3ac584330f401b780e476a7e507b9d4486b2c3a
+  updated_at: '2026-06-24T05:28:02Z'
+- page_id: Banners
+  file: prototype/portal-admin/src/views/Banners.vue
+  baseline_hash: 531260e03d17f95e090de91ffe3166e64766133069b701f3506e21aff3e292b8
+  updated_at: '2026-06-24T05:28:02Z'
+- page_id: Publish
+  file: prototype/portal-admin/src/views/Publish.vue
+  baseline_hash: f7891b67cba0f895e89f51d6d8f040dd14d03a8f00c488cc28d94a16197a9f3c
+  updated_at: '2026-06-24T05:28:02Z'
 path_aliases: []

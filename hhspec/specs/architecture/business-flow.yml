@@ -1,2247 +1,438 @@
+# business-flow.yml — site-decoration-fullstack
+# 极简 YAML：每个流程含 id/name/trigger/actor/steps，每步含 actor/action/entity/state_transition/side_effect
+# 流程节点与 state-machine.yml 转换严格对齐（KD-4 保存即发布、KD-1 仅缓存失效、KD-BE-4 两级缓存+同步失效）
+
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/business-flow.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T09:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-1, KD-2, KD-3, KD-4, KD-5, KD-6, KD-7, KD-8, KD-9, KD-10, KD-11, KD-BE-1, KD-BE-2, KD-BE-3, KD-BE-4, KD-BE-5]
+  inference_confidence: high
+  notes: |
+    增量对齐型变更。KD-4 保存即发布：HomeBuilder/NavigationConfig/Announcement 保存即触发缓存失效，无草稿态。
+    KD-1 Publish.vue 仅保持缓存失效能力，不扩展 SSG 发布中心。
+    KD-BE-4 JetCache 两级缓存（Caffeine 本地 + Redis 远程）+ 保存触发同步失效（@CacheInvalidate + POST /api/admin/cache/invalidate）。
+    KD-BE-5 跨 domain 通过 Service 接口调用（Hero→BannerService / ThemeCards→TaxonomyService / Navigation→TaxonomyService / ProductRail→ProductService / EditorialFeature→WeddingService）。
+    新建流程 meta.source=new；引用基线流程 meta.source=baseline + baseline_ref 指向原 flow id。
+
 flows:
-- id: checkout_order
-  name: 消费端购物下单与支付
-  trigger: 消费者浏览商品加购并结算支付
-  actors:
-  - consumer
-  - system
-  - stripe
-  cross_domain: true
-  external_systems:
-  - Stripe
-  - CDN
-  - ObjectStorage-CDN
-  source: pd-explore.local.md > BE-DIM-4 事务/幂等 + BE-DIM-5 外部集成
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者进入商城
-    source: state-machine.yml > order_lifecycle initial pending
-  - id: n2
-    type: action
-    actor: consumer
-    label: 浏览商品列表/详情（CDN/ISR+JetCache 两级缓存读，开启穿透保护）
-    entity: Product
-    meta:
-      cache: cdn_isr+jetcache
-      penetration_protect: true
-    source: pd-explore.local.md > BE-DIM-8 三层缓存
-  - id: n3
-    type: decision
-    label: 是否已登录
-    source: er-diagram.yml > CartItem.anonToken js_guard
-  - id: n4
-    type: action
-    actor: consumer
-    label: 加入购物车（DB 持久化，按 user_id 隔离）
-    entity: CartItem
-    source: pd-explore.local.md > BE-DIM-6 权限 user_id 强隔离
-  - id: n5
-    type: action
-    actor: consumer
-    label: 匿名加购（anonToken/localStorage），登录时按 anonToken 合并入账户购物车
-    entity: CartItem
-    source: er-diagram.yml > CartItem.anonToken 登录后合并
-  - id: n6
-    type: action
-    actor: consumer
-    label: 结算：选择收货地址，按 ShippingRate 分区计算运费，可选礼品包装（固定费计入总额，决策28），优惠券抵扣
-    entity: ShippingRate
-    source: er-diagram.yml > ShippingRate.zone/threshold + Order.totalAmount js_guard
-  - id: n7
-    type: decision
-    label: 鉴权校验：登录态有效且购物车条目归属当前 user_id
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n8
-    type: decision
-    label: 防重校验：订单号预生成，重复提交返回已有订单
-    source: pd-explore.local.md > BE-DIM-4 幂等 下单接口订单号预生成防重提交
-  - id: n9
-    type: action
+  # ============================================================
+  # 新增流程（source: new）— 4 条
+  # ============================================================
+
+  - id: home_builder_publish_flow
+    name: 首页区块编排保存即发布
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 HomeBuilder 页编辑区块（启停 Toggle / 拖拽排序 / 属性抽屉编辑）后点击「保存并生成首页」
+    cross_domain: true
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-3/KD-4/KD-5 + state-machine.yml > home_page_section_status
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑区块（Toggle 启停 / ChevronUp/Down 排序 / 属性抽屉编辑 section_type/data_json/translations）
+        entity: HomePageSection
+        type: user_input
+        source: prototype/portal-admin/src/views/HomeBuilder.vue
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/home')
+        type: guard
+        source: KD-BE-2
+      - n: 3
+        actor: system
+        action: 跨域引用校验（KD-BE-5 Service 接口调用，不跨表查询）
+        type: integration
+        sub_actions:
+          - Hero → BannerService.findByPosition(HERO) 校验有 published Banner
+          - ThemeCards → TaxonomyService.findByType(theme) 校验存在
+          - ProductRail source=recommend → ProductService.findByIds 校验 product_ids
+          - EditorialFeature → WeddingService.findByIds 校验 wedding_ids
+        source: KD-2/KD-8/KD-9/KD-10 + KD-BE-5
+      - n: 4
+        actor: system
+        action: 事务写入 HomePageSection（含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，对齐 Banner 模式）
+        entity: HomePageSection
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-BE-1 + KD-3
+      - n: 5
+        actor: system
+        action: Toggle 切换触发状态转换
+        entity: HomePageSection
+        type: state_change
+        state_transition:
+          machine: home_page_section_status
+          events: [admin_enable, admin_disable]
+          states: [enabled, disabled]
+        source: state-machine.yml > home_page_section_status
+      - n: 6
+        actor: system
+        action: after-commit 异步发布 home_section_changed 事件到 RabbitMQ（MarketingAfterCommitRunner 模式）
+        type: notification
+        side_effect: JetCache @CacheInvalidate 失效缓存族 + in-process cache.invalidateFamily(Family.HOME_SECTION) + publisher.publish(TYPE_HOME_SECTION_CHANGED)（resource_type=home_section, event_type=home_section_changed）+ InvalidateEventConsumer → CdnInvalidationService CDN purge（payload locales=["en","es","fr"] 全失效）
+        source: backend-flow-inference > [异步] after-commit + [消息队列] event type 扩展 + KD-BE-4
+      - n: 7
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=home_section_changed, resource_type=home_section)
+        source: KD-BE-3 审计走 OperationLogs + 缓存失效日志
+      - n: 8
+        actor: consumer
+        action: 消费端 portal-store/app/[locale]/page.tsx 调 GET /api/store/content/home/sections（JetCache 两级 TTL 300s）按 sort_order 升序动态渲染 enabled=true 区块
+        entity: HomePageSection
+        type: display
+        source: KD-5 消费端首页动态渲染
+    exceptions:
+      - cond: 权限不足
+        handle: 403 拒绝，操作中止
+        source: KD-BE-2
+      - cond: 跨域引用校验失败（taxonomy_id/product_ids/wedding_ids 不存在）
+        handle: 422 悬挂引用错误，事务不提交，不触发缓存失效
+        source: backend-flow-inference > 确认事项5 推荐强校验
+      - cond: MQ 投递失败
+        handle: 死信队列重试，缓存按 TTL 兜底过期
+        source: 基线 content_publish_invalidate n10 同模式
+
+  - id: navigation_config_publish_flow
+    name: 导航配置（主导航+Mega Menu+页脚）保存即发布
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 NavigationConfig 页编辑主导航/Mega Menu/页脚栏目后点击「保存并重新生成 header/footer」
+    cross_domain: true
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-6/KD-4/KD-5 + state-machine.yml > navigation_item_status/footer_column_status
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑导航项（Bars3Icon 拖拽排序 / Mega Menu 列配置 / 页脚栏目 / Toggle 启停）
+        entity: NavigationItem
+        type: user_input
+        source: prototype/portal-admin/src/views/NavigationConfig.vue
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/navigation')
+        type: guard
+        source: KD-BE-2
+      - n: 3
+        actor: system
+        action: 跨域校验（KD-BE-5 TaxonomyService 调用，强校验避免悬挂引用）
+        type: integration
+        sub_actions:
+          - link_type=taxonomy → TaxonomyService.findById 校验 taxonomy_id 存在 + 派生 href
+          - mega_menu source=category-children → TaxonomyService.findChildren(ref_id) 派生子链接
+          - mega_menu source=taxonomy-type → TaxonomyService.findByType(ref_type) 派生全部上线 taxonomy
+        source: KD-BE-5 + er-diagram.yml > NavigationItem.relations Taxonomy
+      - n: 4
+        actor: system
+        action: 事务写入 NavigationItem + FooterColumn + FooterLink（各表含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，KD-6 mega_menu_json 内嵌不建独立表）
+        entity: NavigationItem
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-BE-1 + KD-6 + KD-3 i18n 双表
+      - n: 5
+        actor: system
+        action: Toggle 切换触发状态转换（导航项 + 页脚栏目分别走各自状态机）
+        type: state_change
+        state_transition:
+          machines:
+            - {machine: navigation_item_status, events: [admin_enable, admin_disable], states: [enabled, disabled]}
+            - {machine: footer_column_status, events: [admin_enable, admin_disable], states: [enabled, disabled]}
+        source: state-machine.yml > navigation_item_status + footer_column_status
+      - n: 6
+        actor: system
+        action: after-commit 异步发布 navigation_changed 事件到 RabbitMQ
+        type: notification
+        side_effect: JetCache @CacheInvalidate + in-process cache.invalidateFamily(Family.NAVIGATION) + publisher.publish(TYPE_NAVIGATION_CHANGED)（resource_type=navigation, event_type=navigation_changed）+ CDN purge
+        source: KD-1/KD-4 + backend-flow-inference > [消息队列] event type 扩展 + KD-BE-4
+      - n: 7
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=navigation_changed, resource_type=navigation)
+        source: KD-BE-3
+      - n: 8
+        actor: consumer
+        action: 消费端 layout.tsx 调 GET /api/store/content/navigation（JetCache 两级）动态渲染 header + footer
+        entity: NavigationItem
+        type: display
+        source: KD-5 消费端 header/footer 全量改造
+    exceptions:
+      - cond: 权限不足
+        handle: 403 拒绝
+        source: KD-BE-2
+      - cond: taxonomy_id 悬挂引用
+        handle: 422 强校验失败，事务回滚
+        source: backend-flow-inference > 确认事项5 推荐强校验
+
+  - id: announcement_publish_flow
+    name: 公告条保存即发布（KD-7 独立域）
+    meta: {source: new}
+    actor: admin + system + consumer
+    trigger: 管理员在 NavigationConfig 公告条 Tab 编辑公告后保存（KD-7 独立 announcement 域，不归属 navigation）
+    cross_domain: false
+    external_systems: [RabbitMQ, CDN, JetCache]
+    source: pd-explore.local.md > KD-1/KD-7/KD-4/KD-5 + state-machine.yml > announcement_status
+    notes: KD-7 公告条独立域，与 navigation 解耦。原型放在 NavigationConfig 公告条 Tab，但后端走独立 AdminAnnouncementController + announcements 表。
+    steps:
+      - n: 1
+        actor: admin
+        action: 编辑公告（content EN 基准 + es/fr 翻译 + enabled + sort_order 轮播顺序）
+        entity: Announcement
+        type: user_input
+        source: prototype/portal-admin/src/views/NavigationConfig.vue > announcements 数组
+      - n: 2
+        actor: system
+        action: 权限校验 @RequirePermission('/site/announcement')
+        type: guard
+        source: KD-BE-2 + KD-7
+      - n: 3
+        actor: system
+        action: 事务写入 Announcement（含 i18n_json JSON 列多语言文案，KD-16 合并翻译表到主表；@Transactional，EN 存主表 content，es/fr 存 i18n_json）
+        entity: Announcement
+        type: persist
+        meta: {tx_boundary: true, concurrency_control: optimistic_lock}
+        source: KD-7 + KD-3 对齐 BannerTranslation
+      - n: 4
+        actor: system
+        action: Toggle 切换触发状态转换
+        type: state_change
+        state_transition:
+          machine: announcement_status
+          events: [admin_enable, admin_disable]
+          states: [enabled, disabled]
+        source: state-machine.yml > announcement_status
+      - n: 5
+        actor: system
+        action: after-commit 异步发布 announcement_changed 事件到 RabbitMQ
+        type: notification
+        side_effect: JetCache @CacheInvalidate + in-process cache.invalidateFamily(Family.ANNOUNCEMENT) + publisher.publish(TYPE_ANNOUNCEMENT_CHANGED)（resource_type=announcement, event_type=announcement_changed）+ CDN purge
+        source: KD-1/KD-4 + backend-flow-inference > [消息队列] event type 扩展 + KD-BE-4
+      - n: 6
+        actor: system
+        action: 记录审计日志 OperationLog + CacheInvalidationLog
+        type: audit
+        side_effect: OperationLogs 记配置变更 + CacheInvalidationLog(event_type=announcement_changed, resource_type=announcement)
+        source: KD-BE-3 + er-diagram.yml > modified_entities CacheInvalidationLog 扩展枚举
+      - n: 7
+        actor: consumer
+        action: 消费端顶部公告条组件调 GET /api/store/content/announcements（JetCache 两级）按 sort_order 升序轮播 enabled=true 公告
+        entity: Announcement
+        type: display
+        source: KD-5 消费端公告条全量改造 + KD-7 独立域
+    exceptions:
+      - cond: content 为空（trim 后长度 0）
+        handle: 422 校验失败
+        source: er-diagram.yml > Announcement.constraints js_guard
+      - cond: 权限不足
+        handle: 403 拒绝
+        source: KD-BE-2
+
+  - id: newsletter_subscribe_flow
+    name: 首页 Newsletter 区块订阅（KD-11 完整订阅表单）
+    meta: {source: new}
+    actor: consumer + system
+    trigger: 消费者在首页 Newsletter 区块（HomePageSection.section_type=Newsletter）填写邮箱并提交（KD-11 扩展 POST /api/store/newsletter 新增 source=HOME_BLOCK(4)（GRD-009 方案 A））
+    cross_domain: false
+    external_systems: [SMTP]
+    source: pd-explore.local.md > KD-11 + state-machine.yml > subscriber_status
+    notes: |
+      KD-11 完整订阅表单（邮箱+API）。基线 newsletter_subscribe 覆盖 footer/modal/exit_intent 三入口；
+      本流程为首页 Newsletter 区块入口（source=home_block）。物理实现合并到基线 NewsletterSubscriber 表
+      + 扩展 source 枚举新增 home_block（OQ-2 推荐方案 A）。
+    steps:
+      - n: 1
+        actor: consumer
+        action: 在首页 Newsletter 区块填写邮箱并点击 CTA（title/subtitle/cta_text 三语渲染自 HomePageSection.i18n_json JSON 列）
+        type: user_input
+        source: KD-11 + er-diagram.yml > HomePageSection.i18n_json（KD-16 合并翻译表）
+      - n: 2
+        actor: system
+        action: 邮箱格式校验（前端 pattern=email + 后端双重校验）
+        type: guard
+        source: er-diagram.yml > Subscriber.constraints js_guard
+      - n: 3
+        actor: system
+        action: 唯一性校验 (email, source=home_block) 幂等检查
+        type: guard
+        source: er-diagram.yml > Subscriber unique(email, source) + state-machine.yml > subscriber_status resubmit
+      - n: 4
+        actor: system
+        action: 事务写入 Subscriber（status=pending, source=home_block, locale=当前页面语言）+ 复用 NewsletterSubscriber 表扩展 source 枚举
+        entity: Subscriber
+        type: persist
+        meta: {tx_boundary: true, idempotent: true}
+        source: KD-11 + er-diagram.yml > modified_entities NewsletterSubscriber 扩展 home_block
+      - n: 5
+        actor: system
+        action: 状态转换 pending→subscribed（本期默认直接订阅成功，预留双重确认扩展，SM-OQ-2 方案 A）
+        entity: Subscriber
+        type: state_change
+        state_transition:
+          machine: subscriber_status
+          event: confirm_subscribe
+          from: pending
+          to: subscribed
+        side_effect: 写入 subscribed_at
+        source: state-machine.yml > subscriber_status confirm_subscribe
+      - n: 6
+        actor: system
+        action: 可选触发欢迎邮件（本期不发邮件，对齐基线决策26；后续扩展可复用基线 transactional_email 流程）
+        type: notification
+        side_effect: 本期无 side_effect，预留 MailRecord + SMTP 链路
+        source: state-machine.yml > subscriber_status side_effects + 基线 transactional_email
+      - n: 7
+        actor: consumer
+        action: 返回订阅成功确认文案（HomePageSection.i18n_json.subtitle i18n 渲染，KD-16 合并翻译表）
+        type: display
+        source: KD-11 + KD-3 i18n
+    exceptions:
+      - cond: 邮箱格式非法
+        handle: 422 三语提示
+        source: 基线 newsletter_subscribe n3 同模式
+      - cond: (email, source=home_block) 已存在
+        handle: 幂等返回订阅成功（不重复创建，state-machine.yml > resubmit 转换）
+        source: state-machine.yml > subscriber_status resubmit guard
+
+  # ============================================================
+  # 复用基线流程（source: baseline）— 5 条
+  # ============================================================
+
+  - id: content_publish_invalidate
+    name: 商品/内容发布与缓存失效链（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
+    actor: admin + system
+    trigger: 管理员编辑并发布商品或内容（Banner/Blog/Lookbook 等同模式）
+    reuse_context: |
+      本变更复用基线 Banner 发布链路：图片预签名上传 → 保存 → 发布 → 审计 → MQ → JetCache @CacheInvalidate + Next.js revalidatePath + CDN purge。
+      KD-2 Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner，Banner 自身状态机不变（state-machine.yml > banner_status source=baseline）。
+      新增 event type（home_section_changed/navigation_changed/announcement_changed）复用同一 MQ 链路与消费端 InvalidateEventConsumer。
+    relevant_to: [home_builder_publish_flow, navigation_config_publish_flow, announcement_publish_flow, banner_lifecycle]
+    key_steps:
+      - n: 1
+        action: 管理员编辑 Banner/商品/内容 + 权限校验 + 图片预签名上传
+      - n: 2
+        action: 保存草稿 → 发布（state_transition: product_lifecycle/banner_lifecycle draft→published）
+      - n: 3
+        action: 记录 OperationLog 审计
+      - n: 4
+        action: MQ publish content.invalidated + 失效链 JetCache @CacheInvalidate → Next.js revalidatePath → CDN 边缘秒级更新
+    source: pd-explore.local.md > BE-DIM-8 三层缓存秒级主动失效链
+
+  - id: order_event_dispatch
+    name: 订单事件分发（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > order_event_dispatch
     actor: system
-    label: 创建订单（原子事务：订单+订单行快照+现货 SKU 乐观锁扣库存+清购物车；定制款不扣库存仅记 customSizeData）
-    entity: Order
-    meta:
-      tx_boundary: true
-      idempotent: true
-      rate_limit: cloudflare_waf
-    source: pd-explore.local.md > BE-DIM-4 事务 + BE-DIM-8 限流降级
-  - id: n10
-    type: decision
-    label: 扣库存是否成功（乐观锁版本冲突/库存不足）
-    source: er-diagram.yml > Sku.stock js_guard 乐观锁防超卖
-  - id: n11
-    type: error
-    label: 下单失败：事务整体回滚，提示库存不足或冲突重试
-    source: pd-explore.local.md > BE-DIM-4 事务 防超卖
-  - id: n12
-    type: integration
-    label: 创建 Stripe PaymentIntent（Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，决策25；金额/币种一致性校验）
-    entity: Payment
-    source: pd-explore.local.md > BE-DIM-5 外部集成 Stripe 沙箱
-  - id: n13
-    type: error
-    label: Stripe 创建超时/失败：订单保持 pending，可重试发起支付
-    source: pd-explore.local.md > BE-DIM-5 外部集成
-  - id: n14
-    type: state_change
-    entity: Payment
-    from: created
-    to: processing
-    label: 消费者确认支付 stripe_confirm
-    source: state-machine.yml > payment_lifecycle stripe_confirm
-  - id: n15
-    type: integration
-    label: Stripe webhook 回调：签名验证 + 按 event_id 幂等消费（重复事件直接 ACK）
-    meta:
-      idempotent: true
-    source: pd-explore.local.md > BE-DIM-4 幂等 Stripe webhook event_id
-  - id: n16
-    type: decision
-    label: webhook 支付结果
-    source: state-machine.yml > payment_lifecycle webhook_payment_succeeded/failed
-  - id: n17
-    type: state_change
-    entity: Payment
-    from: processing
-    to: succeeded
-    label: 支付成功
-    source: state-machine.yml > payment_lifecycle webhook_payment_succeeded
-  - id: n18
-    type: state_change
-    entity: Order
-    from: pending
-    to: paid
-    label: 订单已支付（状态前置校验+乐观锁防与超时关单并发竞争）
-    meta:
-      concurrency_control: optimistic_lock
-    source: state-machine.yml > order_lifecycle payment_webhook_succeeded + backend-flow-inference.md
-      > 状态机并发
-  - id: n19
-    type: notification
-    label: 发布支付成功事件到 RabbitMQ（→ 订单事件分发流）
+    trigger: 订单事件产生（支付成功/发货/取消/退款）
+    reuse_context: |
+      本变更不直接修改订单事件分发，但 content.invalidated 事件复用同一 RabbitMQ 基建（DomainEventPublisher + InvalidateEventConsumer）。
+      缓存失效事件投递失败走死信队列重试 + TTL 兜底，与基线 order_event_dispatch n3/n8 同模式。
+      新增 home_section_changed/navigation_changed/announcement_changed 三种 event type 复用此 MQ 链路。
+    relevant_to: [home_builder_publish_flow, navigation_config_publish_flow, announcement_publish_flow]
     source: pd-explore.local.md > BE-DIM-4 消息队列
-  - id: n20
-    type: state_change
-    entity: Payment
-    from: processing
-    to: failed
-    label: 支付失败
-    source: state-machine.yml > payment_lifecycle webhook_payment_failed
-  - id: n21
-    type: error
-    label: 支付失败：订单仍 pending 且未超时可重试支付（failed→processing retry_payment）
-    source: state-machine.yml > payment_lifecycle retry_payment guard
-  - id: n22
-    type: end
-    label: 下单支付完成
-    source: state-machine.yml > order_lifecycle paid
-  - id: n23
-    type: end
-    label: 流程终止
-    source: state-machine.yml > order_lifecycle pending
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-  - from: n3
-    to: n4
-    cond: 'yes'
-  - from: n3
-    to: n5
-    cond: 'no'
-  - from: n4
-    to: n6
-  - from: n5
-    to: n6
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-    cond: 'yes'
-  - from: n7
-    to: n23
-    cond: 'no'
-  - from: n8
-    to: n9
-    cond: 首次提交
-  - from: n8
-    to: n12
-    cond: 重复提交返回已有订单
-  - from: n9
-    to: n10
-  - from: n10
-    to: n12
-    cond: 'yes'
-  - from: n10
-    to: n11
-    cond: 'no'
-  - from: n11
-    to: n23
-  - from: n12
-    to: n14
-    cond: 成功
-  - from: n12
-    to: n13
-    cond: 超时/失败
-  - from: n13
-    to: n12
-    cond: 重试
-  - from: n14
-    to: n15
-  - from: n15
-    to: n16
-  - from: n16
-    to: n17
-    cond: succeeded
-  - from: n16
-    to: n20
-    cond: failed
-  - from: n17
-    to: n18
-  - from: n18
-    to: n19
-  - from: n19
-    to: n22
-  - from: n20
-    to: n21
-  - from: n21
-    to: n14
-    cond: 重试支付
-  - from: n21
-    to: n23
-    cond: 放弃
-- id: order_timeout_cancel
-  name: 待支付订单超时自动取消
-  trigger: 'scheduled: Spring @Scheduled 周期扫描（30 分钟超时）'
-  actors:
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > BE-DIM-4 定时任务
-  nodes:
-  - id: n1
-    type: start
-    label: 定时任务触发
-    source: pd-explore.local.md > BE-DIM-4 定时任务 Spring @Scheduled
-  - id: n2
-    type: action
-    actor: system
-    label: 扫描 now > expiresAt 的 pending 订单
-    entity: Order
-    source: er-diagram.yml > Order.expiresAt js_guard createdAt+30min
-  - id: n3
-    type: decision
-    label: 状态前置校验：订单仍为 pending（防与支付 webhook 并发竞争）
-    source: backend-flow-inference.md > 状态机并发 状态前置校验+CAS
-  - id: n4
-    type: state_change
-    entity: Order
-    from: pending
-    to: cancelled
-    label: 超时自动取消（与库存回补同事务）
-    meta:
-      tx_boundary: true
-      concurrency_control: optimistic_lock
-    source: state-machine.yml > order_lifecycle payment_timeout_30min
-  - id: n5
-    type: action
-    actor: system
-    label: 回补现货 SKU 库存（定制款无库存跳过）
-    entity: Sku
-    meta:
-      tx_boundary: true
-    source: pd-explore.local.md > BE-DIM-4 定时任务 回补现货库存
-  - id: n6
-    type: notification
-    label: 发布订单取消事件到 RabbitMQ
-    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件含取消
-  - id: n7
-    type: error
-    label: 并发冲突：订单已被 webhook 置为 paid，跳过该单不取消
-    source: backend-flow-inference.md > 状态机并发
-  - id: n8
-    type: end
-    label: 本轮扫描结束
-    source: pd-explore.local.md > BE-DIM-4 定时任务
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-  - from: n3
-    to: n4
-    cond: 'yes'
-  - from: n3
-    to: n7
-    cond: 'no'
-  - from: n4
-    to: n5
-  - from: n5
-    to: n6
-  - from: n6
-    to: n8
-  - from: n7
-    to: n8
-- id: admin_ship_complete
-  name: 管理端发货与订单完成
-  trigger: 管理员对 paid 订单执行发货
-  actors:
-  - admin
-  - system
-  - consumer
-  cross_domain: false
-  external_systems: []
-  source: state-machine.yml > order_lifecycle mark_shipped/confirm_receipt
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员打开已支付订单详情
-    source: state-machine.yml > order_lifecycle paid
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 订单发货权限点
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n3
-    type: action
-    actor: admin
-    label: 选择承运商（来自 Shipping 配置启用的 Carrier）并填写运单号
-    entity: Order
-    source: er-diagram.yml > Order.carrier/trackingNo + Carrier.status enabled
-  - id: n4
-    type: decision
-    label: guard：carrier 与 trackingNo 已填写且订单仍为 paid
-    source: state-machine.yml > order_lifecycle mark_shipped guard
-  - id: n5
-    type: state_change
-    entity: Order
-    from: paid
-    to: shipped
-    label: 标记发货
-    meta:
-      concurrency_control: optimistic_lock
-    source: state-machine.yml > order_lifecycle mark_shipped
-  - id: n6
-    type: action
-    actor: system
-    label: 记录审计日志（OperationLog 发货操作）
-    meta:
-      audit: true
-    source: pd-explore.local.md > BE-DIM-7 审计日志
-  - id: n7
-    type: notification
-    label: 发布发货事件到 RabbitMQ（缓存失效+通知消费者）
-    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件含发货
-  - id: n8
-    type: state_change
-    entity: Order
-    from: shipped
-    to: completed
-    label: 消费者确认收货
-    source: state-machine.yml > order_lifecycle confirm_receipt
-  - id: n9
-    type: error
-    label: 权限不足或订单状态已变更（如已转 refunding），操作拒绝
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n10
-    type: end
-    label: 订单完成
-    source: state-machine.yml > order_lifecycle completed
-  - id: n11
-    type: end
-    label: 发货中止
-    source: state-machine.yml > order_lifecycle paid
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n9
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-    cond: 'yes'
-  - from: n4
-    to: n9
-    cond: 'no'
-  - from: n5
-    to: n6
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-  - from: n8
-    to: n10
-  - from: n9
-    to: n11
-- id: refund_flow
-  name: 退款申请与审核
-  trigger: 消费者对 paid/shipped 订单发起退款申请
-  actors:
-  - consumer
-  - admin
-  - system
-  - stripe
-  cross_domain: true
-  external_systems:
-  - Stripe
-  source: pd-explore.local.md > BE-DIM-4 事务 退款审核原子 + BE-DIM-5 外部集成
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者发起退款申请
-    source: state-machine.yml > order_lifecycle refund_requested
-  - id: n2
-    type: decision
-    label: 鉴权校验：订单归属当前 user_id 且状态为 paid/shipped，金额不超过订单总额
-    source: pd-explore.local.md > BE-DIM-6 权限 + er-diagram.yml > Refund.amount js_guard
-  - id: n3
-    type: action
-    actor: consumer
-    label: 创建退款工单（初始 pending）
-    entity: Refund
-    source: state-machine.yml > refund_lifecycle initial pending
-  - id: n4
-    type: state_change
-    entity: Order
-    from: paid
-    to: refunding
-    label: 订单转入退款中
-    source: state-machine.yml > order_lifecycle refund_requested
-  - id: n5
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 退款审核权限点
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n6
-    type: decision
-    label: 管理员在退款工单列表行内审批：仅 pending 行显示同意/拒绝按钮，行内同意无弹窗二次确认（D7 回对原型）
-    source: pd-explore.local.md > D7 + prototype/portal-admin/src/views/Refunds.vue
-      > 行内同意/拒绝按钮 v-if r.status===pending
-  - id: n7
-    type: state_change
-    entity: Refund
-    from: pending
-    to: approved
-    label: 审核通过
-    source: state-machine.yml > refund_lifecycle admin_approve
-  - id: n8
-    type: integration
-    label: 调用 Stripe Refund API（沙箱）
-    source: pd-explore.local.md > BE-DIM-5 外部集成 Stripe
-  - id: n9
-    type: decision
-    label: Stripe 退款是否成功
-    source: state-machine.yml > refund_lifecycle stripe_refund_succeeded guard
-  - id: n10
-    type: action
-    actor: system
-    label: 原子事务：退款记录落账+订单状态变更+现货库存回补
-    entity: Refund
-    meta:
-      tx_boundary: true
-    source: pd-explore.local.md > BE-DIM-4 事务 退款审核原子
-  - id: n11
-    type: state_change
-    entity: Payment
-    from: succeeded
-    to: refunded
-    label: 支付单转退款
-    source: state-machine.yml > payment_lifecycle refund_executed
-  - id: n12
-    type: state_change
-    entity: Refund
-    from: approved
-    to: refunded
-    label: 退款工单完成
-    source: state-machine.yml > refund_lifecycle stripe_refund_succeeded
-  - id: n13
-    type: state_change
-    entity: Order
-    from: refunding
-    to: refunded
-    label: 订单退款完成
-    source: state-machine.yml > order_lifecycle refund_approved
-  - id: n14
-    type: action
-    actor: system
-    label: 记录审计日志（OperationLog 退款审核）
-    meta:
-      audit: true
-    source: pd-explore.local.md > BE-DIM-7 审计日志
-  - id: n15
-    type: notification
-    label: 发布退款事件到 RabbitMQ（缓存失效+通知消费者）
-    source: pd-explore.local.md > BE-DIM-4 消息队列
-  - id: n16
-    type: state_change
-    entity: Refund
-    from: pending
-    to: rejected
-    label: 审核驳回
-    source: state-machine.yml > refund_lifecycle admin_reject
-  - id: n17
-    type: state_change
-    entity: Order
-    from: refunding
-    to: paid
-    label: 订单回退到退款前状态
-    source: state-machine.yml > order_lifecycle refund_rejected
-  - id: n18
-    type: error
-    label: Stripe 退款失败/超时：工单保持 approved，事务不提交，待人工重试
-    source: pd-explore.local.md > BE-DIM-5 外部集成
-  - id: n19
-    type: error
-    label: 鉴权/状态校验失败：拒绝申请
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n20
-    type: end
-    label: 退款完成
-    source: state-machine.yml > refund_lifecycle refunded
-  - id: n21
-    type: end
-    label: 退款驳回
-    source: state-machine.yml > refund_lifecycle rejected
-  - id: n22
-    type: end
-    label: 申请终止
-    source: state-machine.yml > refund_lifecycle pending
-  - id: n23
-    type: decision
-    label: 订单含定制行（customSizeData 非空）且已超 24h 投产宽限期？
-    source: decision.md 决策24 定制款投产后不可退
-  - id: n24
-    type: error
-    label: 422 定制款已投产不可退（消费端入口置灰+三语说明文案）
-    source: decision.md 决策24
-  - id: n25
-    type: action
-    actor: admin
-    label: 行内拒绝：按钮位置展开拒绝原因输入框，rejectReason.trim() 非空才可提交（D7，后端拒绝原因必填约束不变）
-    entity: Refund
-    source: pd-explore.local.md > D7 + state-machine.yml > page_refunds_view click_reject/confirm_reject
-      + er-diagram.yml > Refund.rejectReason js_guard
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n23
-    cond: 'yes'
-  - from: n2
-    to: n19
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-  - from: n5
-    to: n6
-    cond: 'yes'
-  - from: n5
-    to: n19
-    cond: 'no'
-  - from: n6
-    to: n7
-    cond: 通过
-  - from: n6
-    to: n25
-    cond: 驳回
-  - from: n7
-    to: n8
-  - from: n8
-    to: n9
-  - from: n9
-    to: n10
-    cond: 'yes'
-  - from: n9
-    to: n18
-    cond: 'no'
-  - from: n10
-    to: n11
-  - from: n11
-    to: n12
-  - from: n12
-    to: n13
-  - from: n13
-    to: n14
-  - from: n14
-    to: n15
-  - from: n15
-    to: n20
-  - from: n16
-    to: n17
-  - from: n17
-    to: n14
-  - from: n18
-    to: n8
-    cond: 重试
-  - from: n18
-    to: n22
-    cond: 终止
-  - from: n19
-    to: n22
-  - from: n14
-    to: n21
-    cond: 驳回路径
-  - from: n23
-    to: n24
-    cond: 'yes'
-  - from: n23
-    to: n3
-    cond: 'no'
-  - from: n24
-    to: n22
-  - from: n25
-    to: n16
-    cond: 提交（原因非空）
-  - from: n25
-    to: n6
-    cond: 取消（工单保持 pending）
-- id: review_moderation_flow
-  name: 评价提交与审核
-  trigger: 消费者对已完成订单提交评价
-  actors:
-  - consumer
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: state-machine.yml > review_moderation
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者进入已完成订单提交评价
-    source: er-diagram.yml > Review
-  - id: n2
-    type: decision
-    label: 鉴权校验：订单归属当前 user_id 且状态为 completed
-    source: pd-explore.local.md > BE-DIM-6 权限 评价按 user_id 强隔离
-  - id: n3
-    type: action
-    actor: consumer
-    label: 提交评分/内容/买家秀图片（评价初始 pending 不前台展示）
-    entity: Review
-    source: state-machine.yml > review_moderation initial pending
-  - id: n4
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 评价审核权限点
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n5
-    type: decision
-    label: 管理员审核结论
-    source: er-diagram.yml > Review.status js_guard pending 时才显示通过/拒绝
-  - id: n6
-    type: state_change
-    entity: Review
-    from: pending
-    to: approved
-    label: 审核通过，前台展示
-    source: state-machine.yml > review_moderation approve
-  - id: n7
-    type: state_change
-    entity: Review
-    from: pending
-    to: rejected
-    label: 审核拒绝（featured 强制置 false）
-    source: state-machine.yml > review_moderation reject guard
-  - id: n8
-    type: action
-    actor: system
-    label: 记录审计日志（OperationLog 评价审核）
-    meta:
-      audit: true
-    source: pd-explore.local.md > BE-DIM-7 审计日志
-  - id: n9
-    type: error
-    label: 非 completed 订单或越权提交：拒绝并提示
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n10
-    type: end
-    label: 审核完成
-    source: state-machine.yml > review_moderation
-  - id: n11
-    type: end
-    label: 提交终止
-    source: state-machine.yml > review_moderation initial pending
-  - id: n12
-    type: action
-    actor: consumer
-    label: 消费者在账户中心查看我写的评价及审核状态（按 user_id 过滤，F-049）
-    entity: Review
-    source: feature-map F-049 My Reviews（2026-06-10 细化轮四补充）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n9
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-    cond: 'yes'
-  - from: n4
-    to: n9
-    cond: 'no'
-  - from: n5
-    to: n6
-    cond: approve
-  - from: n5
-    to: n7
-    cond: reject
-  - from: n6
-    to: n8
-  - from: n7
-    to: n8
-  - from: n8
-    to: n12
-  - from: n9
-    to: n11
-  - from: n12
-    to: n10
-- id: content_publish_invalidate
-  name: 商品/内容发布与缓存失效链
-  trigger: 管理员编辑并发布商品或内容（Banner/Blog/Lookbook 等同模式）
-  actors:
-  - admin
-  - system
-  cross_domain: true
-  external_systems:
-  - ObjectStorage-CDN
-  - CDN
-  - RabbitMQ
-  source: pd-explore.local.md > BE-DIM-8 三层缓存 秒级主动失效链
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员编辑商品/内容
-    source: state-machine.yml > product_lifecycle initial draft
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 商品/内容编辑权限点
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n3
-    type: integration
-    label: 图片上传：后端签发对象存储预签名 URL，前端直传，DB 仅存对象 key/URL
-    source: pd-explore.local.md > BE-DIM-5 外部集成 S3 兼容对象存储预签名 URL
-  - id: n4
-    type: error
-    label: 上传失败/预签名过期：重新申请预签名 URL 重传
-    source: pd-explore.local.md > BE-DIM-5 外部集成
-  - id: n5
-    type: action
-    actor: admin
-    label: 保存草稿（商品含 SKU 矩阵/属性/尺码表）
-    entity: Product
-    source: er-diagram.yml > Product/Sku/SizeChartRow
-  - id: n6
-    type: state_change
-    entity: Product
-    from: draft
-    to: published
-    label: 发布
-    source: state-machine.yml > product_lifecycle publish
-  - id: n7
-    type: action
-    actor: system
-    label: 记录审计日志（OperationLog 上下架/改价/内容发布）
-    meta:
-      audit: true
-    source: pd-explore.local.md > BE-DIM-7 审计日志
-  - id: n8
-    type: notification
-    label: 发布内容变更事件到 RabbitMQ
-    source: pd-explore.local.md > BE-DIM-4 消息队列
-  - id: n9
-    type: integration
-    label: 失效链：JetCache @CacheInvalidate → Next.js revalidatePath(ISR) → CDN 边缘秒级更新
-    source: pd-explore.local.md > BE-DIM-8 三层缓存 @CacheInvalidate→MQ→revalidatePath→CDN
-  - id: n10
-    type: error
-    label: MQ 投递/消费失败：进入死信队列重试，缓存按 TTL 兜底过期
-    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试开箱即用
-  - id: n11
-    type: end
-    label: 发布生效，前台可见
-    source: state-machine.yml > product_lifecycle published
-  - id: n12
-    type: end
-    label: 编辑终止
-    source: state-machine.yml > product_lifecycle draft
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n12
-    cond: 'no'
-  - from: n3
-    to: n5
-    cond: 成功
-  - from: n3
-    to: n4
-    cond: 失败
-  - from: n4
-    to: n3
-    cond: 重试
-  - from: n5
-    to: n6
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-  - from: n8
-    to: n9
-    cond: 投递成功
-  - from: n8
-    to: n10
-    cond: 投递失败
-  - from: n10
-    to: n9
-    cond: 死信重试成功
-  - from: n9
-    to: n11
-- id: order_event_dispatch
-  name: 订单事件分发
-  trigger: 订单事件产生（支付成功/发货/取消/退款）
-  actors:
-  - system
-  cross_domain: true
-  external_systems:
-  - RabbitMQ
-  - CDN
-  source: pd-explore.local.md > BE-DIM-4 消息队列
-  nodes:
-  - id: n1
-    type: start
-    label: 订单事件产生
-    source: pd-explore.local.md > BE-DIM-4 消息队列 订单事件
-  - id: n2
-    type: notification
-    label: 发布事件到 RabbitMQ 交换机
-    source: pd-explore.local.md > BE-DIM-4 消息队列 RabbitMQ Spring AMQP
-  - id: n3
-    type: error
-    label: 投递失败：本地重试，多次失败进死信队列告警
-    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试
-  - id: n4
-    type: integration
-    label: 消费者A：JetCache 缓存失效（订单聚合/商品销量相关 key）
-    source: pd-explore.local.md > BE-DIM-8 三层缓存 失效链
-  - id: n5
-    type: integration
-    label: 消费者B：触发 Next.js ISR revalidate 相关页面
-    source: pd-explore.local.md > BE-DIM-8 三层缓存 revalidatePath
-  - id: n6
-    type: notification
-    label: 消费者C：通知消费者（支付/发货/取消邮件）
-    source: pd-explore.local.md > BE-DIM-4 消息队列 通知消费者
-  - id: n7
-    type: decision
-    label: 消费是否成功
-    source: pd-explore.local.md > BE-DIM-4 消息队列
-  - id: n8
-    type: error
-    label: 消费失败：按 event_id 幂等重投，超限进死信队列
-    meta:
-      idempotent: true
-    source: pd-explore.local.md > BE-DIM-4 幂等 event_id
-  - id: n9
-    type: end
-    label: 事件分发完成
-    source: pd-explore.local.md > BE-DIM-4 消息队列
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n4
-    cond: 投递成功
-  - from: n2
-    to: n3
-    cond: 投递失败
-  - from: n3
-    to: n2
-    cond: 重试
-  - from: n4
-    to: n7
-  - from: n5
-    to: n7
-  - from: n6
-    to: n7
-  - from: n2
-    to: n5
-    cond: 投递成功
-  - from: n2
-    to: n6
-    cond: 投递成功
-  - from: n7
-    to: n9
-    cond: 'yes'
-  - from: n7
-    to: n8
-    cond: 'no'
-  - from: n8
-    to: n9
-- id: dashboard_analytics_read
-  name: Dashboard/Analytics 聚合读
-  trigger: 管理员打开数据看板
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > Dashboard/Analytics 实时 SQL 聚合 + JetCache 60s
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员打开 Dashboard/Analytics
-    source: er-diagram.yml > AnalyticsDashboard
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 数据看板权限点
-    source: pd-explore.local.md > BE-DIM-6 权限
-  - id: n3
-    type: decision
-    label: JetCache 60s 缓存是否命中
-    source: pd-explore.local.md > Dashboard/Analytics JetCache 60s 缓存
-  - id: n4
-    type: action
-    actor: system
-    label: 返回缓存聚合结果
-    entity: AnalyticsDashboard
-    source: pd-explore.local.md > Dashboard/Analytics 不做预聚合表
-  - id: n5
-    type: action
-    actor: system
-    label: 实时 SQL 聚合 Order/Refund/Product（GMV/订单数/退款率/漏斗）并写入缓存
-    entity: AnalyticsDashboard
-    source: er-diagram.yml > AnalyticsDashboard 聚合派生
-  - id: n6
-    type: error
-    label: 聚合 SQL 超时：返回上次缓存快照并提示数据延迟（缓存穿透保护兜底）
-    source: pd-explore.local.md > BE-DIM-8 JetCache 缓存穿透保护
-  - id: n7
-    type: end
-    label: 看板展示
-    source: er-diagram.yml > AnalyticsDashboard
-  - id: n8
-    type: end
-    label: 访问拒绝
-    source: pd-explore.local.md > BE-DIM-6 权限
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n8
-    cond: 'no'
-  - from: n3
-    to: n4
-    cond: 命中
-  - from: n3
-    to: n5
-    cond: 未命中
-  - from: n4
-    to: n7
-  - from: n5
-    to: n7
-    cond: 成功
-  - from: n5
-    to: n6
-    cond: 超时
-  - from: n6
-    to: n7
-- id: coupon_redeem
-  name: 优惠券领取与核销
-  trigger: 消费者结算时输入/选择优惠券
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  external_systems: []
-  source: er-diagram.yml > Coupon + Order.couponId
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者结算页输入优惠码或选择已领券
-    source: er-diagram.yml > Coupon.code
-  - id: n2
-    type: decision
-    label: 券校验：状态 active/expiring 且 now 在 startAt~endAt 内、usedCount < totalLimit、订单满足
-      minAmount
-    source: er-diagram.yml > Coupon.usedCount/minAmount js_guard + state-machine.yml
-      > coupon_lifecycle active
-  - id: n3
-    type: action
-    actor: system
-    label: 结算金额抵扣（折扣/满减/包邮三类），下单事务内核销 usedCount+1
-    entity: Coupon
-    meta:
-      tx_boundary: true
-    source: pd-explore.local.md > BE-DIM-4 事务 + er-diagram.yml > Coupon.type
-  - id: n4
-    type: error
-    label: 券无效/已抢光/未达门槛：提示并移除抵扣，按原价结算
-    source: er-diagram.yml > Coupon.usedCount js_guard
-  - id: n5
-    type: end
-    label: 抵扣生效随订单提交
-    source: er-diagram.yml > Order.couponId
-  - id: n6
-    type: end
-    label: 按原价结算
-    source: er-diagram.yml > Order.totalAmount
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n4
-    cond: 'no'
-  - from: n3
-    to: n5
-  - from: n4
-    to: n6
-- id: flash_sale_auto_offline
-  name: 闪购到期自动下线
-  trigger: 'scheduled: 定时任务扫描到期闪购活动'
-  actors:
-  - system
-  cross_domain: false
-  external_systems:
-  - RabbitMQ
-  source: state-machine.yml > flash_sale_lifecycle auto_offline
-  nodes:
-  - id: n1
-    type: start
-    label: 定时任务触发
-    source: backend-flow-inference.md > 定时任务 闪购活动到期自动下线
-  - id: n2
-    type: decision
-    label: guard：now > endAt 且活动为 active
-    source: state-machine.yml > flash_sale_lifecycle auto_offline guard
-  - id: n3
-    type: state_change
-    entity: FlashSale
-    from: active
-    to: ended
-    label: 自动下线
-    source: state-machine.yml > flash_sale_lifecycle auto_offline
-  - id: n4
-    type: notification
-    label: 发布活动下线事件触发缓存失效与 ISR revalidate
-    source: pd-explore.local.md > BE-DIM-8 三层缓存 失效链
-  - id: n5
-    type: error
-    label: 事件投递失败：死信重试，前台缓存按 TTL 兜底过期
-    source: pd-explore.local.md > BE-DIM-4 消息队列 死信/重试
-  - id: n6
-    type: end
-    label: 本轮扫描结束
-    source: state-machine.yml > flash_sale_lifecycle ended
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n6
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n6
-    cond: 成功
-  - from: n4
-    to: n5
-    cond: 失败
-  - from: n5
-    to: n6
-- id: transactional_email
-  name: 交易性邮件发送（订单确认/发货/退款结果）
-  actors:
-  - system
-  - mq
-  - smtp
-  cross_domain: true
-  source: decision.md 决策16（2026-06-10 细化轮）；复用 order_event_dispatch 的 MQ 事件
-  nodes:
-  - id: n1
-    type: event
-    label: MQ 订单事件到达（支付成功/发货/退款结果）
-  - id: n2
-    type: decision
-    label: MailRecord(orderId+type) 已存在？（幂等检查）
-  - id: n3
-    type: action
-    label: 创建 MailRecord(pending)，按用户 locale 三语渲染模板
-  - id: n4
-    type: action
-    label: SMTP 抽象接口发送（dev 落日志 / 生产 SES 等配置化）
-  - id: n5
-    type: state_change
-    label: MailRecord pending → sent
-    machine: mail_delivery
-    event: send_success
-  - id: n6
-    type: state_change
-    label: MailRecord pending → failed
-    machine: mail_delivery
-    event: send_error
-  - id: n7
-    type: decision
-    label: retryCount < 3？
-  - id: n8
-    type: state_change
-    label: failed → pending 重试
-    machine: mail_delivery
-    event: retry
-  - id: n9
-    type: state_change
-    label: failed → dead 告警
-    machine: mail_delivery
-    event: exhaust_retry
-  - id: n10
-    type: end
-    label: 跳过（已发送过，不重发）
-  - id: n11
-    type: end
-    label: 邮件发送完成（MailRecord=sent）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n10
-    cond: 'yes'
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-    cond: 成功
-  - from: n4
-    to: n6
-    cond: 失败
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-    cond: 'yes'
-  - from: n7
-    to: n9
-    cond: 'no'
-  - from: n8
-    to: n4
-  - from: n5
-    to: n11
-- id: wishlist_manage
-  name: 收藏管理（加收藏/移除/移入购物车）
-  trigger: 消费者在商品卡片/PDP/收藏页操作心形收藏
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  source: decision.md 决策18（2026-06-10 细化轮三）；feature-map F-047/F-002/F-014
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者点击收藏（商品卡片/PDP 心形）
-  - id: n2
-    type: decision
-    label: 是否已登录？
-  - id: n3
-    type: action
-    actor: consumer
-    label: 引导登录（登录后回到当前页继续收藏）
-    source: decision.md 决策18 登录用户专属
-  - id: n4
-    type: decision
-    label: WishlistItem(customerId+productId) 已存在？（幂等）
-  - id: n5
-    type: action
-    actor: system
-    label: 创建 WishlistItem，已收藏态标识回显
-    entity: WishlistItem
-    source: er-diagram.yml > WishlistItem js_guard 唯一
-  - id: n6
-    type: action
-    actor: consumer
-    label: 收藏页移入购物车：创建 CartItem 并删除该 WishlistItem
-    entity: CartItem
-    source: feature-map F-047 移入购物车 + F-033 购物车移入 Wishlist 反向
-  - id: n7
-    type: action
-    actor: consumer
-    label: 移除收藏：删除 WishlistItem
-    entity: WishlistItem
-  - id: n8
-    type: end
-    label: 收藏网格刷新（空时显示空状态引导）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n2
-    to: n4
-    cond: 'yes'
-  - from: n4
-    to: n8
-    cond: 'yes'
-  - from: n4
-    to: n5
-    cond: 'no'
-  - from: n5
-    to: n6
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-- id: showroom_collaboration
-  name: Showroom 伴娘团协作（创建/邀请/投票/指派/提醒/下单）
-  trigger: 新娘创建 Showroom 并邀请伴娘协作选款
-  actors:
-  - bride
-  - guest
-  - system
-  - mq
-  cross_domain: true
-  external_systems:
-  - SMTP
-  source: decision.md 决策20（2026-06-10 细化轮三）；feature-map F-066~F-071
-  nodes:
-  - id: n1
-    type: start
-    label: 新娘创建 Showroom（命名+婚期），生成不可猜 inviteToken
-    entity: Showroom
-    source: prototype/app/showroom/page.tsx > 创建弹窗
-  - id: n2
-    type: action
-    actor: bride
-    label: PDP/商品卡片 Add to Showroom（选目标 Showroom+颜色）
-    entity: ShowroomItem
-    source: prototype/components/showroom/add-to-showroom-modal.tsx
-  - id: n3
-    type: action
-    actor: bride
-    label: 生成/复制邀请链接（可重置作废旧 token）
-    source: decision.md 决策20.2
-  - id: n4
-    type: action
-    actor: guest
-    label: 访客凭 token+昵称换取受限 guest JWT（仅可读本 Showroom+投票/留言）
-    entity: ShowroomMember
-    source: decision.md 决策20.2 邀请 token + guest JWT
-  - id: n5
-    type: decision
-    label: token 有效且未被重置？
-  - id: n6
-    type: error
-    label: 403 邀请链接已失效，提示向新娘索取新链接
-  - id: n7
-    type: action
-    actor: guest
-    label: 投票（喜欢/不喜欢，按 member 去重覆盖）+ 留言（≤500字）
-    entity: ShowroomVote
-    source: prototype/app/showroom/[id]/page.tsx > F-069
-  - id: n8
-    type: state_change
-    label: 新娘指派款式/颜色给成员 unassigned → assigned
-    machine: showroom_member_assignment
-    event: assign
-  - id: n9
-    type: decision
-    label: 成员 email 已填写？
-  - id: n10
-    type: state_change
-    label: 发送提醒 assigned → reminded（MQ→MailRecord→SMTP，复用决策16基建）
-    machine: showroom_member_assignment
-    event: send_reminder
-  - id: n11
-    type: action
-    actor: bride
-    label: 提示补填成员邮箱后再发提醒
-  - id: n12
-    type: state_change
-    label: 伴娘登录后将被指派款式加购下单 assigned/reminded → ordered
-    machine: showroom_member_assignment
-    event: place_order
-  - id: n13
-    type: notification
-    label: 同 Showroom 24h 内同款式已付订单 → 购物车/结算/Showroom 视图透出 dye lot 同染色批次提示条
-    source: decision.md 决策20.4（F-071）
-  - id: n14
-    type: end
-    label: 成员列表展示指派与下单状态
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-  - from: n5
-    to: n6
-    cond: 'no'
-  - from: n5
-    to: n7
-    cond: 'yes'
-  - from: n7
-    to: n8
-  - from: n8
-    to: n9
-  - from: n9
-    to: n10
-    cond: 'yes'
-  - from: n9
-    to: n11
-    cond: 'no'
-  - from: n10
-    to: n12
-  - from: n11
-    to: n12
-  - from: n12
-    to: n13
-  - from: n13
-    to: n14
-- id: size_recommendation
-  name: Find My Size 尺码推荐
-  trigger: 消费者在 PDP 点击 Find My Size 填写量体问卷
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  source: decision.md 决策20.3（2026-06-10 细化轮三）；feature-map F-072/F-073
-  nodes:
-  - id: n1
-    type: start
-    label: PDP 尺码区点击 Find My Size，分步填写问卷（身高/体重/胸/腰/臀/松紧偏好）
-    source: prototype/components/product/find-my-size-modal.tsx
-  - id: n2
-    type: action
-    actor: system
-    label: 后端按商品 SizeChartRow 区间匹配（三围落码段+松紧偏好偏移），纯函数可测
-    entity: SizeChartRow
-    source: decision.md 决策20.3
-  - id: n3
-    type: decision
-    label: 三围均落入某码段区间？
-  - id: n4
-    type: action
-    actor: system
-    label: 返回推荐码+区间说明（如“您的三围均落在 US 8 区间”，不虚构买家占比统计）
-  - id: n5
-    type: action
-    actor: consumer
-    label: Select This Size 一键回填 SKU 选择器（联动 F-025）
-  - id: n6
-    type: action
-    actor: system
-    label: 跨码段冲突时返回相邻两码+提示参考定制尺寸（Custom Size）选项
-    source: decision.md 决策6 定制款 + F-074
-  - id: n7
-    type: end
-    label: 关闭弹窗，尺码选中态更新
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-  - from: n3
-    to: n4
-    cond: 'yes'
-  - from: n3
-    to: n6
-    cond: 'no'
-  - from: n4
-    to: n5
-  - from: n5
-    to: n7
-  - from: n6
-    to: n7
-- id: ga4_traffic_fetch
-  name: Analytics 流量指标拉取（GA4 Data API）
-  trigger: 管理员打开 Analytics 看板流量区块
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems:
-  - GA4
-  source: decision.md 决策19（2026-06-10 细化轮三）
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员打开 Analytics 页（trafficSources/funnel/device_share 区块）
-  - id: n2
-    type: decision
-    label: JetCache 命中（5min TTL）？
-  - id: n3
-    type: integration
-    label: 后端持 service account 凭证调用 GA4 Data API（凭证仅后端配置，不暴露前端）
-    source: decision.md 决策19 连带约束
-  - id: n4
-    type: decision
-    label: GA4 调用成功？
-  - id: n5
-    type: action
-    actor: system
-    label: 转换为原型图表数据结构并写入 JetCache
-  - id: n6
-    type: error
-    label: 降级：流量区块显示“数据暂不可用”+重试入口，交易指标区块不受影响
-    source: decision.md 决策19 备选降级路径
-  - id: n7
-    type: end
-    label: 流量图表按原型视觉渲染（消费端 gtag 标准电商事件为数据源，Consent 拒绝用户不计入）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n7
-    cond: 'yes'
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n3
-    to: n4
-  - from: n4
-    to: n5
-    cond: 'yes'
-  - from: n4
-    to: n6
-    cond: 'no'
-  - from: n5
-    to: n7
-- id: browse_history_track
-  name: Recently Viewed 浏览历史记录与展示
-  trigger: 登录消费者浏览商品详情页
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  source: decision.md 决策23（2026-06-10 细化轮四）；feature-map F-048
-  nodes:
-  - id: n1
-    type: start
-    label: 登录消费者打开商品详情页
-  - id: n2
-    type: decision
-    label: BrowseHistory(customerId+productId) 已存在？
-  - id: n3
-    type: action
-    actor: system
-    label: upsert 更新 viewedAt（不新增记录）
-    entity: BrowseHistory
-  - id: n4
-    type: action
-    actor: system
-    label: 插入记录；超过 50 条滚动清理最旧记录
-    entity: BrowseHistory
-    source: decision.md 决策23 每用户保留 50 条
-  - id: n5
-    type: action
-    actor: consumer
-    label: 账户页 Recently Viewed 横滑按 viewedAt 倒序展示（批量拉商品卡片）
-  - id: n6
-    type: end
-    label: 匿名用户不记录（登录前浏览不回溯）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n4
-    cond: 'no'
-  - from: n3
-    to: n5
-  - from: n4
-    to: n5
-  - from: n5
-    to: n6
-- id: newsletter_subscribe
-  name: Newsletter 订阅收集
-  trigger: 消费者在页脚输入框/首访弹窗/Exit Intent 弹窗提交邮箱
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  source: decision.md 决策26（2026-06-10 细化轮五）；feature-map F-008/F-056
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者提交订阅邮箱（footer/modal/exit_intent 任一入口）
-  - id: n2
-    type: decision
-    label: 邮箱格式合法？（前后端双重校验）
-  - id: n3
-    type: error
-    label: 422 邮箱格式错误（三语提示，决策27 UI 文案）
-  - id: n4
-    type: decision
-    label: NewsletterSubscriber(email) 已存在？（幂等）
-  - id: n5
-    type: action
-    actor: system
-    label: 落表 NewsletterSubscriber（email+source+locale+subscribedAt），不发码不发邮件
-    entity: NewsletterSubscriber
-    source: decision.md 决策26 仅落表收集
-  - id: n6
-    type: end
-    label: 展示订阅确认文案（弹窗文案为纯订阅确认，无折扣码话术）
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n2
-    to: n4
-    cond: 'yes'
-  - from: n4
-    to: n6
-    cond: 'yes'
-  - from: n4
-    to: n5
-    cond: 'no'
-  - from: n5
-    to: n6
-  - from: n3
-    to: n1
-- id: contact_submit
-  name: 联系表单提交
-  trigger: 消费者在 Contact 页填写并提交表单
-  actors:
-  - consumer
-  - system
-  cross_domain: false
-  source: decision.md 决策30（2026-06-10 细化轮五）；feature-map F-058
-  nodes:
-  - id: n1
-    type: start
-    label: 消费者填写联系表单（姓名/邮箱/主题/内容）
-  - id: n2
-    type: decision
-    label: 必填项与邮箱格式校验通过？
-  - id: n3
-    type: error
-    label: 422 校验失败（逐字段三语提示）
-  - id: n4
-    type: action
-    actor: system
-    label: 落表 ContactMessage（提交限流靠 WAF，决策11；管理端本期不做查看页）
-    entity: ContactMessage
-    source: decision.md 决策30 落表收集
-  - id: n5
-    type: end
-    label: 展示提交成功确认
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n3
-    to: n1
-  - from: n2
-    to: n4
-    cond: 'yes'
-  - from: n4
-    to: n5
-- id: category_attribute_config
-  name: 品类属性配置（3-Tab/徽章抽屉/矩阵三态/子品类 delta 覆盖）
-  trigger: 管理员在 Categories 页（3-Tab）配置品类属性集与属性字典
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > D1/D2/D3
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员打开 Categories 页（3-Tab：标准品类树/品类×属性矩阵/自定义标签，D1 合并回单页）
-    source: state-machine.yml > page_categories_view + pd-explore.local.md > D1
-  - id: n2
-    type: action
-    actor: system
-    label: 旧 /attribute-sets 路由访问自动重定向至 Categories 品类×属性矩阵 Tab（菜单移除，D1）
-    source: state-machine.yml > page_attribute_sets_view route_redirect
-  - id: n3
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 品类/属性管理权限点
-    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
-      n2 同模式权限校验
-  - id: n4
-    type: decision
-    label: 配置入口：品类卡片属性集徽章（D2）/ 矩阵 Tab 属性字典与属性集抽屉 / 子品类覆盖抽屉
-    source: state-machine.yml > page_categories_view click_set_badge/open_set_drawer/open_child_override
-  - id: n5
-    type: action
-    actor: admin
-    label: 矩阵 Tab 维护属性字典：属性定义与可选值增删改（select/multiselect 才有选项）
-    entity: AttributeDef
-    source: er-diagram.yml > AttributeDef.options js_guard + pd-explore.local.md >
-      D1
-  - id: n6
-    type: action
-    actor: admin
-    label: 点击品类卡片属性集徽章直接打开该品类属性三态配置抽屉（D2 openCatSetDrawer）
-    entity: AttributeSet
-    source: pd-explore.local.md > D2
-  - id: n7
-    type: state_change
-    entity: AttributeSetItem
-    from: hidden
-    to: visible
-    label: 抽屉内点击属性循环切换三态（必填→可选→隐藏，cycle_click 循环）
-    source: state-machine.yml > attribute_visibility_cycle cycle_click
-  - id: n8
-    type: action
-    actor: admin
-    label: 保存抽屉：根品类写回属性集可见性配置（saveSetDrawer）
-    entity: AttributeSetItem
-    meta:
-      tx_boundary: true
-    source: state-machine.yml > page_categories_view save_set_drawer
-  - id: n9
-    type: action
-    actor: admin
-    label: 子品类覆盖抽屉：解析含继承配置（isInherited），保存仅存与父级不同的 delta 至 attrOverrides（D3）
-    entity: Category
-    meta:
-      tx_boundary: true
-    source: er-diagram.yml > Category.attr_overrides + state-machine.yml > page_categories_view
-      save_override
-  - id: n10
-    type: action
-    actor: system
-    label: 矩阵 Tab 子品类属性覆盖卡片区按根品类分组只读展示 delta（D3）
-    entity: Category
-    source: pd-explore.local.md > D3
-  - id: n11
-    type: error
-    label: 保存失败/网络异常：抽屉保留未提交配置，提示重试
-    source: 'state-machine.yml > page_categories_view 抽屉交互 [INFERRED: 网络失败分支]'
-  - id: n12
-    type: error
-    label: 权限不足：操作拒绝
-    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
-      n8 同模式
-  - id: n13
-    type: end
-    label: 配置生效，ProductEdit 表单按属性集控制版型属性显隐与必填
-    source: er-diagram.yml > Product.silhouette 属性集控制显隐/必填
-  - id: n14
-    type: end
-    label: 操作中止
-    source: state-machine.yml > page_categories_view close_drawer
-  edges:
-  - from: n1
-    to: n3
-  - from: n2
-    to: n3
-  - from: n3
-    to: n4
-    cond: 'yes'
-  - from: n3
-    to: n12
-    cond: 'no'
-  - from: n4
-    to: n5
-    cond: 属性字典维护
-  - from: n4
-    to: n6
-    cond: 徽章/矩阵属性集抽屉
-  - from: n4
-    to: n9
-    cond: 子品类覆盖抽屉
-  - from: n5
-    to: n13
-  - from: n6
-    to: n7
-  - from: n7
-    to: n8
-  - from: n8
-    to: n13
-    cond: 保存成功
-  - from: n8
-    to: n11
-    cond: 保存失败
-  - from: n9
-    to: n10
-    cond: 保存成功
-  - from: n9
-    to: n11
-    cond: 保存失败
-  - from: n10
-    to: n13
-  - from: n11
-    to: n8
-    cond: 重试
-  - from: n11
-    to: n14
-    cond: 放弃
-  - from: n12
-    to: n14
-- id: product_batch_ops
-  name: 商品批量操作（上架/下架/推荐/删除）
-  trigger: 管理员在商品列表勾选多行后点击批量操作栏动作
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > D4/D10 BE-DIM-4 事务
-  nodes:
-  - id: n1
-    type: start
-    label: 管理员勾选商品行（勾选框列/allChecked 全选），批量操作栏出现
-    source: state-machine.yml > page_products_view select_rows
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 商品管理权限点
-    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
-      n2 同模式权限校验
-  - id: n3
-    type: decision
-    label: guard：selected.length > 0 且确认批量动作（批量删除需二次确认）
-    source: state-machine.yml > product_lifecycle batch_publish guard
-  - id: n4
-    type: action
-    actor: system
-    label: 调用批量端点：一次请求 N 个 id，逐条独立事务执行互不阻塞（D10）
-    entity: Product
-    meta:
-      tx_boundary: true
-    source: pd-explore.local.md > D10 BE-DIM-4 事务
-  - id: n5
-    type: state_change
-    entity: Product
-    from: draft
-    to: published
-    label: 批量上架
-    source: state-machine.yml > product_lifecycle batch_publish
-  - id: n6
-    type: state_change
-    entity: Product
-    from: published
-    to: draft
-    label: 批量下架
-    source: state-machine.yml > product_lifecycle batch_unpublish
-  - id: n7
-    type: action
-    actor: system
-    label: 批量设为推荐 recommend=true（不改变上下架状态，draft/published 均可）
-    entity: Product
-    source: state-machine.yml > product_lifecycle batch_recommend guard
-  - id: n8
-    type: state_change
-    entity: Product
-    from: published
-    to: deleted
-    label: 批量删除（draft 同走 batch_delete；逐条复用 409509 删除校验）
-    source: state-machine.yml > product_lifecycle batch_delete
-  - id: n9
-    type: action
-    actor: system
-    label: 汇总逐条结果返回成功/失败清单（失败项不回滚成功项，失败原因含 409509 等校验码）
-    meta:
-      compensation: true
-    source: pd-explore.local.md > D10 逐条容错返回成功/失败清单
-  - id: n10
-    type: action
-    actor: system
-    label: 记录操作日志 OperationLog（action/targetIds/result/adminId）
-    entity: OperationLog
-    meta:
-      audit: true
-    source: pd-explore.local.md > D10 记录操作日志 + er-diagram.yml > OperationLog.result
-  - id: n11
-    type: error
-    label: 批量请求整体失败/超时：列表保持原状，提示重试
-    source: 'state-machine.yml > page_products_view batch_action [INFERRED: 网络失败分支]'
-  - id: n12
-    type: error
-    label: 权限不足或未选中行：操作拒绝
-    source: hhspec/specs/architecture/business-flow.yml > admin_ship_complete n9 同模式
-  - id: n13
-    type: end
-    label: 列表刷新并展示成功/失败反馈
-    source: state-machine.yml > page_products_view batch_action 后刷新
-  - id: n14
-    type: end
-    label: 操作中止
-    source: state-machine.yml > page_products_view clear_selection
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n12
-    cond: 'no'
-  - from: n3
-    to: n4
-    cond: 'yes'
-  - from: n3
-    to: n14
-    cond: 取消
-  - from: n4
-    to: n5
-    cond: 批量上架
-  - from: n4
-    to: n6
-    cond: 批量下架
-  - from: n4
-    to: n7
-    cond: 设为推荐
-  - from: n4
-    to: n8
-    cond: 批量删除
-  - from: n4
-    to: n11
-    cond: 整体失败
-  - from: n5
-    to: n9
-  - from: n6
-    to: n9
-  - from: n7
-    to: n9
-  - from: n8
-    to: n9
-  - from: n9
-    to: n10
-  - from: n10
-    to: n13
-  - from: n11
-    to: n4
-    cond: 重试
-  - from: n11
-    to: n14
-    cond: 放弃
-  - from: n12
-    to: n14
-- id: admin_export_csv
-  name: 商品/订单 CSV 导出
-  trigger: 管理员在 Products/Orders 列表点击导出按钮
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > D11 BE-DIM-8 限流降级
-  nodes:
-  - id: n1
-    type: start
-    label: 点击导出（Products「导出」/ Orders「导出订单」按钮）
-    source: state-machine.yml > page_products_view export_products + page_orders_view
-      export_orders
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 商品/订单导出权限点
-    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
-      n2 同模式
-  - id: n3
-    type: action
-    actor: system
-    label: 后端 CSV 导出端点按当前筛选条件全量查询（Products/Orders 各一端点，D11）
-    meta:
-      rate_limit: max_rows=10000
-    source: pd-explore.local.md > D11 按当前筛选条件全量导出+行数上限
-  - id: n4
-    type: decision
-    label: 行数是否超过上限（1 万行）
-    source: pd-explore.local.md > D11 设行数上限 + er-diagram.yml > OperationLog.rowCount
-  - id: n5
-    type: action
-    actor: system
-    label: 截断至上限行数并在响应中提示已截断（限流降级，D11）
-    source: pd-explore.local.md > D11 BE-DIM-8 限流降级
-  - id: n6
-    type: action
-    actor: admin
-    label: 浏览器下载 CSV 文件
-    source: 'state-machine.yml > page_products_view export_products guard [INFERRED:
-      下载交付]'
-  - id: n7
-    type: action
-    actor: system
-    label: 记录操作日志 OperationLog（export_products/export_orders + rowCount，PII 导出可审计）
-    entity: OperationLog
-    meta:
-      audit: true
-    source: pd-explore.local.md > D11 记录操作日志 + er-diagram.yml > OperationLog.action
-  - id: n8
-    type: error
-    label: 导出失败/超时：提示缩小筛选范围后重试
-    source: 'pd-explore.local.md > D11 [INFERRED: 网络失败分支]'
-  - id: n9
-    type: end
-    label: 导出完成
-    source: pd-explore.local.md > D11
-  - id: n10
-    type: end
-    label: 导出中止
-    source: pd-explore.local.md > D11
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n10
-    cond: 'no'
-  - from: n3
-    to: n4
-    cond: 查询成功
-  - from: n3
-    to: n8
-    cond: 失败/超时
-  - from: n4
-    to: n5
-    cond: 'yes'
-  - from: n4
-    to: n6
-    cond: 'no'
-  - from: n5
-    to: n6
-  - from: n6
-    to: n7
-  - from: n7
-    to: n9
-  - from: n8
-    to: n3
-    cond: 重试
-  - from: n8
-    to: n10
-    cond: 放弃
-- id: order_list_query
-  name: 订单列表查询（地区/商品数列）
-  trigger: 管理员打开订单列表、切换状态 Tab 或搜索
-  actors:
-  - admin
-  - system
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > D6/D12 BE-DIM-8 限流降级
-  nodes:
-  - id: n1
-    type: start
-    label: 打开 Orders 页或切换 8 状态 Tab / 输入客户邮箱搜索（防抖）
-    source: state-machine.yml > page_orders_view switch_status_tab/search_orders
-  - id: n2
-    type: decision
-    label: 权限校验：RBAC @RequirePermission 订单查看权限点
-    source: hhspec/specs/architecture/business-flow.yml > admin_ship_complete n2 同模式
-  - id: n3
-    type: action
-    actor: system
-    label: 服务端分页查询 AdminOrderListItem：join 地址快照取 country（地区）+ 子查询计数 itemCount（商品数），单次
-      SQL 防 N+1（D12）
-    entity: Order
-    meta:
-      rate_limit: 服务端分页+单查询防N+1
-    source: pd-explore.local.md > D12 + er-diagram.yml > Order.country/itemCount 派生字段
-  - id: n4
-    type: decision
-    label: 查询结果是否为空
-    source: state-machine.yml > page_orders_view load_empty
-  - id: n5
-    type: action
-    actor: system
-    label: 渲染列表列：地区/商品数替换币种/承运，严格回对原型（D6）
-    entity: Order
-    source: pd-explore.local.md > D6 + state-machine.yml > page_orders_view load_success
-      guard
-  - id: n6
-    type: action
-    actor: system
-    label: 展示 EmptyState 空态
-    source: state-machine.yml > page_orders_view load_empty
-  - id: n7
-    type: error
-    label: 查询失败：错误态 + 重试
-    source: state-machine.yml > page_orders_view load_error/retry
-  - id: n8
-    type: end
-    label: 列表展示
-    source: state-machine.yml > page_orders_view loaded
-  - id: n9
-    type: end
-    label: 访问拒绝
-    source: hhspec/specs/architecture/business-flow.yml > dashboard_analytics_read
-      n8 同模式
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n3
-    cond: 'yes'
-  - from: n2
-    to: n9
-    cond: 'no'
-  - from: n3
-    to: n4
-    cond: 成功
-  - from: n3
-    to: n7
-    cond: 失败
-  - from: n7
-    to: n3
-    cond: 重试
-  - from: n4
-    to: n6
-    cond: 'yes'
-  - from: n4
-    to: n5
-    cond: 'no'
-  - from: n5
-    to: n8
-  - from: n6
-    to: n8
-- id: dashboard_publish_entry
-  name: Dashboard 发布站点入口
-  trigger: 管理员从 Dashboard 进入站点发布
-  actors:
-  - admin
-  cross_domain: false
-  external_systems: []
-  source: pd-explore.local.md > D5
-  nodes:
-  - id: n1
-    type: start
-    label: Dashboard 加载（PageHeader「发布站点」按钮 + 快捷入口 5 项含编辑首页/发布站点，D5 补齐）
-    source: pd-explore.local.md > D5 + state-machine.yml > page_dashboard_view click_publish_site/click_quick_entry
-  - id: n2
-    type: decision
-    label: Dashboard 数据加载是否成功
-    source: state-machine.yml > page_dashboard_view load_success/load_error
-  - id: n3
-    type: error
-    label: 加载失败：错误态 + 重试（发布入口按钮仍可用，不阻断导航）
-    source: state-machine.yml > page_dashboard_view load_error/retry
-  - id: n4
-    type: action
-    actor: admin
-    label: 点击「发布站点」或快捷入口跳转 Publish 页
-    source: state-machine.yml > page_dashboard_view click_publish_site guard
-  - id: n5
-    type: end
-    label: 进入 Publish 页执行静态站点发布（发布链路沿用 content_publish_invalidate）
-    source: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate
-  edges:
-  - from: n1
-    to: n2
-  - from: n2
-    to: n4
-    cond: 'yes'
-  - from: n2
-    to: n3
-    cond: 'no'
-  - from: n3
-    to: n1
-    cond: 重试
-  - from: n3
-    to: n4
-    cond: 仍可导航
-  - from: n4
-    to: n5
-- id: configure_ai_gateway
-  desc: 管理员在系统管理-外部网关配置中新增/编辑 AI 网关并自动发现模型
-  actor: 管理员
-  trigger: 进入「系统管理 > 外部网关配置」页面新增 AI 网关
-  steps:
-  - n: 1
-    node: 填写网关配置（type=AI/protocol=openai/base_url/api_key/名称）
-    type: user_input
-    source: 'user requirement: 配置外部系统'
-  - n: 2
-    node: 后端加密 api_key 后落库 ExternalGatewayConfig
-    type: persist
-    source: 'user requirement: API Key 加密存储'
-  - n: 3
-    node: 保存成功后自动调用 /v1/models 拉取可用模型列表
-    type: external_call
-    source: 'user requirement: 配置保存时拉取模型'
-    state_change:
-      machine: gateway_model_sync
-      to: syncing
-  - n: 4
-    node: 模型列表写入 model_list 字段并更新 models_synced_at
-    type: persist
-    source: 'user requirement: 自动发现模型列表'
-    state_change:
-      machine: gateway_model_sync
-      to: synced
-  - n: 5
-    node: 管理员设置默认模型 default_model + 刷新策略（手动/定时）
-    type: user_input
-    source: 'user requirement: 多模型切换 + 刷新策略下拉'
-  exceptions:
-  - cond: /v1/models 拉取失败
-    handle: 提示拉取失败但配置仍保存，model_list 保留旧值，可手动重试
-    state_change:
-      machine: gateway_model_sync
-      to: sync_failed
-    source: 'user requirement: 容错非阻断'
-- id: ai_assisted_translation
-  desc: 运营在翻译表单点击 AI 辅助按钮，追加要求后翻译并回写
-  actor: 运营/管理员
-  trigger: 在商品编辑/分类/标签/Banner 等翻译表单点击「AI 翻译」按钮
-  steps:
-  - n: 1
-    node: 弹窗展示 EN 主字段原文 + 模型下拉（默认全局模型）+ 自定义要求输入框
-    type: user_input
-    source: 'user requirement: 两级模型选择 + 追加自定义要求'
-    state_change:
-      machine: ai_translation_request
-      to: idle
-  - n: 2
-    node: 用户选目标语言（es/fr）并提交翻译请求
-    type: user_input
-    source: 'user requirement: AI 辅助翻译'
-  - n: 3
-    node: 后端代理拼装 prompt（锁定婚纱礼服领域系统提示 + 用户自定义要求）
-    type: process
-    source: 'user requirement: 内部提示词锁定婚纱礼服领域'
-    state_change:
-      machine: ai_translation_request
-      to: calling
-  - n: 4
-    node: 后端调用外部 AI 网关 /v1/chat/completions
-    type: external_call
-    source: 'user requirement: 后端代理调用，API Key 不暴露'
-  - n: 5
-    node: 译文返回，记录 AiTranslationLog(status=success, 耗时/token)
-    type: persist
-    source: 'user requirement: AI 提供调用记录'
-    state_change:
-      machine: ai_translation_request
-      to: success
-  - n: 6
-    node: 译文回填到编辑表单对应语言字段，用户复核后随表单保存
-    type: user_input
-    source: 'user requirement: 翻译并完成回写 + 人工复核'
-  exceptions:
-  - cond: AI 网关调用失败/超时/鉴权失败
-    handle: 错误提示，记录 AiTranslationLog(status=failed)，允许用户重试或手动填写后继续保存
-    state_change:
-      machine: ai_translation_request
-      to: failed
-    source: 'user requirement: 失败提示+允许继续'
-- id: view_translation_logs
-  desc: 管理员查看 AI 翻译调用记录
-  actor: 管理员
-  trigger: 进入「系统管理 > 外部网关配置 > AI 调用记录」
-  steps:
-  - n: 1
-    node: 按时间倒序分页加载 AiTranslationLog（可按 biz_type/status 筛选）
-    type: query
-    source: 'user requirement: AI 提供调用记录'
-  - n: 2
-    node: 展示原文/译文/模型/耗时/token/状态
-    type: display
-    source: 'user requirement: 调用记录可审计'
-- id: store_ui_i18n_render
-  desc: 消费端按 URL locale 段渲染 UI 静态文案 + SEO 标签（决策 11 路由重构）
-  actor: 消费者 / 搜索引擎爬虫
-  trigger: 访问带 locale 前缀的 URL（/、/es/、/fr/）或切换语言
-  steps:
-  - n: 1
-    node: middleware 检测路径 locale 段（无前缀=en），非法 locale 重定向到默认
-    type: process
-    source: 'user requirement: SEO 可索引 + 移除 localStorage 作为唯一来源'
-  - n: 2
-    node: app/[locale] 布局按 locale 注入 I18nProvider + 从 messages.ts 取字典
-    type: process
-    source: 'user requirement: 消费端 UI 文案补齐'
-  - n: 3
-    node: 50+ 组件通过 useI18n().t 渲染对应语言文案（缺失回退 EN）
-    type: display
-    source: 'user requirement: 全部硬编码英文改造接 i18n'
-  - n: 4
-    node: 页面 head 注入 hreflang 三语 alternate 标签；sitemap 输出各语言 URL
-    type: display
-    source: 'user requirement: 搜索引擎索引各语言版本'
-  - n: 5
-    node: 用户显式切换语言时跳转对应 locale 前缀 URL，并写 cookie（SSR 可读，localStorage 仅降级辅助）
-    type: user_input
-    source: 'user requirement: 尽量不用 localStorage，cookie 承载 SSR 可读偏好'
-- id: gateway_test_connection
-  desc: 管理员在网关配置页测试 URL+Key 连通性（决策 14）
-  actor: 管理员
-  trigger: 网关配置页点击「测试连接」按钮
-  steps:
-  - n: 1
-    node: 前端提交当前配置（URL+Key，未保存也可测）到后端测试端点
-    type: user_input
-    source: 'user requirement: 配置可用性验证'
-  - n: 2
-    node: 后端用最小请求（GET /v1/models 或一次轻量 translate）探测网关
-    type: external_call
-    source: 'user requirement: 测试连接避免配错延迟暴露'
-  - n: 3
-    node: 返回连通状态（成功展示可用模型数；失败展示错误原因）
-    type: display
-    source: 'user requirement: 即时反馈连通性'
-  exceptions:
-  - cond: 网关不可达/鉴权失败/超时
-    handle: 返回具体失败原因（DNS/401/超时），不落库不影响已保存配置
-    source: 'user requirement: 测试失败明确提示'
-- id: manage_translation_glossary
-  desc: 管理员维护婚纱领域术语表（决策 14）
-  actor: 管理员
-  trigger: 进入「系统管理 > 翻译术语表」页面
-  steps:
-  - n: 1
-    node: CRUD 术语条目（term_en / term_es / term_fr / category / enabled）
-    type: user_input
-    source: 'user requirement: 术语一致性维护'
-  - n: 2
-    node: 保存后启用项在下次 AI 翻译时注入 system prompt
-    type: persist
-    source: 'user requirement: 术语注入保证译法一致'
-- id: backend_localized_email
-  desc: 后端按用户 locale 发送三语邮件（订单/OTP/退款，决策 13）
-  actor: 系统（后端异步）
-  trigger: 订单确认/OTP 验证码/退款通知等事件触发邮件发送
-  steps:
-  - n: 1
-    node: 按优先级解析目标 locale（user.locale_pref → orders.locale_snapshot → 默认 EN）
-    type: process
-    source: 'user requirement: 后端拿到用户语言偏好'
-  - n: 2
-    node: 按 locale 选择对应语言的邮件模板渲染
-    type: process
-    source: 'user requirement: 邮件模板三语化'
-  - n: 3
-    node: 发送邮件（缺对应语言模板回退 EN）
-    type: external_call
-    source: 'user requirement: 三语邮件兜底 EN'
+
+  - id: banner_lifecycle
+    name: Banner 状态机生命周期（基线复用）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > content_publish_invalidate（Banner 走同一发布链路）
+    state_machine_ref: hhspec/specs/architecture/state-machine.yml > banner_lifecycle
+    actor: admin + system
+    trigger: 管理员在 Banners 页新增/编辑/删除/上下线 Banner
+    reuse_context: |
+      本变更不修改 Banner 状态机（draft→published→archived→deleted）；KD-2 仅引用 position=HERO && status=published 的 Banner 作为 Hero 区块数据源。
+      Banner 写操作（create/update/delete/toggleStatus）已实现 @Transactional + after-commit 缓存失效 + MarketingAuditRecorder 审计，新域对齐该模式。
+      SM-OQ-1：Banner schedule_expire 定时任务缺失，本变更保持基线现状（方案 A 不补齐）。
+    relevant_to: [home_builder_publish_flow]
+    key_steps:
+      - n: 1
+        action: 管理员编辑 Banner（name/image_url/position=HERO|FEATURED|TOPBAR/title/subtitle/cta_text EN + BannerTranslation es/fr）
+        entity: Banner
+      - n: 2
+        action: 事务双写 banner + banner_translation（@Transactional，基线 AdminBannerService 已实现）
+      - n: 3
+        action: 状态转换（state_transition: banner_status draft→published publish / published→archived take_offline / archived→published republish / *→deleted delete）
+        entity: Banner
+      - n: 4
+        action: MarketingAuditRecorder 记审计 + after-commit 发布 TYPE_BANNER_CHANGED 到 RabbitMQ + MarketingCacheService.invalidateFamily(BANNERS) + CDN purge
+    source: state-machine.yml > banner_status (baseline) + backend-flow-inference > 事务/异步/审计 ✅ Banner 已实现
+
+  - id: transactional_email
+    name: 交易性邮件发送（基线复用，预留）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > transactional_email
+    actor: system + mq + smtp
+    trigger: 订单确认/OTP 验证码/退款通知等事件触发邮件发送
+    reuse_context: |
+      KD-11 Subscriber 状态机 side_effects 预留欢迎邮件触发；本期不发邮件（对齐决策26），后续扩展时复用基线 transactional_email 的 MQ→MailRecord→SMTP 链路 + 三语模板渲染 + retryCount<3 重试机制。
+    relevant_to: [newsletter_subscribe_flow]
+    source: decision.md 决策16 + KD-11
+
+  - id: checkout_order
+    name: 消费端购物下单与支付（基线复用，无变更）
+    meta: {source: baseline}
+    baseline_ref: hhspec/specs/architecture/business-flow.yml > checkout_order
+    actor: consumer + system + stripe
+    trigger: 消费者浏览商品加购并结算支付
+    reuse_context: 本变更不涉及下单支付链路，仅因消费端首页动态渲染间接关联（订单完成事件触发的 ISR revalidate 不受 HomeBuilder 影响）。保留基线引用以维持流程图完整性。
+    relevant_to: []
+    source: pd-explore.local.md > BE-DIM-4 事务/幂等 + BE-DIM-5 外部集成
+
+open_questions:
+  - id: BF-OQ-1
+    topic: 缓存失效防抖策略
+    question: 'KD-BE-4 明确"不做防抖（保存频率低）"，但 backend-flow-inference.md > 限流降级建议"后端合并 5-10s 窗口内多次保存合并为一次失效事件"。管理员频繁连续点击保存（如拖拽排序过程中多次保存）是否需要防抖？'
+    options:
+      - '方案 A：不防抖（KD-BE-4 决策，每次保存都触发缓存失效 + CDN purge，简单可靠）'
+      - '方案 B：后端合并 5-10s 窗口（backend-flow-inference 建议，减少 CDN purge 次数）'
+      - '方案 C：前端节流（保存按钮点击间隔限制，体验差）'
+    impact: '影响缓存失效频率、CDN purge 成本、管理端保存响应时间'
+    recommendation: '方案 A（遵循 KD-BE-4 明确决策，保存频率低无需防抖）'
+
+  - id: BF-OQ-2
+    topic: 消费端 navigation API 是否合并公告条
+    question: 'KD-7 公告条独立域，但 KD-5 消费端 layout.tsx 读取导航配置时需要同时渲染顶部公告条。GET /api/store/content/navigation 是否应合并返回公告条数据，还是消费端分别调用 GET /api/store/content/navigation + GET /api/store/content/announcements？'
+    options:
+      - '方案 A：合并到 navigation DTO（一次请求拿全部 layout 数据，减少请求数）'
+      - '方案 B：分别调用两个 API（保持 domain 解耦，但多一次请求）'
+      - '方案 C：navigation DTO 含公告条引用 announcement_ids，消费端按需调用 announcements API'
+    impact: '影响消费端 layout.tsx 实现复杂度、API 契约、缓存 key 设计'
+    recommendation: '方案 A（合并到 navigation DTO，对齐原型 layout 一次渲染全站 header/footer/公告条的诉求）'
+
+  - id: BF-OQ-3
+    topic: AdminCacheController.manualInvalidate 实现时机
+    question: 'backend-flow-inference.md > 异步确认 AdminCacheController.manualInvalidate 当前是未实现占位（返回"手动失效功能开发中"）。KD-1 明确不扩展 SSG 发布中心，但 Publish.vue 的"一键发布"按钮若要可用需实现该端点。本变更是否实现 manualInvalidate？'
+    options:
+      - '方案 A：本变更实现 manualInvalidate（调用 ContentInvalidatedPublisher 或直接 CdnInvalidationService，使 Publish.vue 手动失效按钮可用）'
+      - '方案 B：本变更不实现，Publish.vue 保留 mock 提示（KD-1 不扩展 SSG，手动失效可后续补）'
+      - '方案 C：本变更仅实现 manualInvalidate 端点，不改造 Publish.vue UI（最小可用）'
+    impact: '影响 Publish.vue 可用性、AdminCacheController 完整性、KD-1 解读'
+    recommendation: '方案 A（实现 manualInvalidate 端点，符合 KD-1 保持当前缓存失效能力的诉求）'
+
+  - id: BF-OQ-4
+    topic: Hero 区块无 HERO Banner 时的降级策略
+    question: 'home_builder_publish_flow 跨域校验 Hero → BannerService.findByPosition(HERO) 无结果时，Hero 区块应如何降级？'
+    options:
+      - '方案 A：Hero 区块不渲染（跳过该 sort_order，消费端无感知）'
+      - '方案 B：Hero 区块渲染占位文案（如"敬请期待"i18n 文案）'
+      - '方案 C：管理端 Hero 区块保存时强制校验至少有一条 published HERO Banner，否则拒绝保存'
+    impact: '影响消费端首页渲染稳定性、管理端保存校验逻辑'
+    recommendation: '方案 A（不渲染，简单可靠，对齐其他区块 enabled=false 时不渲染的模式）'
+
+  - id: BF-OQ-5
+    topic: 跨 domain Service 接口的失败降级
+    question: 'home_builder_publish_flow 步骤3跨 domain 调用 BannerService/TaxonomyService/ProductService/WeddingService。若被调方超时或失败，调用方应如何降级？是否需要熔断？'
+    options:
+      - '方案 A：失败即降级（校验失败则 422 拒绝保存；消费端读取失败则跳过该区块继续渲染其余区块）'
+      - '方案 B：失败重试 3 次（增加延迟但提高成功率）'
+      - '方案 C：加熔断器（Resilience4j，超过阈值快速失败）'
+    impact: '影响消费端首页/导航渲染可用性、跨 domain 调用延迟'
+    recommendation: '方案 A（失败即降级，对齐项目现有简单模式，KD-BE-5 未提熔断要求）'

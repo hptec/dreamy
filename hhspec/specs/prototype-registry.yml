@@ -864,3 +864,40 @@ implemented_pages:
   - ALIGN-037
   - ALIGN-038
   - ALIGN-039
+- page_id: HomeBuilder
+  file: prototype/portal-admin/src/views/HomeBuilder.vue
+  implemented_hash: sha256:14189e2cd9c9b819a1e7355ba7491ffd8995b7520d30d3fb5f1f31a19e58b2af
+  archived_at: '2026-06-24T05:28:02Z'
+  change_name: site-decoration-fullstack
+  requirement_ids: &id002
+  - FUNC-001
+  - FUNC-002
+  - FUNC-003
+  - FUNC-004
+  - FUNC-005
+  - FUNC-006
+  - FUNC-007
+  - FUNC-008
+  - FUNC-009
+  - FUNC-010
+  - ALIGN-001
+  - ALIGN-002
+  - ALIGN-006
+- page_id: NavigationConfig
+  file: prototype/portal-admin/src/views/NavigationConfig.vue
+  implemented_hash: sha256:8cb5f9a1d9aaac16c11b4cb0e3ac584330f401b780e476a7e507b9d4486b2c3a
+  archived_at: '2026-06-24T05:28:02Z'
+  change_name: site-decoration-fullstack
+  requirement_ids: *id002
+- page_id: Banners
+  file: prototype/portal-admin/src/views/Banners.vue
+  implemented_hash: sha256:531260e03d17f95e090de91ffe3166e64766133069b701f3506e21aff3e292b8
+  archived_at: '2026-06-24T05:28:02Z'
+  change_name: site-decoration-fullstack
+  requirement_ids: *id002
+- page_id: Publish
+  file: prototype/portal-admin/src/views/Publish.vue
+  implemented_hash: sha256:f7891b67cba0f895e89f51d6d8f040dd14d03a8f00c488cc28d94a16197a9f3c
+  archived_at: '2026-06-24T05:28:02Z'
+  change_name: site-decoration-fullstack
+  requirement_ids: *id002

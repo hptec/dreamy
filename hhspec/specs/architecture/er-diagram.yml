@@ -1,2421 +1,559 @@
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/er-diagram.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T10:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-2, KD-3, KD-4, KD-6, KD-7, KD-8, KD-9, KD-10, KD-11, KD-12, KD-13, KD-14, KD-BE-5]
+  inference_confidence: high
+  review_round: 2
+  review_fixes: [GRD-001, GRD-002, GRD-004, GRD-005, GRD-006, GRD-007, GRD-008, GRD-009, GRD-010, GRD-W01, GRD-W02, GRD-W04, GRD-W05, GRD-W06, GRD-W07, GRD2-001, GRD2-002, GRD2-003]
+  notes: |
+    字段类型用 Java 类型（Long/String/Boolean/Integer/LocalDateTime/JSON/enum）。
+    新建实体 meta.source=new；引用已有实体 meta.source=baseline。
+    增量对齐型变更：基线已有 Banner/BannerTranslation/RealWedding/CacheInvalidationLog/NewsletterSubscriber 等；
+    本变更新增首页区块/导航/页脚/公告/订阅者域实体，并复用 Banner position=HERO 作为 Hero 区块数据源（KD-2）。
+    跨 domain 引用通过 Service 接口调用，不跨表查询（KD-BE-5）。
+    第 2 轮 grounding 复核修正：Taxonomy 引用基线实体（GRD-002）；Subscriber 简化为单态订阅（KD-12/GRD-001）；
+    NewsletterSource 扩展 IntEnum HOME_BLOCK(4)（KD-13/GRD-009）；Banner 新增 cta_text_secondary/cta_link_secondary（KD-14/GRD-010）；
+    MarketingCacheService.Family 新增 3 个族（GRD-004）；Publisher 新增 3 个 TYPE_* 常量 + 代码分支（GRD-005）；
+    MarketingExceptionHandler assignableTypes 登记 3 个新 Controller（GRD-006）；DataInitializer 新增 /site/announcement 权限种子（GRD-007）；
+    CacheInvalidationLog 基线字段全面修正（GRD-W06）；新实体统一 extends LongAuditableEntity + 物理删除（GRD-W07）；
+    event_type 命名统一 _changed 后缀（GRD-005）。
+    第 3 轮 grounding 复核修正（KD-16 落地）：GRD2-001 移除 5 个翻译表实体（HomeSectionTranslation/NavigationTranslation/FooterColumnTranslation/FooterLinkTranslation/AnnouncementTranslation），
+    HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement 5 个主实体新增 i18n_json JSON 列（JacksonTypeHandler + autoResultMap=true，对齐 Category.attrOverrides 模式）；
+    GRD2-002 修正 HomePageSection.data_json 描述（Newsletter 文案存 i18n_json，Hero/Announcement 数据从其他域派生）；
+    GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 uk_newsletter_email(email) 迁移到 uk_newsletter_email_source(email, source) 复合唯一，保证 KD-13 source 数据完整性。
+    KD-16 决策覆盖 KD-3 和 GRD-W08：不建独立 *_translations 表，GRD-W08 推荐的 FooterColumnTranslation/FooterLinkTranslation 不采纳。
+
 entities:
-- id: Category
-  desc: 商品标准品类，三层树模型（根品类绑定属性集，子品类按 delta 覆盖父级属性配置），每个商品只属于一个品类
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: name
-    t: str
-    req: true
-    maxlen: 64
-    source: prototype/portal-admin/src/views/Categories.vue > 品类名称 * / newRootName
-      / confirmAddChild
-  - n: parent_id
-    t: Long
-    source: prototype/portal-admin/src/views/Categories.vue > cat.children 子类目树
-  - n: level
-    t: int
-    min: 1
-    max: 3
-    source: '需求描述: 分类为三层树模型 [INFERRED]'
-  - n: attribute_set_id
-    t: Long
-    source: prototype/portal-admin/src/views/Categories.vue > cat.attributeSetId /
-      attrSetInfo
-  - n: attr_overrides
-    t: json
-    source: prototype/portal-admin/src/views/Categories.vue > child.attrOverrides
-      仅存与父级属性集不同的 delta (saveDrawer)；key_decisions D3 子品类属性覆盖卡片区按根品类分组只读展示该 delta
-  - n: sort
-    t: int
-    source: prototype/portal-admin/src/views/Categories.vue > Bars3Icon 拖拽手柄 [INFERRED]
-  - n: product_count
-    t: int
-    min: 0
-    js_guard: product_count === 0 时才允许删除 (canDelete)
-    source: prototype/portal-admin/src/views/Categories.vue > cat.count / canDelete(cat)
-      + ProductEdit.vue > standardTaxonomy root.children 两级级联（经 parent_id 派生）
-  relations:
-  - to: Category
-    type: n1
-  - to: AttributeSet
-    type: n1
-- id: AttributeDef
-  desc: 商品属性字典项，维护全局属性定义与可选值列表（廓形/领口/袖型/面料等）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: key
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.key (attributeDict)；key_decisions
-      D1 属性字典并回 Categories 第二 Tab
-  - n: label
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.label
-  - n: type
-    t: enum
-    vals:
-    - select
-    - multiselect
-    - text
-    - toggle
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.type 徽章分支 select/multiselect
-      + 过滤条件 type!=='text'&&type!=='toggle'
-  - n: options
-    t: json
-    js_guard: type === 'select' || type === 'multiselect' 时才有选项 (attr.optionsKey)
-    source: prototype/portal-admin/src/views/AttributeSets.vue > attr.options 增删改
-      (confirmAddOption/removeOption/confirmEdit) + Categories.vue > confirmAddOption/removeOption/confirmEditOpt
-  relations: []
-- id: AttributeSet
-  desc: 属性集，多个品类可共享同一属性集；定义该集合内各属性的可见性配置
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: label
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > set.label (attrSetColumns)；key_decisions
-      D1 Tab 文案恢复「品类×属性矩阵」
-  relations: []
-- id: AttributeSetItem
-  desc: 属性集明细行，记录属性集内单个属性的可见性状态（必填/可选/隐藏）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: attribute_set_id
-    t: Long
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId]
-  - n: attribute_id
-    t: Long
-    req: true
-    source: prototype/portal-admin/src/views/AttributeSets.vue > matrix[setId][attrKey]
-  - n: visibility
-    t: enum
-    vals:
-    - visible
-    - optional
-    - hidden
-    req: true
-    source: field-inventory > FLD-ATTRIBUTESETS-001/002/003 + prototype/portal-admin/src/views/Categories.vue
-      > STATES=['visible','optional','hidden'] cycleDrawerState/cycleSetDrawerState
-      必填→可选→隐藏
-  relations:
-  - to: AttributeSet
-    type: n1
-  - to: AttributeDef
-    type: n1
-- id: TagDimension
-  desc: 自定义标签维度（如风格/用途），仅用于前台营销聚合与导航，不影响商品属性表单
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: name
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/Categories.vue > 维度名称 * / confirmAddDim
-  - n: description
-    t: str
-    source: prototype/portal-admin/src/views/Categories.vue > tagDimensions d.desc
-  relations: []
-- id: Tag
-  desc: 自定义营销标签，归属某标签维度，商品可多选；带封面图用于前台导航卡片
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: dimension_id
-    t: Long
-    req: true
-    source: prototype/portal-admin/src/views/Categories.vue > t.dimensionId / tagsByActiveDim
-  - n: name
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/Categories.vue > 标签名称 * / confirmAddTag
-      :disabled=!newTagName.trim()
-  - n: cover
-    t: str
-    source: prototype/portal-admin/src/views/Categories.vue > t.cover 封面上传 handleCoverUpload，可为空则纯文字展示
-  - n: status
-    t: enum
-    vals:
-    - enabled
-    - disabled
-    req: true
-    source: prototype/portal-admin/src/views/Categories.vue > Toggle v-model=t.enabled，UI
-      开关映射后端枚举 [INFERRED]
-  - n: product_count
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/Categories.vue > t.count 件数
-  relations:
-  - to: TagDimension
-    type: n1
-  - to: Product
-    type: nm
-- id: Banner
-  desc: 站点广告位图文配置（首页 Hero/推荐位/顶部条），支持排序、定时投放与上下线
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: name
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/Banners.vue > b.name
-  - n: image_url
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/Banners.vue > b.img
-  - n: position
-    t: enum
-    vals:
-    - hero
-    - featured
-    - topbar
-    req: true
-    source: prototype/portal-admin/src/views/Banners.vue > b.position + 页面副标题 首页Hero/推荐位/顶部条
-      [INFERRED]
-  - n: start_time
-    t: datetime
-    source: prototype/portal-admin/src/views/Banners.vue > 投放时间 b.start
-  - n: end_time
-    t: datetime
-    js_guard: end_time > start_time
-    source: prototype/portal-admin/src/views/Banners.vue > 投放时间 b.end
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    - archived
-    req: true
-    source: prototype/portal-admin/src/views/Banners.vue > Toggle v-model=b.online
-      + 保存并发布，UI 开关映射发布状态枚举 [INFERRED]
-  - n: sort
-    t: int
-    req: true
-    source: prototype/portal-admin/src/views/Banners.vue > 排序列 input :value=b.sort
-  - n: clicks
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/Banners.vue > b.clicks 点击统计只读
-  relations: []
-- id: BlogPost
-  desc: Blog 婚礼策划文章，发布后生成静态文章页
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java spring-boot+mybatis-plus [INFERRED]
-  - n: title
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.title
-  - n: cover
-    t: str
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.cover
-  - n: category
-    t: str
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.category 文章栏目
-  - n: author
-    t: str
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.author
-  - n: content
-    t: text
-    source: prototype/portal-admin/src/views/ContentBlog.vue > 写文章/编辑入口 [INFERRED]
-  - n: slug
-    t: str
-    source: prototype/portal-admin/src/views/ContentBlog.vue > 发布后生成静态文章页 [INFERRED]
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    - archived
-    req: true
-    source: prototype/portal-admin/src/views/ContentBlog.vue > filter tabs published/draft
-      + p.status，archived 按发布枚举规范补全 [INFERRED]
-  - n: published_at
-    t: datetime
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.date
-  - n: views
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/ContentBlog.vue > p.views 阅读数只读
-  relations: []
-- id: AnalyticsDashboard
-  desc: 数据看板聚合只读视图（不落库不可写），交易指标由 Order/Refund/Product 聚合派生，流量指标由 GA4 Data API 拉取（决策19）
-  fields:
-  - n: gmv_month
-    t: decimal
-    source: prototype/portal-admin/src/views/Analytics.vue > 本月 GMV，聚合自 Order [INFERRED]
-  - n: order_count
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/Analytics.vue > 订单数，聚合自 Order [INFERRED]
-  - n: avg_order_value
-    t: decimal
-    source: prototype/portal-admin/src/views/Analytics.vue > 客单价，聚合自 Order [INFERRED]
-  - n: refund_rate
-    t: decimal
-    min: 0
-    max: 100
-    source: prototype/portal-admin/src/views/Analytics.vue > 退款率，聚合自 Refund/Order
-      [INFERRED]
-  - n: gmv_trend
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > gmvTrend/gmvLabels SparkArea
-  - n: category_sales
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > categorySales 品类销售占比，聚合自
-      Category/Order [INFERRED]
-  - n: traffic_sources
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > trafficSources 访客来源；数据源
-      GA4 Data API + JetCache 5min（决策19）
-  - n: device_share
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > 设备占比 移动端/桌面端/平板；数据源 GA4
-      Data API（决策19）
-  - n: funnel
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > funnel 转化漏斗 stage/value；数据源
-      GA4 标准电商事件经 Data API 拉取（决策19）
-  - n: top_products
-    t: json
-    source: prototype/portal-admin/src/views/Analytics.vue > topProducts 按 sales 排序取前6，聚合自
-      Product [INFERRED]
-  relations: []
-- id: Product
-  desc: 商品主档（现货+定制双模式婚纱礼服，含版型属性与SEO）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > MyBatis-Plus Long 自增主键
-  - n: name
-    t: str
-    req: true
-    maxlen: 128
-    source: ProductEdit.vue > form.name 商品名称*
-  - n: slug
-    t: str
-    req: true
-    maxlen: 128
-    pattern: ^[a-z0-9-]+$
-    source: ProductEdit.vue > form.slug URL Slug
-  - n: subtitle
-    t: str
-    maxlen: 255
-    source: ProductEdit.vue > form.subtitle 副标题/卖点
-  - n: categoryId
-    t: Long
-    req: true
-    source: ProductEdit.vue > form.categoryId 标准品类级联*
-  - n: productType
-    t: str
-    maxlen: 64
-    source: ProductEdit.vue > form.productType 自由填写；prototype/portal-admin/src/views/Products.vue
-      > productTypeOptions 更多筛选商品类型多选（D4）
-  - n: description
-    t: text
-    source: ProductEdit.vue > form.description 富文本介绍
-  - n: designerNote
-    t: text
-    source: ProductEdit.vue > form.designerNote 品牌故事
-  - n: price
-    t: number
-    req: true
-    min: 0
-    source: ProductEdit.vue > form.price 现价USD*；Products.vue > moreFilters.priceMin/priceMax
-      价格区间筛选
-  - n: compareAt
-    t: number
-    min: 0
-    js_guard: compareAt == null || compareAt >= price
-    source: ProductEdit.vue > form.compareAt 划线价；Products.vue > flags onSale 以 compareAt
-      非空判定促销中
-  - n: installment
-    t: bool
-    source: ProductEdit.vue > form.installment Klarna/Afterpay 分期
-  - n: multiCurrencyPrices
-    t: json
-    source: ProductEdit.vue > 多币种价格 USD/CAD/AUD/GBP 可覆盖
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: mock.js > products.status; Products.vue > Toggle published/draft + 批量上架/批量下架（D4/D10）
-  - n: isNew
-    t: bool
-    source: mock.js > products.isNew; Products.vue > Toggle + flags 筛选新品
-  - n: isBest
-    t: bool
-    source: mock.js > products.isBest
-  - n: recommend
-    t: bool
-    source: mock.js > products.recommend; Products.vue > Toggle + 批量设为推荐（D4/D10）
-  - n: sort
-    t: int
-    min: 0
-    source: mock.js > products.sort
-  - n: sales
-    t: int
-    min: 0
-    js_guard: 只读聚合列：由订单行销量统计派生，管理端不可直接编辑
-    source: 'prototype/portal-admin/src/views/Products.vue > 销量列 p.sales + key_decisions
-      D4 补齐销量列 [INFERRED: 聚合派生]'
-  - n: leadTimeDays
-    t: int
-    min: 1
-    req: true
-    source: ProductEdit.vue > form.leadTimeDays 标准发货周期(天)
-  - n: rushAvailable
-    t: bool
-    source: ProductEdit.vue > form.rushAvailable 支持加急
-  - n: customSizeAvailable
-    t: bool
-    source: ProductEdit.vue > form.customSizeAvailable 定制尺寸(伴娘服核心)
-  - n: silhouette
-    t: str
-    source: ProductEdit.vue > form.silhouette 廓形(属性集控制显隐/必填)
-  - n: neckline
-    t: str
-    source: ProductEdit.vue > form.neckline 领口
-  - n: sleeve
-    t: str
-    source: ProductEdit.vue > form.sleeve 袖型
-  - n: backStyle
-    t: str
-    source: ProductEdit.vue > form.backStyle 背部设计
-  - n: waistline
-    t: str
-    source: ProductEdit.vue > form.waistline 腰线
-  - n: train
-    t: str
-    source: ProductEdit.vue > form.train 拖尾(父品类切换时重置)
-  - n: length
-    t: str
-    source: ProductEdit.vue > form.length 裙长
-  - n: fabric
-    t: str
-    source: ProductEdit.vue > form.fabric 主面料
-  - n: fabricComposition
-    t: str
-    maxlen: 128
-    source: ProductEdit.vue > form.fabricComposition 面料成分
-  - n: support
-    t: str
-    source: ProductEdit.vue > form.support 内置支撑
-  - n: season
-    t: str
-    source: ProductEdit.vue > form.season 季节
-  - n: embellishments
-    t: json
-    source: ProductEdit.vue > form.embellishments 装饰细节多选
-  - n: occasions
-    t: json
-    source: ProductEdit.vue > form.occasions 适合场合多选
-  - n: styleTags
-    t: json
-    source: ProductEdit.vue > form.styleTags 风格标签多选
-  - n: modelHeight
-    t: str
-    maxlen: 32
-    source: ProductEdit.vue > form.modelHeight 模特身高
-  - n: modelSize
-    t: str
-    maxlen: 16
-    source: ProductEdit.vue > form.modelSize 模特所穿尺码
-  - n: modelBodyType
-    t: str
-    maxlen: 32
-    source: ProductEdit.vue > form.modelBodyType 体型描述
-  - n: careInstructions
-    t: text
-    source: ProductEdit.vue > form.careInstructions 护理说明
-  - n: countryOfOrigin
-    t: str
-    maxlen: 64
-    source: ProductEdit.vue > form.countryOfOrigin 生产地
-  - n: styleNo
-    t: str
-    maxlen: 32
-    source: ProductEdit.vue > 款式编号 Style No.
-  - n: seoTitle
-    t: str
-    maxlen: 128
-    source: ProductEdit.vue > form.seoTitle
-  - n: seoDesc
-    t: str
-    maxlen: 255
-    source: ProductEdit.vue > form.seoDesc Meta Description
-  relations:
-  - to: Category
-    type: n1
-  - to: CustomTag
-    type: nm
-- id: ProductImage
-  desc: 商品媒体素材（图廊/场景图/视频/色样）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: productId
-    t: Long
-    req: true
-    source: ProductEdit.vue > sec-media gallery
-  - n: url
-    t: str
-    req: true
-    maxlen: 512
-    source: ProductEdit.vue > gallery img src
-  - n: kind
-    t: enum
-    vals:
-    - gallery
-    - lifestyle
-    - video
-    - swatch
-    req: true
-    source: ProductEdit.vue > 图廊/Lifestyle/走秀视频/颜色色样四区块
-  - n: colorName
-    t: str
-    maxlen: 32
-    source: ProductEdit.vue > swatch 每颜色一张色样图
-  - n: sort
-    t: int
-    min: 0
-    js_guard: sort === 0 为主图
-    source: ProductEdit.vue > 拖拽排序第一张为主图
-  relations:
-  - to: Product
-    type: n1
-- id: Sku
-  desc: SKU（颜色x尺码矩阵；现货含库存乐观锁，定制款无库存仅交期）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: productId
-    t: Long
-    req: true
-    source: ProductEdit.vue > sec-sku SKU 矩阵
-  - n: skuCode
-    t: str
-    req: true
-    maxlen: 64
-    pattern: ^[A-Z0-9-]+$
-    source: ProductEdit.vue > SKU 码 DRM-颜色缩写-尺码
-  - n: color
-    t: str
-    req: true
-    maxlen: 32
-    source: ProductEdit.vue > skuColors 颜色 swatch
-  - n: size
-    t: str
-    req: true
-    maxlen: 16
-    source: ProductEdit.vue > skuSizes 尺码
-  - n: stock
-    t: int
-    min: 0
-    js_guard: 现货扣减需乐观锁防超卖; 定制款(customSizeAvailable)不扣库存; Products.vue 库存筛选 inStock>=10/low<10/out=0
-      按 SKU 聚合
-    source: ProductEdit.vue > 单元格库存数量; 业务上下文确认乐观锁 [INFERRED]
-  - n: version
-    t: Long
-    source: 业务上下文确认乐观锁扣减 [INFERRED]
-  relations:
-  - to: Product
-    type: n1
-- id: SizeChartRow
-  desc: 商品尺码对照表行（US/UK/AU 与三围、中空到地）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: productId
-    t: Long
-    req: true
-    source: ProductEdit.vue > sec-size 尺码表
-  - n: us
-    t: str
-    req: true
-    maxlen: 8
-    source: ProductEdit.vue > 尺码表列 US
-  - n: uk
-    t: str
-    maxlen: 8
-    source: ProductEdit.vue > 尺码表列 UK
-  - n: au
-    t: str
-    maxlen: 8
-    source: ProductEdit.vue > 尺码表列 AU
-  - n: bust
-    t: number
-    min: 0
-    source: ProductEdit.vue > 胸围(in)
-  - n: waist
-    t: number
-    min: 0
-    source: ProductEdit.vue > 腰围(in)
-  - n: hips
-    t: number
-    min: 0
-    source: ProductEdit.vue > 臀围(in)
-  - n: hollowToFloor
-    t: number
-    min: 0
-    source: ProductEdit.vue > 中空到地(in)
-  relations:
-  - to: Product
-    type: n1
-- id: Customer
-  desc: 消费者（identity 域已有，本图仅作关系锚点）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: name
-    t: str
-    source: OrderDetail.vue > o.customer.name
-  - n: email
-    t: str
-    pattern: ^[^@]+@[^@]+$
-    source: Orders.vue > o.email
-  - n: phone
-    t: str
-    maxlen: 32
-    source: OrderDetail.vue > o.customer.phone
-  relations: []
-- id: Address
-  desc: 收货地址（消费端实体，原型后台仅展示快照）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: customerId
-    t: Long
-    req: true
-    source: 业务上下文确认必须建模 Address [INFERRED]
-  - n: receiver
-    t: str
-    req: true
-    maxlen: 64
-    source: 业务上下文确认 [INFERRED]
-  - n: phone
-    t: str
-    maxlen: 32
-    source: OrderDetail.vue > 客户信息含 phone [INFERRED]
-  - n: line
-    t: str
-    req: true
-    maxlen: 255
-    source: OrderDetail.vue > o.address.line
-  - n: city
-    t: str
-    req: true
-    maxlen: 64
-    source: OrderDetail.vue > o.address.city
-  - n: state
-    t: str
-    maxlen: 64
-    source: OrderDetail.vue > o.address.state
-  - n: zip
-    t: str
-    req: true
-    maxlen: 16
-    source: OrderDetail.vue > o.address.zip
-  - n: country
-    t: str
-    req: true
-    maxlen: 64
-    source: OrderDetail.vue > o.address.country
-  - n: isDefault
-    t: bool
-    source: 业务上下文确认 [INFERRED]
-  relations:
-  - to: Customer
-    type: n1
-- id: CartItem
-  desc: 购物车条目（登录用户 DB 持久化，匿名 token 标识并在登录后合并）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: customerId
-    t: Long
-    source: 业务上下文确认必须建模 CartItem [INFERRED]
-  - n: anonToken
-    t: str
-    maxlen: 64
-    js_guard: customerId 与 anonToken 至少其一非空; 登录后按 anonToken 合并入 customerId
-    source: 业务上下文确认匿名合并 [INFERRED]
-  - n: productId
-    t: Long
-    req: true
-    source: 业务上下文确认 [INFERRED]
-  - n: skuId
-    t: Long
-    js_guard: 现货必填 skuId; 定制款可空并携带 customSizeData
-    source: 业务上下文确认双模式 [INFERRED]
-  - n: qty
-    t: int
-    req: true
-    min: 1
-    source: 业务上下文确认 [INFERRED]
-  - n: customSizeData
-    t: json
-    source: ProductEdit.vue > customSizeAvailable 买家填写三围 [INFERRED]
-  relations:
-  - to: Customer
-    type: n1
-  - to: Product
-    type: n1
-  - to: Sku
-    type: n1
-- id: Order
-  desc: 订单（核心交易主单，Stripe 沙箱支付，待支付30分钟超时自动取消并回补库存）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: orderNo
-    t: str
-    req: true
-    pattern: ^DRM-\d{8}-\d{4}$
-    source: mock.js > orders.id 'DRM-20260529-1042'
-  - n: customerId
-    t: Long
-    req: true
-    source: Orders.vue > 客户列; OrderDetail.vue > o.customer
-  - n: status
-    t: enum
-    vals:
-    - pending
-    - paid
-    - shipped
-    - completed
-    - cancelled
-    - refunding
-    - refunded
-    req: true
-    source: 'mock.js > ORDER_STATUS; Orders.vue > tabs; 业务上下文确认取消/退款分支 [INFERRED:
-      cancelled/refunded]'
-  - n: currency
-    t: enum
-    vals:
-    - USD
-    - CAD
-    - AUD
-    - GBP
-    req: true
-    source: Orders.vue > curSym 币种映射
-  - n: exchangeRate
-    t: decimal
-    source: decision.md 决策14 下单时锁定的 USD→订单币种汇率（退款按原币种原金额，不受后续汇率变化影响）
-  - n: weddingDate
-    t: date
-    source: prototype/app/checkout/page.tsx > 结算 wedding date 选填字段，交期复核；Showroom 婚期自动带入（F-077，决策20.6）
-  - n: subtotal
-    t: number
-    min: 0
-    req: true
-    source: OrderDetail.vue > subtotal 行小计求和
-  - n: shippingFee
-    t: number
-    min: 0
-    source: OrderDetail.vue > 运费(免邮); mock.js > shipping.fee
-  - n: giftWrap
-    t: bool
-    source: decision.md 决策28 结算物流步骤礼品包装选项（F-036）
-  - n: giftWrapFee
-    t: number
-    min: 0
-    source: decision.md 决策28 下单时快照的礼品包装固定费（后台可配置，按决策14锁汇换算）
-  - n: totalAmount
-    t: number
-    min: 0
-    req: true
-    js_guard: totalAmount === subtotal + shippingFee + giftWrapFee - 优惠减免
-    source: Orders.vue > 金额列; OrderDetail.vue > 合计
-  - n: couponId
-    t: Long
-    source: Promotions.vue > 优惠券核销 [INFERRED]
-  - n: paymentMethod
-    t: str
-    maxlen: 32
-    source: Orders.vue > 支付方式列 Stripe/PayPal/Apple Pay/Klarna/Afterpay/Google Pay；decision.md
-      决策25 Stripe Payment Element 承载卡/Apple Pay/Google Pay/Klarna/Afterpay，PayPal
-      置灰 coming soon
-  - n: addressSnapshot
-    t: json
-    req: true
-    source: OrderDetail.vue > 收货地址面板(下单时快照)
-  - n: country
-    t: str
-    maxlen: 64
-    js_guard: 列表展示派生字段：取 addressSnapshot.country，AdminOrderListItem DTO 经列表 SQL join/子查询提供，不新增存储列
-    source: 'key_decisions D6 Orders 表格列「地区」替换「币种」 + D12 AdminOrderListItem DTO 扩展
-      country（地址快照） [INFERRED: 派生]'
-  - n: itemCount
-    t: int
-    min: 0
-    js_guard: 列表展示派生字段：OrderLine 按 orderId 计数子查询，避免前端 N+1，不落库
-    source: 'key_decisions D6 Orders 表格列「商品数」替换「承运」 + D12 AdminOrderListItem DTO 扩展
-      itemCount（订单行计数） [INFERRED: 派生]'
-  - n: carrier
-    t: enum
-    vals:
-    - FedEx International Priority
-    - UPS Worldwide Express
-    - DHL Express
-    source: OrderDetail.vue > 发货面板承运方 select
-  - n: trackingNo
-    t: str
-    maxlen: 64
-    source: OrderDetail.vue > tracking 运单号
-  - n: expiresAt
-    t: datetime
-    js_guard: createdAt + 30min; 超时未支付自动取消并回补库存
-    source: 业务上下文确认30分钟超时 [INFERRED]
-  - n: paidAt
-    t: datetime
-    source: OrderDetail.vue > o.payment.time 支付时间
-  - n: shippedAt
-    t: datetime
-    source: OrderDetail.vue > 状态时间线 [INFERRED]
-  - n: completedAt
-    t: datetime
-    source: OrderDetail.vue > 状态时间线 [INFERRED]
-  - n: createdAt
-    t: datetime
-    req: true
-    source: Orders.vue > 下单时间列
-  relations:
-  - to: Customer
-    type: n1
-  - to: Coupon
-    type: n1
-- id: OrderLine
-  desc: 订单行（商品/SKU 快照，定制款携带定制尺寸数据）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: orderId
-    t: Long
-    req: true
-    source: OrderDetail.vue > o.lines
-  - n: productId
-    t: Long
-    req: true
-    source: OrderDetail.vue > 商品明细行
-  - n: skuId
-    t: Long
-    source: OrderDetail.vue > l.sku; 定制款可空 [INFERRED]
-  - n: productName
-    t: str
-    req: true
-    maxlen: 128
-    source: OrderDetail.vue > l.name 快照
-  - n: skuCode
-    t: str
-    maxlen: 64
-    source: OrderDetail.vue > l.sku 'AURELIA-IVORY-US6'
-  - n: color
-    t: str
-    maxlen: 32
-    source: OrderDetail.vue > l.color
-  - n: size
-    t: str
-    maxlen: 16
-    source: OrderDetail.vue > l.size
-  - n: qty
-    t: int
-    req: true
-    min: 1
-    source: OrderDetail.vue > l.qty 数量列
-  - n: unitPrice
-    t: number
-    req: true
-    min: 0
-    source: OrderDetail.vue > l.price 单价列
-  - n: img
-    t: str
-    maxlen: 512
-    source: OrderDetail.vue > l.img 快照
-  - n: customSizeData
-    t: json
-    source: 业务上下文确认定制尺寸 [INFERRED]
-  relations:
-  - to: Order
-    type: n1
-  - to: Product
-    type: n1
-  - to: Sku
-    type: n1
-- id: Payment
-  desc: 支付单（Stripe PaymentIntent，webhook 异步回调驱动状态）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: orderId
-    t: Long
-    req: true
-    source: OrderDetail.vue > 支付信息面板
-  - n: provider
-    t: enum
-    vals:
-    - stripe
-    req: true
-    source: 业务上下文确认 Stripe 沙箱 [INFERRED]
-  - n: paymentIntentId
-    t: str
-    maxlen: 64
-    source: 业务上下文确认 PaymentIntent+webhook [INFERRED]
-  - n: amount
-    t: number
-    req: true
-    min: 0
-    source: mock.js > orderDetail.payment.paid
-  - n: currency
-    t: enum
-    vals:
-    - USD
-    - CAD
-    - AUD
-    - GBP
-    req: true
-    source: mock.js > orderDetail.payment.currency
-  - n: status
-    t: enum
-    vals:
-    - created
-    - processing
-    - succeeded
-    - failed
-    - refunded
-    req: true
-    source: 业务上下文确认 PaymentIntent 生命周期 [INFERRED]
-  - n: cardSummary
-    t: str
-    maxlen: 64
-    source: OrderDetail.vue > 'Stripe · Visa ···4242'
-  - n: paidAt
-    t: datetime
-    source: OrderDetail.vue > 支付时间
-  relations:
-  - to: Order
-    type: n1
-- id: Refund
-  desc: 退款工单（关联订单，审核通过后执行 Stripe 退款；行内同意/拒绝审批，拒绝必须填写拒绝原因）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: refundNo
-    t: str
-    req: true
-    maxlen: 32
-    source: field-inventory FLD-REFUNDS-001 工单号; prototype/portal-admin/src/views/Refunds.vue
-      > r.id 工单号列
-  - n: orderId
-    t: Long
-    req: true
-    source: field-inventory FLD-REFUNDS-002 关联订单; Refunds.vue > r.order; OrderDetail.vue
-      > 发起退款按钮
-  - n: customerId
-    t: Long
-    req: true
-    source: field-inventory FLD-REFUNDS-003 客户; Refunds.vue > r.customer
-  - n: amount
-    t: number
-    req: true
-    min: 0
-    js_guard: amount <= Order.totalAmount
-    source: field-inventory FLD-REFUNDS-004 退款金额; Refunds.vue > cur[r.currency]+r.amount
-  - n: reason
-    t: str
-    maxlen: 255
-    source: field-inventory FLD-REFUNDS-005 退款原因（买家申请原因）; Refunds.vue > r.reason
-  - n: rejectReason
-    t: str
-    maxlen: 255
-    js_guard: status === 'rejected' 时必填且非空；行内拒绝按钮位置展开输入框填写后提交
-    source: key_decisions D7 拒绝时按钮位置行内展开输入框填原因（后端拒绝原因必填约束不变） + page_diff_summary Refunds
-      impl_extra 拒绝原因必填
-  - n: status
-    t: enum
-    vals:
-    - pending
-    - approved
-    - rejected
-    req: true
-    js_guard: r.status === 'pending' 时才允许同意/拒绝操作，否则展示「已处理」
-    source: field-inventory FLD-REFUNDS-007/009/010/011 状态 pending/approved/rejected;
-      Refunds.vue > tabs/tone/label + v-if r.status==='pending'
-  - n: appliedAt
-    t: datetime
-    req: true
-    source: field-inventory FLD-REFUNDS-006 申请时间; Refunds.vue > r.date
-  - n: currency
-    t: enum
-    vals:
-    - USD
-    - CAD
-    - AUD
-    - GBP
-    req: true
-    source: Refunds.vue > cur 映射表 USD/CAD/AUD/GBP
-  - n: stripeRefundId
-    t: str
-    source: 业务上下文 Stripe 退款沙箱 [INFERRED]
-  - n: returnTrackingNo
-    t: str
-    maxlen: 64
-    source: decision.md 决策31 已发货退货审核制：登记退货物流单号（选填），不建 RMA 状态节点
-  relations:
-  - to: Order
-    type: n1
-  - to: Customer
-    type: n1
-- id: Coupon
-  desc: 优惠券（折扣/满减/包邮三类，限量发放计数）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: code
-    t: str
-    req: true
-    maxlen: 32
-    pattern: ^[A-Z0-9]+$
-    source: mock.js > coupons.code 'WELCOME15'
-  - n: name
-    t: str
-    req: true
-    maxlen: 64
-    source: Promotions.vue > c.name
-  - n: type
-    t: enum
-    vals:
-    - discount
-    - fixed_amount
-    - free_shipping
-    req: true
-    source: mock.js > coupons.type 折扣/满减/包邮
-  - n: value
-    t: str
-    req: true
-    maxlen: 32
-    source: Promotions.vue > c.value '15% OFF'/'$50 OFF'
-  - n: minAmount
-    t: number
-    min: 0
-    source: Promotions.vue > 门槛 满 $min/无门槛
-  - n: totalLimit
-    t: int
-    min: 0
-    source: Promotions.vue > c.total(>9999 视为不限)
-  - n: usedCount
-    t: int
-    min: 0
-    js_guard: usedCount <= totalLimit
-    source: Promotions.vue > 已用 used/total
-  - n: startAt
-    t: datetime
-    source: mock.js > coupons.start
-  - n: endAt
-    t: datetime
-    js_guard: endAt > startAt
-    source: mock.js > coupons.end
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - scheduled
-    - active
-    - expiring
-    - expired
-    req: true
-    source: Promotions.vue > tone/label 映射 active/expiring/draft/scheduled; expired
-      [INFERRED]
-  relations: []
-- id: FlashSale
-  desc: 闪购活动（限时秒杀，到期自动下线）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: name
-    t: str
-    req: true
-    maxlen: 64
-    source: Promotions.vue > f.name 活动名称
-  - n: discount
-    t: str
-    req: true
-    maxlen: 32
-    source: Promotions.vue > f.discount '最高 40% OFF'
-  - n: startAt
-    t: datetime
-    req: true
-    source: mock.js > flashSales.start
-  - n: endAt
-    t: datetime
-    req: true
-    js_guard: endAt > startAt; 到期后定时任务自动下线
-    source: mock.js > flashSales.end; 业务上下文确认自动下线 [INFERRED]
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - scheduled
-    - active
-    - ended
-    req: true
-    source: Promotions.vue > status active/scheduled; draft/ended [INFERRED]
-  relations:
-  - to: Product
-    type: nm
-- id: Lookbook
-  desc: Lookbook 画册（主题内容集合）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: title
-    t: str
-    req: true
-    maxlen: 128
-    source: mock.js > lookbooks.title
-  - n: theme
-    t: str
-    maxlen: 32
-    source: mock.js > lookbooks.theme Vineyard/Beach/Forest
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: ContentLookbook.vue > StatusBadge published/draft
-  relations:
-  - to: Product
-    type: nm
-- id: Guide
-  desc: Wedding Guide 备婚指南（按备婚阶段组织）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: phase
-    t: str
-    req: true
-    maxlen: 32
-    source: mock.js > guides.phase 'Phase 1'
-  - n: timeframe
-    t: str
-    maxlen: 64
-    source: mock.js > guides.timeframe '12+ months out'
-  - n: title
-    t: str
-    req: true
-    maxlen: 128
-    source: mock.js > guides.title
-  - n: tasksCount
-    t: int
-    min: 0
-    source: mock.js > guides.tasks
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: ContentLookbook.vue > guides StatusBadge published/draft
-  relations: []
-- id: RealWedding
-  desc: 真实婚礼案例（Shop the Look 关联商品）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: couple
-    t: str
-    req: true
-    maxlen: 64
-    source: mock.js > realWeddings.couple 'Emma & James'
-  - n: location
-    t: str
-    maxlen: 128
-    source: mock.js > realWeddings.location
-  - n: theme
-    t: str
-    maxlen: 32
-    source: mock.js > realWeddings.theme
-  - n: weddingDate
-    t: str
-    maxlen: 16
-    source: mock.js > realWeddings.date '2025-06'
-  - n: cover
-    t: str
-    maxlen: 512
-    source: mock.js > realWeddings.cover
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: ContentWeddings.vue > StatusBadge published/draft
-  relations:
-  - to: Product
-    type: nm
-- id: CustomTag
-  desc: 自定义标签（营销/导航维度，多选挂商品；详细建模归 Categories 批次）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: name
-    t: str
-    req: true
-    maxlen: 64
-    source: ProductEdit.vue > tagsByDimension tag.name
-  - n: dimensionId
-    t: str
-    maxlen: 32
-    source: ProductEdit.vue > tagDimensions dim.id
-  relations: []
-- id: Review
-  desc: 商品评价，消费端提交、管理端审核，支持精选与官方回复
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
-  - n: product_id
-    t: Long
-    req: true
-    source: Reviews.vue r.productId
-  - n: user_id
-    t: Long
-    req: true
-    source: 业务上下文 按 user_id 隔离 [INFERRED]
-  - n: customer_name
-    t: str
-    source: Reviews.vue r.customer
-  - n: rating
-    t: int
-    req: true
-    min: 1
-    max: 5
-    source: Reviews.vue r.rating 五星组件
-  - n: content
-    t: str
-    source: Reviews.vue r.content
-  - n: status
-    t: enum
-    vals:
-    - pending
-    - approved
-    - rejected
-    req: true
-    js_guard: r.status === 'pending' 时才显示通过/拒绝按钮
-    source: Reviews.vue statusChips + approveReview/rejectReview
-  - n: featured
-    t: bool
-    js_guard: featured 仅 status=='approved' 可为 true；rejectReview/batchSet 非 approved
-      时强制 featured=false
-    source: Reviews.vue setFeatured/batchSet
-  - n: submitted_at
-    t: datetime
-    source: Reviews.vue r.date 提交时间列
-  - n: reply_author
-    t: str
-    source: Reviews.vue saveReply author 'Dreamy Team'
-  - n: reply_content
-    t: str
-    js_guard: detailReview.status=='approved' 才可创建/编辑官方回复且 replyDraft.trim() 非空
-    source: Reviews.vue saveReply/deleteReply
-  - n: reply_time
-    t: datetime
-    source: Reviews.vue saveReply time
-  relations:
-  - to: Product
-    type: n1
-  - to: User
-    type: n1
-- id: ReviewImage
-  desc: 评价买家秀图片，可单独驳回或恢复前台展示
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
-  - n: review_id
-    t: Long
-    req: true
-    source: 'Reviews.vue r.images [INFERRED: 子表外键]'
-  - n: url
-    t: str
-    req: true
-    source: Reviews.vue img.url
-  - n: rejected
-    t: bool
-    js_guard: rejected=true 时前台不展示该图
-    source: Reviews.vue rejectImage/restoreImage
-  relations:
-  - to: Review
-    type: n1
-- id: ProductQuestion
-  desc: 商品 Q&A 提问，管理端回答并控制前台可见性
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
-  - n: product_id
-    t: Long
-    req: true
-    source: Reviews.vue q.productId
-  - n: asker
-    t: str
-    source: Reviews.vue q.asker
-  - n: question
-    t: str
-    req: true
-    source: Reviews.vue q.question
-  - n: asked_at
-    t: datetime
-    source: Reviews.vue q.date
-  - n: answer
-    t: str
-    js_guard: answerDraft.trim() 非空才能保存
-    source: Reviews.vue saveAnswer
-  - n: answer_time
-    t: datetime
-    source: Reviews.vue q.answerTime
-  - n: visible
-    t: enum
-    vals:
-    - visible
-    - hidden
-    source: 'Reviews.vue Toggle q.visible [INFERRED: UI toggle 映射后端可见性枚举，需后端确认]'
-  relations:
-  - to: Product
-    type: n1
-- id: Carrier
-  desc: 物流承运方，含覆盖区域、时效与启用状态
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
-  - n: name
-    t: str
-    req: true
-    source: Shipping.vue c.name
-  - n: zones
-    t: str
-    source: Shipping.vue c.zones
-  - n: lead_time
-    t: str
-    source: Shipping.vue c.leadTime
-  - n: status
-    t: enum
-    vals:
-    - enabled
-    - disabled
-    req: true
-    source: 'Shipping.vue Toggle c.enabled [INFERRED: UI enabled toggle 映射后端 status
-      枚举，需后端确认]'
-  relations: []
-- id: ShippingRate
-  desc: 国际邮费分区运费规则，订单结算依赖其运费计算
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend java MyBatis-Plus Long 自增主键
-  - n: zone
-    t: str
-    req: true
-    source: Shipping.vue r.zone 区域列
-  - n: fee_under
-    t: decimal
-    min: 0
-    source: Shipping.vue r.under 基础邮费列
-  - n: fee_over
-    t: decimal
-    min: 0
-    source: Shipping.vue r.over 满额包邮列
-  - n: threshold
-    t: decimal
-    min: 0
-    source: Shipping.vue r.threshold 门槛列
-  relations: []
-- id: ProductTranslation
-  desc: Product 多语言文案附表（locale=es/fr，EN 存主表；唯一键 productId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: productId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: name
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: subtitle
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: description
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: seoTitle
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: seoDescription
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Product
-    type: n1
-- id: CategoryTranslation
-  desc: Category 多语言文案附表（locale=es/fr，EN 存主表；唯一键 categoryId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: categoryId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: name
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Category
-    type: n1
-- id: AttributeDefTranslation
-  desc: AttributeDef 多语言文案附表（locale=es/fr，EN 存主表；唯一键 attributeDefId+locale；缺翻译消费端回退
-    EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: attributeDefId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: label
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: options
-    t: json
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: AttributeDef
-    type: n1
-- id: TagTranslation
-  desc: Tag 多语言文案附表（locale=es/fr，EN 存主表；唯一键 tagId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: tagId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: label
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Tag
-    type: n1
-- id: CustomTagTranslation
-  desc: CustomTag 多语言文案附表（locale=es/fr，EN 存主表；唯一键 customTagId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: customTagId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: label
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: CustomTag
-    type: n1
-- id: TagDimensionTranslation
-  desc: TagDimension 多语言文案附表（locale=es/fr，EN 存主表；唯一键 tagDimensionId+locale；缺翻译消费端回退
-    EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: tagDimensionId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: name
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: TagDimension
-    type: n1
-- id: BannerTranslation
-  desc: Banner 多语言文案附表（locale=es/fr，EN 存主表；唯一键 bannerId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: bannerId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: title
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: subtitle
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: ctaText
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Banner
-    type: n1
-- id: BlogPostTranslation
-  desc: BlogPost 多语言文案附表（locale=es/fr，EN 存主表；唯一键 blogPostId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: blogPostId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: title
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: excerpt
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: body
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: seoTitle
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: seoDescription
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: BlogPost
-    type: n1
-- id: LookbookTranslation
-  desc: Lookbook 多语言文案附表（locale=es/fr，EN 存主表；唯一键 lookbookId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: lookbookId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: title
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: description
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Lookbook
-    type: n1
-- id: GuideTranslation
-  desc: Guide 多语言文案附表（locale=es/fr，EN 存主表；唯一键 guideId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: guideId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: title
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: body
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Guide
-    type: n1
-- id: RealWeddingTranslation
-  desc: RealWedding 多语言文案附表（locale=es/fr，EN 存主表；唯一键 realWeddingId+locale；缺翻译消费端回退
-    EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: realWeddingId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: title
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: story
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: RealWedding
-    type: n1
-- id: CouponTranslation
-  desc: Coupon 多语言文案附表（locale=es/fr，EN 存主表；唯一键 couponId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: couponId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: name
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: description
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: Coupon
-    type: n1
-- id: FlashSaleTranslation
-  desc: FlashSale 多语言文案附表（locale=es/fr，EN 存主表；唯一键 flashSaleId+locale；缺翻译消费端回退 EN）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: flashSaleId
-    t: Long
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  - n: locale
-    t: enum
-    vals:
-    - es
-    - fr
-    req: true
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）（EN 基准语存主表，附表仅 ES/FR，缺翻译回退 EN）
-  - n: name
-    t: str
-    source: decision.md 决策13 内容多语言（2026-06-10 细化轮）
-  relations:
-  - to: FlashSale
-    type: n1
-- id: ExchangeRate
-  desc: 汇率表（USD 基准，管理端可维护，替换前端硬编码汇率；下单时按当前汇率锁定写入 Order.exchangeRate）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策14 多币种结算
-  - n: currency
-    t: enum
-    vals:
-    - USD
-    - EUR
-    - CAD
-    - AUD
-    - GBP
-    req: true
-    source: decision.md 决策14（前端现有 USD/CAD/AUD/GBP + 补 EUR）
-  - n: rate
-    t: decimal
-    req: true
-    min: 0
-    source: decision.md 决策14（相对 USD 的汇率，USD 恒为 1）
-  - n: updatedBy
-    t: Long
-    source: decision.md 决策14 管理端维护
-  - n: updatedAt
-    t: datetime
-    source: decision.md 决策14
-  relations: []
-- id: MailRecord
-  desc: 交易性邮件发送记录（MQ 订单事件消费者产出；按 orderId+type 幂等防重发；失败重试，按用户 locale 三语渲染）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: decision.md 决策16 交易性邮件
-  - n: type
-    t: enum
-    vals:
-    - order_confirmed
-    - shipped
-    - refund_result
-    req: true
-    source: decision.md 决策16 三类交易邮件
-  - n: orderId
-    t: Long
-    req: true
-    source: decision.md 决策16（orderId+type 唯一幂等键）
-  - n: recipient
-    t: str
-    req: true
-    source: decision.md 决策16
-  - n: locale
-    t: enum
-    vals:
-    - en
-    - es
-    - fr
-    req: true
-    source: decision.md 决策16 邮件按用户 locale 渲染
-  - n: status
-    t: enum
-    vals:
-    - pending
-    - sent
-    - failed
-    - dead
-    req: true
-    source: decision.md 决策16（failed 重试，超限转 dead）
-  - n: retryCount
-    t: int
-    min: 0
-    source: decision.md 决策16
-  - n: sentAt
-    t: datetime
-    source: decision.md 决策16
-  relations:
-  - to: Order
-    type: n1
-- id: WishlistItem
-  desc: 收藏条目（登录用户专属，后端持久化，决策18；未登录点击收藏引导登录）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: customerId
-    t: Long
-    req: true
-    source: decision.md 决策18 登录用户专属，BE-DIM-6 user_id 隔离
-  - n: productId
-    t: Long
-    req: true
-    js_guard: customerId+productId 唯一，重复收藏幂等返回已收藏
-    source: prototype/app/account/wishlist/page.tsx > 收藏网格 + feature-map F-047
-  relations:
-  - to: Customer
-    type: n1
-  - to: Product
-    type: n1
-- id: Showroom
-  desc: 虚拟陈列室（新娘创建的伴娘团协作空间，决策20；feature-map F-066~071）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: ownerId
-    t: Long
-    req: true
-    source: prototype/app/showroom/page.tsx > 我的 Showroom 列表（新娘 customerId）
-  - n: name
-    t: str
-    req: true
-    maxlen: 64
-    source: prototype/app/showroom/page.tsx > 创建弹窗命名（如 Sarah's Bridal Party）
-  - n: weddingDate
-    t: date
-    source: prototype/app/showroom/page.tsx > 创建弹窗婚期 + F-077 结算自动带入
-  - n: inviteToken
-    t: str
-    req: true
-    maxlen: 64
-    js_guard: 不可猜 UUID；新娘重置后旧 token 作废（决策20.2）
-    source: decision.md 决策20.2 邀请 token + guest JWT
-  relations:
-  - to: Customer
-    type: n1
-- id: ShowroomItem
-  desc: Showroom 收藏款式（含颜色，决策20；F-067 Add to Showroom）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: showroomId
-    t: Long
-    req: true
-    source: prototype/components/showroom/add-to-showroom-modal.tsx > 选择目标 Showroom
-  - n: productId
-    t: Long
-    req: true
-    source: prototype/components/showroom/add-to-showroom-modal.tsx > PDP/商品卡片加入
-  - n: color
-    t: str
-    maxlen: 64
-    js_guard: 同 showroom 内 productId+color 唯一
-    source: prototype/components/showroom/add-to-showroom-modal.tsx > 选择颜色后加入
-  relations:
-  - to: Showroom
-    type: n1
-  - to: Product
-    type: n1
-- id: ShowroomMember
-  desc: Showroom 成员（免注册访客凭邀请 token+昵称参与；新娘可指派款式并发提醒，决策20）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: showroomId
-    t: Long
-    req: true
-    source: prototype/app/showroom/[id]/page.tsx > 成员列表
-  - n: nickname
-    t: str
-    req: true
-    maxlen: 32
-    js_guard: 同 showroom 内昵称唯一（投票/留言去重身份）
-    source: prototype/app/showroom/[id]/page.tsx > 访客输入昵称即可参与（F-068）
-  - n: email
-    t: str
-    maxlen: 254
-    source: decision.md 决策20.5 新娘指派时填写，用于提醒邮件
-  - n: assignedItemId
-    t: Long
-    source: prototype/app/showroom/page.tsx > 新娘为伴娘指派款式/颜色（F-070）
-  - n: assignStatus
-    t: enum
-    vals:
-    - unassigned
-    - assigned
-    - reminded
-    - ordered
-    req: true
-    source: prototype/app/showroom/page.tsx > 成员指派状态 + 发送提醒（F-070/F-071）
-  - n: linkedCustomerId
-    t: Long
-    source: decision.md 决策20.2 访客下单时才要求登录，登录后回填关联（F-068）
-  relations:
-  - to: Showroom
-    type: n1
-  - to: ShowroomItem
-    type: n1
-  - to: Customer
-    type: n1
-- id: ShowroomVote
-  desc: 款式投票（喜欢/不喜欢，按成员去重，决策20；F-069）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: showroomItemId
-    t: Long
-    req: true
-    source: prototype/app/showroom/[id]/page.tsx > 每款式投票（票数聚合展示）
-  - n: memberId
-    t: Long
-    req: true
-    js_guard: memberId+showroomItemId 唯一（每成员每款一票，重复投票覆盖）
-    source: decision.md 决策20.2 投票按 member 去重
-  - n: vote
-    t: enum
-    vals:
-    - like
-    - dislike
-    req: true
-    source: prototype/app/showroom/[id]/page.tsx > 喜欢/不喜欢 投票（F-069）
-  relations:
-  - to: ShowroomItem
-    type: n1
-  - to: ShowroomMember
-    type: n1
-- id: ShowroomComment
-  desc: 款式留言（昵称+留言列表，决策20；F-069）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: showroomItemId
-    t: Long
-    req: true
-    source: prototype/app/showroom/[id]/page.tsx > 留言区挂款式
-  - n: memberId
-    t: Long
-    req: true
-    source: prototype/app/showroom/[id]/page.tsx > 留言带昵称
-  - n: content
-    t: str
-    req: true
-    maxlen: 500
-    source: prototype/app/showroom/[id]/page.tsx > 留言列表（F-069）
-  relations:
-  - to: ShowroomItem
-    type: n1
-  - to: ShowroomMember
-    type: n1
-- id: BrowseHistory
-  desc: 浏览历史（登录用户浏览商品详情时 upsert 记录，每用户保留最近 50 条滚动清理，决策23；F-048）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: customerId
-    t: Long
-    req: true
-    source: decision.md 决策23 登录用户记录，匿名不记录
-  - n: productId
-    t: Long
-    req: true
-    js_guard: customerId+productId 唯一，重复浏览 upsert 更新 viewedAt
-    source: prototype feature-map F-048 Recently Viewed 横滑
-  - n: viewedAt
-    t: datetime
-    req: true
-    source: decision.md 决策23 按 viewedAt 倒序拉取
-  relations:
-  - to: Customer
-    type: n1
-  - to: Product
-    type: n1
-- id: NewsletterSubscriber
-  desc: Newsletter 订阅记录（仅落表收集，不发码不发邮件，决策26；F-008 页脚 + F-056 弹窗/Exit Intent）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: email
-    t: str
-    req: true
-    maxlen: 255
-    pattern: email
-    js_guard: email 唯一，重复订阅幂等返回成功
-    source: prototype/components/marketing/newsletter-modal.tsx + site-footer.tsx
-      订阅输入框
-  - n: source
-    t: enum
-    vals:
-    - footer
-    - modal
-    - exit_intent
-    req: true
-    source: decision.md 决策26 订阅来源
-  - n: locale
-    t: enum
-    vals:
-    - en
-    - es
-    - fr
-    req: true
-    source: decision.md 决策26 订阅时页面语言（决策27 路径前缀）
-  - n: subscribedAt
-    t: datetime
-    req: true
-    source: decision.md 决策26 订阅时间
-  relations: []
-- id: ContactMessage
-  desc: 联系表单消息（落表收集，管理端本期不做查看页，决策30；F-058）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: MEMORY project_dreamy_backend_refactor > Long 主键
-  - n: name
-    t: str
-    req: true
-    maxlen: 100
-    source: prototype/app/contact/page.tsx 表单姓名
-  - n: email
-    t: str
-    req: true
-    maxlen: 255
-    pattern: email
-    source: prototype/app/contact/page.tsx 表单邮箱
-  - n: subject
-    t: str
-    maxlen: 200
-    source: prototype/app/contact/page.tsx 表单主题
-  - n: message
-    t: str
-    req: true
-    maxlen: 5000
-    source: prototype/app/contact/page.tsx 表单内容
-  - n: submittedAt
-    t: datetime
-    req: true
-    source: decision.md 决策30 提交时间
-  relations: []
-- id: OperationLog
-  desc: 管理端操作日志（批量操作与导出动作的审计记录，含逐条容错结果清单）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java-gradle MyBatis-Plus Long 自增主键 [INFERRED]
-  - n: adminId
-    t: Long
-    req: true
-    source: key_decisions D10/D11 记录操作日志（操作者） [INFERRED]
-  - n: action
-    t: enum
-    vals:
-    - batch_publish
-    - batch_unpublish
-    - batch_recommend
-    - batch_delete
-    - export_products
-    - export_orders
-    req: true
-    source: key_decisions D4/D6 批量操作与导出按钮 + D10 批量端点 + D11 CSV 导出端点
-  - n: targetType
-    t: str
-    maxlen: 32
-    source: key_decisions D10 批量端点作用对象（Product/Order） [INFERRED]
-  - n: targetIds
-    t: json
-    source: key_decisions D10 一次请求 N 个 id
-  - n: result
-    t: json
-    js_guard: 逐条容错：记录成功/失败清单（删除失败项复用 409509 校验码）
-    source: key_decisions D10 逐条容错返回成功/失败清单
-  - n: rowCount
-    t: int
-    min: 0
-    source: key_decisions D11 导出按当前筛选条件全量导出，设行数上限
-  - n: createdAt
-    t: datetime
-    req: true
-    source: key_decisions D10/D11 记录操作日志 [INFERRED]
-  relations: []
-- id: PageState
-  desc: 前端页面 UI 状态伪实体（不落库），为本批次 15 个管理端页面的页面级状态机提供建模锚点
-  fields:
-  - n: page_id
-    t: str
-    req: true
-    source: pd-explore.local.md > phase_3_1.batches[portal-admin-1].snapshots 15 页
-      page_id
-  - n: ui_state
-    t: enum
-    vals:
-    - loading
-    - loaded
-    - empty
-    - error
-    source: page_diff_summary impl_extra 骨架屏/空态/错误态/重试 + 各页 EmptyState 组件
-  relations: []
-- id: lookbook
-  desc: Lookbook 主题画册，聚合商品锚点的 CMS 内容
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=l.id
-  - n: title
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.title }}
-  - n: theme
-    t: str
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.theme }}
-  - n: items
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ l.items }} 件商品锚点
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge l.status
-      === 'published'
-  relations:
-  - to: product
-    type: nm
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > 商品锚点 [INFERRED]
-- id: style_guide
-  desc: Wedding Guides 婚礼筹备时间轴指南条目
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > v-for :key=g.id
-  - n: title
-    t: str
-    req: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.title }}
-  - n: timeframe
-    t: str
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.timeframe
-      }}
-  - n: phase
-    t: str
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.phase }}
-  - n: tasks
-    t: int
-    min: 0
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > {{ g.tasks }} 个待办任务
-  - n: status
-    t: enum
-    vals:
-    - draft
-    - published
-    req: true
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge g.status
-      === 'published'
-  - n: sort_order
-    t: int
-    min: 1
-    source: prototype/portal-admin/src/views/ContentLookbook.vue > 序号 {{ i + 1 }}
-      [INFERRED]
-  relations: []
-- id: ExternalGatewayConfig
-  desc: 外部系统网关配置（单表多类型：AI 网关/物流网关/支付网关等，type 区分）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java [INFERRED]
-  - n: gateway_type
-    t: enum
-    vals:
-    - 1
-    - 2
-    - 3
-    req: true
-    source: 'user requirement: 单表多类型 AI(1)/LOGISTICS(2)/PAYMENT(3)'
-  - n: name
-    t: string
-    req: true
-    max: 64
-    source: 'user requirement: 配置名称（如 OpenAI官方/Azure代理）'
-  - n: protocol
-    t: enum
-    vals:
-    - 1
-    req: true
-    source: 'user requirement: 当前仅 openai(1)，预留扩展其他协议'
-  - n: base_url
-    t: string
-    req: true
-    max: 255
-    source: 'user requirement: 网关 URL（OpenAI-compatible base）'
-  - n: api_key_encrypted
-    t: string
-    req: true
-    max: 512
-    source: 'user requirement: API Key 加密存储，前端不可见'
-  - n: default_model
-    t: string
-    max: 128
-    source: 'user requirement: 全局默认模型（两级模型选择的默认值）'
-  - n: model_list
-    t: json
-    source: 'user requirement: 自动发现的可用模型列表（/v1/models 拉取缓存）'
-  - n: model_refresh_strategy
-    t: enum
-    vals:
-    - 1
-    - 2
-    source: 'user requirement: manual(1)手动刷新/scheduled(2)定时刷新'
-  - n: model_refresh_interval_min
-    t: int
-    min: 1
-    source: 'user requirement: 定时刷新间隔分钟数（strategy=scheduled 时生效）'
-  - n: models_synced_at
-    t: timestamp
-    source: 'user requirement: 上次模型列表拉取时间'
-  - n: enabled
-    t: boolean
-    req: true
-    source: 'user requirement: 是否启用该网关配置'
-  - n: extra_config
-    t: json
-    source: 'user requirement: 协议扩展配置（预留非 OpenAI 协议字段）'
-  - n: created_at
-    t: timestamp
-    source: standard audit field [INFERRED]
-  - n: updated_at
-    t: timestamp
-    source: standard audit field [INFERRED]
-  constraints:
-  - type: unique
-    expr: (gateway_type, name)
-    desc: 同类型网关下配置名称唯一
-    source: 'user requirement: 多配置区分'
-  - type: js_guard
-    expr: COUNT(enabled=true WHERE gateway_type=AI) <= 1 视为默认网关
-    desc: AI 类型可有多个配置，但同时只有一个作为当前默认（enabled 语义）
-    source: 'user requirement: 多配置切换'
-- id: AiTranslationLog
-  desc: AI 翻译调用记录（每次翻译请求的原文/译文/耗时/token/状态审计）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java [INFERRED]
-  - n: gateway_config_id
-    t: Long
-    req: true
-    source: 'user requirement: 关联使用的网关配置'
-  - n: model
-    t: string
-    req: true
-    max: 128
-    source: 'user requirement: 实际调用的模型名'
-  - n: source_lang
-    t: string
-    req: true
-    max: 8
-    source: 'user requirement: 源语言（en 主字段）'
-  - n: target_lang
-    t: string
-    req: true
-    max: 8
-    source: 'user requirement: 目标语言（es/fr）'
-  - n: source_text
-    t: text
-    req: true
-    source: 'user requirement: 原文'
-  - n: translated_text
-    t: text
-    source: 'user requirement: 译文（失败时为空）'
-  - n: custom_requirement
-    t: text
-    source: 'user requirement: 用户追加的自定义翻译要求'
-  - n: biz_type
-    t: string
-    max: 32
-    source: 'user requirement: 业务来源类型（product/category/tag/banner...）'
-  - n: biz_ref
-    t: string
-    max: 64
-    source: 'user requirement: 业务来源标识（如 product_id，便于溯源）'
-  - n: status
-    t: enum
-    vals:
-    - 1
-    - 2
-    req: true
-    source: 'user requirement: success(1)/failed(2)'
-  - n: error_message
-    t: string
-    max: 512
-    source: 'user requirement: 失败原因（status=failed 时）'
-  - n: latency_ms
-    t: int
-    min: 0
-    source: 'user requirement: 调用耗时毫秒'
-  - n: token_usage
-    t: json
-    source: 'user requirement: token 消耗（prompt/completion/total）'
-  - n: operator_id
-    t: Long
-    source: 'user requirement: 操作人（管理员 id）'
-  - n: created_at
-    t: timestamp
-    source: standard audit field [INFERRED]
-  relations:
-  - to: ExternalGatewayConfig
-    type: n1
-    source: 'user requirement: gateway_config_id 逻辑外键'
-  constraints:
-  - type: index
-    expr: (biz_type, biz_ref)
-    desc: 按业务来源溯源翻译记录
-    source: 'user requirement: 调用记录可按业务检索'
-  - type: index
-    expr: (created_at)
-    desc: 按时间倒序分页查询调用记录
-    source: 'user requirement: 调用记录列表'
-- id: AiTranslationGlossary
-  desc: 婚纱礼服领域翻译术语表（EN→ES/FR 标准译法，翻译时注入 system prompt 保证术语一致性）
-  fields:
-  - n: id
-    t: Long
-    pk: true
-    source: project_tech_stack.backend=java [INFERRED]
-  - n: term_en
-    t: string
-    req: true
-    max: 128
-    source: 'user requirement: 英文术语（A-line/sweetheart neckline 等）'
-  - n: term_es
-    t: string
-    max: 128
-    source: 'user requirement: 西语标准译法'
-  - n: term_fr
-    t: string
-    max: 128
-    source: 'user requirement: 法语标准译法'
-  - n: category
-    t: string
-    max: 32
-    source: 'user requirement: 术语分类（廓形/领型/面料/工艺）'
-  - n: enabled
-    t: boolean
-    req: true
-    source: 'user requirement: 是否启用（注入 prompt）'
-  - n: created_at
-    t: timestamp
-    source: standard audit field [INFERRED]
-  - n: updated_at
-    t: timestamp
-    source: standard audit field [INFERRED]
-  constraints:
-  - type: unique
-    expr: (term_en)
-    desc: 英文术语唯一
-    source: 'user requirement: 术语去重'
+  - id: HomePageSection
+    desc: 首页区块配置聚合根，HomeBuilder 可视化编排对象。消费端首页按 sort_order 升序渲染所有 enabled=true 的区块。KD-16 修正：合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表）；KD-4 保存即发布无草稿态。GRD-W07 修正：extends LongAuditableEntity（基类提供 id/created_at/updated_at/version）；物理删除无 deleted_at（配置类误删可重建）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED]' + LongAuditableEntity 基类"}
+      - {n: section_type, t: enum, vals: [Hero, Announcement, ShopByColor, ThemeCards, ProductRail, EditorialFeature, Newsletter], req: true, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > b.type 7 种区块 + homeBlocks mock'}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > b.label 后台显示名称（如 Hero 主视觉）'}
+      - {n: enabled, t: Boolean, req: true, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle v-model=b.enabled + blocks.filter(x=>x.enabled)'}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/HomeBuilder.vue > move(i,dir) ChevronUp/Down 排序'}
+      - {n: data_json, t: JSON, source: 'GRD2-002 修正：区块配置数据。ShopByColor{count}, ThemeCards{count}, ProductRail{source(string enum [isNew,isBest,recommend]),limit,product_ids[]}, EditorialFeature{limit,wedding_ids[]}；Hero/Announcement 类型 data_json 为空（数据从 Banner/Announcement 域派生）；Newsletter 类型 data_json 为空（文案存 i18n_json JSON 列，KD-11+KD-16）'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{...}, es:{...}, fr:{...}}，字段随 section_type 变化（Newsletter: title/subtitle/cta_text；ShopByColor/ThemeCards/ProductRail/EditorialFeature: eyebrow/title/subtitle/cta_text）。使用 JacksonTypeHandler + @TableName(autoResultMap=true)（对齐 Category.attrOverrides 模式）。Hero/Announcement 类型 i18n_json 为 null（数据从 Banner/Announcement 域派生）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Banner, type: nm, source: 'KD-2 Hero 类型通过 Banner position=HERO 关联（不跨表查询，走 BannerService）'}
+      - {to: Taxonomy, type: nm, source: 'KD-8 ThemeCards 类型引用 Taxonomy type=theme（走 TaxonomyService）'}
+      - {to: Product, type: nm, source: 'KD-9 ProductRail source=recommend 时 data_json.product_ids 引用（走 ProductService）'}
+      - {to: RealWedding, type: nm, source: 'KD-10 EditorialFeature 引用 data_json.wedding_ids（走 WeddingService）'}
+    constraints:
+      - {type: index, expr: '(enabled, sort_order)', desc: '消费端按 sort_order 升序渲染 enabled=true 区块'}
+      - {type: js_guard, expr: 'section_type=Hero 时 data_json 应为空且 i18n_json 为 null（文案/图片/CTA 含第二 CTA 全部从 Banner position=HERO 派生，KD-14）', source: 'KD-2/KD-14'}
+      - {type: js_guard, expr: 'section_type=Announcement 时 data_json 应为空且 i18n_json 为 null（公告内容从 Announcement 域派生）', source: 'KD-7'}
+      - {type: js_guard, expr: 'section_type=Newsletter 时 data_json 应为空且 i18n_json 非空（title/subtitle/cta_text 文案存 i18n_json，KD-11+KD-16）', source: 'KD-11'}
+      - {type: js_guard, expr: 'section_type=ProductRail && data_json.source=recommend 时 data_json.product_ids 非空数组', source: 'KD-9'}
+      - {type: js_guard, expr: 'section_type=ProductRail 时 data_json.limit ∈ [1, 12]', source: 'prototype/portal-admin/src/views/HomeBuilder.vue > input type=number 展示数量'}
+      - {type: js_guard, expr: 'section_type=ShopByColor 时 data_json.count ∈ [1, 8]', source: 'prototype/portal-admin/src/views/HomeBuilder.vue > palette.slice(0, b.data.count) + mock palette 8 色'}
+
+  - id: NavigationItem
+    desc: 主导航项聚合根（NavigationConfig 主导航 & Mega Menu Tab）。link_type=taxonomy 时引用 Taxonomy（品类/主题），href 从派生；link_type=custom 时存 custom_href。mega_menu_json 内嵌列定义（KD-6 不单独建表）。KD-BE-5 引用 Taxonomy 通过 TaxonomyService 校验和派生。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。KD-16 修正：label i18n 走主表 i18n_json JSON 列（不建 NavigationTranslation 翻译表）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.label EN 基准'}
+      - {n: link_type, t: enum, vals: [taxonomy, custom], req: true, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.linkType taxonomy|custom'}
+      - {n: taxonomy_id, t: Long, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > item.taxonomyId（link_type=taxonomy 时引用 Taxonomy.id；逻辑外键，不跨表查询）'}
+      - {n: taxonomy_type, t: enum, vals: [category, theme], source: 'prototype/portal-admin/src/views/NavigationConfig.vue > taxonomyOptions type=category|theme（派生字段，标识引用的是品类还是主题）'}
+      - {n: custom_href, t: String, maxlen: 255, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > linkTargetLabel item.href（link_type=custom 时自定义 URL）'}
+      - {n: mega_menu_json, t: JSON, source: 'KD-6 Mega Menu 列数组 [{title, source, ref_id, ref_type, custom_links[], sort_order}]；source=category-children|taxonomy-type|custom'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{label, mega_menu_titles:{col_idx:title}}, es:{...}, fr:{...}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐 HomePageSection.enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > Bars3Icon 拖拽手柄'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Taxonomy, type: nm, source: 'KD-BE-5 link_type=taxonomy 时引用（走 TaxonomyService 校验和派生）'}
+    constraints:
+      - {type: unique, expr: '(label, sort_order)', desc: '同位置导航项标签不重复（防误操作）'}
+      - {type: js_guard, expr: 'link_type=taxonomy 时 taxonomy_id 非空', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > v-if item.linkType===taxonomy'}
+      - {type: js_guard, expr: 'link_type=custom 时 custom_href 非空', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > linkTargetLabel item.href'}
+      - {type: js_guard, expr: 'mega_menu_json.source=category-children 时 ref_id 非空（引用品类 ID）', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.refId'}
+      - {type: js_guard, expr: 'mega_menu_json.source=taxonomy-type 时 ref_type ∈ [theme, category]', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.refType'}
+
+  - id: FooterColumn
+    desc: 页脚栏目（NavigationConfig 页脚栏目 Tab）。每栏目包含多条 FooterLink。KD-16 修正：title i18n 走主表 i18n_json JSON 列（不建 FooterColumnTranslation 翻译表，GRD-W08 不采纳）。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: title, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > col.title EN 基准（如 Shop/Help/Company/Account）'}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐其他实体 enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > footer 数组顺序'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{title}, es:{title}, fr:{title}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: FooterLink, type: 1n, source: '栏目包含多条链接'}
+    constraints:
+      - {type: unique, expr: '(title, sort_order)', desc: '栏目标题不重复'}
+
+  - id: FooterLink
+    desc: 页脚链接（FooterColumn 子表）。EN label 存主表，i18n 走主表 i18n_json JSON 列（KD-16，不建 FooterLinkTranslation 翻译表）。GRD-W07 修正：extends LongAuditableEntity，物理删除。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: footer_column_id, t: Long, req: true, source: '逻辑外键 FooterColumn.id'}
+      - {n: label, t: String, req: true, maxlen: 64, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > footer 链接 placeholder 链接 N'}
+      - {n: href, t: String, req: true, maxlen: 255, source: "'[INFERRED] 链接 URL'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > Bars3Icon 拖拽手柄'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{label}, es:{label}, fr:{label}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: FooterColumn, type: n1, source: 'footer_column_id 逻辑外键'}
+    constraints:
+      - {type: js_guard, expr: 'href 非空（链接必须指向有效 URL）', source: "'[INFERRED]'"}
+
+  - id: Announcement
+    desc: 公告条独立域（KD-7 不归属 navigation）。可复用于首页、分类页、活动页等位置。消费端顶部公告条组件按 sort_order 升序轮播 enabled=true 的公告。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。KD-16 修正：content i18n 走主表 i18n_json JSON 列（不建 AnnouncementTranslation 翻译表）。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: enabled, t: Boolean, req: true, source: "'[INFERRED] 对齐其他实体 enabled 模式'"}
+      - {n: sort_order, t: Integer, req: true, min: 0, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > announcements 数组顺序'}
+      - {n: content, t: String, req: true, maxlen: 255, source: 'prototype/portal-admin/src/views/NavigationConfig.vue > announcements[i] EN 基准文案'}
+      - {n: i18n_json, t: JSON, nullable: true, source: 'GRD2-001/KD-16 新增：多语言文案 JSON 列。结构 {en:{content}, es:{content}, fr:{content}}。使用 JacksonTypeHandler + @TableName(autoResultMap=true)'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    constraints:
+      - {type: js_guard, expr: 'content 非空字符串（trim 后长度 > 0）', source: 'prototype/portal-admin/src/views/NavigationConfig.vue > input v-model=announcements[i]'}
+
+  - id: Subscriber
+    desc: Newsletter 订阅者逻辑视图（KD-11/KD-12/KD-13）。首页 Newsletter 区块订阅转化主入口。GRD-001/KD-12 修正：本期不扩展退订状态机，subscriber_status 简化为单态 subscribed（移除 pending/unsubscribed）。GRD-009/KD-13 修正：source 字段改为 IntEnum NewsletterSource [1=FOOTER,2=MODAL,3=EXIT_INTENT,4=HOME_BLOCK]；扩展基线 POST /api/store/newsletter 接收 source=HOME_BLOCK(4)，不新建 /api/store/subscribers/subscribe。物理表合并到基线 NewsletterSubscriber 表（见 OQ-2 推荐方案 A）。GRD-W07 修正：extends LongAuditableEntity，物理删除无 deleted_at。
+    meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
+    fields:
+      - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED] + LongAuditableEntity 基类'"}
+      - {n: email, t: String, req: true, maxlen: 255, source: 'KD-11 邮箱输入；pattern=email；存储时小写归一（对齐基线 NewsletterSubscriber.email 唯一约束）'}
+      - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：IntEnum 类型对齐基线 NewsletterSource；HOME_BLOCK(4) 为本变更新增（首页区块订阅入口）'}
+      - {n: locale, t: String, req: true, maxlen: 8, source: '订阅时页面语言（en|es|fr，对齐基线 NewsletterSubscriber.locale）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: '订阅时间（订阅即生效，KD-12 单态 subscribed）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    constraints:
+      - {type: unique, expr: '(email, source)', desc: 'GRD-001/KD-12 修正：同邮箱同来源订阅幂等（重复订阅返回成功）；与基线 NewsletterSubscriber 的 uk_newsletter_email(email) 兼容（合并方案下需迁移到 uk(email, source)，详见 modified_entities.NewsletterSubscriber.changed_constraints）'}
+      - {type: js_guard, expr: 'email 格式校验（pattern=email，存储前小写归一）', source: "'prototype/portal-admin/src/views/HomeBuilder.vue > Newsletter 区块邮箱输入 + 基线 NewsletterService.normalizeEmail [INFERRED]'"}
+      - {type: js_guard, expr: 'subscribedAt 非空（订阅即生效，无 pending 态）', source: 'KD-12 单态 subscribed 状态机'}
+
+  - id: Banner
+    desc: 站点广告位图文配置（基线已有，本变更引用 + 扩展）。本变更通过 Banner position=HERO 为 HomePageSection.Hero 区块提供数据源（KD-2），并新增 cta_text_secondary/cta_link_secondary 字段支持 Hero 双 CTA（KD-14/GRD-010）。基线字段：id/name/image_url/position/start_time/end_time/status/sort/clicks/title/subtitle/cta_text/deleted_at（基线 extends LongAuditableEntity + 软删除）。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Banner.id'}
+      - {n: name, t: String, req: true, maxlen: 128, source: 'baseline Banner.name'}
+      - {n: image_url, t: String, req: true, maxlen: 512, source: 'baseline Banner.image_url'}
+      - {n: position, t: 'IntEnum<BannerPosition>', vals: [HERO(1), FEATURED(2), TOPBAR(3)], req: true, source: 'baseline BannerPosition 枚举（HERO=1/FEATURED=2/TOPBAR=3）；KD-2 Hero 区块引用 position=HERO；GRD-008 TOPBAR 公告迁移策略见 OQ-7'}
+      - {n: start_time, t: LocalDateTime, source: 'baseline Banner.start_time'}
+      - {n: end_time, t: LocalDateTime, source: 'baseline Banner.end_time'}
+      - {n: status, t: 'IntEnum<ContentStatus>', vals: [DRAFT(1), PUBLISHED(2), ARCHIVED(3)], req: true, source: 'baseline ContentStatus（draft=1/published=2/archived=3）'}
+      - {n: sort, t: Integer, req: true, source: 'baseline Banner.sort'}
+      - {n: clicks, t: Integer, source: 'baseline Banner.clicks 只读统计'}
+      - {n: title, t: String, maxlen: 255, source: 'baseline Banner.title EN 基准'}
+      - {n: subtitle, t: String, maxlen: 255, source: 'baseline Banner.subtitle EN 基准'}
+      - {n: cta_text, t: String, maxlen: 64, source: 'baseline Banner.cta_text 第一 CTA 文案'}
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 文案（如 "Explore Outdoor"），AdminBannerController BannerUpsert DTO 同步扩展'}
+      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 链接，与 cta_text_secondary 配对'}
+      - {n: deleted_at, t: LocalDateTime, source: 'baseline Banner.deletedAt 软删除标记'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: BannerTranslation, type: 1n, source: 'baseline i18n 附表'}
+    notes: 'KD-2 Hero 区块通过 BannerService 查询 position=HERO 的 Banner（KD-BE-5 不跨表查询）；管理端 Hero 区块属性编辑表单联动 Banner 编辑。KD-14 第二 CTA 也从 Banner 派生（cta_text_secondary/cta_link_secondary）。GRD-008 TOPBAR Banner 公告迁移策略见 OQ-7。'
+
+  - id: BannerTranslation
+    desc: Banner 多语言附表（基线已有，本变更引用 + 扩展）。locale=es/fr，EN 存主表。HomePageSection.Hero 区块通过 Banner 派生时连带读取此表 i18n 文案。KD-14 同步新增 cta_text_secondary 翻译字段。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline BannerTranslation.id'}
+      - {n: banner_id, t: Long, req: true, source: 'baseline BannerTranslation.bannerId 逻辑外键'}
+      - {n: locale, t: String, maxlen: 8, req: true, source: 'baseline BannerTranslation.locale（es|fr，EN 存主表）'}
+      - {n: title, t: String, maxlen: 255, source: 'baseline BannerTranslation.title'}
+      - {n: subtitle, t: String, maxlen: 255, source: 'baseline BannerTranslation.subtitle'}
+      - {n: cta_text, t: String, maxlen: 64, source: 'baseline BannerTranslation.ctaText 第一 CTA 文案'}
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, source: 'GRD-010/KD-14 新增：第二 CTA 文案 i18n 翻译'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations:
+      - {to: Banner, type: n1, source: 'baseline banner_id 逻辑外键'}
+    notes: '唯一键 (banner_id, locale)（基线 uk_bt 索引）。KD-14 第二 CTA 翻译字段同步新增。'
+
+  - id: Taxonomy
+    desc: 分类逻辑实体（基线 polymorphic 引用，GRD-002 修正）。原型 NavigationConfig/HomeBuilder 中的 taxonomy 是 Category（type=category）与 Collection（type=theme，collectionGroupId 指向名为"主题"的 CollectionGroup）的统一抽象。本变更通过此逻辑引用表达 NavigationItem.taxonomy_id 和 HomePageSection.ThemeCards 对分类/主题的引用。基线无独立 Taxonomy 表，物理实现见 open_questions OQ-1。GRD-002 修正：移除 CustomTag 引用（基线 Collection.java 注释明确"合并承载 CustomTag，不建 custom_tag 表"）；Category 无 slug/enabled 字段，相关属性由 Service 运行时派生。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Category.id | Collection.id（多态）'}
+      - {n: type, t: enum, vals: [category, theme], req: true, source: 'prototype/portal-admin/src/data/mock.js > taxonomies.type=category|theme'}
+      - {n: name, t: String, req: true, maxlen: 64, source: 'baseline Category.name | Collection.name'}
+      - {n: slug, t: String, derived: true, source: 'GRD-002 修正：派生字段不存表。type=theme 时取 baseline Collection.name 派生 href（Collection 无独立 slug 字段）；type=category 时由 CategoryService 运行时按 name 生成（Category 实体无 slug 字段）'}
+      - {n: parent_id, t: Long, source: 'baseline Category.parent_id（仅 type=category 时有效，用于 Mega Menu source=category-children 派生）'}
+      - {n: online, t: Boolean, derived: true, source: 'GRD-002 修正：派生字段不存表。type=theme 时取 baseline Collection.status (CollectionStatus.PUBLISHED=1→true)；type=category 时由 CategoryService 按 deleted_at IS NULL 派生（Category 实体无 enabled/online 字段）'}
+    relations:
+      - {to: Category, type: 11, source: 'GRD-002 修正：type=category 时映射到 Category（仅 id/name/parent_id 可用）'}
+      - {to: Collection, type: 11, source: 'GRD-002 修正：type=theme 时映射到 Collection（collectionGroupId 指向名为"主题"的 CollectionGroup，Collection 合并承载 CustomTag 语义）'}
+    notes: |
+      KD-8 ThemeCards 引用 Taxonomy type=theme（即 baseline Collection where collectionGroupId=主题组）。
+      KD-BE-5 NavigationItem 引用 Taxonomy 通过 TaxonomyService 校验和派生（不跨表查询）。
+      原型 taxonomies 数组是 Category + Collection(dim-theme) 的合并视图（见 prototype/portal-admin/src/data/mock.js L480-483）。
+      GRD-002 修正记录：
+        1. 基线无 CustomTag 实体（Collection.java:15-17 注释明确"合并承载 CustomTag，不建 custom_tag 表"）。
+        2. Category 实体（Category.java:28-52）字段仅 name/parentId/level/attributeSetId/attrOverrides/sort/deletedAt，无 slug/enabled/online 字段。
+        3. Collection 实体（Collection.java:25-41）字段仅 collectionGroupId/name/cover/status/deletedAt，无 slug/enabled 字段，status 是 CollectionStatus IntEnum（1=启用 2=禁用）。
+        4. slug 与 online 均为 TaxonomyService 运行时派生字段，不存 Taxonomy 表（也无 Taxonomy 物理表）。
+
+  - id: Product
+    desc: 商品主档（基线已有，本变更引用）。HomePageSection.ProductRail source=recommend 时通过 data_json.product_ids 引用商品；source=isNew/isBest 时通过 ProductService 查询标记商品。基线字段：id/name/slug/status/isNew/isBest/recommend/sort 等。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline Product.id'}
+      - {n: name, t: String, req: true, maxlen: 128, source: 'baseline Product.name'}
+      - {n: slug, t: String, req: true, maxlen: 128, source: 'baseline Product.slug'}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: 'baseline Product.status'}
+      - {n: isNew, t: Boolean, source: 'baseline Product.isNew（ProductRail source=isNew 时筛选）'}
+      - {n: isBest, t: Boolean, source: 'baseline Product.isBest（ProductRail source=isBest 时筛选）'}
+      - {n: recommend, t: Boolean, source: 'baseline Product.recommend（ProductRail source=recommend 时筛选）'}
+      - {n: sort, t: Integer, source: 'baseline Product.sort'}
+    relations: []
+    notes: 'KD-9 ProductRail source=recommend 时 data_json.product_ids 引用 Product.id 列表；source=isNew/isBest 时通过 ProductService 按 flag + sort 取前 N 条。'
+
+  - id: RealWedding
+    desc: 真实婚礼案例（基线已有，本变更引用）。HomePageSection.EditorialFeature 通过 data_json.wedding_ids 引用；为空时按 sort_order 取前 N 条。基线字段：id/couple/location/theme/weddingDate/cover/status。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline RealWedding.id'}
+      - {n: couple, t: String, req: true, maxlen: 64, source: 'baseline RealWedding.couple'}
+      - {n: location, t: String, maxlen: 128, source: 'baseline RealWedding.location'}
+      - {n: theme, t: String, maxlen: 32, source: 'baseline RealWedding.theme'}
+      - {n: weddingDate, t: String, maxlen: 16, source: 'baseline RealWedding.weddingDate'}
+      - {n: cover, t: String, maxlen: 512, source: 'baseline RealWedding.cover'}
+      - {n: status, t: enum, vals: [draft, published], req: true, source: 'baseline RealWedding.status'}
+    relations:
+      - {to: Product, type: nm, source: 'baseline RealWedding-Product nm（Shop the Look）'}
+    notes: 'KD-10 EditorialFeature 存储 limit + 可选 wedding_ids；消费端调用 StoreWeddingService 渲染卡片列表。本变更使用 RealWedding 作为 Wedding 别名（基线无独立 Wedding 实体）。'
+
+  - id: CacheInvalidationLog
+    desc: 缓存失效日志（基线已有，本变更引用 + 扩展取值集合）。HomeBuilder/NavigationConfig/Announcement 保存后通过 in-process cache.invalidateFamily + publisher.publish 触发缓存失效（GRD-W01 修正：非 HTTP 自调 POST /api/admin/cache/invalidate），日志中应体现触发源（home_section/navigation/announcement）。GRD-W06 修正：基线字段全面校正（resource_id: Long 非 String；affected_paths: List<String> 非 JSON 字段名；status: Integer tinyint 非 enum；补 slug/old_slug/locales/triggered_by/triggered_at/completed_at/error_message 字段）。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline CacheInvalidationLog.id（LongAuditableEntity 基类）'}
+      - {n: event_type, t: String, maxlen: 50, req: true, source: 'GRD-W06 修正：baseline String（如 banner_changed/blog_changed/wedding_changed/lookbook_changed/guide_changed/flash_sale_changed；本变更新增 home_section_changed/navigation_changed/announcement_changed，GRD-005 _changed 后缀）'}
+      - {n: resource_type, t: String, maxlen: 20, req: true, source: 'GRD-W06 修正：baseline String（如 banner/blog/wedding/lookbook/guide/flash_sale；本变更新增 home_section/navigation/announcement）'}
+      - {n: resource_id, t: Long, nullable: true, source: 'GRD-W06 修正：baseline bigint NULL（非 String）；home_section/navigation/announcement 等全站级失效时为 NULL'}
+      - {n: slug, t: String, maxlen: 255, nullable: true, source: 'GRD-W06 修正补字段：baseline slug（资源 slug，全站级失效时为 NULL）'}
+      - {n: old_slug, t: String, maxlen: 255, nullable: true, source: 'GRD-W06 修正补字段：baseline old_slug（旧 slug，变更时双失效）'}
+      - {n: affected_paths, t: 'List<String>', nullable: true, source: 'GRD-W06 修正：baseline affected_paths（List<String>，JacksonTypeHandler 序列化为 JSON 存库；非字段名 paths_json）'}
+      - {n: locales, t: 'List<String>', nullable: true, source: 'GRD-W06 修正补字段：baseline locales（List<String>，受影响语言）'}
+      - {n: triggered_by, t: String, maxlen: 100, nullable: true, source: 'GRD-W06 修正补字段：baseline triggered_by（触发者，如 system/admin 邮箱）'}
+      - {n: triggered_at, t: LocalDateTime, req: true, source: 'GRD-W06 修正补字段：baseline triggered_at（触发时间）'}
+      - {n: status, t: Integer, req: true, source: 'GRD-W06 修正：baseline tinyint（0=pending/1=completed/2=failed，非 enum）；类内常量 STATUS_PENDING=0/STATUS_COMPLETED=1/STATUS_FAILED=2'}
+      - {n: completed_at, t: LocalDateTime, nullable: true, source: 'GRD-W06 修正补字段：baseline completed_at（完成时间）'}
+      - {n: error_message, t: String, nullable: true, source: 'GRD-W06 修正补字段：baseline error_message（text NULL，失败错误信息）'}
+      - {n: created_at, t: LocalDateTime, source: 'baseline CacheInvalidationLog.created_at（datetime(3) DEFAULT CURRENT_TIMESTAMP(3)）'}
+    relations: []
+    notes: |
+      GRD-W06 修正：基线 CacheInvalidationLog 实体（CacheInvalidationLog.java:31-78）字段全面校正，避免 acceptance 测试与基线 DDL 不一致。
+      本变更扩展 event_type/resource_type 取值集合（新增 home_section_changed/navigation_changed/announcement_changed + home_section/navigation/announcement），不修改表结构。
+      索引：idx_event_type(event_type) / idx_resource(resource_type, resource_id) / idx_slug(slug) / idx_triggered_at(triggered_at) / idx_status(status)。
+      GRD-W01 修正：触发链为 in-process cache.invalidateFamily + publisher.publish，日志由 publisher 调用 cacheService.logInvalidation 落表（非 HTTP 自调）。
+
+  - id: NewsletterSubscriber
+    desc: 基线 Newsletter 订阅记录（NewsletterSubscriber.java:26-39，F-008 页脚 + F-056 弹窗/Exit Intent）。KD-11/KD-12/KD-13 复用此存储扩展首页 Newsletter 区块订阅。GRD-001/KD-12 修正：本期不扩展退订状态机，保留基线模式（仅 subscribedAt 单字段，无 status/unsubscribed_at）；GRD-009/KD-13 修正：source 字段为 IntEnum NewsletterSource，本变更新增 HOME_BLOCK(4)。物理表合并方案见 OQ-2 推荐方案 A。
+    meta: {source: baseline}
+    fields:
+      - {n: id, t: Long, pk: true, source: 'baseline NewsletterSubscriber.id（LongAuditableEntity 基类）'}
+      - {n: email, t: String, req: true, maxlen: 255, source: 'baseline NewsletterSubscriber.email（小写归一唯一，uk_newsletter_email 索引）'}
+      - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：baseline IntEnum NewsletterSource（1=页脚/2=弹窗/3=退出挽留），本变更 added HOME_BLOCK(4)（首页区块订阅）'}
+      - {n: locale, t: String, req: true, maxlen: 8, source: 'baseline NewsletterSubscriber.locale（en|es|fr）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: 'baseline NewsletterSubscriber.subscribedAt（订阅时间，KD-12 单态订阅）'}
+      - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+      - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
+    relations: []
+    notes: |
+      基线字段：email/source/locale/subscribedAt（NewsletterSubscriber.java:28-38），无 status/unsubscribed_at 字段。
+      GRD-001/KD-12 决定本期不扩展退订状态机，保留基线 subscribedAt 单字段模式；acceptance s-017~s-022 退订/重订阅场景裁剪。
+      GRD-009/KD-13 决定扩展基线 POST /api/store/newsletter 接收 source=HOME_BLOCK(4)，不新建独立端点。
+      本变更 source 枚举新增 HOME_BLOCK(4)，详见 modified_entities.NewsletterSource / NewsletterSubscriber。
+
+modified_enums:
+  - id: MarketingCacheService.Family
+    meta: {source: modified_enum, baseline_ref: 'backend/src/main/java/com/dreamy/infra/MarketingCacheService.java:37-46'}
+    added_enum_values:
+      - {enum: Family, added_vals: [HOME_SECTION, NAVIGATION, ANNOUNCEMENT], source: 'GRD-004 修正：business-flow 三个新流程的 side_effect 声明 JetCache @CacheInvalidate 失效缓存族，基线 Family 枚举仅 9 个族（BANNERS/BLOGS/BLOG/WEDDINGS/WEDDING/LOOKBOOKS/LOOKBOOK/GUIDES/FLASH）无此三者，需新增以支持 cache.invalidateFamily(Family.HOME_SECTION) 编译'}
+    new_enum_ttls:
+      - {enum_val: HOME_SECTION, prefix: 'marketing:home_section:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s（对齐 BANNERS/BLOGS 等基线族，非 600s）'}
+      - {enum_val: NAVIGATION, prefix: 'marketing:navigation:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s'}
+      - {enum_val: ANNOUNCEMENT, prefix: 'marketing:announcement:', ttl: 300s, source: 'GRD-W02 修正：TTL 统一 300s'}
+    notes: 'GRD-004 MUST_FIX：缺少族定义则 cache.invalidateFamily(Family.X) 无法编译，整套失效链断裂。新增 3 个族与基线 9 个族一致采用两级缓存（Caffeine+Redis）+ cacheNullValue=false + localLimit=2000 + syncLocal=false 配置。'
+
+  - id: NewsletterSource
+    meta: {source: modified_enum, baseline_ref: 'backend/src/main/java/com/dreamy/enums/NewsletterSource.java:13-16'}
+    added_enum_values:
+      - {enum: NewsletterSource, added_vals: [HOME_BLOCK(4)], source: 'GRD-009/KD-13 修正：首页 Newsletter 区块订阅入口；IntEnum key=4，desc="首页区块"；与基线 FOOTER(1)/MODAL(2)/EXIT_INTENT(3) 连续递增'}
+    notes: 'GRD-009 MUST_FIX：基线 NewsletterSource 是 IntEnum（非字符串枚举），本变更必须显式声明 key=4。er-diagram Subscriber.source / NewsletterSubscriber.source 同步改为 IntEnum 描述。'
+
+modified_entities:
+  - id: NewsletterSubscriber
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/subscriber/entity/NewsletterSubscriber.java:26-39'}
+    added_enum_values:
+      - field: source
+        added_vals: [HOME_BLOCK(4)]
+        source: 'KD-11/KD-13 首页 Newsletter 区块订阅入口（GRD-009 修正：IntEnum key=4，对齐基线 NewsletterSource FOOTER=1/MODAL=2/EXIT_INTENT=3）'
+    changed_constraints:
+      - type: unique_index_migration
+        before: 'uk_newsletter_email(email) — 单字段 email 唯一（NewsletterSubscriber.java:23）'
+        after: 'uk_newsletter_email_source(email, source) — 复合唯一（GRD2-003 方案 A：同邮箱同来源幂等短路，不同来源新增记录）'
+        rationale: |
+          GRD2-003 修正：KD-13 新增 source=HOME_BLOCK(4) 用于区分订阅入口（首页/页脚/弹窗/退出意图）。
+          若保留 email 单字段唯一，同邮箱先从 FOOTER 订阅后再从 HOME_BLOCK 订阅会被短路，HOME_BLOCK 订阅"丢失"但响应 {subscribed:true}，
+          source 数据失真，无法分析订阅入口转化率（电商 Newsletter 核心运营能力）。
+          方案 A 复合唯一保证 source 数据完整性；NewsletterService.insertIgnoreDuplicate 语义变为"同邮箱同来源重复订阅幂等短路，不同来源新增记录"。
+        ddl: 'ALTER TABLE newsletter_subscriber DROP INDEX uk_newsletter_email, ADD UNIQUE KEY uk_newsletter_email_source (email, source);'
+        acceptance_impact: 'acceptance.yml s-336 等订阅场景需校验同邮箱不同来源可创建多条记录（GRD2-003 方案 A）'
+    notes: |
+      GRD-001/KD-12 修正：本期不扩展退订状态机，保留基线模式。
+      - 不添加 status 字段（基线无此字段，KD-12 决定本期不扩展）。
+      - 不添加 unsubscribed_at 字段（同上）。
+      - GRD2-003 方案 A：修改 unique 约束为 (email, source) 复合唯一，保证 KD-13 source 数据完整性。
+      - 扩展 source 枚举值新增 HOME_BLOCK(4)（IntEnum key=4）。
+      acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
+
+  - id: CacheInvalidationLog
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/cache/entity/CacheInvalidationLog.java:31-78'}
+    added_enum_values:
+      - field: event_type
+        added_vals: [home_section_changed, navigation_changed, announcement_changed]
+        source: 'KD-1 HomeBuilder/NavigationConfig/Announcement 保存后触发缓存失效（GRD-005 修正：统一 _changed 后缀，对齐基线 banner_changed/blog_changed 等命名）'
+      - field: resource_type
+        added_vals: [home_section, navigation, announcement]
+        source: 'KD-1 缓存失效日志中体现触发源'
+    notes: |
+      GRD-W06 修正：基线 CacheInvalidationLog 字段全面校正（详见 entities.CacheInvalidationLog 段）。
+      本变更仅扩展 event_type/resource_type 取值集合以记录新域的缓存失效事件，不修改表结构。
+      GRD-W01 修正：触发链为 in-process cache.invalidateFamily + publisher.publish，日志由 publisher 调用 cacheService.logInvalidation 落表。
+
+  - id: MarketingContentInvalidatedPublisher
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/mq/MarketingContentInvalidatedPublisher.java:30-35,96-133'}
+    added_constants:
+      - {name: TYPE_HOME_SECTION_CHANGED, value: '"home_section_changed"', source: 'GRD-005 修正：HomePageSection 保存后发布的事件类型（Hero/Announcement/ProductRail 等区块均触发，全站级失效）'}
+      - {name: TYPE_NAVIGATION_CHANGED, value: '"navigation_changed"', source: 'GRD-005 修正：NavigationItem/FooterColumn 保存后发布的事件类型（影响 header/footer 全站渲染）'}
+      - {name: TYPE_ANNOUNCEMENT_CHANGED, value: '"announcement_changed"', source: 'GRD-005 修正：Announcement 保存后发布的事件类型（影响顶部公告条全站渲染）'}
+    added_code_branches:
+      - {method: extractResourceType, branch: 'eventType.contains("home_section") → "home_section"; eventType.contains("navigation") → "navigation"; eventType.contains("announcement") → "announcement"', source: 'GRD-005 修正：基线 extractResourceType（MarketingContentInvalidatedPublisher.java:96-104）无对应分支，新增 3 个 if 分支'}
+      - {method: buildAffectedPaths, branch: 'TYPE_HOME_SECTION_CHANGED/TYPE_NAVIGATION_CHANGED/TYPE_ANNOUNCEMENT_CHANGED → 全站级失效 ["/", "/es", "/fr"]（layout 级，影响所有 locale 首页）', source: 'GRD-005 修正：基线 buildAffectedPaths（MarketingContentInvalidatedPublisher.java:106-133）无对应分支，新增 3 个 else if 分支对齐 TYPE_BANNER_CHANGED 全站失效模式'}
+    event_type_naming: 'GRD-005 统一 _changed 后缀（对齐基线 TYPE_BANNER_CHANGED/TYPE_BLOG_CHANGED 等命名）；er-diagram 与 state-machine 中所有 _saved 命名修正为 _changed'
+    notes: |
+      GRD-005 MUST_FIX：基线 publisher 仅 6 个 TYPE_* 常量（TYPE_BANNER_CHANGED/TYPE_BLOG_CHANGED/TYPE_WEDDING_CHANGED/TYPE_LOOKBOOK_CHANGED/TYPE_GUIDE_CHANGED/TYPE_FLASH_SALE_CHANGED），无 HOME_SECTION_CHANGED/NAVIGATION_CHANGED/ANNOUNCEMENT_CHANGED；extractResourceType 与 buildAffectedPaths 无对应分支。
+      修正：新增 3 个 TYPE_* 常量 + extractResourceType 3 个分支 + buildAffectedPaths 3 个分支；event_type 命名统一 _changed 后缀。
+
+  - id: MarketingExceptionHandler
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/error/MarketingExceptionHandler.java:39'}
+    changed_assignable_types:
+      - annotation: '@RestControllerAdvice(assignableTypes={...})'
+        baseline_vals: [AdminBannerController, AdminBlogController, AdminCouponController, AdminFlashSaleController, AdminGuideController, AdminLookbookController, AdminWeddingController, StoreContentController, StoreLeadController, StorePromotionController]
+        add: [AdminHomeSectionController, AdminNavigationController, AdminAnnouncementController]
+        source: 'GRD-006 修正：基线 assignableTypes 显式枚举 10 个 marketing 域 Controller（MarketingExceptionHandler.java:39），新 Controller 若不登记则 MarketingException 穿透到 identity GlobalExceptionHandler，错误结构与 marketing 域契约不符'
+    notes: |
+      GRD-006 MUST_FIX：新 Controller 必须登记到此列表，否则异常处理链断裂。
+      AdminHomeSectionController/AdminNavigationController/AdminAnnouncementController 三个新 Controller 须在 @RestControllerAdvice(assignableTypes={...}) 注解中加入。
+      新 Controller 抛 MarketingException 时由本处理器返回 6 位码 R 包络（FIELD_VALIDATION_FAILED=422704/CONTENT_STATE_INVALID=409703 等），与 marketing 域契约一致。
+
+  - id: DataInitializer
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/config/DataInitializer.java:88-114'}
+    added_seed_data:
+      - table: permission
+        rows:
+          - {perm_code: '/site/announcement', group: '站点装修', label: '公告条'}
+        source: 'GRD-007 修正：KD-BE-2 声明 AdminAnnouncementController 用 @RequirePermission("/site/announcement")，但基线种子仅 /site/home、/site/navigation、/site/banners（DataInitializer.java:90-94 perms 数组），未种子则除超管外所有角色 403'
+      - table: role_permission
+        rows:
+          - {role: '超管', permission: '/site/announcement', source: 'GRD-007：超管角色自动关联全部权限（DataInitializer.initSuperRole 已实现）'}
+        source: 'GRD-007：超管自动拥有；其他角色按需分配（本期不强制）'
+    notes: |
+      GRD-007 MUST_FIX：在 DataInitializer.initPermissions() 的 perms 数组中新增 {"/site/announcement","站点装修","公告条"} 一行（按 perm_code 幂等）。
+      超管角色通过 initSuperRole() 自动关联全部权限（含新权限），无需额外处理。
+      其他角色（如运营/内容编辑）如需访问公告条管理，需在管理端角色权限页手动分配。
+
+  - id: StoreLeadController
+    meta: {source: modified_class, baseline_ref: 'backend/src/main/java/com/dreamy/controller/StoreLeadController.java:30-38'}
+    changed_api:
+      - endpoint: 'POST /api/store/newsletter'
+        before: '接收 email + source(FOOTER=1/MODAL=2/EXIT_INTENT=3) + locale'
+        after: '扩展接收 source=HOME_BLOCK(4)（首页 Newsletter 区块订阅入口）；其他参数与响应不变'
+        source: 'GRD-009/KD-13 修正方案 A：扩展基线端点新增 source=4，不新建独立 /api/store/subscribers/subscribe 端点（避免重复）'
+    notes: |
+      GRD-009 MUST_FIX：KD-11 原声明新建 POST /api/store/subscribers/subscribe，但基线已有 POST /api/store/newsletter（StoreLeadController.java:34，E-MKT-11）。
+      决策：方案 A 扩展基线端点，source 枚举新增 HOME_BLOCK(4)（IntEnum key=4）。
+      acceptance.yml s-336 的 endpoint 由父代理同步修正为 POST /api/store/newsletter。
+
+  - id: Banner
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/banner/entity/Banner.java:60-61'}
+    added_fields:
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, ddl: 'varchar(64) NULL COMMENT "第二 CTA 文案(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 文案（原型 mock.js homeBlocks Hero data.cta2 "Explore Outdoor"），基线 Banner 仅 cta_text 单字段，新增此字段以支持双 CTA'}
+      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, ddl: 'varchar(255) NULL COMMENT "第二 CTA 链接(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 链接，与 cta_text_secondary 配对'}
+    notes: |
+      GRD-010/KD-14 MUST_FIX：原型 Hero 区块有 2 个 CTA（cta1 + cta2），KD-2 决定 Hero 从 Banner position=HERO 派生，但基线 Banner 仅 cta_text 单字段。
+      决策：方案 A 新增 cta_text_secondary + cta_link_secondary 字段，DDL 改动通过 modified_entities 显式声明。
+      AdminBannerController 的 BannerUpsert DTO 同步扩展接收这两个字段。
+      Hero 区块 data_json 保持为空（文案/图片/CTA 含第二 CTA 全部从 Banner 派生，KD-2 纯派生原则不变）。
+
+  - id: BannerTranslation
+    meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/banner/entity/BannerTranslation.java:22-38'}
+    added_fields:
+      - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, ddl: 'varchar(64) NULL', source: 'GRD-010/KD-14：第二 CTA 文案 i18n 翻译（es/fr），与 Banner.cta_text_secondary 配对'}
+    notes: |
+      GRD-010/KD-14：BannerTranslation 同步新增 cta_text_secondary 翻译字段，对齐基线 title/subtitle/cta_text 双表 i18n 模式。
+      唯一键 (banner_id, locale) 不变（基线 uk_bt 索引）。
+
+constraints:
+  - id: CONSTRAINT-001
+    type: assignable_types_registration
+    desc: 'GRD-006 MUST_FIX：新增 AdminHomeSectionController/AdminNavigationController/AdminAnnouncementController 三个 Controller 必须登记到 MarketingExceptionHandler @RestControllerAdvice(assignableTypes={...}) 注解列表（详见 modified_entities.MarketingExceptionHandler.changed_assignable_types）'
+    rationale: '基线 MarketingExceptionHandler 用 assignableTypes 显式枚举 10 个 marketing 域 Controller（不依赖 basePackages 包扫描），新 Controller 不登记则 MarketingException 穿透到 identity GlobalExceptionHandler，返回的错误结构与 marketing 域契约不符（如 422704 字段级结构、409703 内容状态码等）'
+    enforcement: '代码审查 + 启动期校验（建议补 ApplicationContextInitializedEvent 监听器扫描 marketing 域 Controller 是否全部在 assignableTypes 列表内）'
+
+  - id: CONSTRAINT-002
+    type: enum_naming_convention
+    desc: 'GRD-005：所有缓存失效 event_type 命名统一 _changed 后缀（home_section_changed/navigation_changed/announcement_changed），对齐基线 banner_changed/blog_changed 等命名；er-diagram 与 state-machine 中不允许出现 _saved 后缀'
+    rationale: '基线 logInvalidation(type,...) 的 type 参数与 MQ 事件 type 同字符串，基线 publisher 6 个 TYPE_* 常量均为 _changed 后缀，命名一致性保证日志检索与 MQ 路由正确'
+    enforcement: '代码审查 + 单元测试断言 event_type 集合 ⊆ {banner_changed, blog_changed, wedding_changed, lookbook_changed, guide_changed, flash_sale_changed, home_section_changed, navigation_changed, announcement_changed}'
+
+  - id: CONSTRAINT-003
+    type: in_process_cache_invalidation
+    desc: 'GRD-W01：HomeBuilder/NavigationConfig/Announcement 保存后的缓存失效走 in-process cache.invalidateFamily + publisher.publish，不允许 HTTP 自调 POST /api/admin/cache/invalidate'
+    rationale: '基线 Banner 失效链是 in-process 调用（MarketingAfterCommitRunner 事务提交后触发 publisher.publish → cacheService.logInvalidation + cdnService.invalidatePaths），HTTP 自调引入额外网络开销且破坏事务一致性'
+    enforcement: '代码审查 + 集成测试断言 AdminHomeSectionService.save 后无 HTTP 调用 /api/admin/cache/invalidate（MockMvc 断言）'
+
+  - id: CONSTRAINT-004
+    type: physical_delete
+    desc: 'GRD-W07：新建实体（HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement/Subscriber）统一 extends LongAuditableEntity + 物理删除（无 deleted_at 字段）。GRD2-001/KD-16：不建独立 *_translations 表，多语言文案存主表 i18n_json JSON 列'
+    rationale: '配置类实体误删可重建（管理端有保存按钮）；与基线 Category（软删除）/Banner（软删除）不同，本变更新实体是站点装修配置，不需要软删除回收站。i18n_json JSON 列模式减少表数量，简化 DDL 和 Repository（KD-16 决策）'
+    enforcement: 'DDL 审查 + 实体类审查（所有新实体 extends LongAuditableEntity，无 @TableField deleted_at 字段；i18n_json 字段使用 @TableField(typeHandler = JacksonTypeHandler.class) + @TableName(autoResultMap = true)）'
+
+  - id: CONSTRAINT-005
+    type: int_enum_consistency
+    desc: 'GRD-009：NewsletterSource 是 IntEnum（非字符串枚举），er-diagram Subscriber.source / NewsletterSubscriber.source 字段类型必须声明为 IntEnum<NewsletterSource>，vals 声明为 [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)]'
+    rationale: '基线 NewsletterSource（NewsletterSource.java:13-16）实现 IntEnum 接口，数据库存储 tinyint（1/2/3/4）；er-diagram 若描述为字符串枚举则 acceptance 测试与基线 DDL 不一致'
+    enforcement: 'er-diagram 审查 + 代码审查（Subscriber.source / NewsletterSubscriber.source 字段类型为 NewsletterSource）'
+
+open_questions:
+  - id: OQ-1
+    topic: Taxonomy 实体物理实现（GRD-002 修正后）
+    question: GRD-002 修正后 Taxonomy 是 Category（type=category）+ Collection（type=theme，collectionGroupId 指向"主题" CollectionGroup）的多态逻辑视图，基线无独立 Taxonomy 表。NavigationItem.taxonomy_id 和 HomePageSection.ThemeCards 应如何物理实现跨域引用？
+    options:
+      - '方案 A：保持多态引用（taxonomy_id + taxonomy_type 双字段），运行时 TaxonomyService 路由到 Category/Collection 表查询（推荐，对齐原型 taxonomies 数组的合并视图语义）'
+      - '方案 B：拆分为 category_id + collection_id 两个可空外键字段（语义清晰但表结构冗余）'
+      - '方案 C：新建独立 Taxonomy 表作为统一抽象层（不推荐，破坏 baseline）'
+    impact: '影响 NavigationItem 表结构、TaxonomyService 接口设计、ThemeCards 数据查询逻辑'
+    recommendation: '方案 A（保持多态引用，对齐原型 taxonomies 数组的合并视图语义；TaxonomyService 内部按 taxonomy_type 路由到 CategoryService/CollectionService）'
+
+  - id: OQ-2
+    topic: Subscriber vs NewsletterSubscriber 实体身份（KD-12 修正后）
+    question: KD-11 说"复用 EmailMarketing 模块订阅者存储"，本变更 er-diagram 保留 Subscriber 逻辑视图实体。基线已有 NewsletterSubscriber。物理实现应合并到 NewsletterSubscriber 表（仅扩展 source=HOME_BLOCK(4)）还是新建独立 subscribers 表？
+    options:
+      - '方案 A：合并到基线 NewsletterSubscriber 表，扩展 source=HOME_BLOCK(4)（推荐，KD-11 明确复用 + KD-12 不扩展状态机）'
+      - '方案 B：新建独立 subscribers 表（与基线 NewsletterSubscriber 解耦，但违反 KD-11 复用原则）'
+      - '方案 C：Subscriber 作为逻辑视图实体，物理仍是 NewsletterSubscriber（er-diagram 保留 Subscriber 逻辑建模，DDL 不新建表）'
+    impact: '影响 DDL 脚本、订阅 API 实现、消费端查询逻辑'
+    recommendation: '方案 A（合并到 NewsletterSubscriber + 扩展 source=HOME_BLOCK(4)；er-diagram 中 Subscriber 是逻辑视图，物理落 NewsletterSubscriber 表）'
+
+  - id: OQ-3
+    topic: FooterColumn/FooterLink i18n 策略（KD-16 已采纳 i18n_json 方案，覆盖 GRD-W08）
+    question: 'KD-16 决定合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表），覆盖原 GRD-W08 双表方案。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：本期仅 EN 基准（与原型一致），后续 change 补 footer_column_translations/footer_link_translations 表（已废弃）'
+      - '方案 B：本期补齐 FooterColumnTranslation/FooterLinkTranslation 双表（对齐其他实体 i18n 模式）（GRD-W08 采纳后又被 KD-16 覆盖，已废弃）'
+      - '方案 C：FooterColumn/FooterLink 文案内嵌 i18n JSON 字段（KD-16 采纳此方案变体：所有新实体统一 i18n_json JSON 列）'
+    impact: '影响表结构、API 契约、消费端 layout.tsx 渲染逻辑'
+    recommendation: '方案 C（KD-16 已采纳；er-diagram 已移除 FooterColumnTranslation/FooterLinkTranslation 实体，FooterColumn/FooterLink 新增 i18n_json JSON 列）'
+
+  - id: OQ-4
+    topic: NavigationItem.taxonomy_type 派生字段存储
+    question: NavigationItem.taxonomy_type 是从 Taxonomy 派生的字段（标识引用品类还是主题）。是否需要在 NavigationItem 表中冗余存储此字段？
+    options:
+      - '方案 A：冗余存储 taxonomy_type（查询性能优，但需在 Taxonomy 变更时同步更新）'
+      - '方案 B：不存储，运行时通过 TaxonomyService 查询派生（无冗余但多一次服务调用）'
+      - '方案 C：仅存 taxonomy_id + taxonomy_type 复合唯一约束（强制类型一致性）'
+    impact: '影响 NavigationItem 表结构、TaxonomyService 接口、管理端表单校验'
+    recommendation: '方案 A（冗余存储，对齐原型 taxonomies 数组的 type 字段）'
+
+  - id: OQ-5
+    topic: Mega Menu 列 i18n 策略（KD-16 修正后）
+    question: 'KD-6 决定 Mega Menu 列存 JSON 字段（mega_menu_json）。列标题（title）的 i18n 如何处理？KD-16 修正后：列标题 i18n 存主表 NavigationItem.i18n_json JSON 列（结构 {en:{label, mega_menu_titles:{col_idx:title}}, es:{...}, fr:{...}}），与主表 mega_menu_json 列顺序对齐。是否合理？'
+    options:
+      - '方案 A：i18n_json.mega_menu_titles 映射（KD-16 修正方案，简单但依赖列顺序稳定）'
+      - '方案 B：mega_menu_json 内嵌多语言对象（{title: {en, es, fr}, ...}）'
+      - '方案 C：本期仅 EN 基准，mega_menu_json.title 存 EN，后续 change 扩展 i18n'
+    impact: '影响 NavigationItem 表结构、管理端表单交互、消费端渲染逻辑'
+    recommendation: '方案 A（KD-16 修正后；mega_menu_titles 作为 i18n_json JSON 列的子字段，与主表 mega_menu_json 列顺序对齐）'
+
+  - id: OQ-6
+    topic: HomePageSection.Announcement 区块与 Announcement 域的关系
+    question: KD-7 决定 Announcement 独立域，但 HomePageSection.section_type 仍包含 Announcement 类型。此类型的 HomePageSection 行只存 enabled/sort_order（data_json 为空），实际公告内容从 Announcement 域派生。这种"占位区块"模式是否需要单独建模？
+    options:
+      - '方案 A：保持现状（HomePageSection.Announcement 行仅占位，消费端按 sort_order 渲染 Announcement 域所有 enabled 公告）'
+      - '方案 B：移除 section_type=Announcement，消费端固定渲染 Announcement 域（位置不可配置）'
+      - '方案 C：HomePageSection.Announcement 的 data_json 存 announcement_ids 数组（人工精选哪些公告上首页）'
+    impact: '影响 HomePageSection 表结构、消费端渲染逻辑、管理端编辑表单'
+    recommendation: '方案 A（保持现状，对齐 Hero 区块同样不存数据的模式）'
+
+  - id: OQ-7
+    topic: TOPBAR Banner 公告数据迁移策略（GRD-008）
+    question: '基线消费端公告条通过 fetchStoreBanners(BannerPosition.TOPBAR) 取数据（frontend/portal-store/app/[locale]/layout.tsx:53-54 + site-header.tsx:24-31）。KD-7 决定新建独立 Announcement 域，但未说明：(1) 现有 TOPBAR Banner 公告数据是否迁移到 announcements 表；(2) BannerPosition.TOPBAR 是否废弃或保留；(3) layout.tsx 改调新 API 后 TOPBAR Banner 去留。'
+    options:
+      - '方案 A：本期双写兼容——新 Announcement 域为权威源，BannerPosition.TOPBAR 保留但停止管理端入口（只读降级），消费端优先读 Announcement 域，空时回退 TOPBAR Banner（平滑迁移）'
+      - '方案 B：本期一次性迁移——删除 BannerPosition.TOPBAR 枚举值，现有 TOPBAR Banner 数据脚本迁移到 announcements 表，消费端只读 Announcement 域（干净但风险高）'
+      - '方案 C：本期不迁移——Announcement 域仅服务首页区块，TOPBAR Banner 继续服务全局公告条（两套并存，语义重叠）'
+      - '方案 D：BannerPosition.TOPBAR 标记 @Deprecated 但保留枚举值，管理端 Banners 页隐藏 TOPBAR 选项，存量 TOPBAR Banner 公告数据脚本迁入 announcements 表，消费端 layout.tsx 改调 StoreAnnouncement API（过渡期保留 TOPBAR 给非公告用途）'
+    impact: '影响 BannerPosition 枚举、DataMigration 脚本、消费端 layout.tsx 渲染逻辑、管理端 Banners 页面'
+    recommendation: '方案 D（@Deprecated + 数据迁移 + 消费端切流，既保留枚举兼容性又完成语义迁移；过渡期内非公告用途的 TOPBAR Banner 仍可使用，公告用途强制走 Announcement 域）'
+
+  - id: OQ-8
+    topic: Hero 区块 2 个 CTA 的数据源（GRD-010/KD-14 已采纳方案 A）
+    question: 'GRD-010/KD-14 已采纳方案 A（Banner 实体新增 cta_text_secondary + cta_link_secondary 字段）。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：Banner 实体新增 cta_text_secondary + cta_link_secondary 字段（DDL 改动基线表，需 modified_entities 声明）（GRD-010/KD-14 采纳）'
+      - '方案 B：er-diagram 放宽 Hero data_json 约束，允许存 cta2_label + cta2_href（Hero 区块不再"数据为空"，违反 KD-2 纯派生原则）（已废弃）'
+      - '方案 C：第二个 CTA 走导航配置派生（cta2 固定指向"Explore Outdoor"导航项，从 NavigationConfig 读取，不存 Banner）（已废弃）'
+      - '方案 D：本期仅渲染 1 个 CTA（对齐基线 Banner 单 cta_text），原型 cta2 降级为后续 change（已废弃）'
+    impact: '影响 Banner 实体表结构、Hero 区块消费端渲染逻辑、管理端 Banner 编辑表单、原型还原度'
+    recommendation: '方案 A（GRD-010/KD-14 已采纳；er-diagram modified_entities.Banner/BannerTranslation 已声明 added_fields）'
+
+  - id: OQ-9
+    topic: 消费端首页现有 4 类区块未在 section_type 枚举内（GRD-W05）
+    question: '消费端首页现有 FlashSaleRail/Lookbook Editorial/ColorPalette Moodboard/ValueProps 四类区块，但 HomePageSection.section_type 枚举仅 7 种（Hero/Announcement/ShopByColor/ThemeCards/ProductRail/EditorialFeature/Newsletter），未覆盖此 4 类。迁移时如何处理？'
+    options:
+      - '方案 A：本期不迁移此 4 类区块，消费端保留硬编码渲染（与 HomeBuilder 动态渲染并存，后续 change 统一）'
+      - '方案 B：扩展 section_type 枚举新增 FlashSale/Lookbook/ColorPalette/ValueProps 四值，补全 er-diagram 建模（范围扩大）'
+      - '方案 C：本期将此 4 类区块映射到现有枚举（Lookbook→EditorialFeature, ColorPalette→ShopByColor, ValueProps→自定义 data_json, FlashSale→ProductRail source=flash_sale）'
+    impact: '影响 HomePageSection 表结构、消费端首页渲染逻辑、管理端 HomeBuilder 编辑表单、原型还原度'
+    recommendation: '方案 A（本期不迁移，聚焦原型 7 种区块；现有 4 类区块保留硬编码，后续 change 统一迁移，避免范围蔓延）'
+
+  - id: OQ-10
+    topic: 新实体基类与软删除策略（GRD-W07 已采纳方案 C 变体）
+    question: 'GRD-W07 修正已采纳：新建实体统一 extends LongAuditableEntity + 物理删除（无 deleted_at 字段）。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：全部 extends LongAuditableEntity + 软删除（对齐基线 Category/Collection 模式）（已废弃）'
+      - '方案 B：配置类实体（HomePageSection/NavigationItem/FooterColumn/Announcement）软删除，翻译表硬删除（避免翻译残留）（已废弃；KD-16 修正后不建翻译表）'
+      - '方案 C：全部 extends LongAuditableEntity + 物理删除（配置类误删可重建，不需要软删除）（GRD-W07 采纳）'
+    impact: '影响 DDL 脚本、Repository 查询逻辑、审计日志完整性'
+    recommendation: '方案 C（GRD-W07 已采纳；所有新实体 extends LongAuditableEntity + 物理删除，详见 CONSTRAINT-004）'
+
+  - id: OQ-11
+    topic: KD-1 措辞修正（GRD-W04）
+    question: 'GRD-W04 修正：KD-1 原描述"SSG 发布中心"与实际架构不符（portal-store 首页为 force-dynamic 无 SSG）。KD-1 决策已修正为"不引入 SSG，保持 force-dynamic + 缓存失效"。本 OQ 仅作记录，无需进一步决策。'
+    options:
+      - '方案 A：KD-1 措辞修正为"不引入 SSG，保持 force-dynamic + JetCache 两级缓存 + in-process 失效链"（GRD-W04 采纳）'
+      - '方案 B：保留原"SSG 发布中心"措辞（已废弃，与实际架构不符）'
+    impact: '影响 Publish.vue 范围、KD-1 决策记录、acceptance 测试断言'
+    recommendation: '方案 A（GRD-W04 已采纳；KD-1 decision/rationale/impact 已在 pd-explore.local.md 中修正）'

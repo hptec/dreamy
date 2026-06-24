@@ -1,1201 +1,292 @@
+meta:
+  mode: incremental
+  l0_mode: incremental
+  baseline_ref: hhspec/specs/architecture/state-machine.yml
+  baseline_context_path: hhspec/changes/site-decoration-fullstack/.baseline-context.yml
+  generated_at: '2026-06-23T10:00:00Z'
+  change_name: site-decoration-fullstack
+  change_type: alignment
+  breaking_changes: []
+  key_decisions_referenced: [KD-1, KD-4, KD-7, KD-11, KD-12, KD-13, KD-14, KD-BE-2]
+  inference_confidence: high
+  review_round: 2
+  review_fixes: [GRD-001, GRD-005, GRD-W01, GRD-W04]
+  notes: |
+    KD-4 保存即发布（与 Banners 一致），无草稿态：HomePageSection/NavigationItem/Announcement/FooterColumn 状态机均仅 enabled/disabled 二态。
+    Banner 状态机引用基线 banner_lifecycle（meta.source=baseline）。
+    GRD-001/KD-12 修正：Subscriber 状态机简化为单态 subscribed（移除 pending/unsubscribed），本期不扩展退订/重订阅状态机。
+    GRD-005 修正：所有缓存失效 event_type 命名统一 _changed 后缀（home_section_changed/navigation_changed/announcement_changed），对齐基线 banner_changed 等命名。
+    GRD-W01 修正：side_effect 缓存失效改为 in-process cache.invalidateFamily + publisher.publish（非 HTTP 自调 POST /api/admin/cache/invalidate）。
+    GRD-W04 修正：KD-1 措辞已修正为"不引入 SSG，保持 force-dynamic + JetCache 两级缓存 + in-process 失效链"。
+
 machines:
-- id: banner_lifecycle
-  entity: Banner
-  states:
-  - draft
-  - published
-  - archived
-  - deleted
-  initial: draft
-  source: prototype/portal-admin/src/views/Banners.vue > 保存并发布/Toggle b.online/TrashIcon
-    + 投放时间 start/end
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    guard: name != null && image_url != null
-  - from: published
-    event: take_offline
-    to: archived
-  - from: published
-    event: schedule_expire
-    to: archived
-    guard: now > end_time
-  - from: archived
-    event: republish
-    to: published
-  - from: draft
-    event: delete
-    to: deleted
-  - from: published
-    event: delete
-    to: deleted
-  - from: archived
-    event: delete
-    to: deleted
-- id: blog_post_lifecycle
-  entity: BlogPost
-  states:
-  - draft
-  - published
-  - archived
-  - deleted
-  initial: draft
-  source: prototype/portal-admin/src/views/ContentBlog.vue > 发布按钮 v-if p.status==='draft'
-    / filter tabs / TrashIcon
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    guard: title != null
-  - from: published
-    event: unpublish
-    to: archived
-  - from: archived
-    event: republish
-    to: published
-  - from: draft
-    event: delete
-    to: deleted
-  - from: published
-    event: delete
-    to: deleted
-  - from: archived
-    event: delete
-    to: deleted
-- id: category_lifecycle
-  entity: Category
-  states:
-  - active
-  - deleted
-  initial: active
-  source: prototype/portal-admin/src/views/Categories.vue > confirmAddRoot/confirmAddChild/canDelete/TrashIcon
-    :disabled=!canDelete(cat)
-  transitions:
-  - from: active
-    event: delete
-    to: deleted
-    guard: product_count === 0
-- id: tag_lifecycle
-  entity: Tag
-  states:
-  - enabled
-  - disabled
-  - deleted
-  initial: enabled
-  source: prototype/portal-admin/src/views/Categories.vue > confirmAddTag enabled:true
-    / Toggle v-model=t.enabled / removeTag
-  transitions:
-  - from: enabled
-    event: toggle_off
-    to: disabled
-  - from: disabled
-    event: toggle_on
-    to: enabled
-  - from: enabled
-    event: delete
-    to: deleted
-  - from: disabled
-    event: delete
-    to: deleted
-- id: tag_dimension_lifecycle
-  entity: TagDimension
-  states:
-  - active
-  - deleted
-  initial: active
-  source: prototype/portal-admin/src/views/Categories.vue > confirmAddDim / removeDim
-    级联删除维度下标签
-  transitions:
-  - from: active
-    event: delete
-    to: deleted
-- id: attribute_visibility_cycle
-  entity: AttributeSetItem
-  states:
-  - visible
-  - optional
-  - hidden
-  initial: hidden
-  source: prototype/portal-admin/src/views/Categories.vue > cycleDrawerState/cycleSetDrawerState
-    STATES=['visible','optional','hidden'] 点击循环切换（D1 矩阵并回 Categories 第二 Tab）
-  transitions:
-  - from: hidden
-    event: cycle_click
-    to: visible
-  - from: visible
-    event: cycle_click
-    to: optional
-  - from: optional
-    event: cycle_click
-    to: hidden
-- id: order_lifecycle
-  entity: Order
-  states:
-  - pending
-  - paid
-  - shipped
-  - completed
-  - cancelled
-  - refunding
-  - refunded
-  initial: pending
-  transitions:
-  - from: pending
-    event: payment_webhook_succeeded
-    to: paid
-    source: 业务上下文确认 Stripe PaymentIntent+webhook [INFERRED]
-  - from: pending
-    event: payment_timeout_30min
-    to: cancelled
-    guard: now > expiresAt; 自动取消并回补现货库存
-    source: 业务上下文确认30分钟超时 [INFERRED]
-  - from: pending
-    event: customer_cancel
-    to: cancelled
-    guard: 取消时回补现货库存
-    source: 业务上下文确认支持取消分支 [INFERRED]
-  - from: paid
-    event: mark_shipped
-    to: shipped
-    guard: carrier 与 trackingNo 已填写
-    source: OrderDetail.vue > 标记发货/填写物流信息/确认发货 (OP-009)
-  - from: shipped
-    event: confirm_receipt
-    to: completed
-    source: Orders.vue > tabs 已完成; OrderDetail.vue > 状态时间线
-  - from: paid
-    event: refund_requested
-    to: refunding
-    guard: 决策24：含定制行（OrderLine.customSizeData 非空）且 now > paidAt+24h（已投产）时拒绝申请；现货行不受限
-    source: OrderDetail.vue > 发起退款按钮; Orders.vue > tabs 退款中
-  - from: shipped
-    event: refund_requested
-    to: refunding
-    guard: 决策24：含定制行（OrderLine.customSizeData 非空）且 now > paidAt+24h（已投产）时拒绝申请；现货行不受限
-    source: OrderDetail.vue > 发起退款按钮
-  - from: refunding
-    event: refund_approved
-    to: refunded
-    source: field-inventory FLD-REFUNDS-010 approved; 业务上下文确认退款分支 [INFERRED]
-  - from: refunding
-    event: refund_rejected
-    to: paid
-    guard: 回退到退款前状态(paid/shipped)
-    source: field-inventory FLD-REFUNDS-011 rejected [INFERRED]
-- id: payment_lifecycle
-  entity: Payment
-  states:
-  - created
-  - processing
-  - succeeded
-  - failed
-  - refunded
-  initial: created
-  transitions:
-  - from: created
-    event: stripe_confirm
-    to: processing
-    source: 业务上下文确认 Stripe PaymentIntent 沙箱 [INFERRED]
-  - from: processing
-    event: webhook_payment_succeeded
-    to: succeeded
-    source: 业务上下文确认 webhook [INFERRED]
-  - from: processing
-    event: webhook_payment_failed
-    to: failed
-    source: 业务上下文确认 webhook [INFERRED]
-  - from: failed
-    event: retry_payment
-    to: processing
-    guard: 订单仍处 pending 且未超时
-    source: 业务上下文确认 [INFERRED]
-  - from: succeeded
-    event: refund_executed
-    to: refunded
-    guard: 关联 Refund 已 approved
-    source: field-inventory FLD-REFUNDS-010 approved [INFERRED]
-- id: product_lifecycle
-  entity: Product
-  states:
-  - draft
-  - published
-  - deleted
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    source: Products.vue > Toggle p.status published; ProductEdit.vue > 保存并生成静态页 (OP-011)
-  - from: published
-    event: unpublish
-    to: draft
-    source: Products.vue > Toggle p.status = draft
-  - from: draft
-    event: delete
-    to: deleted
-    source: Products.vue > 商品列表删除操作 [INFERRED]
-  - from: published
-    event: delete
-    to: deleted
-    guard: 建议先下架再删除
-    source: Products.vue > 商品列表删除操作 [INFERRED]
-  - from: draft
-    event: batch_publish
-    to: published
-    guard: selected.length > 0；D10 批量端点一次请求 N 个 id，逐条容错返回成功/失败清单并记录 OperationLog
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量上架」 + key_decisions
-      D4/D10
-  - from: published
-    event: batch_unpublish
-    to: draft
-    guard: selected.length > 0；逐条容错（D10）
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量下架」 + key_decisions
-      D4/D10
-  - from: published
-    event: batch_recommend
-    to: published
-    guard: recommend=true 批量设置，不改变上下架状态
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「设为推荐」 + key_decisions
-      D4/D10
-  - from: draft
-    event: batch_recommend
-    to: draft
-    guard: recommend=true 批量设置，不改变上下架状态
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「设为推荐」 + key_decisions
-      D4/D10
-  - from: draft
-    event: batch_delete
-    to: deleted
-    guard: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量删除」 + key_decisions
-      D4/D10
-  - from: published
-    event: batch_delete
-    to: deleted
-    guard: 逐条容错，删除复用 409509 校验，失败项返回失败清单（D10）
-    source: prototype/portal-admin/src/views/Products.vue > 批量操作栏「批量删除」 + key_decisions
-      D4/D10
-- id: refund_lifecycle
-  entity: Refund
-  states:
-  - pending
-  - approved
-  - rejected
-  - refunded
-  initial: pending
-  transitions:
-  - from: pending
-    event: admin_approve
-    to: approved
-    guard: 触发 Payment refund_executed
-    source: field-inventory FLD-REFUNDS-010 approved
-  - from: pending
-    event: admin_reject
-    to: rejected
-    guard: rejectReason.trim() 非空（D7 行内展开输入框填原因，后端拒绝原因必填约束不变）
-    source: field-inventory FLD-REFUNDS-011 rejected + key_decisions D7
-  - from: pending
-    event: approve
-    to: approved
-    guard: 原子回补现货库存且订单状态变更成功
-    source: OP-013 关联页 prototype/portal-admin/src/views/Refunds.vue 行内同意按钮 v-if r.status==='pending'
-      + 业务上下文
-  - from: pending
-    event: reject
-    to: rejected
-    guard: r.status === 'pending' 且 rejectReason.trim() 非空（D7 行内拒绝，原因必填）
-    source: prototype/portal-admin/src/views/Refunds.vue 行内拒绝按钮 + key_decisions D7
-  - from: approved
-    event: stripe_refund_succeeded
-    to: refunded
-    guard: Stripe 沙箱退款回执成功
-    source: 业务上下文 退款完成 [INFERRED]
-- id: coupon_lifecycle
-  entity: Coupon
-  states:
-  - draft
-  - scheduled
-  - active
-  - expiring
-  - expired
-  - deleted
-  initial: draft
-  transitions:
-  - from: draft
-    event: schedule
-    to: scheduled
-    guard: startAt > now
-    source: Promotions.vue > label scheduled 已排期
-  - from: draft
-    event: activate
-    to: active
-    guard: startAt <= now < endAt
-    source: Promotions.vue > label active 进行中
-  - from: scheduled
-    event: auto_start
-    to: active
-    guard: now >= startAt
-    source: mock.js > coupons.start [INFERRED]
-  - from: active
-    event: near_expiry
-    to: expiring
-    guard: endAt - now <= 阈值
-    source: Promotions.vue > label expiring 即将到期
-  - from: expiring
-    event: auto_expire
-    to: expired
-    guard: now > endAt
-    source: mock.js > coupons.end [INFERRED]
-  - from: active
-    event: auto_expire
-    to: expired
-    guard: now > endAt
-    source: mock.js > coupons.end [INFERRED]
-  - from: draft
-    event: delete
-    to: deleted
-    source: Promotions.vue > 优惠券卡片 TrashIcon 删除按钮
-  - from: expired
-    event: delete
-    to: deleted
-    source: Promotions.vue > 优惠券卡片 TrashIcon 删除按钮
-- id: flash_sale_lifecycle
-  entity: FlashSale
-  states:
-  - draft
-  - scheduled
-  - active
-  - ended
-  initial: draft
-  transitions:
-  - from: draft
-    event: schedule
-    to: scheduled
-    guard: startAt > now
-    source: Promotions.vue > flashSales status scheduled
-  - from: scheduled
-    event: auto_start
-    to: active
-    guard: now >= startAt
-    source: mock.js > flashSales.start [INFERRED]
-  - from: active
-    event: auto_offline
-    to: ended
-    guard: now > endAt; 定时任务自动下线
-    source: 业务上下文确认闪购到期自动下线 [INFERRED]
-- id: lookbook_publish
-  entity: Lookbook
-  states:
-  - draft
-  - published
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    source: ContentLookbook.vue > StatusBadge published/draft
-  - from: published
-    event: unpublish
-    to: draft
-    source: ContentLookbook.vue > StatusBadge published/draft [INFERRED]
-- id: guide_publish
-  entity: Guide
-  states:
-  - draft
-  - published
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    source: ContentLookbook.vue > guides StatusBadge published/draft
-  - from: published
-    event: unpublish
-    to: draft
-    source: ContentLookbook.vue > guides StatusBadge [INFERRED]
-- id: real_wedding_publish
-  entity: RealWedding
-  states:
-  - draft
-  - published
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-    source: ContentWeddings.vue > StatusBadge published/draft
-  - from: published
-    event: unpublish
-    to: draft
-    source: ContentWeddings.vue > StatusBadge [INFERRED]
-- id: review_moderation
-  entity: Review
-  states:
-  - pending
-  - approved
-  - rejected
-  initial: pending
-  transitions:
-  - from: pending
-    event: approve
-    to: approved
-    source: Reviews.vue approveReview
-  - from: pending
-    event: reject
-    to: rejected
-    guard: featured 强制置 false
-    source: Reviews.vue rejectReview
-  - from: rejected
-    event: batch_approve
-    to: approved
-    source: Reviews.vue batchSet('approved') 不限当前状态
-  - from: approved
-    event: batch_reject
-    to: rejected
-    guard: featured 强制置 false
-    source: Reviews.vue batchSet('rejected')
-  - from: approved
-    event: set_featured
-    to: approved
-    guard: featured=true 仅 approved 可设
-    source: Reviews.vue setFeatured(r,true)
-  - from: approved
-    event: unset_featured
-    to: approved
-    guard: featured=false
-    source: Reviews.vue setFeatured(r,false)
-- id: review_image_visibility
-  entity: ReviewImage
-  states:
-  - shown
-  - rejected
-  initial: shown
-  transitions:
-  - from: shown
-    event: reject_image
-    to: rejected
-    source: Reviews.vue rejectImage
-  - from: rejected
-    event: restore_image
-    to: shown
-    source: Reviews.vue restoreImage
-- id: question_answer_flow
-  entity: ProductQuestion
-  states:
-  - unanswered
-  - answered
-  initial: unanswered
-  transitions:
-  - from: unanswered
-    event: save_answer
-    to: answered
-    guard: answerDraft.trim() 非空
-    source: Reviews.vue saveAnswer
-  - from: answered
-    event: edit_answer
-    to: answered
-    guard: answerDraft.trim() 非空
-    source: Reviews.vue saveAnswer answerEditing
-- id: carrier_status
-  entity: Carrier
-  states:
-  - enabled
-  - disabled
-  initial: enabled
-  transitions:
-  - from: enabled
-    event: disable
-    to: disabled
-    source: Shipping.vue Toggle v-model c.enabled
-  - from: disabled
-    event: enable
-    to: enabled
-    source: Shipping.vue Toggle v-model c.enabled
-- entity: MailRecord
-  id: mail_delivery
-  initial: pending
-  source: decision.md 决策16 交易性邮件（2026-06-10 细化轮）
-  states:
-  - pending
-  - sent
-  - failed
-  - dead
-  transitions:
-  - event: send_success
-    from: pending
-    to: sent
-  - event: send_error
-    from: pending
-    to: failed
-  - event: retry
-    from: failed
-    to: pending
-    guard: retryCount < 3
-  - event: exhaust_retry
-    from: failed
-    to: dead
-    guard: retryCount >= 3
-- entity: ShowroomMember
-  id: showroom_member_assignment
-  initial: unassigned
-  source: decision.md 决策20 + prototype/app/showroom/page.tsx 指派状态（F-070/F-071）
-  states:
-  - unassigned
-  - assigned
-  - reminded
-  - ordered
-  transitions:
-  - event: assign
-    from: unassigned
-    to: assigned
-    guard: 仅 Showroom owner 可指派；assignedItemId 必须属于本 showroom
-  - event: reassign
-    from: assigned
-    to: assigned
-    guard: 仅 owner；未下单前可改派
-  - event: reassign
-    from: reminded
-    to: assigned
-    guard: 仅 owner；改派后提醒状态重置
-  - event: send_reminder
-    from: assigned
-    to: reminded
-    guard: member.email 非空；经 MQ 投递 MailRecord（决策20.5 复用决策16 基建）
-  - event: place_order
-    from: assigned
-    to: ordered
-    guard: 访客下单需登录（linkedCustomerId 回填）；订单行含被指派款式
-  - event: place_order
-    from: reminded
-    to: ordered
-    guard: 同上
-- id: page_dashboard_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Dashboard.vue + key_decisions D5/D8 + page_diff_summary
-    Dashboard impl_extra 骨架屏/错误态/重试
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: click_publish_site
-    to: loaded
-    guard: PageHeader「发布站点」按钮跳转 Publish 页（D5 补齐）
-  - from: loaded
-    event: click_quick_entry
-    to: loaded
-    guard: 快捷入口恢复 5 项（含编辑首页/发布站点，D5）
-  - from: loaded
-    event: switch_gmv_range
-    to: loaded
-    guard: GMV 14/30 天切换（D9 保留实现增强）
-- id: page_analytics_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - degraded
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Analytics.vue + page_diff_summary Analytics
-    impl_extra GA4 降级占位/CSV 导出（D8 接受现状）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: ga4_unavailable
-    to: degraded
-    guard: GA4 流量指标拉取失败时降级占位，交易指标仍展示
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: export_csv
-    to: loaded
-    guard: D9 保留实现增强
-- id: page_products_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - batch_selected
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Products.vue > selected/allChecked/批量操作栏/导出按钮/更多筛选
-    + key_decisions D4/D10/D11
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-    guard: filtered.length > 0
-  - from: loading
-    event: load_empty
-    to: empty
-    guard: filtered.length === 0 显示 EmptyState「没有符合条件的商品」
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: change_filter
-    to: loading
-    guard: search/cat/statusFilter/moreFilters(productTypes/价格区间/stockLevel/flags/tagIds)
-      变更触发服务端分页查询；activeMoreCount 角标计数
-  - from: empty
-    event: change_filter
-    to: loading
-  - from: loaded
-    event: select_rows
-    to: batch_selected
-    guard: selected.length > 0（勾选框列，allChecked 全选）
-  - from: batch_selected
-    event: clear_selection
-    to: loaded
-    guard: selected.length === 0
-  - from: batch_selected
-    event: batch_action
-    to: loading
-    guard: 批量上架/下架/设为推荐/批量删除走 D10 批量端点，逐条容错后刷新列表
-  - from: loaded
-    event: export_products
-    to: loaded
-    guard: 按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D11）
-  - from: batch_selected
-    event: export_products
-    to: batch_selected
-    guard: 同上（D11）
-- id: page_product_edit_view
-  entity: PageState
-  states:
-  - loading
-  - editing
-  - saving
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/ProductEdit.vue（severity none，维持现状）+ page_diff_summary
-    ProductEdit impl_extra SKU 并发版本控制/presign 直传
-  transitions:
-  - from: loading
-    event: load_success
-    to: editing
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: editing
-    event: save
-    to: saving
-    guard: name/slug/categoryId/price/leadTimeDays 必填；属性集控制版型属性显隐与必填
-  - from: saving
-    event: save_success
-    to: editing
-  - from: saving
-    event: save_conflict
-    to: editing
-    guard: SKU 乐观锁版本冲突提示
-  - from: editing
-    event: save_and_generate
-    to: saving
-    guard: 保存并生成静态页改为 API 触发（维持实现）
-- id: page_categories_view
-  entity: PageState
-  states:
-  - taxonomy_tab
-  - matrix_tab
-  - tags_tab
-  - attr_set_drawer
-  - child_override_drawer
-  initial: taxonomy_tab
-  source: prototype/portal-admin/src/views/Categories.vue > mainTab/openCatSetDrawer/openDrawer/saveDrawer
-    + key_decisions D1/D2/D3 恢复 3-Tab 结构（标准品类树/品类×属性矩阵+属性字典/自定义标签）
-  transitions:
-  - from: taxonomy_tab
-    event: switch_to_matrix
-    to: matrix_tab
-    guard: D1 第二 Tab 合并属性字典+品类×属性矩阵，Tab 文案「品类×属性矩阵」；AttributeSets 菜单移除并路由重定向至此
-  - from: taxonomy_tab
-    event: switch_to_tags
-    to: tags_tab
-  - from: matrix_tab
-    event: switch_to_taxonomy
-    to: taxonomy_tab
-  - from: matrix_tab
-    event: switch_to_tags
-    to: tags_tab
-  - from: tags_tab
-    event: switch_to_taxonomy
-    to: taxonomy_tab
-  - from: tags_tab
-    event: switch_to_matrix
-    to: matrix_tab
-  - from: taxonomy_tab
-    event: click_set_badge
-    to: attr_set_drawer
-    guard: cat.attributeSetId 非空；点击品类卡片属性集徽章直接打开三态配置抽屉（D2 openCatSetDrawer）
-  - from: matrix_tab
-    event: open_set_drawer
-    to: attr_set_drawer
-    guard: openSetDrawer(set)
-  - from: attr_set_drawer
-    event: cycle_attr_state
-    to: attr_set_drawer
-    guard: cycleSetDrawerState 必填→可选→隐藏循环
-  - from: attr_set_drawer
-    event: save_set_drawer
-    to: matrix_tab
-    guard: saveSetDrawer 写回属性集配置
-  - from: attr_set_drawer
-    event: close_drawer
-    to: taxonomy_tab
-  - from: taxonomy_tab
-    event: open_child_override
-    to: child_override_drawer
-    guard: openDrawer(child, parentCat) 解析 resolveAttributeConfig 含继承
-  - from: child_override_drawer
-    event: cycle_attr_state
-    to: child_override_drawer
-    guard: cycleDrawerState；isInherited 标记继承项
-  - from: child_override_drawer
-    event: save_override
-    to: taxonomy_tab
-    guard: saveDrawer 仅存与父级属性集不同的 delta 至 child.attrOverrides；矩阵 Tab 内子品类属性覆盖卡片区按根品类分组只读展示该
-      delta（D3）
-  - from: child_override_drawer
-    event: close_drawer
-    to: taxonomy_tab
-- id: page_attribute_sets_view
-  entity: PageState
-  states:
-  - entered
-  - redirected
-  initial: entered
-  source: key_decisions D1 废弃独立 AttributeSets 页：菜单移除 + 路由重定向到 Categories 对应 Tab
-  transitions:
-  - from: entered
-    event: route_redirect
-    to: redirected
-    guard: 访问 /attribute-sets 自动重定向至 Categories 品类×属性矩阵 Tab（D1）
-- id: page_orders_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Orders.vue 列「地区/商品数」+ key_decisions D6/D11/D12
-    + page_diff_summary Orders impl_extra 服务端分页/防抖搜索
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-    guard: 列表列严格回对原型：地区（addressSnapshot.country）/商品数（itemCount）替换币种/承运（D6/D12）
-  - from: loading
-    event: load_empty
-    to: empty
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: switch_status_tab
-    to: loading
-    guard: 状态 Tab 过滤刷新列表
-  - from: loaded
-    event: search_orders
-    to: loading
-    guard: 防抖搜索（D9 保留）
-  - from: empty
-    event: switch_status_tab
-    to: loading
-  - from: loaded
-    event: export_orders
-    to: loaded
-    guard: 「导出订单」按钮：按当前筛选条件全量 CSV 导出，设行数上限，记录操作日志（D6/D11）
-- id: page_order_detail_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - refund_modal
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/OrderDetail.vue（severity low，维持现状）+ page_diff_summary
-    OrderDetail impl_extra 退款表单弹窗/定制商品不可退款 422602
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: mark_shipped
-    to: loaded
-    guard: Order.status === 'paid' 且 carrier/trackingNo 已填写；操作按钮按状态条件渲染
-  - from: loaded
-    event: open_refund_modal
-    to: refund_modal
-    guard: 含定制行且已投产时拒绝（422602）
-  - from: refund_modal
-    event: submit_refund
-    to: loaded
-    guard: amount <= Order.totalAmount，创建 Refund 工单
-  - from: refund_modal
-    event: cancel
-    to: loaded
-- id: page_refunds_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - reject_input_open
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Refunds.vue > tabs all/pending/approved/rejected
-    + 行内同意/拒绝按钮 v-if r.status==='pending' + key_decisions D7
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-    guard: filtered.length > 0
-  - from: loading
-    event: load_empty
-    to: empty
-    guard: filtered.length === 0 显示 EmptyState「暂无退款工单」
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: switch_status_tab
-    to: loading
-    guard: status tabs 全部/待审批/已同意/已拒绝过滤
-  - from: empty
-    event: switch_status_tab
-    to: loading
-  - from: loaded
-    event: click_approve
-    to: loading
-    guard: r.status === 'pending' 行内同意，无需弹窗二次确认（D7 回对原型）；成功后刷新行状态为已处理
-  - from: loaded
-    event: click_reject
-    to: reject_input_open
-    guard: r.status === 'pending'；按钮位置行内展开拒绝原因输入框（D7）
-  - from: reject_input_open
-    event: confirm_reject
-    to: loading
-    guard: rejectReason.trim() 非空才可提交（后端拒绝原因必填约束不变，D7）
-  - from: reject_input_open
-    event: cancel_reject
-    to: loaded
-- id: page_reviews_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - detail_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Reviews.vue + key_decisions D8 接受 FORM-REV-A01
-    显式偏离 + page_diff_summary Reviews impl_extra 抽屉同步 syncDetail
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_empty
-    to: empty
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: open_detail
-    to: detail_drawer
-  - from: detail_drawer
-    event: close_drawer
-    to: loaded
-  - from: detail_drawer
-    event: moderate
-    to: detail_drawer
-    guard: 通过/拒绝仅 pending 可操作；删除回复需二次确认（CP-071，维持实现）
-- id: page_shipping_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - edit_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Shipping.vue + key_decisions D8 接受 DEC-SHP-FE-1/2（逐资源即时持久化/行内编辑删除维持实现）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: toggle_carrier
-    to: loaded
-    guard: 最后一个启用承运方禁删禁停（维持实现）；逐资源即时持久化（DEC-SHP-FE-1）
-  - from: loaded
-    event: open_edit_drawer
-    to: edit_drawer
-  - from: edit_drawer
-    event: save_resource
-    to: loaded
-    guard: 即时持久化；满额包邮 0 显示「免邮」
-  - from: edit_drawer
-    event: close_drawer
-    to: loaded
-- id: page_promotions_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - form_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Promotions.vue + page_diff_summary Promotions
-    状态枚举补 expired/ended、已结束活动禁止编辑（维持实现）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: open_form_drawer
-    to: form_drawer
-    guard: 已结束（expired/ended）活动禁止编辑
-  - from: form_drawer
-    event: save
-    to: loaded
-    guard: endAt > startAt
-  - from: form_drawer
-    event: close_drawer
-    to: loaded
-  - from: loaded
-    event: delete_coupon
-    to: loaded
-    guard: 删除二次确认（维持实现）
-- id: page_banners_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - form_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/Banners.vue + page_diff_summary Banners
-    Toggle 三态映射 + 409703 回滚（维持实现）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: toggle_online
-    to: loaded
-    guard: Toggle 映射 published/archived 三态，失败按 409703 回滚 UI
-  - from: loaded
-    event: open_form_drawer
-    to: form_drawer
-  - from: form_drawer
-    event: save_publish
-    to: loaded
-    guard: name 与 image_url 非空；end_time > start_time
-  - from: form_drawer
-    event: close_drawer
-    to: loaded
-  - from: loaded
-    event: edit_sort
-    to: loaded
-    guard: 排序 blur 保存（维持实现）
-- id: page_content_blog_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - edit_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/ContentBlog.vue + page_diff_summary ContentBlog
-    发布/下线/重新发布流转、slug 校验预览（维持实现）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_empty
-    to: empty
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: switch_status_tab
-    to: loading
-    guard: published/draft/archived tab 过滤 + 分页
-  - from: loaded
-    event: open_edit_drawer
-    to: edit_drawer
-  - from: edit_drawer
-    event: save
-    to: loaded
-    guard: title 非空
-  - from: edit_drawer
-    event: close_drawer
-    to: loaded
-  - from: loaded
-    event: preview
-    to: loaded
-    guard: slug 校验通过后新窗口预览（维持实现）
-- id: page_content_weddings_view
-  entity: PageState
-  states:
-  - loading
-  - loaded
-  - empty
-  - form_drawer
-  - error
-  initial: loading
-  source: prototype/portal-admin/src/views/ContentWeddings.vue + page_diff_summary
-    ContentWeddings 发布/下线流转、状态过滤器（维持实现）
-  transitions:
-  - from: loading
-    event: load_success
-    to: loaded
-  - from: loading
-    event: load_empty
-    to: empty
-  - from: loading
-    event: load_error
-    to: error
-  - from: error
-    event: retry
-    to: loading
-  - from: loaded
-    event: filter_status
-    to: loading
-  - from: loaded
-    event: open_form_drawer
-    to: form_drawer
-  - from: form_drawer
-    event: save
-    to: loaded
-    guard: couple 非空
-  - from: form_drawer
-    event: close_drawer
-    to: loaded
-  - from: loaded
-    event: delete_wedding
-    to: loaded
-    guard: 删除二次确认（维持实现）
-- id: lookbook_lifecycle
-  entity: lookbook
-  source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 新增/编辑/删除按钮
-  states:
-  - draft
-  - published
-  - deleted
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-  - from: published
-    event: unpublish
-    to: draft
-  - from: draft
-    event: delete
-    to: deleted
-  - from: published
-    event: delete
-    to: deleted
-- id: style_guide_lifecycle
-  entity: style_guide
-  source: prototype/portal-admin/src/views/ContentLookbook.vue > StatusBadge + 编辑/删除按钮
-  states:
-  - draft
-  - published
-  - deleted
-  initial: draft
-  transitions:
-  - from: draft
-    event: publish
-    to: published
-  - from: published
-    event: unpublish
-    to: draft
-  - from: draft
-    event: delete
-    to: deleted
-  - from: published
-    event: delete
-    to: deleted
-- id: page_content_lookbook_tabs
-  entity: page_state
-  page_id: portal-admin/ContentLookbook
-  source: prototype/portal-admin/src/views/ContentLookbook.vue > const tab = ref('lookbook')
-    + @click tab 切换
-  states:
-  - tab_lookbook
-  - tab_guide
-  initial: tab_lookbook
-  transitions:
-  - from: tab_lookbook
-    event: click_tab_guide
-    to: tab_guide
-  - from: tab_guide
-    event: click_tab_lookbook
-    to: tab_lookbook
+  - id: home_page_section_status
+    desc: 首页区块启用/禁用切换。KD-4 保存即发布，无草稿态；与 Banners 一致。管理端 Toggle v-model=b.enabled 切换，保存 API 直接写入 DB + 触发 in-process 缓存失效（GRD-W01 修正）。
+    meta: {source: new}
+    entity: HomePageSection
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 区块启用，消费端首页按 sort_order 升序渲染
+      - id: disabled
+        desc: 区块禁用，消费端不渲染（管理端列表显示删除线 + 灰色）
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端 Toggle 切换为 on（需 /site/home 权限，KD-BE-2）
+        source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle :model-value=b.enabled @update:model-value'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端 Toggle 切换为 off（需 /site/home 权限）
+        source: 'prototype/portal-admin/src/views/HomeBuilder.vue > Toggle :model-value=b.enabled @update:model-value'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.HOME_SECTION)（GRD-004 新增族）
+          2. publisher.publish(TYPE_HOME_SECTION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("home_section_changed", "home_section", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: home_section_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: navigation_item_status
+    desc: 主导航项启用/禁用切换。KD-4 保存即发布。管理端可对单个导航项启停，影响全站 header 渲染。
+    meta: {source: new}
+    entity: NavigationItem
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 导航项启用，消费端 header 渲染
+      - id: disabled
+        desc: 导航项禁用，消费端 header 不渲染
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用导航项（需 /site/navigation 权限，KD-BE-2）
+        source: '[INFERRED] 对齐 HomePageSection Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用导航项（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐 HomePageSection Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.NAVIGATION)（GRD-004 新增族）
+          2. publisher.publish(TYPE_NAVIGATION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("navigation_changed", "navigation", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: navigation_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: announcement_status
+    desc: 公告条启用/禁用切换。KD-7 独立 announcement 域。KD-4 保存即发布。管理端可对单条公告启停，影响消费端顶部公告条轮播。
+    meta: {source: new}
+    entity: Announcement
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 公告启用，消费端按 sort_order 升序轮播
+      - id: disabled
+        desc: 公告禁用，消费端不轮播
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用公告（需 /site/announcement 权限，KD-BE-2 + GRD-007 种子）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用公告（需 /site/announcement 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调）：
+          1. cache.invalidateFamily(Family.ANNOUNCEMENT)（GRD-004 新增族）
+          2. publisher.publish(TYPE_ANNOUNCEMENT_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("announcement_changed", "announcement", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效，layout 级）
+        event_type: announcement_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+  - id: banner_status
+    desc: Banner 状态机（基线已有，本变更引用）。KD-2 Hero 区块通过 Banner position=HERO 关联，Banner 自身状态机不变。draft=1/published=2/archived=3（ContentStatus IntEnum）。KD-14 Banner 新增 cta_text_secondary/cta_link_secondary 字段不影响状态机。
+    meta: {source: baseline}
+    entity: Banner
+    state_field: status
+    initial: draft
+    states:
+      - id: draft
+        desc: 草稿（status=1，ContentStatus.DRAFT）
+      - id: published
+        desc: 已发布（status=2，ContentStatus.PUBLISHED）；HomePageSection.Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner
+      - id: archived
+        desc: 已归档（status=3，ContentStatus.ARCHIVED）
+      - id: deleted
+        desc: 物理删除（基线 banner_lifecycle 含 deleted 终态；Banner.deletedAt 软删除标记）
+    transitions:
+      - from: draft
+        to: published
+        event: publish
+        trigger: 管理端 Banners 页"保存并发布"按钮（需 /site/banners 权限）
+        guard: name != null && image_url != null
+        source: 'prototype/portal-admin/src/views/Banners.vue > 保存并发布 + 基线 banner_lifecycle'
+      - from: published
+        to: archived
+        event: take_offline
+        trigger: 管理端 Toggle 切换为 off
+        source: 'prototype/portal-admin/src/views/Banners.vue > Toggle v-model=b.online + 基线 banner_lifecycle'
+      - from: published
+        to: archived
+        event: schedule_expire
+        trigger: 定时任务检测 now > end_time（基线 banner_lifecycle；项目当前无 @Scheduled 实现，待后续补）
+        guard: now > end_time
+        source: '基线 banner_lifecycle'
+      - from: archived
+        to: published
+        event: republish
+        trigger: 管理端重新发布
+        source: '基线 banner_lifecycle'
+      - from: draft
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: 'prototype/portal-admin/src/views/Banners.vue > TrashIcon + 基线 banner_lifecycle'
+      - from: published
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: '基线 banner_lifecycle'
+      - from: archived
+        to: deleted
+        event: delete
+        trigger: 管理端 TrashIcon 删除按钮
+        source: '基线 banner_lifecycle'
+    side_effects:
+      - on: [publish, take_offline, republish, delete]
+        action: |
+          基线 in-process 缓存失效链（参考）：
+          1. cache.invalidateFamily(Family.BANNERS)
+          2. publisher.publish(TYPE_BANNER_CHANGED, slug, oldSlug, id)
+             → 内部调用 cacheService.logInvalidation + cdnService.invalidatePaths(["/", "/es", "/fr"])
+        event_type: banner_changed
+        source: '基线 banner_lifecycle + MarketingContentInvalidatedPublisher'
+    notes: '本变更不修改 Banner 状态机；KD-2 仅引用 position=HERO && status=published 的 Banner 作为 Hero 区块数据源；KD-14 新增 cta_text_secondary/cta_link_secondary 字段不影响状态机。'
+
+  - id: subscriber_status
+    desc: Newsletter 订阅者状态机（KD-11/KD-12 修正）。GRD-001/KD-12 修正：本期不扩展退订状态机，简化为单态 subscribed（移除 pending/unsubscribed）。订阅即生效，无双重确认，无退订/重订阅转换。GRD-009/KD-13 修正：订阅 API 扩展基线 POST /api/store/newsletter，新增 source=HOME_BLOCK(4)（不新建 /api/store/subscribers/subscribe）。GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 (email) 迁移到 (email, source) 复合唯一，保证 KD-13 source 数据完整性（同邮箱同来源幂等短路，不同来源新增记录）。
+    meta: {source: new}
+    entity: Subscriber
+    state_field: subscribedAt
+    initial: subscribed
+    states:
+      - id: subscribed
+        desc: 已订阅（subscribedAt 非空，订阅即生效；KD-12 单态，无 pending/unsubscribed 状态）
+    transitions:
+      - from: subscribed
+        to: subscribed
+        event: subscribe
+        trigger: 消费端 POST /api/store/newsletter（GRD-009/KD-13 修正：扩展基线端点，source=HOME_BLOCK(4) 表示首页 Newsletter 区块订阅入口）
+        guard: email 格式合法 && email 小写归一后 (email, source) 唯一性校验通过（重复订阅幂等返回成功，KD-11）
+        source: 'KD-11 完整订阅表单（邮箱输入 + API）+ KD-12 单态订阅 + KD-13 扩展基线 API'
+    side_effects:
+      - on: [subscribe]
+        action: |
+          订阅副作用（KD-11）：
+          1. NewsletterSubscriber 持久化（email/source/locale/subscribedAt）
+          2. 可选触发欢迎邮件（本期不发邮件，对齐基线 NewsletterSubscriber 决策26）
+          3. 无缓存失效副作用（订阅数据不进消费端缓存，无 cache.invalidateFamily 调用）
+        source: 'KD-11 + 基线 NewsletterSubscriber 模式 + KD-12 不扩展状态机'
+    notes: |
+      GRD-001/KD-12 修正记录：
+        - 移除 pending 态（基线 NewsletterSubscriber 无 status 字段，本期不扩展）。
+        - 移除 unsubscribed 态与 unsubscribe/resubscribe/resubmit 转换（本期不实现退订/重订阅）。
+        - 状态机简化为单态 subscribed + subscribe 自转换（重复订阅幂等）。
+        - acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
+      GRD-009/KD-13 修正记录：
+        - 订阅 API 路径扩展基线 POST /api/store/newsletter，不新建 /api/store/subscribers/subscribe。
+        - source 字段改为 IntEnum NewsletterSource [1=FOOTER, 2=MODAL, 3=EXIT_INTENT, 4=HOME_BLOCK]。
+
+  - id: footer_column_status
+    desc: 页脚栏目启用/禁用切换。KD-4 保存即发布。管理端可对单个页脚栏目启停，影响全站 footer 渲染。GRD-W08 修正：本期补齐 FooterColumnTranslation/FooterLinkTranslation 双表 i18n。
+    meta: {source: new}
+    entity: FooterColumn
+    state_field: enabled
+    initial: enabled
+    states:
+      - id: enabled
+        desc: 栏目启用，消费端 footer 渲染
+      - id: disabled
+        desc: 栏目禁用，消费端 footer 不渲染
+    transitions:
+      - from: disabled
+        to: enabled
+        event: admin_enable
+        trigger: 管理端启用栏目（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+      - from: enabled
+        to: disabled
+        event: admin_disable
+        trigger: 管理端禁用栏目（需 /site/navigation 权限）
+        source: '[INFERRED] 对齐其他实体 Toggle 模式'
+    side_effects:
+      - on: [admin_enable, admin_disable]
+        action: |
+          in-process 缓存失效链（GRD-W01 修正：非 HTTP 自调；页脚与导航共享 NAVIGATION 缓存族）：
+          1. cache.invalidateFamily(Family.NAVIGATION)（GRD-004 新增族；footer 渲染数据与 header 共用 navigation 缓存族）
+          2. publisher.publish(TYPE_NAVIGATION_CHANGED, null, null, null)（GRD-005 新增常量）
+             → 内部调用 cacheService.logInvalidation("navigation_changed", "navigation", null, null, null, ALL_LOCALES, "system")
+             → 内部调用 cdnService.invalidatePaths(["/", "/es", "/fr"])（GRD-005 buildAffectedPaths 全站级失效）
+        event_type: navigation_changed
+        source: 'KD-1/KD-4 保存后自动触发 in-process 缓存失效（GRD-W01 + GRD-005 + GRD-004 修正）'
+
+open_questions:
+  - id: SM-OQ-1
+    topic: Banner schedule_expire 定时任务缺失
+    question: 基线 banner_lifecycle 包含 schedule_expire 转换（now > end_time → archived），但项目当前无 @Scheduled 实现（backend-flow-inference iteration 5 确认）。本变更是否需要补齐此定时任务？
+    options:
+      - '方案 A：本变更不补齐，保持基线现状（Banner 时间窗仅消费端读路径过滤，状态不翻转）'
+      - '方案 B：本变更补齐 @Scheduled 任务（每分钟扫描 status=published && end_time < now 的 Banner，转 archived）'
+      - '方案 C：单独 change 补齐定时任务（与 site-decoration 解耦）'
+    impact: '影响 Banner 状态机实际行为、Hero 区块数据源准确性'
+    recommendation: '方案 A（保持基线现状，本变更不扩展定时任务范围）'
+
+  - id: SM-OQ-2
+    topic: Subscriber 单态订阅的扩展性（GRD-001/KD-12 修正后）
+    question: GRD-001/KD-12 修正后 subscriber_status 简化为单态 subscribed（移除 pending/unsubscribed）。未来如需引入双重确认或退订功能，扩展路径如何？
+    options:
+      - '方案 A：本期单态 subscribed，未来扩展时新增 pending/unsubscribed 状态 + NewsletterSubscriber.status/unsubscribed_at 字段（向后兼容）'
+      - '方案 B：本期单态 subscribed，未来扩展时新建独立 unsubscribe_log 表记录退订事件（不改主表）'
+      - '方案 C：本期单态 subscribed，未来扩展时新建独立 subscriber_lifecycle 状态机表'
+    impact: '影响未来退订/双重确认功能的迁移成本'
+    recommendation: '方案 A（单态订阅最简，未来扩展时补字段+状态机，向后兼容；本期不引入不必要复杂度）'
+
+  - id: SM-OQ-3
+    topic: Announcement 时间窗状态机
+    question: Announcement 是否需要支持时间窗投放（如 Banner 的 start_time/end_time）？当前状态机仅 enabled/disabled 二态，无时间窗。
+    options:
+      - '方案 A：不支持时间窗，运营手动启停（当前状态机方案）'
+      - '方案 B：支持时间窗，增加 start_time/end_time 字段 + schedule_expire 转换（对齐 Banner 模式）'
+      - '方案 C：本期不支持，后续 change 扩展'
+    impact: '影响 Announcement 表结构、状态机、管理端表单'
+    recommendation: '方案 A（保持简单，运营手动启停）'
+
+  - id: SM-OQ-4
+    topic: 缓存族复用策略（GRD-004/GRD-W01 修正后）
+    question: GRD-004 新增 3 个缓存族 HOME_SECTION/NAVIGATION/ANNOUNCEMENT。FooterColumn/FooterLink 启停复用 NAVIGATION 族（与 header 导航共享），是否合理？还是应独立 FOOTER 族？
+    options:
+      - '方案 A：FooterColumn/FooterLink 复用 NAVIGATION 族（当前方案；消费端 layout.tsx 同时渲染 header+footer，一次失效即可）'
+      - '方案 B：新增 FOOTER 族独立失效（精细化控制但增加缓存族数量）'
+      - '方案 C：合并 NAVIGATION+FOOTER 为 SITE_CHROME 单一族（粗粒度失效）'
+    impact: '影响缓存族数量、失效精度、消费端 layout.tsx 渲染逻辑'
+    recommendation: '方案 A（复用 NAVIGATION 族；消费端 layout.tsx 同时渲染 header+footer，复用族减少缓存族数量与失效次数）'
