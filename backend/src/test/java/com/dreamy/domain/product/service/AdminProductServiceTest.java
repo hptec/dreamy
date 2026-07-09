@@ -116,10 +116,10 @@ class AdminProductServiceTest {
     }
 
     private static AdminProductUpsert upsertWithSku(SkuDto sku) {
-        return new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null, null,
+        return new AdminProductUpsert("Aurelia", "aurelia-gown", 1L, null, null, null,
                 new BigDecimal("1280"), null, null, null, 2, null, null, null, 0, 45, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, List.of(sku), null, null, null, null);
+                null, null, null, null, null, List.of(sku), null, null, null, null,
+                null, null, null);
     }
 
     @Test
@@ -260,10 +260,10 @@ class AdminProductServiceTest {
         when(skuRepository.listByProductId(10L)).thenReturn(List.of());
         when(categoryRepository.findById(1L)).thenReturn(new Category());
         when(productRepository.existsBySlugExcept("aurelia-gown", 10L)).thenReturn(false);
-        AdminProductUpsert req = new AdminProductUpsert("Aurelia", "aurelia-gown", null, 1L, null, null,
+        AdminProductUpsert req = new AdminProductUpsert("Aurelia", "aurelia-gown", 1L, null, null,
                 null, new BigDecimal("1280"), null, null, null, 2, null, null, null, 0, 45,
-                null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, "2026-06-01T09:00:00");
+                null, null, null, null, null, null, null, null, null, null, null, "2026-06-01T09:00:00",
+                null, null, null);
         assertThatThrownBy(() -> service.update(10L, req))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.PRODUCT_VERSION_CONFLICT));

@@ -77,7 +77,7 @@ class StoreCartServiceTest {
     }
 
     private ProductBrief product(boolean customAvailable, Integer status) {
-        return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
+        return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", new BigDecimal("100.00"),
                 null, null, null, 30, false, customAvailable, status);
     }
 

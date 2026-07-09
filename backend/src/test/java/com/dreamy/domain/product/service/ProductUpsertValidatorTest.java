@@ -28,16 +28,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class ProductUpsertValidatorTest {
 
-    /** 35 字段构造器的命名工厂（仅暴露被测字段，其余 null） */
+    /** 31 字段构造器的命名工厂（仅暴露被测字段，其余 null） */
     private static AdminProductUpsert make(String name, String slug, Long categoryId, BigDecimal price,
                                            BigDecimal compareAt, Integer status, Integer sort,
                                            Integer leadTimeDays, List<ProductImageDto> images,
-                                           List<SkuDto> skus, List<Long> tagIds,
+                                           List<SkuDto> skus, List<Long> collectionIds,
                                            List<ProductTranslationDto> translations) {
-        return new AdminProductUpsert(name, slug, null, categoryId, null, null, null, price, compareAt,
+        return new AdminProductUpsert(name, slug, categoryId, null, null, null, price, compareAt,
                 null, null, status, null, null, null, sort, leadTimeDays, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                images, skus, null, tagIds, translations, null);
+                null, null, null, null, images, skus, null, collectionIds, translations, null,
+                null, null, null);
     }
 
     /** 旧四参签名兼容包装（动态属性上下文默认空字典 + 跳过分类白名单） */
@@ -204,10 +204,10 @@ class ProductUpsertValidatorTest {
     }
 
     private static AdminProductUpsert withAttrs(List<AttributeValueDto> attributes) {
-        return new AdminProductUpsert("N", "n", null, 1L, null, null, null, BigDecimal.ONE, null,
+        return new AdminProductUpsert("N", "n", 1L, null, null, null, BigDecimal.ONE, null,
                 null, null, 1, null, null, null, 0, 1, null, null,
                 attributes, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null);
     }
 
     @Test

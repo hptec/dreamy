@@ -132,7 +132,7 @@ class CollectionAdminServiceTest {
         collection.setStatus(com.dreamy.enums.CollectionStatus.ENABLED);
         when(collectionRepository.findById(7L)).thenReturn(collection);
         when(productCollectionRepository.countByCollections(false)).thenReturn(Map.of());
-        var dto = service.updateCollection(7L, new CollectionUpsert(1L, "Sage", null, 2, null));
+        var dto = service.updateCollection(7L, new CollectionUpsert(1L, "Sage", 2, null));
         assertThat(dto.status()).isEqualTo(2);
         verify(audit).record(org.mockito.ArgumentMatchers.eq("编辑集合"),
                 org.mockito.ArgumentMatchers.eq("Sage"),

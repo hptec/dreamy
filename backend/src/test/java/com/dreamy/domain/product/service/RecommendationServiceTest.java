@@ -65,8 +65,8 @@ class RecommendationServiceTest {
         lenient().when(cache.get(any(), anyString())).thenReturn(null);
         lenient().when(cardAssembler.assemble(anyList(), anyString()))
                 .thenAnswer(inv -> ((List<Product>) inv.getArgument(0)).stream()
-                        .map(p -> new StoreProductCard(p.getId(), p.getSlug(), p.getName(), null,
-                                p.getPrice(), null, null, null, null, null, null, List.of(), null, null))
+                        .map(p -> new StoreProductCard(p.getId(), p.getSlug(), p.getName(),
+                                p.getPrice(), null, null, null, null, null, null, List.of(), null, null, null))
                         .toList());
     }
 

@@ -41,7 +41,6 @@ class ProductCardAssemblerTest {
         p.setId(id);
         p.setSlug("aurelia-gown");
         p.setName("Aurelia Gown");
-        p.setSubtitle("Romantic tulle");
         p.setPrice(new BigDecimal("1280"));
         p.setRatingAvg(new BigDecimal("4.90"));
         p.setRatingCount(142);
@@ -61,17 +60,15 @@ class ProductCardAssemblerTest {
     @Test
     @DisplayName("TC-CAT-013 [P0]: es 命中附表覆盖 name；fr 部分字段缺失逐字段回退 EN")
     void translationFallbackMerge() {
-        // es：name 有译文、subtitle 空白 → name 覆盖，subtitle 回退 EN
+        // es：name 有译文
         ProductTranslation es = new ProductTranslation();
         es.setProductId(1L);
         es.setLocale("es");
         es.setName("Vestido Aurelia");
-        es.setSubtitle("  ");
         when(translationRepository.listByProductIds(anyCollection(), eq("es"))).thenReturn(List.of(es));
         when(imageRepository.listByProductIds(anyCollection())).thenReturn(List.of());
         List<StoreProductCard> cards = assembler.assemble(List.of(product(1)), "es");
         assertThat(cards.get(0).name()).isEqualTo("Vestido Aurelia");
-        assertThat(cards.get(0).subtitle()).isEqualTo("Romantic tulle");
         // en：不查附表，原样 EN
         List<StoreProductCard> enCards = assembler.assemble(List.of(product(1)), "en");
         assertThat(enCards.get(0).name()).isEqualTo("Aurelia Gown");

@@ -118,7 +118,7 @@ class AttributeDefServiceTest {
         existing.setLabel("Silhouette");
         when(defRepository.findById(1L)).thenReturn(existing);
         when(setRepository.countItemsByAttributeId(1L)).thenReturn(2L);
-        assertThatThrownBy(() -> service.delete(1L))
+        assertThatThrownBy(() -> service.delete(1L, false))
                 .satisfies(ex -> {
                     CatalogException ce = (CatalogException) ex;
                     assertThat(ce.getErrorCode()).isEqualTo(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE);
