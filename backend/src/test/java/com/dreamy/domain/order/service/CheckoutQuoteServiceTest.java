@@ -108,7 +108,7 @@ class CheckoutQuoteServiceTest {
     }
 
     private ProductBrief product(Integer status) {
-        return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
+        return new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", new BigDecimal("100.00"),
                 null, null, "https://img/aurelia.jpg", 30, false, true, status);
     }
 
@@ -154,7 +154,7 @@ class CheckoutQuoteServiceTest {
         eur.setRate(new BigDecimal("0.920000"));
         when(exchangeRateRepository.findByCurrency("EUR")).thenReturn(eur);
         when(catalogSnapshotPort.getProductBriefs(anyCollection(), anyString())).thenReturn(Map.of(PRODUCT,
-                new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null, new BigDecimal("100.00"),
+                new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", new BigDecimal("100.00"),
                         null, Map.of("EUR", new BigDecimal("90.00")), null, 30, false, true, 2)));
         CheckoutQuoteResponse resp = service.quote(CUSTOMER, request("EUR", null, null, true, null), "en");
         // 行价覆盖价 90×2=180；运费 22×0.92=20.24；礼品包装 15×0.92=13.80

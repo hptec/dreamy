@@ -99,17 +99,17 @@ class CollectionAdminServiceTest {
     @DisplayName("V-CAT-063~065 [P0]: 分组不存在 → 404505；name 必填；status 枚举外 → 422501")
     void collectionValidation() {
         when(groupRepository.findById(9L)).thenReturn(null);
-        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(9L, "Sage", null, 1, null)))
+        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(9L, "Sage", 1, null)))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getErrorCode())
                         .isEqualTo(CatalogErrorCode.COLLECTION_NOT_FOUND));
         CollectionGroup group = new CollectionGroup();
         group.setId(1L);
         when(groupRepository.findById(1L)).thenReturn(group);
-        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "  ", null, 1, null)))
+        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "  ", 1, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("name", "required"));
-        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", null, 3, null)))
+        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", 3, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("status", "invalid_enum"));
-        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", "x".repeat(513), 1, null)))
+        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", 1, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("cover", "too_long"));
     }
 

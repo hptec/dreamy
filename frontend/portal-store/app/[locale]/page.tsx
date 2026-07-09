@@ -10,77 +10,202 @@ import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /**
- * 首页（PAGE-CAT-S04 + PAGE-MKT-S01，layout-keep + data-swap）：
- * - hero ← E-MKT-01 position=hero 首条（空回退现有静态 hero——冷启动安全）
- * - FlashSaleRail ← E-MKT-09（空 items 整段不渲染）
- * - Shop by Color ← E-CAT-07 色板标签（空回退静态 palette）
- * - New Arrivals / Best Sellers ← E-CAT-03 推荐位（空整段不渲染）
- * - Real Weddings ← E-MKT-04（空整段不渲染）
+ * 首页（KD-5 动态渲染版本）：
+ * - homeSections 按 section_type 动态渲染（Hero/ThemeCards/ProductRail/EditorialFeature/Newsletter）
+ * - 保留 FlashSaleRail/ShopByColor/Lookbook/ValueProps 静态区块
  */
 
 export const dynamic = 'force-dynamic'
-
-const themeCards = [
-  { theme: 'Beach', image: '/competitor-refs/kissprom/wedding-beach-short-05.jpg', desc: 'Breezy & barefoot' },
-  { theme: 'Garden', image: '/competitor-refs/davidsbridal/bridesmaid-sage-01.jpg', desc: 'Lush & romantic' },
-  { theme: 'Vineyard', image: '/competitor-refs/kissprom/prom-champagne-lace-05.jpg', desc: 'Golden hour glow' },
-  { theme: 'Forest', image: '/competitor-refs/kissprom/wedding-aline-longsleeve-06.jpg', desc: 'Woodland fairytale' }
-]
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   const activeLocale = (['en', 'es', 'fr'] as const).includes(locale as any) ? locale : 'en'
 
-  const [heroBanners, flashSales, collectionGroups, weddingsPage, homePage] = await Promise.all([
-    fetchStoreBanners(BannerPosition.HERO),
+  const [flashSales, collectionGroups, homePage] = await Promise.all([
     fetchStoreFlashSales(),
     fetchStoreCollections(),
-    fetchStoreWeddings({ page: 1, pageSize: 3 }),
     fetchStoreHome(activeLocale),
   ])
 
-  const hero = heroBanners[0]
   const colorGroup = collectionGroups.find((g) => /color/i.test(g.name))
   const colorTags = colorGroup?.collections ?? []
-  const weddings = weddingsPage?.data ?? []
-  // KD-5：首页区块从 site_builder 域读取（FLOW-SB05），按 section_type 分发渲染
   const homeSections = homePage?.sections ?? []
 
   return (
     <div>
-      {/* HERO — editorial split（COMP-MKT-S01：banner.title 空回退静态文案，视觉零改动） */}
-      <section className="relative grid min-h-[600px] lg:grid-cols-2">
-        <div className="order-2 flex items-center bg-canvas px-6 py-14 lg:order-1 lg:px-16">
-          <div className="max-w-md animate-fadeup">
-            <Eyebrow>{hero?.subtitle ?? 'The Outdoor Wedding Edit · 2026'}</Eyebrow>
-            <h1 className="mt-4 font-display text-5xl font-medium leading-[1.02] text-ink sm:text-6xl lg:text-[4.25rem]">
-              {hero?.title ?? 'Dresses made for golden hour'}
-            </h1>
-            <p className="mt-5 text-ink-soft">
-              Effortless gowns, bridesmaid dresses, and accessories designed for beaches, gardens, and everywhere your love story takes you.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/wedding-dresses" className="btn-primary">{hero?.ctaText ?? 'Shop the Collection'}</Link>
-              <Link href="/outdoor-weddings" className="btn-outline">Explore Outdoor</Link>
-            </div>
-            <div className="mt-10 flex items-center gap-6 text-xs uppercase tracking-luxe text-ink-faint">
-              <span>Free Worldwide Shipping</span>
-              <span className="h-3 w-px bg-line" />
-              <span>Pay in 4 with Klarna</span>
-            </div>
-          </div>
-        </div>
-        <div className="relative order-1 min-h-[420px] overflow-hidden lg:order-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={hero?.imageUrl ?? '/competitor-refs/kissprom/wedding-aline-tulle-01.jpg'}
-            alt={hero?.title ?? 'Bride in an A-line tulle gown'}
-            className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top"
-          />
-        </div>
-      </section>
+      {/* 动态区块渲染（site_builder 域控制） */}
+      {homeSections.map((section, idx) => {
+        const data = section.data || {}
+        switch (section.section_type) {
+          case 'hero':
+            return (
+              <section key={idx} className="relative grid min-h-[600px] lg:grid-cols-2">
+                <div className="order-2 flex items-center bg-canvas px-6 py-14 lg:order-1 lg:px-16">
+                  <div className="max-w-md animate-fadeup">
+                    <Eyebrow>{data.subtitle ?? 'The Outdoor Wedding Edit · 2026'}</Eyebrow>
+                    <h1 className="mt-4 font-display text-5xl font-medium leading-[1.02] text-ink sm:text-6xl lg:text-[4.25rem]">
+                      {data.title ?? 'Dresses made for golden hour'}
+                    </h1>
+                    <p className="mt-5 text-ink-soft">
+                      Effortless gowns, bridesmaid dresses, and accessories designed for beaches, gardens, and everywhere your love story takes you.
+                    </p>
+                    <div className="mt-8 flex flex-wrap gap-3">
+                      <Link href={data.cta_link ?? '/wedding-dresses'} className="btn-primary">
+                        {data.cta_text ?? 'Shop the Collection'}
+                      </Link>
+                      {data.cta_link_secondary && (
+                        <Link href={data.cta_link_secondary} className="btn-outline">
+                          {data.cta_text_secondary ?? 'Learn More'}
+                        </Link>
+                      )}
+                    </div>
+                    <div className="mt-10 flex items-center gap-6 text-xs uppercase tracking-luxe text-ink-faint">
+                      <span>Free Worldwide Shipping</span>
+                      <span className="h-3 w-px bg-line" />
+                      <span>Pay in 4 with Klarna</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative order-1 min-h-[420px] overflow-hidden lg:order-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={data.image_url ?? '/competitor-refs/kissprom/wedding-aline-tulle-01.jpg'}
+                    alt={data.title ?? 'Hero image'}
+                    className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top"
+                  />
+                </div>
+              </section>
+            )
 
-      {/* FLASH SALE（E-MKT-09，空不渲染） */}
+          case 'theme_cards':
+            const themeCards = data.cards || []
+            if (themeCards.length === 0) return null
+            return (
+              <section key={idx} className="container-luxe py-16 lg:py-24">
+                <SectionHeading
+                  eyebrow={data.eyebrow || 'Explore'}
+                  title={data.heading || 'Shop by Theme'}
+                  description={data.description}
+                />
+                <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {themeCards.map((card: any) => (
+                    <Link
+                      key={card.id}
+                      href={`/categories/${card.id}`}
+                      className="group relative aspect-[3/4] overflow-hidden rounded-sm bg-muted"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-5 text-canvas">
+                        <h3 className="font-display text-2xl font-medium">{card.name}</h3>
+                        {card.product_count > 0 && (
+                          <p className="text-xs text-canvas/80">{card.product_count} styles</p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )
+
+          case 'product_rail':
+            const products = data.products || []
+            if (products.length === 0) return null
+            return (
+              <section key={idx} className="container-luxe py-16 lg:py-24">
+                <SectionHeading
+                  eyebrow={data.eyebrow}
+                  title={data.heading || 'Featured Products'}
+                  description={data.description}
+                />
+                <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {products.map((product: any) => (
+                    <Link key={product.id} href={`/products/${product.slug}`} className="group">
+                      <div className="aspect-[3/4] overflow-hidden rounded-sm bg-muted">
+                        {product.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
+                          />
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <h3 className="font-medium">{product.name}</h3>
+                        <p className="mt-1 text-sm text-ink-soft">${product.price}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )
+
+          case 'editorial_feature':
+            const stories = data.stories || []
+            if (stories.length === 0) return null
+            return (
+              <section key={idx} className="bg-muted py-16 lg:py-24">
+                <div className="container-luxe">
+                  <SectionHeading
+                    eyebrow={data.eyebrow || 'Real love stories'}
+                    title={data.heading || 'Real Weddings'}
+                    description={data.description}
+                  />
+                  <div className="mt-10 grid gap-6 lg:grid-cols-3">
+                    {stories.map((story: any) => (
+                      <Link key={story.id} href={`/real-weddings/${story.id}`} className="group">
+                        <div className="aspect-[4/3] overflow-hidden rounded-sm bg-canvas">
+                          {story.cover && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={story.cover}
+                              alt={`${story.couple} wedding`}
+                              className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
+                            />
+                          )}
+                        </div>
+                        <p className="eyebrow mt-4">
+                          {story.theme}
+                          {story.location ? ` · ${story.location}` : ''}
+                        </p>
+                        <h3 className="mt-1 font-display text-2xl font-medium">{story.couple}</h3>
+                        {story.title && <p className="mt-1 text-sm text-ink-soft line-clamp-2">{story.title}</p>}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )
+
+          case 'newsletter':
+            return (
+              <section key={idx} className="container-luxe py-16 lg:py-24">
+                <div className="mx-auto max-w-2xl text-center">
+                  <Eyebrow>{data.eyebrow || 'Stay in touch'}</Eyebrow>
+                  <h2 className="mt-3 font-display text-4xl font-medium">
+                    {data.heading || 'Join the Dreamy List'}
+                  </h2>
+                  {data.description && <p className="mt-4 text-ink-soft">{data.description}</p>}
+                  <form className="mt-8 flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="email"
+                      placeholder={data.placeholder || 'Your email'}
+                      className="flex-1 rounded-sm border border-line bg-canvas px-4 py-3 text-sm focus:border-gold focus:outline-none"
+                    />
+                    <button type="submit" className="btn-primary">
+                      {data.cta || 'Subscribe'}
+                    </button>
+                  </form>
+                </div>
+              </section>
+            )
+
+          default:
+            return null
+        }
+      })}
+
+      {/* 静态区块（保留原有） */}
       <FlashSaleRail sales={flashSales} />
 
       {/* SHOP BY COLOR — 核心差异化（E-CAT-07 色板标签；空回退静态 palette） */}
@@ -109,27 +234,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                   <p className="text-[11px] text-ink-faint">{c.count} styles</p>
                 </Link>
               ))}
-        </div>
-      </section>
-
-      {/* OUTDOOR THEMES（静态编辑区块） */}
-      <section className="bg-muted py-16 lg:py-24">
-        <div className="container-luxe">
-          <SectionHeading eyebrow="By setting" title="Where will you say I do?" />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {themeCards.map((t) => (
-              <Link key={t.theme} href={`/outdoor-weddings`} className="group relative aspect-[3/4] overflow-hidden rounded-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={t.image} alt={t.theme} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-5 text-canvas">
-                  <h3 className="font-display text-2xl font-medium">{t.theme}</h3>
-                  <p className="text-xs text-canvas/80">{t.desc}</p>
-                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] uppercase tracking-luxe opacity-0 transition-opacity group-hover:opacity-100">Shop now <ArrowRight className="h-3 w-3" /></span>
-                </div>
-              </Link>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -191,30 +295,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         href="/wedding-dresses"
         hrefLabel="View all gowns"
       />
-
-      {/* REAL WEDDINGS（E-MKT-04，空不渲染） */}
-      {weddings.length > 0 && (
-        <section className="bg-muted py-16 lg:py-24">
-          <div className="container-luxe">
-            <SectionHeading eyebrow="Real love stories" title="Real Dreamy Weddings" description="See how real couples styled their outdoor celebrations — and shop the looks." />
-            <div className="mt-10 grid gap-6 lg:grid-cols-3">
-              {weddings.map((w) => (
-                <Link key={w.id} href={`/real-weddings/${w.id}`} className="group">
-                  <div className="aspect-[4/3] overflow-hidden rounded-sm bg-canvas">
-                    {w.cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={w.cover} alt={`${w.couple} wedding`} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
-                    )}
-                  </div>
-                  <p className="eyebrow mt-4">{w.theme}{w.location ? ` · ${w.location}` : ''}</p>
-                  <h3 className="mt-1 font-display text-2xl font-medium">{w.couple}</h3>
-                  {w.title && <p className="mt-1 text-sm text-ink-soft line-clamp-2">{w.title}</p>}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* VALUE PROPS（静态） */}
       <section className="container-luxe py-16">

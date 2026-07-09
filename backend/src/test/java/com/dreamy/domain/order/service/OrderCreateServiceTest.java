@@ -113,7 +113,7 @@ class OrderCreateServiceTest {
         item.setProductId(PRODUCT);
         item.setSkuId(SKU);
         item.setQty(2);
-        ProductBrief product = new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", null,
+        ProductBrief product = new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown",
                 new BigDecimal("100.00"), null, null, "https://img/a.jpg", 30, false, true, 2);
         SkuBrief sku = new SkuBrief(SKU, PRODUCT, "AUR-IV-2", "Ivory", "2", 5, 3L);
         Address address = new Address();

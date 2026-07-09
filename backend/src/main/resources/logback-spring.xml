@@ -6,6 +6,9 @@
   - logging.level.* 仍由 Spring Boot 在此配置之上应用
 -->
 <configuration>
+    <!-- 忽略配置过程中的状态消息（包括 nacos appender 重复定义的 ERROR） -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
 

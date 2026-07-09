@@ -1,6 +1,15 @@
 spring:
   application:
     name: identity-auth
+  # 排除 nacos 日志自动配置（避免 logback appender 冲突）
+  autoconfigure:
+    exclude:
+      - com.alibaba.cloud.nacos.NacosConfigAutoConfiguration
+      - com.alibaba.cloud.nacos.NacosDiscoveryAutoConfiguration
+      - com.alibaba.cloud.nacos.discovery.NacosDiscoveryClientAutoConfiguration
+      - com.alibaba.cloud.nacos.endpoint.NacosDiscoveryEndpointAutoConfiguration
+      - com.alibaba.cloud.nacos.registry.NacosServiceRegistryAutoConfiguration
+      - com.alibaba.cloud.nacos.loadbalancer.LoadBalancerNacosAutoConfiguration
   # huihao-web 传递引入了 nacos-discovery；本服务为单体认证服务，本地/默认不依赖注册中心，关闭自动注册
   cloud:
     nacos:

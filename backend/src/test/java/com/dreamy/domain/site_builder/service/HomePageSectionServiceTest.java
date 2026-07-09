@@ -291,7 +291,7 @@ class HomePageSectionServiceTest {
                     setSortOrder(1);
                 }}));
 
-        verify(repository).batchSort(anyList());
+        verify(repository).batchUpdateSort(org.mockito.ArgumentMatchers.anyList());
         verify(cacheService).invalidateHomeSectionFamily();
     }
 

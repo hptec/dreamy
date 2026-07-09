@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -223,14 +224,5 @@ class NavigationServiceTest {
 
         service.save(request);
         verify(repository).insert(any());
-    }
-
-    private static org.assertj.core.api.ThrowableAssert.ThrowingCallable assertThatThrownBy(
-            org.assertj.core.api.ThrowableAssert.ThrowingCallable callable) {
-        return org.assertj.core.api.Assertions.assertThatThrownBy(callable);
-    }
-
-    private static org.assertj.core.api.Assertions assertThat(Object actual) {
-        return org.assertj.core.api.Assertions.assertThat(actual);
     }
 }
