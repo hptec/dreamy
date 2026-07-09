@@ -1,6 +1,8 @@
 package com.dreamy.domain.collection.service;
 
 import com.dreamy.domain.product.repository.ProductCollectionRepository;
+import com.dreamy.domain.product.repository.ProductRepository;
+import com.dreamy.domain.product.repository.ProductImageRepository;
 import com.dreamy.domain.collection.entity.Collection;
 import com.dreamy.domain.collection.entity.CollectionGroup;
 import com.dreamy.domain.collection.repository.CollectionGroupRepository;
@@ -43,6 +45,10 @@ class CollectionAdminServiceTest {
     @Mock
     ProductCollectionRepository productCollectionRepository;
     @Mock
+    ProductRepository productRepository;
+    @Mock
+    ProductImageRepository productImageRepository;
+    @Mock
     CatalogCacheService cache;
     @Mock
     CatalogAuditRecorder audit;
@@ -55,7 +61,8 @@ class CollectionAdminServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CollectionAdminService(groupRepository, collectionRepository, productCollectionRepository, cache,
+        service = new CollectionAdminService(groupRepository, collectionRepository, productCollectionRepository,
+                productRepository, productImageRepository, cache,
                 audit, afterCommit, invalidatedPublisher, new ObjectMapper());
     }
 
