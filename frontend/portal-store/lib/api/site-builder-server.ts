@@ -5,19 +5,156 @@
  */
 
 import { cache } from 'react'
-import { serverGet, serverGetWithStatus } from './server-fetch'
+import { serverGet } from './server-fetch'
 
 // ===== 类型定义 =====
 
-export interface StoreHomeSection {
-  sectionType: string
-  data: Record<string, any>
+export type StoreHomeSectionType =
+  | 'hero'
+  | 'themeCards'
+  | 'productRail'
+  | 'editorialFeature'
+  | 'newsletter'
+  | 'custom'
+
+interface StoreSectionCopy {
+  eyebrow?: string | null
+  heading?: string | null
+  description?: string | null
 }
+
+export interface StoreHeroData {
+  title?: string | null
+  subtitle?: string | null
+  imageUrl?: string | null
+  ctaText?: string | null
+  ctaLink?: string | null
+  ctaTextSecondary?: string | null
+  ctaLinkSecondary?: string | null
+}
+
+export interface StoreThemeCard {
+  id: number
+  name: string
+  productCount?: number | null
+  imageUrl?: string | null
+}
+
+export interface StoreThemeCardsData extends StoreSectionCopy {
+  cards?: StoreThemeCard[]
+}
+
+export interface StoreProductRailItem {
+  id: number
+  slug: string
+  name: string
+  price: number | string
+  imageUrl?: string | null
+  isNew?: boolean
+  isBest?: boolean
+}
+
+export interface StoreProductRailData extends StoreSectionCopy {
+  products?: StoreProductRailItem[]
+}
+
+export interface StoreEditorialStory {
+  id: number
+  couple: string
+  location?: string | null
+  theme?: string | null
+  weddingDate?: string | null
+  cover?: string | null
+  title?: string | null
+}
+
+export interface StoreEditorialFeatureData extends StoreSectionCopy {
+  stories?: StoreEditorialStory[]
+}
+
+export interface StoreNewsletterData extends StoreSectionCopy {
+  placeholder?: string | null
+  cta?: string | null
+}
+
+export interface StoreCustomData {
+  heading?: string | null
+  subtitle?: string | null
+  content?: string | null
+  imageUrl?: string | null
+  ctaText?: string | null
+  ctaLink?: string | null
+}
+
+interface StoreHomeSectionDataMap {
+  hero: StoreHeroData
+  themeCards: StoreThemeCardsData
+  productRail: StoreProductRailData
+  editorialFeature: StoreEditorialFeatureData
+  newsletter: StoreNewsletterData
+  custom: StoreCustomData
+}
+
+export type StoreHomeSection = {
+  [K in StoreHomeSectionType]: { sectionType: K; data: StoreHomeSectionDataMap[K] }
+}[StoreHomeSectionType]
 
 export interface StoreHomePage {
   sections: StoreHomeSection[]
-  releaseNo?: number | null
-  preview?: boolean
+}
+
+interface RawStoreHomeSection {
+  sectionType?: string | null
+  data?: unknown
+}
+
+interface RawStoreHomePage {
+  sections?: RawStoreHomeSection[] | null
+}
+
+const SECTION_TYPE_MAP: Record<string, StoreHomeSectionType> = {
+  hero: 'hero',
+  theme_cards: 'themeCards',
+  themeCards: 'themeCards',
+  product_rail: 'productRail',
+  productRail: 'productRail',
+  editorial_feature: 'editorialFeature',
+  editorialFeature: 'editorialFeature',
+  newsletter: 'newsletter',
+  custom: 'custom',
+}
+
+function sectionData(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+function normalizeHomePage(page: RawStoreHomePage | null): StoreHomePage | null {
+  if (!page) return null
+
+  const sections = (page.sections ?? []).flatMap((section): StoreHomeSection[] => {
+    const sectionType = section.sectionType ? SECTION_TYPE_MAP[section.sectionType] : undefined
+    if (!sectionType) return []
+    const data = sectionData(section.data)
+
+    switch (sectionType) {
+      case 'hero':
+        return [{ sectionType, data: data as StoreHeroData }]
+      case 'themeCards':
+        return [{ sectionType, data: data as StoreThemeCardsData }]
+      case 'productRail':
+        return [{ sectionType, data: data as StoreProductRailData }]
+      case 'editorialFeature':
+        return [{ sectionType, data: data as StoreEditorialFeatureData }]
+      case 'newsletter':
+        return [{ sectionType, data: data as StoreNewsletterData }]
+      case 'custom':
+        return [{ sectionType, data: data as StoreCustomData }]
+    }
+  })
+
+  return { sections }
 }
 
 export interface StoreNavigationItem {
@@ -72,24 +209,13 @@ export interface StoreAnnouncementList {
 /** FLOW-SB05 消费端首页区块聚合 */
 export const fetchStoreHome = cache(async (locale: string): Promise<StoreHomePage | null> => {
   try {
-    return await serverGet<StoreHomePage>('/api/store/content/home', { query: { locale } })
+    const page = await serverGet<RawStoreHomePage>('/api/store/content/home', { query: { locale } })
+    return normalizeHomePage(page)
   } catch (e) {
     console.warn('[site_builder] fetchStoreHome failed, degrade to null', e)
     return null
   }
 })
-
-/** 私密首页预览：令牌只在服务端请求中发送，不进入客户端脚本。 */
-export async function fetchStoreHomePreview(
-  locale: string,
-  token: string,
-): Promise<{ page: StoreHomePage | null; status: number }> {
-  const result = await serverGetWithStatus<StoreHomePage>('/api/store/content/home/preview', {
-    locale,
-    query: { locale, token },
-  })
-  return { page: result.data, status: result.status }
-}
 
 /** FLOW-SB06 消费端导航 */
 export const fetchStoreNavigation = cache(async (locale: string): Promise<StoreNavigation | null> => {
@@ -120,21 +246,3 @@ export const fetchStoreAnnouncements = cache(async (locale: string): Promise<Sto
     return null
   }
 })
-
-/** FLOW-SB09 Newsletter 订阅（客户端调用） */
-export async function subscribeNewsletter(body: {
-  email: string
-  source?: string
-  locale?: string
-}): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch('/api/store/newsletter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, source: body.source ?? 'HOME_BLOCK' }),
-  })
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    return { ok: false, error: data?.message ?? 'Subscribe failed' }
-  }
-  return { ok: true }
-}

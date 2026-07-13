@@ -408,7 +408,7 @@ HomePageSectionDto：
 | STEP-01 | cache.get(`home:{locale}`) | — |
 | STEP-02 | miss → SELECT home_sections WHERE enabled=true ORDER BY sort_order, id | — |
 | STEP-03 | 按 section_type 派生数据（跨域调用）： | — |
-| STEP-03a | hero → BannerService.findByPosition(HERO, locale)，失败降级空 Hero + WARN，502801 | 502801 |
+| STEP-03a | hero → BannerService.findByPosition(HERO, locale)，无结果或失败时省略 Hero 区块 + WARN，502801 | 502801 |
 | STEP-03b | theme_cards → TaxonomyService.findByType(theme, locale, limit)，失败降级空，502802 | 502802 |
 | STEP-03c | product_rail → ProductService.findByIds 或 findNewArrivals，失败降级空，502804 | 502804 |
 | STEP-03d | editorial_feature → WeddingService.fetchStoreWeddings(limit, locale)，失败降级空，502803 | 502803 |

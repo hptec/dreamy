@@ -10,7 +10,6 @@ public interface SiteBuilderDBConst {
     String FOOTER_COLUMNS_TABLE = "footer_columns";
     String FOOTER_LINKS_TABLE = "footer_links";
     String ANNOUNCEMENTS_TABLE = "announcements";
-    String SITE_BUILDER_CONFIG_TABLE = "site_builder_config";
 
     // 通用列
     String ID = "id";
@@ -49,8 +48,4 @@ public interface SiteBuilderDBConst {
     String END_AT = "end_at";
     String CONTENT = "content";
     String CONTENT_I18N_JSON = "content_i18n_json";
-
-    // site_builder_config
-    String NAVIGATION_VERSION = "navigation_version";
-    String FOOTER_VERSION = "footer_version";
 }

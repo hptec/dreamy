@@ -290,7 +290,7 @@ sequenceDiagram
 4. STEP-04：按 locale 扁平化 i18n_json（三层回退：locale → en → 主表字段）
 5. STEP-05：写入 cache `home:{locale}`
 6. STEP-06：异常路径：
-   - BannerSvc 失败 → 502801，降级返回空 Hero + WARN 日志
+   - BannerSvc 失败 → 502801，省略 Hero 区块 + WARN 日志
    - TaxonomySvc 失败 → 502802，降级返回空 themes
    - ProductSvc 失败 → 502804，降级返回空 products
    - WeddingSvc 失败 → 502803，降级返回空 weddings
@@ -298,7 +298,7 @@ sequenceDiagram
 
 **边界场景**：
 - EDGE-016：所有 section disabled → 返回空数组
-- EDGE-017：Hero Banner 不存在 → 降级空 Hero（不报错）
+- EDGE-017：Hero Banner 不存在 → 省略 Hero 区块（不报错）
 - EDGE-018：i18n_json[locale] 缺失 → 回退 en，再回退主表 label
 - EDGE-019：跨域服务全部失败 → 仍返回 custom 类型 section
 - EDGE-020：cache 失效窗口期并发重建 → 用 singleflight 防击穿
@@ -429,7 +429,7 @@ sequenceDiagram
 | EDGE-014 公告 priority+时间窗冲突 | FLOW-SB04 | 409804 拒绝 |
 | EDGE-015 公告启停不影响时间窗 | FLOW-SB04 | 接受 |
 | EDGE-016 所有 section disabled | FLOW-SB05 | 返回空数组 |
-| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 降级空 Hero |
+| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 省略 Hero 区块 |
 | EDGE-018 i18n locale 缺失 | FLOW-SB05 | 三层回退 |
 | EDGE-019 跨域全失败 | FLOW-SB05 | 仅返回 custom |
 | EDGE-020 缓存击穿 | FLOW-SB05 | singleflight |

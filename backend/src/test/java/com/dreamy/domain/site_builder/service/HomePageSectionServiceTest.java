@@ -2,7 +2,6 @@ package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
-import com.dreamy.domain.site_builder.repository.HomePageReleaseRepository;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionUpsert;
 import com.dreamy.error.SiteBuilderErrorCode;
@@ -37,8 +36,6 @@ class HomePageSectionServiceTest {
     @Mock
     private HomePageSectionRepository repository;
     @Mock
-    private HomePageReleaseRepository releaseRepository;
-    @Mock
     private SiteBuilderCacheService cacheService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -46,7 +43,7 @@ class HomePageSectionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new HomePageSectionService(repository, releaseRepository, objectMapper, cacheService);
+        service = new HomePageSectionService(repository, objectMapper, cacheService);
     }
 
     @Test
@@ -360,11 +357,13 @@ class HomePageSectionServiceTest {
 
     @Test
     @DisplayName("TC-U020: createHomeSection hero 无 data_json 合法（KD-2 派生）")
-    void createHomeSection_heroNoDataJson_success() {
+    void createHomeSection_heroNoDataJson_success() throws Exception {
         HomePageSectionUpsert upsert = new HomePageSectionUpsert();
         upsert.setSectionType("hero");
         upsert.setEnabled(true);
         upsert.setSortOrder(0);
+        upsert.setDataJson(objectMapper.createObjectNode());
+        upsert.setI18nJson(objectMapper.readTree("{\"en\":{},\"es\":{},\"fr\":{}}"));
 
         when(repository.insert(any())).thenAnswer(i -> {
             ((HomePageSection) i.getArgument(0)).setId(1L);
@@ -373,23 +372,22 @@ class HomePageSectionServiceTest {
 
         HomePageSectionDto result = service.create(upsert);
         assertThat(result.getSectionType()).isEqualTo("hero");
+        assertThat(result.getDataJson()).isNull();
+        assertThat(result.getI18nJson()).isNull();
     }
 
     @Test
-    @DisplayName("TC-U021: createHomeSection hero 允许显式选择正整数 banner_id")
-    void createHomeSection_heroWithBannerId_success() throws Exception {
+    @DisplayName("TC-U021: createHomeSection hero 拒绝旧 banner_id 绑定")
+    void createHomeSection_heroWithBannerId_throwsMismatch() throws Exception {
         HomePageSectionUpsert upsert = new HomePageSectionUpsert();
         upsert.setSectionType("hero");
         upsert.setEnabled(true);
         upsert.setSortOrder(0);
         upsert.setDataJson(objectMapper.readTree("{\"banner_id\":42}"));
-        when(repository.insert(any())).thenAnswer(i -> {
-            ((HomePageSection) i.getArgument(0)).setId(1L);
-            return 1;
-        });
-
-        HomePageSectionDto result = service.create(upsert);
-
-        assertThat(result.getDataJson()).isEqualTo("{\"banner_id\":42}");
+        assertThatThrownBy(() -> service.create(upsert))
+                .isInstanceOf(SiteBuilderException.class)
+                .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
+                        .isEqualTo(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH));
+        verify(repository, never()).insert(any());
     }
 }

@@ -6,13 +6,10 @@ import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.entity.NavigationItem;
-import com.dreamy.domain.banner.entity.Banner;
-import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
-import com.dreamy.enums.BannerPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -41,18 +38,15 @@ public class SiteBuilderDataSeed {
     private final NavigationItemRepository navigationRepository;
     private final FooterRepository footerRepository;
     private final AnnouncementRepository announcementRepository;
-    private final BannerRepository bannerRepository;
 
     public SiteBuilderDataSeed(HomePageSectionRepository homeSectionRepository,
                                NavigationItemRepository navigationRepository,
                                FooterRepository footerRepository,
-                               AnnouncementRepository announcementRepository,
-                               BannerRepository bannerRepository) {
+                               AnnouncementRepository announcementRepository) {
         this.homeSectionRepository = homeSectionRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
         this.announcementRepository = announcementRepository;
-        this.bannerRepository = bannerRepository;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -68,16 +62,12 @@ public class SiteBuilderDataSeed {
 
     /** 5 个首页区块：Hero / ThemeCards / ProductRail / EditorialFeature / Newsletter */
     private void seedHomeSections() {
-        Long initialHeroBannerId = initialHeroBannerId();
         Set<String> existingTypes = new HashSet<>();
-        var existingSections = homeSectionRepository.findAllOrderBySort();
-        existingSections.stream()
+        homeSectionRepository.findAllOrderBySort().stream()
                 .map(HomePageSection::getSectionType)
                 .forEach(existingTypes::add);
 
-        seedHomeSection(existingTypes, "hero", 1, true,
-                initialHeroBannerId == null ? null : "{\"banner_id\":" + initialHeroBannerId + "}",
-                null, "Hero 主视觉");
+        seedHomeSection(existingTypes, "hero", 1, true, null, null, "Hero 主视觉");
         seedHomeSection(existingTypes, "theme_cards", 2, true, "{\"mode\":\"auto\",\"limit\":6}",
                 "{\"en\":{\"eyebrow\":\"Explore\",\"heading\":\"Shop by Theme\",\"description\":\"Find the setting that feels like your story.\"},\"es\":{\"eyebrow\":\"Explorar\",\"heading\":\"Comprar por Tema\",\"description\":\"Encuentra el escenario que se parece a tu historia.\"},\"fr\":{\"eyebrow\":\"Explorer\",\"heading\":\"Acheter par Thème\",\"description\":\"Trouvez le décor qui ressemble à votre histoire.\"}}",
                 "主题分类卡片");
@@ -90,29 +80,6 @@ public class SiteBuilderDataSeed {
         seedHomeSection(existingTypes, "newsletter", 5, true, null,
                 "{\"en\":{\"eyebrow\":\"Stay in touch\",\"heading\":\"Join the Dreamy List\",\"description\":\"New collections, planning inspiration, and private offers—sent thoughtfully.\",\"placeholder\":\"Your email\",\"cta\":\"Subscribe\"},\"es\":{\"eyebrow\":\"Sigamos en contacto\",\"heading\":\"Únete a la Lista Dreamy\",\"description\":\"Nuevas colecciones, inspiración y ofertas privadas.\",\"placeholder\":\"Tu correo\",\"cta\":\"Suscribirse\"},\"fr\":{\"eyebrow\":\"Restons en contact\",\"heading\":\"Rejoindre la Liste Dreamy\",\"description\":\"Nouvelles collections, inspirations et offres privées.\",\"placeholder\":\"Votre e-mail\",\"cta\":\"S'abonner\"}}",
                 "邮件订阅");
-
-        if (initialHeroBannerId != null) {
-            existingSections.stream()
-                    .filter(section -> "hero".equals(section.getSectionType()))
-                    .filter(section -> section.getDataJson() == null || !section.getDataJson().contains("banner_id"))
-                    .findFirst()
-                    .ifPresent(section -> {
-                        section.setDataJson("{\"banner_id\":" + initialHeroBannerId + "}");
-                        homeSectionRepository.updateByIdAndVersion(section);
-                        log.info("[SiteBuilderDataSeed] 旧 Hero 已绑定初始 Banner id={}", initialHeroBannerId);
-                    });
-        }
-    }
-
-    private Long initialHeroBannerId() {
-        List<Banner> active = bannerRepository.listStoreActive(BannerPosition.HERO, LocalDateTime.now());
-        if (!active.isEmpty()) {
-            return active.get(0).getId();
-        }
-        return bannerRepository.listAdmin(BannerPosition.HERO).stream()
-                .findFirst()
-                .map(Banner::getId)
-                .orElse(null);
     }
 
     private void seedHomeSection(Set<String> existingTypes, String type, int sort, boolean enabled,

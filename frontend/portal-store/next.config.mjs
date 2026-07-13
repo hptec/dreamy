@@ -23,6 +23,7 @@ const nextConfig = {
   async headers() {
     // dev 下 Next.js（react-refresh/eval-source-map）依赖 'unsafe-eval'，生产不放行
     const devScript = process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''
+    const adminOrigin = process.env.ADMIN_ORIGIN || process.env.NEXT_PUBLIC_ADMIN_ORIGIN || 'http://localhost:5174'
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${devScript} https://www.googletagmanager.com https://js.stripe.com`,
@@ -30,14 +31,14 @@ const nextConfig = {
       "frame-src https://js.stripe.com",
       "img-src 'self' data: blob: https: http:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' data: https://fonts.gstatic.com"
+      "font-src 'self' data: https://fonts.gstatic.com",
+      `frame-ancestors 'self' ${adminOrigin}`
     ].join('; ')
     return [
       {
         source: '/(.*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Content-Security-Policy', value: csp }

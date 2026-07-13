@@ -216,7 +216,7 @@
 ### TC-R001: Banner 跨域调用超时降级
 - **A**: mock BannerSvc.findByPosition 延迟 5s（超时 3s）
 - **A**: GET /api/store/content/home
-- **A**: Hero 区块降级为空，其他 section 正常，WARN 日志记录
+- **A**: Hero 区块被省略，其他 section 正常，WARN 日志记录
 
 ### TC-R002: 缓存击穿 singleflight
 - **A**: 让 cache miss，并发 100 个 GET /api/store/content/home 请求
@@ -228,7 +228,7 @@
 
 ### TC-R004: 跨域服务熔断
 - **A**: mock BannerSvc 连续失败 5 次
-- **A**: 第 6 次调用直接走熔断逻辑（不实际调用 BannerSvc），降级空 Hero
+- **A**: 第 6 次调用直接走熔断逻辑（不实际调用 BannerSvc），省略 Hero 区块
 
 ---
 

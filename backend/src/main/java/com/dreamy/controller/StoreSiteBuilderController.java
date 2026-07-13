@@ -1,7 +1,6 @@
 package com.dreamy.controller;
 
 import com.dreamy.domain.site_builder.service.StoreContentService;
-import com.dreamy.domain.site_builder.service.HomePagePublicationService;
 import com.dreamy.dto.SiteBuilderDtos.StoreAnnouncementListDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreFooterDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreHomePageDto;
@@ -24,28 +23,15 @@ import java.util.Locale;
 public class StoreSiteBuilderController {
 
     private final StoreContentService storeContentService;
-    private final HomePagePublicationService publicationService;
 
-    public StoreSiteBuilderController(StoreContentService storeContentService,
-                                      HomePagePublicationService publicationService) {
+    public StoreSiteBuilderController(StoreContentService storeContentService) {
         this.storeContentService = storeContentService;
-        this.publicationService = publicationService;
     }
 
     @GetMapping("/api/store/content/home")
     public ResponseEntity<R<StoreHomePageDto>> getHome(@RequestParam(required = false) String locale) {
         String resolvedLocale = resolveLocale(locale);
         return ResponseEntity.ok(R.ok(storeContentService.getHome(resolvedLocale)));
-    }
-
-    @GetMapping("/api/store/content/home/preview")
-    public ResponseEntity<R<StoreHomePageDto>> previewHome(@RequestParam String token,
-                                                           @RequestParam(required = false) String locale) {
-        return ResponseEntity.ok()
-                .header("Cache-Control", "private, no-store, max-age=0")
-                .header("Referrer-Policy", "no-referrer")
-                .header("X-Robots-Tag", "noindex, nofollow, noarchive")
-                .body(R.ok(publicationService.previewByToken(token, resolveLocale(locale))));
     }
 
     @GetMapping("/api/store/content/navigation")

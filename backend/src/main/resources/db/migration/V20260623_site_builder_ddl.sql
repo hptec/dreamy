@@ -104,64 +104,11 @@ CREATE TABLE IF NOT EXISTS announcements (
   INDEX idx_announcements_priority_time (priority, start_at, end_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公告';
 
--- ===== 6. site_builder_config 表（单例） =====
-CREATE TABLE IF NOT EXISTS site_builder_config (
-  id BIGINT NOT NULL DEFAULT 1,
-  navigation_version INT NOT NULL DEFAULT 0 COMMENT '导航整体版本（乐观锁）',
-  footer_version INT NOT NULL DEFAULT 0 COMMENT '页脚整体版本（乐观锁）',
-  active_home_release_id BIGINT NULL COMMENT '当前线上首页发布快照 id',
-  updated_at DATETIME NOT NULL,
-  PRIMARY KEY (id),
-  CONSTRAINT chk_single_row CHECK (id = 1)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站点装修配置单例';
-
-INSERT INTO site_builder_config (id, navigation_version, footer_version, updated_at)
-VALUES (1, 0, 0, NOW())
-ON DUPLICATE KEY UPDATE updated_at = NOW();
-
-CREATE TABLE IF NOT EXISTS home_page_releases (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  release_no INT NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  snapshot_json JSON NOT NULL,
-  content_en_json JSON NOT NULL,
-  content_es_json JSON NOT NULL,
-  content_fr_json JSON NOT NULL,
-  source_release_id BIGINT NULL,
-  published_by BIGINT NULL,
-  published_at DATETIME(3) NOT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  created_by BIGINT NULL,
-  updated_by BIGINT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_home_release_no (release_no),
-  INDEX idx_home_release_published_at (published_at, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='首页不可变发布快照';
-
-CREATE TABLE IF NOT EXISTS home_page_preview_tokens (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  token_hash CHAR(64) NOT NULL,
-  snapshot_json JSON NOT NULL,
-  content_en_json JSON NOT NULL,
-  content_es_json JSON NOT NULL,
-  content_fr_json JSON NOT NULL,
-  expires_at DATETIME(3) NOT NULL,
-  issued_by BIGINT NULL,
-  created_by BIGINT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL,
-  updated_by BIGINT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_home_preview_token_hash (token_hash),
-  INDEX idx_home_preview_expires_at (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='首页私有预览令牌';
-
--- ===== 7. permission 表新增 site_builder 域权限点（KD-15） =====
+-- ===== 6. permission 表新增 site_builder 域权限点（KD-15） =====
 -- 注：权限点由 DataInitializer.initPermissions() 幂等种入（perm_code/group/label 字段），
 -- 已包含 /site/home, /site/navigation, /site/announcement 三条记录，此处不再重复 INSERT。
 
--- ===== 8. Banner / BannerTranslation 扩展字段（KD-14：双 CTA） =====
+-- ===== 7. Banner / BannerTranslation 扩展字段（KD-14：双 CTA） =====
 ALTER TABLE banner
   ADD COLUMN IF NOT EXISTS cta_link VARCHAR(512) NULL COMMENT '主 CTA 链接（EN 基准）',
   ADD COLUMN IF NOT EXISTS cta_text_secondary VARCHAR(64) NULL COMMENT '次要 CTA 文案（EN 基准）',
@@ -171,7 +118,7 @@ ALTER TABLE banner_translation
   ADD COLUMN IF NOT EXISTS cta_text_secondary VARCHAR(255) NULL COMMENT '次要 CTA 文案（KD-14）',
   ADD COLUMN IF NOT EXISTS cta_link_secondary VARCHAR(512) NULL COMMENT '次要 CTA 链接（KD-14）';
 
--- ===== 9. NewsletterSource 枚举扩展（KD-13：HOME_BLOCK=4） =====
+-- ===== 8. NewsletterSource 枚举扩展（KD-13：HOME_BLOCK=4） =====
 -- 注：NewsletterSource 是 Java enum，无需 DDL，但需要在 Java 代码中新增 HOME_BLOCK(4) 枚举值
 -- 见 backend/src/main/java/com/dreamy/enums/NewsletterSource.java（如已存在则扩展）
 

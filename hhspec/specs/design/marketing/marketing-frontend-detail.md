@@ -117,7 +117,7 @@ submitContact({name,email,subject,message}) POST /api/store/contact（匿名）
 
 | 编号 | 路由（×3 locale 前缀） | 渲染 | 缓存/再生策略 | API |
 |---|---|---|---|---|
-| PAGE-MKT-S01 | /（首页营销切面） | RSC + ISR | `revalidate = 300`；on-demand：banner_changed/flash_sale_changed/wedding_changed → revalidatePath('/') ×3（EVT-MKT-002）。hero 区：fetchStoreBanners('hero') 首条（空回退现有静态 hero——冷启动安全）；featured 区块同理；FlashSaleRail：fetchStoreFlashSales 空 items 整段不渲染；Real Weddings 区块：fetchStoreWeddings({page:1,pageSize:3}) | E-MKT-01/04/09 |
+| PAGE-MKT-S01 | /（首页营销切面） | RSC + ISR | `revalidate = 300`；on-demand：banner_changed/flash_sale_changed/wedding_changed → revalidatePath('/') ×3（EVT-MKT-002）。hero 区：fetchStoreBanners('hero') 首条（空数据整段不渲染）；featured 区块同理；FlashSaleRail：fetchStoreFlashSales 空 items 整段不渲染；Real Weddings 区块：fetchStoreWeddings({page:1,pageSize:3}) | E-MKT-01/04/09 |
 | PAGE-MKT-S02 | layout 级 topbar（site-header） | RSC props 下传 | layout fetchStoreBanners('topbar') `revalidate = 300`；空 → 回退 data/navigation announcements 静态文案（视觉零变化） | E-MKT-01 |
 | PAGE-MKT-S03 | /blog | RSC + ISR | `revalidate = 300` + on-demand（blog_changed → /blog）；分页 searchParams ?page= 驱动 | E-MKT-02 |
 | PAGE-MKT-S04 | /blog/[slug] | RSC + ISR | **删除 generateStaticParams（如有）**，`dynamicParams=true` + `revalidate = 300`；on-demand revalidatePath('/blog/{slug}') ×3（s-758）；404701 → `notFound()` | E-MKT-03 |
@@ -140,7 +140,7 @@ submitContact({name,email,subject,message}) POST /api/store/contact（匿名）
 
 ### B.4 组件树（COMP-MKT-S）
 
-- COMP-MKT-S01 首页 hero（既有 section）：props 由硬编码切 StoreBanner（imageUrl/title/subtitle/ctaText camelCase 对齐）；banner.title 空回退现有静态文案（DEC-MKT-1 EN 列空容错）；视觉零改动
+- COMP-MKT-S01 首页 hero（既有 section）：props 由硬编码切 StoreBanner（imageUrl/title/subtitle/ctaText camelCase 对齐）；无有效 Banner 或 imageUrl 时整段不渲染；有效 Banner 的 title 为空时回退静态文案（DEC-MKT-1 EN 列空容错）
 - COMP-MKT-S02 `AnnouncementBar`（site-header 内既有轮播）：announcements 数组 ← topbar banners title 列表；空回退静态；轮播逻辑/样式不变
 - COMP-MKT-S03 `FlashSaleRail`（**新增组件，token 同源**）：SectionHeading + 倒计时徽章（useCountdown）+ ProductCard 横轨（products ProductRef → 卡片 props 子集映射）；items 空整段不渲染（冷启动安全，与 catalog RecommendationRail 同口径）
 - COMP-MKT-S04 Blog 列表卡片（既有）：字段映射 title/cover/category/author/excerpt/publishedAt/views；分页「加载更多/页码」按现有形态接 Paginated

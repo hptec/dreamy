@@ -10,8 +10,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 首页区块实体（home_sections 表）。
- * 首页草稿工作区；线上首页只读取 HomePageRelease 不可变快照。
+ * 首页区块实体（home_sections 表），保存后直接作为商城首页数据源。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

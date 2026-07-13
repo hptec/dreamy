@@ -92,7 +92,7 @@ public class MarketingExceptionHandler { ... }
 
 | ID | 策略 | 应用场景 | 降级返回 |
 |----|------|---------|---------|
-| DG-01 | Banner 降级 | FLOW-SB05 Hero 跨域调用失败 | 空 Hero 区块（section_type=hero, data=null） + WARN 日志 |
+| DG-01 | Banner 降级 | FLOW-SB05 Hero 跨域调用失败 | 省略 Hero 区块 + WARN 日志 |
 | DG-02 | Taxonomy 降级 | FLOW-SB05 ThemeCards 跨域调用失败 | 空 themes 数组 + WARN 日志 |
 | DG-03 | Product 降级 | FLOW-SB05 ProductRail 跨域调用失败 | 空 products 数组 + WARN 日志 |
 | DG-04 | Wedding 降级 | FLOW-SB05 EditorialFeature 跨域调用失败 | 空 weddings 数组 + WARN 日志 |
@@ -165,7 +165,7 @@ public class MarketingExceptionHandler { ... }
 | EDGE-014 | 公告 priority+时间窗冲突 | 409804 | 拒绝 |
 | EDGE-015 | 公告启停独立时间窗 | — | 接受 |
 | EDGE-016 | 所有 section disabled | — | 返回空数组 |
-| EDGE-017 | Hero Banner 不存在 | 502801 | 降级空 Hero |
+| EDGE-017 | Hero Banner 不存在 | 502801 | 省略 Hero 区块 |
 | EDGE-018 | i18n locale 缺失 | — | 三层回退 |
 | EDGE-019 | 跨域全失败 | 502801/802/803/804 | 各自降级空数据 |
 | EDGE-020 | 缓存击穿 | — | singleflight |

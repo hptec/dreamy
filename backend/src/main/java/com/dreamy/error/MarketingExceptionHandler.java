@@ -8,7 +8,6 @@ import com.dreamy.controller.AdminGuideController;
 import com.dreamy.controller.AdminLookbookController;
 import com.dreamy.controller.AdminWeddingController;
 import com.dreamy.controller.AdminHomePageSectionController;
-import com.dreamy.controller.AdminHomePagePublicationController;
 import com.dreamy.controller.AdminNavigationController;
 import com.dreamy.controller.AdminAnnouncementController;
 import com.dreamy.controller.StoreContentController;
@@ -41,7 +40,7 @@ import java.util.Map;
  * `{ fields: { <field>: <reason_key> } }`（marketing-api-detail §0 横切）；4xx WARN / 5xx ERROR 分级。
  * identity 复用码（40100/40300/50000 等 BizException）仍由 identity GlobalExceptionHandler 兜底处理。
  */
-@RestControllerAdvice(assignableTypes = {AdminBannerController.class, AdminBlogController.class, AdminCouponController.class, AdminFlashSaleController.class, AdminGuideController.class, AdminLookbookController.class, AdminWeddingController.class, AdminHomePageSectionController.class, AdminHomePagePublicationController.class, AdminNavigationController.class, AdminAnnouncementController.class, StoreContentController.class, StoreLeadController.class, StorePromotionController.class, StoreSiteBuilderController.class})
+@RestControllerAdvice(assignableTypes = {AdminBannerController.class, AdminBlogController.class, AdminCouponController.class, AdminFlashSaleController.class, AdminGuideController.class, AdminLookbookController.class, AdminWeddingController.class, AdminHomePageSectionController.class, AdminNavigationController.class, AdminAnnouncementController.class, StoreContentController.class, StoreLeadController.class, StorePromotionController.class, StoreSiteBuilderController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class MarketingExceptionHandler {
 

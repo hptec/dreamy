@@ -1,8 +1,5 @@
 package com.dreamy.domain.site_builder.service;
 
-import com.dreamy.domain.banner.entity.Banner;
-import com.dreamy.domain.banner.entity.BannerTranslation;
-import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.domain.banner.service.StoreBannerService;
 import com.dreamy.domain.category.service.StoreCategoryService;
 import com.dreamy.domain.product.service.StoreProductService;
@@ -12,12 +9,10 @@ import com.dreamy.domain.site_builder.entity.Announcement;
 import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
-import com.dreamy.domain.site_builder.entity.HomePageRelease;
 import com.dreamy.domain.site_builder.entity.NavigationItem;
 import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
-import com.dreamy.domain.site_builder.repository.HomePageReleaseRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
 import com.dreamy.dto.StoreCategoryNode;
 import com.dreamy.dto.StoreMarketingDtos.StoreBanner;
@@ -33,7 +28,6 @@ import com.dreamy.dto.SiteBuilderDtos.StoreHomePageDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationItemDto;
 import com.dreamy.enums.BannerPosition;
-import com.dreamy.support.Translations;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import huihao.page.Paginated;
@@ -44,6 +38,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -59,38 +54,32 @@ public class StoreContentService {
     private static final Logger log = LoggerFactory.getLogger(StoreContentService.class);
 
     private final HomePageSectionRepository homeSectionRepository;
-    private final HomePageReleaseRepository homePageReleaseRepository;
     private final NavigationItemRepository navigationRepository;
     private final FooterRepository footerRepository;
     private final AnnouncementRepository announcementRepository;
     private final ObjectMapper objectMapper;
     private final StoreBannerService bannerService;
-    private final BannerRepository bannerRepository;
     private final StoreCategoryService categoryService;
     private final StoreProductService productService;
     private final RecommendationService recommendationService;
     private final StoreWeddingService weddingService;
 
     public StoreContentService(HomePageSectionRepository homeSectionRepository,
-                               HomePageReleaseRepository homePageReleaseRepository,
                                NavigationItemRepository navigationRepository,
                                FooterRepository footerRepository,
                                AnnouncementRepository announcementRepository,
                                ObjectMapper objectMapper,
                                StoreBannerService bannerService,
-                               BannerRepository bannerRepository,
                                StoreCategoryService categoryService,
                                StoreProductService productService,
                                RecommendationService recommendationService,
                                StoreWeddingService weddingService) {
         this.homeSectionRepository = homeSectionRepository;
-        this.homePageReleaseRepository = homePageReleaseRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
         this.announcementRepository = announcementRepository;
         this.objectMapper = objectMapper;
         this.bannerService = bannerService;
-        this.bannerRepository = bannerRepository;
         this.categoryService = categoryService;
         this.productService = productService;
         this.recommendationService = recommendationService;
@@ -98,58 +87,28 @@ public class StoreContentService {
     }
 
     public StoreHomePageDto getHome(String locale) {
-        HomePageRelease release = homePageReleaseRepository.findActive();
-        if (release != null) {
-            StoreHomePageDto published = readPublishedContent(release, locale);
-            published.setReleaseNo(release.getReleaseNo());
-            published.setPreview(false);
-            return published;
-        }
-        StoreHomePageDto empty = new StoreHomePageDto();
-        empty.setSections(List.of());
-        empty.setPreview(false);
-        return empty;
-    }
-
-    public StoreHomePageDto getDraftHome(String locale) {
         List<HomePageSection> sections = homeSectionRepository.findEnabledOrderBySort();
         List<StoreHomeSectionDto> dtos = new ArrayList<>();
         for (HomePageSection section : sections) {
+            Map<String, Object> data = deriveSectionData(section, locale);
+            if ("hero".equals(section.getSectionType()) && data.isEmpty()) {
+                continue;
+            }
             StoreHomeSectionDto dto = new StoreHomeSectionDto();
             dto.setSectionType(section.getSectionType());
-            dto.setData(deriveSectionData(section, locale, true));
+            dto.setData(data);
             dtos.add(dto);
         }
         StoreHomePageDto result = new StoreHomePageDto();
         result.setSections(dtos);
-        result.setPreview(true);
         return result;
     }
 
-    public StoreHomePageDto readContentJson(String contentJson, boolean preview) {
-        try {
-            StoreHomePageDto content = objectMapper.readValue(contentJson, StoreHomePageDto.class);
-            content.setPreview(preview);
-            return content;
-        } catch (Exception e) {
-            throw new IllegalStateException("Invalid home page snapshot", e);
-        }
-    }
-
-    private StoreHomePageDto readPublishedContent(HomePageRelease release, String locale) {
-        String contentJson = switch (locale) {
-            case "es" -> release.getContentEsJson();
-            case "fr" -> release.getContentFrJson();
-            default -> release.getContentEnJson();
-        };
-        return readContentJson(contentJson, false);
-    }
-
-    private Map<String, Object> deriveSectionData(HomePageSection section, String locale, boolean draft) {
+    private Map<String, Object> deriveSectionData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
         switch (section.getSectionType()) {
             case "hero":
-                data.putAll(deriveHeroData(section, locale, draft));
+                data.putAll(deriveHeroData(locale));
                 break;
             case "newsletter":
                 Map<String, Object> i18n = resolveI18n(section.getI18nJson(), locale, null);
@@ -184,19 +143,11 @@ public class StoreContentService {
     /**
      * Hero 派生：调用 StoreBannerService.list(HERO, locale) 取首个 banner。
      * KD-14：返回 title/subtitle/cta_text/cta_link/cta_text_secondary/cta_link_secondary/image_url。
-     * 失败降级空 Hero + WARN（DG-01, 502801）。
+     * 无有效 Banner 或调用失败时返回空数据，由首页聚合省略 Hero 区块。
      */
-    private Map<String, Object> deriveHeroData(HomePageSection section, String locale, boolean draft) {
+    private Map<String, Object> deriveHeroData(String locale) {
         Map<String, Object> hero = new HashMap<>();
         try {
-            Long bannerId = readLongConfig(section.getDataJson(), "banner_id");
-            if (draft && bannerId != null) {
-                Banner selected = bannerRepository.findById(bannerId);
-                if (selected != null && selected.getPosition() == BannerPosition.HERO) {
-                    hero.putAll(toHeroData(selected, locale));
-                    return hero;
-                }
-            }
             List<StoreBanner> banners = bannerService.list(BannerPosition.HERO, locale);
             if (!banners.isEmpty()) {
                 StoreBanner banner = banners.get(0);
@@ -210,42 +161,23 @@ public class StoreContentService {
                 log.debug("[StoreContent] Hero data derived from Banner id={}", banner.id());
             }
         } catch (Exception e) {
-            log.warn("[StoreContent] Hero BannerService unavailable, degrade to empty (DG-01)", e);
+            log.warn("[StoreContent] Hero BannerService unavailable, omit section (DG-01)", e);
         }
         return hero;
     }
 
-    private Map<String, Object> toHeroData(Banner banner, String locale) {
-        BannerTranslation translation = null;
-        if (!"en".equals(locale)) {
-            translation = bannerRepository.listTranslationsByBannerIds(List.of(banner.getId())).stream()
-                    .filter(row -> locale.equals(row.getLocale()))
-                    .findFirst()
-                    .orElse(null);
-        }
-        Map<String, Object> data = new HashMap<>();
-        data.put("title", Translations.coalesce(translation == null ? null : translation.getTitle(), banner.getTitle()));
-        data.put("subtitle", Translations.coalesce(translation == null ? null : translation.getSubtitle(), banner.getSubtitle()));
-        data.put("cta_text", Translations.coalesce(translation == null ? null : translation.getCtaText(), banner.getCtaText()));
-        data.put("cta_link", banner.getCtaLink());
-        data.put("cta_text_secondary", Translations.coalesce(
-                translation == null ? null : translation.getCtaTextSecondary(), banner.getCtaTextSecondary()));
-        data.put("cta_link_secondary", Translations.coalesce(
-                translation == null ? null : translation.getCtaLinkSecondary(), banner.getCtaLinkSecondary()));
-        data.put("image_url", banner.getImageUrl());
-        data.put("banner_id", banner.getId());
-        return data;
-    }
-
     /**
      * ThemeCards 派生：调用 StoreCategoryService.listTree(locale) 取根分类（level=0）。
-     * data_json 可选 config：{ limit: 6 } 限制卡片数量。
+     * data_json config：{ mode: "auto", count: 6 } 或
+     * { mode: "manual", category_ids: [3, 1] }。手动模式严格保留运营选择顺序。
      * 失败降级空 cards + WARN（DG-02）。
      */
     private Map<String, Object> deriveThemeCardsData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
-        int limit = readIntConfig(section.getDataJson(), "limit",
-                readIntConfig(section.getDataJson(), "count", 6));
+        data.putAll(resolveI18n(section.getI18nJson(), locale, null));
+        // limit 是旧配置字段，只作为 count 缺失时的向后兼容读取。
+        int legacyLimit = readBoundedIntConfig(section.getDataJson(), "limit", 6, 1, 8);
+        int count = readBoundedIntConfig(section.getDataJson(), "count", legacyLimit, 1, 8);
         String mode = readStringConfig(section.getDataJson(), "mode", "auto");
         try {
             List<StoreCategoryNode> tree = categoryService.listTree(locale);
@@ -258,7 +190,7 @@ public class StoreContentService {
                         .filter(java.util.Objects::nonNull)
                         .toList();
             } else {
-                selected = tree.stream().limit(limit).toList();
+                selected = tree.stream().limit(count).toList();
             }
             List<Map<String, Object>> cards = new ArrayList<>();
             for (StoreCategoryNode node : selected) {
@@ -269,8 +201,6 @@ public class StoreContentService {
                 cards.add(card);
             }
             data.put("cards", cards);
-            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
-            data.putAll(sec);
             log.debug("[StoreContent] ThemeCards derived {} categories", cards.size());
         } catch (Exception e) {
             log.warn("[StoreContent] ThemeCards CategoryService unavailable, degrade to empty (DG-02)", e);
@@ -281,12 +211,14 @@ public class StoreContentService {
 
     /**
      * ProductRail 派生：调用 StoreProductService.listProducts 取商品卡片。
-     * data_json config：{ limit: 8, category_id: 123, sort: "new" }。
+     * data_json config：{ source, limit, product_ids, category_id, sort }。
+     * sort 仅对 category 来源生效；人工推荐严格保留 product_ids 顺序。
      * 失败降级空 products + WARN（DG-03）。
      */
     private Map<String, Object> deriveProductRailData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
-        int limit = readIntConfig(section.getDataJson(), "limit", 8);
+        data.putAll(resolveI18n(section.getI18nJson(), locale, null));
+        int limit = readBoundedIntConfig(section.getDataJson(), "limit", 8, 1, 12);
         String source = readStringConfig(section.getDataJson(), "source", "new_arrival");
         Long categoryId = readLongConfig(section.getDataJson(), "category_id");
         String sort = normalizeProductSort(readStringConfig(section.getDataJson(), "sort", "newest"));
@@ -296,8 +228,10 @@ public class StoreContentService {
                         "best_sellers", null, null, limit, locale);
                 case "recommend" -> productService.listPublishedCardsByIds(
                         readLongListConfig(section.getDataJson(), "product_ids"), limit, locale);
-                case "category" -> productService.listProducts(new StoreProductService.ListQuery(
-                        locale, 1, limit, categoryId, null, null, null, null, null, sort, Map.of())).getData();
+                case "category" -> categoryId == null
+                        ? List.of()
+                        : productService.listProducts(new StoreProductService.ListQuery(
+                                locale, 1, limit, categoryId, null, null, null, null, null, sort, Map.of())).getData();
                 default -> recommendationService.recommend(
                         "new_arrivals", null, null, limit, locale);
             };
@@ -315,8 +249,6 @@ public class StoreContentService {
                     })
                     .collect(Collectors.toList());
             data.put("products", products);
-            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
-            data.putAll(sec);
             log.debug("[StoreContent] ProductRail derived {} products", products.size());
         } catch (Exception e) {
             log.warn("[StoreContent] ProductRail ProductService unavailable, degrade to empty (DG-03)", e);
@@ -327,12 +259,14 @@ public class StoreContentService {
 
     /**
      * EditorialFeature 派生：调用 StoreWeddingService.page 取真实婚礼故事。
-     * data_json config：{ limit: 3 }。
+     * data_json config：{ limit: 3 }。底层接口唯一可靠语义是 wedding_date DESC，
+     * 因此这里不接受也不模拟人气、随机或升序排序。
      * 失败降级空 stories + WARN（DG-04）。
      */
     private Map<String, Object> deriveEditorialFeatureData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
-        int limit = readIntConfig(section.getDataJson(), "limit", 3);
+        data.putAll(resolveI18n(section.getI18nJson(), locale, null));
+        int limit = readBoundedIntConfig(section.getDataJson(), "limit", 3, 1, 6);
         try {
             Paginated<StoreRealWedding> page = weddingService.page(1, limit, locale);
             List<Map<String, Object>> stories = page.getData().stream()
@@ -349,8 +283,6 @@ public class StoreContentService {
                     })
                     .collect(Collectors.toList());
             data.put("stories", stories);
-            Map<String, Object> sec = resolveI18n(section.getI18nJson(), locale, null);
-            data.putAll(sec);
             log.debug("[StoreContent] EditorialFeature derived {} stories", stories.size());
         } catch (Exception e) {
             log.warn("[StoreContent] EditorialFeature WeddingService unavailable, degrade to empty (DG-04)", e);
@@ -362,22 +294,22 @@ public class StoreContentService {
     private int readIntConfig(String dataJson, String key, int defaultValue) {
         if (dataJson == null) return defaultValue;
         try {
-            JsonNode node = objectMapper.readTree(dataJson);
-            if (node.has(key) && node.get(key).isInt()) {
-                return node.get(key).asInt();
-            }
+            Integer value = parseInteger(objectMapper.readTree(dataJson).get(key));
+            return value == null ? defaultValue : value;
         } catch (Exception ignored) {
         }
         return defaultValue;
     }
 
+    private int readBoundedIntConfig(String dataJson, String key, int defaultValue, int min, int max) {
+        int value = readIntConfig(dataJson, key, defaultValue);
+        return value >= min && value <= max ? value : defaultValue;
+    }
+
     private Long readLongConfig(String dataJson, String key) {
         if (dataJson == null) return null;
         try {
-            JsonNode node = objectMapper.readTree(dataJson);
-            if (node.has(key) && node.get(key).canConvertToLong()) {
-                return node.get(key).asLong();
-            }
+            return parseLong(objectMapper.readTree(dataJson).get(key));
         } catch (Exception ignored) {
         }
         return null;
@@ -400,23 +332,57 @@ public class StoreContentService {
         try {
             JsonNode node = objectMapper.readTree(dataJson).get(key);
             if (node == null || !node.isArray()) return List.of();
-            List<Long> result = new ArrayList<>();
+            LinkedHashSet<Long> result = new LinkedHashSet<>();
             for (JsonNode item : node) {
-                if (item.canConvertToLong() && item.asLong() > 0 && !result.contains(item.asLong())) {
-                    result.add(item.asLong());
+                Long value = parseLong(item);
+                if (value != null && value > 0) {
+                    result.add(value);
                 }
             }
-            return result;
+            return List.copyOf(result);
         } catch (Exception ignored) {
             return List.of();
         }
     }
 
+    private Integer parseInteger(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (node.isIntegralNumber() && node.canConvertToInt()) {
+            return node.intValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return Integer.valueOf(node.textValue().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Long parseLong(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (node.isIntegralNumber() && node.canConvertToLong()) {
+            return node.longValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return Long.valueOf(node.textValue().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private List<StoreCategoryNode> flattenCategories(List<StoreCategoryNode> roots) {
         List<StoreCategoryNode> result = new ArrayList<>();
+        if (roots == null) return result;
         for (StoreCategoryNode node : roots) {
             result.add(node);
-            result.addAll(flattenCategories(node.children()));
+            if (node.children() != null) {
+                result.addAll(flattenCategories(node.children()));
+            }
         }
         return result;
     }
@@ -425,7 +391,8 @@ public class StoreContentService {
         return switch (sort) {
             case "new" -> "newest";
             case "best" -> "recommended";
-            default -> sort;
+            case "newest", "price_asc", "price_desc", "recommended" -> sort;
+            default -> "newest";
         };
     }
 

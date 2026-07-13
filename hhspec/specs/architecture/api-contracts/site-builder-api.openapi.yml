@@ -615,7 +615,7 @@ paths:
         消费端 portal-store/app/[locale]/page.tsx 渲染数据源（KD-5 消费端首页动态渲染）。
         返回所有 enabled=true 的 HomePageSection，按 sort_order 升序，每个区块携带类型相关的派生数据：
         - Hero：从 Banner position=HERO && status=published && now ∈ [start_time, end_time] 派生（BannerService.findByPosition，KD-2/KD-14，含 cta_text_secondary/cta_link_secondary 第二 CTA，FLOW-009）；
-          无符合条件的 Banner 时 hero 字段为 null（消费端显示静态占位）。
+          无符合条件的 Banner 时省略 Hero 区块（消费端不显示默认图文或空白占位）。
         - Announcement：占位区块，无派生数据（公告内容消费端调 GET /api/store/content/announcements 独立获取，KD-7）。
         - ShopByColor：data_json.count + 消费端静态调色板（mock palette 8 色，prototype/portal-admin/src/data/mock.js）。
         - ThemeCards：从 Taxonomy type=theme 派生前 N 个（TaxonomyService，KD-8）。
@@ -1141,7 +1141,7 @@ components:
       description: |
         Hero 区块派生数据（KD-2 从 Banner position=HERO && status=published && now ∈ [start_time, end_time] 派生，FLOW-009）。
         文案/图片/CTA（含第二 CTA，KD-14）全部从 Banner + BannerTranslation 按 locale 解析派生。
-        无符合条件的 Banner 时整个对象为 null（消费端显示静态占位）。
+        无符合条件的 Banner 时响应省略整个 Hero 区块，消费端不显示静态占位。
       nullable: true
       properties:
         banner_id:

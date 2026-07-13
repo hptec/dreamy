@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +15,9 @@ const router = useRouter()
 const auth = useAuthStore()
 const menu = useMenuStore()
 const collapsed = ref(false)
+const mobileOpen = ref(false)
+
+watch(() => route.fullPath, () => { mobileOpen.value = false })
 
 // GUARD-03：菜单按 permissionKeys 过滤（来自 menuStore）
 const filteredMenuGroups = computed(() => menu.visibleGroups)
@@ -50,15 +53,26 @@ function groupActive(group: MenuGroup) {
 
 <template>
   <div class="flex min-h-screen bg-canvas">
+    <button
+      v-if="mobileOpen"
+      type="button"
+      aria-label="关闭导航"
+      class="fixed inset-0 z-30 bg-ink/45 md:hidden"
+      @click="mobileOpen = false"
+    ></button>
+
     <!-- 侧边栏 -->
     <aside
-      class="sticky top-0 flex h-screen flex-col bg-sidebar text-canvas/80 transition-all duration-300"
-      :class="collapsed ? 'w-[68px]' : 'w-[244px]'"
+      class="fixed inset-y-0 left-0 z-40 flex h-screen w-[244px] flex-col bg-sidebar text-canvas/80 transition-all duration-300 md:sticky md:top-0 md:z-auto md:translate-x-0"
+      :class="[
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        collapsed ? 'md:w-[68px]' : 'md:w-[244px]',
+      ]"
     >
       <!-- 品牌 -->
       <div class="flex h-16 items-center gap-3 border-b border-white/8 px-5">
         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-luxe bg-gold font-display text-lg font-semibold text-sidebar">D</div>
-        <div v-if="!collapsed" class="leading-tight">
+        <div v-if="!collapsed || mobileOpen" class="leading-tight">
           <p class="font-display text-base font-semibold text-canvas">Dreamy</p>
           <p class="text-[10px] uppercase tracking-luxe text-gold-soft">Admin Console</p>
         </div>
@@ -75,7 +89,7 @@ function groupActive(group: MenuGroup) {
               :class="isActive(group.items[0].to) ? 'bg-sidebar-active text-canvas' : 'hover:bg-sidebar-hover hover:text-canvas'"
             >
               <component :is="group.icon" class="h-5 w-5 shrink-0" :class="isActive(group.items[0].to) ? 'text-gold' : ''" />
-              <span v-if="!collapsed" class="truncate">{{ group.label }}</span>
+              <span v-if="!collapsed || mobileOpen" class="truncate">{{ group.label }}</span>
             </RouterLink>
           </template>
           <!-- 多项分组 -->
@@ -85,10 +99,10 @@ function groupActive(group: MenuGroup) {
               :class="groupActive(group) ? 'text-canvas' : ''"
             >
               <component :is="group.icon" class="h-5 w-5 shrink-0" :class="groupActive(group) ? 'text-gold' : 'text-canvas/55'" />
-              <span v-if="!collapsed" class="truncate font-medium">{{ group.label }}</span>
-              <span v-if="!collapsed && group.badge" class="ml-auto rounded-full bg-gold/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gold-soft">{{ group.badge }}</span>
+              <span v-if="!collapsed || mobileOpen" class="truncate font-medium">{{ group.label }}</span>
+              <span v-if="(!collapsed || mobileOpen) && group.badge" class="ml-auto rounded-full bg-gold/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gold-soft">{{ group.badge }}</span>
             </div>
-            <div v-if="!collapsed" class="mb-1 ml-[26px] space-y-0.5 border-l border-white/8 pl-3">
+            <div v-if="!collapsed || mobileOpen" class="mb-1 ml-[26px] space-y-0.5 border-l border-white/8 pl-3">
               <RouterLink
                 v-for="item in group.items"
                 :key="item.to"
@@ -105,7 +119,7 @@ function groupActive(group: MenuGroup) {
       <div class="border-t border-white/8 p-3">
         <RouterLink to="/publish" class="flex items-center gap-2 rounded-luxe bg-gold/15 px-3 py-2.5 text-[12.5px] font-medium text-gold-soft transition-colors hover:bg-gold/25">
           <RocketLaunchIcon class="h-5 w-5 shrink-0" />
-          <span v-if="!collapsed">发布中心</span>
+          <span v-if="!collapsed || mobileOpen">发布中心</span>
         </RouterLink>
       </div>
     </aside>
@@ -113,20 +127,23 @@ function groupActive(group: MenuGroup) {
     <!-- 右侧主区 -->
     <div class="flex min-w-0 flex-1 flex-col">
       <!-- 顶栏 -->
-      <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-line bg-canvas/85 px-6 backdrop-blur">
-        <button class="rounded-luxe p-1.5 text-ink-soft hover:bg-canvas-warm" @click="collapsed = !collapsed">
+      <header class="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line bg-canvas/85 px-3 backdrop-blur sm:gap-4 sm:px-6">
+        <button class="rounded-luxe p-1.5 text-ink-soft hover:bg-canvas-warm md:hidden" aria-label="打开导航" @click="mobileOpen = true">
+          <Bars3Icon class="h-5 w-5" />
+        </button>
+        <button class="hidden rounded-luxe p-1.5 text-ink-soft hover:bg-canvas-warm md:block" aria-label="收起导航" @click="collapsed = !collapsed">
           <Bars3Icon class="h-5 w-5" />
         </button>
         <!-- 面包屑 -->
-        <nav class="flex items-center gap-2 text-[13px] text-ink-faint">
-          <span>Dreamy</span>
+        <nav class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap text-[13px] text-ink-faint">
+          <span class="hidden sm:inline">Dreamy</span>
           <template v-for="(c, i) in crumbs" :key="i">
-            <span>/</span>
-            <span :class="i === crumbs.length - 1 ? 'font-medium text-ink' : ''">{{ c }}</span>
+            <span class="hidden sm:inline">/</span>
+            <span class="truncate" :class="[i === crumbs.length - 1 ? 'font-medium text-ink' : 'hidden sm:inline']">{{ c }}</span>
           </template>
         </nav>
 
-        <div class="ml-auto flex items-center gap-3">
+        <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
           <!-- 搜索 -->
           <div class="relative hidden md:block">
             <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
@@ -188,7 +205,7 @@ function groupActive(group: MenuGroup) {
       </header>
 
       <!-- 内容 -->
-      <main class="flex-1 overflow-x-clip p-6">
+      <main class="flex-1 overflow-x-clip p-3 sm:p-6">
         <slot />
       </main>
     </div>

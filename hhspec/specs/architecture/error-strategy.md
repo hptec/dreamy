@@ -99,7 +99,7 @@
 | EDGE-014 公告 priority+时间窗冲突 | FLOW-SB04 | 409804 | 拒绝，details.conflict_id 指示冲突公告 |
 | EDGE-015 公告启停不影响时间窗 | FLOW-SB04 | — | 接受（启停独立于时间窗） |
 | EDGE-016 所有 section disabled | FLOW-SB05 | — | 返回空数组，不报错 |
-| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 502801 | 降级空 Hero + WARN 日志，不阻断聚合 |
+| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 502801 | 省略 Hero 区块 + WARN 日志，不阻断聚合 |
 | EDGE-018 i18n locale 缺失 | FLOW-SB05 | — | 三层回退（locale→en→主表字段） |
 | EDGE-019 跨域全失败 | FLOW-SB05 | 502801/802/803/804 | 各自降级空数据，仍返回 custom 类型 section |
 | EDGE-020 缓存击穿 | FLOW-SB05 | — | singleflight 合并并发重建 |
@@ -114,7 +114,7 @@
 
 | 调用方 | 被调方 | 失败场景 | 降级策略 | 错误码 |
 |--------|--------|---------|---------|--------|
-| StoreContentService (FLOW-SB05 Hero) | BannerSvc.findByPosition | Banner 表异常 / 不存在 | 降级空 Hero 区块 + WARN 日志，不阻断首页聚合 | 502801 |
+| StoreContentService (FLOW-SB05 Hero) | BannerSvc.findByPosition | Banner 表异常 / 不存在 | 省略 Hero 区块 + WARN 日志，不阻断首页聚合 | 502801 |
 | StoreContentService (FLOW-SB05 ThemeCards) | TaxonomySvc.findByType | Taxonomy 表异常 | 降级空 themes 数组 + WARN 日志 | 502802 |
 | StoreContentService (FLOW-SB05 ProductRail) | ProductSvc.findByIds/findNewArrivals | Product 表异常 | 降级空 products 数组 + WARN 日志 | 502804 |
 | StoreContentService (FLOW-SB05 EditorialFeature) | WeddingSvc.fetchStoreWeddings | Wedding 表异常 | 降级空 weddings 数组 + WARN 日志 | 502803 |

@@ -40,13 +40,13 @@ public class SiteBuilderDtos {
     }
 
     @Data
-    public static class HomePageDraftItem extends HomePageSectionUpsert {
+    public static class HomePageSaveItem extends HomePageSectionUpsert {
         private Long id;
     }
 
     @Data
-    public static class HomePageDraftSaveRequest {
-        private List<HomePageDraftItem> items;
+    public static class HomePageSaveRequest {
+        private List<HomePageSaveItem> items;
     }
 
     @Data
@@ -63,40 +63,6 @@ public class SiteBuilderDtos {
     @Data
     public static class ToggleRequest {
         private Boolean enabled;
-    }
-
-    @Data
-    public static class HomePagePublicationStatusDto {
-        private boolean hasPublishedRelease;
-        private boolean draftModified;
-        private Long activeReleaseId;
-        private Integer activeReleaseNo;
-        private String activeReleaseName;
-        private LocalDateTime publishedAt;
-        private String draftRevision;
-    }
-
-    @Data
-    public static class HomePageReleaseDto {
-        private Long id;
-        private Integer releaseNo;
-        private String name;
-        private Long sourceReleaseId;
-        private Long publishedBy;
-        private LocalDateTime publishedAt;
-        private boolean active;
-    }
-
-    @Data
-    public static class HomePagePublishRequest {
-        private String name;
-        private String expectedDraftRevision;
-    }
-
-    @Data
-    public static class HomePagePreviewTokenDto {
-        private String token;
-        private LocalDateTime expiresAt;
     }
 
     @Data
@@ -229,8 +195,6 @@ public class SiteBuilderDtos {
     @Data
     public static class StoreHomePageDto {
         private List<StoreHomeSectionDto> sections;
-        private Integer releaseNo;
-        private Boolean preview;
     }
 
     @Data

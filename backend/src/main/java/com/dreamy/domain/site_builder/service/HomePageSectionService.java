@@ -2,9 +2,8 @@ package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
-import com.dreamy.domain.site_builder.repository.HomePageReleaseRepository;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
-import com.dreamy.dto.SiteBuilderDtos.HomePageDraftItem;
+import com.dreamy.dto.SiteBuilderDtos.HomePageSaveItem;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionUpsert;
 import com.dreamy.dto.SiteBuilderDtos.SortItem;
 import com.dreamy.error.SiteBuilderErrorCode;
@@ -21,8 +20,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 首页区块服务（FLOW-SB01）。
- * home_sections 是首页草稿工作区；写操作只改变草稿，线上由 HomePagePublicationService 原子切换版本。
+ * 首页区块服务（FLOW-SB01）。保存后直接失效首页缓存并对外生效。
  */
 @Service
 public class HomePageSectionService {
@@ -32,23 +30,19 @@ public class HomePageSectionService {
             "hero", "theme_cards", "product_rail", "editorial_feature", "newsletter", "custom");
 
     private final HomePageSectionRepository repository;
-    private final HomePageReleaseRepository releaseRepository;
     private final ObjectMapper objectMapper;
     private final SiteBuilderCacheService cacheService;
 
     public HomePageSectionService(HomePageSectionRepository repository,
-                                  HomePageReleaseRepository releaseRepository,
                                   ObjectMapper objectMapper,
                                   SiteBuilderCacheService cacheService) {
         this.repository = repository;
-        this.releaseRepository = releaseRepository;
         this.objectMapper = objectMapper;
         this.cacheService = cacheService;
     }
 
     @Transactional
     public HomePageSectionDto create(HomePageSectionUpsert upsert) {
-        releaseRepository.lockConfig();
         validate(upsert, null);
         HomePageSection entity = new HomePageSection();
         entity.setSectionType(upsert.getSectionType());
@@ -64,7 +58,6 @@ public class HomePageSectionService {
 
     @Transactional
     public HomePageSectionDto update(Long id, HomePageSectionUpsert upsert) {
-        releaseRepository.lockConfig();
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         validate(upsert, entity.getSectionType());
@@ -85,19 +78,18 @@ public class HomePageSectionService {
     }
 
     @Transactional
-    public List<HomePageSectionDto> saveDraft(List<HomePageDraftItem> items) {
-        releaseRepository.lockConfig();
+    public List<HomePageSectionDto> saveAll(List<HomePageSaveItem> items) {
         if (items == null || items.isEmpty()) {
-            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_RELEASE_VALIDATION_FAILED,
-                    Map.of("reason", "draft must contain at least one section"));
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
+                    Map.of("reason", "homepage must contain at least one section"));
         }
-        if (items.stream().map(HomePageDraftItem::getId).distinct().count() != items.size()) {
-            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_RELEASE_VALIDATION_FAILED,
+        if (items.stream().map(HomePageSaveItem::getId).distinct().count() != items.size()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
                     Map.of("reason", "duplicate section id"));
         }
         Map<Long, HomePageSection> existingById = repository.findAllOrderBySort().stream()
                 .collect(Collectors.toMap(HomePageSection::getId, section -> section));
-        for (HomePageDraftItem item : items) {
+        for (HomePageSaveItem item : items) {
             if (item.getId() == null) {
                 throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND);
             }
@@ -110,7 +102,7 @@ public class HomePageSectionService {
                 throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
             }
         }
-        for (HomePageDraftItem item : items) {
+        for (HomePageSaveItem item : items) {
             HomePageSection entity = existingById.get(item.getId());
             entity.setSectionType(item.getSectionType());
             entity.setEnabled(item.getEnabled());
@@ -127,7 +119,6 @@ public class HomePageSectionService {
 
     @Transactional
     public void delete(Long id) {
-        releaseRepository.lockConfig();
         repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         repository.deleteById(id);
@@ -136,7 +127,6 @@ public class HomePageSectionService {
 
     @Transactional
     public void batchSort(List<SortItem> items) {
-        releaseRepository.lockConfig();
         List<long[]> pairs = items.stream()
                 .map(i -> new long[]{i.getId(), i.getSortOrder()})
                 .collect(Collectors.toList());
@@ -146,7 +136,6 @@ public class HomePageSectionService {
 
     @Transactional
     public HomePageSectionDto toggle(Long id, Boolean enabled) {
-        releaseRepository.lockConfig();
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         int rows = repository.updateEnabled(id, enabled, entity.getVersion());
@@ -192,12 +181,8 @@ public class HomePageSectionService {
         switch (type) {
             case "hero":
                 if (dataJson != null && !dataJson.isNull() && dataJson.size() > 0) {
-                    JsonNode bannerId = dataJson.get("banner_id");
-                    if (dataJson.size() != 1 || bannerId == null || !bannerId.canConvertToLong()
-                            || bannerId.asLong() <= 0) {
-                        throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
-                                Map.of("reason", "hero data_json only accepts a positive banner_id"));
-                    }
+                    throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                            Map.of("reason", "hero data_json must be empty (derived from Banner)"));
                 }
                 break;
             case "newsletter":
@@ -282,6 +267,11 @@ public class HomePageSectionService {
 
     private void applyJsonFields(HomePageSection entity, HomePageSectionUpsert upsert) {
         try {
+            if ("hero".equals(entity.getSectionType())) {
+                entity.setDataJson(null);
+                entity.setI18nJson(null);
+                return;
+            }
             if (upsert.getDataJson() != null) {
                 entity.setDataJson(objectMapper.writeValueAsString(upsert.getDataJson()));
             }

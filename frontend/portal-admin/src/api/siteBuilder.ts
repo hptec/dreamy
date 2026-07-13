@@ -27,7 +27,7 @@ export interface HomePageSectionUpsert {
   version?: number
 }
 
-export interface HomePageDraftItem extends HomePageSectionUpsert {
+export interface HomePageSaveItem extends HomePageSectionUpsert {
   id: number
 }
 
@@ -149,8 +149,8 @@ export function updateHomeSection(id: number, body: HomePageSectionUpsert): Prom
   return put<HomePageSection>(`/api/admin/site-builder/home-sections/${id}`, body)
 }
 
-export function saveHomeDraft(items: HomePageDraftItem[]): Promise<{ items: HomePageSection[] }> {
-  return put<{ items: HomePageSection[] }>('/api/admin/site-builder/home-sections/draft', { items })
+export function saveHomeSections(items: HomePageSaveItem[]): Promise<{ items: HomePageSection[] }> {
+  return put<{ items: HomePageSection[] }>('/api/admin/site-builder/home-sections', { items })
 }
 
 export function deleteHomeSection(id: number): Promise<void> {
@@ -213,68 +213,4 @@ export function deleteAnnouncement(id: number): Promise<void> {
 
 export function toggleAnnouncement(id: number, enabled: boolean): Promise<Announcement> {
   return patch<Announcement>(`/api/admin/site-builder/announcements/${id}/toggle`, { enabled })
-}
-
-// ===== store 端预览 API =====
-
-export interface StoreHomeSection {
-  sectionType: string
-  data: any
-}
-
-export interface StoreHomePage {
-  sections: StoreHomeSection[]
-  releaseNo?: number | null
-  preview?: boolean
-}
-
-export function getStoreHomePreview(locale: string = 'en'): Promise<StoreHomePage> {
-  return get<StoreHomePage>('/api/admin/site-builder/home-publication/preview', { params: { locale } })
-}
-
-export interface HomePagePublicationStatus {
-  hasPublishedRelease: boolean
-  draftModified: boolean
-  activeReleaseId: number | null
-  activeReleaseNo: number | null
-  activeReleaseName: string | null
-  publishedAt: string | null
-  draftRevision: string
-}
-
-export interface HomePageRelease {
-  id: number
-  releaseNo: number
-  name: string
-  sourceReleaseId: number | null
-  publishedBy: number | null
-  publishedAt: string
-  active: boolean
-}
-
-export interface HomePagePreviewToken {
-  token: string
-  expiresAt: string
-}
-
-export function getHomePublicationStatus(): Promise<HomePagePublicationStatus> {
-  return get<HomePagePublicationStatus>('/api/admin/site-builder/home-publication/status')
-}
-
-export function listHomeReleases(limit = 20): Promise<{ items: HomePageRelease[] }> {
-  return get<{ items: HomePageRelease[] }>('/api/admin/site-builder/home-publication/history', {
-    params: { limit },
-  })
-}
-
-export function publishHomePage(name: string | undefined, expectedDraftRevision: string): Promise<HomePageRelease> {
-  return post<HomePageRelease>('/api/admin/site-builder/home-publication/publish', { name, expectedDraftRevision })
-}
-
-export function rollbackHomePage(releaseId: number): Promise<HomePageRelease> {
-  return post<HomePageRelease>(`/api/admin/site-builder/home-publication/releases/${releaseId}/rollback`)
-}
-
-export function createHomePreviewToken(): Promise<HomePagePreviewToken> {
-  return post<HomePagePreviewToken>('/api/admin/site-builder/home-publication/preview-token')
 }

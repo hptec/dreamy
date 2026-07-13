@@ -161,7 +161,7 @@ pages:
       - path: 首屏 hero 渲染（有 hero banner 数据）
         assert: [图/标题/副题/CTA 来自 API, 版式与现有 hero 零偏差, kenburns 动画保持]
       - path: hero banner 数据为空
-        assert: [回退既有静态 hero（冷启动安全, 无空白区）]
+        assert: [Hero 整段不渲染, 无默认图文, 无空白占位]
       - path: topbar 公告轮播
         assert: [topbar banners title 轮播 4s 间隔, 空数据回退静态文案]
       - path: FlashSaleRail（有 active 活动）
