@@ -8,9 +8,11 @@ import {
   deleteHomeSection,
   sortHomeSections,
   toggleHomeSection,
+  saveHomeDraft,
   type HomePageSection,
   type HomePageSectionUpsert,
   type SortItem,
+  type HomePageDraftItem,
 } from '@/api/siteBuilder'
 
 export const useHomeSectionStore = defineStore('homeSection', () => {
@@ -44,6 +46,12 @@ export const useHomeSectionStore = defineStore('homeSection', () => {
     return updated
   }
 
+  async function saveDraft(items: HomePageDraftItem[]) {
+    const result = await saveHomeDraft(items)
+    sections.value = result.items
+    return result.items
+  }
+
   async function remove(id: number) {
     await deleteHomeSection(id)
     sections.value = sections.value.filter((s) => s.id !== id)
@@ -65,5 +73,5 @@ export const useHomeSectionStore = defineStore('homeSection', () => {
     return updated
   }
 
-  return { sections, loading, error, fetch, create, update, remove, sort, toggle }
+  return { sections, loading, error, fetch, create, update, saveDraft, remove, sort, toggle }
 })

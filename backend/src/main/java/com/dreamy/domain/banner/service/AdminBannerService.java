@@ -172,7 +172,8 @@ public class AdminBannerService {
     }
 
     private record Normalized(String name, String imageUrl, BannerPosition position, ContentStatus status,
-                              Integer sort, String title, String subtitle, String ctaText) {
+                              Integer sort, String title, String subtitle, String ctaText, String ctaLink,
+                              String ctaTextSecondary, String ctaLinkSecondary) {
     }
 
     /** V-MKT-039~044（create=true 时 archived 禁作初态——V-MKT-042） */
@@ -217,9 +218,15 @@ public class AdminBannerService {
         String title = MarketingParams.checkMaxLength(req.title(), 255, "title", errors);
         String subtitle = MarketingParams.checkMaxLength(req.subtitle(), 255, "subtitle", errors);
         String ctaText = MarketingParams.checkMaxLength(req.ctaText(), 64, "cta_text", errors);
+        String ctaLink = MarketingParams.checkMaxLength(req.ctaLink(), 512, "cta_link", errors);
+        String ctaTextSecondary = MarketingParams.checkMaxLength(
+                req.ctaTextSecondary(), 64, "cta_text_secondary", errors);
+        String ctaLinkSecondary = MarketingParams.checkMaxLength(
+                req.ctaLinkSecondary(), 512, "cta_link_secondary", errors);
         validateTranslations(req.translations(), errors);
         errors.throwIfAny();
-        return new Normalized(name, imageUrl, position, status, req.sort(), title, subtitle, ctaText);
+        return new Normalized(name, imageUrl, position, status, req.sort(), title, subtitle, ctaText,
+                ctaLink, ctaTextSecondary, ctaLinkSecondary);
     }
 
     /** V-MKT-044 translations locale ∈ {es,fr} 不重复；title/subtitle ≤255、cta_text ≤64（CV-MKT-007） */
@@ -243,6 +250,9 @@ public class AdminBannerService {
             if (t.ctaText() != null && t.ctaText().length() > 64) {
                 errors.reject("translations", "cta_text_too_long");
             }
+            if (t.ctaTextSecondary() != null && t.ctaTextSecondary().length() > 64) {
+                errors.reject("translations", "cta_text_secondary_too_long");
+            }
         }
     }
 
@@ -257,6 +267,9 @@ public class AdminBannerService {
         banner.setTitle(n.title());
         banner.setSubtitle(n.subtitle());
         banner.setCtaText(n.ctaText());
+        banner.setCtaLink(n.ctaLink());
+        banner.setCtaTextSecondary(n.ctaTextSecondary());
+        banner.setCtaLinkSecondary(n.ctaLinkSecondary());
     }
 
     private List<BannerTranslation> toTranslationRows(List<BannerTranslationDto> dtos) {
@@ -270,6 +283,7 @@ public class AdminBannerService {
             row.setTitle(dto.title());
             row.setSubtitle(dto.subtitle());
             row.setCtaText(dto.ctaText());
+            row.setCtaTextSecondary(dto.ctaTextSecondary());
             rows.add(row);
         }
         return rows;
@@ -280,7 +294,7 @@ public class AdminBannerService {
         for (BannerTranslation row : bannerRepository.listTranslationsByBannerIds(ids)) {
             map.computeIfAbsent(row.getBannerId(), k -> new ArrayList<>())
                     .add(new BannerTranslationDto(row.getLocale(), row.getTitle(), row.getSubtitle(),
-                            row.getCtaText()));
+                            row.getCtaText(), row.getCtaTextSecondary()));
         }
         return map;
     }
@@ -292,6 +306,6 @@ public class AdminBannerService {
     private BannerDto toDto(Banner b, List<BannerTranslationDto> translations) {
         return new BannerDto(b.getId(), b.getName(), b.getImageUrl(), b.getPosition().getKey(), b.getStartTime(),
                 b.getEndTime(), b.getStatus().getKey(), b.getSort(), b.getClicks(), b.getTitle(), b.getSubtitle(),
-                b.getCtaText(), translations);
+                b.getCtaText(), b.getCtaLink(), b.getCtaTextSecondary(), b.getCtaLinkSecondary(), translations);
     }
 }

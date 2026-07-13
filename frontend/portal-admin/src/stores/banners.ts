@@ -17,6 +17,9 @@ function toUpsert(row: Banner): BannerUpsert {
     title: row.title,
     subtitle: row.subtitle,
     ctaText: row.ctaText,
+    ctaLink: row.ctaLink,
+    ctaTextSecondary: row.ctaTextSecondary,
+    ctaLinkSecondary: row.ctaLinkSecondary,
     translations: row.translations,
   }
 }

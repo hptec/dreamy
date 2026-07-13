@@ -28,6 +28,9 @@ public class SiteBuilderConfig extends LongAuditableEntity {
     @Column(name = SiteBuilderDBConst.FOOTER_VERSION, definition = "int NOT NULL DEFAULT 0 COMMENT '页脚整体版本（乐观锁）'")
     private Integer footerVersion;
 
+    @Column(name = "active_home_release_id", definition = "bigint NULL COMMENT '当前线上首页发布快照 id'")
+    private Long activeHomeReleaseId;
+
     @Column(name = SiteBuilderDBConst.UPDATED_AT, definition = "datetime NOT NULL")
     private LocalDateTime updatedAt;
 }

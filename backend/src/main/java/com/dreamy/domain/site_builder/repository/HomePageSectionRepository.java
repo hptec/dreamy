@@ -57,6 +57,13 @@ public class HomePageSectionRepository {
         return mapper.deleteById(id);
     }
 
+    public void replaceAll(List<HomePageSection> sections) {
+        mapper.delete(new LambdaQueryWrapper<HomePageSection>().isNotNull(HomePageSection::getId));
+        for (HomePageSection section : sections) {
+            mapper.insert(section);
+        }
+    }
+
     public int batchUpdateSort(List<long[]> idSortPairs) {
         int total = 0;
         for (long[] pair : idSortPairs) {

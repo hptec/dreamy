@@ -1,30 +1,51 @@
 import Link from 'next/link'
-import { ArrowRight, Truck, Sparkles, Globe, Heart } from 'lucide-react'
+import { cookies } from 'next/headers'
+import type { Metadata } from 'next'
+import { Eye, X, Truck, Sparkles, Globe, Heart } from 'lucide-react'
 import { palette } from '@/data/products'
 import { fetchStoreCollections } from '@/lib/api/catalog-server'
-import { fetchStoreBanners, fetchStoreFlashSales, fetchStoreWeddings } from '@/lib/api/marketing-server'
-import { fetchStoreHome } from '@/lib/api/site-builder-server'
-import { BannerPosition } from '@/lib/api/store-types'
+import { fetchStoreFlashSales } from '@/lib/api/marketing-server'
+import { fetchStoreHome, fetchStoreHomePreview } from '@/lib/api/site-builder-server'
 import { RecommendationRail } from '@/components/product/recommendation-rail'
 import { FlashSaleRail } from '@/components/marketing/flash-sale-rail'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /**
  * 首页（KD-5 动态渲染版本）：
- * - homeSections 按 section_type 动态渲染（Hero/ThemeCards/ProductRail/EditorialFeature/Newsletter）
+ * - homeSections 按 sectionType 动态渲染（Hero/ThemeCards/ProductRail/EditorialFeature/Newsletter/Custom）
  * - 保留 FlashSaleRail/ShopByColor/Lookbook/ValueProps 静态区块
  */
 
 export const dynamic = 'force-dynamic'
 
-export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+export async function generateMetadata({
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const previewToken = (await cookies()).get('dreamy_home_preview')?.value
+  if (!previewToken) return {}
+  return {
+    robots: { index: false, follow: false, nocache: true },
+    referrer: 'no-referrer',
+  }
+}
+
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
   const { locale } = await params
   const activeLocale = (['en', 'es', 'fr'] as const).includes(locale as any) ? locale : 'en'
+  const previewToken = (await cookies()).get('dreamy_home_preview')?.value
+  const homePagePromise = previewToken
+    ? fetchStoreHomePreview(activeLocale, previewToken).then((result) => result.page)
+    : fetchStoreHome(activeLocale)
 
   const [flashSales, collectionGroups, homePage] = await Promise.all([
     fetchStoreFlashSales(),
     fetchStoreCollections(),
-    fetchStoreHome(activeLocale),
+    homePagePromise,
   ])
 
   const colorGroup = collectionGroups.find((g) => /color/i.test(g.name))
@@ -33,10 +54,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <div>
+      {homePage?.preview && (
+        <div className="sticky top-0 z-50 border-b border-gold-deep/20 bg-gold px-4 py-2 text-white shadow-soft">
+          <div className="container-luxe flex items-center justify-between gap-4 text-sm">
+            <span className="flex items-center gap-2 font-medium"><Eye className="h-4 w-4" />Private homepage preview</span>
+            <a href={`/api/home-preview/exit?locale=${activeLocale}`} className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-luxe hover:text-canvas">
+              <X className="h-4 w-4" />Exit preview
+            </a>
+          </div>
+        </div>
+      )}
       {/* 动态区块渲染（site_builder 域控制） */}
       {homeSections.map((section, idx) => {
         const data = section.data || {}
-        switch (section.section_type) {
+        switch (section.sectionType) {
           case 'hero':
             return (
               <section key={idx} className="relative grid min-h-[600px] lg:grid-cols-2">
@@ -50,12 +81,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                       Effortless gowns, bridesmaid dresses, and accessories designed for beaches, gardens, and everywhere your love story takes you.
                     </p>
                     <div className="mt-8 flex flex-wrap gap-3">
-                      <Link href={data.cta_link ?? '/wedding-dresses'} className="btn-primary">
-                        {data.cta_text ?? 'Shop the Collection'}
+                      <Link href={data.ctaLink ?? '/wedding-dresses'} className="btn-primary">
+                        {data.ctaText ?? 'Shop the Collection'}
                       </Link>
-                      {data.cta_link_secondary && (
-                        <Link href={data.cta_link_secondary} className="btn-outline">
-                          {data.cta_text_secondary ?? 'Learn More'}
+                      {data.ctaLinkSecondary && (
+                        <Link href={data.ctaLinkSecondary} className="btn-outline">
+                          {data.ctaTextSecondary ?? 'Learn More'}
                         </Link>
                       )}
                     </div>
@@ -69,7 +100,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 <div className="relative order-1 min-h-[420px] overflow-hidden lg:order-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={data.image_url ?? '/competitor-refs/kissprom/wedding-aline-tulle-01.jpg'}
+                    src={data.imageUrl ?? '/competitor-refs/kissprom/wedding-aline-tulle-01.jpg'}
                     alt={data.title ?? 'Hero image'}
                     className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top"
                   />
@@ -97,8 +128,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                       <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
                       <div className="absolute inset-x-0 bottom-0 p-5 text-canvas">
                         <h3 className="font-display text-2xl font-medium">{card.name}</h3>
-                        {card.product_count > 0 && (
-                          <p className="text-xs text-canvas/80">{card.product_count} styles</p>
+                        {card.productCount > 0 && (
+                          <p className="text-xs text-canvas/80">{card.productCount} styles</p>
                         )}
                       </div>
                     </Link>
@@ -121,10 +152,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                   {products.map((product: any) => (
                     <Link key={product.id} href={`/products/${product.slug}`} className="group">
                       <div className="aspect-[3/4] overflow-hidden rounded-sm bg-muted">
-                        {product.image_url && (
+                        {product.imageUrl && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={product.image_url}
+                            src={product.imageUrl}
                             alt={product.name}
                             className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
                           />
@@ -196,6 +227,24 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                       {data.cta || 'Subscribe'}
                     </button>
                   </form>
+                </div>
+              </section>
+            )
+
+          case 'custom':
+            return (
+              <section key={idx} className="container-luxe py-16 lg:py-24">
+                <div className={data.imageUrl ? 'grid items-center gap-10 lg:grid-cols-2' : 'mx-auto max-w-3xl text-center'}>
+                  {data.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={data.imageUrl} alt={data.heading || ''} className="aspect-[16/10] w-full rounded-sm object-cover" />
+                  )}
+                  <div>
+                    {data.heading && <h2 className="font-display text-4xl font-medium">{data.heading}</h2>}
+                    {data.subtitle && <p className="mt-3 text-lg text-ink-soft">{data.subtitle}</p>}
+                    {data.content && <p className="mt-5 whitespace-pre-line text-ink-soft">{data.content}</p>}
+                    {data.ctaText && data.ctaLink && <Link href={data.ctaLink} className="btn-primary mt-7">{data.ctaText}</Link>}
+                  </div>
                 </div>
               </section>
             )

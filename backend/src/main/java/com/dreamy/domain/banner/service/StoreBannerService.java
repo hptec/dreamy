@@ -55,8 +55,8 @@ public class StoreBannerService {
                     Translations.coalesce(t == null ? null : t.getSubtitle(), b.getSubtitle()),
                     Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText()),
                     b.getCtaLink(),
-                    t == null ? null : t.getCtaTextSecondary(),
-                    t == null ? null : t.getCtaLinkSecondary()));
+                    Translations.coalesce(t == null ? null : t.getCtaTextSecondary(), b.getCtaTextSecondary()),
+                    Translations.coalesce(t == null ? null : t.getCtaLinkSecondary(), b.getCtaLinkSecondary())));
         }
         cache.put(Family.BANNERS, cacheKey, items);
         return items;

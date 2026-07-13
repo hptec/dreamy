@@ -52,13 +52,15 @@ public final class AdminMarketingDtos {
     /** openapi BannerUpsert（V-MKT-039~044；title/subtitle/cta_text=DEC-MKT-1 增量字段） */
     public record BannerUpsert(String name, String imageUrl, Integer position, LocalDateTime startTime,
                                LocalDateTime endTime, Integer status, Integer sort, String title, String subtitle,
-                               String ctaText, List<BannerTranslationDto> translations) {
+                               String ctaText, String ctaLink, String ctaTextSecondary, String ctaLinkSecondary,
+                               List<BannerTranslationDto> translations) {
     }
 
     /** openapi Banner（clicks 只读） */
     public record BannerDto(Long id, String name, String imageUrl, Integer position, LocalDateTime startTime,
                             LocalDateTime endTime, Integer status, Integer sort, Integer clicks, String title,
-                            String subtitle, String ctaText, List<BannerTranslationDto> translations) {
+                            String subtitle, String ctaText, String ctaLink, String ctaTextSecondary,
+                            String ctaLinkSecondary, List<BannerTranslationDto> translations) {
     }
 
     /** openapi BlogPostUpsert（V-MKT-050~054） */

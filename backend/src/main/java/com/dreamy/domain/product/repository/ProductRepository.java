@@ -114,10 +114,11 @@ public class ProductRepository {
             qw.le(Product::getPrice, filter.priceMax());
         }
         switch (filter.sort() == null ? "recommended" : filter.sort()) {
-            case "newest" -> qw.orderByDesc(Product::getCreatedAt);
-            case "price_asc" -> qw.orderByAsc(Product::getPrice);
-            case "price_desc" -> qw.orderByDesc(Product::getPrice);
-            default -> qw.orderByAsc(Product::getSort).orderByDesc(Product::getCreatedAt);
+            case "newest" -> qw.orderByDesc(Product::getCreatedAt).orderByDesc(Product::getId);
+            case "price_asc" -> qw.orderByAsc(Product::getPrice).orderByDesc(Product::getId);
+            case "price_desc" -> qw.orderByDesc(Product::getPrice).orderByDesc(Product::getId);
+            default -> qw.orderByAsc(Product::getSort).orderByDesc(Product::getCreatedAt)
+                    .orderByDesc(Product::getId);
         }
         return productMapper.selectPage(new Page<>(page, pageSize), qw);
     }
@@ -224,6 +225,7 @@ public class ProductRepository {
                 .isNull(Product::getDeletedAt)
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .orderByDesc(Product::getCreatedAt)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -234,6 +236,7 @@ public class ProductRepository {
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .gt(Product::getSales30d, 0)
                 .orderByDesc(Product::getSales30d)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -244,6 +247,7 @@ public class ProductRepository {
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .eq(Product::getRecommend, true)
                 .orderByAsc(Product::getSort)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -254,6 +258,7 @@ public class ProductRepository {
                 .eq(Product::getStatus, ProductStatus.PUBLISHED)
                 .exists("SELECT 1 FROM product_collection pcol WHERE pcol.product_id = product.id AND pcol.collection_id = {0}", collectionId)
                 .orderByAsc(Product::getSort)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -268,6 +273,7 @@ public class ProductRepository {
                 .le(Product::getPrice, priceHigh)
                 .ne(Product::getId, exceptId)
                 .orderByAsc(Product::getSort)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -279,6 +285,7 @@ public class ProductRepository {
                 .eq(Product::getCategoryId, categoryId)
                 .ne(Product::getId, exceptId)
                 .orderByAsc(Product::getSort)
+                .orderByDesc(Product::getId)
                 .last("LIMIT " + limit));
     }
 
@@ -294,7 +301,7 @@ public class ProductRepository {
         if (exceptProductId != null) {
             qw.ne(Product::getId, exceptProductId);
         }
-        qw.orderByAsc(Product::getSort).last("LIMIT " + limit);
+        qw.orderByAsc(Product::getSort).orderByDesc(Product::getId).last("LIMIT " + limit);
         return productMapper.selectList(qw);
     }
 

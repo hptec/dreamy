@@ -4,6 +4,7 @@ import com.dreamy.aspect.RequirePermission;
 import com.dreamy.domain.site_builder.service.HomePageSectionService;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionUpsert;
+import com.dreamy.dto.SiteBuilderDtos.HomePageDraftSaveRequest;
 import com.dreamy.dto.SiteBuilderDtos.SortRequest;
 import com.dreamy.dto.SiteBuilderDtos.ToggleRequest;
 import huihao.web.R;
@@ -47,6 +48,13 @@ public class AdminHomePageSectionController {
     @PostMapping("/api/admin/site-builder/home-sections")
     public ResponseEntity<R<HomePageSectionDto>> create(@RequestBody HomePageSectionUpsert req) {
         return ResponseEntity.status(201).body(R.ok(homePageSectionService.create(req)));
+    }
+
+    @RequirePermission(PERMISSION)
+    @PutMapping("/api/admin/site-builder/home-sections/draft")
+    public ResponseEntity<R<Map<String, List<HomePageSectionDto>>>> saveDraft(
+            @RequestBody HomePageDraftSaveRequest req) {
+        return ResponseEntity.ok(R.ok(Map.of("items", homePageSectionService.saveDraft(req.getItems()))));
     }
 
     @RequirePermission(PERMISSION)

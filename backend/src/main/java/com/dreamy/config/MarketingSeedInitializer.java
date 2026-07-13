@@ -48,13 +48,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * marketing 域种子数据初始化（决策 21：从 frontend portal-admin mock.js（coupons/flashSales/banners/
  * blogPosts/lookbooks/guides/realWeddings）+ portal-store data/content.ts 提炼，含三语 translation；
  * newsletter/contact 纯收集表空表起步——marketing-data-detail §11 备注②）。
- * 幂等：coupon 表非空即跳过（与 catalog/identity 种子同惯例——Long 自增主键无法硬编码 id）。
+ * 幂等：Banner 按内部名称独立补齐；其余 marketing 数据在 coupon 表非空时跳过。
  * 同时登记 RBAC 权限点 /promotions、/banners（marketing-api-detail §0 菜单权限 key；
  * /content/blog、/content/weddings、/content/lookbook 已在 identity 种子）。
  */
@@ -103,13 +106,13 @@ public class MarketingSeedInitializer {
     public void init() {
         ensurePermission("/promotions", "营销活动", "促销管理（券与闪购）");
         ensurePermission("/banners", "站点装修", "Banner 投放");
+        seedBanners();
         if (couponMapper.selectCount(null) > 0) {
             return;
         }
         List<Long> productIds = publishedProductIds(12);
         seedCoupons();
         seedFlashSales(productIds);
-        seedBanners();
         seedBlogPosts();
         seedRealWeddings(productIds);
         seedLookbooks(productIds);
@@ -244,40 +247,55 @@ public class MarketingSeedInitializer {
         return t;
     }
 
-    /** mock.js banners ×4（position 映射 hero/featured/topbar；online→published，过期春促→archived） */
+    /** 原型 Banner ×4 + Hero 草稿示例 ×1；按内部名称补齐，不覆盖已有运营数据。 */
     private void seedBanners() {
-        seedBanner("Outdoor Edit 2026 主 Banner", REF + "/kissprom/wedding-aline-tulle-01.jpg",
+        Set<String> existingNames = new HashSet<>();
+        bannerRepository.listAdmin(null).stream()
+                .map(Banner::getName)
+                .filter(Objects::nonNull)
+                .forEach(existingNames::add);
+
+        seedBanner(existingNames, "Outdoor Edit 2026 主 Banner", REF + "/kissprom/wedding-aline-tulle-01.jpg",
                 BannerPosition.HERO, LocalDateTime.of(2026, 5, 1, 0, 0), LocalDateTime.of(2026, 8, 31, 23, 59),
-                ContentStatus.PUBLISHED, 100, 12840,
-                "The Outdoor Edit 2026", "Dresses made for open-air ceremonies", "Shop the Edit",
-                "La Colección al Aire Libre 2026", "Vestidos para ceremonias al aire libre", "Ver colección",
-                "L'Édition Plein Air 2026", "Des robes pour les cérémonies en plein air", "Découvrir");
-        seedBanner("Bridesmaid Color 推广", REF + "/birdygrey/bridesmaid-pink-bella-01.jpg",
+                ContentStatus.PUBLISHED, 100, 12840, "/wedding-dresses",
+                "Dresses made for golden hour", "The Outdoor Wedding Edit · 2026", "Shop the Collection",
+                "Vestidos para la hora dorada", "La Edición de Bodas al Aire Libre · 2026", "Ver la colección",
+                "Des robes pour l'heure dorée", "L'Édition Mariage en Plein Air · 2026", "Voir la collection");
+        seedBanner(existingNames, "Garden Romance Hero（草稿示例）", REF + "/davidsbridal/bridesmaid-sage-01.jpg",
+                BannerPosition.HERO, null, null, ContentStatus.DRAFT, 10, 0, "/outdoor-weddings",
+                "Where will you say I do?", "Garden Wedding Edit · Draft", "Preview the Edit",
+                "¿Dónde darás el sí?", "Edición Boda en el Jardín · Borrador", "Vista previa",
+                "Où allez-vous dire oui ?", "Édition Mariage au Jardin · Brouillon", "Prévisualiser");
+        seedBanner(existingNames, "Bridesmaid Color 推广", REF + "/birdygrey/bridesmaid-pink-bella-01.jpg",
                 BannerPosition.FEATURED, LocalDateTime.of(2026, 5, 10, 0, 0), LocalDateTime.of(2026, 7, 10, 23, 59),
-                ContentStatus.PUBLISHED, 90, 8210,
+                ContentStatus.PUBLISHED, 90, 8210, "/special-occasion",
                 "Bridesmaid Colors for 2026", "Sage, dusty blue and terracotta", "Explore Colors",
                 "Colores de damas 2026", "Salvia, azul polvo y terracota", "Explorar colores",
                 "Couleurs demoiselles 2026", "Sauge, bleu poudré et terracotta", "Explorer");
-        seedBanner("Klarna 分期付款条", REF + "/davidsbridal/wedding-dress-04.jpg",
+        seedBanner(existingNames, "Klarna 分期付款条", REF + "/davidsbridal/wedding-dress-04.jpg",
                 BannerPosition.TOPBAR, LocalDateTime.of(2026, 4, 1, 0, 0), LocalDateTime.of(2026, 12, 31, 23, 59),
-                ContentStatus.PUBLISHED, 80, 24600,
+                ContentStatus.PUBLISHED, 80, 24600, null,
                 "Pay in 4 with Klarna", "Interest-free installments at checkout", "Learn More",
                 "Paga en 4 con Klarna", "Cuotas sin interés al pagar", "Saber más",
                 "Payez en 4 avec Klarna", "Mensualités sans frais au paiement", "En savoir plus");
-        seedBanner("Spring Sale 春季促销", REF + "/kissprom/prom-champagne-lace-05.jpg",
+        seedBanner(existingNames, "Spring Sale 春季促销", REF + "/kissprom/prom-champagne-lace-05.jpg",
                 BannerPosition.FEATURED, LocalDateTime.of(2026, 3, 1, 0, 0), LocalDateTime.of(2026, 5, 30, 23, 59),
-                ContentStatus.ARCHIVED, 60, 5400,
+                ContentStatus.ARCHIVED, 60, 5400, "/special-occasion",
                 "Spring Sale", "Up to 30% off selected styles", "Shop Sale",
                 "Rebajas de primavera", "Hasta 30% en estilos seleccionados", "Comprar",
                 "Soldes de printemps", "Jusqu'à -30% sur une sélection", "Voir les soldes");
     }
 
     @SuppressWarnings("java:S107")
-    private void seedBanner(String name, String imageUrl, BannerPosition position, LocalDateTime startTime,
+    private void seedBanner(Set<String> existingNames, String name, String imageUrl,
+                            BannerPosition position, LocalDateTime startTime,
                             LocalDateTime endTime, ContentStatus status, int sort, int clicks,
-                            String title, String subtitle, String cta,
+                            String ctaLink, String title, String subtitle, String cta,
                             String titleEs, String subtitleEs, String ctaEs,
                             String titleFr, String subtitleFr, String ctaFr) {
+        if (!existingNames.add(name)) {
+            return;
+        }
         Banner banner = new Banner();
         banner.setName(name);
         banner.setImageUrl(imageUrl);
@@ -290,10 +308,12 @@ public class MarketingSeedInitializer {
         banner.setTitle(title);
         banner.setSubtitle(subtitle);
         banner.setCtaText(cta);
+        banner.setCtaLink(ctaLink);
         bannerRepository.insert(banner);
         bannerRepository.replaceTranslations(banner.getId(), List.of(
                 bannerTranslation("es", titleEs, subtitleEs, ctaEs),
                 bannerTranslation("fr", titleFr, subtitleFr, ctaFr)));
+        log.info("[MarketingSeed] Banner {} 已补齐", name);
     }
 
     private BannerTranslation bannerTranslation(String locale, String title, String subtitle, String cta) {

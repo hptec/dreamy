@@ -24,7 +24,7 @@ const editing = ref<Banner | null>(null)
 const confirm = ref<Banner | null>(null)
 const confirmBusy = ref(false)
 
-const positionLabel: Record<number, string> = { [BannerPosition.HERO]: '首页 Hero', [BannerPosition.FEATURED]: '推荐位', [BannerPosition.TOPBAR]: '顶部通告条' }
+const positionLabel: Record<number, string> = { [BannerPosition.HERO]: '首屏主视觉', [BannerPosition.FEATURED]: '推荐位', [BannerPosition.TOPBAR]: '顶部通告条' }
 
 function load() {
   store.fetch().catch((e) => toast.error(e instanceof BizError ? e.message : '加载 Banner 失败'))
@@ -80,7 +80,7 @@ onMounted(load)
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Site Builder" title="Banner 管理" subtitle="配置首页 Hero、推荐位、顶部条等广告位图文与上下线">
+    <PageHeader eyebrow="Site Builder" title="Banner 管理" subtitle="配置首屏主视觉、推荐位、顶部条等广告位图文与上下线">
       <template #actions>
         <button class="btn-gold" @click="refreshAll"><RocketLaunchIcon class="h-4 w-4" />保存并发布</button>
         <button class="btn-primary" @click="editing = null; drawer = true"><PlusIcon class="h-4 w-4" />新增 Banner</button>
@@ -93,7 +93,7 @@ onMounted(load)
         class="w-44"
         :options="[
           { value: 'all', label: '全部广告位' },
-          { value: BannerPosition.HERO, label: '首页 Hero' },
+          { value: BannerPosition.HERO, label: '首屏主视觉' },
           { value: BannerPosition.FEATURED, label: '推荐位' },
           { value: BannerPosition.TOPBAR, label: '顶部通告条' },
         ]"

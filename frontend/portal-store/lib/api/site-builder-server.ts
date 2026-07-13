@@ -5,29 +5,31 @@
  */
 
 import { cache } from 'react'
-import { serverGet } from './server-fetch'
+import { serverGet, serverGetWithStatus } from './server-fetch'
 
 // ===== 类型定义 =====
 
 export interface StoreHomeSection {
-  section_type: string
+  sectionType: string
   data: Record<string, any>
 }
 
 export interface StoreHomePage {
   sections: StoreHomeSection[]
+  releaseNo?: number | null
+  preview?: boolean
 }
 
 export interface StoreNavigationItem {
   id: number
-  parent_id: number | null
+  parentId: number | null
   label: string
   url: string | null
   target: string
-  link_type: string
-  taxonomy_id: number | null
-  mega_menu: any
-  sort_order: number
+  linkType: string
+  taxonomyId: number | null
+  megaMenu: any
+  sortOrder: number
 }
 
 export interface StoreNavigation {
@@ -39,13 +41,13 @@ export interface StoreFooterLink {
   label: string
   url: string
   target: string
-  sort_order: number
+  sortOrder: number
 }
 
 export interface StoreFooterColumn {
   id: number
   title: string
-  sort_order: number
+  sortOrder: number
   links: StoreFooterLink[]
 }
 
@@ -57,8 +59,8 @@ export interface StoreAnnouncement {
   id: number
   priority: number
   content: string
-  start_at: string | null
-  end_at: string | null
+  startAt: string | null
+  endAt: string | null
 }
 
 export interface StoreAnnouncementList {
@@ -76,6 +78,18 @@ export const fetchStoreHome = cache(async (locale: string): Promise<StoreHomePag
     return null
   }
 })
+
+/** 私密首页预览：令牌只在服务端请求中发送，不进入客户端脚本。 */
+export async function fetchStoreHomePreview(
+  locale: string,
+  token: string,
+): Promise<{ page: StoreHomePage | null; status: number }> {
+  const result = await serverGetWithStatus<StoreHomePage>('/api/store/content/home/preview', {
+    locale,
+    query: { locale, token },
+  })
+  return { page: result.data, status: result.status }
+}
 
 /** FLOW-SB06 消费端导航 */
 export const fetchStoreNavigation = cache(async (locale: string): Promise<StoreNavigation | null> => {

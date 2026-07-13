@@ -92,7 +92,7 @@ export function SiteFooter({ columns: serverColumns }: { columns?: StoreFooterCo
 
       {/* Links */}
       <div className="container-luxe grid grid-cols-2 gap-8 py-14 sm:grid-cols-4">
-        {footerNav.map((col) => (
+        {columns.map((col) => (
           <div key={col.title}>
             <p className="eyebrow mb-4 text-gold-light">{col.title}</p>
             <ul className="space-y-2.5">

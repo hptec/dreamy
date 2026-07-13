@@ -6,10 +6,13 @@ import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.entity.NavigationItem;
+import com.dreamy.domain.banner.entity.Banner;
+import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
+import com.dreamy.enums.BannerPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -19,12 +22,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * site_builder 域演示数据 seed（幂等）。
  * SF-L4-02：HomeBuilder.vue + NavigationConfig.vue UI 预览需要真实 API 数据。
  * 监听 ApplicationReadyEvent，在 DataInitializer（默认 @Order 0）之后执行。
- * 检测到 home_sections 表非空则跳过（幂等）。
+ * 首页区块按 section_type 补齐，不覆盖已有运营数据（幂等）。
  */
 @Component
 public class SiteBuilderDataSeed {
@@ -35,15 +41,18 @@ public class SiteBuilderDataSeed {
     private final NavigationItemRepository navigationRepository;
     private final FooterRepository footerRepository;
     private final AnnouncementRepository announcementRepository;
+    private final BannerRepository bannerRepository;
 
     public SiteBuilderDataSeed(HomePageSectionRepository homeSectionRepository,
                                NavigationItemRepository navigationRepository,
                                FooterRepository footerRepository,
-                               AnnouncementRepository announcementRepository) {
+                               AnnouncementRepository announcementRepository,
+                               BannerRepository bannerRepository) {
         this.homeSectionRepository = homeSectionRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
         this.announcementRepository = announcementRepository;
+        this.bannerRepository = bannerRepository;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -59,25 +68,60 @@ public class SiteBuilderDataSeed {
 
     /** 5 个首页区块：Hero / ThemeCards / ProductRail / EditorialFeature / Newsletter */
     private void seedHomeSections() {
-        if (homeSectionRepository.findAllOrderBySort().size() > 0) {
+        Long initialHeroBannerId = initialHeroBannerId();
+        Set<String> existingTypes = new HashSet<>();
+        var existingSections = homeSectionRepository.findAllOrderBySort();
+        existingSections.stream()
+                .map(HomePageSection::getSectionType)
+                .forEach(existingTypes::add);
+
+        seedHomeSection(existingTypes, "hero", 1, true,
+                initialHeroBannerId == null ? null : "{\"banner_id\":" + initialHeroBannerId + "}",
+                null, "Hero 主视觉");
+        seedHomeSection(existingTypes, "theme_cards", 2, true, "{\"mode\":\"auto\",\"limit\":6}",
+                "{\"en\":{\"eyebrow\":\"Explore\",\"heading\":\"Shop by Theme\",\"description\":\"Find the setting that feels like your story.\"},\"es\":{\"eyebrow\":\"Explorar\",\"heading\":\"Comprar por Tema\",\"description\":\"Encuentra el escenario que se parece a tu historia.\"},\"fr\":{\"eyebrow\":\"Explorer\",\"heading\":\"Acheter par Thème\",\"description\":\"Trouvez le décor qui ressemble à votre histoire.\"}}",
+                "主题分类卡片");
+        seedHomeSection(existingTypes, "product_rail", 3, true, "{\"source\":\"new_arrival\",\"limit\":4,\"sort\":\"newest\"}",
+                "{\"en\":{\"eyebrow\":\"Just in\",\"heading\":\"New Arrivals\",\"description\":\"Fresh silhouettes for celebrations under open skies.\"},\"es\":{\"eyebrow\":\"Novedades\",\"heading\":\"Recién Llegados\",\"description\":\"Nuevas siluetas para celebraciones al aire libre.\"},\"fr\":{\"eyebrow\":\"Nouveautés\",\"heading\":\"Nouveaux Arrivages\",\"description\":\"De nouvelles silhouettes pour célébrer à ciel ouvert.\"}}",
+                "新品推荐");
+        seedHomeSection(existingTypes, "editorial_feature", 4, true, "{\"limit\":3}",
+                "{\"en\":{\"eyebrow\":\"Real love stories\",\"heading\":\"Real Outdoor Weddings\",\"description\":\"Celebrations, details, and dresses from real Dreamy couples.\"},\"es\":{\"eyebrow\":\"Historias de amor reales\",\"heading\":\"Bodas Reales al Aire Libre\",\"description\":\"Celebraciones, detalles y vestidos de parejas Dreamy reales.\"},\"fr\":{\"eyebrow\":\"Vraies histoires d'amour\",\"heading\":\"Vrais Mariages en Plein Air\",\"description\":\"Célébrations, détails et robes de vrais couples Dreamy.\"}}",
+                "真实婚礼故事");
+        seedHomeSection(existingTypes, "newsletter", 5, true, null,
+                "{\"en\":{\"eyebrow\":\"Stay in touch\",\"heading\":\"Join the Dreamy List\",\"description\":\"New collections, planning inspiration, and private offers—sent thoughtfully.\",\"placeholder\":\"Your email\",\"cta\":\"Subscribe\"},\"es\":{\"eyebrow\":\"Sigamos en contacto\",\"heading\":\"Únete a la Lista Dreamy\",\"description\":\"Nuevas colecciones, inspiración y ofertas privadas.\",\"placeholder\":\"Tu correo\",\"cta\":\"Suscribirse\"},\"fr\":{\"eyebrow\":\"Restons en contact\",\"heading\":\"Rejoindre la Liste Dreamy\",\"description\":\"Nouvelles collections, inspirations et offres privées.\",\"placeholder\":\"Votre e-mail\",\"cta\":\"S'abonner\"}}",
+                "邮件订阅");
+
+        if (initialHeroBannerId != null) {
+            existingSections.stream()
+                    .filter(section -> "hero".equals(section.getSectionType()))
+                    .filter(section -> section.getDataJson() == null || !section.getDataJson().contains("banner_id"))
+                    .findFirst()
+                    .ifPresent(section -> {
+                        section.setDataJson("{\"banner_id\":" + initialHeroBannerId + "}");
+                        homeSectionRepository.updateByIdAndVersion(section);
+                        log.info("[SiteBuilderDataSeed] 旧 Hero 已绑定初始 Banner id={}", initialHeroBannerId);
+                    });
+        }
+    }
+
+    private Long initialHeroBannerId() {
+        List<Banner> active = bannerRepository.listStoreActive(BannerPosition.HERO, LocalDateTime.now());
+        if (!active.isEmpty()) {
+            return active.get(0).getId();
+        }
+        return bannerRepository.listAdmin(BannerPosition.HERO).stream()
+                .findFirst()
+                .map(Banner::getId)
+                .orElse(null);
+    }
+
+    private void seedHomeSection(Set<String> existingTypes, String type, int sort, boolean enabled,
+                                 String dataJson, String i18nJson, String label) {
+        if (!existingTypes.add(type)) {
             return;
         }
-        homeSectionRepository.insert(buildSection("hero", 1, true, null,
-                "{\"en\":{\"heading\":\"Dreamy Wedding Boutique\"},\"es\":{\"heading\":\"Boutique de Bodas Dreamy\"},\"fr\":{\"heading\":\"Boutique de Mariage Dreamy\"}}",
-                "Hero"));
-        homeSectionRepository.insert(buildSection("theme_cards", 2, true, "{\"limit\":6}",
-                "{\"en\":{\"heading\":\"Shop by Theme\"},\"es\":{\"heading\":\"Comprar por Tema\"},\"fr\":{\"heading\":\"Acheter par Thème\"}}",
-                "Theme Cards"));
-        homeSectionRepository.insert(buildSection("product_rail", 3, true, "{\"limit\":8,\"sort\":\"new\"}",
-                "{\"en\":{\"heading\":\"New Arrivals\"},\"es\":{\"heading\":\"Recién Llegados\"},\"fr\":{\"heading\":\"Nouveautés\"}}",
-                "Product Rail"));
-        homeSectionRepository.insert(buildSection("editorial_feature", 4, true, "{\"limit\":3}",
-                "{\"en\":{\"heading\":\"Real Weddings\"},\"es\":{\"heading\":\"Bodas Reales\"},\"fr\":{\"heading\":\"Mariages Réels\"}}",
-                "Editorial Feature"));
-        homeSectionRepository.insert(buildSection("newsletter", 5, true, null,
-                "{\"en\":{\"heading\":\"Join the Dreamy List\",\"placeholder\":\"Your email\",\"cta\":\"Subscribe\"},\"es\":{\"heading\":\"Únete a la Lista Dreamy\",\"placeholder\":\"Tu correo\",\"cta\":\"Suscribirse\"},\"fr\":{\"heading\":\"Rejoindre la Liste Dreamy\",\"placeholder\":\"Votre email\",\"cta\":\"S'abonner\"}}",
-                "Newsletter"));
-        log.info("[SiteBuilderDataSeed] home_sections 5 条演示数据已初始化");
+        homeSectionRepository.insert(buildSection(type, sort, enabled, dataJson, i18nJson, label));
+        log.info("[SiteBuilderDataSeed] 首页区块 {} 已补齐", type);
     }
 
     private HomePageSection buildSection(String type, int sort, boolean enabled,

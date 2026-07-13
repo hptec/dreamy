@@ -11,7 +11,7 @@ import lombok.EqualsAndHashCode;
 
 /**
  * 首页区块实体（home_sections 表）。
- * KD-4 保存即发布（无草稿态，enabled 二态）；KD-16 i18n_json JSON 列。
+ * 首页草稿工作区；线上首页只读取 HomePageRelease 不可变快照。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

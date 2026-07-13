@@ -39,10 +39,10 @@ export function SiteHeader({
   const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
   // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav
   const navItems = navigationItems && navigationItems.length > 0
-    ? navigationItems.filter((i) => i.parent_id === null).map((i) => ({
+    ? navigationItems.filter((i) => i.parentId === null).map((i) => ({
         label: i.label,
-        href: i.link_type === 'custom' ? (i.url ?? '/') : `/categories/${i.taxonomy_id}`,
-        megaMenu: i.mega_menu,
+        href: i.linkType === 'custom' ? (i.url ?? '/') : `/categories/${i.taxonomyId}`,
+        megaMenu: i.megaMenu,
       }))
     : mainNav
   const activePath = stripLocale(pathname ?? '/')
@@ -108,7 +108,7 @@ export function SiteHeader({
 
             {/* 桌面导航 */}
             <nav className="hidden items-center gap-7 lg:flex">
-              {mainNav.map((item) => (
+              {navItems.map((item) => (
                 <div key={item.label} onMouseEnter={() => setOpenMenu(item.label)} className="py-7">
                   <Link
                     href={item.href}
@@ -118,7 +118,7 @@ export function SiteHeader({
                     )}
                   >
                     {item.label}
-                    {item.columns && <ChevronDown className="h-3 w-3" />}
+                    {'columns' in item && item.columns && <ChevronDown className="h-3 w-3" />}
                   </Link>
                 </div>
               ))}

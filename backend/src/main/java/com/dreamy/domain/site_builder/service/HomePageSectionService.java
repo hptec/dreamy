@@ -2,7 +2,9 @@ package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
+import com.dreamy.domain.site_builder.repository.HomePageReleaseRepository;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
+import com.dreamy.dto.SiteBuilderDtos.HomePageDraftItem;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionUpsert;
 import com.dreamy.dto.SiteBuilderDtos.SortItem;
 import com.dreamy.error.SiteBuilderErrorCode;
@@ -20,7 +22,7 @@ import java.util.stream.Collectors;
 
 /**
  * 首页区块服务（FLOW-SB01）。
- * KD-4 保存即发布：写操作同事务内触发 cache.invalidateFamily + 事务外 publisher.publish。
+ * home_sections 是首页草稿工作区；写操作只改变草稿，线上由 HomePagePublicationService 原子切换版本。
  */
 @Service
 public class HomePageSectionService {
@@ -30,19 +32,23 @@ public class HomePageSectionService {
             "hero", "theme_cards", "product_rail", "editorial_feature", "newsletter", "custom");
 
     private final HomePageSectionRepository repository;
+    private final HomePageReleaseRepository releaseRepository;
     private final ObjectMapper objectMapper;
     private final SiteBuilderCacheService cacheService;
 
     public HomePageSectionService(HomePageSectionRepository repository,
+                                  HomePageReleaseRepository releaseRepository,
                                   ObjectMapper objectMapper,
                                   SiteBuilderCacheService cacheService) {
         this.repository = repository;
+        this.releaseRepository = releaseRepository;
         this.objectMapper = objectMapper;
         this.cacheService = cacheService;
     }
 
     @Transactional
     public HomePageSectionDto create(HomePageSectionUpsert upsert) {
+        releaseRepository.lockConfig();
         validate(upsert, null);
         HomePageSection entity = new HomePageSection();
         entity.setSectionType(upsert.getSectionType());
@@ -58,6 +64,7 @@ public class HomePageSectionService {
 
     @Transactional
     public HomePageSectionDto update(Long id, HomePageSectionUpsert upsert) {
+        releaseRepository.lockConfig();
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         validate(upsert, entity.getSectionType());
@@ -78,7 +85,49 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    public List<HomePageSectionDto> saveDraft(List<HomePageDraftItem> items) {
+        releaseRepository.lockConfig();
+        if (items == null || items.isEmpty()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_RELEASE_VALIDATION_FAILED,
+                    Map.of("reason", "draft must contain at least one section"));
+        }
+        if (items.stream().map(HomePageDraftItem::getId).distinct().count() != items.size()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_RELEASE_VALIDATION_FAILED,
+                    Map.of("reason", "duplicate section id"));
+        }
+        Map<Long, HomePageSection> existingById = repository.findAllOrderBySort().stream()
+                .collect(Collectors.toMap(HomePageSection::getId, section -> section));
+        for (HomePageDraftItem item : items) {
+            if (item.getId() == null) {
+                throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND);
+            }
+            HomePageSection entity = existingById.get(item.getId());
+            if (entity == null) {
+                throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND);
+            }
+            validate(item, entity.getSectionType());
+            if (item.getVersion() == null || !item.getVersion().equals(entity.getVersion())) {
+                throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+            }
+        }
+        for (HomePageDraftItem item : items) {
+            HomePageSection entity = existingById.get(item.getId());
+            entity.setSectionType(item.getSectionType());
+            entity.setEnabled(item.getEnabled());
+            entity.setSortOrder(item.getSortOrder());
+            if (item.getLabel() != null) entity.setLabel(item.getLabel());
+            applyJsonFields(entity, item);
+            if (repository.updateByIdAndVersion(entity) == 0) {
+                throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+            }
+        }
+        cacheService.invalidateHomeSectionFamily();
+        return list(false);
+    }
+
+    @Transactional
     public void delete(Long id) {
+        releaseRepository.lockConfig();
         repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         repository.deleteById(id);
@@ -87,6 +136,7 @@ public class HomePageSectionService {
 
     @Transactional
     public void batchSort(List<SortItem> items) {
+        releaseRepository.lockConfig();
         List<long[]> pairs = items.stream()
                 .map(i -> new long[]{i.getId(), i.getSortOrder()})
                 .collect(Collectors.toList());
@@ -96,6 +146,7 @@ public class HomePageSectionService {
 
     @Transactional
     public HomePageSectionDto toggle(Long id, Boolean enabled) {
+        releaseRepository.lockConfig();
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         int rows = repository.updateEnabled(id, enabled, entity.getVersion());
@@ -141,8 +192,12 @@ public class HomePageSectionService {
         switch (type) {
             case "hero":
                 if (dataJson != null && !dataJson.isNull() && dataJson.size() > 0) {
-                    throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
-                            Map.of("reason", "hero data_json must be empty (derived from Banner)"));
+                    JsonNode bannerId = dataJson.get("banner_id");
+                    if (dataJson.size() != 1 || bannerId == null || !bannerId.canConvertToLong()
+                            || bannerId.asLong() <= 0) {
+                        throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                                Map.of("reason", "hero data_json only accepts a positive banner_id"));
+                    }
                 }
                 break;
             case "newsletter":
@@ -155,21 +210,54 @@ public class HomePageSectionService {
                 if (dataJson != null && !dataJson.isNull()) {
                     JsonNode source = dataJson.get("source");
                     JsonNode limit = dataJson.get("limit");
+                    String sourceValue = source == null ? "new_arrival" : source.asText();
+                    if (!List.of("new_arrival", "best_seller", "recommend", "category").contains(sourceValue)) {
+                        throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                    }
                     if (limit != null && (limit.asInt() < 1 || limit.asInt() > 12)) {
                         throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
                     }
-                    if ("recommend".equals(source != null ? source.asText() : null)) {
+                    if ("recommend".equals(sourceValue)) {
                         JsonNode productIds = dataJson.get("product_ids");
                         if (productIds == null || !productIds.isArray() || productIds.size() == 0) {
                             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
                         }
                     }
+                    if ("category".equals(sourceValue)) {
+                        JsonNode categoryId = dataJson.get("category_id");
+                        if (categoryId == null || !categoryId.canConvertToLong() || categoryId.asLong() <= 0) {
+                            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                        }
+                    }
+                    JsonNode sort = dataJson.get("sort");
+                    if (sort != null && !List.of("newest", "price_asc", "price_desc", "recommended", "new", "best")
+                            .contains(sort.asText())) {
+                        throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                    }
                 }
                 break;
             case "theme_cards":
                 if (dataJson != null && !dataJson.isNull()) {
-                    JsonNode count = dataJson.get("count");
-                    if (count != null && (count.asInt() < 1 || count.asInt() > 8)) {
+                    JsonNode limit = dataJson.has("limit") ? dataJson.get("limit") : dataJson.get("count");
+                    if (limit != null && (limit.asInt() < 1 || limit.asInt() > 8)) {
+                        throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                    }
+                    String mode = dataJson.has("mode") ? dataJson.get("mode").asText() : "auto";
+                    if (!List.of("auto", "manual").contains(mode)) {
+                        throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                    }
+                    if ("manual".equals(mode)) {
+                        JsonNode categoryIds = dataJson.get("category_ids");
+                        if (categoryIds == null || !categoryIds.isArray() || categoryIds.size() == 0) {
+                            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
+                        }
+                    }
+                }
+                break;
+            case "editorial_feature":
+                if (dataJson != null && !dataJson.isNull()) {
+                    JsonNode limit = dataJson.get("limit");
+                    if (limit != null && (limit.asInt() < 1 || limit.asInt() > 6)) {
                         throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
                     }
                 }

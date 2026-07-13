@@ -1,18 +1,23 @@
 package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.banner.entity.Banner;
+import com.dreamy.domain.banner.entity.BannerTranslation;
+import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.domain.banner.service.StoreBannerService;
 import com.dreamy.domain.category.service.StoreCategoryService;
 import com.dreamy.domain.product.service.StoreProductService;
+import com.dreamy.domain.product.service.RecommendationService;
 import com.dreamy.domain.wedding.service.StoreWeddingService;
 import com.dreamy.domain.site_builder.entity.Announcement;
 import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
+import com.dreamy.domain.site_builder.entity.HomePageRelease;
 import com.dreamy.domain.site_builder.entity.NavigationItem;
 import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
+import com.dreamy.domain.site_builder.repository.HomePageReleaseRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
 import com.dreamy.dto.StoreCategoryNode;
 import com.dreamy.dto.StoreMarketingDtos.StoreBanner;
@@ -28,6 +33,7 @@ import com.dreamy.dto.SiteBuilderDtos.StoreHomePageDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationItemDto;
 import com.dreamy.enums.BannerPosition;
+import com.dreamy.support.Translations;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import huihao.page.Paginated;
@@ -53,54 +59,97 @@ public class StoreContentService {
     private static final Logger log = LoggerFactory.getLogger(StoreContentService.class);
 
     private final HomePageSectionRepository homeSectionRepository;
+    private final HomePageReleaseRepository homePageReleaseRepository;
     private final NavigationItemRepository navigationRepository;
     private final FooterRepository footerRepository;
     private final AnnouncementRepository announcementRepository;
     private final ObjectMapper objectMapper;
     private final StoreBannerService bannerService;
+    private final BannerRepository bannerRepository;
     private final StoreCategoryService categoryService;
     private final StoreProductService productService;
+    private final RecommendationService recommendationService;
     private final StoreWeddingService weddingService;
 
     public StoreContentService(HomePageSectionRepository homeSectionRepository,
+                               HomePageReleaseRepository homePageReleaseRepository,
                                NavigationItemRepository navigationRepository,
                                FooterRepository footerRepository,
                                AnnouncementRepository announcementRepository,
                                ObjectMapper objectMapper,
                                StoreBannerService bannerService,
+                               BannerRepository bannerRepository,
                                StoreCategoryService categoryService,
                                StoreProductService productService,
+                               RecommendationService recommendationService,
                                StoreWeddingService weddingService) {
         this.homeSectionRepository = homeSectionRepository;
+        this.homePageReleaseRepository = homePageReleaseRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
         this.announcementRepository = announcementRepository;
         this.objectMapper = objectMapper;
         this.bannerService = bannerService;
+        this.bannerRepository = bannerRepository;
         this.categoryService = categoryService;
         this.productService = productService;
+        this.recommendationService = recommendationService;
         this.weddingService = weddingService;
     }
 
     public StoreHomePageDto getHome(String locale) {
+        HomePageRelease release = homePageReleaseRepository.findActive();
+        if (release != null) {
+            StoreHomePageDto published = readPublishedContent(release, locale);
+            published.setReleaseNo(release.getReleaseNo());
+            published.setPreview(false);
+            return published;
+        }
+        StoreHomePageDto empty = new StoreHomePageDto();
+        empty.setSections(List.of());
+        empty.setPreview(false);
+        return empty;
+    }
+
+    public StoreHomePageDto getDraftHome(String locale) {
         List<HomePageSection> sections = homeSectionRepository.findEnabledOrderBySort();
         List<StoreHomeSectionDto> dtos = new ArrayList<>();
         for (HomePageSection section : sections) {
             StoreHomeSectionDto dto = new StoreHomeSectionDto();
             dto.setSectionType(section.getSectionType());
-            dto.setData(deriveSectionData(section, locale));
+            dto.setData(deriveSectionData(section, locale, true));
             dtos.add(dto);
         }
         StoreHomePageDto result = new StoreHomePageDto();
         result.setSections(dtos);
+        result.setPreview(true);
         return result;
     }
 
-    private Map<String, Object> deriveSectionData(HomePageSection section, String locale) {
+    public StoreHomePageDto readContentJson(String contentJson, boolean preview) {
+        try {
+            StoreHomePageDto content = objectMapper.readValue(contentJson, StoreHomePageDto.class);
+            content.setPreview(preview);
+            return content;
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid home page snapshot", e);
+        }
+    }
+
+    private StoreHomePageDto readPublishedContent(HomePageRelease release, String locale) {
+        String contentJson = switch (locale) {
+            case "es" -> release.getContentEsJson();
+            case "fr" -> release.getContentFrJson();
+            default -> release.getContentEnJson();
+        };
+        return readContentJson(contentJson, false);
+    }
+
+    private Map<String, Object> deriveSectionData(HomePageSection section, String locale, boolean draft) {
         Map<String, Object> data = new HashMap<>();
         switch (section.getSectionType()) {
             case "hero":
-                data.putAll(deriveHeroData(locale));
+                data.putAll(deriveHeroData(section, locale, draft));
                 break;
             case "newsletter":
                 Map<String, Object> i18n = resolveI18n(section.getI18nJson(), locale, null);
@@ -137,9 +186,17 @@ public class StoreContentService {
      * KD-14：返回 title/subtitle/cta_text/cta_link/cta_text_secondary/cta_link_secondary/image_url。
      * 失败降级空 Hero + WARN（DG-01, 502801）。
      */
-    private Map<String, Object> deriveHeroData(String locale) {
+    private Map<String, Object> deriveHeroData(HomePageSection section, String locale, boolean draft) {
         Map<String, Object> hero = new HashMap<>();
         try {
+            Long bannerId = readLongConfig(section.getDataJson(), "banner_id");
+            if (draft && bannerId != null) {
+                Banner selected = bannerRepository.findById(bannerId);
+                if (selected != null && selected.getPosition() == BannerPosition.HERO) {
+                    hero.putAll(toHeroData(selected, locale));
+                    return hero;
+                }
+            }
             List<StoreBanner> banners = bannerService.list(BannerPosition.HERO, locale);
             if (!banners.isEmpty()) {
                 StoreBanner banner = banners.get(0);
@@ -158,6 +215,28 @@ public class StoreContentService {
         return hero;
     }
 
+    private Map<String, Object> toHeroData(Banner banner, String locale) {
+        BannerTranslation translation = null;
+        if (!"en".equals(locale)) {
+            translation = bannerRepository.listTranslationsByBannerIds(List.of(banner.getId())).stream()
+                    .filter(row -> locale.equals(row.getLocale()))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("title", Translations.coalesce(translation == null ? null : translation.getTitle(), banner.getTitle()));
+        data.put("subtitle", Translations.coalesce(translation == null ? null : translation.getSubtitle(), banner.getSubtitle()));
+        data.put("cta_text", Translations.coalesce(translation == null ? null : translation.getCtaText(), banner.getCtaText()));
+        data.put("cta_link", banner.getCtaLink());
+        data.put("cta_text_secondary", Translations.coalesce(
+                translation == null ? null : translation.getCtaTextSecondary(), banner.getCtaTextSecondary()));
+        data.put("cta_link_secondary", Translations.coalesce(
+                translation == null ? null : translation.getCtaLinkSecondary(), banner.getCtaLinkSecondary()));
+        data.put("image_url", banner.getImageUrl());
+        data.put("banner_id", banner.getId());
+        return data;
+    }
+
     /**
      * ThemeCards 派生：调用 StoreCategoryService.listTree(locale) 取根分类（level=0）。
      * data_json 可选 config：{ limit: 6 } 限制卡片数量。
@@ -165,12 +244,24 @@ public class StoreContentService {
      */
     private Map<String, Object> deriveThemeCardsData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
-        int limit = readIntConfig(section.getDataJson(), "limit", 6);
+        int limit = readIntConfig(section.getDataJson(), "limit",
+                readIntConfig(section.getDataJson(), "count", 6));
+        String mode = readStringConfig(section.getDataJson(), "mode", "auto");
         try {
             List<StoreCategoryNode> tree = categoryService.listTree(locale);
+            List<StoreCategoryNode> selected;
+            if ("manual".equals(mode)) {
+                Map<Long, StoreCategoryNode> byId = new HashMap<>();
+                flattenCategories(tree).forEach(node -> byId.put(node.id(), node));
+                selected = readLongListConfig(section.getDataJson(), "category_ids").stream()
+                        .map(byId::get)
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+            } else {
+                selected = tree.stream().limit(limit).toList();
+            }
             List<Map<String, Object>> cards = new ArrayList<>();
-            for (StoreCategoryNode node : tree) {
-                if (cards.size() >= limit) break;
+            for (StoreCategoryNode node : selected) {
                 Map<String, Object> card = new HashMap<>();
                 card.put("id", node.id());
                 card.put("name", node.name());
@@ -196,13 +287,21 @@ public class StoreContentService {
     private Map<String, Object> deriveProductRailData(HomePageSection section, String locale) {
         Map<String, Object> data = new HashMap<>();
         int limit = readIntConfig(section.getDataJson(), "limit", 8);
+        String source = readStringConfig(section.getDataJson(), "source", "new_arrival");
         Long categoryId = readLongConfig(section.getDataJson(), "category_id");
-        String sort = readStringConfig(section.getDataJson(), "sort", "new");
+        String sort = normalizeProductSort(readStringConfig(section.getDataJson(), "sort", "newest"));
         try {
-            StoreProductService.ListQuery q = new StoreProductService.ListQuery(
-                    locale, 1, limit, categoryId, null, null, null, null, null, sort, Map.of());
-            Paginated<StoreProductCard> page = productService.listProducts(q);
-            List<Map<String, Object>> products = page.getData().stream()
+            List<StoreProductCard> cards = switch (source) {
+                case "best_seller" -> recommendationService.recommend(
+                        "best_sellers", null, null, limit, locale);
+                case "recommend" -> productService.listPublishedCardsByIds(
+                        readLongListConfig(section.getDataJson(), "product_ids"), limit, locale);
+                case "category" -> productService.listProducts(new StoreProductService.ListQuery(
+                        locale, 1, limit, categoryId, null, null, null, null, null, sort, Map.of())).getData();
+                default -> recommendationService.recommend(
+                        "new_arrivals", null, null, limit, locale);
+            };
+            List<Map<String, Object>> products = cards.stream()
                     .map(p -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("id", p.id());
@@ -276,7 +375,7 @@ public class StoreContentService {
         if (dataJson == null) return null;
         try {
             JsonNode node = objectMapper.readTree(dataJson);
-            if (node.has(key) && node.get(key).isLong()) {
+            if (node.has(key) && node.get(key).canConvertToLong()) {
                 return node.get(key).asLong();
             }
         } catch (Exception ignored) {
@@ -294,6 +393,40 @@ public class StoreContentService {
         } catch (Exception ignored) {
         }
         return defaultValue;
+    }
+
+    private List<Long> readLongListConfig(String dataJson, String key) {
+        if (dataJson == null) return List.of();
+        try {
+            JsonNode node = objectMapper.readTree(dataJson).get(key);
+            if (node == null || !node.isArray()) return List.of();
+            List<Long> result = new ArrayList<>();
+            for (JsonNode item : node) {
+                if (item.canConvertToLong() && item.asLong() > 0 && !result.contains(item.asLong())) {
+                    result.add(item.asLong());
+                }
+            }
+            return result;
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private List<StoreCategoryNode> flattenCategories(List<StoreCategoryNode> roots) {
+        List<StoreCategoryNode> result = new ArrayList<>();
+        for (StoreCategoryNode node : roots) {
+            result.add(node);
+            result.addAll(flattenCategories(node.children()));
+        }
+        return result;
+    }
+
+    private String normalizeProductSort(String sort) {
+        return switch (sort) {
+            case "new" -> "newest";
+            case "best" -> "recommended";
+            default -> sort;
+        };
     }
 
     public StoreNavigationDto getNavigation(String locale) {

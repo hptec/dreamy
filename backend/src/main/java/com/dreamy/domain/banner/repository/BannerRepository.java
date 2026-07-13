@@ -73,7 +73,10 @@ public class BannerRepository {
                 .set(Banner::getSort, banner.getSort())
                 .set(Banner::getTitle, banner.getTitle())
                 .set(Banner::getSubtitle, banner.getSubtitle())
-                .set(Banner::getCtaText, banner.getCtaText()));
+                .set(Banner::getCtaText, banner.getCtaText())
+                .set(Banner::getCtaLink, banner.getCtaLink())
+                .set(Banner::getCtaTextSecondary, banner.getCtaTextSecondary())
+                .set(Banner::getCtaLinkSecondary, banner.getCtaLinkSecondary()));
     }
 
     /** RM-MKT-006 deleteById */

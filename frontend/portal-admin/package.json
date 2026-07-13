@@ -14,14 +14,18 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.1.5",
+    "@vueuse/core": "^14.3.0",
+    "@vueuse/integrations": "^14.3.0",
     "axios": "^1.7.9",
     "pinia": "^2.2.6",
+    "sortablejs": "^1.15.7",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vue/tsconfig": "^0.5.1",
     "autoprefixer": "^10.4.20",

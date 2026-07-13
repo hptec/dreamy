@@ -50,6 +50,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -139,6 +140,30 @@ public class StoreProductService {
         // STEP-CAT-06 写缓存（TTL 300s）
         cache.put(Family.PRODUCTS, cacheKey, result);
         return result;
+    }
+
+    /** 首页人工推荐：仅返回已发布商品，并严格保留运营选择顺序。 */
+    public List<StoreProductCard> listPublishedCardsByIds(List<Long> requestedIds, int limit, String locale) {
+        if (requestedIds == null || requestedIds.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+        List<Long> orderedIds = requestedIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .limit(limit)
+                .toList();
+        Map<Long, Product> publishedById = new LinkedHashMap<>();
+        for (Product product : productRepository.listByIds(orderedIds)) {
+            if (product.getStatus() == ProductStatus.PUBLISHED) {
+                publishedById.put(product.getId(), product);
+            }
+        }
+        List<Product> ordered = orderedIds.stream()
+                .map(publishedById::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return cardAssembler.assemble(ordered, locale);
     }
 
     /** E-CAT-02：全文搜索（FLOW-P02 决策 17；缓存 key=catalog:search:{qNorm}:{locale}:{page} TTL 60s） */
