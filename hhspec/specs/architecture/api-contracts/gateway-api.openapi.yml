@@ -29,6 +29,7 @@ info:
     |------|------|------|
     | 404201 | GATEWAY_CONFIG_NOT_FOUND | 404 |
     | 409201 | GATEWAY_NAME_EXISTS | 409 |
+    | 409202 | GATEWAY_EDIT_CONFLICT | 409 |
     | 422201 | FIELD_VALIDATION_FAILED | 422 |
     | 422202 | API_KEY_DECRYPTION_FAILED | 422 |
     | 502201 | GATEWAY_UNAVAILABLE（测试连接时外部网关不可达） | 502 |
@@ -36,8 +37,9 @@ info:
     | 504201 | GATEWAY_TIMEOUT（测试连接超时） | 504 |
 
     ## 版本历史
+    - v1.1.0 (2026-07-14): 更新改用整数 version 原子 CAS，响应同步返回 version
     - v1.0.0 (2026-06-16): 初始版本（i18n-complete-with-ai-assist 变更）
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: gateway domain team
     email: York_Morinkts@madonnafan.com
@@ -161,7 +163,8 @@ paths:
       summary: 更新网关配置
       description: |
         FUNC-005。更新网关配置。若 api_key 字段值为掩码格式（sk-****xxxx），后端保持原密文不变；
-        若为明文新 Key，重新加密存储。更新后若 base_url/api_key 变更，重新拉取模型列表。
+        若为明文新 Key，重新加密存储。version 必填并用于原子 CAS；updated_at 仅为展示信息。
+        更新后若 base_url/api_key 变更，重新拉取模型列表。
       operationId: updateGatewayConfig
       tags: [admin-gateways]
       security:
@@ -193,7 +196,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: 配置名称冲突
+          description: 配置名称冲突（409201）或 version 已过期（409202）
           content:
             application/json:
               schema:
@@ -208,8 +211,7 @@ paths:
     delete:
       summary: 删除网关配置
       description: |
-        删除网关配置。软删除（设置 deleted_at）还是硬删除由 L2 设计决定（建议硬删除，配置量小且无历史追溯需求）。
-        删除前检查是否有 ai_translation_log 引用（gateway_config_id），若有则拒绝删除（409）。
+        物理删除网关配置。ai_translation_log 已退役，不再存在日志引用 guard。
       operationId: deleteGatewayConfig
       tags: [admin-gateways]
       security:
@@ -230,17 +232,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: 配置被引用不可删除
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                code: 409202
-                message: "网关配置已被翻译日志引用，不可删除"
-                details: { log_count: 328 }
-
   /api/admin/gateway/configs/{id}/test:
     post:
       summary: 测试网关连接
@@ -287,6 +278,7 @@ paths:
         FUNC-006（决策 5）。手动触发模型列表拉取（仅 AI 网关有效），更新 model_list 和 models_synced_at。
         仅当 gateway_type=AI 时有效，其他类型返回 400。
         该操作等价于保存时的自动拉取，但运营可独立触发（网关新增模型后立即可用）。
+        模型结果按请求加载时的 version 执行 CAS；调用期间配置被编辑时忽略迟到结果并返回 409202。
       operationId: syncGatewayModels
       tags: [admin-gateways]
       security:
@@ -316,6 +308,12 @@ paths:
                 message: "仅 AI 网关支持模型同步"
         '404':
           description: 配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 调用期间配置已被编辑，迟到模型结果未落库（409202）
           content:
             application/json:
               schema:
@@ -410,59 +408,78 @@ components:
           description: 是否启用该配置
         extra_config:
           type: object
+          nullable: true
           description: 协议扩展配置（预留非 OpenAI 协议字段，JSON 自由结构）
           additionalProperties: true
           example: {}
+        version:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: 更新时必填的乐观锁版本；创建时省略并由服务端初始化
 
     GatewayConfigDetail:
-      allOf:
-        - $ref: '#/components/schemas/GatewayConfigUpsert'
-        - type: object
-          required: [id, api_key_masked, model_list, models_synced_at, created_at, updated_at]
-          properties:
-            id:
-              type: integer
-              format: int64
-              example: 1
-            api_key_masked:
-              type: string
-              description: API Key 掩码展示（前缀+后4位，如 sk-****1234）
-              example: "sk-or-****3f8a"
-            model_list:
-              type: array
-              description: 已拉取的可用模型列表（AI 网关自动发现，决策 5）
-              items:
-                $ref: '#/components/schemas/GatewayModel'
-            models_synced_at:
-              type: string
-              format: date-time
-              description: 模型列表最后拉取时间（ISO 8601）
-              example: "2026-06-16T10:30:00Z"
-            created_at:
-              type: string
-              format: date-time
-              example: "2026-06-16T08:00:00Z"
-            updated_at:
-              type: string
-              format: date-time
-              example: "2026-06-16T10:30:00Z"
-
-    GatewayModel:
       type: object
-      required: [id, name]
+      required: [id, gateway_type, name, protocol, base_url, api_key_masked, model_list,
+                 consecutive_failures, enabled, version, created_at, updated_at]
       properties:
         id:
-          type: string
-          description: 模型 ID（OpenAI /v1/models 返回的 id 字段）
-          example: "openai/gpt-4o-mini"
+          type: integer
+          format: int64
+          example: 1
+        gateway_type:
+          type: integer
+          enum: [1, 2, 3]
         name:
           type: string
-          description: 模型显示名称（优先用 /v1/models 的 name，若无则用 id）
-          example: "GPT-4o Mini"
-        context_length:
+        protocol:
           type: integer
-          description: 上下文窗口大小（tokens）
-          example: 128000
+          enum: [1]
+        base_url:
+          type: string
+          format: uri
+        api_key_masked:
+          type: string
+          description: API Key 掩码展示；响应绝不包含写入字段 api_key
+          example: "sk-or-****3f8a"
+        default_model:
+          type: string
+          nullable: true
+        model_list:
+          type: array
+          description: /v1/models 返回的模型 ID 字符串列表
+          items:
+            type: string
+        model_refresh_strategy:
+          type: integer
+          enum: [1, 2]
+          nullable: true
+        model_refresh_interval_min:
+          type: integer
+          nullable: true
+        models_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        consecutive_failures:
+          type: integer
+          minimum: 0
+        enabled:
+          type: boolean
+        extra_config:
+          type: object
+          nullable: true
+          additionalProperties: true
+        version:
+          type: integer
+          minimum: 0
+          description: 单调递增乐观锁版本；配置编辑、模型同步及失败计数更新都会递增
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     GatewayConfigPage:
       type: object

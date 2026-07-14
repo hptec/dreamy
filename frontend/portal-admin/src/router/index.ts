@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { registerUnauthorizedHandler } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 
 // 路由 meta.permission = 该路由所需菜单权限 key（GUARD-02）。
 // 非身份认证页（商品/订单/装修等）保留为占位路由，使后台骨架可运行，权限 key 与菜单对齐。
@@ -77,9 +78,8 @@ const router = createRouter({
 })
 
 // GUARD-01~04：全局守卫
-// 注意：在守卫内部 import store，避免模块加载期 Pinia 未就绪
+// 在守卫回调内实例化 store，确保调用时 Pinia 已由应用注册。
 router.beforeEach(async (to) => {
-  const { useAuthStore } = await import('@/stores/auth')
   const auth = useAuthStore()
 
   // 公开页（登录）

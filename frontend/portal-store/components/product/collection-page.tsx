@@ -53,7 +53,13 @@ export async function CollectionPage({
   const category = findCategoryByName(tree, categoryNames)
 
   const cat = single(searchParams.cat)
-  const sort = single(searchParams.sort) as 'newest' | 'price_asc' | 'price_desc' | 'recommended' | undefined
+  const requestedSort = single(searchParams.sort)
+  // Site-builder's seeded footer links predate the catalog API enum.
+  const sort = ({
+    new: 'newest',
+    best: 'recommended'
+  } as Record<string, 'newest' | 'price_asc' | 'price_desc' | 'recommended'>)[requestedSort ?? '']
+    ?? requestedSort as 'newest' | 'price_asc' | 'price_desc' | 'recommended' | undefined
   const page = Math.max(1, Number(single(searchParams.page) ?? '1') || 1)
   const { priceMin, priceMax } = parsePriceParam(single(searchParams.price))
 

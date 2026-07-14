@@ -43,26 +43,26 @@
 ### A.2 API 模块（src/api/marketing.ts，复用 client.ts）
 
 ```
-listCoupons(params{page,pageSize,status,search})   GET    /admin/promotions/coupons        -> PageResult<Coupon>
+listCoupons(params{page,pageSize,status?: CouponStatus[1..5],search}) GET /admin/promotions/coupons -> PageResult<Coupon>
 createCoupon(body) / updateCoupon(id, body) / deleteCoupon(id)
-listFlashSales(status?)                            GET    /admin/promotions/flash-sales    -> {items}
+listFlashSales(status?: FlashSaleStatus[1..4])     GET    /admin/promotions/flash-sales    -> {items}
 createFlashSale(body) / updateFlashSale(id, body) / deleteFlashSale(id)
-listBanners(position?)                             GET    /admin/banners                   -> {items}
-createBanner(body) / updateBanner(id, body) / deleteBanner(id) / toggleBannerStatus(id, status)
-listBlogs(params{page,pageSize,status,search})     GET    /admin/content/blogs             -> PageResult<BlogPost>
+listBanners(position?: BannerPosition[1|2|3])       GET    /admin/banners                   -> {items}
+createBanner(body) / updateBanner(id, body) / deleteBanner(id) / toggleBannerStatus(id, BannerStatus[1|2|3])
+listBlogs(params{page,pageSize,status?: ContentStatus[1..3],search}) GET /admin/content/blogs -> PageResult<BlogPost>
 getBlog(id) / createBlog(body) / updateBlog(id, body) / deleteBlog(id) / patchBlogStatus(id, status)
-listWeddings(params{page,pageSize,status})         GET    /admin/content/weddings          -> PageResult<RealWedding>
+listWeddings(params{page,pageSize,status?: PublishStatus[1|2]}) GET /admin/content/weddings -> PageResult<RealWedding>
 createWedding(body) / updateWedding(id, body) / deleteWedding(id) / patchWeddingStatus(id, status)
-listLookbooks(status?) / createLookbook / updateLookbook / deleteLookbook / patchLookbookStatus(id, status)
-listGuides(status?) / createGuide / updateGuide / deleteGuide / patchGuideStatus(id, status)
+listLookbooks(status?: PublishStatus[1|2]) / createLookbook / updateLookbook / deleteLookbook / patchLookbookStatus(id, status)
+listGuides(status?: PublishStatus[1|2]) / createGuide / updateGuide / deleteGuide / patchGuideStatus(id, status)
 ```
 
-分页消费 `PageResult`（totalElements ← total_elements，拦截器自动 camelize）；错误统一 ApiError{code, message, details}；上传复用 catalog `uploadViaPresign(file, scope)`（COMP-CAT-A06/STORE-CAT-A05 同一 composable，不重复实现）。
+分页消费 `PageResult`（totalElements ← total_elements，拦截器自动 camelize）；所有 status filter 省略即全部，禁止发送字符串 `all`；错误统一 ApiError{code, message, details}；上传复用 catalog `uploadViaPresign(file, scope)`（COMP-CAT-A06/STORE-CAT-A05 同一 composable，不重复实现）。
 
 ### A.3 状态管理（STORE-MKT-A，Pinia）
 
 - STORE-MKT-A01 `usePromotionsStore`：{ coupons, couponsTotal, couponPage, couponFilters{status,search}, flashSales, flashStatus, loading, fetchCoupons(), saveCoupon()（create/update 分流）, removeCoupon(id), fetchFlashSales(), saveFlashSale(), removeFlashSale(id) }；写成功后列表 refetch + toast；删除 409703 → toast「当前发布状态不允许该操作」（券：仅草稿/已过期且未核销可删；闪购：仅草稿可删）
-- STORE-MKT-A02 `useBannersStore`：{ list, positionFilter, loading, fetch(), save(), remove(id), toggleStatus(row, status)（乐观更新失败回滚+toast）, patchSort(row, sort)（blur 提交走 updateBanner 整单——携带行现值） }
+- STORE-MKT-A02 `useBannersStore`：{ list, positionFilter: BannerPosition IntEnum, loading, fetch(), save(), remove(id), toggleStatus(row, status: BannerStatus IntEnum)（乐观更新失败回滚+toast）, patchSort(row, sort)（blur 提交走 updateBanner 整单——携带行现值） }
 - STORE-MKT-A03 `useBlogStore`：{ list, totalElements, page, pageSize, filters{status,search}, editing:BlogPost|null, loading, fetch(), openEdit(id?)（id 给定先 getBlog 全量回读）, save(), remove(id), patchStatus(id,status) }
 - STORE-MKT-A04 `useWeddingsStore`：{ list, totalElements, page, statusFilter, fetch(), save(), remove(id), patchStatus(id,status) }
 - STORE-MKT-A05 `useLookbookStore`：{ lookbooks, guides, statusFilter, fetchLookbooks(), fetchGuides(), saveLookbook()/removeLookbook()/patchLookbookStatus(), saveGuide()/removeGuide()/patchGuideStatus() }
@@ -71,13 +71,13 @@ listGuides(status?) / createGuide / updateGuide / deleteGuide / patchGuideStatus
 ### A.4 组件树（COMP-MKT-A）
 
 - COMP-MKT-A01 `Promotions.vue`（PAGE-MKT-A01）：双 tab 布局保持（券卡片网格 / 闪购表格）。券 tab：tone/label 映射沿用（active/expiring/draft/scheduled + 补 expired→neutral『已过期』）；status 下拉 + search 输入（防抖 300ms 服务端）+ Pagination；卡片「编辑」→ CouponFormDrawer、「删除」→ 确认弹窗（draft/expired 以外置灰 + tooltip，js_guard 前端预判，409703 兜底 toast）；已用进度 `used/total`（total>9999 显示「不限」，DEC-MKT-5 展示规则）。闪购 tab：status 下拉；行「编辑」→ FlashSaleFormDrawer（ended 行编辑按钮置灰 + tooltip『已结束活动不可编辑』）；「删除」仅 draft 行显示；商品数列 = productIds.length
-- COMP-MKT-A02 `CouponFormDrawer`（Headless-UI Dialog，**根组件传 class 必配 `as`——CP-072**）：字段 code（大写自动转换 + pattern 即时提示）/name/type 三选/value（按 type 占位提示 '15% OFF' 或 '$50 OFF'，pattern 即时校验 DEC-MKT-4）/min_amount/total_limit（>9999 提示「视为不限」）/start_at·end_at（datetime 选择，end>start 即时 js_guard）/status 五选（expiring/expired 创建时禁选）+ **三语 tab（EN/ES/FR）**：EN 写主字段 name/description，ES/FR 写 translations[]；used_count 只读展示（编辑态）
-- COMP-MKT-A03 `FlashSaleFormDrawer`：name/discount/start_at·end_at（必填 + js_guard）/status 四选（ended 禁选）+ 商品选择器（useProductPicker，product_ids chip）+ 三语 name tab
-- COMP-MKT-A04 `Banners.vue`（PAGE-MKT-A02）：表格结构保持（Banner 图/位置/投放时间/上线 Toggle/点击/排序/操作）。Toggle v-model=online 改为 status 三态映射：online=status==='published'；Toggle on → toggleStatus('published')（draft/archived 均→published，对应 publish/republish）；Toggle off → toggleStatus('archived')（take_offline）；409703 回滚 + toast。排序 input blur → patchSort；「已过窗」行追加灰色角标（now>endTime 前端派生，DEC-MKT-2）；「新增 Banner」/「编辑」→ BannerFormDrawer；「保存并发布」按钮语义=逐行变更已即时提交，按钮改为整页 refetch 提示（保留视觉，行为标注）
-- COMP-MKT-A05 `BannerFormDrawer`：name/image_url（MediaUploadCard 复用，scope=banner，502501 降级提示——catalog 域 presign 端点错误码，跨域消费标注）/position 三选/start_time·end_time（js_guard）/status/sort + EN 文案区（title/subtitle/cta_text，DEC-MKT-1 可选）+ ES/FR 三语 tab（title/subtitle/cta_text）
-- COMP-MKT-A06 `ContentBlog.vue`（PAGE-MKT-A03）：filter tabs（全部/已发布/草稿 + 补『已归档』tab——与 API status 枚举对齐，沿用 tab 样式）改服务端参数 + search 输入 + Pagination；卡片操作：「编辑」→ openEdit(id)（getBlog 回读）；「预览」→ 新窗口打开 `{storeBase}/blog/{slug}`（slug 空则置灰）；「发布」按钮（draft 行）→ patchStatus('published')（slug 空 → 422704 提示「发布前需填写 slug」并打开编辑抽屉）；published 行追加「下线」ghost 按钮 → patchStatus('archived')；archived 行「重新发布」；删除 → 确认弹窗
+- COMP-MKT-A02 `CouponFormDrawer`（Headless-UI Dialog，**根组件传 class 必配 `as`——CP-072**）：字段 code（大写自动转换 + pattern 即时提示）/name/type 三选/value（按 type 占位提示 '15% OFF' 或 '$50 OFF'，pattern 即时校验 DEC-MKT-4）/min_amount/total_limit（>9999 提示「视为不限」）/start_at·end_at（datetime 选择，end>start 即时 js_guard）/CouponStatus 五选（1..5，创建时禁选 4/5）+ **三语 tab（EN/ES/FR）**：EN 写主字段 name/description，ES/FR 写 translations[]；used_count 只读展示（编辑态）
+- COMP-MKT-A03 `FlashSaleFormDrawer`：name/discount/start_at·end_at（必填 + js_guard）/FlashSaleStatus 四选（1..4，创建时禁选 4）+ 商品选择器（useProductPicker，product_ids chip）+ 三语 name tab
+- COMP-MKT-A04 `Banners.vue`（PAGE-MKT-A02）：表格结构保持（Banner 图/位置/投放时间/上线 Toggle/点击/排序/操作）。Toggle v-model=online 改为数字 status 三态映射：online=`status===BannerStatus.PUBLISHED(2)`；Toggle on → `toggleStatus(BannerStatus.PUBLISHED)`（DRAFT=1/ARCHIVED=3 均→2，对应 publish/republish）；Toggle off → `toggleStatus(BannerStatus.ARCHIVED)`（3，take_offline）；409703 回滚 + toast。排序 input blur → patchSort；「已过窗」行追加灰色角标（now>endTime 前端派生，DEC-MKT-2）；「新增 Banner」/「编辑」→ BannerFormDrawer；「保存并发布」按钮语义=逐行变更已即时提交，按钮改为整页 refetch 提示（保留视觉，行为标注）
+- COMP-MKT-A05 `BannerFormDrawer`：name/image_url（MediaUploadCard 复用，scope=banner，502501 降级提示——catalog 域 presign 端点错误码，跨域消费标注）/position 三选（BannerPosition.HERO=1/FEATURED=2/TOPBAR=3）/start_time·end_time（js_guard）/status（BannerStatus 1/2/3）/sort + EN 文案区（title/subtitle/cta_text/cta_link/cta_text_secondary/cta_link_secondary，DEC-MKT-1/KD-14 可选）+ ES/FR 三语 tab（title/subtitle/cta_text/cta_text_secondary）
+- COMP-MKT-A06 `ContentBlog.vue`（PAGE-MKT-A03）：filter tabs（全部=undefined / 草稿=1 / 已发布=2 / 已归档=3）改服务端参数 + search 输入 + Pagination；卡片操作：「编辑」→ openEdit(id)（getBlog 回读）；「预览」→ 新窗口打开 `{storeBase}/blog/{slug}`（slug 空则置灰）；「发布」→ `patchStatus(ContentStatus.PUBLISHED)`；「下线」→ `patchStatus(ContentStatus.ARCHIVED)`；「重新发布」同传 2；slug 空仍由 422704 提示并打开编辑抽屉；删除 → 确认弹窗
 - COMP-MKT-A07 `BlogEditDrawer`（大抽屉，Dialog `as` 配齐）：title/slug（pattern 即时提示 + published 必填星标联动）/category/author/cover（上传 scope=content）/content（textarea 富文本基线——沿用既有 field 风格，不引入新编辑器依赖）/status + **三语 tab**：EN 主字段，ES/FR translations（title/excerpt/body/seo_title/seo_description）；views/published_at 只读展示
-- COMP-MKT-A08 `ContentWeddings.vue`（PAGE-MKT-A04）：卡片网格保持（cover/theme/couple/location/date/StatusBadge/Shop the Look 件数）；「新增婚礼故事」/「编辑」→ WeddingFormDrawer；StatusBadge 点击或操作区「发布/下线」→ patchStatus（draft↔published 双向）；删除确认
+- COMP-MKT-A08 `ContentWeddings.vue`（PAGE-MKT-A04）：卡片网格保持（cover/theme/couple/location/date/StatusBadge/Shop the Look 件数）；「新增婚礼故事」/「编辑」→ WeddingFormDrawer；StatusBadge 点击或操作区「发布/下线」→ patchStatus（PublishStatus 1↔2）；删除确认
 - COMP-MKT-A09 `WeddingFormDrawer`：couple/location/theme/wedding_date/cover（上传）/status + EN 文案区（title/story）+ ES/FR 三语 tab（title/story）+ Shop the Look 商品选择器（useProductPicker）
 - COMP-MKT-A10 `ContentLookbook.vue`（PAGE-MKT-A05）：双 tab 保持。lookbook 卡片：「编辑」→ LookbookFormDrawer（title/theme/description EN + 三语 tab + 商品选择器）；guide 行：「编辑」→ GuideFormDrawer（phase/timeframe/title/tasks_count/body EN + 三语 tab）；两类均含「发布/下线」与删除
 - COMP-MKT-A11 空/加载态：列表 loading 骨架行 + EmptyState 复用既有组件风格（强对照约束 2）
@@ -97,7 +97,7 @@ listGuides(status?) / createGuide / updateGuide / deleteGuide / patchGuideStatus
 ### B.1 API 模块（lib/api/marketing-api.ts，复用 client.ts + case.ts deepCamelize）
 
 ```
-fetchStoreBanners(position, locale)        GET  /api/store/content/banners        （RSC fetch + next.revalidate）
+fetchStoreBanners(position: 1|2|3, locale) GET  /api/store/content/banners        （RSC fetch + next.revalidate）
 fetchStoreBlogs(params, locale)            GET  /api/store/content/blogs
 fetchStoreBlog(slug, locale)               GET  /api/store/content/blogs/{slug}
 fetchStoreWeddings(params, locale)         GET  /api/store/content/weddings
@@ -117,7 +117,7 @@ submitContact({name,email,subject,message}) POST /api/store/contact（匿名）
 
 | 编号 | 路由（×3 locale 前缀） | 渲染 | 缓存/再生策略 | API |
 |---|---|---|---|---|
-| PAGE-MKT-S01 | /（首页营销切面） | RSC + ISR | `revalidate = 300`；on-demand：banner_changed/flash_sale_changed/wedding_changed → revalidatePath('/') ×3（EVT-MKT-002）。hero 区：fetchStoreBanners('hero') 首条（空数据整段不渲染）；featured 区块同理；FlashSaleRail：fetchStoreFlashSales 空 items 整段不渲染；Real Weddings 区块：fetchStoreWeddings({page:1,pageSize:3}) | E-MKT-01/04/09 |
+| PAGE-MKT-S01 | /（首页营销切面） | RSC 动态 | 首页主结构由 `GET /api/store/content/home` 的 `{section_type,data}` 数组驱动。Hero 仅一个 section 配置位，但渲染 `data.banners[]` 全部滑块（sort/id 顺序）；空数组整段不渲染。banner_changed/flash_sale_changed/wedding_changed 仍触发 `/` ×3 locale CDN 失效（EVT-MKT-002）。 | site_builder getStoreHome + E-MKT-01/04/09 |
 | PAGE-MKT-S02 | layout 级 topbar（site-header） | RSC props 下传 | layout fetchStoreBanners('topbar') `revalidate = 300`；空 → 回退 data/navigation announcements 静态文案（视觉零变化） | E-MKT-01 |
 | PAGE-MKT-S03 | /blog | RSC + ISR | `revalidate = 300` + on-demand（blog_changed → /blog）；分页 searchParams ?page= 驱动 | E-MKT-02 |
 | PAGE-MKT-S04 | /blog/[slug] | RSC + ISR | **删除 generateStaticParams（如有）**，`dynamicParams=true` + `revalidate = 300`；on-demand revalidatePath('/blog/{slug}') ×3（s-758）；404701 → `notFound()` | E-MKT-03 |
@@ -140,7 +140,7 @@ submitContact({name,email,subject,message}) POST /api/store/contact（匿名）
 
 ### B.4 组件树（COMP-MKT-S）
 
-- COMP-MKT-S01 首页 hero（既有 section）：props 由硬编码切 StoreBanner（imageUrl/title/subtitle/ctaText camelCase 对齐）；无有效 Banner 或 imageUrl 时整段不渲染；有效 Banner 的 title 为空时回退静态文案（DEC-MKT-1 EN 列空容错）
+- COMP-MKT-S01 `HomeHeroCarousel`：props 为 `StoreHeroSlide[]`，来自 Hero section `data.banners[]`；先过滤 imageUrl 空项，无可见滑块时整段不渲染。多于一张时按后端 sort ASC/id ASC 顺序轮播（6.5s 自动切换），支持前后按钮、指示点、暂停/恢复、左右方向键与触摸滑动；`prefers-reduced-motion` 下不自动播放。title 空时保留 EN 容错文案，CTA 仅在文案和链接同时存在时渲染。
 - COMP-MKT-S02 `AnnouncementBar`（site-header 内既有轮播）：announcements 数组 ← topbar banners title 列表；空回退静态；轮播逻辑/样式不变
 - COMP-MKT-S03 `FlashSaleRail`（**新增组件，token 同源**）：SectionHeading + 倒计时徽章（useCountdown）+ ProductCard 横轨（products ProductRef → 卡片 props 子集映射）；items 空整段不渲染（冷启动安全，与 catalog RecommendationRail 同口径）
 - COMP-MKT-S04 Blog 列表卡片（既有）：字段映射 title/cover/category/author/excerpt/publishedAt/views；分页「加载更多/页码」按现有形态接 Paginated
@@ -164,7 +164,7 @@ submitContact({name,email,subject,message}) POST /api/store/contact（匿名）
 | 真实文件（frontend/） | prototype_source（hhspec/prototype/） | conformance |
 |---|---|---|
 | portal-admin/src/views/Promotions.vue | portal-admin/src/views/Promotions.vue | **layout-keep + data-swap + form-add**：双 tab/券卡片/闪购表格不变；mock→API + status/search 服务端化；原型无编辑表单——新增 CouponFormDrawer/FlashSaleFormDrawer（新增功能落点，panel/field/Dialog 风格复用） |
-| portal-admin/src/views/Banners.vue | portal-admin/src/views/Banners.vue | **layout-keep + data-swap**：表格列/Toggle/排序输入不变；Toggle online ↔ status published/archived 三态映射（E-MKT-25）；新增 BannerFormDrawer |
+| portal-admin/src/views/Banners.vue | portal-admin/src/views/Banners.vue | **layout-keep + data-swap**：表格列/Toggle/排序输入不变；Toggle online ↔ BannerStatus.PUBLISHED(2)/ARCHIVED(3) IntEnum 映射（E-MKT-25）；新增 BannerFormDrawer |
 | portal-admin/src/views/ContentBlog.vue | portal-admin/src/views/ContentBlog.vue | **layout-keep + data-swap**：卡片网格/筛选 tab 不变（补『已归档』tab，API 枚举对齐标注）；新增 BlogEditDrawer 三语编辑 |
 | portal-admin/src/views/ContentWeddings.vue | portal-admin/src/views/ContentWeddings.vue | **layout-keep + data-swap**：卡片结构不变；新增 WeddingFormDrawer + 商品选择器 |
 | portal-admin/src/views/ContentLookbook.vue | portal-admin/src/views/ContentLookbook.vue | **layout-keep + data-swap**：双 tab 不变；新增两 FormDrawer |

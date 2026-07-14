@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // CareSymbolIcon.vue — ISO 3758 护理符号 SVG 线条图标（与消费端 care-symbol-icon.tsx 同构）
 // 按 CareItem.symbol（emoji）映射；未命中回退显示原 emoji。
+import type { ClassValue } from 'vue'
 
-const props = withDefaults(defineProps<{ symbol: string; class?: string }>(), {
+const props = withDefaults(defineProps<{ symbol: string; class?: ClassValue }>(), {
   class: 'h-7 w-7',
 })
 
@@ -50,5 +51,5 @@ const icon = () => ICONS[props.symbol]
       stroke="none"
     />
   </svg>
-  <span v-else class="text-2xl leading-none" aria-hidden="true">{{ symbol }}</span>
+  <span v-else :class="[props.class, 'text-2xl leading-none']" aria-hidden="true">{{ symbol }}</span>
 </template>

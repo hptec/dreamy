@@ -213,7 +213,7 @@ generated_at: "2026-05-31"
   - `idx_session_user_status (user_id, status)` —— FLOW-07/12 按用户查/撤销活跃会话；安全页会话列表。
   - `idx_session_refresh (refresh_token_id)` —— FLOW-04 `WHERE refresh_token_id=? AND status=active`。
   - `idx_session_status_created (status, created_at)` —— FLOW-16 清理 `WHERE status=revoked AND created_at < now-30d`。
-- **外键策略**: 无物理 FK（user_id 逻辑外键）。会话有效性以 Redis 单级缓存为准（domain R5），DB 为持久化兜底。
+- **外键策略**: 无物理 FK（user_id 逻辑外键）。会话有效性以 DB session/admin 状态为准；Redis 单级缓存仅作正缓存提示。
 - **引用完整性**: 禁用/注销/强制下线在领域服务事务内 `UPDATE status=revoked`（FLOW-08/12）。
 - **迁移说明**: 新建表。高写表。
 
@@ -277,7 +277,7 @@ generated_at: "2026-05-31"
   - `idx_admin_status (status)` —— 管理员列表筛选。
 - **外键策略**: 无物理 FK（role_id 逻辑外键）。
 - **引用完整性**: role_id 写入前校验 role 存在；删除角色前校验无成员（应用层）。超管保护、不可删自己在领域服务校验（R3）。
-- **迁移说明**: 新建表。需预置 1 个超级管理员账户（admin@dreamy.com，关联超管角色），见 DDL 种子数据。
+- **迁移说明**: 新建表。不预置带固定公开密码的账户；新环境首次启动必须显式提供 `DREAMY_BOOTSTRAP_ADMIN_EMAIL` 与 `DREAMY_BOOTSTRAP_ADMIN_PASSWORD`（至少 12 字符），应用幂等创建并关联超管角色。仅 `DEMO_SEED_ENABLED=true` 的本地演示环境允许使用演示凭据。
 
 ---
 

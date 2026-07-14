@@ -1,175 +1,57 @@
-# L2 错误处理详设 - site_builder 域
+meta:
+  version: "1.0"
+  layer: L2
+  domain: site_builder
+  source: [error-strategy.md, api-detail.md]
 
-> 来源：error-strategy.md（L1.3 产出）+ api-detail.md
-> 覆盖：23 个错误码的异常分类 + 传播路径 + 韧性策略
+error_code_mapping:
+  - {code: 404801, identifier: HOME_SECTION_NOT_FOUND, http: 404, message_zh: 首页区块不存在}
+  - {code: 404802, identifier: NAVIGATION_NOT_FOUND, http: 404, message_zh: 导航配置不存在}
+  - {code: 404803, identifier: FOOTER_NOT_FOUND, http: 404, message_zh: 页脚配置不存在}
+  - {code: 404804, identifier: ANNOUNCEMENT_NOT_FOUND, http: 404, message_zh: 公告不存在}
+  - {code: 404805, identifier: TAXONOMY_NOT_FOUND, http: 404, message_zh: 导航引用的分类不存在}
+  - {code: 409801, identifier: HOME_SECTION_SORT_CONFLICT, http: 409, message_zh: 首页区块版本冲突}
+  - {code: 409802, identifier: NAVIGATION_ITEM_CYCLE, http: 409, message_zh: 导航项循环引用}
+  - {code: 409803, identifier: FOOTER_COLUMN_SORT_CONFLICT, http: 409, message_zh: 页脚栏目版本冲突}
+  - {code: 409804, identifier: ANNOUNCEMENT_TIME_WINDOW_CONFLICT, http: 409, message_zh: 公告同优先级时间窗重叠}
+  - {code: 409805, identifier: NAVIGATION_VERSION_CONFLICT, http: 409, message_zh: 导航配置版本冲突}
+  - {code: 422801, identifier: HOME_SECTION_DATA_JSON_INVALID, http: 422, message_zh: 首页区块 data_json 结构不合法}
+  - {code: 422802, identifier: HOME_SECTION_TYPE_INVALID, http: 422, message_zh: 首页区块类型非法}
+  - {code: 422803, identifier: FOOTER_COLUMN_REF_INVALID, http: 422, message_zh: 页脚链接引用栏目不存在}
+  - {code: 422804, identifier: FOOTER_LINK_URL_INVALID, http: 422, message_zh: 页脚链接 URL 格式非法}
+  - {code: 422805, identifier: ANNOUNCEMENT_TIME_WINDOW_INVALID, http: 422, message_zh: 公告时间窗非法}
+  - {code: 422806, identifier: MEGA_MENU_CONFIG_INVALID, http: 422, message_zh: mega_menu_json 配置非法}
+  - {code: 422807, identifier: I18N_JSON_INVALID, http: 422, message_zh: i18n_json 结构或 locale 非法}
+  - {code: 422808, identifier: SECTION_TYPE_DATA_MISMATCH, http: 422, message_zh: 区块类型与数据不匹配}
+  - {code: 500801, identifier: SITE_BUILDER_INTERNAL, http: 500, message_zh: 站点装修内部错误}
+  - {code: 500802, identifier: CACHE_INVALIDATION_FAILED, http: null, message_zh: 缓存失效失败，仅记录日志}
+  - {code: 502801, identifier: BANNER_SERVICE_UNAVAILABLE, http: 502, message_zh: Banner 服务不可用}
+  - {code: 502802, identifier: TAXONOMY_SERVICE_UNAVAILABLE, http: 502, message_zh: Taxonomy 服务不可用}
+  - {code: 502803, identifier: WEDDING_SERVICE_UNAVAILABLE, http: 502, message_zh: Wedding 服务不可用}
+  - {code: 502804, identifier: PRODUCT_SERVICE_UNAVAILABLE, http: 502, message_zh: Product 服务不可用}
 
-## 异常分类（EX-*）
+propagation_paths:
+  - {id: PATH-01, from: Controller, to: MarketingExceptionHandler, result: R.fail}
+  - {id: PATH-02, from: Service, to: Controller, result: SiteBuilderException}
+  - {id: PATH-03, from: Repository, to: GlobalExceptionHandler, result: DB error envelope}
+  - {id: PATH-04, from: CrossDomainService, to: StoreContentService, result: per-section degradation}
+  - {id: PATH-05, from: CacheInvalidation, to: log, result: ERROR without rolling back committed write}
 
-| 异常类 | 父类 | HTTP | 触发场景 | 对应错误码 |
-|--------|------|------|----------|-----------|
-| SiteBuilderException | RuntimeException | — | site_builder 域基类 | — |
-| HomeSectionNotFoundException | SiteBuilderException | 404 | 首页区块不存在 | 404801 |
-| NavigationNotFoundException | SiteBuilderException | 404 | 导航配置不存在 | 404802 |
-| FooterNotFoundException | SiteBuilderException | 404 | 页脚配置不存在 | 404803 |
-| AnnouncementNotFoundException | SiteBuilderException | 404 | 公告不存在 | 404804 |
-| TaxonomyNotFoundException | SiteBuilderException | 404 | 导航引用分类不存在 | 404805 |
-| HomeSectionSortConflictException | SiteBuilderException | 409 | 首页区块乐观锁冲突 | 409801 |
-| NavigationItemCycleException | SiteBuilderException | 409 | 导航循环依赖 | 409802 |
-| FooterColumnSortConflictException | SiteBuilderException | 409 | 页脚乐观锁冲突 | 409803 |
-| AnnouncementTimeWindowConflictException | SiteBuilderException | 409 | 公告时间窗冲突 | 409804 |
-| NavigationVersionConflictException | SiteBuilderException | 409 | 导航整体保存并发冲突 | 409805 |
-| HomeSectionDataJsonInvalidException | SiteBuilderException | 422 | data_json 结构非法 | 422801 |
-| HomeSectionTypeInvalidException | SiteBuilderException | 422 | section_type 非法 | 422802 |
-| FooterColumnRefInvalidException | SiteBuilderException | 422 | column_id 引用缺失 | 422803 |
-| FooterLinkUrlInvalidException | SiteBuilderException | 422 | URL 格式非法 | 422804 |
-| AnnouncementTimeWindowInvalidException | SiteBuilderException | 422 | start_at >= end_at | 422805 |
-| MegaMenuConfigInvalidException | SiteBuilderException | 422 | mega_menu_json 非法 | 422806 |
-| I18nJsonLocaleInvalidException | SiteBuilderException | 422 | locale 键非 en/es/fr | 422807 |
-| I18nJsonStructureInvalidException | SiteBuilderException | 422 | i18n_json 结构非法 | 422807 |
-| SectionTypeDataMismatchException | SiteBuilderException | 422 | js_guard 校验失败 | 422808 |
-| FieldValidationFailedException | SiteBuilderException | 422 | 其他字段校验失败 | 422808 |
-| SiteBuilderInternalException | SiteBuilderException | 500 | 内部错误 | 500801 |
-| CacheInvalidationFailedException | SiteBuilderException | — | 缓存失效失败（不抛给用户） | 500802 |
-| BannerServiceUnavailableException | SiteBuilderException | 502 | Banner 跨域调用失败 | 502801 |
-| TaxonomyServiceUnavailableException | SiteBuilderException | 502 | Taxonomy 跨域调用失败 | 502802 |
-| WeddingServiceUnavailableException | SiteBuilderException | 502 | Wedding 跨域调用失败 | 502803 |
-| ProductServiceUnavailableException | SiteBuilderException | 502 | Product 跨域调用失败 | 502804 |
+degradation:
+  - {id: DG-01, source: StoreBannerService, result: 省略整个 Hero 区块}
+  - {id: DG-02, source: TaxonomyService, result: 空 themes 数组}
+  - {id: DG-03, source: ProductService, result: 空 products 数组}
+  - {id: DG-04, source: WeddingService, result: 空 weddings 数组}
+  - {id: DG-05, source: cache_read, result: 降级直读数据库}
 
-**复用基线异常**:
-- `AccessDeniedException` → 403（@RequirePermission 校验失败，由 baseline AdminJwtFilter 抛出，错误码 40300）
-- `MethodArgumentNotValidException` → 422（@Valid 校验失败，由 baseline GlobalExceptionHandler 处理，错误码 422808）
-- `DuplicateKeyException` → 409（由 baseline 处理，映射到对应 409xx）
-- `DataIntegrityViolationException` → 422（由 baseline 处理，映射到 422808）
-- marketing 域 `NewsletterEmailExistsException` → 409704（newsletter 订阅重复，幂等成功）
-
-## 传播路径（PATH-NN）
-
-| ID | 路径 | 说明 |
-|----|------|------|
-| PATH-01 | Controller → MarketingExceptionHandler → R.fail(code, message, data) | site_builder 域所有 Controller 的异常统一由 MarketingExceptionHandler 处理（KD-15 assignableTypes） |
-| PATH-02 | Service → Service → 抛 SiteBuilderException 子类 | 领域异常向上传播到 Controller |
-| PATH-03 | Repository → DataAccessException → GlobalExceptionHandler | DB 异常由 baseline 兜底，映射到 50001/500801 |
-| PATH-04 | 跨域 Service 调用 → 超时/网络异常 → 包装为 XxxServiceUnavailableException | BannerSvc/TaxonomySvc/WeddingSvc/ProductSvc 调用失败 |
-| PATH-05 | cache.invalidateFamily → CacheException → 包装为 CacheInvalidationFailedException | 不抛给用户，仅记录 ERROR 日志 |
-| PATH-06 | publisher.publish → PubSubException → 包装为 CacheInvalidationFailedException | 不抛给用户，仅记录 ERROR 日志 |
-| PATH-07 | @Valid → MethodArgumentNotValidException → MarketingExceptionHandler → 422808 | 入参校验 |
-| PATH-08 | @RequirePermission → AccessDeniedException → AdminJwtFilter → 40300 | 权限校验 |
-
-**MarketingExceptionHandler assignableTypes 配置**（KD-15）:
-```java
-@RestControllerAdvice(
-    basePackages = "com.dreamy",
-    assignableTypes = {
-        // baseline marketing 域既有
-        AdminBannerController.class,
-        // site_builder 域新增（本变更）
-        AdminHomePageSectionController.class,
-        AdminNavigationController.class,
-        AdminFooterController.class,
-        AdminAnnouncementController.class,
-        StoreContentController.class
-    }
-)
-public class MarketingExceptionHandler { ... }
-```
-
-## 韧性策略（RT/CB/DG-NNN）
-
-### 重试（RT）
-
-| ID | 策略 | 应用场景 | 配置 |
-|----|------|---------|------|
-| RT-01 | 缓存失效重试 | cache.invalidateFamily 失败时重试 1 次 | maxAttempts=2, backoff=100ms |
-| RT-02 | 跨域调用重试 | BannerSvc/TaxonomySvc/WeddingSvc/ProductSvc 调用失败时重试 2 次 | maxAttempts=3, backoff=200ms |
-
-### 熔断（CB）
-
-| ID | 策略 | 应用场景 | 配置 |
-|----|------|---------|------|
-| CB-01 | 跨域调用熔断 | 跨域服务连续失败 5 次 → 熔断 30s | failureThreshold=5, openDuration=30s |
-
-### 降级（DG）
-
-| ID | 策略 | 应用场景 | 降级返回 |
-|----|------|---------|---------|
-| DG-01 | Banner 降级 | FLOW-SB05 Hero 跨域调用失败 | 省略 Hero 区块 + WARN 日志 |
-| DG-02 | Taxonomy 降级 | FLOW-SB05 ThemeCards 跨域调用失败 | 空 themes 数组 + WARN 日志 |
-| DG-03 | Product 降级 | FLOW-SB05 ProductRail 跨域调用失败 | 空 products 数组 + WARN 日志 |
-| DG-04 | Wedding 降级 | FLOW-SB05 EditorialFeature 跨域调用失败 | 空 weddings 数组 + WARN 日志 |
-| DG-05 | 缓存降级 | cache 读取异常 | 降级直读 DB + WARN 日志 |
-| DG-06 | 缓存失效降级 | publisher.publish 失败 | 记录 ERROR，不阻断主流程（最终一致） |
-| DG-07 | Newsletter 幂等 | 重复订阅 | 返回成功（不泄露订阅状态，EDGE-024） |
-
-### 超时（TO）
-
-| ID | 策略 | 应用场景 | 配置 |
-|----|------|---------|------|
-| TO-01 | 跨域调用超时 | BannerSvc/TaxonomySvc/WeddingSvc/ProductSvc | 3s |
-| TO-02 | 缓存操作超时 | cache.get/set/invalidate | 500ms |
-| TO-03 | DB 查询超时 | Repository 查询 | 5s（baseline 既有） |
-
-## 错误码映射表（完整）
-
-| code | 异常类 | HTTP | message_zh | 触发位置 |
-|------|--------|------|-----------|---------|
-| 404801 | HomeSectionNotFoundException | 404 | 首页区块不存在 | HomePageSectionService.findById/update/delete |
-| 404802 | NavigationNotFoundException | 404 | 导航配置不存在 | NavigationService.get（首次访问自动初始化空配置） |
-| 404803 | FooterNotFoundException | 404 | 页脚配置不存在 | FooterService.get |
-| 404804 | AnnouncementNotFoundException | 404 | 公告不存在 | AnnouncementService.findById/update/delete |
-| 404805 | TaxonomyNotFoundException | 404 | 导航引用的分类不存在 | NavigationService.save（CV-006） |
-| 409801 | HomeSectionSortConflictException | 409 | 首页区块版本冲突 | HomePageSectionService.update（乐观锁） |
-| 409802 | NavigationItemCycleException | 409 | 导航项循环引用 | NavigationService.save（CV-001） |
-| 409803 | FooterColumnSortConflictException | 409 | 页脚栏目版本冲突 | FooterService.save（乐观锁） |
-| 409804 | AnnouncementTimeWindowConflictException | 409 | 公告同优先级时间窗重叠 | AnnouncementService.create/update（CV-002） |
-| 409805 | NavigationVersionConflictException | 409 | 导航配置版本冲突 | NavigationService.save（整体 version 乐观锁） |
-| 422801 | HomeSectionDataJsonInvalidException | 422 | 首页区块 data_json 结构不合法 | HomePageSectionService.create/update（V-004） |
-| 422802 | HomeSectionTypeInvalidException | 422 | 首页区块类型非法 | HomePageSectionService.create/update（V-001） |
-| 422803 | FooterColumnRefInvalidException | 422 | 页脚链接引用栏目不存在 | FooterService.save（CV-003） |
-| 422804 | FooterLinkUrlInvalidException | 422 | 页脚链接 URL 格式非法 | FooterService.save（V-022） |
-| 422805 | AnnouncementTimeWindowInvalidException | 422 | 公告时间窗非法 | AnnouncementService.create/update（CV-008） |
-| 422806 | MegaMenuConfigInvalidException | 422 | mega_menu_json 配置非法 | NavigationService.save（V-016） |
-| 422807 | I18nJsonLocaleInvalidException / I18nJsonStructureInvalidException | 422 | i18n_json 结构或 locale 键非法 | 各 Service 入参校验（CV-005） |
-| 422808 | SectionTypeDataMismatchException / FieldValidationFailedException | 422 | section_type 与 data_json/i18n_json 组合不满足 js_guard 或其他字段校验失败 | HomePageSectionService.create/update（CV-004） |
-| 500801 | SiteBuilderInternalException | 500 | 站点装修内部错误 | 未捕获异常兜底 |
-| 500802 | CacheInvalidationFailedException | — | 缓存失效失败（不返回用户，仅日志） | cache.invalidateFamily / publisher.publish |
-| 502801 | BannerServiceUnavailableException | 502 | Banner 服务不可用 | StoreContentService.getHome Hero 派生 |
-| 502802 | TaxonomyServiceUnavailableException | 502 | Taxonomy 服务不可用 | StoreContentService.getHome ThemeCards 派生 |
-| 502803 | WeddingServiceUnavailableException | 502 | Wedding 服务不可用 | StoreContentService.getHome EditorialFeature 派生 |
-| 502804 | ProductServiceUnavailableException | 502 | Product 服务不可用 | StoreContentService.getHome ProductRail 派生 |
-
-**复用基线码**:
-- 40100 → AdminJwtFilter / StoreJwtFilter（未认证）
-- 40300 → @RequirePermission（无权限）
-- 40400 → 通用 404
-- 50000 → 通用 500
-- 50001 → DB 异常
-- 409704 / 422704 / 500705 → marketing 域 newsletter 错误码（KD-13 扩展基线）
-
-## 边界场景错误处理矩阵
-
-| EDGE | 场景 | 异常 / 错误码 | 处理 |
-|------|------|--------------|------|
-| EDGE-001 | i18n_json 部分缺失 | — | 接受，EN 基准 |
-| EDGE-002 | data_json 字段缺失 | 422801 | 拒绝 |
-| EDGE-003 | section_type 非法 | 422802 | 拒绝 |
-| EDGE-004 | sort_order 重复 | — | 接受 |
-| EDGE-005 | 首页区块并发更新 | 409801 | 乐观锁拒绝 |
-| EDGE-006 | 导航 parent_id 环 | 409802 | DFS 检测后拒绝 |
-| EDGE-007 | mega_menu_json null | — | 接受 |
-| EDGE-008 | taxonomy_id 不存在 | 404805 | 拒绝 |
-| EDGE-009 | 整体替换 id 缺失 | — | 视为新增 |
-| EDGE-010 | 导航并发保存 | 409805 | 乐观锁拒绝 |
-| EDGE-011 | column_id 引用缺失 | 422803 | 拒绝 |
-| EDGE-012 | link.url 格式非法 | 422804 | 拒绝 |
-| EDGE-013 | 公告时间窗颠倒 | 422805 | 拒绝 |
-| EDGE-014 | 公告 priority+时间窗冲突 | 409804 | 拒绝 |
-| EDGE-015 | 公告启停独立时间窗 | — | 接受 |
-| EDGE-016 | 所有 section disabled | — | 返回空数组 |
-| EDGE-017 | Hero Banner 不存在 | 502801 | 省略 Hero 区块 |
-| EDGE-018 | i18n locale 缺失 | — | 三层回退 |
-| EDGE-019 | 跨域全失败 | 502801/802/803/804 | 各自降级空数据 |
-| EDGE-020 | 缓存击穿 | — | singleflight |
-| EDGE-021 | 所有导航 disabled | — | 返回空树 |
-| EDGE-022 | footer 为空 | — | 返回空 columns |
-| EDGE-023 | 无有效公告 | — | 返回空数组 |
-| EDGE-024 | 重复 Newsletter 订阅 | — | 幂等成功 |
+edge_cases:
+  - {id: EDGE-016, scenario: 所有 section disabled, result: 返回空数组}
+  - {id: EDGE-017, scenario: 无有效 HERO Banner, result: 正常省略 Hero 区块且不返回已归档内容}
+  - {id: EDGE-018, scenario: i18n locale 缺失, result: 按请求语言到 EN 回退}
+  - {id: EDGE-019, scenario: 跨域调用失败, result: 各区块独立降级}
+  - {id: EDGE-020, scenario: 缓存击穿, result: singleflight}
+  - {id: EDGE-021, scenario: 所有导航 disabled, result: 返回空树}
+  - {id: EDGE-022, scenario: footer 为空, result: 返回空 columns}
+  - {id: EDGE-023, scenario: 无有效公告, result: 返回空数组}
+  - {id: EDGE-024, scenario: 重复 Newsletter 订阅, result: 幂等成功}
+  - {id: EDGE-025, scenario: 并发创建第二条 Hero section, result: 应用层分布式写锁串行化后返回 422801}

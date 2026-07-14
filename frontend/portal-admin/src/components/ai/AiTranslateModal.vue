@@ -16,14 +16,10 @@ const props = withDefaults(
     sourceText: string
     /** 目标语言 es/fr（源语言固定 en） */
     targetLang: 'es' | 'fr'
-    /** 业务来源类型（product/category/tag/banner…，溯源用） */
-    bizType: string
-    /** 业务来源标识（如 product_id） */
-    bizRef?: string | null
     /** 字段名（name/description…，用于弹窗标题展示） */
     fieldLabel?: string
   }>(),
-  { bizRef: null, fieldLabel: '' },
+  { fieldLabel: '' },
 )
 
 const emit = defineEmits<{
@@ -69,8 +65,6 @@ async function doTranslate() {
       sourceText: props.sourceText,
       customRequirement: customRequirement.value.trim() || null,
       model: model.value || null,
-      bizType: props.bizType,
-      bizRef: props.bizRef,
     })
     result.value = res.translatedText
     toast.success(`翻译完成（${res.model}，${res.latencyMs}ms）`)

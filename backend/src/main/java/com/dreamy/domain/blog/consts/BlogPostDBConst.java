@@ -13,5 +13,4 @@ public interface BlogPostDBConst extends MarketingCommonDBConst {
     String SLUG = "slug";
     String PUBLISHED_AT = "published_at";
     String VIEWS = "views";
-    public static final String DELETED_AT = "deleted_at";
 }

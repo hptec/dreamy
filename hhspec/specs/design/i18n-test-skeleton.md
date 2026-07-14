@@ -1,5 +1,8 @@
 # i18n 测试设计骨架
 
+> 历史测试骨架：translation-log 与 Glossary 用例已退役，不得纳入当前测试计划。当前范围见
+> `i18n-runtime-status.md`。
+
 ## 元信息
 
 - 变更：i18n-complete-with-ai-assist

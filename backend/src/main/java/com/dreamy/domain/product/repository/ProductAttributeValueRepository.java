@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * 商品动态属性值仓储（EAV）。整单覆盖与 images/tags 子表同模式（DELETE+批量 INSERT）。
+ * 商品动态属性值仓储（EAV）。整单覆盖与 images/translations 子表同模式（DELETE+批量 INSERT）。
  */
 @Repository
 public class ProductAttributeValueRepository {
@@ -67,11 +67,5 @@ public class ProductAttributeValueRepository {
         return mapper.selectCount(new LambdaQueryWrapper<ProductAttributeValue>()
                 .eq(ProductAttributeValue::getAttributeId, attributeId)
                 .in(ProductAttributeValue::getValue, values));
-    }
-
-    /** attribute_def 强制删除级联：清理所有商品属性值 */
-    public void deleteByAttributeId(Long attributeId) {
-        mapper.delete(new LambdaQueryWrapper<ProductAttributeValue>()
-                .eq(ProductAttributeValue::getAttributeId, attributeId));
     }
 }

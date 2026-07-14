@@ -2,7 +2,7 @@
 
 > 角色: l2_test_designer ｜ change: portal-api-integration ｜ domain: catalog
 > 多层骨架：单元(UT) / 集成(IT，DB+事务+缓存+MQ) / 契约(CT) / API 端到端(AT) / 前端组件(FCT) / 韧性(RST) / 网络边界(NBT)，统一编号 **TC-CAT-NNN**，AAA 伪代码骨架 + 数据工厂 + P0~P3。
-> 覆盖来源：①field-constraint-test-matrix.yml —— **本域无行**（矩阵仅含 FLD-CUSTOMERS-001/010，归 identity/trading 域；本域字段约束以 boundary-scenarios er 行为权威源，显式声明无遗漏）；②boundary-scenarios.yml 本域场景（bs 编号逐条映射）；③state-machine.yml 本域 5 状态机（product/category/tag/tag_dimension/attribute_visibility）；④catalog-api-detail E-CAT-01~35 与 17 个域错误码。
+> 覆盖来源：①field-constraint-test-matrix.yml —— **本域无行**（矩阵仅含 FLD-CUSTOMERS-001/010，归 identity/trading 域；本域字段约束以 boundary-scenarios er 行为权威源，显式声明无遗漏）；②boundary-scenarios.yml 本域场景；③当前命名和封面策略以 catalog-contract-status.md 为准；④catalog-api-detail E-CAT-01~37 与 17 个域错误码。
 
 ## 1. 单元测试（领域纯逻辑）
 
@@ -32,17 +32,17 @@
 | TC-CAT-017 | TX-CAT-002 整单覆盖：images/size_chart/tag/translation DELETE+INSERT 后数据一致；缺席 SKU 被删、新 SKU version=0；冗余列（sales_30d/rating_*）不被覆盖 | E-CAT-11 STEP-04/05 | P0 |
 | TC-CAT-018 | SKU version CAS：并发两编辑同 SKU，后者 affected=0 → 409508 整体回滚（前者生效） | RM-CAT-122/TX-CAT-002；bs-573/574 同型 | P0 |
 | TC-CAT-019 | 删除守卫事务内复查：并发"挂商品+删分类" → 仅一方成功（409502 或商品 422501） | TX-CAT-008；bs-558 | P0 |
-| TC-CAT-020 | 引用完整性（逻辑外键）：product.category_id / product_tag.tag_id / category.parent_id / category.attribute_set_id / attribute_set_item.attribute_id / tag.dimension_id 引用不存在 → 各端点拒绝 | CV-CAT-005；**bs-676~686 逐条** | P0 |
+| TC-CAT-020 | 引用完整性（逻辑外键）：product.category_id / product_collection.collection_id / category.parent_id / category.attribute_set_id / attribute_set_item.attribute_id / collection.collection_group_id 引用不存在 → 各端点拒绝 | CV-CAT-005 | P0 |
 | TC-CAT-021 | 删除级联：删 tag → product_tag 摘除（bs-680 反向）；删商品 → 六子表清空；删属性集 → item 清空 | TX-CAT-003/011/020 | P1 |
-| TC-CAT-022 | FULLTEXT 检索：EN 主表 ngram 命中 name/subtitle；es/fr 附表命中并 UNION；标签名命中经 product_tag 并入；仅 published 入结果 | RM-CAT-084/103/064；决策 17 | P0 |
+| TC-CAT-022 | FULLTEXT 检索：EN 主表 ngram 命中 name/subtitle；es/fr 附表命中并 UNION；集合名命中经 product_collection 并入；仅 published 入结果 | RM-CAT-084/103/064；决策 17 | P0 |
 | TC-CAT-023 | 缓存命中/失效链（JetCache）：E-CAT-04 首读落库写缓存→二读命中；编辑商品后 `catalog:product:{slug}:*` 全 locale 失效→读到新值 | CACHE-CAT-002/CP-031 | P0 |
 | TC-CAT-024 | 穿透保护：不存在 slug 首读写 null 缓存（60s）→ 二读不触 DB 仍 404501 | BE-DIM-8 | P1 |
-| TC-CAT-025 | 上下架失效扇面：toggle 后 products/product/reco/categories/tags 键全失效；MQ content.invalidated 载荷含 slug+locales×3 | TX-CAT-004/FLOW-P03 | P0 |
+| TC-CAT-025 | 上下架失效扇面：toggle 后 products/product/reco/categories/collections 键全失效；MQ content.invalidated 载荷含 slug+locales×3 | TX-CAT-004/FLOW-P03 | P0 |
 | TC-CAT-026 | EVT-CAT-001 销量回写：order.paid 消费 → sumPaidQty 重算 → sales_30d 更新 + reco 缓存失效；同 event_id 重复投递 → 幂等空操作 | MQ 拓扑 q.catalog.sales | P0 |
 | TC-CAT-027 | EVT-CAT-002 评分回写：review.moderated → rating_avg/count 覆盖写 + product 缓存失效；幂等同上 | q.catalog.rating；FLOW-P14 | P0 |
 | TC-CAT-028 | 消费失败重试 ×3 → dreamy.dlq 死信落地（告警钩子触发） | EVT 重试参数 | P1 |
 | TC-CAT-029 | EVT-CAT-003 定时窗口刷新：30 天前订单滑出窗口 → 定时任务后 sales_30d 下降 | 决策 29 滚动窗口 | P1 |
-| TC-CAT-030 | product_count 两口径：store 树/标签仅 published；admin 含 draft；自底向上累加正确 | RM-CAT-096/097/145 | P1 |
+| TC-CAT-030 | product_count 两口径：store 树/集合仅 published；admin 含 draft；自底向上累加正确 | RM-CAT-096/097/145 | P1 |
 | TC-CAT-031 | 属性集矩阵全量重写原子：DELETE+INSERT 中途失败回滚保留旧矩阵 | TX-CAT-010 | P1 |
 | TC-CAT-032 | 操作审计：本域 19 个 action 各写一次 operation_log（含 changes before/after；flags 归入"编辑商品"） | BE-DIM-7 | P1 |
 
@@ -54,8 +54,8 @@
 | TC-CAT-034 | product_lifecycle | published→deleted 直删被拒 → 409509（guard"先下架"）；deleted 终态后任意操作 404501 | bs-775/776/777/778 | P0 |
 | TC-CAT-035 | product_lifecycle | 同态幂等：published 重复 publish → 200 短路不写审计（publish_again 语义） | E-CAT-13 STEP-02；bs-776 | P1 |
 | TC-CAT-036 | category_lifecycle | active→deleted 成功（count=0）；guard 不满足（product_count>0）拒绝保持 active | TASK-034；bs-744/745/746 | P0 |
-| TC-CAT-037 | tag_lifecycle | enabled↔disabled 双向；enabled→deleted、disabled→deleted；deleted 后操作 404505 | TASK-035；bs-747/748/749 | P0 |
-| TC-CAT-038 | tag_dimension_lifecycle | active→deleted（无标签）；有标签 guard → 409506 | TASK-036；bs-750/751 | P0 |
+| TC-CAT-037 | collection_lifecycle | enabled↔disabled 双向；物理删除后操作 404505 | TASK-035 | P0 |
+| TC-CAT-038 | collection_group_lifecycle | 无集合时可物理删除；有集合 guard → 409506 | TASK-036 | P0 |
 | TC-CAT-039 | attribute_visibility_cycle | hidden→visible→optional→hidden 整单提交循环各态落库正确 | TASK-037；bs-752/753/754 | P1 |
 | TC-CAT-040 | 并发状态变更 | category 并发双 delete 仅一次副作用（bs-558）；tag 并发 toggle_off+delete 仅一方成功（bs-559/560）；dimension 并发双 delete（bs-561）；attribute_set_item 并发 cycle_click（整单保存互斥，bs-562/563/564）；product 并发 publish+delete / unpublish+delete（bs-573/574） | sm concurrent 族 | P0 |
 
@@ -76,7 +76,7 @@
 | TC-CAT-046 | store 读链路：categories→products(列表筛选 category/tag/color/size/price/sort 六参组合)→product/{slug}→tags | E-CAT-01/04/06/07 | P0 |
 | TC-CAT-047 | 列表边界：page_size=100 通过、101 拒绝；page=0 拒绝；price_min>price_max 拒绝；空结果空 data | V-CAT-002/003 | P1 |
 | TC-CAT-048 | 搜索：q 必填/超 80 拒绝；en/es/fr 三语各命中；60s 缓存窗口内重复请求命中（响应耗时断言） | E-CAT-02 | P0 |
-| TC-CAT-049 | 推荐位：五 block 正常；ymal/ctl 缺 product_id → 422501；shop_by_color 缺 tag_id → 422501；基准品不存在 → 空 items；limit 越界拒绝 | V-CAT-008~011 | P0 |
+| TC-CAT-049 | 推荐位：五 block 正常；ymal/ctl 缺 product_id → 422501；shop_by_color 缺 collection_id → 422501；基准品不存在 → 空 items；limit 越界拒绝 | V-CAT-008~011 | P0 |
 | TC-CAT-050 | 尺码推荐 E2E：matched/true、matched/false、422502、商品不存在 404501、未发布 404501 | E-CAT-05 | P0 |
 | TC-CAT-051 | admin 商品 CRUD 全链路：create(201)→get→update(200)→toggle→flags→delete(204)；草稿删除成功、已发布删除 409509 | E-CAT-08~14 | P0 |
 | TC-CAT-052 | 必填族穷举（创建商品）：name/slug/category_id/price/lead_time_days/status 缺失逐一 422501 | bs-059/060/062/066/070/075；可选字段 null 不报错 bs-058~099 其余 | P0 |
@@ -86,12 +86,12 @@
 | TC-CAT-056 | 分类树规则：根缺 attribute_set_id → 422501；attribute_set 不存在 → 404503；父不存在 → 404502；三层下再建子 → 409505；parent_id 变更 → 422501 | V-CAT-044/045/048 | P0 |
 | TC-CAT-057 | 分类删除：有商品 409502、有子分类 409502(reason=has_children)、清空后 204 | E-CAT-18 | P0 |
 | TC-CAT-058 | 属性集/字典族：label/key/type 必填（bs-010~012/015）、items 必填行校验（bs-017~019）、visibility 非法枚举（bs-395）、key 重复 422501、被引用删除 409503/409507、404503/404504 | E-CAT-19~26；bs-009~019/394/395 | P0 |
-| TC-CAT-059 | 标签族：dimension_id/name/status 必填（bs-021/024/025/027）、cover/description null 通过（bs-022/026）、status 非法（bs-396）、name65/cover513 超长（bs-506 同型——custom_tag 场景按合并声明落在 tag 端点验证）、维度不存在 404505、删除维度有标签 409506、删除标签级联摘除挂载 | E-CAT-27~34；bs-020~028/231~233/396/397/506/507 | P0 |
+| TC-CAT-059 | 集合族：collection_group_id/name/status 必填；集合无 cover 字段，封面由前 4 张商品主图拼贴；status 非法、分组不存在 404505、删除分组有集合 409506、删除集合级联摘除挂载 | E-CAT-27~37 | P0 |
 | TC-CAT-060 | slug/sku_code 唯一冲突：重复创建 409501/409504；编辑排除自身不误报 | E-CAT-09/11 | P0 |
 | TC-CAT-061 | RBAC/鉴权：无 token 401(40100)、store token 打 admin 端点 401、无 `/products`·`/categories`·`/attribute-sets` 权限 key 403(40300)、会话内权限被撤销后续请求 403 | bs-605/606/619/620 | P0 |
 | TC-CAT-062 | 越权防探测：store 端读他人不可见资源（draft 商品 slug）→ 404501 同口径（bs-607 tenant 语义本域落点=draft 不可见） | BE-DIM-6 | P1 |
 | TC-CAT-063 | 尺码推荐公开性：无 token 可调（bs-641 viewer 场景=匿名可用，无写副作用断言 DB 零变更；bs-642/643 不适用本端点——纯函数无会话/租户资源，以"无副作用"断言收口） | FLOW-P19① | P1 |
-| TC-CAT-064 | presign：合法 MIME 200 四字段齐全；非法 MIME/超长 file_name 422501；scope 五枚举 key 前缀正确 | E-CAT-35 | P1 |
+| TC-CAT-064 | presign：合法 MIME 200 四字段齐全；非法 MIME/超长 file_name 422501；scope 四枚举 key 前缀正确 | E-CAT-38 | P1 |
 | TC-CAT-065 | 失效链 E2E（s-758/FUNC-006）：编辑已发布商品 → 5s 内 ①JetCache 新值 ②MQ 消费者收到 content.invalidated ③revalidate 回调被调（mock Next 端点断言 3 locale 路径）④purge 被调 | FLOW-P03；TASK-056 本域触发侧 | P0 |
 
 ## 6. 前端组件测试（FCT，断言逻辑非视觉——视觉归 ui-test-spec）
@@ -130,7 +130,7 @@
 - F-Category（根/二级/三级、绑定属性集、含 attr_overrides 变体、含 es/fr 翻译）
 - F-AttributeDef（select 带 options / text / toggle / multiselect + 译文等长与错位变体）
 - F-AttributeSet（含三态矩阵行）
-- F-TagDimension + F-Tag（enabled/disabled、含 cover/无 cover、含翻译）
+- F-CollectionGroup + F-Collection（enabled/disabled、商品主图拼贴、含翻译）
 - F-Product（draft/published、含/不含 compare_at、定制款 custom_size_available、多币种覆盖价、全 36 可选字段 null 变体——bs null 族驱动）
 - F-Sku（矩阵 3 色 ×4 码、version 序列、stock=0 变体）/ F-ProductImage（四 kind + 主图）/ F-SizeChartRow（US2~US16 全梯 + 缺 hollow_to_floor 变体）
 - F-ProductTranslation（es 全量 / fr 部分字段——回退测试）

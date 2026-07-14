@@ -8,5 +8,4 @@ public interface CollectionGroupDBConst extends CatalogCommonDBConst {
     String TABLE = "collection_group";
 
     String DESCRIPTION = "description";
-    public static final String DELETED_AT = "deleted_at";
 }

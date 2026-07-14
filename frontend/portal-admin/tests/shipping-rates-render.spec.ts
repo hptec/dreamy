@@ -29,6 +29,7 @@ vi.mock('@/stores/toast', () => ({
 
 import Shipping from '@/views/Shipping.vue'
 import { useShippingStore } from '@/stores/shipping'
+import { vDismiss } from '@/directives/dismiss'
 import { CarrierStatus } from '@/api/types'
 import type { ShippingRate } from '@/api/types'
 
@@ -40,6 +41,7 @@ async function renderShipping(rates: ShippingRate[]): Promise<string> {
   store.rates = rates
   const app = createSSRApp(Shipping)
   app.use(pinia)
+  app.directive('dismiss', vDismiss)
   return renderToString(app)
 }
 

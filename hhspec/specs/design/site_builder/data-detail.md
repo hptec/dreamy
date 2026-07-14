@@ -33,6 +33,7 @@
 
 **不变量**:
 - section_type 必须在枚举内
+- `section_type=hero` 是首页配置单例：所有首页区块写操作由应用层 Redisson 分布式锁串行化，锁覆盖完整事务提交/回滚；持锁后检查全表并拒绝第二条 Hero（enabled=false 也仍计数）。数据库不使用生成列或唯一索引约束该不变量。该单例约束针对 section，不限制 HERO Banner 数量。
 - sort_order >= 0
 - data_json + i18n_json 组合满足 js_guard（见 api-detail.md V-001~V-005）
 
@@ -277,6 +278,12 @@ private void seedSiteBuilderPermissions() {
 
 **RolePermission 关联**: 不自动关联到任何 Role（管理员在后台手动分配，或由超级管理员 Role.is_locked=true 默认拥有所有权限）
 
+**运行时 seed 安全约定**: 首页区块、Banner 及其他业务样例只在显式设置
+`DEMO_SEED_ENABLED=true` / `dreamy.seed.demo-enabled=true` 时灌入；缺省 false，正式环境启动不创建、不重建、
+不覆盖 Hero 等运营数据。基线权限字典/auth_config/超管角色仍可幂等初始化，但首个超管账户
+必须显式提供 `DREAMY_BOOTSTRAP_ADMIN_EMAIL` 与 `DREAMY_BOOTSTRAP_ADMIN_PASSWORD`（至少 12 字符）；仅 demo seed 开启时
+允许使用本地演示凭据，不得将固定公开密码带入正式环境。
+
 ---
 
 ## 跨域缓存失效联动（L1 SHOULD_FIX-3 消化）
@@ -299,7 +306,7 @@ private void seedSiteBuilderPermissions() {
   ```
 - `CacheInvalidationListener`（site_builder 域新增）订阅 TYPE_HOME_SECTION_CHANGED 事件，失效 home family L1+L2
 
-**理由**: Hero 区块派生自 Banner position=HERO（KD-2），Banner 变更必须触发首页缓存失效，否则消费端会显示旧 Hero 数据。
+**理由**: 唯一 Hero section 的轮播数组派生自全部当前有效 Banner position=HERO（KD-2，ORDER BY sort,id），Banner 变更必须触发首页缓存/CDN 失效，否则消费端会显示旧 Hero 轮播。营销缓存本身使用 Redis 共享代际失效，不依赖单进程 key registry；重启/多实例也不会命中旧代 Hero key。
 
 **其他跨域失效联动**:
 - catalog 域 Taxonomy 写操作 → 触发 site_builder home + navigation family 失效（ThemeCards + NavigationItem.taxonomy_id 派生）

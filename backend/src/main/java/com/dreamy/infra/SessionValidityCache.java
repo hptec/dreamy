@@ -9,8 +9,8 @@ import java.time.Duration;
 
 /**
  * 会话有效性缓存（store:session:valid:{tokenId}，仅 Redis 单级 TTL30s）。
- * 约束: shared-contracts cache.remote_only；QP-003（优先读 Redis）；EC-002（失效失败不回滚 DB，兜底 TTL 自然过期）；
- * EDGE-023（强制下线 DEL 后全集群即时生效）；DG-003（Redis 不可用降级查 DB，记 ERROR 告警）。
+ * 约束: shared-contracts cache.remote_only；当前实例最终授权始终查 DB，该键仅兼容滚动升级中的旧实例；
+ * EDGE-023 强制下线由 DB revoked 状态即时生效，DEL 失败不形成授权窗口。
  */
 @Component
 public class SessionValidityCache {
@@ -35,7 +35,7 @@ public class SessionValidityCache {
         }
     }
 
-    /** 会话校验：Redis 命中即有效；不可用/未命中返回 false 由调用方降级查 DB（DG-003） */
+    /** 兼容旧实例的正缓存查询；当前 SessionValidator 不在请求链调用。 */
     public boolean isValid(String tokenId) {
         try {
             return Boolean.TRUE.equals(redis.hasKey(PREFIX + tokenId));
@@ -45,7 +45,7 @@ public class SessionValidityCache {
         }
     }
 
-    /** FLOW-07/12 撤销：DEL 单级键（即时生效，无残留窗口） */
+    /** FLOW-07/12 撤销：尽力删除提示键；DB revoked 状态是即时生效依据。 */
     public void invalidate(String tokenId) {
         try {
             redis.delete(PREFIX + tokenId);

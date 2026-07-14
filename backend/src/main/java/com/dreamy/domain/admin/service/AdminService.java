@@ -55,7 +55,7 @@ public class AdminService {
 
     @Transactional
     public LoginOutcome login(String email, String password, String ip, String device) {
-        AdminUser admin = findByEmail(email);
+        AdminUser admin = adminUserMapper.selectByEmailForUpdate(email);
         if (admin == null) {
             throw new BizException(ErrorCode.CREDENTIALS_INVALID);
         }
@@ -84,7 +84,7 @@ public class AdminService {
         admin.setLastLoginAt(now);
         adminUserMapper.updateById(admin);
 
-        afterCommit(() -> validityCache.markValid(token.tokenId()));
+        publishValidSession(token.tokenId());
         return new LoginOutcome(admin, role, permissionKeys, token.token());
     }
 
@@ -102,7 +102,10 @@ public class AdminService {
 
     public AdminUser requireActiveAdmin(Long adminId, String tokenId) {
         AdminUser admin = adminUserMapper.selectById(adminId);
-        if (admin == null || admin.getStatus() == AdminStatus.DISABLED) {
+        if (admin == null) {
+            throw new BizException(ErrorCode.UNAUTHORIZED);
+        }
+        if (admin.getStatus() == AdminStatus.DISABLED) {
             throw new BizException(ErrorCode.ADMIN_DISABLED);
         }
         LambdaQueryWrapper<AdminSession> qw = new LambdaQueryWrapper<>();
@@ -120,7 +123,6 @@ public class AdminService {
 
     public AdminUser findByEmail(String email) {
         LambdaQueryWrapper<AdminUser> qw = new LambdaQueryWrapper<>();
-        qw.isNull(AdminUser::getDeletedAt);
         qw.eq(AdminUser::getEmail, email).last("LIMIT 1");
         return adminUserMapper.selectOne(qw);
     }
@@ -158,7 +160,7 @@ public class AdminService {
 
     @Transactional
     public AdminUser updateAdmin(Long id, String name, Long roleId) {
-        AdminUser admin = requireExist(id);
+        AdminUser admin = requireExistForUpdate(id);
         if (isSuperAdmin(admin) && roleId != null && !roleId.equals(admin.getRoleId())) {
             throw new BizException(ErrorCode.SUPER_ADMIN_PROTECTED);
         }
@@ -180,20 +182,17 @@ public class AdminService {
         if (id.equals(currentAdminId)) {
             throw new BizException(ErrorCode.CANNOT_DELETE_SELF);
         }
-        AdminUser admin = requireExist(id);
+        AdminUser admin = requireExistForUpdate(id);
         if (isSuperAdmin(admin)) {
             throw new BizException(ErrorCode.SUPER_ADMIN_PROTECTED);
         }
-        // 逻辑删除：设置 deleted_at = now()
-        AdminUser patch = new AdminUser();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        adminUserMapper.updateById(patch);
+        deleteAdminSessions(id);
+        adminUserMapper.deleteById(id);
     }
 
     @Transactional
     public AdminUser toggleStatus(Long id, AdminStatus status) {
-        AdminUser admin = requireExist(id);
+        AdminUser admin = requireExistForUpdate(id);
         if (isSuperAdmin(admin)) {
             throw new BizException(ErrorCode.SUPER_ADMIN_PROTECTED);
         }
@@ -207,7 +206,7 @@ public class AdminService {
 
     @Transactional
     public void resetPassword(Long id, String newPassword) {
-        AdminUser admin = requireExist(id);
+        AdminUser admin = requireExistForUpdate(id);
         admin.setPasswordHash(passwordEncoder.encode(newPassword));
         adminUserMapper.updateById(admin);
     }
@@ -224,8 +223,25 @@ public class AdminService {
         }
     }
 
-    private AdminUser requireExist(Long id) {
-        AdminUser admin = adminUserMapper.selectById(id);
+    /**
+     * 管理员为物理删除，admin_session 是其强关联会话数据，需在同一事务内先清理。
+     * operation_log.operator_id 是弱引用，依契约保留操作人名称快照，不随管理员删除。
+     */
+    private void deleteAdminSessions(Long adminId) {
+        LambdaQueryWrapper<AdminSession> qw = new LambdaQueryWrapper<>();
+        qw.eq(AdminSession::getAdminId, adminId);
+        List<AdminSession> sessions = adminSessionMapper.selectList(qw);
+        adminSessionMapper.delete(qw);
+        for (AdminSession session : sessions) {
+            if (session.getTokenId() != null) {
+                String tokenId = session.getTokenId();
+                afterCommit(() -> validityCache.invalidate(tokenId));
+            }
+        }
+    }
+
+    private AdminUser requireExistForUpdate(Long id) {
+        AdminUser admin = adminUserMapper.selectByIdForUpdate(id);
         if (admin == null) {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
@@ -248,6 +264,34 @@ public class AdminService {
         } else {
             action.run();
         }
+    }
+
+    /**
+     * 在提交前仍持有 admin_user 行锁时发布会话缓存，确保随后排队的禁用/删除只能在缓存发布后失效它。
+     * 若提交失败，afterCompletion 清除未对客户端返回的 token 缓存。
+     */
+    private void publishValidSession(String tokenId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            validityCache.markValid(tokenId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            private boolean published;
+
+            @Override
+            public void beforeCommit(boolean readOnly) {
+                validityCache.markValid(tokenId);
+                published = true;
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (published && status != TransactionSynchronization.STATUS_COMMITTED) {
+                    validityCache.invalidate(tokenId);
+                }
+            }
+        });
     }
 
     public AdminDTO toAdminDTO(AdminUser admin) {

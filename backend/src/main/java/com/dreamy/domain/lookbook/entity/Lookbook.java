@@ -1,7 +1,6 @@
 package com.dreamy.domain.lookbook.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.lookbook.consts.LookbookDBConst;
 import huihao.mysql.annotation.Column;
@@ -35,6 +34,4 @@ public class Lookbook extends LongAuditableEntity {
     @Column(name = LookbookDBConst.DESCRIPTION, definition = "varchar(500) NULL COMMENT '画册描述(EN 基准，DEC-MKT-1)'")
     private String description;
 
-    @Column(name = LookbookDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

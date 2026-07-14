@@ -191,8 +191,6 @@ async function submit() {
             v-model="trans[l].title"
             :source-text="form.title"
             :target-lang="l"
-            biz-type="blog"
-            :biz-ref="editing != null ? String(editing.id) : null"
             field-label="标题"
             compact
           />
@@ -210,8 +208,6 @@ async function submit() {
             v-model="trans[l].body"
             :source-text="form.content"
             :target-lang="l"
-            biz-type="blog"
-            :biz-ref="editing != null ? String(editing.id) : null"
             field-label="正文"
             compact
           />

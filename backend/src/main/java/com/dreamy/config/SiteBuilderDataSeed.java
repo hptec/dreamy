@@ -1,6 +1,7 @@
 package com.dreamy.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.dreamy.aspect.HomePageSectionWrite;
 import com.dreamy.domain.site_builder.entity.Announcement;
 import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
@@ -12,6 +13,7 @@ import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
@@ -30,6 +32,7 @@ import java.util.Set;
  * 首页区块按 section_type 补齐，不覆盖已有运营数据（幂等）。
  */
 @Component
+@ConditionalOnProperty(prefix = "dreamy.seed", name = "demo-enabled", havingValue = "true")
 public class SiteBuilderDataSeed {
 
     private static final Logger log = LoggerFactory.getLogger(SiteBuilderDataSeed.class);
@@ -52,6 +55,7 @@ public class SiteBuilderDataSeed {
     @EventListener(ApplicationReadyEvent.class)
     @Order(100)
     @Transactional
+    @HomePageSectionWrite
     public void init() {
         seedHomeSections();
         seedNavigation();

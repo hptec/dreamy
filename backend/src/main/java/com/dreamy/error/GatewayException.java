@@ -24,6 +24,12 @@ public class GatewayException extends RuntimeException {
         this.details = details;
     }
 
+    public GatewayException(GatewayErrorCode errorCode, Map<String, Object> details, Throwable cause) {
+        super(errorCode.name() + "(" + errorCode.getCode() + ")", cause);
+        this.errorCode = errorCode;
+        this.details = details;
+    }
+
     public static GatewayException fieldValidation(GatewayErrorCode code, Map<String, String> fields) {
         return new GatewayException(code, Map.of("fields", fields));
     }

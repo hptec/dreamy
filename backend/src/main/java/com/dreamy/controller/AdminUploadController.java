@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 后台预签名上传控制器（E-CAT-35；RBAC `/products`；媒体基建由 catalog 域代管——决策 9）。
+ * 后台预签名上传控制器（E-CAT-38；RBAC `/products`；媒体基建由 catalog 域代管——决策 9）。
  */
 @RestController
 public class AdminUploadController {
@@ -22,7 +22,7 @@ public class AdminUploadController {
         this.catalogPresignService = catalogPresignService;
     }
 
-    /** E-CAT-35 presignAdminUpload */
+    /** E-CAT-38 presignAdminUpload */
     @RequirePermission("/products")
     @PostMapping("/api/admin/uploads/presign")
     public ResponseEntity<R<PresignResponse>> presign(@RequestBody PresignRequest req) {

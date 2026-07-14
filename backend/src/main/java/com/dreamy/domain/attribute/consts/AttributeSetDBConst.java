@@ -8,5 +8,4 @@ public interface AttributeSetDBConst extends CatalogCommonDBConst {
     String TABLE = "attribute_set";
 
     String LABEL = "label";
-    public static final String DELETED_AT = "deleted_at";
 }

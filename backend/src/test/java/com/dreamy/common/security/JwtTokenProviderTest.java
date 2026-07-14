@@ -88,4 +88,29 @@ class JwtTokenProviderTest {
                 .isInstanceOf(BizException.class)
                 .satisfies(e -> assertThat(((BizException) e).getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
     }
+
+    @Test
+    @DisplayName("JWT 密钥为空、过短或两端复用时启动失败")
+    void rejectsUnsafeSigningKeys() {
+        JwtProperties blank = new JwtProperties();
+        blank.getAdmin().setSecret("admin-test-secret-key-32chars-min");
+        assertThatThrownBy(() -> new JwtTokenProvider(blank))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("STORE_JWT_SECRET");
+
+        JwtProperties shortKey = new JwtProperties();
+        shortKey.getStore().setSecret("too-short");
+        shortKey.getAdmin().setSecret("admin-test-secret-key-32chars-min");
+        assertThatThrownBy(() -> new JwtTokenProvider(shortKey))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least 32 bytes");
+
+        JwtProperties shared = new JwtProperties();
+        String sameSecret = "shared-test-secret-key-at-least-32-bytes";
+        shared.getStore().setSecret(sameSecret);
+        shared.getAdmin().setSecret(sameSecret);
+        assertThatThrownBy(() -> new JwtTokenProvider(shared))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must be different");
+    }
 }

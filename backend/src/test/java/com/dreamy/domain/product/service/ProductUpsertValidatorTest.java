@@ -41,9 +41,9 @@ class ProductUpsertValidatorTest {
     }
 
     /** 旧四参签名兼容包装（动态属性上下文默认空字典 + 跳过分类白名单） */
-    private static void validateCompat(AdminProductUpsert u, boolean categoryExists, Set<Long> existingTagIds,
+    private static void validateCompat(AdminProductUpsert u, boolean categoryExists, Set<Long> existingCollectionIds,
                                        Set<Long> ownedSkuIds) {
-        ProductUpsertValidator.validate(u, categoryExists, existingTagIds, ownedSkuIds, Map.of(), null);
+        ProductUpsertValidator.validate(u, categoryExists, existingCollectionIds, ownedSkuIds, Map.of(), null);
     }
 
     private static AdminProductUpsert valid(List<ProductImageDto> images, List<SkuDto> skus,
@@ -143,14 +143,14 @@ class ProductUpsertValidatorTest {
     }
 
     @Test
-    @DisplayName("V-CAT-025/034 [P0]: 引用不存在——category not_exists / tag_ids not_exists（CV-CAT-005）")
+    @DisplayName("V-CAT-025/034 [P0]: 引用不存在——category not_exists / collection_ids not_exists（CV-CAT-005）")
     void referenceIntegrity() {
         assertThatThrownBy(() -> validateCompat(valid(null, null, null), false, Set.of(), null))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("category_id", "not_exists"));
-        AdminProductUpsert withTags = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1,
+        AdminProductUpsert withCollections = make("N", "n", 1L, BigDecimal.ONE, null, 1, 0, 1,
                 null, null, List.of(7L), null);
-        assertThatThrownBy(() -> validateCompat(withTags, true, Set.of(1L, 2L), null))
-                .satisfies(ex -> assertThat(fields(ex)).containsEntry("tag_ids", "not_exists"));
+        assertThatThrownBy(() -> validateCompat(withCollections, true, Set.of(1L, 2L), null))
+                .satisfies(ex -> assertThat(fields(ex)).containsEntry("collection_ids", "not_exists"));
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.dreamy.domain.category.service;
 
 import com.dreamy.domain.attribute.entity.AttributeDef;
-import java.time.LocalDateTime;
 import com.dreamy.domain.attribute.entity.AttributeSetItem;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
@@ -16,6 +15,7 @@ import com.dreamy.dto.TranslationDtos.CategoryTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.event.ContentInvalidatedPublisher;
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.infra.CatalogAfterCommitRunner;
 import com.dreamy.infra.CatalogAuditRecorder;
 import com.dreamy.infra.CatalogCacheService;
@@ -76,6 +76,7 @@ public class AdminCategoryService {
     }
 
     /** E-CAT-16：新增分类（TX-CAT-006） */
+    @CatalogAdminWrite
     @Transactional
     public AdminCategoryNode create(AdminCategoryUpsert req) {
         Category parent = validateUpsert(req, null);
@@ -102,6 +103,7 @@ public class AdminCategoryService {
     }
 
     /** E-CAT-17：编辑分类（TX-CAT-007；V-CAT-048 parent_id 不可变更） */
+    @CatalogAdminWrite
     @Transactional
     public AdminCategoryNode update(Long id, AdminCategoryUpsert req) {
         Category existing = categoryRepository.findById(id);
@@ -140,6 +142,7 @@ public class AdminCategoryService {
     }
 
     /** E-CAT-18：删除分类（TX-CAT-008；guard 事务内复查防并发挂商品——TC-CAT-019） */
+    @CatalogAdminWrite
     @Transactional
     public void delete(Long id) {
         Category existing = categoryRepository.findById(id);
@@ -159,13 +162,9 @@ public class AdminCategoryService {
             throw new CatalogException(CatalogErrorCode.CATEGORY_HAS_PRODUCTS,
                     Map.of("reason", "has_children"));
         }
-        // STEP-CAT-04 物理删除 + translation + 审计
-        // 逻辑删除：设置 deleted_at = now()
-        Category patch = new Category();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        categoryRepository.update(patch);
+        // STEP-CAT-04 物理删除 + translation + 审计（先删翻译，避免外键引用主记录）
         categoryRepository.deleteTranslationsByCategoryId(id);
+        categoryRepository.deleteById(id);
         audit.record("删除分类", existing.getName(), null);
         // STEP-CAT-05 提交后失效 + MQ
         afterCommit.run(() -> {

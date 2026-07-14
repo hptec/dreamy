@@ -141,22 +141,17 @@ conflicts:
     resolution: "裁定：角色重名用 40000 VALIDATION_ERROR + details.field=name；不新增码（保持码表稳定）。frontend FORM-A02/A03 已做前端重名预校验。"
 
   - id: CFL-18
-    dimension: Redis 不可用降级策略确认
+    dimension: Redis 不可用时的会话授权策略
     parties: [error_designer, data_designer]
-    evidence: "DG-003/RST-04/QP-003 [INFERRED] 降级查 DB"
-    result: GAP
-    severity: P2
-    gap_owner: data_designer
-    min_requirement: >
-      Redis 不可用时会话有效性是否降级查 DB（牺牲强一致全集群即时生效）需 L3 确认告警与回退策略。
-      标 [INFERRED]，不阻断 L2 交付。
-    resolution: "裁定：保留为后续跟进项，传递 L3；默认降级查 DB session.status + 记 ERROR 告警，但强制下线即时性在 Redis 恢复前可能有窗口（需运维监控）。"
+    evidence: "DG-003/RST-04/QP-003：SessionValidator 始终查询 DB，Redis 仅维护滚动升级兼容键"
+    result: COMPATIBLE
+    resolution: "裁定：DB session/admin 状态始终是授权依据；Redis 不可用仅影响兼容键维护并记告警，不影响强制下线即时性。"
 
 summary:
   total_dimensions: 18
   executed: 18
-  compatible: 16
-  gap: 2          # CFL-17, CFL-18（均 P2，附最低补充要求，不阻断）
+  compatible: 17
+  gap: 1          # CFL-17（P2，附最低补充要求，不阻断）
   blocking: 0
   no_blocking_unresolved: true
   all_gap_have_min_requirement: true

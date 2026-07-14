@@ -142,9 +142,8 @@ export function updateAttributeDef(id: number, body: AttributeDefUpsert): Promis
   return put<AttributeDef>(`/api/admin/attribute-defs/${id}`, body)
 }
 
-export function deleteAttributeDef(id: number, force?: boolean): Promise<void> {
-  const params = force ? { force: 'true' } : undefined
-  return del<void>(`/api/admin/attribute-defs/${id}`, { params })
+export function deleteAttributeDef(id: number): Promise<void> {
+  return del<void>(`/api/admin/attribute-defs/${id}`)
 }
 
 // ===== 集合分组 E-CAT-27~30 =====
@@ -197,7 +196,7 @@ export function removeCollectionProduct(id: number, productId: number): Promise<
   return del<void>(`/api/admin/collections/${id}/products/${productId}`)
 }
 
-// ===== 预签名上传 E-CAT-35（FLOW-P17 两步：presign → PUT 直传） =====
+// ===== 预签名上传 E-CAT-38（FLOW-P17 两步：presign → PUT 直传） =====
 
 export function presignUpload(req: PresignRequest): Promise<PresignResponse> {
   return post<PresignResponse>('/api/admin/uploads/presign', req)

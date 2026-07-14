@@ -4,7 +4,8 @@
 -- 引擎: InnoDB  字符集: utf8mb4  排序: utf8mb4_0900_ai_ci
 -- 约定:
 --   - 主键: BIGINT AUTO_INCREMENT（决策 12，huihao LongAuditableEntity）
---   - 枚举: VARCHAR + Java enum 双保险（MAP-MKT-013，契约字符串取值，不加 DB CHECK——CV-MKT-001）
+--   - 营销状态枚举: ContentStatus/CouponStatus/FlashSaleStatus/PublishStatus 均使用 TINYINT IntEnum；
+--     query/request/response 传数字 key，列表省略 status 表示全部（MAP-MKT-013）
 --   - 时间: DATETIME(3) 存 UTC（CP-014 / MAP-MKT-014）
 --   - 外键: 全表无物理 FOREIGN KEY（CP-010），引用完整性由应用层 + 事务维护（CV-MKT-005/006）
 --   - 逻辑删除: 不启用；deleted 终态=物理删除 + 状态机 guard（coupon 仅 draft/expired 且
@@ -18,8 +19,9 @@
 --             以实体注解为准自动建表/加列；本文件为权威等价 SQL（审计/还原用）。
 -- 种子数据: MarketingSeedInitializer（决策 21，从 portal-admin mock.js coupons/flashSales/banners/
 --           blogPosts/lookbooks/guides/realWeddings + portal-store data/content.ts 提炼，含三语
---           translation + RBAC 权限点 /promotions、/banners）；newsletter_subscriber/contact_message
---           纯收集表生产空表起步（决策 26/30）。
+--           translation + RBAC 权限点 /promotions、/banners）；仅显式设置 DEMO_SEED_ENABLED=true
+--           时运行，缺省关闭且正式启动不创建/覆盖业务数据。newsletter_subscriber/contact_message
+--           始终纯收集表空表起步（决策 26/30）。
 -- 备注: processed_event 幂等表归 trading 域 DDL；q.invalidate 消费者经 infra Redis SETNX 幂等闸
 --       （EventIdempotencyGuard），不建本域表。
 -- 来源: marketing-data-detail.md §11（19 表）/ er-diagram.yml（9 实体 + 7 translation 附表 + 3 nm）
@@ -35,15 +37,18 @@ CREATE TABLE banner (
   id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   name       VARCHAR(128) NOT NULL COMMENT '内部名称',
   image_url  VARCHAR(512) NOT NULL COMMENT '预签名上传 public_url（scope=banner）',
-  position   VARCHAR(16)  NOT NULL COMMENT 'hero|featured|topbar',
+  position   TINYINT      NOT NULL COMMENT '1=HERO 2=FEATURED 3=TOPBAR',
   start_time DATETIME(3)  NULL COMMENT '投放开始（空=立即）',
   end_time   DATETIME(3)  NULL COMMENT '投放结束（空=长期）；读路径窗口过滤（DEC-MKT-2）',
-  status     VARCHAR(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft|published|archived',
+  status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED 3=ARCHIVED',
   sort       INT          NOT NULL DEFAULT 0 COMMENT '排序',
   clicks     INT          NOT NULL DEFAULT 0 COMMENT '点击统计只读（本期无写入端点）',
   title      VARCHAR(255) NULL COMMENT '文案标题(EN 基准)',
   subtitle   VARCHAR(255) NULL COMMENT '文案副题(EN 基准)',
   cta_text   VARCHAR(64)  NULL COMMENT 'CTA 文案(EN 基准)',
+  cta_link   VARCHAR(512) NULL COMMENT '第一 CTA 链接（语言无关）',
+  cta_text_secondary VARCHAR(64) NULL COMMENT '第二 CTA 文案(EN 基准，KD-14)',
+  cta_link_secondary VARCHAR(512) NULL COMMENT '第二 CTA 链接（语言无关，KD-14）',
   created_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
@@ -60,6 +65,8 @@ CREATE TABLE banner_translation (
   title      VARCHAR(255) NULL,
   subtitle   VARCHAR(255) NULL,
   cta_text   VARCHAR(64)  NULL,
+  cta_text_secondary VARCHAR(64) NULL COMMENT '第二 CTA 文案译文（API 可编辑）',
+  cta_link_secondary VARCHAR(512) NULL COMMENT '历史扩展列；当前管理 API 不编辑，链接取 Banner 主表',
   created_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
@@ -77,7 +84,7 @@ CREATE TABLE blog_post (
   author       VARCHAR(64)  NULL,
   content      TEXT         NULL COMMENT '正文(EN 基准)',
   slug         VARCHAR(128) NULL COMMENT '静态文章页路径 ^[a-z0-9-]+$；published 必填（CV-MKT-012）',
-  status       VARCHAR(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft|published|archived',
+  status       TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED 3=ARCHIVED',
   published_at DATETIME(3)  NULL COMMENT '首次发布时间（republish 不刷新）',
   views        INT          NOT NULL DEFAULT 0 COMMENT '阅读数近似计数（SCHED-MKT-02 flush，DEC-MKT-6）',
   created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -116,7 +123,7 @@ CREATE TABLE real_wedding (
   theme        VARCHAR(32)  NULL,
   wedding_date VARCHAR(16)  NULL COMMENT '如 2025-06',
   cover        VARCHAR(512) NULL,
-  status       VARCHAR(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft|published',
+  status       TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
   title        VARCHAR(200) NULL COMMENT '案例标题(EN 基准)',
   story        TEXT         NULL COMMENT '婚礼故事(EN 基准)',
   created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -161,7 +168,7 @@ CREATE TABLE lookbook (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   title       VARCHAR(128) NOT NULL COMMENT '画册标题(EN 基准)',
   theme       VARCHAR(32)  NULL COMMENT 'Vineyard/Beach/Forest',
-  status      VARCHAR(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft|published',
+  status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
   description VARCHAR(500) NULL COMMENT '画册描述(EN 基准)',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -207,7 +214,7 @@ CREATE TABLE guide (
   timeframe   VARCHAR(64)  NULL COMMENT '如 12+ months out',
   title       VARCHAR(128) NOT NULL COMMENT '指南标题(EN 基准)',
   tasks_count INT          NOT NULL DEFAULT 0 COMMENT '待办任务数',
-  status      VARCHAR(16)  NOT NULL DEFAULT 'draft' COMMENT 'draft|published',
+  status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
   body        TEXT         NULL COMMENT '指南正文(EN 基准)',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -244,7 +251,7 @@ CREATE TABLE coupon (
   used_count  INT           NOT NULL DEFAULT 0 COMMENT '核销计数，仅 RM-MKT-107/108 可写',
   start_at    DATETIME(3)   NULL,
   end_at      DATETIME(3)   NULL COMMENT 'js_guard end_at>start_at',
-  status      VARCHAR(16)   NOT NULL DEFAULT 'draft' COMMENT 'draft|scheduled|active|expiring|expired（SCHED 翻转）',
+  status      TINYINT       NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=SCHEDULED 3=ACTIVE 4=EXPIRING 5=EXPIRED（SCHED 翻转）',
   description VARCHAR(255)  NULL COMMENT '券说明(EN 基准)',
   created_at  DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -277,7 +284,7 @@ CREATE TABLE flash_sale (
   discount   VARCHAR(32) NOT NULL COMMENT '如 最高 40% OFF',
   start_at   DATETIME(3) NOT NULL,
   end_at     DATETIME(3) NOT NULL COMMENT 'js_guard end_at>start_at；到期 SCHED 自动 ended（s-761）',
-  status     VARCHAR(16) NOT NULL DEFAULT 'draft' COMMENT 'draft|scheduled|active|ended',
+  status     TINYINT     NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=SCHEDULED 3=ACTIVE 4=ENDED',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),

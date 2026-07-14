@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,11 +33,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class DataInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
-    private static final String SUPER_ADMIN_EMAIL = "admin@dreamy.com";
+    private static final String DEMO_ADMIN_EMAIL = "admin@dreamy.com";
     private static final String SUPER_ADMIN_ROLE = "超级管理员";
-    // BCrypt of "Admin@123456"
-    private static final String SUPER_ADMIN_PWD_HASH =
-            "$2a$10$P18uxFq2na0XwcipZK74MuoHHcteyR18ShF1ph7Dugc6SdmaZW17.";
+
+    @Value("${dreamy.bootstrap-admin.email:}")
+    private String bootstrapAdminEmail;
+
+    @Value("${dreamy.bootstrap-admin.password:}")
+    private String bootstrapAdminPassword;
+
+    @Value("${dreamy.seed.demo-enabled:false}")
+    private boolean demoSeedEnabled;
 
     private final AuthConfigMapper authConfigMapper;
     private final PermissionMapper permissionMapper;
@@ -83,35 +90,37 @@ public class DataInitializer {
         authConfigMapper.insert(cfg);
         log.info("[DataInitializer] auth_config 单例已初始化 id={}", cfg.getId());
     }
-    // PERM_PLACEHOLDER
-
-    /** permission 权限字典（21 菜单级路由，来源 portal-admin 路由表）。按 perm_code 幂等。 */
+    /** permission 权限字典（后台菜单级路由，来源 portal-admin 路由表）。按 perm_code 幂等。 */
     private void initPermissions() {
         String[][] perms = {
                 {"/", "工作台", "工作台"},
+                {"/dashboard", "工作台", "工作台"},
                 {"/site/home", "站点装修", "首页装修"},
                 {"/site/navigation", "站点装修", "导航与页脚"},
                 {"/site/announcement", "站点装修", "公告管理"},
-                {"/site/banners", "站点装修", "Banner 管理"},
+                {"/banners", "站点装修", "Banner 管理"},
                 {"/products", "商品管理", "商品列表"},
                 {"/categories", "商品管理", "品类与主题"},
                 {"/orders", "订单管理", "订单列表"},
                 {"/refunds", "订单管理", "退款工单"},
                 {"/customers", "用户管理", "用户列表"},
-                {"/marketing/promotions", "营销活动", "优惠券与促销"},
+                {"/promotions", "营销活动", "优惠券与促销"},
                 {"/marketing/email", "营销活动", "邮件营销"},
                 {"/content/blog", "内容管理", "Blog 文章"},
                 {"/content/weddings", "内容管理", "Real Weddings"},
                 {"/content/lookbook", "内容管理", "Lookbook 与指南"},
+                {"/reviews", "内容管理", "评价与 Q&A"},
                 {"/analytics", "数据分析", "数据看板"},
                 {"/publish", "发布与系统", "发布中心"},
                 {"/shipping", "发布与系统", "物流配置"},
+                {"/settings", "发布与系统", "汇率与结算配置"},
                 {"/system/admins", "系统管理", "管理员管理"},
                 {"/system/roles", "系统管理", "角色权限"},
                 {"/system/auth", "系统管理", "登录与认证"},
                 {"/system/logs", "系统管理", "操作日志"},
                 // i18n-complete-with-ai-assist：网关配置（AI 翻译代理仍用）
                 {"/system/gateways", "系统管理", "外部网关配置"},
+                {"/attribute-sets", "商品管理", "属性集"},
         };
         for (String[] p : perms) {
             // A4: LambdaQueryWrapper 替代 @Select findIdByPermCode（仅判存在性，幂等）
@@ -161,21 +170,45 @@ public class DataInitializer {
         return roleId;
     }
 
-    /** 超管账户：缺则建（email 唯一）。密码 Admin@123456。 */
+    /**
+     * 超管账户：缺则建（email 唯一）。生产/正式环境必须显式提供 bootstrap 凭据；
+     * 仅 demo seed 开启时才允许使用本地演示账号，避免 Docker 重启生成公开固定密码。
+     */
     private void initSuperAdmin(Long roleId) {
+        String email = trimToNull(bootstrapAdminEmail);
+        String password = trimToNull(bootstrapAdminPassword);
+        if (email == null && demoSeedEnabled) {
+            email = DEMO_ADMIN_EMAIL;
+            password = "Admin@123456";
+        }
+        if (email == null || password == null) {
+            log.warn("[DataInitializer] 未创建首个超管：请设置 DREAMY_BOOTSTRAP_ADMIN_EMAIL/PASSWORD "
+                    + "（demo seed 关闭时不使用默认凭据）");
+            return;
+        }
+        if (password.length() < 12) {
+            throw new IllegalStateException("Bootstrap admin password must contain at least 12 characters");
+        }
         AdminUser existing = adminUserMapper.selectOne(new LambdaQueryWrapper<AdminUser>()
-                .eq(AdminUser::getEmail, SUPER_ADMIN_EMAIL));
+                .eq(AdminUser::getEmail, email));
         if (existing != null) {
             return;
         }
         AdminUser admin = new AdminUser();
         admin.setName("超级管理员");
-        admin.setEmail(SUPER_ADMIN_EMAIL);
-        admin.setPasswordHash(SUPER_ADMIN_PWD_HASH);
+        admin.setEmail(email);
+        admin.setPasswordHash(passwordEncoder.encode(password));
         admin.setRoleId(roleId);
         admin.setStatus(AdminStatus.ACTIVE);
         admin.setVersion(0);
         adminUserMapper.insert(admin);
         log.info("[DataInitializer] 超管账户已初始化 id={}", admin.getId());
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
     }
 }

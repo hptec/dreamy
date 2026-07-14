@@ -102,7 +102,7 @@
 - NP-002 listUsers 的 identity_count 用聚合子查询或单独批量 count，避免逐行查询
 - QP-001 listOperationLogs 倒序分页走 idx_oplog_created；大表建议 keyset 分页（created_at < lastCursor）替代 deep OFFSET（[INFERRED] 长保留表）
 - QP-002 OIDC 登录走 uk_identity_provider_uid 唯一索引点查（FLOW-03 热路径）
-- QP-003 会话有效性优先读 Redis store:session:valid:{jti}（单级），DB 仅兜底
+- QP-003 会话有效性始终以 DB session.status 为授权依据；Redis store:session:valid:{jti}（单级）仅作正缓存提示
 
 ---
 
@@ -111,10 +111,10 @@
 - TX-002 oidcCallback 归并（FLOW-03）：单事务内 INSERT identity 挂既有 user + INSERT operation_log(账户合并)；唯一索引冲突=重复回调→幂等返回既有
 - TX-003 changePrimaryEmail（FLOW-06）：单事务迁移 is_primary（旧 false→新 true），保证恒一个 is_primary 不变量
 - TX-004 updateRole（FLOW-11）：单事务 DELETE+批量 INSERT role_permission（全量重写原子）
-- TX-005 forceLogout/toggleUserStatus（FLOW-12）：单事务 revoke sessions + (禁用时)user status；提交后清 Redis（强一致全集群）
+- TX-005 forceLogout/toggleUserStatus（FLOW-12）：单事务 revoke sessions + (禁用时)user status；DB 提交后全集群即时拒绝，并尽力清 Redis 兼容键
 - TX-006 deleteAccount（FLOW-08）：单事务 user.deleted + 全 session revoked；提交后清全部 redis 键
 - EC-001 乐观锁冲突（@version on user/otp_code/user_session）→ 重试 1 次或抛 409/重新读
-- EC-002 Redis 失效失败不回滚 DB，记告警 + 兜底 TTL 30s 自然过期收敛
+- EC-002 Redis 失效失败不回滚 DB并记告警；DB revoked 状态即时拒绝，提示键由 TTL 30s 自然回收
 
 ---
 

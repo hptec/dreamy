@@ -60,19 +60,25 @@ class StoreContentSectionConfigTest {
     }
 
     @Test
-    void heroAlwaysUsesSharedHeroBannerAndIgnoresSectionData() {
+    void heroUsesAllSharedHeroBannersInSortOrderAndIgnoresSectionData() {
         HomePageSection section = section("hero", "{\"banner_id\":999}");
         when(sectionRepository.findEnabledOrderBySort()).thenReturn(List.of(section));
         when(bannerService.list(BannerPosition.HERO, "fr")).thenReturn(List.of(
                 new StoreBanner(7L, "Summer", "/hero.jpg", BannerPosition.HERO.getKey(), 0,
-                        "Titre", "Sous-titre", "Acheter", "/shop", "Voir", "/look")));
+                        "Titre", "Sous-titre", "Acheter", "/shop", "Voir", "/look"),
+                new StoreBanner(8L, "Autumn", "/hero-2.jpg", BannerPosition.HERO.getKey(), 1,
+                        "Deuxième", "Suite", "Découvrir", "/new", null, null)));
 
         Map<String, Object> data = firstSectionData("fr");
+        List<Map<String, Object>> banners = list(data, "banners");
 
         assertThat(data)
                 .containsEntry("title", "Titre")
                 .containsEntry("image_url", "/hero.jpg")
                 .doesNotContainKey("banner_id");
+        assertThat(banners).extracting(item -> item.get("id")).containsExactly(7L, 8L);
+        assertThat(banners).extracting(item -> item.get("image_url"))
+                .containsExactly("/hero.jpg", "/hero-2.jpg");
         verify(bannerService).list(BannerPosition.HERO, "fr");
     }
 

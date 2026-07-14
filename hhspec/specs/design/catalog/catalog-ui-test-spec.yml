@@ -4,6 +4,7 @@
 # 对齐：ui-verification-checklist.md 本域条目 —— products(OP-012)/product-edit(OP-010/OP-011 + 文本"保存草稿")/categories/attribute-sets 四页视觉基线截图
 # 原型源：hhspec/prototype/portal-admin/src/views/{Products,ProductEdit,Categories,AttributeSets}.vue
 #         hhspec/prototype/app/product/[slug]/page.tsx + components/product/find-my-size-modal.tsx + app/search + 聚合列表页
+# 当前 Collection 命名与商品主图拼贴封面策略以 catalog-contract-status.md 为准。
 version: "1.0"
 layer: L2
 role: l2_ui_test_designer
@@ -35,7 +36,7 @@ pages:
       - path: 品类下拉 + 状态下拉筛选
         assert: [列表更新, 筛选项宽度固定不抖动]
       - path: 展开「更多筛选」面板
-        assert: [productType/库存档/标记/价格区间/标签五区渲染, 激活计数徽章正确, 重置按钮清空]
+        assert: [productType/库存档/标记/价格区间/集合五区渲染, 激活计数徽章正确, 重置按钮清空]
       - path: 行内 Toggle 上架/下架
         assert: [Toggle 即时翻转(乐观), 失败回滚并 toast, StatusBadge published/draft 同步]
       - path: 行内 Toggle isNew/recommend 与排序输入 blur
@@ -64,8 +65,8 @@ pages:
         assert: [子级选项联动, sec-attrs 区按属性集显隐重渲染, 切换父级时 train 等字段重置]
       - path: 属性区渲染（绑定属性集后）
         assert: [visible 属性带必填星号, optional 无星号, hidden 不渲染, select/multiselect/text/toggle 四控件形态正确]
-      - path: 标签选择器按维度分组多选
-        assert: [维度分组标题, chip 选中态, 无标签维度显示「暂无，请在分类管理添加」]
+      - path: 集合选择器按分组多选
+        assert: [分组标题, chip 选中态, 无集合分组显示「暂无，请在分类管理添加」]
       - path: 媒体四区块上传（图廊/Lifestyle/视频/色样）
         assert: [presign 直传进度条, 成功出预览图, 拖拽排序第一张标记主图, 对象存储失败显示「稍后重试」卡片且表单可继续编辑]
       - path: SKU 矩阵：勾选颜色与尺码
@@ -102,15 +103,15 @@ pages:
         assert: [Dialog 渲染(as prop 正确无级联崩溃), 子分类显示属性 delta 三态覆盖, 根分类显示属性集下拉, 三语 name tab]
       - path: 删除有商品的分类
         assert: [删除按钮 disabled（canDelete js_guard）, tooltip 说明; 绕过预判时 toast「分类下仍有商品」(409502)]
-      - path: 切到标签维度 tab → confirmAddDim
+      - path: 切到集合 tab → 新增集合分组
         assert: [维度名必填, 成功新增维度卡片]
-      - path: 维度下 confirmAddTag（name 空白）
-        assert: [确认按钮 disabled（!newTagName.trim()）]
-      - path: 标签封面上传与 Toggle 启用/禁用
+      - path: 分组下新增集合（name 空白）
+        assert: [确认按钮 disabled]
+      - path: 集合商品主图拼贴与 Toggle 启用/禁用
         assert: [封面预览或纯文字态, Toggle 翻转映射 enabled/disabled]
-      - path: 删除仍有标签的维度
-        assert: [toast「维度下仍有标签，不可删除」(409506)]
-    field_assertions: [品类名称必填星标, 件数徽章只读, 标签 cover 可空]
+      - path: 删除仍有集合的分组
+        assert: [toast「分组下仍有集合，不可删除」(409506)]
+    field_assertions: [品类名称必填星标, 件数徽章只读, 集合封面由前 4 张商品主图拼贴且不可上传]
     state_transitions: [tag enabled<->disabled, 节点增删, 抽屉 delta 保存]
     accessibility: [tree 缩进语义, drawer aria-role-dialog focus-trap]
 

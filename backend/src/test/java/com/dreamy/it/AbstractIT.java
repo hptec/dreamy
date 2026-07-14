@@ -47,5 +47,9 @@ public abstract class AbstractIT {
         r.add("huihao.redis.port", () -> REDIS.getMappedPort(6379));
         r.add("jetcache.remote.default.uri",
                 () -> "redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379));
+        // 集成测试使用隔离的临时数据库，显式开启演示种子；生产默认关闭。
+        r.add("dreamy.seed.demo-enabled", () -> "true");
+        r.add("dreamy.bootstrap-admin.email", () -> "admin@dreamy.test");
+        r.add("dreamy.bootstrap-admin.password", () -> "TestAdmin@123456");
     }
 }

@@ -1,7 +1,6 @@
 package com.dreamy.domain.guide.service;
 
 import com.dreamy.enums.PublishStatus;
-import java.time.LocalDateTime;
 import com.dreamy.domain.guide.entity.Guide;
 import com.dreamy.domain.guide.entity.GuideTranslation;
 import com.dreamy.domain.guide.repository.GuideRepository;
@@ -57,7 +56,8 @@ public class GuideService {
     /** E-MKT-08：消费端 published 列表（ORDER BY phase, id + locale 回退 + JetCache 300s） */
     @SuppressWarnings("unchecked")
     public List<StoreGuide> listStore(String locale) {
-        Object cached = cache.get(Family.GUIDES, locale);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.GUIDES, locale);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreGuide>) hit;
         }
@@ -72,7 +72,7 @@ public class GuideService {
                     Translations.coalesce(t == null ? null : t.getBody(), g.getBody()),
                     g.getTasksCount()));
         }
-        cache.put(Family.GUIDES, locale, items);
+        cache.put(lookup, items);
         return items;
     }
 
@@ -137,13 +137,9 @@ public class GuideService {
         if (existing == null) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
-        // STEP-MKT-02 物理删除双表 + 审计
-        // 逻辑删除：设置 deleted_at = now()
-        Guide patch = new Guide();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        guideRepository.update(patch);
+        // STEP-MKT-02 物理删除双表 + 审计（先清译文，再删主表）
         guideRepository.deleteTranslationsByGuideId(id);
+        guideRepository.deleteById(id);
         audit.record("删除指南", existing.getTitle(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ
         if (existing.getStatus() == PublishStatus.PUBLISHED) {

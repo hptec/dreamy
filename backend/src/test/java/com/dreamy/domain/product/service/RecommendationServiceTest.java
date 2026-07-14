@@ -62,7 +62,8 @@ class RecommendationServiceTest {
     void setUp() {
         service = new RecommendationService(productRepository, collectionRepository, categoryRepository,
                 treeService, cardAssembler, cache);
-        lenient().when(cache.get(any(), anyString())).thenReturn(null);
+        lenient().when(cache.lookup(any(), anyString())).thenAnswer(invocation ->
+                new CatalogCacheService.Lookup(invocation.getArgument(0), invocation.getArgument(1), 0L, null));
         lenient().when(cardAssembler.assemble(anyList(), anyString()))
                 .thenAnswer(inv -> ((List<Product>) inv.getArgument(0)).stream()
                         .map(p -> new StoreProductCard(p.getId(), p.getSlug(), p.getName(),

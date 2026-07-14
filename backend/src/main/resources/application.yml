@@ -1,27 +1,11 @@
 spring:
   application:
     name: identity-auth
-  # 排除 nacos 日志自动配置（避免 logback appender 冲突）
-  autoconfigure:
-    exclude:
-      - com.alibaba.cloud.nacos.NacosConfigAutoConfiguration
-      - com.alibaba.cloud.nacos.NacosDiscoveryAutoConfiguration
-      - com.alibaba.cloud.nacos.discovery.NacosDiscoveryClientAutoConfiguration
-      - com.alibaba.cloud.nacos.endpoint.NacosDiscoveryEndpointAutoConfiguration
-      - com.alibaba.cloud.nacos.registry.NacosServiceRegistryAutoConfiguration
-      - com.alibaba.cloud.nacos.loadbalancer.LoadBalancerNacosAutoConfiguration
-  # huihao-web 传递引入了 nacos-discovery；本服务为单体认证服务，本地/默认不依赖注册中心，关闭自动注册
-  cloud:
-    nacos:
-      discovery:
-        enabled: false
-    service-registry:
-      auto-registration:
-        enabled: false
   datasource:
-    url: jdbc:mysql://localhost:3306/identity?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
-    username: root
-    password: root
+    url: ${DB_URL:jdbc:mysql://localhost:3306/identity?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:root}
+    # 无默认密码：本地、测试和部署环境都必须显式注入，避免误用公开凭据。
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
@@ -89,11 +73,12 @@ jetcache:
 identity:
   jwt:
     store:
-      secret: ${STORE_JWT_SECRET:store-dev-secret-key-32chars-min}
+      # 至少 32 字节，且不得与 admin 密钥相同；JwtTokenProvider 启动时 fail-fast。
+      secret: ${STORE_JWT_SECRET:}
       access-ttl-seconds: 7200
       refresh-ttl-seconds: 2592000
     admin:
-      secret: ${ADMIN_JWT_SECRET:admin-dev-secret-key-32chars-min}
+      secret: ${ADMIN_JWT_SECRET:}
       access-ttl-seconds: 28800
   oidc:
     mode: ${OIDC_MODE:real}
@@ -119,6 +104,13 @@ cdn:
     api-token: ${CLOUDFLARE_API_TOKEN:}
 
 dreamy:
+  # 仅开发/演示环境显式开启；生产默认不灌入或覆盖任何业务数据。
+  seed:
+    demo-enabled: ${DEMO_SEED_ENABLED:false}
+  bootstrap-admin:
+    # 新环境创建首个管理员必须显式提供，避免公开固定密码。
+    email: ${DREAMY_BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${DREAMY_BOOTSTRAP_ADMIN_PASSWORD:}
   # StoreJwtFilter 配置化白名单（error-strategy L2 要求 2；条目形式 METHOD:pattern，
   # 无 METHOD 前缀缺省匹配全部 method——review-api-detail 0.1 定稿，向后兼容）
   security:
@@ -164,7 +156,7 @@ dreamy:
   stripe:
     mode: ${STRIPE_MODE:stub}
     secret-key: ${STRIPE_SECRET_KEY:}
-    webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_stub_dev_secret}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
     timeout-ms: 10000
     webhook-tolerance-seconds: 300
   # RabbitMQ 事件拓扑（data-flow「MQ 事件拓扑」BE-DIM-4；dev 缺省 stub 同步直调，不连 broker）
@@ -219,7 +211,7 @@ dreamy:
   invalidate:
     mode: ${INVALIDATE_MODE:stub}
     next-internal-url: ${NEXT_INTERNAL_URL:http://localhost:5173}
-    revalidate-token: ${REVALIDATE_TOKEN:dev-revalidate-token}
+    revalidate-token: ${REVALIDATE_TOKEN:}
     site-base-url: ${SITE_BASE_URL:http://localhost:5173}
     timeout-ms: 5000
     cloudflare:
@@ -228,11 +220,8 @@ dreamy:
   # i18n 外部网关（决策 1/5/6）：API Key AES-256-GCM 加密密钥（Base64 256-bit/32 字节，启动 fail-fast 校验）
   # 模型定时刷新扫描间隔（决策5；scheduled 策略网关按各自 interval 到期触发 syncModels）
   gateway:
-    # dev 默认密钥直接写在配置文件中（不再依赖脚本 export 环境变量）；
-    # 生产可通过环境变量 DREAMY_GATEWAY_AES_KEY 覆盖注入独立密钥。
-    # 注意：dev key 必须稳定不可随机——已加密的 api_key_encrypted 密文用此密钥加密，
-    # 更换会导致存量密文无法解密。
-    aes-key: ${DREAMY_GATEWAY_AES_KEY:NnZxCvcqBH3AomfDERQjX2LKfnbii+xmeJ2ue1PPtCM=}
+    # 必须显式注入且保持稳定：更换密钥会导致存量 api_key_encrypted 无法解密。
+    aes-key: ${DREAMY_GATEWAY_AES_KEY:}
     model-refresh-scan-delay-ms: ${GATEWAY_MODEL_REFRESH_SCAN_DELAY_MS:300000}
 
 

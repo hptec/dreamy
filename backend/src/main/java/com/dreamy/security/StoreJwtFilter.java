@@ -137,7 +137,7 @@ public class StoreJwtFilter extends OncePerRequestFilter {
             AuthPrincipal principal = bearer.principal();
             // BLOCKER-1：会话有效性校验（EDGE-023 即时失效）。
             // 撤销/登出/强制下线/禁用后 Redis 单级键被 DEL，DB session.status=revoked → 此处 401，
-            // 不再等待 token 自然过期（store access 2h）。Redis 命中即放行（QP-003），未命中降级查 DB（DG-003）。
+            // 不再等待 token 自然过期（store access 2h）；Redis 仅作缓存提示，最终始终校验 DB。
             if (!sessionValidator.isStoreSessionValid(principal.tokenId())) {
                 writeError(response, 401, CODE_UNAUTHORIZED, "Authentication required");
                 return;

@@ -17,7 +17,8 @@ public final class GatewayConfigDBConst {
     public static final String CONSECUTIVE_FAILURES = "consecutive_failures";
     public static final String EXTRA_CONFIG = "extra_config";
     public static final String ENABLED = "enabled";
-    public static final String DELETED_AT = "deleted_at";
+    public static final String VERSION = "version";
 
-    private GatewayConfigDBConst() {}{}
+    private GatewayConfigDBConst() {
+    }
 }

@@ -43,7 +43,8 @@ public class StoreCollectionService {
     public List<StoreCollectionGroup> listGroups(Long groupId, String locale) {
         // STEP-CAT-01 查 JetCache catalog:collections:{group_id|all}:{locale}（TTL 600s）
         String cacheKey = (groupId == null ? "all" : groupId.toString()) + ":" + locale;
-        Object cached = cache.get(Family.COLLECTIONS, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.COLLECTIONS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreCollectionGroup>) hit;
         }
@@ -77,7 +78,7 @@ public class StoreCollectionService {
                     group.getDescription(), items));
         }
         // STEP-CAT-05 写 JetCache TTL 600s
-        cache.put(Family.COLLECTIONS, cacheKey, new ArrayList<>(groupsResult));
+        cache.put(lookup, new ArrayList<>(groupsResult));
         return groupsResult;
     }
 

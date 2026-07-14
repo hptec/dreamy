@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // PAGE-MKT-A02 / COMP-MKT-A04：Banner 管理（表格结构保持；Toggle online↔status 三态映射 E-MKT-25；
-// sort blur→整单 update；「已过窗」灰色角标 DEC-MKT-2；「保存并发布」→ 整页 refetch 提示语义标注）
+// sort blur→整单 update；「已过窗」灰色角标 DEC-MKT-2；所有变更即时提交生效）
 import { onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Toggle from '@/components/Toggle.vue'
@@ -12,7 +12,7 @@ import { useBannersStore } from '@/stores/banners'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import { formatDateTime } from '@/utils/format'
-import { PlusIcon, PencilSquareIcon, TrashIcon, RocketLaunchIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon, PencilSquareIcon, TrashIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/outline'
 import { BannerPosition, BannerStatus } from '@/api/types'
 import type { Banner } from '@/api/types'
 
@@ -69,20 +69,13 @@ async function doDelete() {
   }
 }
 
-/** 「保存并发布」语义=逐行变更已即时提交，按钮改为整页 refetch（视觉保留，行为标注——COMP-MKT-A04） */
-function refreshAll() {
-  load()
-  toast.info('逐行变更已即时生效，列表已刷新')
-}
-
 onMounted(load)
 </script>
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Site Builder" title="Banner 管理" subtitle="配置首屏主视觉、推荐位、顶部条等广告位图文与上下线">
+    <PageHeader eyebrow="Site Builder" title="Banner 管理" subtitle="配置首屏主视觉、推荐位、顶部条等广告位；修改及上下线即时生效">
       <template #actions>
-        <button class="btn-gold" @click="refreshAll"><RocketLaunchIcon class="h-4 w-4" />保存并发布</button>
         <button class="btn-primary" @click="editing = null; drawer = true"><PlusIcon class="h-4 w-4" />新增 Banner</button>
       </template>
     </PageHeader>

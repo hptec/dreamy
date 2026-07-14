@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class AnnouncementService {
@@ -43,7 +42,9 @@ public class AnnouncementService {
     @Transactional
     public AnnouncementDto create(AnnouncementUpsert upsert) {
         validate(upsert);
-        checkTimeWindowConflict(upsert.getPriority(), upsert.getStartAt(), upsert.getEndAt(), null);
+        if (Boolean.TRUE.equals(upsert.getEnabled())) {
+            checkTimeWindowConflict(upsert.getPriority(), upsert.getStartAt(), upsert.getEndAt(), null);
+        }
         Announcement entity = new Announcement();
         applyUpsert(entity, upsert);
         entity.setVersion(0);
@@ -57,7 +58,9 @@ public class AnnouncementService {
         Announcement entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_NOT_FOUND));
         validate(upsert);
-        checkTimeWindowConflict(upsert.getPriority(), upsert.getStartAt(), upsert.getEndAt(), id);
+        if (Boolean.TRUE.equals(upsert.getEnabled())) {
+            checkTimeWindowConflict(upsert.getPriority(), upsert.getStartAt(), upsert.getEndAt(), id);
+        }
         if (upsert.getVersion() == null || !upsert.getVersion().equals(entity.getVersion())) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
@@ -112,11 +115,9 @@ public class AnnouncementService {
 
     private void checkTimeWindowConflict(Integer priority, LocalDateTime start, LocalDateTime end, Long excludeId) {
         if (priority == null) return;
-        LocalDateTime startSafe = start != null ? start : LocalDateTime.MIN;
-        LocalDateTime endSafe = end != null ? end : LocalDateTime.MAX;
-        List<Announcement> overlaps = repository.findOverlapByPriorityAndTime(priority, startSafe, endSafe);
+        List<Announcement> overlaps = repository.findOverlapByPriorityAndTimeForUpdate(priority, start, end);
         if (excludeId != null) {
-            overlaps = overlaps.stream().filter(a -> !a.getId().equals(excludeId)).collect(Collectors.toList());
+            overlaps = overlaps.stream().filter(a -> !a.getId().equals(excludeId)).toList();
         }
         if (!overlaps.isEmpty()) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_TIME_WINDOW_CONFLICT,

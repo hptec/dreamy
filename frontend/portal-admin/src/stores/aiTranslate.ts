@@ -20,9 +20,8 @@ export const useAiTranslateStore = defineStore('aiTranslate', () => {
     const res = await gatewayApi.listConfigs({ gatewayType: GatewayType.AI, page: 1, pageSize: 100 })
     const enabled = res.data.filter((c) => c.enabled)
     const primary = enabled[0]
-    // 后端暂时返回字符串数组，前端容错包装成 {id, name} 对象数组
     const rawModels = primary?.modelList ?? []
-    availableModels.value = rawModels.map((m) => (typeof m === 'string' ? { id: m, name: m } : m))
+    availableModels.value = rawModels.map((id) => ({ id, name: id }))
     defaultModel.value = primary?.defaultModel || availableModels.value[0]?.id || ''
     hasEnabledGateway.value = !!primary
     modelsLoaded.value = true

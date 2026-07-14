@@ -62,6 +62,4 @@ public class Coupon extends LongAuditableEntity {
     @Column(name = CouponDBConst.DESCRIPTION, definition = "varchar(255) NULL COMMENT '券说明(EN 基准，DEC-MKT-1)'")
     private String description;
 
-    @Column(name = CouponDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

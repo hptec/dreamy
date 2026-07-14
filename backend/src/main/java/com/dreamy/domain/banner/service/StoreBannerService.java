@@ -38,7 +38,8 @@ public class StoreBannerService {
     public List<StoreBanner> list(BannerPosition position, String locale) {
         // STEP-MKT-01 查 JetCache marketing:banners:{position|all}:{locale}
         String cacheKey = (position == null ? "all" : position.getKey()) + ":" + locale;
-        Object cached = cache.get(Family.BANNERS, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.BANNERS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreBanner>) hit;
         }
@@ -56,9 +57,9 @@ public class StoreBannerService {
                     Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText()),
                     b.getCtaLink(),
                     Translations.coalesce(t == null ? null : t.getCtaTextSecondary(), b.getCtaTextSecondary()),
-                    Translations.coalesce(t == null ? null : t.getCtaLinkSecondary(), b.getCtaLinkSecondary())));
+                    b.getCtaLinkSecondary()));
         }
-        cache.put(Family.BANNERS, cacheKey, items);
+        cache.put(lookup, items);
         return items;
     }
 

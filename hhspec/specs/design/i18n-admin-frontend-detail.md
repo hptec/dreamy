@@ -1,5 +1,8 @@
 # i18n Portal-Admin 前端详细设计
 
+> 历史设计：`/system/glossary` 页面已退役；当前仅保留网关管理和 AI 翻译弹窗，详见
+> `i18n-runtime-status.md`。
+
 ## 元信息
 
 - 变更：i18n-complete-with-ai-assist
@@ -108,11 +111,13 @@ actions:
 | model_refresh_strategy | el-radio | - | 手动(1)/定时(2) |
 | model_refresh_interval_min | el-input-number | strategy=2时必填 | 分钟数 |
 | enabled | el-switch | - | 启用开关 |
+| version | hidden | 更新必填 | 从详情响应回传，用于原子乐观锁 |
 
 **交互逻辑**：
 1. 保存成功后若gateway_type=AI，自动展示拉取的模型列表（EDGE-014：拉取失败提示"模型列表获取失败，可手动刷新"）
 2. API Key编辑：聚焦清空掩码，失焦未修改保持原值（提交掩码时后端保持原密文）
 3. 测试连接按钮：调用后端验证URL+Key，展示连通状态（EDGE-023：DNS失败/401/超时具体提示）
+4. 编辑保存始终回传最新version；409202提示重新打开配置，避免覆盖并发模型同步或其他编辑。
 
 ### FORM-002: 术语表单 (GlossaryForm)
 

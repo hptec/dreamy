@@ -8,7 +8,7 @@
 ## 0. 全局横切（所有端点适用）
 
 - **鉴权过滤器**：按前缀选密钥解析 JWT；store→STORE_JWT_SECRET，admin→ADMIN_JWT_SECRET；跨端误用→401 `40100`（EDGE-024）。
-- **会话有效性**：store 请求校验 `redis store:session:valid:{jti}` 存在且 DB session.status=active；admin 校验 admin_session.status=active。
+- **会话有效性**：store 请求始终校验 DB user_session.status=active；admin 始终校验 admin_session.status=active 且 admin_user.status=active。Redis 有效性键仅兼容滚动升级中的旧实例，不参与当前实例授权。
 - **i18n**：store 读 `Accept-Language`（en/es/fr，缺省 en）；admin 固定 zh。
 - **RBAC（admin）**：路由→permission_key 映射，缺权限→403 `40300`。
 - **审计（admin 写操作）**：AOP 切面写 operation_log（FLOW-17）。
@@ -52,7 +52,7 @@
 - STEP-06 判定 is_new_device（同 user 历史 device 是否出现）
 - STEP-07 INSERT user_session(status=active, token_id=jti, method=email)；签发 TokenPair(access2h+refresh30d)
 - STEP-08 INSERT login_history(result=success, is_new_device)
-- STEP-09 事务提交后 `SET store:session:valid:{jti} TTL 30s`
+- STEP-09 事务提交后 `SET store:session:valid:{jti} TTL 30s`（仅滚动升级兼容键，授权以 DB 为准）
 - STEP-10 若 is_new_device → 触发 FLOW-14 新设备通知
 
 **出参**: 200 `{ tokens:{access_token,refresh_token,access_expires_at,refresh_expires_at}, user:{id,email,name,tier,avatar}, is_new_account:bool }`
@@ -88,7 +88,7 @@
 - STEP-01 解析 refresh jti → `SELECT user_session WHERE refresh_token_id=? AND status=active`
 - STEP-02 无/revoked/refresh 过期 → 401 `40102 REFRESH_INVALID`
 - STEP-03 滑动顺延 access_expires_at(+2h)/refresh_expires_at(+30d)（乐观锁 version）
-- STEP-04 刷新 `store:session:valid:{newJti}` TTL
+- STEP-04 刷新兼容键 `store:session:valid:{newJti}` TTL
 
 **出参**: 200 `{ tokens:TokenPair }`
 **错误映射**: 401 40102
@@ -139,7 +139,7 @@
 
 ### 2.7 revokeSession — DELETE /api/store/account/sessions/{sessionId} （FLOW-07, FUNC-012, EDGE-009）
 - STEP-01 会话不属当前 user → 403 `40300 FORBIDDEN`
-- STEP-02 事务 UPDATE status=revoked；`DEL store:session:valid:{tokenId}`；失效 store:sessions:{userId}
+- STEP-02 事务 UPDATE status=revoked（授权即时失效）；尽力 `DEL store:session:valid:{tokenId}` 兼容键；失效 store:sessions:{userId}
 - 出参 204
 
 ### 2.8 revokeOtherSessions — DELETE /api/store/account/sessions/others （FLOW-07, FUNC-012）
@@ -149,7 +149,7 @@
 ### 2.9 deleteAccount — POST /api/store/account/delete （FLOW-08, FUNC-027, EDGE-021/026）
 **入参**: `{ confirm:true }`
 - STEP-01 事务：UPDATE user status=deleted, deleted_at=now；UPDATE 全部 user_session=revoked
-- STEP-02 清 store:user/identities/sessions/session:valid:* 全部键
+- STEP-02 清 store:user/identities/sessions 与 session:valid:* 兼容键；授权已由事务内 DB 状态即时失效
 - STEP-03 发 account_deleted 邮件
 - STEP-04 审计/匿名化由 FLOW-16 定时任务 30 天后处理（不在此同步）
 - 出参 204（再次登录走 40902，不复活 EDGE-021）
@@ -249,7 +249,7 @@
 
 ### 5.4 forceLogoutUserSessions — POST /api/admin/users/{id}/sessions/force-logout （FLOW-12, FUNC-022, EDGE-023）
 **入参**: `{ scope:enum(single,all), session_id? }`
-- 事务 UPDATE user_session=revoked；`DEL store:session:valid:{tokenId}*`（全集群即时生效，无残留窗口）；审计 action=强制下线
+- 事务 UPDATE user_session=revoked（所有当前实例按 DB 权威状态即时拒绝）；尽力 `DEL store:session:valid:{tokenId}*` 兼容键；审计 action=强制下线
 - 出参 204
 
 ---

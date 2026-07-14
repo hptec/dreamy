@@ -1,6 +1,7 @@
 # 任务分配表 — portal-api-integration / catalog 域
 # 由 l2_design_coordinator 下属 catalog 域设计师产出：本域承载的实现单元映射
 # task_id 来源：hhspec/changes/portal-api-integration/task-manifest.yml（本域 task：TASK-001~006 / 010~013 / 026 / 034~037 / 040 + TASK-056 本域触发侧）
+# 当前命名与集合封面策略以 catalog-contract-status.md 为准。
 version: "1.0"
 layer: L2
 role: l2_design_coordinator/catalog
@@ -8,7 +9,7 @@ change_name: portal-api-integration
 domain_code: catalog
 
 artifacts:
-  api_detail: specs/design/catalog/catalog-api-detail.md        # E-CAT-01~35, V-CAT-001~071, STEP-CAT(端点段), TX 引用
+  api_detail: specs/design/catalog/catalog-api-detail.md        # E-CAT-01~37, V-CAT-001~071, STEP-CAT(端点段), TX 引用
   data_detail: specs/design/catalog/catalog-data-detail.md      # RM-CAT-001~146, MAP-CAT-001~014, IDX-CAT-001~019, TX-CAT-001~022, CV-CAT-001~011, EVT-CAT-001~003, CACHE-CAT-001~006, DDL×16 表
   frontend_detail: specs/design/catalog/catalog-frontend-detail.md  # PAGE-CAT-A01~A04/S01~S05, COMP-CAT-A01~A06/S01~S07, STORE-CAT-A01~A05/S01~S04, FORM-CAT-A01~A06/S01~S03
   test_detail: specs/design/catalog/catalog-test-detail.md      # TC-CAT-001~081
@@ -42,14 +43,14 @@ task_mappings:
     related_endpoints: [E-CAT-19, E-CAT-21, E-CAT-26]
     tests: [TC-CAT-039, TC-CAT-040, TC-CAT-058]
 
-  - task_id: TASK-005            # entity:TagDimension
-    design_sections: [catalog-data-detail.md §1.2/§9(tag_dimension+translation), §2(RM-CAT-050~056)]
+  - task_id: TASK-005            # entity:CollectionGroup
+    design_sections: [catalog-data-detail.md §1.2/§9(collection_group+translation), §2(RM-CAT-050~056)]
     constraint_ids: [IDX-CAT-018, CV-CAT-006, CV-CAT-009]
     related_endpoints: [E-CAT-27, E-CAT-28, E-CAT-29, E-CAT-30]
     tests: [TC-CAT-038, TC-CAT-059]
 
-  - task_id: TASK-006            # entity:Tag
-    design_sections: [catalog-data-detail.md §1.2/§9(tag+tag_translation+product_tag), §2(RM-CAT-060~070, RM-CAT-140~146)]
+  - task_id: TASK-006            # entity:Collection
+    design_sections: [catalog-data-detail.md §1.2/§9(collection+collection_translation+product_collection), §2(RM-CAT-060~070, RM-CAT-140~146)]
     constraint_ids: [IDX-CAT-016, IDX-CAT-017, IDX-CAT-019, MAP-CAT-007, MAP-CAT-010]
     related_endpoints: [E-CAT-07, E-CAT-31, E-CAT-32, E-CAT-33, E-CAT-34]
     tests: [TC-CAT-021, TC-CAT-037, TC-CAT-059]
@@ -64,7 +65,7 @@ task_mappings:
   - task_id: TASK-011            # entity:ProductImage
     design_sections: [catalog-data-detail.md §1.2/§9(product_image), §2(RM-CAT-110~113)]
     constraint_ids: [IDX-CAT-008, CV-CAT-010]
-    related_endpoints: [E-CAT-04, E-CAT-09, E-CAT-11, E-CAT-35]
+    related_endpoints: [E-CAT-04, E-CAT-09, E-CAT-11, E-CAT-38]
     tests: [TC-CAT-014, TC-CAT-054]
 
   - task_id: TASK-012            # entity:Sku
@@ -80,24 +81,24 @@ task_mappings:
     related_endpoints: [E-CAT-04, E-CAT-05, E-CAT-09, E-CAT-11]
     tests: [TC-CAT-001~006, TC-CAT-050, TC-CAT-054]
 
-  - task_id: TASK-026            # entity:CustomTag —— 合并处置（不建表）
-    design_sections: [catalog-data-detail.md §1.2 表清单合并声明, catalog-api.openapi.yml info CustomTag 处置]
+  - task_id: TASK-026            # 历史 CustomTag → Collection 重命名核验
+    design_sections: [catalog-contract-status.md, catalog-api.openapi.yml info Collection 命名]
     constraint_ids: []
     related_endpoints: [E-CAT-07, E-CAT-31, E-CAT-32, E-CAT-33, E-CAT-34]
     tests: [TC-CAT-059]
-    notes: "CustomTag/CustomTagTranslation 由 TagDimension/Tag/TagTranslation 合并承载；商品挂载统一走 AdminProductUpsert.tag_ids → product_tag；本 task 验收=确认无独立表/端点且 ProductEdit tagsByDimension 数据通路可用"
+    notes: "商品挂载统一走 AdminProductUpsert.collection_ids → product_collection；确认无 tag 独立表/端点"
 
   - task_id: TASK-034            # state_machine:category_lifecycle
     design_sections: [catalog-api-detail.md E-CAT-16/17/18(STEP guard), catalog-data-detail.md TX-CAT-006~008]
     constraint_ids: [V-CAT-045, CV-CAT-006]
     tests: [TC-CAT-036, TC-CAT-040, TC-CAT-057]
 
-  - task_id: TASK-035            # state_machine:tag_lifecycle
+  - task_id: TASK-035            # state_machine:collection_lifecycle
     design_sections: [catalog-api-detail.md E-CAT-32/33/34, catalog-data-detail.md TX-CAT-018~020]
     constraint_ids: [V-CAT-065, V-CAT-067]
     tests: [TC-CAT-037, TC-CAT-040, TC-CAT-059]
 
-  - task_id: TASK-036            # state_machine:tag_dimension_lifecycle
+  - task_id: TASK-036            # state_machine:collection_group_lifecycle
     design_sections: [catalog-api-detail.md E-CAT-28/29/30, catalog-data-detail.md TX-CAT-015~017]
     constraint_ids: [V-CAT-059, V-CAT-061]
     tests: [TC-CAT-038, TC-CAT-040]
@@ -137,7 +138,7 @@ supplementary_units:
     tests: [TC-CAT-026~029]
   - id: CAT-IMPL-UPLOAD
     summary: "S3 预签名端口 + presign 端点（媒体基建代管，五 scope 共用）"
-    design_sections: [catalog-api-detail.md E-CAT-35, FLOW-P17]
+    design_sections: [catalog-api-detail.md E-CAT-38, FLOW-P17]
     tests: [TC-CAT-064, TC-CAT-073~075]
   - id: CAT-IMPL-ADMIN-FE
     summary: "portal-admin 四页接入（Products data-swap / ProductEdit·Categories copy-adapt / AttributeSets 新建）+ src/api/catalog.ts + 4 个 Pinia store"
@@ -148,7 +149,7 @@ supplementary_units:
     design_sections: [catalog-frontend-detail.md §B 全部]
     tests: [TC-CAT-070~072, UIS-CAT-S01~S04]
   - id: CAT-IMPL-SEED
-    summary: "本域种子数据（商品/分类/属性集/标签 + 三语 translation，决策 21）"
+    summary: "本域种子数据（商品/分类/属性集/集合 + 三语 translation，决策 21）"
     design_sections: [catalog-data-detail.md §9 备注③]
 
 # ===== 建议实现顺序（依赖拓扑，DFS 无环）=====
@@ -156,14 +157,14 @@ implementation_order:
   wave_1:   # 数据底座（无依赖，可并行）
     - TASK-002   # attribute_def
     - TASK-003   # attribute_set
-    - TASK-005   # tag_dimension
+    - TASK-005   # collection_group
   wave_2:   # 依赖 wave_1 的实体
     - TASK-004   # attribute_set_item（依赖 002/003）
     - TASK-001   # category（依赖 003 绑定属性集）
-    - TASK-006   # tag + product_tag（依赖 005）
-    - TASK-026   # CustomTag 合并核验（依赖 005/006）
+    - TASK-006   # collection + product_collection（依赖 005）
+    - TASK-026   # 历史命名核验（依赖 005/006）
   wave_3:   # 商品聚合
-    - TASK-010   # product（依赖 001 category / 006 tag）
+    - TASK-010   # product（依赖 001 category / 006 collection）
     - TASK-011   # product_image
     - TASK-012   # sku
     - TASK-013   # size_chart_row

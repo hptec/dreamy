@@ -73,7 +73,7 @@ public class AdminJwtFilter extends OncePerRequestFilter {
             }
             // BLOCKER-1：admin 会话有效性校验（admin_session.status=active）。
             // adminLogout/禁用管理员级联撤销后即时失效，不等待 admin token 8h 自然过期。
-            // Redis 命中即放行，未命中降级查 DB（DG-003）。
+            // Redis 仅作缓存提示，最终始终校验 DB，避免失效删除失败留下授权窗口。
             if (!sessionValidator.isAdminSessionValid(principal.tokenId())) {
                 writeUnauthorized(response);
                 RequestLocaleContext.clear();

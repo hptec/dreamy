@@ -96,7 +96,7 @@ pages:
       - path: 状态 chips 筛选
         assert: [chips 与 API 状态枚举对齐（All/Pending/Paid/Shipped/Completed/Cancelled/Refunding/Refunded 三语文案）, 列表服务端过滤刷新]
       - path: 列表卡片
-        assert: [首行快照图叠图, item 数, 金额按订单币种, 状态徽章 tone 正确, Details 链接指向 /account/orders/:id]
+        assert: [首行快照图叠图, item 数, 金额按订单币种, 状态徽章 tone 正确, "Details 链接指向 /account/orders/:id"]
       - path: 空结果
         assert: [空态文案出现]
     state_transitions: [filter 切换→列表刷新]
@@ -170,7 +170,7 @@ pages:
       - path: 空结果
         assert: [EmptyState「暂无该状态的订单」]
       - path: 点击订单号/详情
-        assert: [跳 /orders/:id]
+        assert: ["跳 /orders/:id"]
       - path: 无 /orders 权限管理员访问
         assert: [菜单不渲染该项, 直链重定向 403 页]
     field_assertions: [列：订单号/客户(姓名+邮箱)/地区/商品数/金额/支付方式/状态/下单时间/操作]

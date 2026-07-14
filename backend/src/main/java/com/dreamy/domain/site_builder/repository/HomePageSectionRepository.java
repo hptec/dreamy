@@ -2,6 +2,7 @@ package com.dreamy.domain.site_builder.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.dreamy.domain.site_builder.consts.SiteBuilderDBConst;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import org.springframework.stereotype.Repository;
 
@@ -37,6 +38,21 @@ public class HomePageSectionRepository {
                 .orderByAsc(HomePageSection::getId));
     }
 
+    /** 分布式写锁内按主键稳定读取全部区块，用于计算跨行约束和批量更新。 */
+    public List<HomePageSection> findAllOrderById() {
+        return mapper.selectList(new LambdaQueryWrapper<HomePageSection>()
+                .orderByAsc(HomePageSection::getId));
+    }
+
+    public long countByTypeExcludingId(String sectionType, Long excludeId) {
+        LambdaQueryWrapper<HomePageSection> query = new LambdaQueryWrapper<HomePageSection>()
+                .eq(HomePageSection::getSectionType, sectionType);
+        if (excludeId != null) {
+            query.ne(HomePageSection::getId, excludeId);
+        }
+        return mapper.selectCount(query);
+    }
+
     public int insert(HomePageSection entity) {
         return mapper.insert(entity);
     }
@@ -44,7 +60,8 @@ public class HomePageSectionRepository {
     public int updateByIdAndVersion(HomePageSection entity) {
         int rows = mapper.update(entity, new LambdaUpdateWrapper<HomePageSection>()
                 .eq(HomePageSection::getId, entity.getId())
-                .eq(HomePageSection::getVersion, entity.getVersion()));
+                .eq(HomePageSection::getVersion, entity.getVersion())
+                .setSql(SiteBuilderDBConst.VERSION + " = " + SiteBuilderDBConst.VERSION + " + 1"));
         if (rows == 0) {
             // 乐观锁冲突，调用方处理
             return 0;
@@ -55,13 +72,6 @@ public class HomePageSectionRepository {
 
     public int deleteById(Long id) {
         return mapper.deleteById(id);
-    }
-
-    public void replaceAll(List<HomePageSection> sections) {
-        mapper.delete(new LambdaQueryWrapper<HomePageSection>().isNotNull(HomePageSection::getId));
-        for (HomePageSection section : sections) {
-            mapper.insert(section);
-        }
     }
 
     public int batchUpdateSort(List<long[]> idSortPairs) {

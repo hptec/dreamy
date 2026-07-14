@@ -9,8 +9,8 @@ import java.time.Duration;
 
 /**
  * Admin 会话有效性缓存（admin:session:valid:{tokenId}，仅 Redis 单级 TTL30s）。
- * 约束: BLOCKER-1 admin 会话撤销/登出/禁用即时生效（api-detail §0「会话有效性：admin 校验 admin_session.status=active」）；
- * 复用 SessionValidityCache 模式；DG-003（Redis 不可用/未命中降级查 DB，记 ERROR/WARN 告警）；
+ * 约束: BLOCKER-1 admin 会话撤销/登出/禁用即时生效（最终校验 admin_session 与 admin_user）；
+ * 复用 SessionValidityCache 模式；当前实例不以该键授权，仅为滚动升级中的旧实例维持兼容；
  * EDGE-014 禁用管理员级联撤销后 token 在 8h 自然过期前即失效。
  */
 @Component
@@ -31,12 +31,12 @@ public class AdminSessionValidityCache {
         try {
             redis.opsForValue().set(PREFIX + tokenId, "1", TTL);
         } catch (Exception ex) {
-            // 写失败不回滚 DB，仅告警（兜底 TTL 自然过期 + DB 校验）
+            // 写失败不回滚 DB，仅告警；最终授权仍由 DB 校验。
             log.warn("[CACHE] admin markValid failed tokenId={}", tokenId);
         }
     }
 
-    /** 会话校验：Redis 命中即有效；不可用/未命中返回 false 由调用方降级查 DB（DG-003） */
+    /** 兼容旧实例的正缓存查询；当前 SessionValidator 不在请求链调用。 */
     public boolean isValid(String tokenId) {
         try {
             return Boolean.TRUE.equals(redis.hasKey(PREFIX + tokenId));
@@ -46,7 +46,7 @@ public class AdminSessionValidityCache {
         }
     }
 
-    /** adminLogout / 禁用级联撤销：DEL 单级键（即时生效，无残留窗口） */
+    /** adminLogout / 禁用级联撤销：尽力删除提示键；DB 撤销状态即时生效。 */
     public void invalidate(String tokenId) {
         try {
             redis.delete(PREFIX + tokenId);

@@ -1,6 +1,5 @@
 package com.dreamy.domain.collection.entity;
 
-import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.enums.CollectionStatus;
 import com.dreamy.domain.collection.consts.CollectionDBConst;
@@ -33,6 +32,4 @@ public class Collection extends LongAuditableEntity {
     @Column(name = CollectionDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=启用 2=禁用'")
     private CollectionStatus status;
 
-    @Column(name = CollectionDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

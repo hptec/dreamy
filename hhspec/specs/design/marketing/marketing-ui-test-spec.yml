@@ -89,7 +89,7 @@ pages:
       - path: filter tabs（全部/已发布/草稿/已归档）
         assert: [服务端筛选生效, tab 样式沿用（archived 为 API 枚举对齐补充 tab，样式同构）]
       - path: 卡片渲染
-        assert: [16:10 封面+左上 StatusBadge, category 金色 uppercase, 标题 display 字体, author·date·views 千分位行, 操作行（编辑/预览/发布/删除）]
+        assert: ['16:10 封面+左上 StatusBadge', category 金色 uppercase, 标题 display 字体, author·date·views 千分位行, 操作行（编辑/预览/发布/删除）]
       - path: 「写文章」打开 BlogEditDrawer
         assert: [title/slug/category/author/cover 上传/正文 textarea/status 渲染, 三语 tab（EN 主字段, ES/FR 独立输入, 完整度圆点）]
       - path: draft 卡片点「发布」（无 slug）
@@ -159,7 +159,9 @@ pages:
     visual_baseline: [home-hero-banner, home-flash-rail, home-real-weddings, home-topbar]
     interactions:
       - path: 首屏 hero 渲染（有 hero banner 数据）
-        assert: [图/标题/副题/CTA 来自 API, 版式与现有 hero 零偏差, kenburns 动画保持]
+        assert: [图/标题/副题/双 CTA 来自 API data.banners, 版式与现有 hero 零偏差]
+      - path: 两个有效 hero banner
+        assert: [按 sort ASC、id ASC 轮播, 6.5s 自动切换, 前后按钮与指示点可切换, 暂停/键盘/触摸滑动可用, prefers-reduced-motion 不自动播放]
       - path: hero banner 数据为空
         assert: [Hero 整段不渲染, 无默认图文, 无空白占位]
       - path: topbar 公告轮播

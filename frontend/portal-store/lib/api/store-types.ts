@@ -144,7 +144,6 @@ export interface StoreProductDetail extends StoreProductCard {
   images: ProductImage[]
   skus: Sku[]
   sizeChart?: SizeChartRow[]
-  tags?: { id: number; dimensionId?: number; name: string }[]
   /** 面料成分列表 */
   fabricCompositions?: FabricComposition[]
   /** 护理标签列表 */
@@ -205,7 +204,7 @@ export interface StoreCollectionGroup {
   id: number
   name: string
   description?: string
-  collections: { id: number; name: string; productCount?: number; cover?: string }[]
+  collections: { id: number; name: string; productCount?: number }[]
 }
 
 // ===== trading =====

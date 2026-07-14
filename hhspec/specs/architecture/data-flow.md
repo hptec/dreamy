@@ -23,7 +23,7 @@
 | AdminAPI ⇄ Svc | Request DTO（@Valid 校验）⇄ 领域入参；响应装入 R 包络 `{code,message,data}` | i18n_json 字段：整体透传 JSON 对象（`{en:{...}, es:{...}, fr:{...}}`），Svc 内部按 locale 解析或整体持久化 |
 | Svc ⇄ DB | Entity.i18n_json（JSON 列）⇄ 领域对象；主表 `label`/`title`/`content` 列同步存 EN 基准值 | i18n_json 结构：`{en:{...}, es:{...}, fr:{...}}`；EN 为基准，主表字段冗余 EN 值便于查询（KD-16） |
 | StoreAPI ⇄ Svc | Request（locale 参数从 URL 路径或 Accept-Language 提取）⇄ 领域入参；响应按 locale 扁平化 | 消费端响应将 i18n_json 按 locale 解析后返回扁平字符串字段（如 `title`/`content`/`label`） |
-| 跨域调用（Hero → Banner） | Svc 调 BannerService.findByPosition(HERO) | 返回 Banner + BannerTranslation，site_builder 不持有 Banner 实体，仅运行时派生 Hero 数据（KD-2） |
+| 跨域调用（Hero → Banner） | Svc 调 StoreBannerService.list(HERO, locale) | 返回全部当前有效 Banner（含 locale 文案），按 sort/id 放入唯一 Hero section 的 `data.banners[]`；site_builder 不持有 Banner 实体（KD-2） |
 | 跨域调用（Navigation → Taxonomy） | NavigationItem.taxonomy_id（可选）→ TaxonomyService.findById | 仅校验存在性，不加载 Taxonomy 实体到导航响应 |
 | 跨域调用（ProductRail → Product） | HomePageSection.data_json.product_ids[] → ProductService.findByIds | 批量查询，按 sort_order 排序返回 |
 | 跨域调用（EditorialFeature → Wedding） | HomePageSection.data_json.limit + 可选 wedding_ids → WeddingService.fetchStoreWeddings | 复用基线 fetchStoreWeddings API |
@@ -76,7 +76,7 @@
 | 决策 | 本文档响应位置 |
 |------|---------------|
 | KD-1 Publish.vue 不改造 | FLOW-SB10 缓存失效链（in-process，非 HTTP 自调） |
-| KD-2 Hero 区块复用 Banner | FLOW-SB05 跨域调用 BannerSvc.findByPosition(HERO) |
+| KD-2 Hero 区块复用 Banner | FLOW-SB05 跨域调用 StoreBannerService.list(HERO, locale)，全量有效 Banner 轮播 |
 | KD-4 保存即发布 | FLOW-SB01~SB04 写操作后立即触发缓存失效 |
 | KD-5 消费端全量改造 | FLOW-SB05~SB08 消费端首页/header/footer/公告条 |
 | KD-6 Mega Menu JSON 列 | FLOW-SB02 navigation_items.mega_menu_json |
@@ -250,8 +250,8 @@ sequenceDiagram
         DB-->>Svc: sections[]
         loop 每个 section
             alt section_type=hero
-                Svc->>BannerSvc: findByPosition(HERO, locale=es)
-                BannerSvc-->>Svc: banner + translation
+                Svc->>BannerSvc: list(HERO, locale=es)
+                BannerSvc-->>Svc: banners[] (ORDER BY sort,id)
             else section_type=theme_cards
                 Svc->>TaxonomySvc: findByType(theme, locale=es, limit=section.data_json.limit)
                 TaxonomySvc-->>Svc: themes[]
@@ -281,7 +281,7 @@ sequenceDiagram
 1. STEP-01：从 cache 读取 `home:{locale}`
 2. STEP-02：miss 时查 DB — `SELECT * FROM home_sections WHERE enabled=true ORDER BY sort_order, id`
 3. STEP-03：按 section_type 派生数据：
-   - hero → BannerSvc.findByPosition(HERO, locale)（KD-2）
+   - hero → BannerSvc.list(HERO, locale)，全部有效 Banner → data.banners[]（KD-2）
    - theme_cards → TaxonomySvc.findByType(theme, locale, limit)（KD-8）
    - product_rail → ProductSvc.findByIds 或 findNewArrivals（KD-9）
    - editorial_feature → WeddingSvc.fetchStoreWeddings(limit, locale)（KD-10）

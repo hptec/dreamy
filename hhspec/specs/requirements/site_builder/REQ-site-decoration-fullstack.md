@@ -37,7 +37,7 @@
 ### FUNC-006 消费端首页动态渲染
 - GET /api/store/content/home/sections 返回区块配置
 - 按 sort_order 升序渲染 enabled=true 的区块
-- Hero 区块从 Banner position=HERO 派生（KD-2）
+- 首页最多一个 Hero section 配置位；其从全部有效 Banner position=1（HERO）、status=2（PUBLISHED）派生 `data.banners[]`，按 sort/id 轮播（KD-2）
 
 ### FUNC-007 消费端导航动态渲染
 - GET /api/store/content/navigation 返回导航配置
@@ -49,7 +49,7 @@
 - 消费端首页 Newsletter 区块渲染订阅表单
 
 ### FUNC-009 Hero 跨域读取 Banner
-- HomeBuilder Hero 区块通过 BannerService.findByPosition(HERO) 跨域查询
+- HomeBuilder Hero 区块通过 StoreBannerService.list(HERO, locale) 跨域查询全部有效 Banner，不绑定单个 banner_id
 - 不直接查 Banner 表（KD-BE-5）
 
 ### FUNC-010 Navigation 跨域引用 Taxonomy

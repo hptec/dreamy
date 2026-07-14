@@ -62,3 +62,8 @@ identity:
     mode: stub
   retention:
     cron: "0 0 3 * * *"
+
+dreamy:
+  gateway:
+    # 仅 Testcontainers 隔离测试使用，不得用于任何部署环境。
+    aes-key: yVC43sjAHcbgp7+3M2sWLI6y4zoGWm43aTWA6Vgas64=

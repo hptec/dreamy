@@ -288,7 +288,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================================
 -- 种子数据（Bootstrap 初始化）
--- 注: UUID 用占位符，L3 落地时由迁移脚本生成；密码哈希为示例 BCrypt 占位。
+-- 注: UUID 用占位符，L3 落地时由迁移脚本生成。不在 DDL 中预置可登录账户或固定密码；
+-- 新环境由运行时 DataInitializer 读取 DREAMY_BOOTSTRAP_ADMIN_EMAIL/PASSWORD 显式创建首个超管。
 -- =============================================================================
 
 -- 12.seed auth_config 单例默认行
@@ -301,10 +302,9 @@ VALUES
 INSERT INTO `role` (`id`,`name`,`type`,`is_locked`) VALUES
   ('00000000-0000-0000-0000-000000000001', '超级管理员', 'preset', 1);
 
--- 6.seed 默认超级管理员账户（admin@dreamy.com / 密码 L3 重置；此处为占位 BCrypt 哈希）
-INSERT INTO `admin_user` (`id`,`name`,`email`,`password_hash`,`role_id`,`status`) VALUES
-  ('00000000-0000-0000-0000-0000000000a1', '超级管理员', 'admin@dreamy.com',
-   '$2a$10$REPLACE_WITH_REAL_BCRYPT_HASH_PLACEHOLDER....', '00000000-0000-0000-0000-000000000001', 'active');
+-- 6.bootstrap 超级管理员账户：不写入静态 seed。
+-- 必须在首次启动前显式配置 DREAMY_BOOTSTRAP_ADMIN_EMAIL 与
+-- DREAMY_BOOTSTRAP_ADMIN_PASSWORD（至少 12 字符），由应用以 BCrypt 哈希后幂等创建。
 
 -- 8.seed permission 菜单权限点字典（示例，22 项完整清单由 L3 按 portal-admin 路由补全）
 INSERT INTO `permission` (`key`,`group`,`label`) VALUES

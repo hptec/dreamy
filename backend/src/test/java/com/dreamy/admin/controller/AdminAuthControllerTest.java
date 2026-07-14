@@ -90,15 +90,10 @@ class AdminAuthControllerTest {
         }
 
         @Bean
-        public JwtProperties jwtProperties() {
-            JwtProperties p = new JwtProperties();
-            p.getStore().setSecret("store-test-secret-key-32chars-min");
-            p.getAdmin().setSecret("admin-test-secret-key-32chars-min");
-            return p;
-        }
-
-        @Bean
-        public JwtTokenProvider jwtTokenProvider(JwtProperties props) {
+        public JwtTokenProvider jwtTokenProvider() {
+            JwtProperties props = new JwtProperties();
+            props.getStore().setSecret("store-test-secret-key-32chars-min");
+            props.getAdmin().setSecret("admin-test-secret-key-32chars-min");
             return new JwtTokenProvider(props);
         }
 

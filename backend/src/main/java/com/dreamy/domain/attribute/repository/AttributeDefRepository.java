@@ -26,27 +26,23 @@ public class AttributeDefRepository {
     /** RM-CAT-020 listAll —— ORDER BY id（E-CAT-23 STEP-CAT-01） */
     public List<AttributeDef> listAll() {
         return defMapper.selectList(new LambdaQueryWrapper<AttributeDef>()
-                .isNull(AttributeDef::getDeletedAt)
                 .orderByAsc(AttributeDef::getId));
     }
 
     /** RM-CAT-021 findById */
     public AttributeDef findById(Long id) {
-        AttributeDef e = id == null ? null : defMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : defMapper.selectById(id);
     }
 
     /** RM-CAT-022 existsByKey —— uk_attribute_def_key 兜底（V-CAT-053） */
     public boolean existsByKey(String key) {
         return defMapper.selectCount(new LambdaQueryWrapper<AttributeDef>()
-                .isNull(AttributeDef::getDeletedAt)
                 .eq(AttributeDef::getKey, key)) > 0;
     }
 
     /** key 点查（EAV 迁移/种子幂等用） */
     public AttributeDef findByKey(String key) {
         return defMapper.selectOne(new LambdaQueryWrapper<AttributeDef>()
-                .isNull(AttributeDef::getDeletedAt)
                 .eq(AttributeDef::getKey, key));
     }
 
@@ -71,7 +67,6 @@ public class AttributeDefRepository {
             return List.of();
         }
         return defMapper.selectList(new LambdaQueryWrapper<AttributeDef>()
-                .isNull(AttributeDef::getDeletedAt)
                 .in(AttributeDef::getId, ids));
     }
 

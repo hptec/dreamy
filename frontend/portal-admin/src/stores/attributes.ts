@@ -72,8 +72,8 @@ export const useAttributeStore = defineStore('attributes', () => {
     return saved
   }
 
-  async function removeDef(id: number, force?: boolean) {
-    await catalogApi.deleteAttributeDef(id, force)
+  async function removeDef(id: number) {
+    await catalogApi.deleteAttributeDef(id)
     defs.value = defs.value.filter((d) => d.id !== id)
   }
 

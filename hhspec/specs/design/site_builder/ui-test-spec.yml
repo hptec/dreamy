@@ -1,283 +1,107 @@
-# L2 UI 测试期望 - site_builder 域
+version: "1.0"
+layer: L2
+role: l2_ui_test_designer
+change_name: site-decoration-fullstack
+domain_code: site_builder
 
-> 来源：linked_prototype_snapshots（4 个原型页面）+ acceptance.yml + ui-verification-checklist.md
-> 覆盖：4 个原型页面（HomeBuilder / NavigationConfig / Banners / Publish）
-> 工具：Playwright + axe-core + pixelmatch
-> 验收：视觉还原 + 字段内容 + 交互路径 + 状态流转 + 可访问性 + 性能预算
-
-## 原型文件路径（OPT-PD-006）
-
-```yaml
 linked_prototype_snapshots:
   - page_id: HomeBuilder
     file: prototype/portal-admin/src/views/HomeBuilder.vue
-    hash_at_link: sha256:14189e2cd9c9b819a1e7355ba7491ffd8995b7520d30d3fb5f1f31a19e58b2af
-    absolute_path: /Volumes/MAC/workspace/dreamy/hhspec/prototype/portal-admin/src/views/HomeBuilder.vue
   - page_id: NavigationConfig
     file: prototype/portal-admin/src/views/NavigationConfig.vue
-    hash_at_link: sha256:8cb5f9a1d9aaac16c11b4cb0e3ac584330f401b780e476a7e507b9d4486b2c3a
-    absolute_path: /Volumes/MAC/workspace/dreamy/hhspec/prototype/portal-admin/src/views/NavigationConfig.vue
   - page_id: Banners
     file: prototype/portal-admin/src/views/Banners.vue
-    hash_at_link: sha256:531260e03d17f95e090de91ffe3166e64766133069b701f3506e21aff3e292b8
-    absolute_path: /Volumes/MAC/workspace/dreamy/hhspec/prototype/portal-admin/src/views/Banners.vue
   - page_id: Publish
     file: prototype/portal-admin/src/views/Publish.vue
-    hash_at_link: sha256:f7891b67cba0f895e89f51d6d8f040dd14d03a8f00c488cc28d94a16197a9f3c
-    absolute_path: /Volumes/MAC/workspace/dreamy/hhspec/prototype/portal-admin/src/views/Publish.vue
-```
 
-## 视觉基线
+global:
+  visual_tolerance_percent: 5
+  viewport: 1440x900
+  accessibility:
+    standard: WCAG-2.1-AA
+    rules: [label-for-input, focus-visible, keyboard-nav, color-contrast-4.5]
+  performance_budget:
+    lcp_ms: 2500
+    fid_ms: 100
+    cls: 0.1
+    tti_ms: 3500
 
-| 页面 | 基线截图路径 | 容差 | 分辨率 |
-|------|-------------|------|--------|
-| HomeBuilder | prototype/screenshots/baseline/HomeBuilder.png | 5% | 1440x900 |
-| NavigationConfig | prototype/screenshots/baseline/NavigationConfig.png | 5% | 1440x900 |
-| Banners | prototype/screenshots/baseline/Banners.png | 5% | 1440x900 |
-| Publish | prototype/screenshots/baseline/Publish.png | 5% | 1440x900 |
+pages:
+  - id: UIS-SB-A01
+    page: /site/home
+    prototype: portal-admin/src/views/HomeBuilder.vue
+    visual_baseline: [home-builder-desktop]
+    interactions:
+      - path: 首页区块列表加载
+        assert: [所有区块按 sortOrder/id 顺序渲染, 启停状态与 API 一致, Hero 区块全表最多一条]
+      - path: 编辑区块并保存
+        assert: [编辑表单展示当前数据, 保存成功后版本递增, toast 显示成功]
+      - path: 启停和排序
+        assert: [操作成功后列表即时刷新, 失败时回滚并提示]
+      - path: Hero 数据来源
+        assert: [Hero 编辑区不保存 Banner 单项数据, 消费端由全部有效 HERO Banner 派生轮播]
+    field_assertions: [sectionType, label, enabled, sortOrder, version]
+    state_transitions: [enabled<->disabled, 非Hero类型可互换, Hero保持全表单例]
+    accessibility: [按钮可键盘操作, 启停开关有可读标签, 编辑抽屉 focus-trap]
 
-## 字段断言
+  - id: UIS-SB-A02
+    page: /site/navigation
+    prototype: portal-admin/src/views/NavigationConfig.vue
+    visual_baseline: [navigation-config-desktop]
+    interactions:
+      - path: 导航/页脚/公告 Tab 切换
+        assert: [选中态与面板一致, 切换不丢失已加载数据]
+      - path: 保存导航配置
+        assert: [taxonomy/custom 链接表单按类型显示, 保存成功后版本递增]
+      - path: 保存页脚与公告
+        assert: [字段校验错误行内展示, 成功后消费端缓存失效]
+    field_assertions: [linkType, taxonomyId, customHref, megaMenuJson, locale]
+    accessibility: [tablist 语义正确, 表单 label 关联, 错误提示 aria-live]
 
-### HomeBuilder 页面
+  - id: UIS-SB-A03
+    page: /banners
+    prototype: portal-admin/src/views/Banners.vue
+    visual_baseline: [banners-desktop]
+    interactions:
+      - path: HERO Banner 多项发布
+        assert: [允许同时发布多条 HERO Banner, 排序和投放窗口字段可编辑]
+      - path: 关闭全部 HERO Banner
+        assert: [管理端状态立即更新, 消费端省略整个 Hero section]
+      - path: 二级 CTA 编辑
+        assert: [ctaTextSecondary 与 ctaLinkSecondary 可编辑并保存]
+    field_assertions: [imageUrl, position, status, sort, startTime, endTime]
+    state_transitions: [draft->published->archived->published, 任意态删除->gone]
+    accessibility: [缩略图 alt, Toggle aria-checked, 编辑抽屉 focus-trap]
 
-| 字段 | 定位器 | 期望 | 验收场景 |
-|------|--------|------|---------|
-| 页面标题 | h1 | "Home Builder" | FLOW-001 |
-| 区块列表 | `[data-testid="section-list"]` | 7 个区块（原型 mock seed） | FLOW-001 |
-| 区块排序按钮 | `[data-testid="sort-up"], [data-testid="sort-down"]` | 每个区块可见 | FLOW-001 |
-| 启停开关 | `[data-testid="section-toggle"]` | 每个区块可见，状态正确 | FLOW-001 / s-001~s-002 |
-| 编辑按钮 | `[data-testid="section-edit"]` | 每个区块可见 | FLOW-001 |
-| 保存按钮 | `[data-testid="save-button"]` | 可见且可点击 | FLOW-001 |
-| 区块属性编辑表单 | `[data-testid="section-form"]` | 编辑时显示 | FLOW-001 |
-| section_type 下拉 | `[data-testid="section-type-select"]` | 6 个选项 [hero, theme_cards, product_rail, editorial_feature, newsletter, custom] | FLOW-001 |
-| data_json 编辑器 | `[data-testid="data-json-editor"]` | 按 section_type 显示不同表单 | FLOW-001 |
-| i18n_json 多语言输入 | `[data-testid="i18n-tabs"]` | 3 个 tab（EN/ES/FR） | FLOW-001 |
+  - id: UIS-SB-A04
+    page: /publish
+    prototype: portal-admin/src/views/Publish.vue
+    visual_baseline: [publish-desktop]
+    interactions:
+      - path: 手动失效缓存
+        assert: [确认后触发失效, 成功与失败均有明确反馈]
+      - path: 发布中心加载
+        assert: [无已退役翻译日志入口, 页面无失效 Glossary 路由]
+    accessibility: [按钮有明确文字, 进度和结果使用 aria-live]
 
-### NavigationConfig 页面
+consumer_hero:
+  id: UIS-SB-S01
+  page: / 与 /es /fr
+  viewports: [desktop, mobile]
+  interactions:
+    - path: 两个有效 HERO Banner
+      assert: [只渲染一个 Hero region, 轮播含两张 slide, 自动轮播和前后按钮可用]
+    - path: 用户暂停与临时暂停
+      assert: [用户暂停状态不被 hover/focus/touch 结束覆盖, 暂停按钮状态可读]
+    - path: 键盘与触摸
+      assert: [左右方向键切换, focus 不丢失, touch cancel 后恢复临时状态]
+    - path: 仅一个有效 Banner
+      assert: [Hero 显示单张内容, 不显示无意义轮播控制]
+    - path: 无有效 Banner
+      assert: [整个 Hero section 不渲染, 已归档内容不残留]
+  accessibility: [region 有 aria-label, 当前 slide 状态可读, prefers-reduced-motion 禁止自动轮播]
 
-| 字段 | 定位器 | 期望 | 验收场景 |
-|------|--------|------|---------|
-| 页面标题 | h1 | "Navigation Config" | FLOW-002 |
-| Tab: 导航 | `[role="tab"][name="Navigation"]` | 默认激活 | FLOW-002 |
-| Tab: 页脚 | `[role="tab"][name="Footer"]` | 可切换 | FLOW-002 |
-| Tab: 公告 | `[role="tab"][name="Announcement"]` | 可切换 | FLOW-003 |
-| 导航项列表 | `[data-testid="nav-items"]` | 树形结构，5 条主导航 | FLOW-002 |
-| 导航项编辑 | `[data-testid="nav-item-form"]` | 编辑时显示 label/link_type/taxonomy_id/custom_href/mega_menu_json | FLOW-002 |
-| link_type 切换 | `[data-testid="link-type-select"]` | [custom, taxonomy] 两个选项 | FLOW-002 |
-| taxonomy 选择器 | `[data-testid="taxonomy-picker"]` | link_type=taxonomy 时显示 | FLOW-002 / FLOW-010 |
-| mega_menu 编辑器 | `[data-testid="mega-menu-editor"]` | 可视化编辑列+链接 | FLOW-002 |
-| 保存按钮 | `[data-testid="save-button"]` | 可见 | FLOW-002 |
-
-### Banners 页面（本变更不改造，仅验证 KD-14 字段扩展）
-
-| 字段 | 定位器 | 期望 | 验收场景 |
-|------|--------|------|---------|
-| cta_text_secondary 输入框 | `[data-testid="cta-text-secondary"]` | Banner 编辑表单中可见 | FLOW-004 / KD-14 |
-| cta_link_secondary 输入框 | `[data-testid="cta-link-secondary"]` | Banner 编辑表单中可见 | FLOW-004 / KD-14 |
-| position=TOPBAR 标记 | `[data-testid="position-topbar"]` | 显示 @Deprecated 标记 | FLOW-004 / KD-17 |
-
-### Publish 页面（KD-1 不改造）
-
-| 字段 | 定位器 | 期望 | 验收场景 |
-|------|--------|------|---------|
-| 一键发布按钮 | `[data-testid="publish-button"]` | 可见 | FLOW-005 |
-| 手动失效按钮 | `[data-testid="invalidate-button"]` | 可见 | FLOW-005 |
-| 失效日志 | `[data-testid="invalidate-log"]` | 显示失效的 cache keys | FLOW-005 |
-
-## 交互路径
-
-### HomeBuilder 完整交互路径
-
-```yaml
-path_id: HB-FULL
-steps:
-  - action: navigate
-    target: /admin/site/home-builder
-    expect: 页面加载，显示 7 个区块
-  - action: click
-    target: "[data-testid=\"section-edit\"][data-section-id=\"1\"]"
-    expect: 编辑表单显示
-  - action: fill
-    target: "[data-testid=\"i18n-tabs\"] [role=\"tab\"][name=\"ES\"] [data-field=\"title\"]"
-    value: "Carrusel Hero"
-    expect: ES 标题填入
-  - action: click
-    target: "[data-testid=\"save-button\"]"
-    expect: 保存成功，toast 显示 "Saved"
-  - action: click
-    target: "[data-testid=\"section-toggle\"][data-section-id=\"2\"]"
-    expect: 开关切换，状态变更
-  - action: click
-    target: "[data-testid=\"sort-up\"][data-section-id=\"3\"]"
-    expect: 区块 3 上移到位置 2
-```
-
-### NavigationConfig 完整交互路径
-
-```yaml
-path_id: NAV-FULL
-steps:
-  - action: navigate
-    target: /admin/site/navigation-config
-    expect: 默认 Tab=导航
-  - action: click
-    target: "[data-testid=\"nav-item-edit\"][data-item-id=\"1\"]"
-    expect: 编辑表单显示
-  - action: select
-    target: "[data-testid=\"link-type-select\"]"
-    value: taxonomy
-    expect: 显示 taxonomy 选择器
-  - action: click
-    target: "[data-testid=\"taxonomy-picker\"]"
-    expect: 弹出分类选择器
-  - action: click
-    target: "[data-testid=\"taxonomy-option\"][value=\"1\"]"
-    expect: 选中分类 id=1
-  - action: click
-    target: "[data-testid=\"mega-menu-editor\"]"
-    expect: mega menu 编辑器展开
-  - action: fill
-    target: "[data-testid=\"mega-menu-column-title\"][0]"
-    value: "Shop by Category"
-    expect: 第一列标题填入
-  - action: click
-    target: "[data-testid=\"save-button\"]"
-    expect: 保存成功
-  - action: click
-    target: "[role=\"tab\"][name=\"Announcement\"]"
-    expect: 切换到公告 Tab
-  - action: click
-    target: "[data-testid=\"announcement-create\"]"
-    expect: 显示新建公告表单
-```
-
-### Banners 交互路径（验证 KD-14 字段）
-
-```yaml
-path_id: BAN-KD14
-steps:
-  - action: navigate
-    target: /admin/marketing/banners
-    expect: Banner 列表显示
-  - action: click
-    target: "[data-testid=\"banner-edit\"][data-banner-id=\"1\"]"
-    expect: 编辑表单显示
-  - action: assert_visible
-    target: "[data-testid=\"cta-text-secondary\"]"
-    expect: secondary CTA text 输入框可见（KD-14）
-  - action: assert_visible
-    target: "[data-testid=\"cta-link-secondary\"]"
-    expect: secondary CTA link 输入框可见（KD-14）
-  - action: fill
-    target: "[data-testid=\"cta-text-secondary\"]"
-    value: "Shop Now"
-    expect: 填入成功
-  - action: click
-    target: "[data-testid=\"save-button\"]"
-    expect: 保存成功
-```
-
-### Publish 交互路径
-
-```yaml
-path_id: PUB-FULL
-steps:
-  - action: navigate
-    target: /admin/publish
-    expect: 发布中心显示
-  - action: click
-    target: "[data-testid=\"invalidate-button\"]"
-    expect: 确认弹窗显示
-  - action: click
-    target: "[data-testid=\"confirm-invalidate\"]"
-    expect: 失效开始，显示进度
-  - action: wait
-    expect: 失效完成，日志显示失效的 cache keys
-  - action: assert_visible
-    target: "[data-testid=\"invalidate-log\"]"
-    expect: 日志非空
-```
-
-## 状态流转断言
-
-### home_page_section 状态流转
-
-```yaml
-state_machine: home_page_section_status
-states: [enabled, disabled]
-transitions:
-  - from: disabled
-    to: enabled
-    trigger: "[data-testid=\"section-toggle\"] click"
-    expect: toggle 开关变为 on
-  - from: enabled
-    to: disabled
-    trigger: "[data-testid=\"section-toggle\"] click"
-    expect: toggle 开关变为 off
-```
-
-### navigation_item 状态流转（同上）
-
-### announcement 状态流转（同上）
-
-### banner 状态流转（baseline 既有，本变更不改造）
-
-```yaml
-state_machine: banner_status
-states: [draft, published, archived]
-transitions:
-  - from: draft
-    to: published
-    guard: guard_satisfied
-    expect: 成功，status=published
-  - from: draft
-    to: published
-    guard: guard_failed
-    expect: 失败，status=draft, error_code=CONTENT_STATE_INVALID, http_status=409
-  - from: published
-    to: archived
-    expect: 成功，status=archived
-```
-
-## 可访问性（a11y）
-
-| 页面 | WCAG 级别 | 关键检查 |
-|------|----------|---------|
-| HomeBuilder | AA | 所有按钮有 aria-label；颜色对比度 >= 4.5:1；键盘可达 |
-| NavigationConfig | AA | Tab 顺序正确；taxonomy 选择器有 aria-haspopup；mega menu 编辑器可键盘操作 |
-| Banners | AA | 表单 label 关联正确；错误提示有 aria-live |
-| Publish | AA | 按钮有明确文字；进度提示有 aria-live="polite" |
-
-**axe-core 规则集**: wcag2aa
-
-## 性能预算
-
-| 页面 | LCP | FID | CLS | TTI | 首屏资源大小 |
-|------|-----|-----|-----|-----|-------------|
-| HomeBuilder | < 2.5s | < 100ms | < 0.1 | < 3.5s | < 500KB |
-| NavigationConfig | < 2.5s | < 100ms | < 0.1 | < 3.5s | < 500KB |
-| Banners | < 2.5s | < 100ms | < 0.1 | < 3.5s | < 500KB |
-| Publish | < 2.0s | < 50ms | < 0.1 | < 2.5s | < 300KB |
-
-**Core Web Vitals 采集**: Playwright + web-vitals 库
-
-## 跨浏览器测试
-
-| 浏览器 | 版本 | 覆盖 |
-|--------|------|------|
-| Chromium | 最新稳定版 | 全部页面 |
-| Firefox | 最新稳定版 | HomeBuilder + NavigationConfig |
-| WebKit | 最新稳定版 | Banners + Publish |
-
-## UI 验收报告
-
-L4 UI Verifier 产出 YAML 报告，包含：
-- 视觉还原（pixelmatch 对比基线，5% 容差）
-- 字段内容（所有 data-testid 元素的期望值校验）
-- 交互路径（每个 path_id 全步骤通过）
-- 状态流转（每个 state_machine 转换通过）
-- 可访问性（axe-core 0 violations）
-- 性能（Core Web Vitals 达标）
-- 跨浏览器（3 个浏览器均通过）
-
-**判定**: 全部 PASS → UI 验收通过；任一 FAIL → MUST_FIX 回退 L3 修复。
+browsers:
+  chromium: all
+  firefox: [UIS-SB-A01, UIS-SB-A02, UIS-SB-S01]
+  webkit: [UIS-SB-A03, UIS-SB-A04, UIS-SB-S01]

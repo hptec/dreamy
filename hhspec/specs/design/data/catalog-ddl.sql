@@ -10,11 +10,11 @@
 --   - 逻辑删除: 不启用；deleted 终态=物理删除 + 引用守卫（409502/409503/409506/409507/409509）
 --   - FULLTEXT: ngram parser（决策 17）；huihao @Index 不支持 FULLTEXT，
 --     运行期由 CatalogFulltextIndexInitializer 幂等补建（与本 DDL 等价）
--- 运行期建表: huihao-mysql DDL-auto（@EnableMysql scanPackages=com.dreamy.catalog.domain）
+-- 运行期建表: huihao-mysql DDL-auto（@EnableMysql scanPackages=com.dreamy.domain）
 --             以实体注解为准自动建表/加列；本文件为权威等价 SQL（审计/还原用）。
--- 种子数据: CatalogSeedInitializer（决策 21，从 portal-store mock 提炼 16 商品 + 分类/属性集/标签
---           + 三语 translation + RBAC 权限点 /attribute-sets），幂等按业务键。
--- 来源: catalog-data-detail.md §9（16 表）/ er-diagram.yml（CustomTag 合并入 Tag，不建表）
+-- 演示数据: 仅 DEMO_SEED_ENABLED=true 时由 CatalogSeedInitializer 初始化；任一 Catalog
+--           聚合根已有数据即整体跳过，不覆盖运营数据。
+-- 来源: catalog-data-detail.md §9（16 表）/ catalog-contract-status.md（Collection 现行命名）
 -- =============================================================================
 
 SET NAMES utf8mb4;
@@ -109,60 +109,59 @@ CREATE TABLE attribute_set_item (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='属性集明细行';
 
 -- -----------------------------------------------------------------------------
--- 7. tag_dimension 标签维度（合并承载 CustomTag 维度语义，不建 custom_tag 表）
+-- 7. collection_group 集合分组
 -- -----------------------------------------------------------------------------
-CREATE TABLE tag_dimension (
+CREATE TABLE collection_group (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   name        VARCHAR(64)  NOT NULL COMMENT '维度名(EN 基准)',
   description VARCHAR(255) NULL COMMENT '维度说明',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自定义标签维度';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合分组';
 
 -- -----------------------------------------------------------------------------
--- 8. tag_dimension_translation（IDX-CAT-018）
+-- 8. collection_group_translation（IDX-CAT-018）
 -- -----------------------------------------------------------------------------
-CREATE TABLE tag_dimension_translation (
-  id               BIGINT      NOT NULL AUTO_INCREMENT,
-  tag_dimension_id BIGINT      NOT NULL,
-  locale           VARCHAR(8)  NOT NULL COMMENT 'es|fr',
-  name             VARCHAR(64) NULL,
-  created_at       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+CREATE TABLE collection_group_translation (
+  id                  BIGINT      NOT NULL AUTO_INCREMENT,
+  collection_group_id BIGINT      NOT NULL,
+  locale              VARCHAR(8)  NOT NULL COMMENT 'es|fr',
+  name                VARCHAR(64) NULL,
+  created_at          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_tdt (tag_dimension_id, locale)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标签维度多语言附表';
+  UNIQUE KEY uk_cgt (collection_group_id, locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合分组多语言附表';
 
 -- -----------------------------------------------------------------------------
--- 9. tag 自定义标签（IDX-CAT-016；合并承载 CustomTag）
+-- 9. collection 营销集合（IDX-CAT-016；封面由集合商品主图动态派生）
 -- -----------------------------------------------------------------------------
-CREATE TABLE tag (
-  id           BIGINT       NOT NULL AUTO_INCREMENT,
-  dimension_id BIGINT       NOT NULL COMMENT '逻辑外键 tag_dimension.id',
-  name         VARCHAR(64)  NOT NULL COMMENT '标签名(EN 基准)',
-  cover        VARCHAR(512) NULL COMMENT '封面图 URL（预签名上传 public_url），空=纯文字',
-  status       VARCHAR(16)  NOT NULL DEFAULT 'enabled' COMMENT 'enabled|disabled',
-  created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+CREATE TABLE collection (
+  id                  BIGINT       NOT NULL AUTO_INCREMENT,
+  collection_group_id BIGINT       NOT NULL COMMENT '逻辑外键 collection_group.id',
+  name                VARCHAR(64)  NOT NULL COMMENT '集合名(EN 基准)',
+  status              VARCHAR(16)  NOT NULL DEFAULT 'enabled' COMMENT 'enabled|disabled',
+  created_at          DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at          DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  KEY idx_tag_dimension (dimension_id),
-  KEY idx_tag_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自定义营销标签';
+  KEY idx_collection_group (collection_group_id),
+  KEY idx_collection_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='营销集合';
 
 -- -----------------------------------------------------------------------------
--- 10. tag_translation（IDX-CAT-017；合并承载 CustomTagTranslation）
+-- 10. collection_translation（IDX-CAT-017）
 -- -----------------------------------------------------------------------------
-CREATE TABLE tag_translation (
-  id         BIGINT      NOT NULL AUTO_INCREMENT,
-  tag_id     BIGINT      NOT NULL,
-  locale     VARCHAR(8)  NOT NULL COMMENT 'es|fr',
-  label      VARCHAR(64) NULL,
-  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+CREATE TABLE collection_translation (
+  id            BIGINT      NOT NULL AUTO_INCREMENT,
+  collection_id BIGINT      NOT NULL,
+  locale        VARCHAR(8)  NOT NULL COMMENT 'es|fr',
+  label         VARCHAR(64) NULL,
+  created_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_tt (tag_id, locale)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标签多语言附表';
+  UNIQUE KEY uk_ct (collection_id, locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合多语言附表';
 
 -- -----------------------------------------------------------------------------
 -- 11. product 商品主档（IDX-CAT-001~005；冗余回写列仅 EVT-CAT-001/002/003 可写）
@@ -201,7 +200,7 @@ CREATE TABLE product (
   season                VARCHAR(64)   NULL,
   embellishments        JSON          NULL COMMENT '装饰细节多选',
   occasions             JSON          NULL COMMENT '适合场合多选',
-  style_tags            JSON          NULL COMMENT '风格标签多选（自由文本，区别于 tag 实体）',
+  style_tags            JSON          NULL COMMENT '风格标签多选（自由文本，区别于 collection 实体）',
   model_height          VARCHAR(32)   NULL,
   model_size            VARCHAR(16)   NULL,
   model_body_type       VARCHAR(32)   NULL,
@@ -297,18 +296,19 @@ CREATE TABLE size_chart_row (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品尺码对照表行（决策20.3 推荐数据源）';
 
 -- -----------------------------------------------------------------------------
--- 16. product_tag（IDX-CAT-019；Product-Tag nm 关系，AdminProductUpsert.tag_ids 落点）
+-- 16. product_collection（IDX-CAT-019；Product-Collection nm 关系，支持集合内人工排序）
 -- -----------------------------------------------------------------------------
-CREATE TABLE product_tag (
-  id         BIGINT      NOT NULL AUTO_INCREMENT,
-  product_id BIGINT      NOT NULL,
-  tag_id     BIGINT      NOT NULL,
-  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+CREATE TABLE product_collection (
+  id            BIGINT      NOT NULL AUTO_INCREMENT,
+  product_id    BIGINT      NOT NULL,
+  collection_id BIGINT      NOT NULL,
+  sort          INT         NOT NULL DEFAULT 0,
+  created_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_ptag (product_id, tag_id),
-  KEY idx_ptag_tag (tag_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品-标签挂载';
+  UNIQUE KEY uk_pcol (product_id, collection_id),
+  KEY idx_pcol_collection (collection_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品-集合挂载';
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -317,4 +317,4 @@ SET FOREIGN_KEY_CHECKS = 1;
 --   ② 消费幂等不落 processed_event 表（基建 EventIdempotencyGuard Redis SETNX 承载，
 --      data-flow 消费幂等规范允许「processed_event 表 / Redis SETNX」二择）；
 --      webhook 专用 processed_event 表归 trading 域 DDL；
---   ③ 种子数据（决策 21）由 CatalogSeedInitializer 运行期灌入，不在本文件硬编码 id。
+--   ③ 演示种子仅在 DEMO_SEED_ENABLED=true 时由 CatalogSeedInitializer 灌入，不在本文件硬编码 id。

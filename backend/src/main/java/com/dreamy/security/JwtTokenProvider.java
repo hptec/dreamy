@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -51,23 +52,26 @@ public class JwtTokenProvider {
     public JwtTokenProvider(JwtProperties props,
                             @Value("${dreamy.showroom.guest-token-ttl-seconds:86400}") long guestTokenTtlSeconds) {
         this.props = props;
-        this.storeKey = Keys.hmacShaKeyFor(padKey(props.getStore().getSecret()));
-        this.adminKey = Keys.hmacShaKeyFor(padKey(props.getAdmin().getSecret()));
+        byte[] storeSecret = requireKey(props.getStore().getSecret(), "STORE_JWT_SECRET");
+        byte[] adminSecret = requireKey(props.getAdmin().getSecret(), "ADMIN_JWT_SECRET");
+        if (MessageDigest.isEqual(storeSecret, adminSecret)) {
+            throw new IllegalStateException("STORE_JWT_SECRET and ADMIN_JWT_SECRET must be different");
+        }
+        this.storeKey = Keys.hmacShaKeyFor(storeSecret);
+        this.adminKey = Keys.hmacShaKeyFor(adminSecret);
         this.guestTokenTtlSeconds = guestTokenTtlSeconds;
     }
 
-    /** HMAC-SHA256 要求 >=256bit 密钥；不足右补，保证沙箱默认密钥也可用 */
-    private byte[] padKey(String secret) {
-        byte[] raw = (secret == null ? "" : secret).getBytes(StandardCharsets.UTF_8);
-        if (raw.length >= 32) {
-            return raw;
+    /** HMAC-SHA256 要求至少 256 bit；禁止将空值或短值静默补齐成可预测密钥。 */
+    private byte[] requireKey(String secret, String variableName) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(variableName + " must be configured");
         }
-        byte[] padded = new byte[32];
-        System.arraycopy(raw, 0, padded, 0, raw.length);
-        for (int i = raw.length; i < 32; i++) {
-            padded[i] = (byte) ('0' + (i % 10));
+        byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
+        if (raw.length < 32) {
+            throw new IllegalStateException(variableName + " must contain at least 32 bytes");
         }
-        return padded;
+        return raw;
     }
 
     // ===== store 签发（access 2h + refresh 30d） =====

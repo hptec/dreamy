@@ -1,5 +1,8 @@
 meta:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_design
+  superseded_by: specs/design/i18n-runtime-status.md
+  runtime_note: admin_glossary scenarios are retired and must not run
   generated_at: '2026-06-16T20:45:00Z'
   generated_by: Test Designer (UI Test职责)
   coverage: admin 3页面 + store locale路由 + i18n文案验证
@@ -146,37 +149,7 @@ admin_translate_modal:
         - maxlength限制500
       edge: EDGE-005
 
-# ===== 3. Admin: 术语表页 =====
-admin_glossary:
-  page: /system/glossary
-  screens:
-    - id: UI-GL-001
-      title: 术语表CRUD
-      steps:
-        - 访问/system/glossary
-        - 新增/编辑/删除术语
-      assertions:
-        - 表格展示term_en/term_es/term_fr/category/enabled
-        - CRUD操作成功
-      func: FUNC-022
-
-    - id: UI-GL-002
-      title: 术语权限隔离
-      steps:
-        - 无权限账户访问
-      assertions:
-        - 跳转/403
-      edge: EDGE-022
-
-    - id: UI-GL-003
-      title: 术语重复校验
-      steps:
-        - 新增已存在的term_en
-      assertions:
-        - 提示"术语已存在"(409401)
-      mock: msw返回409401
-
-# ===== 4. Store: locale路由切换 =====
+# ===== 3. Store: locale路由切换 =====
 store_locale_routing:
   screens:
     - id: UI-ST-001

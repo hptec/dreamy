@@ -35,5 +35,4 @@ public interface ProductDBConst extends CatalogCommonDBConst {
     String FABRIC_COMPOSITIONS = "fabric_compositions";
     /** 护理标签 JSON 列（符号+文本，内联存储） */
     String CARE = "care";
-    public static final String DELETED_AT = "deleted_at";
 }

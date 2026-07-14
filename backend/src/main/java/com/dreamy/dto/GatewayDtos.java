@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 外部网关配置域 DTO 集（gateway-api.openapi.yml）。
@@ -36,6 +37,8 @@ public final class GatewayDtos {
             String modelsSyncedAt,
             Integer consecutiveFailures,
             Boolean enabled,
+            Map<String, Object> extraConfig,
+            Integer version,
             String createdAt,
             String updatedAt) {
     }
@@ -56,8 +59,9 @@ public final class GatewayDtos {
             Integer modelRefreshStrategy,
             @Min(5) @Max(1440) Integer modelRefreshIntervalMin,
             @NotNull Boolean enabled,
-            /** 乐观锁：更新时前端回传 DB updated_at，不一致 → 409201（EDGE-012）。创建时忽略。 */
-            String updatedAt) {
+            Map<String, Object> extraConfig,
+            /** 乐观锁：更新必填并用于原子 CAS；创建时可省略且会被忽略。 */
+            Integer version) {
     }
 
     /**

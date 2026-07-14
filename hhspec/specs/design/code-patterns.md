@@ -26,7 +26,7 @@
 - CP-024 admin 端 RBAC：路由→permission_key 守卫，缺权限 403(40300)，超管 is_locked 短路全权限。
 
 ## 缓存
-- CP-030 会话/凭证类 JetCache remote-only(Redis 单级 TTL30s 强一致全集群)；资料/配置类 two-level(Caffeine+Redis)。
+- CP-030 会话授权由 DB 点查保证；滚动升级兼容键 remote-only(Redis 单级 TTL30s)；资料/配置类 two-level(Caffeine+Redis)。
 - CP-031 写操作事务提交后失效对应缓存键（@CacheInvalidate），禁止脏读。
 
 ## 错误处理

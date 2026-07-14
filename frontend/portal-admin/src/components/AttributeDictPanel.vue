@@ -177,36 +177,24 @@ async function saveDef() {
 
 const confirmDeleteDef = ref<AttributeDef | null>(null)
 const confirmBusy = ref(false)
-const deleteConfirmText = ref('')
-const deleteRefInfo = ref<{ setCount?: number; valueCount?: number } | null>(null)
-
 async function doDeleteDef() {
   if (!confirmDeleteDef.value) return
 
-  const needForce = deleteRefInfo.value && (deleteRefInfo.value.setCount || deleteRefInfo.value.valueCount)
-
-  // 如果需要强制删除，检查确认文本
-  if (needForce && deleteConfirmText.value !== 'DELETE') {
-    return
-  }
-
   confirmBusy.value = true
   try {
-    await store.removeDef(confirmDeleteDef.value.id, needForce)
+    await store.removeDef(confirmDeleteDef.value.id)
     toast.success('已删除')
     confirmDeleteDef.value = null
-    deleteRefInfo.value = null
-    deleteConfirmText.value = ''
   } catch (e) {
     if (e instanceof BizError && e.code === 409507) {
-      // 首次删除遇到引用：提取引用信息并显示强制删除确认
       const details = e.details || {}
-      deleteRefInfo.value = {
-        setCount: details.attribute_set_count as number | undefined,
-        valueCount: details.product_value_count as number | undefined,
-      }
-      deleteConfirmText.value = ''
-      toast.error('该属性被引用，请输入 DELETE 确认强制删除')
+      const setCount = Number(details.attribute_set_count ?? 0)
+      const valueCount = Number(details.product_value_count ?? 0)
+      const refs = [
+        setCount > 0 ? `${setCount} 个属性集` : '',
+        valueCount > 0 ? `${valueCount} 个商品属性值` : '',
+      ].filter(Boolean).join('、')
+      toast.error(refs ? `该属性仍被 ${refs} 引用，无法删除` : e.message)
     } else {
       toast.error(bizMsg(e, '删除失败'))
     }
@@ -217,8 +205,6 @@ async function doDeleteDef() {
 
 function cancelDeleteDef() {
   confirmDeleteDef.value = null
-  deleteRefInfo.value = null
-  deleteConfirmText.value = ''
 }
 </script>
 
@@ -327,31 +313,12 @@ function cancelDeleteDef() {
     <ConfirmDialog
       :open="!!confirmDeleteDef"
       title="删除属性定义"
-      :message="deleteRefInfo ? `属性「${confirmDeleteDef?.label}」被以下内容引用，强制删除将清理所有引用数据：` : `确认删除属性「${confirmDeleteDef?.label}」？`"
-      :confirm-text="deleteRefInfo ? '强制删除' : '删除'"
+      :message="`确认删除属性「${confirmDeleteDef?.label}」？若仍被属性集或商品引用，需先解除引用。`"
+      confirm-text="删除"
       danger
       :busy="confirmBusy"
       @confirm="doDeleteDef"
       @cancel="cancelDeleteDef"
-    >
-      <div v-if="deleteRefInfo" class="mt-4 space-y-3">
-        <div v-if="deleteRefInfo.setCount" class="rounded bg-canvas-warm px-3 py-2 text-[12px] text-ink-soft">
-          <span class="font-medium text-danger">{{ deleteRefInfo.setCount }}</span> 个属性集引用
-        </div>
-        <div v-if="deleteRefInfo.valueCount" class="rounded bg-canvas-warm px-3 py-2 text-[12px] text-ink-soft">
-          <span class="font-medium text-danger">{{ deleteRefInfo.valueCount }}</span> 个商品属性值
-        </div>
-        <div class="mt-3">
-          <label class="field-label text-danger">请输入 <strong>DELETE</strong> 确认强制删除</label>
-          <input
-            v-model="deleteConfirmText"
-            class="field border-danger focus:border-danger focus:ring-danger"
-            placeholder="输入 DELETE"
-            @keyup.enter="doDeleteDef"
-          />
-          <p class="mt-1 text-[11px] text-ink-faint">此操作不可撤销，将永久删除该属性及其所有引用数据。</p>
-        </div>
-      </div>
-    </ConfirmDialog>
+    />
   </div>
 </template>

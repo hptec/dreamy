@@ -1,7 +1,7 @@
 package com.dreamy.domain.attribute.service;
 
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.domain.attribute.entity.AttributeDef;
-import java.time.LocalDateTime;
 import com.dreamy.domain.attribute.entity.AttributeDefTranslation;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
@@ -67,6 +67,7 @@ public class AttributeDefService {
     }
 
     /** E-CAT-24：新增属性定义（TX-CAT-012） */
+    @CatalogAdminWrite
     @Transactional
     public AttributeDefDto create(AttributeDefUpsert req) {
         validate(req, null);
@@ -82,6 +83,7 @@ public class AttributeDefService {
     }
 
     /** E-CAT-25：编辑属性定义（TX-CAT-013；key/type 不可变更——V-CAT-057） */
+    @CatalogAdminWrite
     @Transactional
     public AttributeDefDto update(Long id, AttributeDefUpsert req) {
         AttributeDef existing = defRepository.findById(id);
@@ -121,9 +123,10 @@ public class AttributeDefService {
         return toDto(existing, req.translations() == null ? List.of() : req.translations());
     }
 
-    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查——属性集引用 + 商品 EAV 引用；force=true 级联删除） */
+    /** E-CAT-26：删除属性定义（TX-CAT-014；guard 409507 事务内复查——属性集引用 + 商品 EAV 引用） */
+    @CatalogAdminWrite
     @Transactional
-    public void delete(Long id, boolean force) {
+    public void delete(Long id) {
         AttributeDef existing = defRepository.findById(id);
         if (existing == null) {
             throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_NOT_FOUND);
@@ -131,35 +134,17 @@ public class AttributeDefService {
         long usage = setRepository.countItemsByAttributeId(id);
         long valueCount = attributeValueRepository.countByAttributeId(id);
 
-        if (!force && (usage > 0 || valueCount > 0)) {
-            // 非强制删除：检测到引用时返回 409507 并附带引用计数
+        if (usage > 0 || valueCount > 0) {
             Map<String, Object> meta = new HashMap<>();
             if (usage > 0) meta.put("attribute_set_count", usage);
             if (valueCount > 0) meta.put("product_value_count", valueCount);
             throw new CatalogException(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE, meta);
         }
 
-        // 强制删除：级联清理所有引用
-        if (force) {
-            if (usage > 0) {
-                setRepository.deleteItemsByAttributeId(id);
-                audit.record("删除属性定义（强制）", existing.getLabel(),
-                    "已级联删除 " + usage + " 个属性集引用");
-            }
-            if (valueCount > 0) {
-                attributeValueRepository.deleteByAttributeId(id);
-                audit.record("删除属性定义（强制）", existing.getLabel(),
-                    "已级联删除 " + valueCount + " 个商品属性值");
-            }
-        }
-
-        // 逻辑删除：设置 deleted_at = now()
-        AttributeDef patch = new AttributeDef();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        defRepository.update(patch);
+        // 物理删除：先清理翻译表，避免外键引用主记录
         defRepository.deleteTranslationsByDefId(id);
-        audit.record("删除属性定义", existing.getLabel(), force ? "（强制删除）" : null);
+        defRepository.deleteById(id);
+        audit.record("删除属性定义", existing.getLabel(), null);
         invalidateStoreCaches();
     }
 

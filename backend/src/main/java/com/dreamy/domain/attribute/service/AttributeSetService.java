@@ -1,7 +1,7 @@
 package com.dreamy.domain.attribute.service;
 
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.domain.attribute.entity.AttributeSet;
-import java.time.LocalDateTime;
 import com.dreamy.domain.attribute.entity.AttributeSetItem;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
@@ -73,6 +73,7 @@ public class AttributeSetService {
     }
 
     /** E-CAT-20：新增属性集（TX-CAT-009） */
+    @CatalogAdminWrite
     @Transactional
     public AttributeSetDto create(AttributeSetUpsert req) {
         List<AttributeSetItem> items = validate(req);
@@ -85,6 +86,7 @@ public class AttributeSetService {
     }
 
     /** E-CAT-21：编辑属性集（TX-CAT-010 矩阵 DELETE+INSERT 全量重写原子） */
+    @CatalogAdminWrite
     @Transactional
     public AttributeSetDto update(Long id, AttributeSetUpsert req) {
         AttributeSet existing = setRepository.findById(id);
@@ -106,6 +108,7 @@ public class AttributeSetService {
     }
 
     /** E-CAT-22：删除属性集（TX-CAT-011；guard 409503 事务内复查） */
+    @CatalogAdminWrite
     @Transactional
     public void delete(Long id) {
         AttributeSet existing = setRepository.findById(id);
@@ -117,9 +120,9 @@ public class AttributeSetService {
             throw new CatalogException(CatalogErrorCode.ATTRIBUTE_SET_IN_USE,
                     Map.of("category_count", categoryCount));
         }
+        // 物理删除：先清空属性集关联项，避免外键引用主记录
         setRepository.replaceItems(id, List.of());
-        // 逻辑删除：设置 deleted_at = now()
-        setRepository.markDeleted(id);
+        setRepository.deleteById(id);
         audit.record("删除属性集", existing.getLabel(), null);
     }
 

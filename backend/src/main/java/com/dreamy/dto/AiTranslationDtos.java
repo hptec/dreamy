@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * AI 翻译域 DTO 集（ai-translation-api.openapi.yml）。
- * L2 TRACE: i18n-backend-api-detail.md §2 / FUNC-008~013 / 决策2/6/10/14 / EDGE-001~005/015/016/017。
+ * 当前契约：ai-translation-api.openapi.yml v2；翻译日志、业务溯源字段和 Glossary 均已退役。
  */
 public final class AiTranslationDtos {
 
@@ -14,17 +14,15 @@ public final class AiTranslationDtos {
 
     /**
      * 翻译请求（TranslateRequest）。后端代理调用，API Key 不暴露给浏览器（决策2）。
-     * source_text ≤ 10000（EDGE-004 截断由 max_tokens 兜底，超长 422301 SOURCE_TEXT_TOO_LONG）；
-     * custom_requirement ≤ 500（EDGE-005）。
+     * Bean Validation 字段错误统一由 GatewayExceptionHandler 映射为 422201；
+     * source_text ≤ 10000，custom_requirement ≤ 500。
      */
     public record TranslateRequest(
             @NotBlank @Size(max = 8) String sourceLang,
             @NotBlank @Size(max = 8) String targetLang,
             @NotBlank @Size(max = 10000) String sourceText,
             @Size(max = 500) String customRequirement,
-            @Size(max = 128) String model,
-            @NotBlank @Size(max = 32) String bizType,
-            @NotBlank @Size(max = 64) String bizRef) {
+            @Size(max = 128) String model) {
     }
 
     /**

@@ -1096,7 +1096,7 @@ export type ModelRefreshStrategy = typeof ModelRefreshStrategy[keyof typeof Mode
 export const GatewayErrorCode = {
   CONFIG_NOT_FOUND: 404201,
   NAME_EXISTS: 409201,
-  CONFIG_REFERENCED: 409202,
+  EDIT_CONFLICT: 409202,
   FIELD_VALIDATION_FAILED: 422201,
   API_KEY_DECRYPTION_FAILED: 422202,
   NOT_AI_GATEWAY: 400201,
@@ -1110,12 +1110,12 @@ export const AiTranslateErrorCode = {
   // 后端 GatewayErrorCode.NO_AI_GATEWAY_CONFIGURED = 403202（无可用 AI 网关 → 引导前往配置）
   NO_ENABLED_GATEWAY: 403202,
   INVALID_MODEL: 400302,
-  FIELD_VALIDATION_FAILED: 422301,
+  FIELD_VALIDATION_FAILED: 422201,
   GATEWAY_CALL_FAILED: 502301,
   GATEWAY_TIMEOUT: 504301,
 } as const
 
-/** 网关可用模型（/v1/models 自动发现，GatewayModel schema） */
+/** 管理端模型选项；API 的 modelList 字符串在 store/component 中映射为此结构。 */
 export interface GatewayModel {
   id: string
   name: string
@@ -1135,16 +1135,28 @@ export interface GatewayConfigUpsert {
   modelRefreshIntervalMin?: number | null
   enabled: boolean
   extraConfig?: Record<string, unknown> | null
+  /** 更新必填，创建时省略；后端以此执行原子 CAS。 */
+  version?: number
 }
 
 /** 网关配置详情（GatewayConfigDetail schema，含掩码 Key + 模型列表） */
-export interface GatewayConfigDetail extends GatewayConfigUpsert {
+export interface GatewayConfigDetail {
   id: number
+  gatewayType: GatewayType
+  name: string
+  protocol: GatewayProtocol
+  baseUrl: string
   /** API Key 掩码展示（前缀+后4位，如 sk-or-****3f8a） */
   apiKeyMasked: string
-  /** 后端暂时返回字符串数组，前端兼容包装；TODO: 后端改为 GatewayModel[] */
-  modelList: (GatewayModel | string)[]
+  defaultModel?: string | null
+  modelList: string[]
+  modelRefreshStrategy?: ModelRefreshStrategy | null
+  modelRefreshIntervalMin?: number | null
   modelsSyncedAt?: string | null
+  consecutiveFailures: number
+  enabled: boolean
+  extraConfig?: Record<string, unknown> | null
+  version: number
   createdAt?: string | null
   updatedAt?: string | null
 }
@@ -1165,8 +1177,6 @@ export interface TranslateRequest {
   sourceText: string
   customRequirement?: string | null
   model?: string | null
-  bizType?: string | null
-  bizRef?: string | null
 }
 
 /** AI 翻译响应（TranslateResponse schema） */

@@ -23,9 +23,9 @@
 
 ## JetCache 缓存策略（消费端只读接口）
 
-- **REQ-005-10 分级与级数**：会话/凭证类（活跃会话列表、token 有效性）**仅远程 Redis 单级**（不挂本地 Caffeine），TTL **30s**，避免多实例本地残留导致已下线会话仍可用；资料/配置类（用户资料、登录方式列表、AuthConfig）本地 Caffeine + 远程 Redis 两级，TTL AuthConfig **10min**、用户资料/登录方式 **5min**。
+- **REQ-005-10 分级与级数**：会话兼容键仅远程 Redis 单级（不挂本地 Caffeine），TTL **30s**；当前实例的 token 有效性始终读取 DB session/admin 状态。资料/配置类（用户资料、登录方式列表、AuthConfig）本地 Caffeine + 远程 Redis 两级，TTL AuthConfig **10min**、用户资料/登录方式 **5min**。
 - **REQ-005-11 写失效**：所有写操作（绑定/解绑、换主邮箱、会话撤销、账户禁用/注销、AuthConfig 保存）即时 `@CacheInvalidate`/`@CacheUpdate`。
-- **REQ-005-12 强一致**：会话/凭证类仅走 Redis 单级，账户禁用/强制下线/注销写 Redis 后立即全集群生效，无本地缓存残留窗口。
+- **REQ-005-12 强一致**：账户禁用/强制下线/注销提交 DB 状态后，所有当前实例后续请求均按 DB 权威状态立即拒绝；Redis 兼容键删除失败不形成授权窗口。
 - **REQ-005-13 key 规范**：`store:authconfig`、`store:user:{userId}`、`store:identities:{userId}`（两级）；`store:sessions:{userId}`、`store:session:valid:{tokenId}`（仅 Redis）。
 
 ## 验收场景
@@ -47,9 +47,9 @@ Scenario: REQ-005-09 新设备登录通知
   Then 发送新设备提醒邮件且 login_history.notified=true
 
 Scenario: REQ-005-12 强制下线全集群即时生效
-  Given 会话有效性仅缓存于远程 Redis（无本地副本）
+  Given 所有当前实例均以 DB session/admin 状态作为会话授权依据
   When 管理员强制下线该会话
-  Then Redis 写失效后所有后端实例后续请求均判定会话已撤销，无残留窗口
+  Then DB 撤销提交后所有后端实例后续请求均判定会话已撤销，Redis 兼容键删除失败也无残留授权窗口
 
 Scenario: REQ-005-11 解绑后缓存即时失效
   Given store:identities:{userId} 已缓存

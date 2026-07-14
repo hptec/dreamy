@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 后台商品整单提交载荷（E-CAT-09/11；status/kind 等枚举为字符串，V-CAT 校验器落 422501）。
+ * 后台商品整单提交载荷（E-CAT-09/11；status/kind 等枚举使用 IntEnum key，V-CAT 校验器落 422501）。
  * updated_at 为编辑端可选回传（无 SKU 纯定制商品的并发防丢失比对，E-CAT-11 STEP-CAT-03 → 409508）。
  * L2 TRACE: openapi AdminProductUpsert / V-CAT-023~038。
  */

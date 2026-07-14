@@ -33,7 +33,7 @@ export function updateConfig(id: number, body: GatewayConfigUpsert): Promise<Gat
   return put<GatewayConfigDetail>(`/api/admin/gateway/configs/${id}`, body)
 }
 
-/** 删除配置（被翻译日志引用时返回 409202） */
+/** 物理删除配置。 */
 export function deleteConfig(id: number): Promise<void> {
   return del<void>(`/api/admin/gateway/configs/${id}`)
 }

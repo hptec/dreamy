@@ -19,11 +19,18 @@ if [ -d "/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home
   export JAVA_HOME="/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home"
 fi
 
-# 网关 API Key AES-256 密钥：dev 默认值已写入 backend/src/main/resources/application.yml
-# （dreamy.gateway.aes-key 配置项，生产可通过环境变量 DREAMY_GATEWAY_AES_KEY 覆盖注入独立密钥）。
-# GatewayCryptoService @PostConstruct fail-fast：必须配置且解码后严格 32 字节。
-# 注意：dev key 必须稳定不可随机——已加密的 api_key_encrypted 密文用此密钥加密，
-# 更换会导致存量密文无法解密。
+# 敏感配置没有代码库默认值。启动前必须显式注入，防止开发凭据被误带到部署环境。
+missing=()
+for variable in DB_PASSWORD STORE_JWT_SECRET ADMIN_JWT_SECRET DREAMY_GATEWAY_AES_KEY; do
+  if [ -z "${!variable:-}" ]; then
+    missing+=("${variable}")
+  fi
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo "[backend] 错误: 缺少必需环境变量: ${missing[*]}" >&2
+  echo "[backend] JWT 密钥需至少 32 字节且两端不同；AES 密钥需为 Base64 编码的 32 字节稳定密钥。" >&2
+  exit 1
+fi
 
 echo "[backend] 检查端口 ${PORT} 占用..."
 # 仅匹配 LISTEN 进程：lsof -t -i 会把连到该端口的客户端进程（浏览器/IM 等）也列出来，不能 kill

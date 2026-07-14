@@ -130,14 +130,10 @@ public class AdminFlashSaleService {
         if (existing.getStatus() != FlashSaleStatus.DRAFT) {
             throw MarketingException.stateInvalid("only_draft_deletable");
         }
-        // STEP-MKT-03 物理删除三表 + 审计
-        // 逻辑删除：设置 deleted_at = now()
-        FlashSale patch = new FlashSale();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        flashSaleRepository.update(patch);
+        // STEP-MKT-03 物理删除三表 + 审计（先清关联与译文，再删主表）
         flashSaleRepository.deleteProductsByFlashId(id);
         flashSaleRepository.deleteTranslationsByFlashId(id);
+        flashSaleRepository.deleteById(id);
         audit.record("删除闪购", existing.getName(), null);
         // STEP-MKT-04 draft 无消费端可见性，不失效不发 MQ
     }

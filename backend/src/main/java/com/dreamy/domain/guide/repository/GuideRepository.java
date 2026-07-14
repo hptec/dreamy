@@ -28,7 +28,6 @@ public class GuideRepository {
     /** RM-MKT-080 listStorePublished —— ORDER BY phase ASC, id ASC（E-MKT-08，phase 字典序即阶段序） */
     public List<Guide> listStorePublished() {
         return guideMapper.selectList(new LambdaQueryWrapper<Guide>()
-                .isNull(Guide::getDeletedAt)
                 .eq(Guide::getStatus, PublishStatus.PUBLISHED)
                 .orderByAsc(Guide::getPhase)
                 .orderByAsc(Guide::getId));
@@ -45,8 +44,7 @@ public class GuideRepository {
 
     /** RM-MKT-082 findById */
     public Guide findById(Long id) {
-        Guide e = id == null ? null : guideMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : guideMapper.selectById(id);
     }
 
     /** RM-MKT-083 insert */

@@ -3,12 +3,15 @@ package com.dreamy.domain.attribute.service;
 import com.dreamy.domain.attribute.entity.AttributeDef;
 import com.dreamy.domain.attribute.repository.AttributeDefRepository;
 import com.dreamy.domain.attribute.repository.AttributeSetRepository;
+import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.enums.AttributeType;
 import com.dreamy.dto.AdminCatalogDtos.AttributeDefUpsert;
 import com.dreamy.dto.TranslationDtos.AttributeDefTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.infra.CatalogAuditRecorder;
+import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.infra.CatalogCacheService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +24,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -36,7 +42,13 @@ class AttributeDefServiceTest {
     @Mock
     AttributeSetRepository setRepository;
     @Mock
+    ProductAttributeValueRepository attributeValueRepository;
+    @Mock
     CatalogAuditRecorder audit;
+    @Mock
+    CatalogCacheService cache;
+    @Mock
+    CatalogAfterCommitRunner afterCommit;
     @InjectMocks
     AttributeDefService service;
 
@@ -118,11 +130,52 @@ class AttributeDefServiceTest {
         existing.setLabel("Silhouette");
         when(defRepository.findById(1L)).thenReturn(existing);
         when(setRepository.countItemsByAttributeId(1L)).thenReturn(2L);
-        assertThatThrownBy(() -> service.delete(1L, false))
+        when(attributeValueRepository.countByAttributeId(1L)).thenReturn(0L);
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(CatalogException.class)
                 .satisfies(ex -> {
                     CatalogException ce = (CatalogException) ex;
                     assertThat(ce.getErrorCode()).isEqualTo(CatalogErrorCode.ATTRIBUTE_DEF_IN_USE);
                     assertThat(ce.getDetails()).containsEntry("attribute_set_count", 2L);
                 });
+        verify(attributeValueRepository).countByAttributeId(1L);
+        verify(defRepository, never()).deleteTranslationsByDefId(anyLong());
+        verify(defRepository, never()).deleteById(anyLong());
+    }
+
+    @Test
+    @DisplayName("TX-CAT-014 [P0]: 商品 EAV 引用同样阻止删除并返回计数")
+    void productValueReferenceBlocksDelete() {
+        AttributeDef existing = new AttributeDef();
+        existing.setId(1L);
+        existing.setLabel("Silhouette");
+        when(defRepository.findById(1L)).thenReturn(existing);
+        when(setRepository.countItemsByAttributeId(1L)).thenReturn(0L);
+        when(attributeValueRepository.countByAttributeId(1L)).thenReturn(3L);
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(CatalogException.class)
+                .satisfies(ex -> assertThat(((CatalogException) ex).getDetails())
+                        .containsEntry("product_value_count", 3L));
+
+        verify(defRepository, never()).deleteTranslationsByDefId(anyLong());
+        verify(defRepository, never()).deleteById(anyLong());
+    }
+
+    @Test
+    @DisplayName("TX-CAT-014 [P0]: 无引用时先删译文，再物理删除属性定义")
+    void deleteCleansTranslationsBeforePhysicalDelete() {
+        AttributeDef existing = new AttributeDef();
+        existing.setId(1L);
+        existing.setLabel("Silhouette");
+        when(defRepository.findById(1L)).thenReturn(existing);
+        when(setRepository.countItemsByAttributeId(1L)).thenReturn(0L);
+        when(attributeValueRepository.countByAttributeId(1L)).thenReturn(0L);
+
+        service.delete(1L);
+
+        org.mockito.InOrder cleanup = org.mockito.Mockito.inOrder(defRepository);
+        cleanup.verify(defRepository).deleteTranslationsByDefId(1L);
+        cleanup.verify(defRepository).deleteById(1L);
     }
 }

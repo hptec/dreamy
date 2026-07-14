@@ -1,5 +1,6 @@
 package com.dreamy.infra.stripe;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -31,4 +32,17 @@ public class StripeProperties {
 
     /** webhook 时间戳容差秒数（防重放窗口） */
     private long webhookToleranceSeconds = 300L;
+
+    @PostConstruct
+    void validateRealModeSecrets() {
+        if (!"real".equalsIgnoreCase(mode)) {
+            return;
+        }
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("STRIPE_SECRET_KEY must be configured when STRIPE_MODE=real");
+        }
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            throw new IllegalStateException("STRIPE_WEBHOOK_SECRET must be configured when STRIPE_MODE=real");
+        }
+    }
 }

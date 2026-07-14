@@ -126,13 +126,9 @@ public class AdminCouponService {
         if (existing.getUsedCount() != null && existing.getUsedCount() > 0) {
             throw MarketingException.stateInvalid("has_redemptions");
         }
-        // STEP-MKT-04 物理删除双表 + 审计
-        // 逻辑删除：设置 deleted_at = now()
-        Coupon patch = new Coupon();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        couponRepository.update(patch);
+        // STEP-MKT-04 物理删除双表 + 审计（先清译文，再删主表）
         couponRepository.deleteTranslationsByCouponId(id);
+        couponRepository.deleteById(id);
         audit.record("删除优惠券", existing.getCode(), null);
     }
 

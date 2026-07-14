@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -164,7 +166,24 @@ class AdminCategoryServiceTest {
         assertThatThrownBy(() -> service.delete(1L))
                 .satisfies(ex -> assertThat(((CatalogException) ex).getDetails())
                         .containsEntry("reason", "has_children"));
+        verify(categoryRepository, never()).deleteTranslationsByCategoryId(anyLong());
         verify(categoryRepository, never()).deleteById(anyLong());
+    }
+
+    @Test
+    @DisplayName("TX-CAT-008 [P0]: 无商品无子分类时先删译文，再物理删除分类")
+    void deletePhysicallyAfterTranslations() {
+        Category leaf = category(1, null, 1, 100L);
+        when(categoryRepository.findById(1L)).thenReturn(leaf);
+        when(categoryRepository.listAll()).thenReturn(List.of(leaf));
+        when(productRepository.countByCategoryAll()).thenReturn(Map.of());
+        when(categoryRepository.countByParentId(1L)).thenReturn(0L);
+
+        service.delete(1L);
+
+        InOrder deletion = inOrder(categoryRepository);
+        deletion.verify(categoryRepository).deleteTranslationsByCategoryId(1L);
+        deletion.verify(categoryRepository).deleteById(1L);
     }
 
     @Test

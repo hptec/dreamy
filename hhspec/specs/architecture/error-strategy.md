@@ -24,7 +24,7 @@
 |------|------|------|------|
 | identity 既有 | 5 位：HTTP(3)+序号(2) | 40000~50401 | baseline（不改动） |
 | 新七域（portal-api-integration） | 6 位：HTTP(3)+域段(1)+序号(2) | catalog=5/trading=6/marketing=7/review=8/shipping=9/analytics=0/showroom=1 | baseline（不改动） |
-| i18n 新增三域 | 6 位：HTTP(3)+域段(1)+序号(2) | gateway=2、ai_translation=3、glossary=4 | baseline（不改动） |
+| i18n 活跃域 | 6 位：HTTP(3)+域段(1)+序号(2) | gateway=2、ai_translation=3 | glossary=4 已退役，历史错误码仅供迁移追溯 |
 | **site_builder 新增** | **6 位：HTTP(3)+域段(1)+序号(2)** | **site_builder=8** | **本 change** |
 
 高 3 位恒对应 HTTP 状态；同域同 HTTP 状态下序递增。集中码表维护在 site-builder-api.openapi.yml info 码表，本表为权威汇总。
@@ -55,7 +55,7 @@
 | 422808 | FIELD_VALIDATION_FAILED | 422 | 字段校验失败 | 其他字段级校验（如 sort_order 负数、enabled 非 boolean） | — |
 | 500801 | SITE_BUILDER_INTERNAL_ERROR | 500 | 站点装修内部错误 | 数据库异常、未捕获异常 | — |
 | 500802 | CACHE_INVALIDATION_FAILED | 500 | 缓存失效失败（降级记录，不阻断主流程） | publisher.publish 失败 | — |
-| 502801 | BANNER_SERVICE_UNAVAILABLE | 502 | Banner 服务不可用（跨域调用失败） | BannerSvc.findByPosition 异常 | EDGE-017 |
+| 502801 | BANNER_SERVICE_UNAVAILABLE | 502 | Banner 服务不可用（跨域调用失败） | StoreBannerService.list(HERO, locale) 异常 | EDGE-019 |
 | 502802 | TAXONOMY_SERVICE_UNAVAILABLE | 502 | Taxonomy 服务不可用 | TaxonomySvc.findByType 异常 | — |
 | 502803 | WEDDING_SERVICE_UNAVAILABLE | 502 | Wedding 服务不可用 | WeddingSvc.fetchStoreWeddings 异常 | — |
 | 502804 | PRODUCT_SERVICE_UNAVAILABLE | 502 | Product 服务不可用 | ProductSvc.findByIds 异常 | — |
@@ -99,7 +99,7 @@
 | EDGE-014 公告 priority+时间窗冲突 | FLOW-SB04 | 409804 | 拒绝，details.conflict_id 指示冲突公告 |
 | EDGE-015 公告启停不影响时间窗 | FLOW-SB04 | — | 接受（启停独立于时间窗） |
 | EDGE-016 所有 section disabled | FLOW-SB05 | — | 返回空数组，不报错 |
-| EDGE-017 Hero Banner 不存在 | FLOW-SB05 | 502801 | 省略 Hero 区块 + WARN 日志，不阻断聚合 |
+| EDGE-017 无有效 Hero Banner | FLOW-SB05 | — | 正常省略 Hero 区块，不记录错误、不阻断聚合 |
 | EDGE-018 i18n locale 缺失 | FLOW-SB05 | — | 三层回退（locale→en→主表字段） |
 | EDGE-019 跨域全失败 | FLOW-SB05 | 502801/802/803/804 | 各自降级空数据，仍返回 custom 类型 section |
 | EDGE-020 缓存击穿 | FLOW-SB05 | — | singleflight 合并并发重建 |
@@ -114,7 +114,7 @@
 
 | 调用方 | 被调方 | 失败场景 | 降级策略 | 错误码 |
 |--------|--------|---------|---------|--------|
-| StoreContentService (FLOW-SB05 Hero) | BannerSvc.findByPosition | Banner 表异常 / 不存在 | 省略 Hero 区块 + WARN 日志，不阻断首页聚合 | 502801 |
+| StoreContentService (FLOW-SB05 Hero) | StoreBannerService.list(HERO, locale) | Banner 查询异常 | 省略 Hero 区块 + WARN 日志，不阻断首页聚合 | 502801 |
 | StoreContentService (FLOW-SB05 ThemeCards) | TaxonomySvc.findByType | Taxonomy 表异常 | 降级空 themes 数组 + WARN 日志 | 502802 |
 | StoreContentService (FLOW-SB05 ProductRail) | ProductSvc.findByIds/findNewArrivals | Product 表异常 | 降级空 products 数组 + WARN 日志 | 502804 |
 | StoreContentService (FLOW-SB05 EditorialFeature) | WeddingSvc.fetchStoreWeddings | Wedding 表异常 | 降级空 weddings 数组 + WARN 日志 | 502803 |

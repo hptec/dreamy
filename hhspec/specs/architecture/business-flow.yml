@@ -50,7 +50,7 @@ flows:
         action: 跨域引用校验（KD-BE-5 Service 接口调用，不跨表查询）
         type: integration
         sub_actions:
-          - Hero → BannerService.findByPosition(HERO) 校验有 published Banner
+          - Hero → 仅校验全表最多一条 Hero section；不绑定单 Banner，运行时由 StoreBannerService.list(HERO, locale) 返回全部有效 Banner
           - ThemeCards → TaxonomyService.findByType(theme) 校验存在
           - ProductRail source=recommend → ProductService.findByIds 校验 product_ids
           - EditorialFeature → WeddingService.findByIds 校验 wedding_ids
@@ -313,14 +313,14 @@ flows:
     trigger: 管理员编辑并发布商品或内容（Banner/Blog/Lookbook 等同模式）
     reuse_context: |
       本变更复用基线 Banner 发布链路：图片预签名上传 → 保存 → 发布 → 审计 → MQ → JetCache @CacheInvalidate + Next.js revalidatePath + CDN purge。
-      KD-2 Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner，Banner 自身状态机不变（state-machine.yml > banner_status source=baseline）。
+      KD-2 Hero 区块通过 StoreBannerService 查询 position=1(HERO) && status=2(PUBLISHED) 的 Banner，Banner 自身状态机不变（state-machine.yml > banner_status source=baseline）。
       新增 event type（home_section_changed/navigation_changed/announcement_changed）复用同一 MQ 链路与消费端 InvalidateEventConsumer。
     relevant_to: [home_builder_publish_flow, navigation_config_publish_flow, announcement_publish_flow, banner_lifecycle]
     key_steps:
       - n: 1
         action: 管理员编辑 Banner/商品/内容 + 权限校验 + 图片预签名上传
       - n: 2
-        action: 保存草稿 → 发布（state_transition: product_lifecycle/banner_lifecycle draft→published）
+        action: '保存草稿 → 发布（state_transition: product_lifecycle/banner_lifecycle draft→published）'
       - n: 3
         action: 记录 OperationLog 审计
       - n: 4
@@ -359,7 +359,7 @@ flows:
       - n: 2
         action: 事务双写 banner + banner_translation（@Transactional，基线 AdminBannerService 已实现）
       - n: 3
-        action: 状态转换（state_transition: banner_status draft→published publish / published→archived take_offline / archived→published republish / *→deleted delete）
+        action: '状态转换（state_transition: banner_status draft→published publish / published→archived take_offline / archived→published republish / *→deleted delete）'
         entity: Banner
       - n: 4
         action: MarketingAuditRecorder 记审计 + after-commit 发布 TYPE_BANNER_CHANGED 到 RabbitMQ + MarketingCacheService.invalidateFamily(BANNERS) + CDN purge
@@ -419,13 +419,13 @@ open_questions:
 
   - id: BF-OQ-4
     topic: Hero 区块无 HERO Banner 时的降级策略
-    question: 'home_builder_publish_flow 跨域校验 Hero → BannerService.findByPosition(HERO) 无结果时，Hero 区块应如何降级？'
+    question: 'home_builder_publish_flow 的唯一 Hero section 运行时调用 StoreBannerService.list(HERO, locale) 无结果时，Hero 区块应如何降级？'
     options:
       - '方案 A：Hero 区块不渲染（跳过该 sort_order，消费端无感知）'
       - '方案 B：Hero 区块渲染占位文案（如"敬请期待"i18n 文案）'
       - '方案 C：管理端 Hero 区块保存时强制校验至少有一条 published HERO Banner，否则拒绝保存'
     impact: '影响消费端首页渲染稳定性、管理端保存校验逻辑'
-    recommendation: '方案 A（不渲染，简单可靠，对齐其他区块 enabled=false 时不渲染的模式）'
+    recommendation: '已实施方案 A：省略整个 Hero section，不显示静态图文或空白占位；多条结果则全部放入 data.banners[] 轮播。'
 
   - id: BF-OQ-5
     topic: 跨 domain Service 接口的失败降级

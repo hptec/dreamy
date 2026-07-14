@@ -12,5 +12,4 @@ public interface AttributeDefDBConst extends CatalogCommonDBConst {
     String LABEL = "label";
     String TYPE = "type";
     String OPTIONS = "options";
-    public static final String DELETED_AT = "deleted_at";
 }

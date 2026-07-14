@@ -1,5 +1,7 @@
 meta:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_traceability
+  superseded_by: specs/design/i18n-runtime-status.md
   generated_at: '2026-06-16T21:40:00Z'
   generated_by: L2 Coordinator (Phase 5.5 + R1修复 ISS-007 错位修正)
   total_requirements: 22

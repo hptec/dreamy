@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,12 +63,13 @@ import java.util.Map;
 
 /**
  * catalog 域种子数据初始化（决策 21：从 frontend portal-store mock（data/products.ts）提炼
- * 商品/分类/属性集/标签样例 + 三语 translation）。幂等：product 表非空即跳过（按业务键查→缺则建，
- * 与 identity DataInitializer 同惯例——Long 自增主键无法硬编码 id）。
+ * 商品/分类/属性集/集合样例 + 三语 translation）。仅显式 demo 模式启用；任一 Catalog 主表已有
+ * 数据即整体跳过，绝不清空或覆盖运营数据。
  * 同时登记 RBAC 权限点 /attribute-sets（BE-DIM-6 本域新增权限点之一；/products、/categories 已在 identity 种子）。
  */
 @Component
 @Order(20)
+@ConditionalOnProperty(prefix = "dreamy.seed", name = "demo-enabled", havingValue = "true")
 public class CatalogSeedInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogSeedInitializer.class);
@@ -126,7 +128,10 @@ public class CatalogSeedInitializer {
     @Transactional
     public void init() {
         ensureAttributeSetsPermission();
-        clearCatalogData();
+        if (hasCatalogData()) {
+            log.info("[CatalogSeed] 检测到既有 Catalog 数据，跳过演示数据初始化");
+            return;
+        }
         Map<String, Long> defs = seedAttributeDefs();
         Map<String, Long> sets = seedAttributeSets(defs);
         Map<String, Long> categories = seedCategories(sets);
@@ -135,19 +140,17 @@ public class CatalogSeedInitializer {
         log.info("[CatalogSeed] catalog 种子数据初始化完成");
     }
 
-    /** 清空 catalog 相关表（FK 检查临时关闭，启动时全量重建） */
-    private void clearCatalogData() {
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
-        for (String table : List.of(
-                "product_attribute_value", "product_collection", "product_image",
-                "product_translation", "sku", "size_chart_row", "product",
-                "attribute_set_item", "attribute_set", "attribute_def",
-                "category_translation", "category",
-                "collection_translation", "product_collection", "collection", "collection_group_translation", "collection_group")) {
-            jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
-        }
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
-        log.info("[CatalogSeed] catalog 数据已清空，准备重建");
+    /** 任一聚合根已有数据都视为已初始化；防止部分真实数据被 demo 数据混入或覆盖。 */
+    private boolean hasCatalogData() {
+        Integer exists = jdbcTemplate.queryForObject("""
+                SELECT EXISTS(SELECT 1 FROM product LIMIT 1)
+                     OR EXISTS(SELECT 1 FROM category LIMIT 1)
+                     OR EXISTS(SELECT 1 FROM attribute_def LIMIT 1)
+                     OR EXISTS(SELECT 1 FROM attribute_set LIMIT 1)
+                     OR EXISTS(SELECT 1 FROM collection_group LIMIT 1)
+                     OR EXISTS(SELECT 1 FROM collection LIMIT 1)
+                """, Integer.class);
+        return exists != null && exists > 0;
     }
 
     /** RBAC 权限点 /attribute-sets（幂等按 perm_code）+ 绑定超管角色 */

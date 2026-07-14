@@ -59,8 +59,7 @@ const isEdit = computed(() => props.editing != null)
 const savedConfig = ref<GatewayConfigDetail | null>(null)
 const modelList = computed(() => {
   const raw = savedConfig.value?.modelList ?? props.editing?.modelList ?? []
-  // 后端暂时返回字符串数组，前端容错包装成 {id, name} 对象数组
-  return raw.map((m) => (typeof m === 'string' ? { id: m, name: m } : m))
+  return raw.map((id) => ({ id, name: id }))
 })
 
 watch(
@@ -126,6 +125,8 @@ async function submit() {
         modelRefreshIntervalMin:
           form.value.modelRefreshStrategy === ModelRefreshStrategy.SCHEDULED ? form.value.modelRefreshIntervalMin : null,
         enabled: form.value.enabled,
+        extraConfig: savedConfig.value?.extraConfig ?? props.editing?.extraConfig ?? null,
+        version: targetId == null ? undefined : (savedConfig.value?.version ?? props.editing?.version),
       },
       targetId,
     )
@@ -141,6 +142,8 @@ async function submit() {
     if (e instanceof BizError) {
       if (e.code === GatewayErrorCode.NAME_EXISTS) {
         errors.value = { name: '配置名称已存在' }
+      } else if (e.code === GatewayErrorCode.EDIT_CONFLICT) {
+        toast.error('配置已被其他操作修改，请关闭后重新打开再编辑')
       } else if (e.code === GatewayErrorCode.FIELD_VALIDATION_FAILED) {
         errors.value = extractFieldErrors(e)
         if (!Object.keys(errors.value).length) toast.error(e.message)

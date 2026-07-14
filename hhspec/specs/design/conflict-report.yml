@@ -1,5 +1,7 @@
 meta:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_design
+  superseded_by: specs/design/i18n-runtime-status.md
   generated_at: '2026-06-16T21:45:00Z'
   generated_by: L2 Coordinator (Phase 5冲突检测 + R1修复后重检)
   conflict_dimensions_checked: 18  # CFL-01~18

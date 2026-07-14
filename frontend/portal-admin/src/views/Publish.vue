@@ -46,7 +46,11 @@ const resourceTypeOptions = [
 ]
 
 // 状态徽章配置
-const statusConfig = computed(() => ({
+const statusConfig = computed<Partial<Record<number, {
+  tone: string
+  label: string
+  icon: typeof ArrowPathIcon
+}>>>(() => ({
   0: { tone: 'warn', label: '处理中', icon: ArrowPathIcon },
   1: { tone: 'ok', label: '已完成', icon: CheckCircleIcon },
   2: { tone: 'error', label: '失败', icon: XCircleIcon },

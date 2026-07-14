@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -45,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -174,6 +176,62 @@ class AdminProductServiceTest {
         verify(translationRepository).deleteByProductId(11L);
         verify(attributeValueRepository).deleteByProductId(11L);
         verify(audit).record(eq("删除商品"), any(), any());
+        ArgumentCaptor<Runnable> afterCommitAction = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommit).run(afterCommitAction.capture());
+        afterCommitAction.getValue().run();
+        verify(cache).invalidateProductSlug("aurelia-gown");
+    }
+
+    @Test
+    @DisplayName("E-CAT-09 [P0]: 创建后立即清除同 slug 负缓存")
+    void createInvalidatesPreexistingSlugNegativeCacheAfterCommit() {
+        AdminProductUpsert req = upsertWithSku(
+                new SkuDto(null, "AUR-IVORY-2", "Ivory", "US 2", 5, null));
+        when(categoryRepository.findById(1L)).thenReturn(new Category());
+        when(skuRepository.existsBySkuCodes(anyCollection(), eq((Long) null))).thenReturn(List.of());
+        doAnswer(invocation -> {
+            Product inserted = invocation.getArgument(0);
+            inserted.setId(42L);
+            return null;
+        }).when(productRepository).insert(any(Product.class));
+        when(productRepository.findById(42L)).thenAnswer(invocation -> {
+            Product inserted = new Product();
+            inserted.setId(42L);
+            inserted.setName("Aurelia");
+            inserted.setSlug("aurelia-gown");
+            inserted.setCategoryId(1L);
+            inserted.setPrice(new BigDecimal("1280"));
+            inserted.setStatus(ProductStatus.PUBLISHED);
+            return inserted;
+        });
+
+        service.create(req);
+
+        ArgumentCaptor<Runnable> afterCommitAction = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommit).run(afterCommitAction.capture());
+        afterCommitAction.getValue().run();
+        verify(cache).invalidateProductSlug("aurelia-gown");
+    }
+
+    @Test
+    @DisplayName("E-CAT-11 [P0]: 整单编辑提交后失效商品、推荐、分类与集合缓存")
+    void updateInvalidatesAllAffectedCatalogFamiliesAfterCommit() {
+        Product existing = published(10L);
+        when(productRepository.findById(10L)).thenReturn(existing);
+        when(categoryRepository.findById(1L)).thenReturn(new Category());
+        when(skuRepository.existsBySkuCodes(anyCollection(), eq(10L))).thenReturn(List.of());
+
+        service.update(10L, upsertWithSku(
+                new SkuDto(null, "AUR-IVORY-2", "Ivory", "US 2", 5, null)));
+
+        ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommit).run(action.capture());
+        action.getValue().run();
+        verify(cache).invalidateProductSlug("aurelia-gown");
+        verify(cache).invalidateFamily(CatalogCacheService.Family.PRODUCTS);
+        verify(cache).invalidateFamily(CatalogCacheService.Family.RECO);
+        verify(cache).invalidateFamily(CatalogCacheService.Family.CATEGORIES);
+        verify(cache).invalidateFamily(CatalogCacheService.Family.COLLECTIONS);
     }
 
     @Test

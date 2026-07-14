@@ -35,7 +35,6 @@ public class LookbookRepository {
     /** RM-MKT-060 listStorePublished —— ORDER BY id DESC（E-MKT-06） */
     public List<Lookbook> listStorePublished() {
         return lookbookMapper.selectList(new LambdaQueryWrapper<Lookbook>()
-                .isNull(Lookbook::getDeletedAt)
                 .eq(Lookbook::getStatus, PublishStatus.PUBLISHED)
                 .orderByDesc(Lookbook::getId));
     }
@@ -43,7 +42,6 @@ public class LookbookRepository {
     /** RM-MKT-061 findByIdPublished */
     public Lookbook findByIdPublished(Long id) {
         return lookbookMapper.selectOne(new LambdaQueryWrapper<Lookbook>()
-                .isNull(Lookbook::getDeletedAt)
                 .eq(Lookbook::getId, id)
                 .eq(Lookbook::getStatus, PublishStatus.PUBLISHED));
     }
@@ -59,8 +57,7 @@ public class LookbookRepository {
 
     /** RM-MKT-063 findById */
     public Lookbook findById(Long id) {
-        Lookbook e = id == null ? null : lookbookMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : lookbookMapper.selectById(id);
     }
 
     /** RM-MKT-064 insert */

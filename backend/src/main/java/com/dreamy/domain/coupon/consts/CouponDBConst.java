@@ -13,5 +13,4 @@ public interface CouponDBConst extends MarketingCommonDBConst {
     String MIN_AMOUNT = "min_amount";
     String TOTAL_LIMIT = "total_limit";
     String USED_COUNT = "used_count";
-    public static final String DELETED_AT = "deleted_at";
 }

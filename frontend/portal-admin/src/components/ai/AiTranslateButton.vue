@@ -13,13 +13,11 @@ const props = withDefaults(
     /** EN 主字段源文本 */
     sourceText: string
     targetLang: 'es' | 'fr'
-    bizType: string
-    bizRef?: string | null
     fieldLabel?: string
     /** 紧凑模式（仅图标，用于行内/卡片密集场景） */
     compact?: boolean
   }>(),
-  { bizRef: null, fieldLabel: '', compact: false },
+  { fieldLabel: '', compact: false },
 )
 
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
@@ -58,8 +56,6 @@ function onConfirm(text: string) {
       :open="open"
       :source-text="sourceText"
       :target-lang="targetLang"
-      :biz-type="bizType"
-      :biz-ref="bizRef"
       :field-label="fieldLabel"
       @confirm="onConfirm"
       @close="open = false"

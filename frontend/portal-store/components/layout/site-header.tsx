@@ -135,7 +135,7 @@ export function SiteHeader({
                   <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-blush text-[9px] text-white">{wishlist.length}</span>
                 )}
               </Link>
-              <Link href={accountHref} className="p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.accountAria}>
+              <Link href={accountHref} className="hidden p-2 transition-colors hover:text-gold-deep sm:block" aria-label={t.layout.header.accountAria}>
                 <User className="h-5 w-5" />
               </Link>
               <button onClick={() => setCartOpen(true)} className="relative cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.cartAria}>

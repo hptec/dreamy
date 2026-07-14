@@ -88,7 +88,8 @@ public class StoreReviewService {
 
         // STEP-REV-01 查缓存（key 不含 locale——评价内容不翻译）
         String cacheKey = pid + ":" + parsedSort.getKey() + ":" + parsedPage + ":" + parsedSize;
-        Object cached = cache.get(Family.REVIEWS, cacheKey);
+        ReviewCacheService.Lookup lookup = cache.lookup(Family.REVIEWS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof ReviewPageSnapshot snapshot) {
             return toListDto(snapshot);
         }
@@ -108,7 +109,7 @@ public class StoreReviewService {
         // STEP-REV-06 装配 + 写缓存 TTL 300s（空页同样缓存）
         ReviewPageSnapshot snapshot = new ReviewPageSnapshot(items, reviewPage.getTotal(), parsedPage,
                 parsedSize, summary.avg(), summary.count(), summary.breakdown());
-        cache.put(Family.REVIEWS, cacheKey, snapshot);
+        cache.put(lookup, snapshot);
         return toListDto(snapshot);
     }
 

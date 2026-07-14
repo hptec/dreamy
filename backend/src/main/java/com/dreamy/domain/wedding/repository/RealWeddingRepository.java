@@ -35,7 +35,6 @@ public class RealWeddingRepository {
     /** RM-MKT-040 pageStorePublished —— status='published' ORDER BY wedding_date DESC, id DESC（IDX-MKT-008） */
     public Page<RealWedding> pageStorePublished(int page, int pageSize) {
         return weddingMapper.selectPage(new Page<>(page, pageSize), new LambdaQueryWrapper<RealWedding>()
-                .isNull(RealWedding::getDeletedAt)
                 .eq(RealWedding::getStatus, PublishStatus.PUBLISHED)
                 .orderByDesc(RealWedding::getWeddingDate)
                 .orderByDesc(RealWedding::getId));
@@ -44,7 +43,6 @@ public class RealWeddingRepository {
     /** RM-MKT-041 findByIdPublished */
     public RealWedding findByIdPublished(Long id) {
         return weddingMapper.selectOne(new LambdaQueryWrapper<RealWedding>()
-                .isNull(RealWedding::getDeletedAt)
                 .eq(RealWedding::getId, id)
                 .eq(RealWedding::getStatus, PublishStatus.PUBLISHED));
     }
@@ -61,8 +59,7 @@ public class RealWeddingRepository {
 
     /** RM-MKT-043 findById */
     public RealWedding findById(Long id) {
-        RealWedding e = id == null ? null : weddingMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : weddingMapper.selectById(id);
     }
 
     /** RM-MKT-044 insert */

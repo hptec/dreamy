@@ -31,8 +31,12 @@ export const fieldI18nPolicy: Record<string, Record<string, FieldI18nPolicy>> = 
     name: 'translate',
     description: 'translate',
   },
-  tag: {
-    label: 'translate',
+  collection_group: {
+    name: 'translate',
+    description: 'translate',
+  },
+  collection: {
+    name: 'translate',
   },
   banner: {
     title: 'translate',

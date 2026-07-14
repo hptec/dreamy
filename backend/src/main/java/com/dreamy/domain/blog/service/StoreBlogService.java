@@ -47,7 +47,8 @@ public class StoreBlogService {
     public Paginated<StoreBlogPostCard> page(String category, int page, int pageSize, String locale) {
         // STEP-MKT-01 查 JetCache marketing:blogs:{category|all}:{page}:{page_size}:{locale}
         String cacheKey = (category == null ? "all" : category) + ":" + page + ":" + pageSize + ":" + locale;
-        Object cached = cache.get(Family.BLOGS, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.BLOGS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof Paginated<?> hit) {
             return (Paginated<StoreBlogPostCard>) hit;
         }
@@ -59,7 +60,7 @@ public class StoreBlogService {
         Paginated<StoreBlogPostCard> paginated = MarketingPaginatedSupport.of(result,
                 post -> toCard(post, translations.get(post.getId())));
         // STEP-MKT-04 写缓存
-        cache.put(Family.BLOGS, cacheKey, paginated);
+        cache.put(lookup, paginated);
         return paginated;
     }
 
@@ -71,7 +72,8 @@ public class StoreBlogService {
         }
         // STEP-MKT-01 查 JetCache marketing:blog:{slug}:{locale}（null 值 60s）
         String cacheKey = slug + ":" + locale;
-        Object cached = cache.get(Family.BLOG, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.BLOG, cacheKey);
+        Object cached = lookup.value();
         if (cache.isNullMarker(cached)) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
@@ -82,14 +84,14 @@ public class StoreBlogService {
         // STEP-MKT-02 点查（uk_blog_slug）；不存在/未发布 → null 缓存 60s → 404701
         BlogPost post = blogPostRepository.findBySlugPublished(slug);
         if (post == null) {
-            cache.putNullMarker(Family.BLOG, cacheKey);
+            cache.putNullMarker(lookup);
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-03 translation 覆盖（EN seo_title=title、seo_description=excerpt 派生，主表不建 seo 列）
         BlogPostTranslation t = translationsFor(List.of(post.getId()), locale).get(post.getId());
         StoreBlogPostDetail detail = toDetail(post, t);
         // STEP-MKT-04 写缓存
-        cache.put(Family.BLOG, cacheKey, detail);
+        cache.put(lookup, detail);
         // STEP-MKT-05 views 异步累加（源站命中才计数，fire-and-forget——DEC-MKT-6）
         viewsCounter.increment(post.getId());
         return detail;

@@ -36,7 +36,7 @@ pages:
       - path: donut 无 /analytics 权限
         assert: [donut 卡主体 EmptyState「暂无权限查看」, KPI/待办/趋势正常渲染（页面不整体报错）]
       - path: 待办瓦片
-        assert: [恰 3 瓦片（待发货订单/退款待审批/待审核评价）(DEC-ANA-FE-3), 计数 tone 色（danger/danger/info）, 点击跳转 /orders?status=paid、/refunds、/reviews, hover border-gold 效果保持]
+        assert: [恰 3 瓦片（待发货订单/退款待审批/待审核评价）(DEC-ANA-FE-3), 计数 tone 色（danger/danger/info）, "点击跳转 /orders?status=paid、/refunds、/reviews", hover border-gold 效果保持]
       - path: 快捷入口
         assert: [3 项（新增商品/新建优惠券/写一篇文章）, 指向 /products/new、/marketing/promotions、/content/blog]
       - path: 商品/用户总览与最近发布卡片
@@ -60,7 +60,7 @@ pages:
       - path: 销售 tab 渲染（E-ANA-02 数据）
         assert: [KPI 4 卡同 Dashboard 口径且无环比小字, GMV 趋势 SparkArea 30 桶, 品类占比条形列表（名称+share%+条宽=share%）]
       - path: 流量 tab（source_status=ok）
-        assert: [访客来源条形列表 source 中文映射（自然搜索/直接访问/社交/外链/付费/邮件）按 sessions 降序, 设备占比三数值（移动端/桌面端/平板）share% 与 token 色（gold-deep/sage/blush）保持, 角标「数据时间 HH:mm」可见]
+        assert: [访客来源条形列表 source 中文映射（自然搜索/直接访问/社交/外链/付费/邮件）按 sessions 降序, 设备占比三数值（移动端/桌面端/平板）share% 与 token 色（gold-deep/sage/blush）保持, "角标「数据时间 HH:mm」可见"]
       - path: 流量 tab 降级（source_status=unavailable 或 502/504）
         assert: [访客来源与设备占比卡主体 EmptyState「数据暂不可用」+ 重试按钮, 点击重试触发 refetch, 销售 tab 数据不受影响（切回正常）, 502 失败时出现 toast]
       - path: 漏斗 tab

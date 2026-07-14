@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * 预签名入参校验/降级单元测试（决策 9）。
- * L2 TRACE: TC-CAT-015 / TC-CAT-073（502501 单测面）/ V-CAT-069~071 / E-CAT-35。
+ * L2 TRACE: TC-CAT-015 / TC-CAT-073（502501 单测面）/ V-CAT-069~071 / E-CAT-38。
  */
 @ExtendWith(MockitoExtension.class)
 class CatalogPresignServiceTest {

@@ -5,13 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.TimeUnit;
 
 /**
  * site_builder 域缓存服务（FLOW-SB10）。
- * 两级缓存：L1 Caffeine in-process + L2 JetCache Redis。
- * 失效链：cache.invalidateFamily（事务内）+ publisher.publish（事务外）。
- * GRD-W01：in-process 调用，非 HTTP 自调。
+ * site_builder 失效信号。消费端聚合当前直接读 DB/下游服务，不在此组件缓存响应；
+ * 版本号供后续缓存接入时作为共享 namespace，避免把通配符当普通 Redis key 删除。
  */
 @Service
 public class SiteBuilderCacheService {
@@ -47,28 +45,13 @@ public class SiteBuilderCacheService {
 
     private void invalidateFamily(String family, String eventType) {
         try {
-            redisTemplate.delete(family + ":*");
-            redisTemplate.convertAndSend("site_builder:cache:invalidation", eventType + ":" + family);
-            log.info("[SiteBuilderCache] invalidated family={}", family);
+            Long version = redisTemplate.opsForValue().increment(family + ":generation");
+            redisTemplate.convertAndSend("site_builder:cache:invalidation",
+                    eventType + ":" + family + ":" + version);
+            log.info("[SiteBuilderCache] invalidated family={} generation={}", family, version);
         } catch (Exception e) {
             log.error("[SiteBuilderCache] invalidation failed family={} (non-blocking)", family, e);
         }
     }
 
-    public String getCached(String key) {
-        try {
-            return redisTemplate.opsForValue().get(key);
-        } catch (Exception e) {
-            log.warn("[SiteBuilderCache] cache get failed key={}", key, e);
-            return null;
-        }
-    }
-
-    public void setCached(String key, String value, long ttlMinutes) {
-        try {
-            redisTemplate.opsForValue().set(key, value, ttlMinutes, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            log.warn("[SiteBuilderCache] cache set failed key={}", key, e);
-        }
-    }
 }

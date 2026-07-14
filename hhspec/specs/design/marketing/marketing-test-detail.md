@@ -15,8 +15,8 @@
 | TC-MKT-005 | coupon status-时间窗一致性：scheduled 要求 start_at>now（bs-786）；active 要求窗口内；expiring/expired 创建禁入 → 422704 | V-MKT-026 | P0 |
 | TC-MKT-006 | 翻译回退合并：es 命中附表逐字段覆盖、缺翻译字段回退 EN、fr 部分缺失逐字段回退（banner/blog/wedding/lookbook/guide/coupon/flash 七类同函数） | 决策 13 / MAP-MKT-001~011 | P0 |
 | TC-MKT-007 | blog excerpt 派生：EN content strip 标记截断 200；es 取 translation.excerpt；translation.excerpt 空回退 EN 派生 | MAP-MKT-003 | P1 |
-| TC-MKT-008 | banner 窗口过滤谓词：start/end 空端开放；now<start 不出；now>end 不出；窗口内 published 出；archived/draft 不出 | E-MKT-01 STEP-MKT-02 / DEC-MKT-2 | P0 |
-| TC-MKT-009 | banner 迁移 guard 纯函数：合法集 {draft→published, published→archived, archived→published}；published→draft / draft→archived 拒绝（409703 异常类型） | E-MKT-25 STEP-MKT-03；bs-733~738 | P0 |
+| TC-MKT-008 | banner 窗口过滤谓词：start/end 空端开放；now<start 不出；now>end 不出；窗口内 status=2(PUBLISHED) 出；status=1/3 不出 | E-MKT-01 STEP-MKT-02 / DEC-MKT-2 | P0 |
+| TC-MKT-009 | banner 迁移 guard 纯函数：合法集 {1→2, 2→3, 3→2}；2→1 / 1→3 拒绝（409703 异常类型） | E-MKT-25 STEP-MKT-03；bs-733~738 | P0 |
 | TC-MKT-010 | blog 迁移 guard：draft→published 记 published_at 且 slug 必填；archived→published 不刷新 published_at；draft→archived 拒绝 | E-MKT-31 STEP-MKT-03 / CV-MKT-012；bs-739~743 | P0 |
 | TC-MKT-011 | coupon/flash 时间窗翻转纯函数：SCHED 输入 now 边界（=start_at、=end_at、end-72h）翻转判定正确 | RM-MKT-109/126 / DEC-MKT-3 | P0 |
 | TC-MKT-012 | code/email 归一化：code trim+大写后判重与校验；email trim+小写幂等判重 | CV-MKT-008 | P1 |
@@ -33,8 +33,8 @@
 | TC-MKT-018 | TX-MKT-004 闪购整单：flash_sale+product+translation 批插原子；product_ids 引用不存在 → 422704 无脏行 | V-MKT-035；bs-699 | P0 |
 | TC-MKT-019 | 缓存命中/失效链（JetCache）：E-MKT-03 首读落库写缓存→二读命中；编辑文章后 `marketing:blog:{slug}:*` 全 locale 失效→读到新值；改 slug 旧 key 一并失效 | CACHE-MKT-003 / TX-MKT-012 | P0 |
 | TC-MKT-020 | 穿透保护：不存在 slug/id 首读写 null 缓存（60s）→ 二读不触 DB 仍 404701（blog/wedding/lookbook 三详情） | BE-DIM-8 | P1 |
-| TC-MKT-021 | Banner 写失效扇面：toggle/编辑/删除后 `marketing:banners:*` 全 position×locale 失效；MQ content.invalidated 载荷 type=banner_changed + locales×3 | TX-MKT-007~010 | P0 |
-| TC-MKT-022 | SCHED-MKT-01 闪购自动下线：active 活动 end_at 过期 → 下一 tick status=ended + `marketing:flash:*` 失效 + MQ flash_sale_changed（s-761，TASK-060） | RM-MKT-126 / FLOW-P15 | P0 |
+| TC-MKT-021 | Banner 写失效扇面：toggle/编辑/物理删除提交后 Redis `marketing:cache-generation:banners` 原子 +1，两个应用实例的下一次读均切换新代；失效前已开始的回填只写旧代、不污染新代；服务重启不命中无代际旧 Hero key；MQ content.invalidated 载荷 type=banner_changed + locales×3 | CACHE-MKT-001 / TX-MKT-007~010 | P0 |
+| TC-MKT-022 | SCHED-MKT-01 闪购自动下线：status=3(ACTIVE) 活动 end_at 过期 → 下一 tick status=4(ENDED) + `marketing:flash:*` 失效 + MQ flash_sale_changed（s-761，TASK-060） | RM-MKT-126 / FLOW-P15 | P0 |
 | TC-MKT-023 | SCHED-MKT-01 券翻转链：scheduled→active（到 start）→expiring（end-72h 内）→expired（过 end）三段推进；**不发 MQ** | RM-MKT-109 / DEC-MKT-3 | P0 |
 | TC-MKT-024 | SCHED-MKT-01 banner 窗口穿越：start_time 进入窗口 → 失效+MQ 但 **status 不变**；end_time 移出同理（DEC-MKT-2） | RM-MKT-008 | P0 |
 | TC-MKT-025 | SCHED 分布式锁：双实例并发 tick → 仅一方执行翻转（锁拿不到跳过）；翻转幂等（重复执行无二次副作用） | TX-MKT-029；bs-582~584/798~804 同型 | P1 |
@@ -73,19 +73,19 @@
 
 | TC | 内容 | 溯源 | P |
 |---|---|---|---|
-| TC-MKT-046 | store 内容读链路：banners(position 三值+缺省)→blogs(category+分页)→blog/{slug}→weddings(分页)→wedding/{id}→lookbooks→lookbook/{id}→guides 全通；en/es/fr 三语各断言翻译/回退 | E-MKT-01~08 | P0 |
-| TC-MKT-047 | store 读边界：page_size=100 通过、101 拒绝；page=0 拒绝；locale 非法 422704；position 非法 422704；空结果空集不报错 | V-MKT-001/002/004 | P1 |
+| TC-MKT-046 | store 内容读链路：banners(position=1/2/3 + 缺省)→blogs(category+分页)→blog/{slug}→weddings(分页)→wedding/{id}→lookbooks→lookbook/{id}→guides 全通；StoreBanner.position 响应保持数字 1/2/3；en/es/fr 三语各断言翻译/回退 | E-MKT-01~08 | P0 |
+| TC-MKT-047 | store 读边界：page_size=100 通过、101 拒绝；page=0 拒绝；locale 非法 422704；position=0/4/字符串 非法均 422704；空结果空集不报错 | V-MKT-001/002/004 | P1 |
 | TC-MKT-048 | 内容详情 404 口径：不存在 slug/id、draft 内容、slug pattern 非法、id 非数字 → 一律 404701（防探测同口径） | V-MKT-005/006 | P0 |
 | TC-MKT-049 | flash-sales：active 活动返回含 products+end_at；draft/scheduled/ended 不出现；无活动空 items | E-MKT-09 | P0 |
 | TC-MKT-050 | 券校验 E2E：valid 三类型各一（金额断言 TC-MKT-002 口径）；422701/422702/422703 三 reason 均 200+valid=false；无 token 401(40100)；code 格式错 422704；不存在券不回显 coupon 对象 | E-MKT-10 | P0 |
 | TC-MKT-051 | newsletter：合法三 source×三 locale 通过；email 256 超长/格式错（bs-543/544）、source 非法（bs-545）、locale 非法（bs-546）→ 422704；重复订阅 200（TC-MKT-028 复用断言）；匿名可调且无鉴权要求（bs-649~651 公开端点语义收口：断言无 401 + WAF 层限流声明，不存在 viewer 越权面） | E-MKT-11；bs-379~383/543~546/649~651 | P0 |
 | TC-MKT-052 | contact：合法 201；name101/email256/subject201/message5001 超长（bs-547~551）、必填缺失（bs-385/386/388）逐一 422704；subject 缺省通过（bs-387）；匿名可调（bs-652~654 同 TC-MKT-051 收口口径） | E-MKT-12；bs-384~389/547~551/652~654 | P0 |
-| TC-MKT-053 | admin 券 CRUD 全链路：create(201)→list(筛选 status/search)→update(200)→delete(204)；draft 删除成功、active 删除 409703、used_count>0 删除 409703、active 改 code 409703、code 重复 409701 | E-MKT-13~16 | P0 |
+| TC-MKT-053 | admin 券 CRUD 全链路：request/response status 均为 CouponStatus 1..5，list 省略 status=全部、传 1..5 筛选，字符串 `all`/0/6 → 422704；status=1/5 删除成功、3 删除 409703、used_count>0 删除 409703、status=3 改 code 409703、code 重复 409701 | E-MKT-13~16 | P0 |
 | TC-MKT-054 | 券必填/极值族穷举：code/name/type/value 缺失（bs-198~201）、可选 null 通过（bs-197/202~207）、code33/name65/value33 超长（bs-480/481/483）、type 非法（bs-482）、min_amount/total_limit 负值（bs-484/485）、start/end 格式与 end≤start（bs-486~488）→ 全部 422704 | bs-197~207/480~488 逐条 | P0 |
-| TC-MKT-055 | admin 闪购 CRUD：create→list(status 筛选)→update→delete；ended 编辑 409703、非 draft 删除 409703、id 不存在 404703；必填缺失（bs-208~210）/可选 null（bs-211~213）/name65/discount33/end≤start（bs-489~491）→ 422704；product_ids 含不存在 → 422704（bs-699） | E-MKT-17~20；bs-208~213/489~491/699 | P0 |
-| TC-MKT-056 | admin Banner 全链路：create→list(position 筛选)→update→toggle(三合法迁移+三非法 409703)→delete；必填缺失（bs-030~032/036/037 status/sort）/可选 null（bs-029/033/034/035 clicks 只读派生——提交忽略断言）/position 非法（bs-398）/时间格式与 end≤start（bs-399/400）→ 422704 | E-MKT-21~25；bs-029~037/398~400 | P0 |
-| TC-MKT-057 | admin 文章全链路：create(draft 无 slug 可)→get→update→patch status（publish 缺 slug 422704；publish 记 published_at）→delete；title 缺失（bs-039）/可选 null（bs-038/040~047）/status 非法（bs-401）/slug 129+pattern（bs-402）→ 422704；slug 重复 409702（创建与编辑排除自身两路径） | E-MKT-26~31；bs-038~047/401/402 | P0 |
-| TC-MKT-058 | admin 案例/Lookbook/指南三族 CRUD+status：必填缺失（bs-225 couple/bs-215 title/bs-219·221 phase·title）、可选 null（bs-214/216~218/220/222~224/226~230）、长度极值（bs-492~505 逐条：lookbook title129/theme33、guide phase33/timeframe65/title129/tasks_count 负、wedding couple65/location129/theme33/date17/cover513）、status 非法（bs-494/499/505）→ 422704；product_ids 不存在 → 422704（bs-700/701）；id 不存在 404701 | E-MKT-32~46；bs-214~230/492~505/700/701 | P0 |
+| TC-MKT-055 | admin 闪购 CRUD：request/response status 均为 FlashSaleStatus 1..4，list 省略 status=全部、传 1..4 筛选，字符串 `all`/0/5 → 422704；status=4 编辑 409703、非 1 删除 409703、id 不存在 404703；必填/极值/product_ids 错误仍 422704 | E-MKT-17~20；bs-208~213/489~491/699 | P0 |
+| TC-MKT-056 | admin Banner 全链路：create/update 请求与 Banner 响应的 position/status 均为 IntEnum 1/2/3；list(position=1/2/3) 筛选；toggle body status=1/2/3，覆盖三合法迁移与三非法 409703；字符串枚举、0/4、必填缺失（bs-030~032/036/037 status/sort）、时间格式与 end≤start（bs-399/400）均 422704；delete 物理删除 | E-MKT-21~25；bs-029~037/398~400 | P0 |
+| TC-MKT-057 | admin 文章全链路：request/response/query/PATCH status 均为 ContentStatus 1..3，list 省略 status=全部，字符串 `all`/0/4 → 422704；create(status=1 无 slug 可)→get→update→patch 2（缺 slug 422704，成功记 published_at）→patch 3→delete；slug 重复 409702 | E-MKT-26~31；bs-038~047/401/402 | P0 |
+| TC-MKT-058 | admin 案例/Lookbook/指南三族 request/response/query/PATCH status 均为 PublishStatus 1/2，list 省略 status=全部，字符串 `all`/0/3 → 422704；其余必填/长度/product_ids/id 错误保持既有码表 | E-MKT-32~46；bs-214~230/492~505/700/701 | P0 |
 | TC-MKT-059 | RBAC/鉴权：无 token 401(40100)、store token 打 admin 端点 401、缺 `/promotions`·`/banners`·`/content/blog`·`/content/weddings`·`/content/lookbook` 权限 key 各 403(40300)（bs-627~632 越权流程含券核销/闪购管理写操作） | bs-627~632 | P0 |
 | TC-MKT-060 | 失效链 E2E（s-758/FUNC-006）：发布文章 → 5s 内 ①JetCache 新值 ②MQ 消费者收到 blog_changed ③revalidate 回调被调（mock Next 端点断言 /blog+/blog/{slug} ×3 locale）④purge 被调；Banner toggle 同链路（type=banner_changed，路径 /） | FLOW-P03；TASK-056 | P0 |
 | TC-MKT-061 | 闪购下线 E2E：active 活动过期 → SCHED tick → store flash-sales 不再返回 + 失效链四步（TC-MKT-060 口径）；倒计时数据 end_at 与 DB 一致 | TASK-060 / FLOW-P15 | P0 |
@@ -95,14 +95,14 @@
 
 | TC | 内容 | P |
 |---|---|---|
-| TC-MKT-063 | Promotions.vue：券 status/search 服务端参数传递；删除按钮 draft/expired 外置灰预判；409701 code inline；CouponFormDrawer value pattern 按 type 切换占位与校验；三语 tab 部分提交载荷正确（translations 仅含编辑过 locale） | P0 |
-| TC-MKT-064 | Banners.vue：Toggle 三态映射（draft→published/published→archived/archived→published）；乐观更新失败回滚；sort blur 提交整单载荷；「已过窗」派生角标 | P0 |
+| TC-MKT-063 | Promotions.vue：CouponStatus/FlashSaleStatus filter 与表单均传数字 key，选择“全部”时省略参数；删除按钮按 1/5 外置灰预判；409701 code inline；CouponFormDrawer value pattern 与 translations 载荷正确 | P0 |
+| TC-MKT-064 | Banners.vue：BannerPosition/Status 常量均传数字；Toggle 三态映射（1→2/2→3/3→2）；乐观更新失败回滚；sort blur 整单载荷保持 position/status 数字；「已过窗」派生角标 | P0 |
 | TC-MKT-065 | ContentBlog.vue + BlogEditDrawer：publish 缺 slug 前端预判提示；409702 slug inline；预览链接 slug 空置灰；archived tab 筛选参数 | P0 |
 | TC-MKT-066 | Weddings/Lookbook 表单：商品选择器（搜索防抖/chip 去重/移除）；422704 fields.product_ids 选择器区 inline | P1 |
 | TC-MKT-067 | NewsletterModal/footer：email 预校验不发请求；成功确认文案（无折扣码话术）；重复提交 UI 与首次一致；exit-intent 触发 source=exit_intent 载荷；sessionStorage 防重弹 | P0 |
 | TC-MKT-068 | Contact 表单：必填预校验；422704 字段红框分发；成功态切换；5xx 重试按钮 | P1 |
 | TC-MKT-069 | Checkout 券码切面：Apply 大写归一；valid=false reason_code 三文案行内（不阻断下一步）；valid=true 减免行渲染 + couponCode 写入触发 requestQuote；未登录跳 login | P0 |
-| TC-MKT-070 | 首页营销区块：hero 空回退静态；FlashSaleRail 空不渲染；倒计时到期本地隐藏；topbar 轮播数据源切换空回退 | P1 |
+| TC-MKT-070 | 首页营销区块：两个有效 HERO Banner 按 sort/id 输出并轮播，前后/指示点/暂停/键盘/滑动可切换，减少动效时不自动播放；Hero banners 空时整段不渲染且无静态回退；FlashSaleRail 空不渲染；倒计时到期本地隐藏；topbar 轮播数据源切换空回退 | P1 |
 | TC-MKT-071 | Blog/Wedding 店面页：ISR 404701→notFound()；es 路径翻译渲染+缺翻译回退 EN；wedding 详情 Shop the Look 卡片渲染、空 products 区块不渲染 | P0 |
 
 ## 7. 韧性测试（RST，BE-DIM-5）
@@ -126,11 +126,11 @@
 
 ## 9. 测试数据工厂（FACTORY-MKT）
 
-- F-Coupon（五 status 各一、三 type、有/无门槛、limit=5 可耗尽/缺省不限、有/无时间窗、含 es/fr 翻译、used_count 预置变体）
-- F-FlashSale（draft/scheduled/active/ended、过期边界 end_at=now±1min、挂 0/3 商品、含翻译）
-- F-Banner（三 position、三 status、窗口 前/中/后/空端、含 EN 文案列与 es/fr 翻译、sort 序列）
-- F-BlogPost（draft 无 slug / published 有 slug、category 两组、含 es 全量/fr 部分翻译——回退测试、views 预置）
-- F-RealWedding / F-Lookbook / F-Guide（draft/published、挂 0/N 商品、含翻译与 EN 文案列变体）
+- F-Coupon（status={1,2,3,4,5} 各一、三 type、有/无门槛、limit=5 可耗尽/缺省不限、有/无时间窗、含 es/fr 翻译、used_count 预置变体）
+- F-FlashSale（status={1,2,3,4}、过期边界 end_at=now±1min、挂 0/3 商品、含翻译）
+- F-Banner（position={1,2,3}、status={1,2,3}，窗口 前/中/后/空端，含 EN 文案列与 es/fr 翻译、sort 序列）
+- F-BlogPost（status=1 无 slug / status=2 有 slug / status=3 已归档、category 两组、含 es 全量/fr 部分翻译——回退测试、views 预置）
+- F-RealWedding / F-Lookbook / F-Guide（status={1,2}、挂 0/N 商品、含翻译与 EN 文案列变体）
 - F-NewsletterSubscriber（三 source×三 locale、大小写变体 email）/ F-ContactMessage（subject 有/无）
 - F-MqEvent（content.invalidated 各 type 含重复 event_id 变体）
 - F-AdminToken（含/缺 /promotions·/banners·/content/blog·/content/weddings·/content/lookbook key）/ F-StoreToken（券校验登录态 + 跨端误用）

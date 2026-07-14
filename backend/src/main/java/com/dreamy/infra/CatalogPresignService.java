@@ -16,9 +16,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * catalog 域预签名上传服务（E-CAT-35；媒体基建由 catalog 域代管，五 scope 共用——决策 9/FLOW-P17）。
+ * catalog 域预签名上传服务（E-CAT-38；媒体基建由 catalog 域代管，四 scope 共用——决策 9/FLOW-P17）。
  * 读侧基建：不写 operation_log、不发 MQ、不缓存（STEP-CAT-04）。
- * L2 TRACE: V-CAT-069~071 / E-CAT-35 STEP-CAT-01~04 / TC-CAT-015。
+ * L2 TRACE: V-CAT-069~071 / E-CAT-38 STEP-CAT-01~04 / TC-CAT-015。
  */
 @Service
 public class CatalogPresignService {

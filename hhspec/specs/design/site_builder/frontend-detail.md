@@ -127,7 +127,7 @@ StoreLayout (COMP-066)
 # portal-store/app/[locale]/page.tsx
 HomePage (COMP-075, 改造为动态渲染)
 └── HomeSection (COMP-076) × N
-    ├── HeroSection (COMP-077, 从 Banner position=HERO 派生)
+    ├── HomeHeroCarousel (COMP-077, 从 data.banners[] 渲染多 Banner 轮播)
     ├── ThemeCardsSection (COMP-078, 从 taxonomy type=theme 派生)
     ├── ProductRailSection (COMP-079, 从 product 派生)
     ├── EditorialFeatureSection (COMP-080, 从 weddings 派生)
@@ -255,7 +255,7 @@ HomePage (COMP-075, 改造为动态渲染)
 
 | 页面 | 渲染模式 | 缓存 |
 |------|---------|------|
-| 首页 / | force-dynamic（KD-1） | 后端两级缓存（JetCache + in-process） |
+| 首页 / | force-dynamic（KD-1） | 后端内容缓存；Hero 以 `data.banners[]` 轮播，扁平首张字段仅作滚动部署兼容 |
 | 任意页面 header/footer | force-dynamic | 后端缓存，消费端 layout.tsx 调用 API |
 | 公告条 | force-dynamic | 后端缓存 |
 

@@ -1,6 +1,5 @@
 package com.dreamy.domain.attribute.entity;
 
-import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
@@ -42,7 +41,4 @@ public class AttributeDef extends LongAuditableEntity {
     @Column(name = AttributeDefDBConst.OPTIONS, definition = "json NULL COMMENT '可选值列表（仅 select/multiselect）'")
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> options;
-
-    @Column(name = AttributeDefDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

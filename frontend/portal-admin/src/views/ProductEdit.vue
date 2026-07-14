@@ -25,7 +25,7 @@ import {
   PlusIcon, XMarkIcon, RocketLaunchIcon, ArrowLeftIcon, InformationCircleIcon, TrashIcon,
 } from '@heroicons/vue/24/outline'
 import { AttrVisibility, AttributeDefType, ImageKind, ProductStatus } from '@/api/types'
-import type { AdminProductDetail, AdminProductUpsert, ProductImage, ProductTranslation, SizeChartRow, FabricComposition } from '@/api/types'
+import type { AdminProductDetail, AdminProductUpsert, CareItem, ProductImage, ProductTranslation, SizeChartRow, FabricComposition } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -1226,8 +1226,6 @@ onMounted(async () => {
                       v-model="trans[l].name"
                       :source-text="form.name"
                       :target-lang="l"
-                      biz-type="product"
-                      :biz-ref="productId != null ? String(productId) : null"
                       field-label="商品名称"
                       compact
                     />
@@ -1248,8 +1246,6 @@ onMounted(async () => {
                         v-model="trans[l].sellingPoints[i]"
                         :source-text="form.sellingPoints[i] || ''"
                         :target-lang="l"
-                        biz-type="product"
-                        :biz-ref="productId != null ? String(productId) : null"
                         :field-label="`卖点 ${i + 1}`"
                         compact
                       />
@@ -1279,8 +1275,6 @@ onMounted(async () => {
                       v-model="trans[l].description"
                       :source-text="form.description"
                       :target-lang="l"
-                      biz-type="product"
-                      :biz-ref="productId != null ? String(productId) : null"
                       field-label="商品介绍"
                       compact
                     />
@@ -1295,8 +1289,6 @@ onMounted(async () => {
                       v-model="trans[l].designerNote"
                       :source-text="form.designerNote"
                       :target-lang="l"
-                      biz-type="product"
-                      :biz-ref="productId != null ? String(productId) : null"
                       field-label="设计师故事"
                       compact
                     />
@@ -1311,8 +1303,6 @@ onMounted(async () => {
                         v-model="trans[l].seoTitle"
                         :source-text="form.seoTitle"
                         :target-lang="l"
-                        biz-type="product"
-                        :biz-ref="productId != null ? String(productId) : null"
                         field-label="SEO Title"
                         compact
                       />
@@ -1326,8 +1316,6 @@ onMounted(async () => {
                         v-model="trans[l].seoDescription"
                         :source-text="form.seoDesc"
                         :target-lang="l"
-                        biz-type="product"
-                        :biz-ref="productId != null ? String(productId) : null"
                         field-label="SEO Description"
                         compact
                       />

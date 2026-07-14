@@ -56,7 +56,7 @@ class AnnouncementServiceTest {
         JsonNode contentI18n = objectMapper.readTree("{\"en\":{\"content\":\"Free shipping\"},\"es\":{\"content\":\"Envío gratis\"}}");
         upsert.setContentI18nJson(contentI18n);
 
-        when(repository.findOverlapByPriorityAndTime(any(), any(), any())).thenReturn(List.of());
+        when(repository.findOverlapByPriorityAndTimeForUpdate(any(), any(), any())).thenReturn(List.of());
         when(repository.insert(any(Announcement.class))).thenAnswer(i -> {
             ((Announcement) i.getArgument(0)).setId(1L);
             return 1;
@@ -80,7 +80,7 @@ class AnnouncementServiceTest {
 
         Announcement existing = new Announcement();
         existing.setId(99L);
-        when(repository.findOverlapByPriorityAndTime(any(), any(), any())).thenReturn(List.of(existing));
+        when(repository.findOverlapByPriorityAndTimeForUpdate(any(), isNull(), isNull())).thenReturn(List.of(existing));
 
         assertThatThrownBy(() -> service.create(upsert))
                 .isInstanceOf(SiteBuilderException.class)
@@ -189,7 +189,7 @@ class AnnouncementServiceTest {
         upsert.setEndAt(null);
         upsert.setContentI18nJson(objectMapper.readTree("{\"en\":{\"content\":\"Welcome\"}}"));
 
-        when(repository.findOverlapByPriorityAndTime(any(), any(), any())).thenReturn(List.of());
+        when(repository.findOverlapByPriorityAndTimeForUpdate(0, null, null)).thenReturn(List.of());
         when(repository.insert(any())).thenAnswer(i -> {
             ((Announcement) i.getArgument(0)).setId(1L);
             return 1;
@@ -197,6 +197,7 @@ class AnnouncementServiceTest {
 
         AnnouncementDto result = service.create(upsert);
         assertThat(result).isNotNull();
+        verify(repository).findOverlapByPriorityAndTimeForUpdate(0, null, null);
     }
 
     @Test
@@ -216,10 +217,39 @@ class AnnouncementServiceTest {
         Announcement self = new Announcement();
         self.setId(1L);
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
-        when(repository.findOverlapByPriorityAndTime(any(), any(), any())).thenReturn(List.of(self));
+        when(repository.findOverlapByPriorityAndTimeForUpdate(1, null, null)).thenReturn(List.of(self));
         when(repository.updateByIdAndVersion(any())).thenReturn(1);
 
         AnnouncementDto result = service.update(1L, upsert);
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    @DisplayName("连续两次更新使用响应版本，均成功并返回数据库下一版本")
+    void update_consecutiveUpdatesReturnNextVersion() throws Exception {
+        Announcement existing = new Announcement();
+        existing.setId(1L);
+        existing.setVersion(0);
+
+        AnnouncementUpsert upsert = new AnnouncementUpsert();
+        upsert.setEnabled(true);
+        upsert.setPriority(1);
+        upsert.setContentI18nJson(objectMapper.readTree("{\"en\":{\"content\":\"x\"}}"));
+        upsert.setVersion(0);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findOverlapByPriorityAndTimeForUpdate(1, null, null)).thenReturn(List.of(existing));
+        when(repository.updateByIdAndVersion(same(existing))).thenAnswer(invocation -> {
+            existing.setVersion(existing.getVersion() + 1);
+            return 1;
+        });
+
+        AnnouncementDto first = service.update(1L, upsert);
+        upsert.setVersion(first.getVersion());
+        AnnouncementDto second = service.update(1L, upsert);
+
+        assertThat(first.getVersion()).isEqualTo(1);
+        assertThat(second.getVersion()).isEqualTo(2);
+        verify(cacheService, times(2)).invalidateAnnouncementFamily();
     }
 }

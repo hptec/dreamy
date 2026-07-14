@@ -10,7 +10,7 @@ public interface CatalogCommonDBConst {
     String CREATED_AT = "created_at";
     String UPDATED_AT = "updated_at";
 
-    /** 状态列（product/tag 各自枚举语义） */
+    /** 状态列（product/collection 各自枚举语义） */
     String STATUS = "status";
 
     /** 排序列（category/product/product_image 共享语义） */

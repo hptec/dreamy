@@ -30,7 +30,6 @@ public class BannerRepository {
     /** RM-MKT-001 listStoreActive —— status='published' AND 窗口谓词（E-MKT-01 / DEC-MKT-2）ORDER BY sort, id */
     public List<Banner> listStoreActive(BannerPosition position, LocalDateTime now) {
         LambdaQueryWrapper<Banner> qw = new LambdaQueryWrapper<Banner>()
-                .isNull(Banner::getDeletedAt)
                 .eq(Banner::getStatus, ContentStatus.PUBLISHED)
                 .and(w -> w.isNull(Banner::getStartTime).or().le(Banner::getStartTime, now))
                 .and(w -> w.isNull(Banner::getEndTime).or().gt(Banner::getEndTime, now));
@@ -51,8 +50,7 @@ public class BannerRepository {
 
     /** RM-MKT-003 findById */
     public Banner findById(Long id) {
-        Banner e = id == null ? null : bannerMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : bannerMapper.selectById(id);
     }
 
     /** RM-MKT-004 insert */
@@ -94,7 +92,6 @@ public class BannerRepository {
     /** RM-MKT-008 listCrossedWindow —— published 且 start_time/end_time ∈ (lastTick, now]（SCHED-MKT-01④ 窗口边界穿越检测） */
     public List<Banner> listCrossedWindow(LocalDateTime lastTick, LocalDateTime now) {
         return bannerMapper.selectList(new LambdaQueryWrapper<Banner>()
-                .isNull(Banner::getDeletedAt)
                 .eq(Banner::getStatus, ContentStatus.PUBLISHED)
                 .and(w -> w
                         .and(s -> s.gt(Banner::getStartTime, lastTick).le(Banner::getStartTime, now))

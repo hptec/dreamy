@@ -23,7 +23,8 @@ interface StoreSectionCopy {
   description?: string | null
 }
 
-export interface StoreHeroData {
+export interface StoreHeroSlide {
+  id?: number | null
   title?: string | null
   subtitle?: string | null
   imageUrl?: string | null
@@ -31,6 +32,11 @@ export interface StoreHeroData {
   ctaLink?: string | null
   ctaTextSecondary?: string | null
   ctaLinkSecondary?: string | null
+}
+
+export interface StoreHeroData extends StoreHeroSlide {
+  /** 全部在线 HERO Banner，按后台 sort/id 顺序。扁平字段保留用于滚动部署兼容。 */
+  banners?: StoreHeroSlide[]
 }
 
 export interface StoreThemeCard {
@@ -130,6 +136,16 @@ function sectionData(value: unknown): Record<string, unknown> {
     : {}
 }
 
+function normalizeHeroData(data: Record<string, unknown>): StoreHeroData {
+  const legacy = data as StoreHeroSlide
+  const banners = Array.isArray(data.banners)
+    ? data.banners.filter((item): item is StoreHeroSlide => item !== null && typeof item === 'object')
+    : legacy.imageUrl
+      ? [legacy]
+      : []
+  return { ...legacy, banners }
+}
+
 function normalizeHomePage(page: RawStoreHomePage | null): StoreHomePage | null {
   if (!page) return null
 
@@ -140,7 +156,7 @@ function normalizeHomePage(page: RawStoreHomePage | null): StoreHomePage | null 
 
     switch (sectionType) {
       case 'hero':
-        return [{ sectionType, data: data as StoreHeroData }]
+        return [{ sectionType, data: normalizeHeroData(data) }]
       case 'themeCards':
         return [{ sectionType, data: data as StoreThemeCardsData }]
       case 'productRail':

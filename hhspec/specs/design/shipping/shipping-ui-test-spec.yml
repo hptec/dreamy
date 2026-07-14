@@ -27,7 +27,7 @@ pages:
     visual_baseline: [shipping-two-panels, shipping-carrier-drawer, shipping-rate-drawer, shipping-empty-state]
     interactions:
       - path: 首屏渲染（种子数据）
-        assert: [PageHeader eyebrow=Settings/标题=物流配置, 双 panel lg 栅格 1:1, 承运方面板 4 行（FedEx/UPS/DHL enabled Toggle 亮起 + USPS disabled Toggle 熄灭）, 邮费表 10 行含 'Rest of World' 兜底行, header 无「保存配置」按钮（DEC-SHP-FE-1）]
+        assert: [PageHeader eyebrow=Settings/标题=物流配置, "双 panel lg 栅格 1:1", 承运方面板 4 行（FedEx/UPS/DHL enabled Toggle 亮起 + USPS disabled Toggle 熄灭）, 邮费表 10 行含 'Rest of World' 兜底行, header 无「保存配置」按钮（DEC-SHP-FE-1）]
       - path: 承运方行结构
         assert: [name 13px font-medium text-ink, zones·时效 副行 12px text-ink-faint, Toggle 右对齐, rounded-luxe border-line 行容器保持]
       - path: Toggle 禁用承运方（非最后一个）

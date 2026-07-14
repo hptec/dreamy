@@ -10,6 +10,7 @@ import {
   ListboxOption
 } from '@headlessui/vue'
 import { CheckIcon, ChevronUpDownIcon, PlusIcon, XMarkIcon } from '@heroicons/vue/20/solid'
+import { Layer } from '@/api/types'
 import type { FabricComposition } from '@/api/types'
 
 interface Props {
@@ -30,11 +31,11 @@ const localCompositions = ref<FabricComposition[]>([])
 
 // Layer 映射
 const layerOptions = [
-  { value: 1, label: 'Shell' },
-  { value: 2, label: 'Lining' },
-  { value: 3, label: 'Overlay' },
-  { value: 4, label: 'Trim' }
-]
+  { value: Layer.Shell, label: 'Shell' },
+  { value: Layer.Lining, label: 'Lining' },
+  { value: Layer.Overlay, label: 'Overlay' },
+  { value: Layer.Trim, label: 'Trim' }
+] as const
 
 // Material 预设（字符串，常见面料）
 const materialPresets = [
@@ -52,13 +53,13 @@ const materialPresets = [
   'Elastane'
 ]
 
-function getLayerName(layer: number): string {
+function getLayerName(layer: Layer): string {
   return layerOptions.find(o => o.value === layer)?.label || `Layer ${layer}`
 }
 
 // 按 layer 分组
 const compositionsByLayer = computed(() => {
-  const groups = new Map<number, FabricComposition[]>()
+  const groups = new Map<Layer, FabricComposition[]>()
   localCompositions.value.forEach(comp => {
     if (!groups.has(comp.layer)) groups.set(comp.layer, [])
     groups.get(comp.layer)!.push(comp)
@@ -68,7 +69,7 @@ const compositionsByLayer = computed(() => {
 
 // 每层百分比总和校验
 const layerErrors = computed(() => {
-  const errors = new Map<number, string>()
+  const errors = new Map<Layer, string>()
   compositionsByLayer.value.forEach((items, layer) => {
     const sum = items.reduce((acc, c) => acc + (c.percentage || 0), 0)
     if (sum > 0 && Math.abs(sum - 100) > 0.01) {
@@ -81,7 +82,7 @@ const layerErrors = computed(() => {
 const hasErrors = computed(() => layerErrors.value.size > 0)
 
 // 添加行
-function addRow(layer: number) {
+function addRow(layer: Layer) {
   if (props.readonly) return
   localCompositions.value.push({
     layer,
@@ -134,7 +135,7 @@ watch(() => props.modelValue, (newVal) => {
     </div>
 
     <!-- 按 Layer 分组展示 -->
-    <div v-for="layer in [1, 2, 3, 4]" :key="layer" class="space-y-3">
+    <div v-for="{ value: layer } in layerOptions" :key="layer" class="space-y-3">
       <h4 class="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-luxe text-gold-deep">
         {{ getLayerName(layer) }}
         <span

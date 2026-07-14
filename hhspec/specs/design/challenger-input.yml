@@ -1,5 +1,7 @@
 challenger_input:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_review_input
+  superseded_by: specs/design/i18n-runtime-status.md
   design_dir: /Volumes/MAC/workspace/dreamy/hhspec/changes/i18n-complete-with-ai-assist/specs/design/
   requirement_sources:
     - hhspec/changes/i18n-complete-with-ai-assist/acceptance.yml

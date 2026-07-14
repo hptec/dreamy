@@ -38,7 +38,8 @@ public class StoreLookbookService {
     /** E-MKT-06：published 列表（不带 products） */
     @SuppressWarnings("unchecked")
     public List<StoreLookbook> list(String locale) {
-        Object cached = cache.get(Family.LOOKBOOKS, locale);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.LOOKBOOKS, locale);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreLookbook>) hit;
         }
@@ -49,7 +50,7 @@ public class StoreLookbookService {
         for (Lookbook lb : lookbooks) {
             items.add(toDto(lb, translations.get(lb.getId()), null));
         }
-        cache.put(Family.LOOKBOOKS, locale, items);
+        cache.put(lookup, items);
         return items;
     }
 
@@ -60,7 +61,8 @@ public class StoreLookbookService {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         String cacheKey = id + ":" + locale;
-        Object cached = cache.get(Family.LOOKBOOK, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.LOOKBOOK, cacheKey);
+        Object cached = lookup.value();
         if (cache.isNullMarker(cached)) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
@@ -69,7 +71,7 @@ public class StoreLookbookService {
         }
         Lookbook lookbook = lookbookRepository.findByIdPublished(id);
         if (lookbook == null) {
-            cache.putNullMarker(Family.LOOKBOOK, cacheKey);
+            cache.putNullMarker(lookup);
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-03 nm → catalogQueryPort（同 E-MKT-05 剔除口径，单次批调 NP-MKT-002）
@@ -78,7 +80,7 @@ public class StoreLookbookService {
                 ? List.of() : catalogQueryPort.listProductRefs(productIds, locale);
         LookbookTranslation t = translationsFor(List.of(id), locale).get(id);
         StoreLookbook dto = toDto(lookbook, t, products);
-        cache.put(Family.LOOKBOOK, cacheKey, dto);
+        cache.put(lookup, dto);
         return dto;
     }
 

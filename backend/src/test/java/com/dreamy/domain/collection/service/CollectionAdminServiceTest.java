@@ -8,6 +8,8 @@ import com.dreamy.domain.collection.entity.CollectionGroup;
 import com.dreamy.domain.collection.repository.CollectionGroupRepository;
 import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.dto.AdminCatalogDtos.CollectionUpsert;
+import com.dreamy.dto.AdminCatalogDtos.CollectionGroupUpsert;
+import com.dreamy.dto.TranslationDtos.CollectionTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.event.ContentInvalidatedPublisher;
@@ -20,14 +22,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,6 +94,18 @@ class CollectionAdminServiceTest {
     }
 
     @Test
+    @DisplayName("E-CAT-28 [P0]: 创建集合分组提交后立即失效消费端集合缓存")
+    void createGroupInvalidatesCollectionsAfterCommit() {
+        service.createGroup(new CollectionGroupUpsert("Style", null, null));
+
+        ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommit).run(action.capture());
+        action.getValue().run();
+        verify(cache).invalidateFamily(CatalogCacheService.Family.COLLECTIONS);
+        verify(invalidatedPublisher).publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+    }
+
+    @Test
     @DisplayName("TC-CAT-059 [P0]: 删除集合级联摘除 product_collection 挂载（RM-CAT-144，无前置 guard）")
     void collectionDeleteCascadesProductCollection() {
         Collection collection = new Collection();
@@ -95,15 +113,16 @@ class CollectionAdminServiceTest {
         collection.setName("Sage");
         when(collectionRepository.findById(7L)).thenReturn(collection);
         service.deleteCollection(7L);
-        verify(collectionRepository).deleteById(7L);
-        verify(collectionRepository).deleteTranslationsByCollectionId(7L);
-        verify(productCollectionRepository).deleteByCollectionId(7L);
+        InOrder cleanup = inOrder(productCollectionRepository, collectionRepository);
+        cleanup.verify(productCollectionRepository).deleteByCollectionId(7L);
+        cleanup.verify(collectionRepository).deleteTranslationsByCollectionId(7L);
+        cleanup.verify(collectionRepository).deleteById(7L);
         verify(audit).record(org.mockito.ArgumentMatchers.eq("删除集合"),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    @DisplayName("V-CAT-063~065 [P0]: 分组不存在 → 404505；name 必填；status 枚举外 → 422501")
+    @DisplayName("V-CAT-063~066 [P0]: 分组不存在；name/status/translations 校验")
     void collectionValidation() {
         when(groupRepository.findById(9L)).thenReturn(null);
         assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(9L, "Sage", 1, null)))
@@ -116,8 +135,9 @@ class CollectionAdminServiceTest {
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("name", "required"));
         assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", 3, null)))
                 .satisfies(ex -> assertThat(fields(ex)).containsEntry("status", "invalid_enum"));
-        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", 1, null)))
-                .satisfies(ex -> assertThat(fields(ex)).containsEntry("cover", "too_long"));
+        assertThatThrownBy(() -> service.createCollection(new CollectionUpsert(1L, "Sage", 1,
+                List.of(new CollectionTranslationDto("es", "x".repeat(65))))))
+                .satisfies(ex -> assertThat(fields(ex)).containsEntry("translations", "too_long"));
     }
 
     @Test

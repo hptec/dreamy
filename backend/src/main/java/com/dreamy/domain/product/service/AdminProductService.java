@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.repository.CategoryRepository;
 import com.dreamy.domain.category.service.CategoryTreeService;
@@ -163,6 +164,7 @@ public class AdminProductService {
 
     // ==================== E-CAT-09 createAdminProduct（TX-CAT-001） ====================
 
+    @CatalogAdminWrite
     @Transactional
     public AdminProductDetail create(AdminProductUpsert req) {
         validateUpsert(req, null, null);
@@ -192,6 +194,8 @@ public class AdminProductService {
         // STEP-CAT-06 提交后失效链 + MQ（status=published 才需 revalidate 路径，事件统一发布由消费者按 type 处理）
         String slug = product.getSlug();
         afterCommit.run(() -> {
+            // 清除同 slug 在创建前产生的 60s 负缓存，published 商品须在提交后立即可见。
+            cache.invalidateProductSlug(slug);
             cache.invalidateFamily(Family.PRODUCTS);
             cache.invalidateFamily(Family.RECO);
             cache.invalidateFamily(Family.CATEGORIES);
@@ -214,6 +218,7 @@ public class AdminProductService {
 
     // ==================== E-CAT-11 updateAdminProduct（TX-CAT-002） ====================
 
+    @CatalogAdminWrite
     @Transactional
     public AdminProductDetail update(Long id, AdminProductUpsert req) {
         // STEP-CAT-01 商品存在
@@ -257,9 +262,13 @@ public class AdminProductService {
         String newSlug = existing.getSlug();
         afterCommit.run(() -> {
             cache.invalidateProductSlug(oldSlug);
-            cache.invalidateProductSlug(newSlug);
+            if (!newSlug.equals(oldSlug)) {
+                cache.invalidateProductSlug(newSlug);
+            }
             cache.invalidateFamily(Family.PRODUCTS);
             cache.invalidateFamily(Family.RECO);
+            cache.invalidateFamily(Family.CATEGORIES);
+            cache.invalidateFamily(Family.COLLECTIONS);
             invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_UPDATED, newSlug, oldSlug);
         });
         return loadDetail(id);
@@ -267,6 +276,7 @@ public class AdminProductService {
 
     // ==================== E-CAT-12 deleteAdminProduct（TX-CAT-003） ====================
 
+    @CatalogAdminWrite
     @Transactional
     public void delete(Long id) {
         // STEP-CAT-01 存在性
@@ -279,11 +289,7 @@ public class AdminProductService {
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_DELETABLE);
         }
         // STEP-CAT-03 物理删除七表（订单行为快照不受影响）
-        // 逻辑删除：设置 deleted_at = now()
-        Product patch = new Product();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        productRepository.update(patch);
+        productRepository.deleteById(id);
         imageRepository.deleteByProductId(id);
         skuRepository.deleteByProductId(id);
         sizeChartRepository.deleteByProductId(id);
@@ -294,7 +300,9 @@ public class AdminProductService {
         // STEP-CAT-04 审计
         audit.record("删除商品", existing.getName(), null);
         // STEP-CAT-05 提交后失效（draft 无消费端页面，不发 revalidate 事件）
+        String slug = existing.getSlug();
         afterCommit.run(() -> {
+            cache.invalidateProductSlug(slug);
             cache.invalidateFamily(Family.PRODUCTS);
             cache.invalidateFamily(Family.RECO);
             cache.invalidateFamily(Family.CATEGORIES);
@@ -305,6 +313,7 @@ public class AdminProductService {
     // ==================== E-CAT-13 toggleAdminProductStatus（TX-CAT-004） ====================
 
     /** 幂等短路不开事务（STEP-CAT-02）；变更走 TransactionTemplate 单事务 */
+    @CatalogAdminWrite
     public AdminProductListItem toggleStatus(Long id, Integer statusParam) {
         // V-CAT-040 status 必填枚举
         ProductStatus target = ProductStatus.of(statusParam);
@@ -349,6 +358,7 @@ public class AdminProductService {
 
     // ==================== E-CAT-14 patchAdminProductFlags（TX-CAT-005） ====================
 
+    @CatalogAdminWrite
     @Transactional
     public AdminProductListItem patchFlags(Long id, Boolean isNew, Boolean isBest, Boolean recommend, Integer sort) {
         // V-CAT-041 至少一个字段（minProperties=1）

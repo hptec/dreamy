@@ -17,12 +17,9 @@ public enum GatewayErrorCode {
     GATEWAY_EDIT_CONFLICT(409202, 409, "网关配置已被他人修改，请刷新重试"),
 
     // ===== 422 参数错误 =====
-    GATEWAY_VALIDATION(422201, 422, "网关配置参数校验失败"),
+    GATEWAY_VALIDATION(422201, 422, "请求参数校验失败"),
     INVALID_API_KEY_FORMAT(422202, 422, "API Key 格式非法"),
     INVALID_BASE_URL(422203, 422, "网关 URL 协议非法"),
-    SOURCE_TEXT_EMPTY(422301, 422, "待翻译原文为空"),
-    SOURCE_TEXT_TOO_LONG(422302, 422, "待翻译文本超长"),
-    CUSTOM_REQUIREMENT_TOO_LONG(422303, 422, "自定义要求文本超长"),
 
     // ===== 403 业务禁止 =====
     GATEWAY_DISABLED(403201, 403, "网关配置已禁用"),

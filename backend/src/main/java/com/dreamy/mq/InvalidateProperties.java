@@ -1,5 +1,6 @@
 package com.dreamy.mq;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -24,7 +25,7 @@ public class InvalidateProperties {
     private String nextInternalUrl = "http://localhost:5173";
 
     /** x-revalidate-token 共享密钥 */
-    private String revalidateToken = "dev-revalidate-token";
+    private String revalidateToken = "";
 
     /** 店面公网基址（purge URL = site-base-url + localized path） */
     private String siteBaseUrl = "http://localhost:5173";
@@ -46,5 +47,12 @@ public class InvalidateProperties {
 
     public boolean isReal() {
         return "real".equalsIgnoreCase(mode);
+    }
+
+    @PostConstruct
+    void validateRealModeToken() {
+        if (isReal() && (revalidateToken == null || revalidateToken.isBlank())) {
+            throw new IllegalStateException("REVALIDATE_TOKEN must be configured when INVALIDATE_MODE=real");
+        }
     }
 }

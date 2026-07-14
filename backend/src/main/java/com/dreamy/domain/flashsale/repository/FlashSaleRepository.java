@@ -44,7 +44,6 @@ public class FlashSaleRepository {
     /** RM-MKT-120 listStoreActive —— status='active' ORDER BY end_at ASC（IDX-MKT-003，DEC-MKT-3 以状态列为准） */
     public List<FlashSale> listStoreActive() {
         return flashSaleMapper.selectList(new LambdaQueryWrapper<FlashSale>()
-                .isNull(FlashSale::getDeletedAt)
                 .eq(FlashSale::getStatus, FlashSaleStatus.ACTIVE)
                 .orderByAsc(FlashSale::getEndAt));
     }
@@ -60,8 +59,7 @@ public class FlashSaleRepository {
 
     /** RM-MKT-122 findById */
     public FlashSale findById(Long id) {
-        FlashSale e = id == null ? null : flashSaleMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : flashSaleMapper.selectById(id);
     }
 
     /** RM-MKT-123 insert */
@@ -86,7 +84,6 @@ public class FlashSaleRepository {
      */
     public FlipResult flipStatusByWindow(LocalDateTime now) {
         List<FlashSale> candidates = flashSaleMapper.selectList(new LambdaQueryWrapper<FlashSale>()
-                .isNull(FlashSale::getDeletedAt)
                 .in(FlashSale::getStatus, FlashSaleStatus.SCHEDULED, FlashSaleStatus.ACTIVE));
         List<Long> activated = new ArrayList<>();
         List<Long> ended = new ArrayList<>();

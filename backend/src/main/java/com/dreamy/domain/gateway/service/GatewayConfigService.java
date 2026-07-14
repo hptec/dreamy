@@ -7,6 +7,7 @@ import com.dreamy.domain.gateway.repository.ExternalGatewayConfigMapper;
 import com.dreamy.dto.GatewayDtos.GatewayConfigDto;
 import com.dreamy.dto.GatewayDtos.GatewayConfigUpsert;
 import com.dreamy.dto.GatewayDtos.GatewayTestResult;
+import com.dreamy.enums.GatewayProtocol;
 import com.dreamy.enums.GatewayType;
 import com.dreamy.enums.ModelRefreshStrategy;
 import com.dreamy.error.GatewayErrorCode;
@@ -16,10 +17,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import huihao.page.Paginated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class GatewayConfigService {
 
     // ==================== 1.2 列表查询 ====================
 
-    /** 分页列表（gateway_type 可选过滤，按 updated_at 降序，API Key 掩码，过滤删除）。 */
+    /** 分页列表（gateway_type 可选过滤，按 updated_at 降序，API Key 掩码）。 */
     public Paginated<GatewayConfigDto> list(Integer gatewayType, Integer page, Integer pageSize) {
         int p = page != null && page > 0 ? page : 1;
         int ps = pageSize != null && pageSize > 0 && pageSize <= 100 ? pageSize : 20;
@@ -63,7 +64,6 @@ public class GatewayConfigService {
         if (gatewayType != null) {
             qw.eq(ExternalGatewayConfig::getGatewayType, gatewayType);
         }
-        qw.isNull(ExternalGatewayConfig::getDeletedAt);
         qw.orderByDesc(ExternalGatewayConfig::getUpdatedAt);
         Page<ExternalGatewayConfig> result = mapper.selectPage(new Page<>(p, ps), qw);
         List<GatewayConfigDto> items = result.getRecords().stream().map(this::toDto).toList();
@@ -86,7 +86,6 @@ public class GatewayConfigService {
 
     // ==================== 1.1 创建 ====================
 
-    @Transactional
     public GatewayConfigDto create(GatewayConfigUpsert req) {
         validateUpsert(req, true);
         ensureNameUnique(req.gatewayType(), req.name(), null);
@@ -106,7 +105,13 @@ public class GatewayConfigService {
         entity.setModelRefreshIntervalMin(req.modelRefreshIntervalMin());
         entity.setConsecutiveFailures(0);
         entity.setEnabled(req.enabled());
-        mapper.insert(entity);
+        entity.setExtraConfig(toJson(req.extraConfig()));
+        entity.setVersion(0);
+        try {
+            mapper.insert(entity);
+        } catch (DuplicateKeyException ex) {
+            throw nameExists(ex);
+        }
         // 自动模型发现（仅 AI 网关，失败不影响保存，EDGE-014）
         if (GatewayType.AI.getKey().equals(entity.getGatewayType())) {
             tryRefreshModels(entity);
@@ -116,17 +121,9 @@ public class GatewayConfigService {
 
     // ==================== 1.4 更新 ====================
 
-    @Transactional
     public GatewayConfigDto update(Long id, GatewayConfigUpsert req) {
         ExternalGatewayConfig entity = loadOrThrow(id);
         validateUpsert(req, false);
-        // 乐观锁：updated_at 比对（EDGE-012）
-        if (req.updatedAt() != null && !req.updatedAt().isBlank()) {
-            String dbUpdatedAt = entity.getUpdatedAt() == null ? null : entity.getUpdatedAt().format(ISO);
-            if (dbUpdatedAt != null && !normalizeTs(req.updatedAt()).equals(normalizeTs(dbUpdatedAt))) {
-                throw new GatewayException(GatewayErrorCode.GATEWAY_EDIT_CONFLICT);
-            }
-        }
         ensureNameUnique(req.gatewayType(), req.name(), id);
         boolean baseUrlChanged = !req.baseUrl().equals(entity.getBaseUrl());
         boolean apiKeyChanged = false;
@@ -145,7 +142,17 @@ public class GatewayConfigService {
         }
         entity.setModelRefreshIntervalMin(req.modelRefreshIntervalMin());
         entity.setEnabled(req.enabled());
-        mapper.updateById(entity);
+        entity.setExtraConfig(toJson(req.extraConfig()));
+        int affected;
+        try {
+            affected = mapper.updateConfig(id, req.version(), entity);
+        } catch (DuplicateKeyException ex) {
+            throw nameExists(ex);
+        }
+        if (affected != 1) {
+            throw new GatewayException(GatewayErrorCode.GATEWAY_EDIT_CONFLICT);
+        }
+        entity.setVersion(req.version() + 1);
         // base_url 或 api_key 变更且为 AI 网关 → 重新拉取模型（失败不阻断，EDGE-014）
         if ((baseUrlChanged || apiKeyChanged) && GatewayType.AI.getKey().equals(entity.getGatewayType())) {
             tryRefreshModels(entity);
@@ -153,16 +160,13 @@ public class GatewayConfigService {
         return toDto(mapper.selectById(id));
     }
 
-    // ==================== 1.5 删除（逻辑删除）====================
+    // ==================== 1.5 删除（物理删除）====================
 
     @Transactional
     public void delete(Long id) {
-        ExternalGatewayConfig entity = loadOrThrow(id);
-        // 逻辑删除：设置 deleted_at = now()，保留被翻译日志引用的记录
-        ExternalGatewayConfig patch = new ExternalGatewayConfig();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        mapper.updateById(patch);
+        loadOrThrow(id);
+        // ai_translation_log 已退役，无引用 guard；配置量小且无历史追溯需求，依 L2 设计物理删除。
+        mapper.deleteById(id);
     }
 
     // ==================== 1.6 手动同步模型 ====================
@@ -171,8 +175,16 @@ public class GatewayConfigService {
      * 手动同步模型。非 AI 网关 → 400201；调用 /v1/models 失败 → 502201/502202/504201（抛异常）。
      * 成功更新 model_list + models_synced_at + 清零 consecutive_failures。
      */
-    @Transactional
     public GatewayConfigDto syncModels(Long id) {
+        return syncModels(id, false);
+    }
+
+    /** 调度器入口；仅 scheduled 失败达到阈值时自动降级并禁用。 */
+    public GatewayConfigDto syncModelsScheduled(Long id) {
+        return syncModels(id, true);
+    }
+
+    private GatewayConfigDto syncModels(Long id, boolean scheduledRefresh) {
         ExternalGatewayConfig entity = loadOrThrow(id);
         if (!GatewayType.AI.getKey().equals(entity.getGatewayType())) {
             throw new GatewayException(GatewayErrorCode.NON_AI_GATEWAY_NO_SYNC);
@@ -180,9 +192,11 @@ public class GatewayConfigService {
         String apiKey = crypto.decrypt(entity.getApiKeyEncrypted());
         try {
             List<String> models = httpClient.listModels(entity.getBaseUrl(), apiKey);
-            applySyncSuccess(entity, models);
+            if (!applySyncSuccess(entity, models)) {
+                throw new GatewayException(GatewayErrorCode.GATEWAY_EDIT_CONFLICT);
+            }
         } catch (GatewayHttpClient.GatewayCallException ex) {
-            applySyncFailure(entity);
+            applySyncFailure(entity, scheduledRefresh);
             throw mapCallException(ex, true);
         }
         return toDto(mapper.selectById(id));
@@ -228,41 +242,45 @@ public class GatewayConfigService {
         } catch (GatewayHttpClient.GatewayCallException ex) {
             log.warn("[GATEWAY] id={} 自动模型拉取失败 kind={}，配置已保存，model_list 保留",
                     entity.getId(), ex.getKind());
-            applySyncFailure(entity);
+            applySyncFailure(entity, false);
         }
     }
 
-    /** 同步成功：更新 model_list + models_synced_at，清零 consecutive_failures（决策5）。 */
-    private void applySyncSuccess(ExternalGatewayConfig entity, List<String> models) {
-        ExternalGatewayConfig patch = new ExternalGatewayConfig();
-        patch.setId(entity.getId());
-        patch.setModelList(toJson(models));
-        patch.setModelsSyncedAt(LocalDateTime.now());
-        patch.setConsecutiveFailures(0);
-        mapper.updateById(patch);
+    /** 同步成功：加载后配置未变化才更新模型快照，避免迟到响应覆盖新 URL/Key。 */
+    private boolean applySyncSuccess(ExternalGatewayConfig entity, List<String> models) {
+        int affected = mapper.updateSyncSuccess(entity.getId(), entity.getVersion(), toJson(models));
+        if (affected != 1) {
+            log.warn("[GATEWAY] id={} version={} 模型同步成功结果已过期，忽略写入",
+                    entity.getId(), entity.getVersion());
+            return false;
+        }
         log.info("[GATEWAY] id={} 模型同步成功 count={}", entity.getId(), models.size());
+        return true;
     }
 
     /**
      * 同步失败：consecutive_failures += 1，models_synced_at 不更新，保留旧 model_list（决策5）。
-     * 连续失败 >= 3 且 strategy=scheduled → 降级 manual + enabled=0（gateway_degradation）。
+     * 调度刷新连续失败 >= 3 且 strategy=scheduled → 降级 manual + enabled=0（gateway_degradation）。
      */
-    private void applySyncFailure(ExternalGatewayConfig entity) {
-        int failures = (entity.getConsecutiveFailures() == null ? 0 : entity.getConsecutiveFailures()) + 1;
-        ExternalGatewayConfig patch = new ExternalGatewayConfig();
-        patch.setId(entity.getId());
-        patch.setConsecutiveFailures(failures);
-        if (failures >= DEGRADE_THRESHOLD
-                && ModelRefreshStrategy.SCHEDULED.getKey().equals(entity.getModelRefreshStrategy())) {
-            patch.setModelRefreshStrategy(ModelRefreshStrategy.MANUAL.getKey());
-            patch.setEnabled(false);
+    private void applySyncFailure(ExternalGatewayConfig entity, boolean scheduledRefresh) {
+        if (mapper.incrementSyncFailure(entity.getId(), entity.getVersion(), scheduledRefresh) != 1) {
+            log.warn("[GATEWAY] id={} version={} 模型同步失败结果已过期，忽略计数与降级",
+                    entity.getId(), entity.getVersion());
+            return;
+        }
+        ExternalGatewayConfig current = mapper.selectById(entity.getId());
+        int failures = current == null || current.getConsecutiveFailures() == null
+                ? (entity.getConsecutiveFailures() == null ? 1 : entity.getConsecutiveFailures() + 1)
+                : current.getConsecutiveFailures();
+        if (scheduledRefresh && current != null
+                && failures >= DEGRADE_THRESHOLD
+                && ModelRefreshStrategy.MANUAL.getKey().equals(current.getModelRefreshStrategy())
+                && Boolean.FALSE.equals(current.getEnabled())) {
             log.error("[GATEWAY] id={} 连续同步失败 {} 次，降级 manual + 自动禁用（决策5）",
                     entity.getId(), failures);
         } else {
             log.warn("[GATEWAY] id={} 模型同步失败 consecutive_failures={}", entity.getId(), failures);
         }
-        mapper.updateById(patch);
-        entity.setConsecutiveFailures(failures);
     }
 
     /** 调用异常 → 错误码映射（sync/translate 共用 gateway 域码）。 */
@@ -276,10 +294,14 @@ public class GatewayConfigService {
 
     private ExternalGatewayConfig loadOrThrow(Long id) {
         ExternalGatewayConfig entity = id == null ? null : mapper.selectById(id);
-        if (entity == null || entity.getDeletedAt() != null) {
+        if (entity == null) {
             throw new GatewayException(GatewayErrorCode.GATEWAY_NOT_FOUND);
         }
         return entity;
+    }
+
+    private GatewayException nameExists(DuplicateKeyException cause) {
+        return new GatewayException(GatewayErrorCode.GATEWAY_NAME_EXISTS, null, cause);
     }
 
     /** 字段校验：base_url 协议（EDGE-007）、strategy=2 时 interval 必填、enum 合法性（EDGE-006）。 */
@@ -287,6 +309,15 @@ public class GatewayConfigService {
         if (GatewayType.of(req.gatewayType()) == null) {
             throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
                     Map.of("gateway_type", "invalid_enum"));
+        }
+        if (GatewayProtocol.of(req.protocol()) != GatewayProtocol.OPENAI_COMPATIBLE) {
+            throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
+                    Map.of("protocol", "invalid_enum"));
+        }
+        if (req.modelRefreshStrategy() != null
+                && ModelRefreshStrategy.of(req.modelRefreshStrategy()) == null) {
+            throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
+                    Map.of("model_refresh_strategy", "invalid_enum"));
         }
         String url = req.baseUrl();
         if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
@@ -298,14 +329,17 @@ public class GatewayConfigService {
             throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
                     Map.of("model_refresh_interval_min", "required_when_scheduled"));
         }
+        if (!create && req.version() == null) {
+            throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
+                    Map.of("version", "required_on_update"));
+        }
     }
 
-    /** 同类型下 name 唯一（409201，EDGE-012），excludeId 用于更新时排除自身，排除已删除记录。 */
+    /** 同类型下 name 唯一（409201，EDGE-012），excludeId 用于更新时排除自身。 */
     private void ensureNameUnique(Integer gatewayType, String name, Long excludeId) {
         LambdaQueryWrapper<ExternalGatewayConfig> qw = new LambdaQueryWrapper<>();
         qw.eq(ExternalGatewayConfig::getGatewayType, gatewayType)
-                .eq(ExternalGatewayConfig::getName, name)
-                .isNull(ExternalGatewayConfig::getDeletedAt);
+                .eq(ExternalGatewayConfig::getName, name);
         if (excludeId != null) {
             qw.ne(ExternalGatewayConfig::getId, excludeId);
         }
@@ -329,6 +363,8 @@ public class GatewayConfigService {
                 e.getModelsSyncedAt() == null ? null : e.getModelsSyncedAt().format(ISO),
                 e.getConsecutiveFailures(),
                 e.getEnabled(),
+                fromObjectJson(e.getExtraConfig()),
+                e.getVersion(),
                 e.getCreatedAt() == null ? null : e.getCreatedAt().format(ISO),
                 e.getUpdatedAt() == null ? null : e.getUpdatedAt().format(ISO));
     }
@@ -338,6 +374,18 @@ public class GatewayConfigService {
             return objectMapper.writeValueAsString(list == null ? List.of() : list);
         } catch (Exception ex) {
             return "[]";
+        }
+    }
+
+    private String toJson(Map<String, Object> value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
+                    Map.of("extra_config", "invalid_json"));
         }
     }
 
@@ -352,8 +400,16 @@ public class GatewayConfigService {
         }
     }
 
-    private String normalizeTs(String ts) {
-        return ts == null ? "" : ts.replace("T", " ").trim();
+    private Map<String, Object> fromObjectJson(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() { });
+        } catch (Exception ex) {
+            log.warn("[GATEWAY] invalid extra_config JSON ignored for response");
+            return null;
+        }
     }
-}
 
+}

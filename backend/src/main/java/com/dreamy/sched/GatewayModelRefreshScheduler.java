@@ -51,15 +51,14 @@ public class GatewayModelRefreshScheduler {
             LambdaQueryWrapper<ExternalGatewayConfig> qw = new LambdaQueryWrapper<>();
             qw.eq(ExternalGatewayConfig::getGatewayType, GatewayType.AI.getKey())
                     .eq(ExternalGatewayConfig::getModelRefreshStrategy, ModelRefreshStrategy.SCHEDULED.getKey())
-                    .eq(ExternalGatewayConfig::getEnabled, true)
-                    .isNull(ExternalGatewayConfig::getDeletedAt);
+                    .eq(ExternalGatewayConfig::getEnabled, true);
             List<ExternalGatewayConfig> configs = mapper.selectList(qw);
             LocalDateTime now = LocalDateTime.now();
             int triggered = 0;
             for (ExternalGatewayConfig cfg : configs) {
                 if (isDue(cfg, now)) {
                     try {
-                        gatewayConfigService.syncModels(cfg.getId());
+                        gatewayConfigService.syncModelsScheduled(cfg.getId());
                         triggered++;
                     } catch (RuntimeException ex) {
                         // syncModels 内部已记降级计数；调度层吞异常防止单条失败中断扫描

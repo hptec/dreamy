@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +64,7 @@ import java.util.Set;
  */
 @Component
 @Order(30)
+@ConditionalOnProperty(prefix = "dreamy.seed", name = "demo-enabled", havingValue = "true")
 public class MarketingSeedInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(MarketingSeedInitializer.class);

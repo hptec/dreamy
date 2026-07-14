@@ -1,5 +1,8 @@
 # i18n-complete-with-ai-assist L2 详细设计文档
 
+> 历史设计：当前运行状态以 `i18n-runtime-status.md` 和两份 OpenAPI 为准。翻译日志、Glossary
+> API/页面/表及术语注入已于 2026-06-17 退役；本文相关章节仅保留设计背景。
+
 > 统一设计文档（汇总视图）。各专家独立产出见同目录下 i18n-backend-*.md / i18n-*-frontend-detail.md / i18n-test-skeleton.md / i18n-ui-test-spec.yml。
 
 ## 1. 设计概述

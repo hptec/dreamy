@@ -1,5 +1,8 @@
 # i18n Backend API 详细设计（精简版）
 
+> 历史设计：当前运行状态以 `i18n-runtime-status.md` 和 active OpenAPI 为准。本文的
+> translation-logs 与 Glossary 端点已退役，不得实现或调用。
+
 ## 元信息
 
 - 变更：i18n-complete-with-ai-assist
@@ -56,17 +59,17 @@
 
 ### 1.4 PUT /api/admin/gateway/configs/{id} - 更新配置
 
-**入参验证**：同POST（请求字段 `api_key` 明文 1~512，**非** api_key_encrypted），额外校验updated_at(乐观锁)
+**入参验证**：同POST（请求字段 `api_key` 明文 1~512，**非** api_key_encrypted），额外要求整数version(乐观锁)
 
 **业务逻辑**：
 1. 主键查询，不存在→404201
-2. 乐观锁校验：前端提交updated_at与DB比对，不一致→409201(并发冲突)
+2. 乐观锁：`UPDATE ... WHERE id=:id AND version=:version`，成功时 `version=version+1`；影响0行→409202
 3. API Key处理：前端提交掩码→保持原密文，提交明文→重新加密
 4. 更新字段(name/base_url/default_model/enabled等)
 5. 若base_url或api_key变更且gateway_type=1→重新拉取模型列表
 6. 返回掩码结果
 
-**错误码**：404201(不存在) | 409201(乐观锁冲突或名称冲突) | 422201(字段校验)
+**错误码**：404201(不存在) | 409201(名称冲突) | 409202(version冲突) | 422201(字段校验)
 
 ---
 
@@ -90,8 +93,8 @@
 **业务逻辑**：
 1. 主键查询，不存在→404201
 2. 类型校验：gateway_type != 1 → 400201(仅AI网关支持模型同步)
-3. 解密Key→调用/v1/models(超时10s)→更新model_list+models_synced_at
-4. 失败→502201(网关不可达/鉴权失败) | 504201(超时)
+3. 解密Key→调用/v1/models(超时10s)→按加载时expected version原子更新model_list+models_synced_at、清零失败数、version+1；配置已变化则忽略迟到结果并返回409202
+4. 失败→按加载时expected version单条原子SQL consecutive_failures+1、version+1 后再返回502201/502202/504201；配置已变化则忽略迟到计数；手动调用不自动降级，scheduled 任务第3次失败才降级manual+disabled
 
 **错误码**：404201 | 400201(非AI网关) | 502201(调用失败) | 504201(超时)
 
@@ -141,7 +144,7 @@
 
 **业务逻辑**：
 1. 读取启用网关：SELECT * FROM external_gateway_config WHERE gateway_type=1 AND enabled=true ORDER BY updated_at DESC LIMIT 1，无结果→400301
-2. 确定模型：优先用request.model(需在gateway.model_list中，否则400302)，否则用gateway.default_model
+2. 确定模型：优先用request.model(需在gateway.model_list中，否则400302)，否则用非空gateway.default_model；默认模型为空同样返回400302
 3. 读取术语表：SELECT * FROM ai_translation_glossary WHERE enabled=true，仅注入source_text中实际命中的术语(term_en出现在source_text中)，上限50条，超出按category优先级截断(廓形>领型>面料>工艺>其他)
 4. 组装system prompt：固定前缀("You are a professional translator for a bridal e-commerce platform...") + 术语注入("Use these standard terms: A-line → línea A (ES)...") + custom_requirement
 5. 调用外部网关：解密api_key_encrypted → POST {base_url}/v1/chat/completions { model, messages:[{role:system,content:prompt},{role:user,content:source_text}], max_tokens:2000 }，超时30s
@@ -322,13 +325,11 @@ maskApiKey(encrypted):
 
 ```java
 update(id, request):
-  entity = repository.findById(id).orElseThrow(404xxx)
-  if (entity.getUpdatedAt() != request.updatedAt) {
-    throw ConcurrentModificationException(409xxx, "数据已被修改，请刷新后重试")
-  }
-  // 更新字段...
-  entity.setUpdatedAt(now())
-  repository.save(entity)
+  affected = UPDATE external_gateway_config
+               SET ..., version = version + 1
+             WHERE id = request.id AND version = request.version
+  if affected == 0:
+    throw ConcurrentModificationException(409202, "数据已被修改，请刷新后重试")
 ```
 
 ### 6.3 外部网关调用韧性模式

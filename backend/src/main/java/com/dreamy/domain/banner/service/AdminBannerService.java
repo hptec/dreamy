@@ -120,13 +120,9 @@ public class AdminBannerService {
         if (existing == null) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
-        // STEP-MKT-02 物理删除双表 + 审计
-        // 逻辑删除：设置 deleted_at = now()
-        Banner patch = new Banner();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        bannerRepository.update(patch);
+        // STEP-MKT-02 物理删除双表 + 审计（先清译文，再删主表）
         bannerRepository.deleteTranslationsByBannerId(id);
+        bannerRepository.deleteById(id);
         audit.record("删除Banner", existing.getName(), null);
         // STEP-MKT-03 提交后失效 + MQ
         invalidateAfterCommit();
@@ -179,7 +175,7 @@ public class AdminBannerService {
     /** V-MKT-039~044（create=true 时 archived 禁作初态——V-MKT-042） */
     private Normalized validateUpsert(BannerUpsert req, boolean create) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
-        // V-MKT-039 name 必填 ≤128；image_url 必填 ≤512（catalog E-CAT-35 presign，scope=banner）
+        // V-MKT-039 name 必填 ≤128；image_url 必填 ≤512（catalog E-CAT-38 presign，scope=banner）
         String name = MarketingParams.trimToNull(req.name());
         if (name == null) {
             errors.reject("name", "required");

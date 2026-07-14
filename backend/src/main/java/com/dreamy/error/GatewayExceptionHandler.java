@@ -46,7 +46,7 @@ public class GatewayExceptionHandler {
                 .body(new R<>(code.getCode(), code.getMessage(), ex.getDetails()));
     }
 
-    /** Bean Validation 字段校验失败 → 422 + fields 字典。 */
+    /** Bean Validation 字段校验失败 → 422201 + fields 字典。 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<R<Object>> handleValidation(MethodArgumentNotValidException ex,
                                                        HttpServletRequest req) {

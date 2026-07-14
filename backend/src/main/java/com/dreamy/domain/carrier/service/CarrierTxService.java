@@ -1,7 +1,6 @@
 package com.dreamy.domain.carrier.service;
 
 import com.dreamy.domain.carrier.entity.Carrier;
-import java.time.LocalDateTime;
 import com.dreamy.domain.carrier.repository.CarrierRepository;
 import com.dreamy.enums.CarrierStatus;
 import com.dreamy.dto.ShippingDtos.CarrierDto;
@@ -107,8 +106,7 @@ public class CarrierTxService {
         }
         // STEP-SHP-03 DELETE（RM-SHP-007）。Order.carrier 为字段快照不受影响（不强外键）；
         // 指向该承运商的「<区域> / <名>」规则行成为非匹配行，由运营在 /shipping 页面清理
-        // 逻辑删除：设置 deleted_at = now()
-        carrierRepository.markDeleted(id);
+        carrierRepository.deleteById(id);
         // STEP-SHP-04 审计（action=删除承运方）
         audit.record("删除承运方", existing.getName(), changesJson(toDto(existing), null));
         // STEP-SHP-05 提交后失效

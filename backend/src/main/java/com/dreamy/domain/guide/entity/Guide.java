@@ -1,6 +1,5 @@
 package com.dreamy.domain.guide.entity;
 
-import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.guide.consts.GuideDBConst;
@@ -41,6 +40,4 @@ public class Guide extends LongAuditableEntity {
     @Column(name = GuideDBConst.BODY, definition = "text NULL COMMENT '指南正文(EN 基准，DEC-MKT-1)'")
     private String body;
 
-    @Column(name = GuideDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

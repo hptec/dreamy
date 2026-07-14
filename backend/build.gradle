@@ -40,7 +40,11 @@ dependencies {
     // ── huihao 内部库（Nexus 私仓）────────────────────────────────
     implementation "com.huihao:huihao-mysql:${huihaoVersion}"
     implementation "com.huihao:huihao-base:${huihaoVersion}"
-    implementation "com.huihao:huihao-web:${huihaoVersion}"
+    implementation("com.huihao:huihao-web:${huihaoVersion}") {
+        // huihao-web 将 Nacos Discovery 声明为必选传递依赖，但本单体服务不使用注册中心。
+        // 移除整个 starter，避免无用的 Nacos 客户端二次配置 Logback 文件 appender。
+        exclude group: 'com.alibaba.cloud', module: 'spring-cloud-starter-alibaba-nacos-discovery'
+    }
     implementation "com.huihao:huihao-redis:${huihaoVersion}"
 
     // ── MyBatis-Plus（huihao-mysql 不自带，需显式引入）──────────────
@@ -108,6 +112,10 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs.add('-parameters')
+}
+
+processResources {
+    exclude 'oauth/**'
 }
 
 test {

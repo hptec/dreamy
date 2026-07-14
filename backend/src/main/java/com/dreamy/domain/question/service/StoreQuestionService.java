@@ -59,7 +59,8 @@ public class StoreQuestionService {
 
         // STEP-REV-01 查缓存（TTL 300s，key 不含 locale）
         String cacheKey = pid + ":" + parsedPage + ":" + parsedSize;
-        Object cached = cache.get(Family.QUESTIONS, cacheKey);
+        ReviewCacheService.Lookup lookup = cache.lookup(Family.QUESTIONS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof QuestionPageSnapshot snapshot) {
             return toPaginated(snapshot);
         }
@@ -74,7 +75,7 @@ public class StoreQuestionService {
         // STEP-REV-04 装配标准 Paginated + 写缓存（空页同样缓存）
         QuestionPageSnapshot snapshot = new QuestionPageSnapshot(items, questionPage.getTotal(),
                 parsedPage, parsedSize);
-        cache.put(Family.QUESTIONS, cacheKey, snapshot);
+        cache.put(lookup, snapshot);
         return toPaginated(snapshot);
     }
 

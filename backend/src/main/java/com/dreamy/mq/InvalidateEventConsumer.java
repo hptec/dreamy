@@ -3,6 +3,8 @@ package com.dreamy.mq;
 import com.dreamy.infra.mq.AbstractIdempotentEventConsumer;
 import com.dreamy.infra.mq.DomainEvent;
 import com.dreamy.infra.mq.EventIdempotencyGuard;
+import com.dreamy.infra.MarketingCacheService;
+import com.dreamy.infra.MarketingCacheService.Family;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -25,13 +27,16 @@ public class InvalidateEventConsumer extends AbstractIdempotentEventConsumer {
 
     private final NextRevalidateClient revalidateClient;
     private final CloudflarePurgeClient purgeClient;
+    private final MarketingCacheService marketingCache;
 
     public InvalidateEventConsumer(EventIdempotencyGuard idempotencyGuard,
                                    NextRevalidateClient revalidateClient,
-                                   CloudflarePurgeClient purgeClient) {
+                                   CloudflarePurgeClient purgeClient,
+                                   MarketingCacheService marketingCache) {
         super(idempotencyGuard);
         this.revalidateClient = revalidateClient;
         this.purgeClient = purgeClient;
+        this.marketingCache = marketingCache;
     }
 
     @Override
@@ -61,6 +66,16 @@ public class InvalidateEventConsumer extends AbstractIdempotentEventConsumer {
             purgeClient.purge(purgePaths);
             log.info("[EVT-MKT-002] purged type={} event_id={} paths={}", type, event.eventId(), purgePaths.size());
             return;
+        }
+        if (type != null && type.startsWith("product_")) {
+            // Wedding/Lookbook details and Flash Sale lists embed Catalog ProductRef snapshots.
+            // Switch all related namespaces before revalidating pages so publish/unpublish and edits
+            // cannot remain visible for the marketing cache TTL.
+            marketingCache.invalidateFamily(Family.WEDDINGS);
+            marketingCache.invalidateFamily(Family.WEDDING);
+            marketingCache.invalidateFamily(Family.LOOKBOOKS);
+            marketingCache.invalidateFamily(Family.LOOKBOOK);
+            marketingCache.invalidateFamily(Family.FLASH);
         }
         // ② type → 路径映射 ×3 locale
         List<String> paths = InvalidatePathMapper.localizedPaths(type, event.payload());

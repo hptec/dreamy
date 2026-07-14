@@ -141,8 +141,8 @@ public class StoreContentService {
     }
 
     /**
-     * Hero 派生：调用 StoreBannerService.list(HERO, locale) 取首个 banner。
-     * KD-14：返回 title/subtitle/cta_text/cta_link/cta_text_secondary/cta_link_secondary/image_url。
+     * Hero 派生：调用 StoreBannerService.list(HERO, locale) 返回全部有效 banner，按 sort/id 顺序轮播。
+     * banners[] 是权威结构；同时保留首张 banner 的扁平字段，兼容前后端滚动部署。
      * 无有效 Banner 或调用失败时返回空数据，由首页聚合省略 Hero 区块。
      */
     private Map<String, Object> deriveHeroData(String locale) {
@@ -150,20 +150,37 @@ public class StoreContentService {
         try {
             List<StoreBanner> banners = bannerService.list(BannerPosition.HERO, locale);
             if (!banners.isEmpty()) {
-                StoreBanner banner = banners.get(0);
-                hero.put("title", banner.title());
-                hero.put("subtitle", banner.subtitle());
-                hero.put("cta_text", banner.ctaText());
-                hero.put("cta_link", banner.ctaLink());
-                hero.put("cta_text_secondary", banner.ctaTextSecondary());
-                hero.put("cta_link_secondary", banner.ctaLinkSecondary());
-                hero.put("image_url", banner.imageUrl());
-                log.debug("[StoreContent] Hero data derived from Banner id={}", banner.id());
+                List<Map<String, Object>> slides = banners.stream().map(this::toHeroSlide).toList();
+                hero.put("banners", slides);
+
+                // 兼容旧消费端：滚动部署期间仍可读取首张扁平字段。
+                StoreBanner first = banners.getFirst();
+                hero.put("title", first.title());
+                hero.put("subtitle", first.subtitle());
+                hero.put("cta_text", first.ctaText());
+                hero.put("cta_link", first.ctaLink());
+                hero.put("cta_text_secondary", first.ctaTextSecondary());
+                hero.put("cta_link_secondary", first.ctaLinkSecondary());
+                hero.put("image_url", first.imageUrl());
+                log.debug("[StoreContent] Hero data derived from {} active banners", banners.size());
             }
         } catch (Exception e) {
             log.warn("[StoreContent] Hero BannerService unavailable, omit section (DG-01)", e);
         }
         return hero;
+    }
+
+    private Map<String, Object> toHeroSlide(StoreBanner banner) {
+        Map<String, Object> slide = new HashMap<>();
+        slide.put("id", banner.id());
+        slide.put("title", banner.title());
+        slide.put("subtitle", banner.subtitle());
+        slide.put("cta_text", banner.ctaText());
+        slide.put("cta_link", banner.ctaLink());
+        slide.put("cta_text_secondary", banner.ctaTextSecondary());
+        slide.put("cta_link_secondary", banner.ctaLinkSecondary());
+        slide.put("image_url", banner.imageUrl());
+        return slide;
     }
 
     /**

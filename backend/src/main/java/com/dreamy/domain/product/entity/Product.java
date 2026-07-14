@@ -134,6 +134,4 @@ public class Product extends LongAuditableEntity {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<CareItem> care;
 
-    @Column(name = ProductDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

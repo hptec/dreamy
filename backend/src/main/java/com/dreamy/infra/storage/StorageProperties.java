@@ -32,6 +32,6 @@ public class StorageProperties {
     /** public_url 前缀（CDN 域名；落库存 public_url，CDN 直出） */
     private String publicBaseUrl = "http://localhost:9000/dreamy-media";
 
-    /** 预签名有效期（E-CAT-35 STEP-CAT-02：600s） */
+    /** 预签名有效期（E-CAT-38 STEP-CAT-02：600s） */
     private long presignTtlSeconds = 600L;
 }

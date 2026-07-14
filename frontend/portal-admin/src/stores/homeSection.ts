@@ -59,11 +59,8 @@ export const useHomeSectionStore = defineStore('homeSection', () => {
 
   async function sort(items: SortItem[]) {
     await sortHomeSections(items)
-    for (const item of items) {
-      const idx = sections.value.findIndex((s) => s.id === item.id)
-      if (idx >= 0) sections.value[idx].sortOrder = item.sortOrder
-    }
-    sections.value.sort((a, b) => a.sortOrder - b.sortOrder)
+    // 后端排序会同时递增每行 optimistic version；重新拉取，避免下一次保存携带旧版本。
+    await fetch()
   }
 
   async function toggle(id: number, enabled: boolean) {

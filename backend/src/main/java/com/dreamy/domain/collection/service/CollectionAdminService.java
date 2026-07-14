@@ -1,8 +1,8 @@
 package com.dreamy.domain.collection.service;
 
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.enums.CollectionStatus;
 import com.dreamy.enums.ImageKind;
-import java.time.LocalDateTime;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.entity.ProductCollection;
 import com.dreamy.domain.product.entity.ProductImage;
@@ -95,6 +95,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-28：新增分组（TX-CAT-015） */
+    @CatalogAdminWrite
     @Transactional
     public CollectionGroupDto createGroup(CollectionGroupUpsert req) {
         validateGroup(req);
@@ -104,11 +105,16 @@ public class CollectionAdminService {
         groupRepository.insert(group);
         groupRepository.replaceTranslations(group.getId(), toGroupTranslationRows(req.translations()));
         audit.record("创建集合分组", group.getName(), null);
+        afterCommit.run(() -> {
+            cache.invalidateFamily(Family.COLLECTIONS);
+            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        });
         return new CollectionGroupDto(group.getId(), group.getName(), group.getDescription(), 0,
                 req.translations() == null ? List.of() : req.translations());
     }
 
     /** E-CAT-29：编辑分组（TX-CAT-016） */
+    @CatalogAdminWrite
     @Transactional
     public CollectionGroupDto updateGroup(Long id, CollectionGroupUpsert req) {
         CollectionGroup existing = groupRepository.findById(id);
@@ -133,6 +139,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-30：删除分组（TX-CAT-017；guard 409506——真实端收紧为先清空集合防误删营销数据） */
+    @CatalogAdminWrite
     @Transactional
     public void deleteGroup(Long id) {
         CollectionGroup existing = groupRepository.findById(id);
@@ -143,11 +150,7 @@ public class CollectionAdminService {
         if (collectionCount > 0) {
             throw new CatalogException(CatalogErrorCode.COLLECTION_GROUP_IN_USE, Map.of("collection_count", collectionCount));
         }
-        // 逻辑删除：设置 deleted_at = now()
-        CollectionGroup patch = new CollectionGroup();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        groupRepository.update(patch);
+        groupRepository.deleteById(id);
         audit.record("删除集合分组", existing.getName(), null);
         afterCommit.run(() -> {
             cache.invalidateFamily(Family.COLLECTIONS);
@@ -217,6 +220,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-32：新增集合（TX-CAT-018；collection_lifecycle →enabled） */
+    @CatalogAdminWrite
     @Transactional
     public CollectionDto createCollection(CollectionUpsert req) {
         validateCollection(req);
@@ -236,6 +240,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-33：编辑集合（TX-CAT-019；Toggle enabled 映射 status；collection_group_id 可改=移动分组） */
+    @CatalogAdminWrite
     @Transactional
     public CollectionDto updateCollection(Long id, CollectionUpsert req) {
         Collection existing = collectionRepository.findById(id);
@@ -265,6 +270,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-34：删除集合（TX-CAT-020；无前置 guard；product_collection 级联摘除——RM-CAT-144） */
+    @CatalogAdminWrite
     @Transactional
     public void deleteCollection(Long id) {
         // V-CAT-068：不存在（含非法 id）→ 404505
@@ -272,13 +278,9 @@ public class CollectionAdminService {
         if (existing == null) {
             throw new CatalogException(CatalogErrorCode.COLLECTION_NOT_FOUND);
         }
-        // 逻辑删除：设置 deleted_at = now()
-        Collection patch = new Collection();
-        patch.setId(id);
-        patch.setDeletedAt(LocalDateTime.now());
-        collectionRepository.update(patch);
-        collectionRepository.deleteTranslationsByCollectionId(id);
         productCollectionRepository.deleteByCollectionId(id);
+        collectionRepository.deleteTranslationsByCollectionId(id);
+        collectionRepository.deleteById(id);
         audit.record("删除集合", existing.getName(), null);
         afterCommit.run(() -> {
             cache.invalidateFamily(Family.COLLECTIONS);
@@ -436,7 +438,7 @@ public class CollectionAdminService {
         for (ProductCollection pc : rows) {
             Product p = productById.get(pc.getProductId());
             if (p == null) {
-                // 商品被逻辑删除但挂载未清理：跳过（与 listByCollectionId 不一致容忍）
+                // 商品缺失或存在历史孤儿挂载：跳过（与 listByCollectionId 不一致容忍）
                 continue;
             }
             items.add(new CollectionProductDto(p.getId(), p.getName(), p.getSlug(),
@@ -447,6 +449,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-36 replaceCollectionProducts —— 全量覆盖（按入参顺序写 sort，TX-CAT-021） */
+    @CatalogAdminWrite
     @Transactional
     public void replaceCollectionProducts(Long collectionId, CollectionProductsUpsert req) {
         Collection existing = collectionRepository.findById(collectionId);
@@ -478,6 +481,7 @@ public class CollectionAdminService {
     }
 
     /** E-CAT-37 removeCollectionProduct —— 单条摘除（TX-CAT-022） */
+    @CatalogAdminWrite
     @Transactional
     public void removeCollectionProduct(Long collectionId, Long productId) {
         Collection existing = collectionRepository.findById(collectionId);

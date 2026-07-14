@@ -10,5 +10,4 @@ public interface GuideDBConst extends MarketingCommonDBConst {
     String PHASE = "phase";
     String TIMEFRAME = "timeframe";
     String TASKS_COUNT = "tasks_count";
-    public static final String DELETED_AT = "deleted_at";
 }

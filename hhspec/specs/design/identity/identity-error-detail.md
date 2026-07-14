@@ -91,7 +91,7 @@
 - CB-001 OIDC 熔断：连续失败达阈值开启熔断窗口，期间快速失败 → 50201，统一引导 OTP（DG-001）
 - DG-001 OIDC 不可用降级：前端收 502/504 自动切换 OTP 登录入口（REQ-008-05）
 - DG-002 SMTP 沙箱无网络：切本地 stub（decision 5/15，stub_switch=true）
-- DG-003 Redis 不可用：会话有效性降级为直接查 DB session.status（牺牲部分性能保可用，[INFERRED]，需 L3 确认告警）
+- DG-003 Redis 不可用：当前实例仍直接按 DB session/admin 状态鉴权；兼容键读写失败记告警，不产生继续授权窗口
 
 ---
 

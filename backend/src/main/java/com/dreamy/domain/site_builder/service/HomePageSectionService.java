@@ -1,5 +1,6 @@
 package com.dreamy.domain.site_builder.service;
 
+import com.dreamy.aspect.HomePageSectionWrite;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
@@ -42,8 +43,10 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    @HomePageSectionWrite
     public HomePageSectionDto create(HomePageSectionUpsert upsert) {
         validate(upsert, null);
+        validateHeroSingleton(upsert.getSectionType(), null);
         HomePageSection entity = new HomePageSection();
         entity.setSectionType(upsert.getSectionType());
         entity.setEnabled(upsert.getEnabled());
@@ -57,14 +60,17 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    @HomePageSectionWrite
     public HomePageSectionDto update(Long id, HomePageSectionUpsert upsert) {
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         validate(upsert, entity.getSectionType());
+        String targetType = upsert.getSectionType() == null ? entity.getSectionType() : upsert.getSectionType();
+        validateHeroSingleton(targetType, id);
         if (upsert.getVersion() == null || !upsert.getVersion().equals(entity.getVersion())) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
-        entity.setSectionType(upsert.getSectionType());
+        entity.setSectionType(targetType);
         if (upsert.getEnabled() != null) entity.setEnabled(upsert.getEnabled());
         if (upsert.getSortOrder() != null) entity.setSortOrder(upsert.getSortOrder());
         if (upsert.getLabel() != null) entity.setLabel(upsert.getLabel());
@@ -78,16 +84,25 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    @HomePageSectionWrite
     public List<HomePageSectionDto> saveAll(List<HomePageSaveItem> items) {
         if (items == null || items.isEmpty()) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
                     Map.of("reason", "homepage must contain at least one section"));
         }
+        if (items.stream().anyMatch(java.util.Objects::isNull)) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
+                    Map.of("reason", "homepage section item must not be null"));
+        }
         if (items.stream().map(HomePageSaveItem::getId).distinct().count() != items.size()) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
                     Map.of("reason", "duplicate section id"));
         }
-        Map<Long, HomePageSection> existingById = repository.findAllOrderBySort().stream()
+        if (items.stream().filter(item -> "hero".equals(item.getSectionType())).count() > 1) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
+                    Map.of("reason", "homepage can contain only one hero section"));
+        }
+        Map<Long, HomePageSection> existingById = repository.findAllOrderById().stream()
                 .collect(Collectors.toMap(HomePageSection::getId, section -> section));
         for (HomePageSaveItem item : items) {
             if (item.getId() == null) {
@@ -102,14 +117,36 @@ public class HomePageSectionService {
                 throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
             }
         }
-        for (HomePageSaveItem item : items) {
+        Map<Long, HomePageSaveItem> requestedById = items.stream()
+                .collect(Collectors.toMap(HomePageSaveItem::getId, item -> item));
+        long finalHeroCount = existingById.values().stream()
+                .filter(section -> {
+                    HomePageSaveItem requested = requestedById.get(section.getId());
+                    String finalType = requested == null || requested.getSectionType() == null
+                            ? section.getSectionType()
+                            : requested.getSectionType();
+                    return "hero".equals(finalType);
+                })
+                .count();
+        if (finalHeroCount > 1) {
+            throw heroSingletonConflict();
+        }
+
+        // Stable ordering keeps multi-row updates deterministic and remains compatible during rolling upgrades.
+        List<HomePageSaveItem> writeOrder = items.stream()
+                .sorted(java.util.Comparator
+                        .comparing((HomePageSaveItem item) -> "hero".equals(item.getSectionType()))
+                        .thenComparing(HomePageSaveItem::getId))
+                .toList();
+        for (HomePageSaveItem item : writeOrder) {
             HomePageSection entity = existingById.get(item.getId());
-            entity.setSectionType(item.getSectionType());
+            if (item.getSectionType() != null) entity.setSectionType(item.getSectionType());
             entity.setEnabled(item.getEnabled());
             entity.setSortOrder(item.getSortOrder());
             if (item.getLabel() != null) entity.setLabel(item.getLabel());
             applyJsonFields(entity, item);
-            if (repository.updateByIdAndVersion(entity) == 0) {
+            int rows = repository.updateByIdAndVersion(entity);
+            if (rows == 0) {
                 throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
             }
         }
@@ -118,6 +155,7 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    @HomePageSectionWrite
     public void delete(Long id) {
         repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
@@ -126,15 +164,44 @@ public class HomePageSectionService {
     }
 
     @Transactional
+    @HomePageSectionWrite
     public void batchSort(List<SortItem> items) {
+        if (items == null || items.isEmpty()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                    Map.of("field", "items"));
+        }
+        if (items.stream().anyMatch(java.util.Objects::isNull)) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                    Map.of("field", "items"));
+        }
+        if (items.stream().map(SortItem::getId).filter(java.util.Objects::nonNull).distinct().count()
+                != items.size()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                    Map.of("field", "items", "reason", "duplicate or missing section id"));
+        }
+        for (SortItem item : items) {
+            if (item.getSortOrder() == null || item.getSortOrder() < 0) {
+                throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
+                        Map.of("field", "sort_order"));
+            }
+        }
+
+        Map<Long, HomePageSection> existingById = repository.findAllOrderById().stream()
+                .collect(Collectors.toMap(HomePageSection::getId, section -> section));
+        if (items.stream().map(SortItem::getId).anyMatch(id -> !existingById.containsKey(id))) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND);
+        }
         List<long[]> pairs = items.stream()
                 .map(i -> new long[]{i.getId(), i.getSortOrder()})
                 .collect(Collectors.toList());
-        repository.batchUpdateSort(pairs);
+        if (repository.batchUpdateSort(pairs) != items.size()) {
+            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+        }
         cacheService.invalidateHomeSectionFamily();
     }
 
     @Transactional
+    @HomePageSectionWrite
     public HomePageSectionDto toggle(Long id, Boolean enabled) {
         HomePageSection entity = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
@@ -175,6 +242,17 @@ public class HomePageSectionService {
         }
         validateJsGuard(type, upsert.getDataJson(), upsert.getI18nJson());
         validateI18nJson(upsert.getI18nJson());
+    }
+
+    private void validateHeroSingleton(String sectionType, Long excludeId) {
+        if ("hero".equals(sectionType) && repository.countByTypeExcludingId("hero", excludeId) > 0) {
+            throw heroSingletonConflict();
+        }
+    }
+
+    private SiteBuilderException heroSingletonConflict() {
+        return SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
+                Map.of("reason", "homepage can contain only one hero section"));
     }
 
     private void validateJsGuard(String type, JsonNode dataJson, JsonNode i18nJson) {

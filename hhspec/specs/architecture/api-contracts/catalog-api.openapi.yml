@@ -2,24 +2,25 @@ openapi: 3.0.3
 info:
   title: Catalog API (portal-api-integration)
   description: |
-    catalog 限界上下文 API 契约，覆盖消费端（/api/store/products·categories·tags）与后台
-    （/api/admin/products·categories·attribute-sets·attribute-defs·tag-dimensions·tags·uploads）。
+    catalog 限界上下文 API 契约，覆盖消费端（/api/store/products·categories·collections）与后台
+    （/api/admin/products·categories·attribute-sets·attribute-defs·collection-groups·collections·uploads）。
     实体：Product / Sku / ProductImage / SizeChartRow / Category / AttributeDef / AttributeSet /
-    AttributeSetItem / TagDimension / Tag 及 ProductTranslation / CategoryTranslation /
-    AttributeDefTranslation / TagTranslation / TagDimensionTranslation（决策 2/13；CustomTag 合并处置见下）。
+    AttributeSetItem / CollectionGroup / Collection 及 ProductTranslation / CategoryTranslation /
+    AttributeDefTranslation / CollectionTranslation / CollectionGroupTranslation（决策 2/13）。
 
     ## R 包络映射（与线上基座一致，L3 勿按字面实现）
     实际 HTTP 线上响应统一为 huihao R 包络：成功 `{ code, message, data: <payload> }`，
     失败 `{ code, message, data: <details> }`（本契约错误 Schema 的 `details` 内容在线上装入 R 的 `data` 字段）。
     本契约各端点 response schema 仅建模 **data 载荷（payload）**，前端 client.ts 解包后消费。
+    JSON 边界字段使用 snake_case；portal-admin/portal-store client 在浏览器侧统一转换为 camelCase。
     分页载荷统一为 huihao.page.Paginated 形状（snake_case 线上字段）：
     `{ data, total_elements, page_number, page_size, number_of_elements, total_pages }`
     ——与 backend UserOpsController 返回 R<Paginated<T>>、portal-admin PageResult（totalElements）消费习惯一致。
 
-    ## CustomTag 处置（模型合并声明，避免 L2/L3 孤表）
-    er-diagram 中的 CustomTag / CustomTagTranslation 由 TagDimension / Tag / TagTranslation 模型**合并承载**，
-    不建独立 custom_tag / custom_tag_translation 表、不出独立端点：ProductEdit 的 tagsByDimension（dim.id + tag.name）
-    即 Tag 按 dimension_id 分组；商品挂载标签统一走 AdminProductUpsert.tag_ids（Product-Tag nm 关系）。
+    ## Collection 命名与封面策略
+    2026-06-17 起原 TagDimension / Tag 模型正式重命名为 CollectionGroup / Collection；商品挂载统一走
+    AdminProductUpsert.collection_ids（Product-Collection nm 关系）。Collection 不持久化 cover，后台 Collection
+    DTO 的 fallback_cover_urls 由集合内按 sort 排序的前 4 个商品主图动态装配，用于卡片拼贴。
 
     ## 鉴权约定（与 identity-api 一致）
     - 消费端公开只读端点 `security: []`；后台端点 AdminBearerAuth + RBAC 菜单权限 key（BE-DIM-6 新增权限点）。
@@ -41,13 +42,13 @@ info:
     | 404502 | CATEGORY_NOT_FOUND 分类不存在 | 404 |
     | 404503 | ATTRIBUTE_SET_NOT_FOUND 属性集不存在 | 404 |
     | 404504 | ATTRIBUTE_DEF_NOT_FOUND 属性定义不存在 | 404 |
-    | 404505 | TAG_NOT_FOUND 标签/维度不存在 | 404 |
+    | 404505 | COLLECTION_NOT_FOUND 集合/分组不存在 | 404 |
     | 409501 | SLUG_EXISTS 商品 slug 已存在 | 409 |
     | 409502 | CATEGORY_HAS_PRODUCTS 分类下商品数 > 0 不可删除（js_guard: product_count === 0） | 409 |
     | 409503 | ATTRIBUTE_SET_IN_USE 属性集被分类引用不可删除 | 409 |
     | 409504 | SKU_CODE_EXISTS SKU 码重复 | 409 |
     | 409505 | CATEGORY_LEVEL_EXCEEDED 分类层级超过 3 层 | 409 |
-    | 409506 | TAG_DIMENSION_IN_USE 维度下仍有标签不可删除 | 409 |
+    | 409506 | COLLECTION_GROUP_IN_USE 分组下仍有集合不可删除 | 409 |
     | 409507 | ATTRIBUTE_DEF_IN_USE 属性定义被属性集引用不可删除 | 409 |
     | 409508 | PRODUCT_VERSION_CONFLICT 商品并发编辑冲突（乐观锁） | 409 |
     | 409509 | PRODUCT_NOT_DELETABLE 已发布商品不可直接删除（需先下架） | 409 |
@@ -56,7 +57,7 @@ info:
     | 502501 | OBJECT_STORAGE_UNAVAILABLE 对象存储预签名服务不可用（决策 9 降级路径） | 502 |
 
     ## 缓存标注（BE-DIM-8：每个只读端点标注缓存层级与失效触发者）
-    - 消费端商品/分类/标签读端点：CDN `s-maxage` + JetCache 两级（key 含 locale 维度，决策 13）；
+    - 消费端商品/分类/集合读端点：CDN `s-maxage` + JetCache 两级（key 含 locale 维度，决策 13）；
       失效触发者：管理端写操作 @CacheInvalidate → RabbitMQ → Next.js revalidatePath + Cloudflare purge（决策 4/22）。
     - /api/store/products/search：仅 JetCache 短 TTL 60s（决策 17），CDN 不缓存。
     - 尺码推荐为纯函数端点不缓存；后台端点一律不缓存。
@@ -69,14 +70,15 @@ info:
     - v1.0.0 (2026-06-10): 初始版本（ALIGN-002/003/004/016/020/024、决策 6/9/13/17/29）
     - v1.1.0 (2026-06-10): feasibility 修复——分页包络对齐 huihao Paginated；R 包络映射声明；CustomTag 合并处置；
       best_sellers/rating 聚合实现方式标注；StoreJwtFilter 公开路径白名单提示
-  version: 1.0.0
+    - v1.2.0 (2026-07-14): Tag 模型契约同步为 Collection；集合封面改为商品主图动态拼贴。
+  version: 1.2.0
   contact:
     name: catalog domain team
     email: York_Morinkts@madonnafan.com
 
 servers:
-  - url: http://localhost:8080
-    description: 本地（backend 单工程，端口 8080）
+  - url: http://localhost:18081
+    description: 本地（backend 单工程，端口 18081）
 
 tags:
   - name: store-products
@@ -84,17 +86,17 @@ tags:
   - name: store-size
     description: 消费端 Find My Size 尺码推荐（ALIGN-024、决策 20.3）
   - name: store-categories
-    description: 消费端分类树与营销标签导航（ALIGN-004）
+    description: 消费端分类树与营销集合导航（ALIGN-004）
   - name: admin-products
     description: 后台商品管理（ALIGN-002/003）
   - name: admin-categories
     description: 后台三层分类树管理（ALIGN-004）
   - name: admin-attribute-sets
     description: 后台属性集与属性字典（ALIGN-004）
-  - name: admin-tags
-    description: 后台标签维度与自定义标签（ALIGN-004）
+  - name: admin-collections
+    description: 后台集合分组、集合与集合商品管理（ALIGN-004）
   - name: admin-uploads
-    description: 预签名 URL 上传（决策 9，媒体基建由 catalog 域代管，商品/分类/标签/Banner/内容图片共用）
+    description: 预签名 URL 上传（决策 9，媒体基建由 catalog 域代管，商品/分类/Banner/内容图片共用）
 
 paths:
   # ============ STORE PRODUCTS ============
@@ -117,9 +119,9 @@ paths:
           schema:
             type: integer
             format: int64
-        - name: tag_id
+        - name: collection_id
           in: query
-          description: 自定义标签筛选（Shop by Color 等，决策 29）
+          description: 集合筛选（Shop by Color 等，决策 29）
           schema:
             type: integer
             format: int64
@@ -154,6 +156,17 @@ paths:
             type: string
             enum: [newest, price_asc, price_desc, recommended]
             default: recommended
+        - name: attr
+          in: query
+          description: 动态属性筛选，格式 key:value；参数可重复，同 key 多值为 OR、跨 key 为 AND，最多 20 项
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 20
+            items:
+              type: string
+              maxLength: 320
       responses:
         '200':
           description: 成功
@@ -166,11 +179,47 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/store/products/filters:
+    get:
+      summary: 分类动态属性筛选维度
+      description: |
+        返回分类生效属性集中非 hidden 的 select/multiselect 维度，按属性集顺序排列；
+        value 为 EN 规范值，label 按 locale 翻译。分类不存在时返回空 items。
+        缓存：CDN s-maxage + JetCache 两级（key 含 category_id + locale）；属性字典、属性集或分类写操作触发失效。
+      operationId: listStoreProductFilters
+      tags: [store-products]
+      security: []
+      parameters:
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - $ref: '#/components/parameters/LocaleParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoreFilterDim'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/store/products/search:
     get:
       summary: 商品全文搜索
       description: |
-        ALIGN-020 / 决策 17。MySQL FULLTEXT ngram 检索商品名/副标题/标签；locale=es/fr 时叠加 translation 附表按语种检索。
+        ALIGN-020 / 决策 17。MySQL FULLTEXT ngram 检索商品名；locale=es/fr 时叠加 translation 附表的商品名检索。
         缓存：仅 JetCache 短 TTL 60s（key 含 q + locale + 分页），CDN 不缓存；失效：TTL 自然过期（短 TTL 兜底）。
       operationId: searchStoreProducts
       tags: [store-products]
@@ -204,10 +253,10 @@ paths:
       summary: 首页/推荐位商品（规则化推荐）
       description: |
         决策 29 / ALIGN-033。block 数据规则：new_arrivals=上架时间倒序；best_sellers=近 30 天已支付销量聚合（冷启动回退 recommend 手动标记）；
-        shop_by_color=色板标签筛选（需 tag_id）；you_may_also_like=同品类+同价格段（需 product_id）；complete_the_look=同类目规则凑数（需 product_id，不建关联表）。
+        shop_by_color=色板集合筛选（需 collection_id）；you_may_also_like=同品类+同价格段（需 product_id）；complete_the_look=同类目规则凑数（需 product_id，不建关联表）。
         best_sellers 销量数据为 trading→catalog 反向依赖：由 MQ 订单支付事件消费者回写商品销量冗余字段（30 天滚动窗口），
         读路径不跨域 join；冗余字段与回写节奏由 L2 详设定稿。
-        缓存：CDN s-maxage + JetCache 两级（key 含 block + product_id/tag_id + locale）；失效：商品写操作/订单支付事件回写 @CacheInvalidate → MQ → revalidatePath + purge。
+        缓存：CDN s-maxage + JetCache 两级（key 含 block + product_id/collection_id + locale）；失效：商品写操作/订单支付事件回写 @CacheInvalidate → MQ → revalidatePath + purge。
       operationId: listStoreRecommendations
       tags: [store-products]
       security: []
@@ -224,9 +273,9 @@ paths:
           schema:
             type: integer
             format: int64
-        - name: tag_id
+        - name: collection_id
           in: query
-          description: block=shop_by_color 时必填，色板标签
+          description: block=shop_by_color 时必填，色板集合
           schema:
             type: integer
             format: int64
@@ -260,7 +309,7 @@ paths:
     get:
       summary: 商品详情（PDP）
       description: |
-        ALIGN-002/003/024 消费端 PDP。含图廊/SKU 矩阵（现货库存）/尺码表/定制尺寸开关与交期（决策 6）/标签；按 locale 应用翻译。
+        ALIGN-002/003/024 消费端 PDP。含图廊/SKU 矩阵（现货库存）/尺码表/定制尺寸开关与交期（决策 6）/集合；按 locale 应用翻译。
         未发布或不存在返回 404501。
         缓存：CDN s-maxage（ISR 商品页同源）+ JetCache 两级（key 含 slug + locale）；失效：后台商品写操作 @CacheInvalidate → MQ → revalidatePath + purge（s-758 失效链）。
       operationId: getStoreProduct
@@ -320,7 +369,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ============ STORE CATEGORIES & TAGS ============
+  # ============ STORE CATEGORIES & COLLECTIONS ============
   /api/store/categories:
     get:
       summary: 分类树（三层）
@@ -345,24 +394,26 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/StoreCategoryNode'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/store/tags:
+  /api/store/collections:
     get:
-      summary: 标签导航（按维度分组）
+      summary: 集合导航（按分组聚合）
       description: |
-        ALIGN-004 / 决策 29。返回 status=enabled 的标签，按 TagDimension 分组（含封面图，用于前台导航卡片与 Shop by Color 色板）；
-        按 locale 应用 TagTranslation/TagDimensionTranslation。
-        缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台标签写操作 @CacheInvalidate → MQ → revalidatePath + purge。
-      operationId: listStoreTags
+        ALIGN-004 / 决策 29。返回 status=enabled 的集合，按 CollectionGroup 聚合；
+        按 locale 应用 CollectionTranslation/CollectionGroupTranslation。消费端响应不返回封面字段。
+        缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台集合写操作 @CacheInvalidate → MQ → revalidatePath + purge。
+      operationId: listStoreCollections
       tags: [store-categories]
       security: []
       parameters:
         - $ref: '#/components/parameters/LocaleParam'
-        - name: dimension_id
+        - name: group_id
           in: query
-          description: 仅返回指定维度
+          description: 仅返回指定分组
           schema:
             type: integer
             format: int64
@@ -378,7 +429,9 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/StoreTagDimensionGroup'
+                      $ref: '#/components/schemas/StoreCollectionGroup'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -397,9 +450,7 @@ paths:
         - name: status
           in: query
           schema:
-            type: string
-            enum: [all, draft, published]
-            default: all
+            $ref: '#/components/schemas/ProductStatus'
         - name: category_id
           in: query
           schema:
@@ -427,7 +478,7 @@ paths:
     post:
       summary: 新增商品
       description: |
-        ALIGN-003。整单提交基础信息/属性/SKU 矩阵/图片（对象 key 来自预签名上传）/尺码表/标签/三语翻译 tab（决策 13）。
+        ALIGN-003。整单提交基础信息/属性/SKU 矩阵/图片（对象 key 来自预签名上传）/尺码表/集合/三语翻译 tab（决策 13）。
         slug 唯一（409501）；SKU 码唯一（409504）；compare_at >= price（422501）。
         写成功后触发 @CacheInvalidate → MQ 失效链 + OperationLog（action=创建商品）。
       operationId: createAdminProduct
@@ -458,10 +509,93 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/admin/products/batch:
+    post:
+      summary: 批量操作商品
+      description: |
+        单次 1~200 个 id，逐条独立执行；部分或全部行失败仍返回 200，由 failures 提供行级错误。
+        delete 对不存在商品幂等成功；已发布商品删除失败码为 409509。
+      operationId: batchAdminProducts
+      tags: [admin-products]
+      security:
+        - AdminBearerAuth: [/products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductBatchRequest'
+      responses:
+        '200':
+          description: 批量处理结果（含部分失败）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductBatchResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/products/export:
+    get:
+      summary: 导出商品 CSV
+      description: |
+        按后台列表相同的 status/category_id/search 条件导出，不分页；最多 10000 行。
+        超限时 CSV 末尾追加截断标记，并返回 X-Export-Truncated: true。
+      operationId: exportAdminProducts
+      tags: [admin-products]
+      security:
+        - AdminBearerAuth: [/products]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProductStatus'
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: UTF-8 BOM CSV 文件
+          headers:
+            Content-Disposition:
+              description: attachment 文件名（products-yyyyMMdd.csv）
+              schema:
+                type: string
+            X-Export-Truncated:
+              description: 仅截断时返回 true
+              schema:
+                type: boolean
+          content:
+            text/csv; charset=UTF-8:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/admin/products/{id}:
     get:
       summary: 商品编辑详情
-      description: ALIGN-003。返回全量字段 + SKU + 图片 + 尺码表 + 标签 + 三语翻译。不缓存。
+      description: ALIGN-003。返回全量字段 + SKU + 图片 + 尺码表 + 集合 + 三语翻译。不缓存。
       operationId: getAdminProduct
       tags: [admin-products]
       security:
@@ -551,8 +685,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published]
+                  $ref: '#/components/schemas/ProductStatus'
       responses:
         '200':
           description: 成功
@@ -907,12 +1040,12 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  # ============ ADMIN TAG DIMENSIONS & TAGS ============
-  /api/admin/tag-dimensions:
+  # ============ ADMIN COLLECTION GROUPS & COLLECTIONS ============
+  /api/admin/collection-groups:
     get:
-      summary: 标签维度列表
-      operationId: listAdminTagDimensions
-      tags: [admin-tags]
+      summary: 集合分组列表
+      operationId: listAdminCollectionGroups
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       responses:
@@ -927,16 +1060,15 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/TagDimension'
+                      $ref: '#/components/schemas/CollectionGroup'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
-      summary: 新增标签维度
-      description: ALIGN-004 confirmAddDim。
-      operationId: createAdminTagDimension
-      tags: [admin-tags]
+      summary: 新增集合分组
+      operationId: createAdminCollectionGroup
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       requestBody:
@@ -944,24 +1076,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TagDimensionUpsert'
+              $ref: '#/components/schemas/CollectionGroupUpsert'
       responses:
         '201':
           description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagDimension'
+                $ref: '#/components/schemas/CollectionGroup'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/admin/tag-dimensions/{id}:
+  /api/admin/collection-groups/{id}:
     put:
-      summary: 编辑标签维度
-      operationId: updateAdminTagDimension
-      tags: [admin-tags]
+      summary: 编辑集合分组
+      operationId: updateAdminCollectionGroup
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       parameters:
@@ -971,14 +1103,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TagDimensionUpsert'
+              $ref: '#/components/schemas/CollectionGroupUpsert'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagDimension'
+                $ref: '#/components/schemas/CollectionGroup'
         '404':
           $ref: '#/components/responses/NotFoundError'   # 404505
         '422':
@@ -986,10 +1118,10 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
-      summary: 删除标签维度
-      description: 维度下仍有标签时返回 409506 TAG_DIMENSION_IN_USE。
-      operationId: deleteAdminTagDimension
-      tags: [admin-tags]
+      summary: 删除集合分组
+      description: 分组下仍有集合时返回 409506 COLLECTION_GROUP_IN_USE。
+      operationId: deleteAdminCollectionGroup
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       parameters:
@@ -1004,15 +1136,15 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/admin/tags:
+  /api/admin/collections:
     get:
-      summary: 标签列表（按维度筛选）
-      operationId: listAdminTags
-      tags: [admin-tags]
+      summary: 集合列表（按分组筛选）
+      operationId: listAdminCollections
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       parameters:
-        - name: dimension_id
+        - name: group_id
           in: query
           schema:
             type: integer
@@ -1029,16 +1161,16 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Tag'
+                      $ref: '#/components/schemas/Collection'
         '403':
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
-      summary: 新增标签
-      description: ALIGN-004 confirmAddTag（name 必填非空）；cover 可空则前台纯文字展示。
-      operationId: createAdminTag
-      tags: [admin-tags]
+      summary: 新增集合
+      description: Collection 不接收 cover；封面拼贴由集合商品主图派生。
+      operationId: createAdminCollection
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       requestBody:
@@ -1046,27 +1178,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TagUpsert'
+              $ref: '#/components/schemas/CollectionUpsert'
       responses:
         '201':
           description: 创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/Collection'
         '404':
-          $ref: '#/components/responses/NotFoundError'   # 404505 维度不存在
+          $ref: '#/components/responses/NotFoundError'   # 404505 分组不存在
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/admin/tags/{id}:
+  /api/admin/collections/{id}:
     put:
-      summary: 编辑标签（含启用/禁用与封面）
-      description: Toggle enabled 映射 status 枚举（enabled/disabled）。写失效消费端标签/推荐位缓存。
-      operationId: updateAdminTag
-      tags: [admin-tags]
+      summary: 编辑集合（含启用/禁用）
+      description: 写失效消费端集合、推荐位与商品列表缓存。
+      operationId: updateAdminCollection
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       parameters:
@@ -1076,14 +1208,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TagUpsert'
+              $ref: '#/components/schemas/CollectionUpsert'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: '#/components/schemas/Collection'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '422':
@@ -1091,9 +1223,10 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
-      summary: 删除标签
-      operationId: deleteAdminTag
-      tags: [admin-tags]
+      summary: 删除集合
+      description: 先摘除 product_collection 与译文，再物理删除集合。
+      operationId: deleteAdminCollection
+      tags: [admin-collections]
       security:
         - AdminBearerAuth: [/categories]
       parameters:
@@ -1106,13 +1239,86 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/admin/collections/{id}/products:
+    get:
+      summary: 集合商品列表
+      operationId: listAdminCollectionProducts
+      tags: [admin-collections]
+      security:
+        - AdminBearerAuth: [/categories]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CollectionProduct'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: 全量覆盖集合商品及排序
+      operationId: replaceAdminCollectionProducts
+      tags: [admin-collections]
+      security:
+        - AdminBearerAuth: [/categories]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionProductsUpsert'
+      responses:
+        '200':
+          description: 保存成功
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/collections/{id}/products/{productId}:
+    delete:
+      summary: 从集合摘除单个商品
+      operationId: removeAdminCollectionProduct
+      tags: [admin-collections]
+      security:
+        - AdminBearerAuth: [/categories]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 摘除成功
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # ============ ADMIN UPLOADS（决策 9） ============
   /api/admin/uploads/presign:
     post:
       summary: 获取预签名上传 URL
       description: |
         决策 9 / ALIGN-003。S3 兼容对象存储预签名直传；后端只存对象 key/URL。
-        媒体基建由 catalog 域代管，商品图廊/色样/分类标签封面/Banner/内容封面共用本端点。
+        媒体基建由 catalog 域代管，商品图廊/色样/分类/Banner/内容封面共用本端点。
         对象存储不可用返回 502501（降级路径：提示稍后重试，表单其余字段可先保存）。
       operationId: presignAdminUpload
       tags: [admin-uploads]
@@ -1175,6 +1381,23 @@ components:
         default: en
 
   schemas:
+    ProductStatus:
+      type: integer
+      enum: [1, 2]
+      description: 1=draft，2=published
+    ImageKind:
+      type: integer
+      enum: [1, 2, 3, 4]
+      description: 1=gallery，2=lifestyle，3=video，4=swatch
+    AttributeType:
+      type: integer
+      enum: [1, 2, 3, 4]
+      description: 1=select，2=multiselect，3=text，4=toggle
+    AttributeVisibility:
+      type: integer
+      enum: [1, 2, 3]
+      description: 1=visible，2=optional，3=hidden
+
     ErrorResponse:
       type: object
       required: [code, message]
@@ -1202,11 +1425,14 @@ components:
         name:
           type: string
           maxLength: 128
-        subtitle:
-          type: string
-          maxLength: 255
         description:
           type: string
+        designer_note:
+          type: string
+        selling_points:
+          type: array
+          items:
+            type: string
         seo_title:
           type: string
           maxLength: 128
@@ -1237,7 +1463,7 @@ components:
           description: 与主表 options 等长的译文选项列表
           items:
             type: string
-    TagTranslation:
+    CollectionTranslation:
       type: object
       required: [locale]
       properties:
@@ -1246,7 +1472,7 @@ components:
           enum: [es, fr]
         label:
           type: string
-    TagDimensionTranslation:
+    CollectionGroupTranslation:
       type: object
       required: [locale]
       properties:
@@ -1259,24 +1485,26 @@ components:
     # ---- 商品子资源 ----
     ProductImage:
       type: object
-      required: [url, kind, sort]
+      required: [url, kind]
       properties:
         id:
           type: integer
           format: int64
+          readOnly: true
         url:
           type: string
           maxLength: 512
         kind:
-          type: string
-          enum: [gallery, lifestyle, video, swatch]
+          $ref: '#/components/schemas/ImageKind'
         color_name:
           type: string
           maxLength: 32
-          description: kind=swatch 时的颜色名（每颜色一张色样图）
+          description: kind=4（swatch）时的颜色名（每颜色一张色样图）
         sort:
           type: integer
           minimum: 0
+          nullable: true
+          default: 0
           description: 拖拽排序；sort === 0 为主图（js_guard）
     Sku:
       type: object
@@ -1285,6 +1513,7 @@ components:
         id:
           type: integer
           format: int64
+          description: 已有 SKU 编辑时回传；新建行省略
         sku_code:
           type: string
           maxLength: 64
@@ -1298,11 +1527,13 @@ components:
         stock:
           type: integer
           minimum: 0
+          nullable: true
+          default: 0
           description: 现货库存；定制款（custom_size_available）不扣库存（决策 6）
         version:
           type: integer
           format: int64
-          description: 乐观锁版本（扣减防超卖，BE-DIM-4）；后台编辑时回传校验
+          description: 乐观锁版本（扣减防超卖，BE-DIM-4）；已有 SKU 携带 id 时必须回传
     SizeChartRow:
       type: object
       required: [us]
@@ -1310,6 +1541,7 @@ components:
         id:
           type: integer
           format: int64
+          readOnly: true
         us:
           type: string
           maxLength: 8
@@ -1335,12 +1567,88 @@ components:
           type: number
           minimum: 0
           description: 中空到地(in)
+    AttributeValueEntry:
+      type: object
+      required: [key, values]
+      properties:
+        key:
+          type: string
+          maxLength: 64
+        values:
+          type: array
+          description: select/text/toggle 至多一个值；multiselect 可多值
+          items:
+            type: string
+            maxLength: 255
+    StoreAttributeOption:
+      type: object
+      required: [value, label]
+      properties:
+        value:
+          type: string
+          description: EN 规范值，用于筛选和落库
+        label:
+          type: string
+          description: 已按 locale 解析的展示值
+    StoreAttribute:
+      type: object
+      required: [key, label, type, values]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          $ref: '#/components/schemas/AttributeType'
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreAttributeOption'
+    StoreFilterDim:
+      type: object
+      required: [key, label, type, options]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: integer
+          enum: [1, 2]
+          description: 1=select，2=multiselect
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreAttributeOption'
+    FabricComposition:
+      type: object
+      required: [layer, material, percentage]
+      properties:
+        layer:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: 1=Shell，2=Lining，3=Overlay，4=Trim
+        material:
+          type: string
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+    CareItem:
+      type: object
+      required: [symbol, label]
+      properties:
+        symbol:
+          type: string
+        label:
+          type: string
 
     # ---- 消费端商品 ----
     StoreProductCard:
       type: object
       required: [id, slug, name, price]
-      description: 商品卡片（列表/推荐位/收藏/浏览历史复用）；name/subtitle 已按 locale 解析
+      description: 商品卡片（列表/推荐位/收藏/浏览历史复用）；name/selling_points 已按 locale 解析
       properties:
         id:
           type: integer
@@ -1348,8 +1656,6 @@ components:
         slug:
           type: string
         name:
-          type: string
-        subtitle:
           type: string
         price:
           type: number
@@ -1387,6 +1693,10 @@ components:
         rating_count:
           type: integer
           description: 已通过评价数（同 rating_avg，MQ 事件回写冗余字段派生）
+        selling_points:
+          type: array
+          items:
+            type: string
     StoreProductListResponse:
       type: object
       description: huihao.page.Paginated 形状（线上为 R<Paginated<StoreProductCard>>，契约建模 data 载荷）
@@ -1421,20 +1731,20 @@ components:
           type: string
         name:
           type: string
-        subtitle:
-          type: string
         category_id:
           type: integer
           format: int64
         category_name:
           type: string
           description: 所属分类名（Category.name 派生，已按 locale 解析）
-        product_type:
-          type: string
         description:
           type: string
         designer_note:
           type: string
+        selling_points:
+          type: array
+          items:
+            type: string
         price:
           type: number
         compare_at:
@@ -1458,50 +1768,10 @@ components:
         custom_size_available:
           type: boolean
           description: 定制尺寸开关（A-007；PDP Custom Size 表单依赖）
-        silhouette:
-          type: string
-        neckline:
-          type: string
-        sleeve:
-          type: string
-        back_style:
-          type: string
-        waistline:
-          type: string
-        train:
-          type: string
-        length:
-          type: string
-        fabric:
-          type: string
-        fabric_composition:
-          type: string
-        support:
-          type: string
-        season:
-          type: string
-        embellishments:
+        attributes:
           type: array
           items:
-            type: string
-        occasions:
-          type: array
-          items:
-            type: string
-        style_tags:
-          type: array
-          items:
-            type: string
-        model_height:
-          type: string
-        model_size:
-          type: string
-        model_body_type:
-          type: string
-        care_instructions:
-          type: string
-        country_of_origin:
-          type: string
+            $ref: '#/components/schemas/StoreAttribute'
         style_no:
           type: string
         seo_title:
@@ -1520,16 +1790,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SizeChartRow'
-        tags:
+        collections:
           type: array
-          description: 商品挂载的自定义标签（已按 locale 解析）
+          description: 商品挂载的集合（已按 locale 解析）
           items:
             type: object
+            required: [id, collection_group_id, name]
             properties:
               id:
                 type: integer
                 format: int64
-              dimension_id:
+              collection_group_id:
                 type: integer
                 format: int64
               name:
@@ -1540,6 +1811,16 @@ components:
         rating_count:
           type: integer
           description: 同 StoreProductCard.rating_count
+        fabric_compositions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FabricComposition'
+        care_instructions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareItem'
+        fabric_care_note:
+          type: string
 
     # ---- 尺码推荐（决策 20.3） ----
     SizeRecommendationRequest:
@@ -1592,7 +1873,7 @@ components:
                 type: string
                 description: 该维度落入的 US 码
 
-    # ---- 分类 / 标签 ----
+    # ---- 分类 / 集合 ----
     StoreCategoryNode:
       type: object
       required: [id, name, level]
@@ -1619,19 +1900,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/StoreCategoryNode'
-    StoreTagDimensionGroup:
+    StoreCollectionGroup:
       type: object
-      required: [id, name, tags]
+      required: [id, name, collections]
       properties:
         id:
           type: integer
           format: int64
         name:
           type: string
-          description: 维度名（已按 locale 解析）
+          description: 分组名（已按 locale 解析）
         description:
           type: string
-        tags:
+        collections:
           type: array
           items:
             type: object
@@ -1642,16 +1923,13 @@ components:
                 format: int64
               name:
                 type: string
-              cover:
-                type: string
-                description: 封面图，可空则纯文字展示
               product_count:
                 type: integer
 
     # ---- 后台商品 ----
     AdminProductListItem:
       type: object
-      required: [id, name, slug, price, status]
+      required: [id, name, slug, price, status, sales_total]
       properties:
         id:
           type: integer
@@ -1667,13 +1945,13 @@ components:
           format: int64
         category_name:
           type: string
+          readOnly: true
         price:
           type: number
         compare_at:
           type: number
         status:
-          type: string
-          enum: [draft, published]
+          $ref: '#/components/schemas/ProductStatus'
         is_new:
           type: boolean
         is_best:
@@ -1684,10 +1962,18 @@ components:
           type: integer
         stock_total:
           type: integer
+          minimum: 0
+          readOnly: true
           description: 全 SKU 库存合计（派生）
         image_url:
           type: string
+          readOnly: true
           description: 主图（派生）
+        sales_total:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: 已支付后状态订单行累计销量（派生；缺失按 0）
     AdminProductListResponse:
       type: object
       description: huihao.page.Paginated 形状（线上为 R<Paginated<AdminProductListItem>>）
@@ -1721,19 +2007,17 @@ components:
           type: string
           maxLength: 128
           pattern: '^[a-z0-9-]+$'
-        subtitle:
-          type: string
-          maxLength: 255
         category_id:
           type: integer
           format: int64
-        product_type:
-          type: string
-          maxLength: 64
         description:
           type: string
         designer_note:
           type: string
+        selling_points:
+          type: array
+          items:
+            type: string
         price:
           type: number
           minimum: 0
@@ -1749,8 +2033,7 @@ components:
           additionalProperties:
             type: number
         status:
-          type: string
-          enum: [draft, published]
+          $ref: '#/components/schemas/ProductStatus'
         is_new:
           type: boolean
         is_best:
@@ -1767,55 +2050,10 @@ components:
           type: boolean
         custom_size_available:
           type: boolean
-        silhouette:
-          type: string
-        neckline:
-          type: string
-        sleeve:
-          type: string
-        back_style:
-          type: string
-        waistline:
-          type: string
-        train:
-          type: string
-        length:
-          type: string
-        fabric:
-          type: string
-        fabric_composition:
-          type: string
-          maxLength: 128
-        support:
-          type: string
-        season:
-          type: string
-        embellishments:
+        attributes:
           type: array
           items:
-            type: string
-        occasions:
-          type: array
-          items:
-            type: string
-        style_tags:
-          type: array
-          items:
-            type: string
-        model_height:
-          type: string
-          maxLength: 32
-        model_size:
-          type: string
-          maxLength: 16
-        model_body_type:
-          type: string
-          maxLength: 32
-        care_instructions:
-          type: string
-        country_of_origin:
-          type: string
-          maxLength: 64
+            $ref: '#/components/schemas/AttributeValueEntry'
         style_no:
           type: string
           maxLength: 32
@@ -1839,9 +2077,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SizeChartRow'
-        tag_ids:
+        collection_ids:
           type: array
-          description: 挂载的自定义标签 id 集合（nm 关系）
+          description: 挂载的集合 id 集合（nm 关系）
           items:
             type: integer
             format: int64
@@ -1850,21 +2088,77 @@ components:
           description: 三语 tab（决策 13；ES/FR，可部分提交）
           items:
             $ref: '#/components/schemas/ProductTranslation'
+        updated_at:
+          type: string
+          format: date-time
+          description: 编辑端可选回传；用于无 SKU 商品的并发防丢失校验
+        fabric_compositions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FabricComposition'
+        care:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareItem'
+        fabric_care_note:
+          type: string
     AdminProductDetail:
       allOf:
         - $ref: '#/components/schemas/AdminProductUpsert'
         - type: object
-          required: [id]
+          required: [id, created_at, updated_at]
           properties:
             id:
               type: integer
               format: int64
+              readOnly: true
             created_at:
               type: string
               format: date-time
+              readOnly: true
             updated_at:
               type: string
               format: date-time
+              readOnly: true
+
+    AdminProductBatchRequest:
+      type: object
+      required: [action, ids]
+      properties:
+        action:
+          type: string
+          enum: [publish, unpublish, recommend, unrecommend, delete]
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: integer
+            format: int64
+    AdminProductBatchFailure:
+      type: object
+      required: [id, error_code, message]
+      properties:
+        id:
+          type: integer
+          format: int64
+        error_code:
+          type: integer
+        message:
+          type: string
+    AdminProductBatchResult:
+      type: object
+      required: [success_ids, failures]
+      properties:
+        success_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        failures:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProductBatchFailure'
 
     # ---- 后台分类 ----
     AdminCategoryUpsert:
@@ -1884,7 +2178,8 @@ components:
         attr_overrides:
           type: object
           description: 仅存与父级属性集不同的 delta（saveDrawer 语义）
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/AttributeVisibility'
         sort:
           type: integer
         translations:
@@ -1922,8 +2217,7 @@ components:
           type: integer
           format: int64
         visibility:
-          type: string
-          enum: [visible, optional, hidden]
+          $ref: '#/components/schemas/AttributeVisibility'
           description: 必填/可选/隐藏（FLD-ATTRIBUTESETS-001/002/003）
     AttributeSetUpsert:
       type: object
@@ -1956,8 +2250,7 @@ components:
         label:
           type: string
         type:
-          type: string
-          enum: [select, multiselect, text, toggle]
+          $ref: '#/components/schemas/AttributeType'
         options:
           type: array
           description: js_guard：type === select || multiselect 时才有选项
@@ -1977,8 +2270,8 @@ components:
               type: integer
               format: int64
 
-    # ---- 标签维度 / 标签 ----
-    TagDimensionUpsert:
+    # ---- 集合分组 / 集合 ----
+    CollectionGroupUpsert:
       type: object
       required: [name]
       properties:
@@ -1989,42 +2282,40 @@ components:
         translations:
           type: array
           items:
-            $ref: '#/components/schemas/TagDimensionTranslation'
-    TagDimension:
+            $ref: '#/components/schemas/CollectionGroupTranslation'
+    CollectionGroup:
       allOf:
-        - $ref: '#/components/schemas/TagDimensionUpsert'
+        - $ref: '#/components/schemas/CollectionGroupUpsert'
         - type: object
           required: [id]
           properties:
             id:
               type: integer
               format: int64
-            tag_count:
+            collection_count:
               type: integer
-              description: 维度下标签数（删除约束判定派生）
-    TagUpsert:
+              description: 分组下集合数（删除约束判定派生）
+    CollectionUpsert:
       type: object
-      required: [dimension_id, name, status]
+      required: [collection_group_id, name, status]
       properties:
-        dimension_id:
+        collection_group_id:
           type: integer
           format: int64
         name:
           type: string
           maxLength: 64
-        cover:
-          type: string
-          description: 封面图 URL（预签名上传），可空则纯文字展示
         status:
-          type: string
-          enum: [enabled, disabled]
+          type: integer
+          enum: [1, 2]
+          description: 1=enabled，2=disabled
         translations:
           type: array
           items:
-            $ref: '#/components/schemas/TagTranslation'
-    Tag:
+            $ref: '#/components/schemas/CollectionTranslation'
+    Collection:
       allOf:
-        - $ref: '#/components/schemas/TagUpsert'
+        - $ref: '#/components/schemas/CollectionUpsert'
         - type: object
           required: [id]
           properties:
@@ -2034,6 +2325,41 @@ components:
             product_count:
               type: integer
               minimum: 0
+            fallback_cover_urls:
+              type: array
+              maxItems: 4
+              description: 按 product_collection.sort 取前 4 个商品主图动态派生；不持久化。
+              items:
+                type: string
+    CollectionProduct:
+      type: object
+      required: [product_id, name, slug, status, sort]
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: integer
+          enum: [1, 2]
+        image_url:
+          type: string
+          nullable: true
+        sort:
+          type: integer
+          minimum: 0
+    CollectionProductsUpsert:
+      type: object
+      required: [product_ids]
+      properties:
+        product_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
 
     # ---- 上传 ----
     PresignRequest:
@@ -2048,7 +2374,7 @@ components:
           description: MIME 类型（image/jpeg、image/png、image/webp、video/mp4）
         scope:
           type: string
-          enum: [product, category, tag, banner, content]
+          enum: [product, category, banner, content]
           default: product
           description: 对象 key 前缀归类
     PresignResponse:

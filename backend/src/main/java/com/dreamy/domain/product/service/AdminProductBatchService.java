@@ -1,5 +1,6 @@
 package com.dreamy.domain.product.service;
 
+import com.dreamy.aspect.CatalogAdminWrite;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.dto.AdminProductBatchDtos.BatchFailure;
@@ -104,6 +105,7 @@ public class AdminProductBatchService {
      *
      * 缓存失效：操作前收集所有商品slug，操作成功后统一失效相关缓存族，避免重复失效。
      */
+    @CatalogAdminWrite
     public BatchResult execute(String actionParam, List<Long> idsParam) {
         CatalogFieldErrors errors = new CatalogFieldErrors();
         // V-001 action ∈ {publish, unpublish, recommend, unrecommend, delete}，必填

@@ -41,7 +41,8 @@ public class StoreCategoryService {
     public List<StoreCategoryNode> listTree(String locale) {
         // STEP-CAT-01 查 JetCache catalog:categories:{locale}（TTL 600s）
         String cacheKey = locale;
-        Object cached = cache.get(Family.CATEGORIES, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.CATEGORIES, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreCategoryNode>) hit;
         }
@@ -53,7 +54,7 @@ public class StoreCategoryService {
         Map<Long, String> translated = translatedNames(all, locale);
         List<StoreCategoryNode> tree = buildTree(all, null, counts, translated);
         // STEP-CAT-05 写 JetCache TTL 600s
-        cache.put(Family.CATEGORIES, cacheKey, tree instanceof Serializable ? tree : new ArrayList<>(tree));
+        cache.put(lookup, tree instanceof Serializable ? tree : new ArrayList<>(tree));
         return tree;
     }
 

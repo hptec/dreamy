@@ -47,7 +47,7 @@
                               ↓
                     [cache.get] → miss → [DB] + 跨域调用
                               ↓                     ↓
-                              ↓            [BannerSvc/TaxonomySvc/ProductSvc/WeddingSvc]
+                              ↓            [StoreBannerService/TaxonomySvc/ProductSvc/WeddingSvc]
                               ↓                     ↓ (失败降级空数据)
                               ↓            [SubscriberSvc] (FLOW-SB09)
                               ↓
@@ -136,14 +136,19 @@
 ## L3 模块间集成测试 AAA 骨架
 
 ### TC-M001: 消费端首页聚合（跨域正常）
-- **A**: 初始化 home_sections=[hero, theme_cards, product_rail, editorial_feature, newsletter]，mock BannerSvc/TaxonomySvc/ProductSvc/WeddingSvc 返回正常数据
+- **A**: 初始化 home_sections=[hero, theme_cards, product_rail, editorial_feature, newsletter]，mock StoreBannerService.list(HERO, locale) 返回 2 个有效 Banner（sort/id 顺序），其他跨域服务返回正常数据
 - **A**: GET /api/store/content/home?locale=es
-- **A**: 响应包含 5 个 section，各 section.data 按 locale 扁平化
+- **A**: 响应包含 5 个 section，各 section 仅含 section_type/data；Hero data.banners 精确包含 2 项，顺序不变，扁平 title/image_url/cta_* 等于 banners[0]
+
+### TC-M001b: Hero section 单例与轮播语义
+- **A**: 已存在 enabled=false 的 hero section，再 POST section_type=hero
+- **A**: 拒绝重复 Hero，DB 仍只有一条 hero section
+- **A**: 将唯一 Hero 启用且同时发布两个 HERO Banner，GET home 只返回一个 Hero section，其 data.banners[] 有两个滑块
 
 ### TC-M002: 消费端首页聚合（跨域全失败降级）
 - **A**: 初始化同上，mock 所有跨域 Service 抛异常
 - **A**: GET /api/store/content/home
-- **A**: 响应包含 5 个 section，hero/themes/products/weddings 为空数据，custom 类型 section 正常返回，WARN 日志记录
+- **A**: 响应省略 Hero，包含其余 4 个 section；cards/products/stories 为空数组，newsletter 正常返回，WARN 日志记录
 
 ### TC-M003: Newsletter 订阅跨域
 - **A**: 初始化空 subscriber 表
@@ -214,7 +219,7 @@
 ## L8 韧性测试
 
 ### TC-R001: Banner 跨域调用超时降级
-- **A**: mock BannerSvc.findByPosition 延迟 5s（超时 3s）
+- **A**: mock StoreBannerService.list(HERO, locale) 延迟 5s（超时 3s）
 - **A**: GET /api/store/content/home
 - **A**: Hero 区块被省略，其他 section 正常，WARN 日志记录
 
@@ -227,8 +232,8 @@
 - **A**: 验证 TTL 在 30min ± 60s 范围内随机分布
 
 ### TC-R004: 跨域服务熔断
-- **A**: mock BannerSvc 连续失败 5 次
-- **A**: 第 6 次调用直接走熔断逻辑（不实际调用 BannerSvc），省略 Hero 区块
+- **A**: mock StoreBannerService 连续失败 5 次
+- **A**: 第 6 次调用直接走熔断逻辑（不实际调用 StoreBannerService），省略 Hero 区块
 
 ---
 

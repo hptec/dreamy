@@ -1,5 +1,8 @@
 meta:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_design
+  superseded_by: specs/design/i18n-runtime-status.md
+  runtime_note: glossary and translation-log errors below are retired; current codes are defined by backend GatewayErrorCode and active OpenAPI
   generated_at: '2026-06-16T20:25:00Z'
   generated_by: Backend Designer (Error职责)
   coverage: 18新错误码 + 24 EDGE场景 + 外部网关降级矩阵
@@ -352,8 +355,8 @@ edge_scenario_matrix:
     title: 网关配置编辑并发冲突
     exception: ConcurrentModificationException
     http: 409
-    code: 409201
-    propagation: updated_at乐观锁
+    code: 409202
+    propagation: version原子CAS（UPDATE WHERE id/version）
     degrade: 提示刷新重试
     must_test: true
 

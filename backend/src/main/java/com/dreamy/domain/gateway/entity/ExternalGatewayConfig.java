@@ -1,8 +1,11 @@
 package com.dreamy.domain.gateway.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.dreamy.domain.gateway.consts.GatewayConfigDBConst;
 import huihao.mysql.annotation.Column;
+import huihao.mysql.annotation.Index;
 import huihao.mysql.annotation.Table;
 import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
@@ -17,7 +20,10 @@ import java.time.LocalDateTime;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@Table(name = "external_gateway_config", comment = "外部网关配置")
+@Table(name = "external_gateway_config", comment = "外部网关配置", indexes = {
+        @Index(name = "uk_type_name", columns = {"gateway_type", "name"}, unique = true, local = false),
+        @Index(name = "idx_type_enabled", columns = {"gateway_type", "enabled"}, unique = false, local = false)
+})
 @TableName(value = "external_gateway_config", autoResultMap = true)
 public class ExternalGatewayConfig extends LongAuditableEntity {
 
@@ -34,7 +40,7 @@ public class ExternalGatewayConfig extends LongAuditableEntity {
     private String baseUrl;
 
     /** API Key 密文（AES-256-GCM，IV+密文 base64，v1: 前缀版本标记） */
-    @Column(name = GatewayConfigDBConst.API_KEY_ENCRYPTED, definition = "varchar(512) NOT NULL COMMENT 'API Key密文(AES-256-GCM, IV+密文 base64)'")
+    @Column(name = GatewayConfigDBConst.API_KEY_ENCRYPTED, definition = "varchar(4096) NOT NULL COMMENT 'API Key密文(AES-256-GCM, IV+密文 base64)'")
     private String apiKeyEncrypted;
 
     @Column(name = GatewayConfigDBConst.DEFAULT_MODEL, definition = "varchar(128) DEFAULT NULL COMMENT '全局默认模型'")
@@ -63,6 +69,9 @@ public class ExternalGatewayConfig extends LongAuditableEntity {
     @Column(name = GatewayConfigDBConst.EXTRA_CONFIG, definition = "json DEFAULT NULL COMMENT '协议扩展配置'")
     private String extraConfig;
 
-    @Column(name = GatewayConfigDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
+    /** 配置 CAS 与模型同步写入共用的单调递增版本。 */
+    @Version
+    @TableField(GatewayConfigDBConst.VERSION)
+    @Column(name = GatewayConfigDBConst.VERSION, definition = "int NOT NULL DEFAULT 0 COMMENT '乐观锁版本号'")
+    private Integer version;
 }

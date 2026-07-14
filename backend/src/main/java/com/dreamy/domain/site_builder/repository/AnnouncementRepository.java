@@ -1,8 +1,10 @@
 package com.dreamy.domain.site_builder.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dreamy.domain.site_builder.consts.SiteBuilderDBConst;
 import com.dreamy.domain.site_builder.entity.Announcement;
 import org.springframework.stereotype.Repository;
 
@@ -42,12 +44,20 @@ public class AnnouncementRepository {
                 .orderByAsc(Announcement::getId));
     }
 
-    public List<Announcement> findOverlapByPriorityAndTime(Integer priority, LocalDateTime start, LocalDateTime end) {
-        return mapper.selectList(new LambdaQueryWrapper<Announcement>()
+    public List<Announcement> findOverlapByPriorityAndTimeForUpdate(Integer priority, LocalDateTime start,
+                                                                     LocalDateTime end) {
+        LambdaQueryWrapper<Announcement> query = new LambdaQueryWrapper<Announcement>()
                 .eq(Announcement::getPriority, priority)
-                .eq(Announcement::getEnabled, true)
-                .and(w -> w.isNull(Announcement::getStartAt).or().le(Announcement::getStartAt, end))
-                .and(w -> w.isNull(Announcement::getEndAt).or().ge(Announcement::getEndAt, start)));
+                .eq(Announcement::getEnabled, true);
+        // Half-open windows overlap when existing.start < requested.end and existing.end > requested.start.
+        // Null means an open boundary, so omit the comparison instead of sending out-of-range Java sentinels.
+        if (end != null) {
+            query.and(w -> w.isNull(Announcement::getStartAt).or().lt(Announcement::getStartAt, end));
+        }
+        if (start != null) {
+            query.and(w -> w.isNull(Announcement::getEndAt).or().gt(Announcement::getEndAt, start));
+        }
+        return mapper.selectList(query.orderByAsc(Announcement::getId).last("FOR UPDATE"));
     }
 
     public int insert(Announcement entity) {
@@ -55,9 +65,10 @@ public class AnnouncementRepository {
     }
 
     public int updateByIdAndVersion(Announcement entity) {
-        int rows = mapper.update(entity, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Announcement>()
+        int rows = mapper.update(entity, new LambdaUpdateWrapper<Announcement>()
                 .eq(Announcement::getId, entity.getId())
-                .eq(Announcement::getVersion, entity.getVersion()));
+                .eq(Announcement::getVersion, entity.getVersion())
+                .setSql(SiteBuilderDBConst.VERSION + " = " + SiteBuilderDBConst.VERSION + " + 1"));
         if (rows > 0) {
             entity.setVersion(entity.getVersion() + 1);
         }
@@ -69,7 +80,7 @@ public class AnnouncementRepository {
     }
 
     public int updateEnabled(Long id, Boolean enabled, Integer expectedVersion) {
-        return mapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Announcement>()
+        return mapper.update(null, new LambdaUpdateWrapper<Announcement>()
                 .eq(Announcement::getId, id)
                 .eq(Announcement::getVersion, expectedVersion)
                 .set(Announcement::getEnabled, enabled)

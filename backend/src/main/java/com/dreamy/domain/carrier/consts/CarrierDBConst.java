@@ -10,6 +10,5 @@ public interface CarrierDBConst extends ShippingCommonDBConst {
     String NAME = "name";
     String ZONES = "zones";
     String LEAD_TIME = "lead_time";
-    public static final String DELETED_AT = "deleted_at";
     // STATUS 继承自 ShippingCommonDBConst
 }

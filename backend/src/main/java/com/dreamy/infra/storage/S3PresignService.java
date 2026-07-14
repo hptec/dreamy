@@ -21,7 +21,7 @@ import java.util.StringJoiner;
 /**
  * S3 兼容预签名 real 实现（dreamy.storage.mode=real）：AWS SigV4 query 预签名 PUT URL
  * （纯本地 HMAC 计算，不出网络、不引入 AWS SDK；R2 等 S3 兼容服务通用）。
- * - path-style：{endpoint}/{bucket}/{key}；有效期 X-Amz-Expires=presign-ttl-seconds（E-CAT-35：600s）；
+ * - path-style：{endpoint}/{bucket}/{key}；有效期 X-Amz-Expires=presign-ttl-seconds（E-CAT-38：600s）；
  * - 签名头绑定 content-type + host（客户端 PUT 须原样携带 Content-Type，配合 MIME 白名单校验）；
  * - payload UNSIGNED-PAYLOAD（预签名直传标准形态）。
  * 配置缺失（access/secret key 空）→ StorageUnavailableException（域层映射 502501/502801）。

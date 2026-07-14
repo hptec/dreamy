@@ -103,7 +103,7 @@ pages:
       - path: 空结果
         assert: [空态展示]
       - path: 点击行进入详情
-        assert: [跳 /customers/:id]
+        assert: ["跳 /customers/:id"]
     field_assertions: [email/name/tier/status 列]
 
   - id: UIS-A03

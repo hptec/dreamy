@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { fetchStoreHome } from '@/lib/api/site-builder-server'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
+import { HomeHeroCarousel } from '@/components/marketing/home-hero-carousel'
 import { HomeNewsletterForm } from './home-newsletter-form'
 import type { Locale } from '@/lib/api/types'
 
@@ -28,47 +29,7 @@ export default async function HomePage({
         switch (section.sectionType) {
           case 'hero': {
             const { data } = section
-            if (!data.imageUrl) return null
-
-            const title = data.title || 'Dresses made for golden hour'
-            const subtitle = data.subtitle || null
-            const primaryLink = data.ctaLink || null
-            const primaryText = data.ctaText || null
-
-            return (
-              <section key={key} className="relative grid min-h-[600px] lg:grid-cols-2">
-                <div className="order-2 flex items-center bg-canvas px-6 py-14 lg:order-1 lg:px-16">
-                  <div className="max-w-lg animate-fadeup">
-                    <h1 className="break-words font-display text-5xl font-medium leading-[1.02] text-ink sm:text-6xl lg:text-[4.25rem]">
-                      {title}
-                    </h1>
-                    {subtitle && <p className="mt-5 max-w-md text-ink-soft">{subtitle}</p>}
-                    {(primaryLink && primaryText) || (data.ctaLinkSecondary && data.ctaTextSecondary) ? (
-                      <div className="mt-8 flex flex-wrap gap-3">
-                        {primaryLink && primaryText && (
-                          <Link href={primaryLink} className="btn-primary">
-                            {primaryText}
-                          </Link>
-                        )}
-                        {data.ctaLinkSecondary && data.ctaTextSecondary && (
-                          <Link href={data.ctaLinkSecondary} className="btn-outline">
-                            {data.ctaTextSecondary}
-                          </Link>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="relative order-1 min-h-[420px] overflow-hidden lg:order-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={data.imageUrl}
-                    alt={data.title || 'Dreamy bridal collection'}
-                    className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top"
-                  />
-                </div>
-              </section>
-            )
+            return <HomeHeroCarousel key={key} slides={data.banners ?? []} />
           }
 
           case 'themeCards': {

@@ -31,7 +31,7 @@ meta:
 
 entities:
   - id: HomePageSection
-    desc: 首页区块配置聚合根，HomeBuilder 可视化编排对象。消费端首页按 sort_order 升序渲染所有 enabled=true 的区块。KD-16 修正：合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表）；KD-4 保存即发布无草稿态。GRD-W07 修正：extends LongAuditableEntity（基类提供 id/created_at/updated_at/version）；物理删除无 deleted_at（配置类误删可重建）。
+    desc: 首页区块配置聚合根，HomeBuilder 可视化编排对象。消费端首页按 sort_order/id 升序渲染所有 enabled=true 的区块。Hero 是区块配置单例（全表最多一条 section_type=hero），但运行时聚合全部有效 HERO Banner 到 data.banners[] 轮播。KD-16 修正：合并翻译表到主表 i18n_json JSON 列（不建独立 *_translations 表）；KD-4 保存即发布无草稿态。GRD-W07 修正：extends LongAuditableEntity（基类提供 id/created_at/updated_at/version）；物理删除无 deleted_at（配置类误删可重建）。
     meta: {source: new, base_class: LongAuditableEntity, soft_delete: false}
     fields:
       - {n: id, t: Long, pk: true, source: "'project_tech_stack.backend=java-gradle [INFERRED]' + LongAuditableEntity 基类"}
@@ -51,6 +51,7 @@ entities:
     constraints:
       - {type: index, expr: '(enabled, sort_order)', desc: '消费端按 sort_order 升序渲染 enabled=true 区块'}
       - {type: js_guard, expr: 'section_type=Hero 时 data_json 应为空且 i18n_json 为 null（文案/图片/CTA 含第二 CTA 全部从 Banner position=HERO 派生，KD-14）', source: 'KD-2/KD-14'}
+      - {type: js_guard, expr: '全表 COUNT(section_type=Hero) <= 1（enabled=false 仍占用单例位）；单一 Hero section 运行时输出所有有效 HERO Banner，不存 banner_id 单项绑定', source: '现行 HomePageSectionService + StoreContentService'}
       - {type: js_guard, expr: 'section_type=Announcement 时 data_json 应为空且 i18n_json 为 null（公告内容从 Announcement 域派生）', source: 'KD-7'}
       - {type: js_guard, expr: 'section_type=Newsletter 时 data_json 应为空且 i18n_json 非空（title/subtitle/cta_text 文案存 i18n_json，KD-11+KD-16）', source: 'KD-11'}
       - {type: js_guard, expr: 'section_type=ProductRail && data_json.source=recommend 时 data_json.product_ids 非空数组', source: 'KD-9'}
@@ -148,7 +149,7 @@ entities:
       - {type: js_guard, expr: 'subscribedAt 非空（订阅即生效，无 pending 态）', source: 'KD-12 单态 subscribed 状态机'}
 
   - id: Banner
-    desc: 站点广告位图文配置（基线已有，本变更引用 + 扩展）。本变更通过 Banner position=HERO 为 HomePageSection.Hero 区块提供数据源（KD-2），并新增 cta_text_secondary/cta_link_secondary 字段支持 Hero 双 CTA（KD-14/GRD-010）。基线字段：id/name/image_url/position/start_time/end_time/status/sort/clicks/title/subtitle/cta_text/deleted_at（基线 extends LongAuditableEntity + 软删除）。
+    desc: 站点广告位图文配置（基线已有，本变更引用 + 扩展）。本变更通过 Banner position=HERO 为唯一 HomePageSection.Hero 区块提供多滑块数据源（全部当前有效 Banner 按 sort/id 轮播，KD-2），并新增 cta_text_secondary/cta_link_secondary 字段支持 Hero 双 CTA（KD-14/GRD-010）。Banner extends LongAuditableEntity，不含 deleted_at，删除端点是主表与翻译表的物理删除。
     meta: {source: baseline}
     fields:
       - {n: id, t: Long, pk: true, source: 'baseline Banner.id'}
@@ -163,14 +164,14 @@ entities:
       - {n: title, t: String, maxlen: 255, source: 'baseline Banner.title EN 基准'}
       - {n: subtitle, t: String, maxlen: 255, source: 'baseline Banner.subtitle EN 基准'}
       - {n: cta_text, t: String, maxlen: 64, source: 'baseline Banner.cta_text 第一 CTA 文案'}
+      - {n: cta_link, t: String, maxlen: 512, nullable: true, source: '第一 CTA 链接（语言无关）'}
       - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 文案（如 "Explore Outdoor"），AdminBannerController BannerUpsert DTO 同步扩展'}
-      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 链接，与 cta_text_secondary 配对'}
-      - {n: deleted_at, t: LocalDateTime, source: 'baseline Banner.deletedAt 软删除标记'}
+      - {n: cta_link_secondary, t: String, maxlen: 512, nullable: true, source: 'GRD-010/KD-14 新增：Hero 区块第二 CTA 链接，与 cta_text_secondary 配对'}
       - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
       - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
     relations:
       - {to: BannerTranslation, type: 1n, source: 'baseline i18n 附表'}
-    notes: 'KD-2 Hero 区块通过 BannerService 查询 position=HERO 的 Banner（KD-BE-5 不跨表查询）；管理端 Hero 区块属性编辑表单联动 Banner 编辑。KD-14 第二 CTA 也从 Banner 派生（cta_text_secondary/cta_link_secondary）。GRD-008 TOPBAR Banner 公告迁移策略见 OQ-7。'
+    notes: 'KD-2 Hero 区块通过 StoreBannerService.list(HERO, locale) 查询全部当前有效 Banner（KD-BE-5 不跨表查询），按 sort ASC/id ASC 放入 data.banners[]；管理端 Hero 区块属性编辑表单联动 Banner 编辑。KD-14 第二 CTA 也从 Banner 派生（cta_text_secondary/cta_link_secondary）。Banner 为物理删除，无 deleted_at。GRD-008 TOPBAR Banner 公告迁移策略见 OQ-7。'
 
   - id: BannerTranslation
     desc: Banner 多语言附表（基线已有，本变更引用 + 扩展）。locale=es/fr，EN 存主表。HomePageSection.Hero 区块通过 Banner 派生时连带读取此表 i18n 文案。KD-14 同步新增 cta_text_secondary 翻译字段。
@@ -243,7 +244,7 @@ entities:
     notes: 'KD-10 EditorialFeature 存储 limit + 可选 wedding_ids；消费端调用 StoreWeddingService 渲染卡片列表。本变更使用 RealWedding 作为 Wedding 别名（基线无独立 Wedding 实体）。'
 
   - id: CacheInvalidationLog
-    desc: 缓存失效日志（基线已有，本变更引用 + 扩展取值集合）。HomeBuilder/NavigationConfig/Announcement 保存后通过 in-process cache.invalidateFamily + publisher.publish 触发缓存失效（GRD-W01 修正：非 HTTP 自调 POST /api/admin/cache/invalidate），日志中应体现触发源（home_section/navigation/announcement）。GRD-W06 修正：基线字段全面校正（resource_id: Long 非 String；affected_paths: List<String> 非 JSON 字段名；status: Integer tinyint 非 enum；补 slug/old_slug/locales/triggered_by/triggered_at/completed_at/error_message 字段）。
+    desc: '缓存失效日志（基线已有，本变更引用 + 扩展取值集合）。HomeBuilder/NavigationConfig/Announcement 保存后通过 in-process cache.invalidateFamily + publisher.publish 触发缓存失效（GRD-W01 修正：非 HTTP 自调 POST /api/admin/cache/invalidate），日志中应体现触发源（home_section/navigation/announcement）。GRD-W06 修正：基线字段全面校正（resource_id: Long 非 String；affected_paths: List<String> 非 JSON 字段名；status: Integer tinyint 非 enum；补 slug/old_slug/locales/triggered_by/triggered_at/completed_at/error_message 字段）。'
     meta: {source: baseline}
     fields:
       - {n: id, t: Long, pk: true, source: 'baseline CacheInvalidationLog.id（LongAuditableEntity 基类）'}
@@ -400,7 +401,7 @@ modified_entities:
     meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/banner/entity/Banner.java:60-61'}
     added_fields:
       - {n: cta_text_secondary, t: String, maxlen: 64, nullable: true, ddl: 'varchar(64) NULL COMMENT "第二 CTA 文案(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 文案（原型 mock.js homeBlocks Hero data.cta2 "Explore Outdoor"），基线 Banner 仅 cta_text 单字段，新增此字段以支持双 CTA'}
-      - {n: cta_link_secondary, t: String, maxlen: 255, nullable: true, ddl: 'varchar(255) NULL COMMENT "第二 CTA 链接(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 链接，与 cta_text_secondary 配对'}
+      - {n: cta_link_secondary, t: String, maxlen: 512, nullable: true, ddl: 'varchar(512) NULL COMMENT "第二 CTA 链接(EN 基准，KD-14)"', source: 'GRD-010/KD-14：Hero 区块第二个 CTA 链接，与 cta_text_secondary 配对'}
     notes: |
       GRD-010/KD-14 MUST_FIX：原型 Hero 区块有 2 个 CTA（cta1 + cta2），KD-2 决定 Hero 从 Banner position=HERO 派生，但基线 Banner 仅 cta_text 单字段。
       决策：方案 A 新增 cta_text_secondary + cta_link_secondary 字段，DDL 改动通过 modified_entities 显式声明。
@@ -437,7 +438,7 @@ constraints:
   - id: CONSTRAINT-004
     type: physical_delete
     desc: 'GRD-W07：新建实体（HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement/Subscriber）统一 extends LongAuditableEntity + 物理删除（无 deleted_at 字段）。GRD2-001/KD-16：不建独立 *_translations 表，多语言文案存主表 i18n_json JSON 列'
-    rationale: '配置类实体误删可重建（管理端有保存按钮）；与基线 Category（软删除）/Banner（软删除）不同，本变更新实体是站点装修配置，不需要软删除回收站。i18n_json JSON 列模式减少表数量，简化 DDL 和 Repository（KD-16 决策）'
+    rationale: '配置类实体误删可重建（管理端有保存按钮）；与合规上必须保留注销宽限期的 User 不同，HomePageSection 与 Banner 等运营配置采用物理删除，不建软删除回收站。i18n_json JSON 列模式减少表数量，简化 DDL 和 Repository（KD-16 决策）'
     enforcement: 'DDL 审查 + 实体类审查（所有新实体 extends LongAuditableEntity，无 @TableField deleted_at 字段；i18n_json 字段使用 @TableField(typeHandler = JacksonTypeHandler.class) + @TableName(autoResultMap = true)）'
 
   - id: CONSTRAINT-005

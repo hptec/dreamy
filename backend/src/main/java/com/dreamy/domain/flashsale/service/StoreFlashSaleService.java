@@ -38,7 +38,8 @@ public class StoreFlashSaleService {
     @SuppressWarnings("unchecked")
     public List<StoreFlashSale> list(String locale) {
         // STEP-MKT-01 查 JetCache marketing:flash:{locale}（TTL 60s）
-        Object cached = cache.get(Family.FLASH, locale);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.FLASH, locale);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreFlashSale>) hit;
         }
@@ -60,7 +61,7 @@ public class StoreFlashSaleService {
                     Translations.coalesce(t == null ? null : t.getName(), sale.getName()),
                     sale.getDiscount(), sale.getStartAt(), sale.getEndAt(), products));
         }
-        cache.put(Family.FLASH, locale, items);
+        cache.put(lookup, items);
         return items;
     }
 

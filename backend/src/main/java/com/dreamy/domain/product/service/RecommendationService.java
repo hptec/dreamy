@@ -82,7 +82,8 @@ public class RecommendationService {
         String anchor = block.requiresProductId() ? String.valueOf(productId)
                 : block.requiresCollectionId() ? String.valueOf(collectionId) : "-";
         String cacheKey = block.getKey() + ":" + anchor + ":" + limit + ":" + locale;
-        Object cached = cache.get(Family.RECO, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.RECO, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreProductCard>) hit;
         }
@@ -91,7 +92,7 @@ public class RecommendationService {
         // STEP-CAT-03 装配卡片 + locale 翻译
         List<StoreProductCard> cards = cardAssembler.assemble(products, locale);
         // STEP-CAT-04 写缓存 TTL 300s
-        cache.put(Family.RECO, cacheKey, new ArrayList<>(cards));
+        cache.put(lookup, new ArrayList<>(cards));
         return cards;
     }
 

@@ -39,8 +39,7 @@ public class CollectionRepository {
 
     /** RM-CAT-061 findById */
     public Collection findById(Long id) {
-        Collection e = id == null ? null : collectionMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : collectionMapper.selectById(id);
     }
 
     /** RM-CAT-062 listByIds —— collection_ids 存在性校验（V-CAT-034） */
@@ -49,14 +48,12 @@ public class CollectionRepository {
             return List.of();
         }
         return collectionMapper.selectList(new LambdaQueryWrapper<Collection>()
-                .isNull(Collection::getDeletedAt)
                 .in(Collection::getId, ids));
     }
 
     /** RM-CAT-063 listEnabled —— 消费端 status=enabled（E-CAT-07） */
     public List<Collection> listEnabled(Long groupId) {
         LambdaQueryWrapper<Collection> qw = new LambdaQueryWrapper<Collection>()
-                .isNull(Collection::getDeletedAt)
                 .eq(Collection::getStatus, CollectionStatus.ENABLED);
         if (groupId != null) {
             qw.eq(Collection::getCollectionGroupId, groupId);
@@ -73,7 +70,6 @@ public class CollectionRepository {
         Set<Long> collectionIds = new LinkedHashSet<>();
         // 主表 name LIKE
         List<Collection> byName = collectionMapper.selectList(new LambdaQueryWrapper<Collection>()
-                .isNull(Collection::getDeletedAt)
                 .eq(Collection::getStatus, CollectionStatus.ENABLED)
                 .like(Collection::getName, q));
         for (Collection c : byName) {
@@ -88,8 +84,7 @@ public class CollectionRepository {
                 List<Long> candidate = byLabel.stream().map(CollectionTranslation::getCollectionId).toList();
                 // 仅 enabled 集合入结果
                 for (Collection c : collectionMapper.selectList(new LambdaQueryWrapper<Collection>()
-                .isNull(Collection::getDeletedAt)
-                .in(Collection::getId, candidate)
+                        .in(Collection::getId, candidate)
                         .eq(Collection::getStatus, CollectionStatus.ENABLED))) {
                     collectionIds.add(c.getId());
                 }
@@ -101,7 +96,6 @@ public class CollectionRepository {
     /** RM-CAT-065 countByGroupId —— 409506 guard */
     public long countByGroupId(Long groupId) {
         return collectionMapper.selectCount(new LambdaQueryWrapper<Collection>()
-                .isNull(Collection::getDeletedAt)
                 .eq(Collection::getCollectionGroupId, groupId));
     }
 

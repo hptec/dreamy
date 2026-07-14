@@ -1,5 +1,8 @@
 # i18n Backend 数据层详细设计
 
+> 历史设计：`ai_translation_log` 与 `ai_translation_glossary` 已由
+> `V20260617_drop_ai_translation_modules.sql` 删除。当前数据状态以 `i18n-runtime-status.md` 为准。
+
 ## 元信息
 
 - 变更：i18n-complete-with-ai-assist
@@ -19,7 +22,7 @@ CREATE TABLE external_gateway_config (
   name                      VARCHAR(64)  NOT NULL COMMENT '配置名称',
   protocol                  TINYINT      NOT NULL DEFAULT 1 COMMENT '协议：openai(1)',
   base_url                  VARCHAR(255) NOT NULL COMMENT '网关地址',
-  api_key_encrypted         VARCHAR(512) NOT NULL COMMENT 'API Key密文(AES-256-GCM, IV+密文 base64)',
+  api_key_encrypted         VARCHAR(4096) NOT NULL COMMENT 'API Key密文(AES-256-GCM, IV+密文 base64)',
   default_model             VARCHAR(128) DEFAULT NULL COMMENT '全局默认模型',
   model_list                JSON         DEFAULT NULL COMMENT '可用模型列表缓存',
   model_refresh_strategy    TINYINT      DEFAULT 1 COMMENT '刷新策略：manual(1)/scheduled(2)',
@@ -28,6 +31,7 @@ CREATE TABLE external_gateway_config (
   consecutive_failures      INT          NOT NULL DEFAULT 0 COMMENT '模型同步连续失败次数(L2细化字段, 决策5降级计数)',
   enabled                   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否启用',
   extra_config              JSON         DEFAULT NULL COMMENT '协议扩展配置',
+  version                   INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
   created_at                DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at                DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -194,7 +198,7 @@ int updateDesignerNote(@Param("pid") Long productId, @Param("locale") String loc
 | 事务ID | 操作 | 边界 | 隔离级别 | 说明 |
 |--------|------|------|---------|------|
 | TX-001 | 创建网关配置 | save + 模型拉取 | READ_COMMITTED | 模型拉取在事务外(避免外部调用占用事务)，save先提交 |
-| TX-002 | 更新网关配置 | 乐观锁check + update | READ_COMMITTED | updated_at乐观锁 |
+| TX-002 | 更新网关配置 | 单语句原子 CAS | READ_COMMITTED | UPDATE WHERE id/version 并 version+1 |
 | TX-003 | 删除网关配置 | 引用count + delete | READ_COMMITTED | 同事务内校验+删除 |
 | TX-004 | 翻译请求 | log写入 | REQUIRES_NEW | 日志独立事务，翻译失败也要记录 |
 | TX-005 | 术语CRUD | 单表操作 | READ_COMMITTED | 标准事务 |
@@ -217,6 +221,7 @@ int updateDesignerNote(@Param("pid") Long productId, @Param("locale") String loc
 | locale值域 | User/Order | ∈['en','es','fr'] | @Pattern |
 | status值域 | AiTranslationLog | ∈[1,2,3,4,5] (见§7.1枚举映射) | 枚举常量 |
 | 失败计数值域 | ExternalGatewayConfig | consecutive_failures ≥ 0 | 业务逻辑维护 |
+| 乐观锁版本 | ExternalGatewayConfig | version ≥ 0；配置编辑、模型成功/失败写入均 WHERE expected version 并单调 +1 | 原子 SQL |
 
 ### 7.1 ai_translation_log.status 枚举映射（ISS-005，对齐 L1 error-strategy）
 

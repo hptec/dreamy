@@ -65,7 +65,7 @@ jwt_isolation:
     access_ttl: 2h
     refresh_ttl: 30d (sliding, revocable)
     claims: [sub(user_id), jti(token_id), method, typ=store]
-    session_validity_cache: "redis store:session:valid:{tokenId} TTL 30s 单级（强一致全集群）"
+    session_validity_cache: "DB user_session.status 为授权依据；redis store:session:valid:{tokenId} TTL 30s 仅兼容滚动升级旧实例"
   admin:
     secret: ADMIN_JWT_SECRET     # 独立密钥，禁止复用 store
     access_ttl: 8h
@@ -75,7 +75,7 @@ jwt_isolation:
 
 # ===== 6. JetCache 分级契约（BE-DIM-8，写即失效）=====
 cache:
-  remote_only:   # 会话/凭证类，仅 Redis 单级，TTL 30s，强一致
+  remote_only:   # 会话兼容键仅 Redis 单级，TTL 30s；当前实例不以该键授权
     keys:
       - "store:session:valid:{tokenId}"
   two_level:     # 资料/配置类，Caffeine + Redis

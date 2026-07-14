@@ -123,7 +123,8 @@ public class StoreProductService {
         Map<Long, Set<String>> attrFilters = resolveAttrFilters(q.attrs(), validAttrs);
         // STEP-CAT-01 缓存 key（filtersHash=全部筛选参数规范化序列化，空页同样缓存防穿透）
         String cacheKey = filtersHash(q, validAttrs) + ":" + q.locale();
-        Object cached = cache.get(Family.PRODUCTS, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.PRODUCTS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof Paginated<?> hit) {
             return (Paginated<StoreProductCard>) hit;
         }
@@ -138,7 +139,7 @@ public class StoreProductService {
         List<StoreProductCard> cards = cardAssembler.assemble(page.getRecords(), q.locale());
         Paginated<StoreProductCard> result = CatalogPaginatedSupport.of(cards, page.getTotal(), q.page(), q.pageSize());
         // STEP-CAT-06 写缓存（TTL 300s）
-        cache.put(Family.PRODUCTS, cacheKey, result);
+        cache.put(lookup, result);
         return result;
     }
 
@@ -178,7 +179,8 @@ public class StoreProductService {
         errors.throwIfAny();
         // STEP-CAT-01 查缓存（key 追加 page_size 防止同页不同页宽误命中——CACHE-CAT-003 模板 {page} 段实现口径）
         String cacheKey = qNorm + ":" + locale + ":" + page + "-" + pageSize;
-        Object cached = cache.get(Family.SEARCH, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.SEARCH, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof Paginated<?> hit) {
             return (Paginated<StoreProductCard>) hit;
         }
@@ -210,7 +212,7 @@ public class StoreProductService {
         List<StoreProductCard> cards = cardAssembler.assemble(ordered, locale);
         Paginated<StoreProductCard> result = CatalogPaginatedSupport.of(cards, ids.size(), page, pageSize);
         // STEP-CAT-06 写缓存 TTL 60s（短 TTL 自然过期兜底，无主动失效；CDN 不缓存）
-        cache.put(Family.SEARCH, cacheKey, result);
+        cache.put(lookup, result);
         return result;
     }
 
@@ -222,7 +224,8 @@ public class StoreProductService {
         }
         // STEP-CAT-01 查缓存（null 标记 → 404501）
         String cacheKey = slug + ":" + locale;
-        Object cached = cache.get(Family.PRODUCT, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.PRODUCT, cacheKey);
+        Object cached = lookup.value();
         if (cache.isNullMarker(cached)) {
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_FOUND);
         }
@@ -232,12 +235,12 @@ public class StoreProductService {
         // STEP-CAT-02 点查（RM-CAT-080）；不存在/未发布 → null 缓存 60s → 404501
         Product product = productRepository.findBySlugPublished(slug);
         if (product == null) {
-            cache.putNullMarker(Family.PRODUCT, cacheKey);
+            cache.putNullMarker(lookup);
             throw new CatalogException(CatalogErrorCode.PRODUCT_NOT_FOUND);
         }
         StoreProductDetail detail = assembleDetail(product, locale);
         // STEP-CAT-06 写缓存 TTL 300s
-        cache.put(Family.PRODUCT, cacheKey, detail);
+        cache.put(lookup, detail);
         return detail;
     }
 
@@ -396,7 +399,8 @@ public class StoreProductService {
     @SuppressWarnings("unchecked")
     public List<StoreFilterDimDto> listFilters(Long categoryId, String locale) {
         String cacheKey = "filters:" + categoryId + ":" + locale;
-        Object cached = cache.get(Family.PRODUCTS, cacheKey);
+        CatalogCacheService.Lookup lookup = cache.lookup(Family.PRODUCTS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
             return (List<StoreFilterDimDto>) hit;
         }
@@ -418,7 +422,7 @@ public class StoreProductService {
                     .toList();
             result.add(new StoreFilterDimDto(def.getKey(), label, def.getType().getKey(), options));
         }
-        cache.put(Family.PRODUCTS, cacheKey, result);
+        cache.put(lookup, result);
         return result;
     }
 

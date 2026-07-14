@@ -1,10 +1,13 @@
 package com.dreamy.domain.product.service;
 
 import com.dreamy.dto.AdminProductBatchDtos.BatchResult;
+import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.i18n.CatalogMessageResolver;
 import com.dreamy.infra.CatalogAuditRecorder;
+import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.infra.CatalogCacheService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,12 @@ class AdminProductBatchServiceTest {
 
     @Mock
     AdminProductService adminProductService;
+    @Mock
+    ProductRepository productRepository;
+    @Mock
+    CatalogCacheService cache;
+    @Mock
+    CatalogAfterCommitRunner afterCommit;
     @Mock
     CatalogAuditRecorder audit;
     @Mock

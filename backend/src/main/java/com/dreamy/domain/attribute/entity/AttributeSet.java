@@ -1,6 +1,5 @@
 package com.dreamy.domain.attribute.entity;
 
-import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.domain.attribute.consts.AttributeSetDBConst;
 import huihao.mysql.annotation.Column;
@@ -21,7 +20,4 @@ public class AttributeSet extends LongAuditableEntity {
 
     @Column(name = AttributeSetDBConst.LABEL, definition = "varchar(64) NOT NULL COMMENT '属性集名称'")
     private String label;
-
-    @Column(name = AttributeSetDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

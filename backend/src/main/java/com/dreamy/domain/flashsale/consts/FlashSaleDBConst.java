@@ -8,5 +8,4 @@ public interface FlashSaleDBConst extends MarketingCommonDBConst {
     String TABLE = "flash_sale";
 
     String DISCOUNT = "discount";
-    public static final String DELETED_AT = "deleted_at";
 }

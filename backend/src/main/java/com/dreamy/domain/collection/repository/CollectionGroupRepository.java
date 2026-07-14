@@ -32,14 +32,12 @@ public class CollectionGroupRepository {
     /** RM-CAT-050 listAll */
     public List<CollectionGroup> listAll() {
         return groupMapper.selectList(new LambdaQueryWrapper<CollectionGroup>()
-                .isNull(CollectionGroup::getDeletedAt)
                 .orderByAsc(CollectionGroup::getId));
     }
 
     /** RM-CAT-051 findById */
     public CollectionGroup findById(Long id) {
-        CollectionGroup e = id == null ? null : groupMapper.selectById(id);
-        return (e == null || e.getDeletedAt() != null) ? null : e;
+        return id == null ? null : groupMapper.selectById(id);
     }
 
     /** RM-CAT-052 insert */
@@ -54,9 +52,9 @@ public class CollectionGroupRepository {
 
     /** RM-CAT-054 deleteById（含 translation 级联，TX-CAT-017） */
     public void deleteById(Long id) {
-        groupMapper.deleteById(id);
         translationMapper.delete(new LambdaQueryWrapper<CollectionGroupTranslation>()
                 .eq(CollectionGroupTranslation::getCollectionGroupId, id));
+        groupMapper.deleteById(id);
     }
 
     /** RM-CAT-055 listTranslationsByGroupIds */

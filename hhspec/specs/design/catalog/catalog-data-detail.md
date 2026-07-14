@@ -1,8 +1,12 @@
 # catalog 数据层详细设计（L2）
 
+> 当前契约覆盖声明：`catalog-contract-status.md` 覆盖本文早期 TagDimension/Tag、
+> tag_* 表和 `cover` 字段描述。当前物理表为 collection_group/collection/
+> collection_translation/product_collection，集合封面不落库。
+
 > 角色: l2_data_designer ｜ change: portal-api-integration ｜ domain: catalog
 > 方法论：Entity Design / Repository 方法(RM-CAT) / DTO 映射(MAP-CAT) / 索引(IDX-CAT，含 FULLTEXT) / 事务边界(TX-CAT) / 数据校验(CV-CAT) / 领域事件与 MQ 消费(EVT-CAT) / 缓存设计(CACHE-CAT) / 完整 DDL。
-> 来源权威：er-diagram.yml（本域实体 + 5 张 translation 附表；**CustomTag/CustomTagTranslation 已由 TagDimension/Tag/TagTranslation 合并承载，不建表**）+ catalog-api.openapi.yml + data-flow.md（缓存矩阵/MQ 拓扑/FLOW-P01/P02/P03/P17/P19）+ 后端样板 /Volumes/MAC/workspace/dreamy/backend（huihao-mysql 基类 + identity 域既有模式）+ code-patterns.md（CP-001~CP-031）。
+> 来源权威：catalog-api.openapi.yml + catalog-contract-status.md + data-flow.md（缓存矩阵/MQ 拓扑/FLOW-P01/P02/P03/P17/P19）+ 后端实现。
 
 ## 1. Entity Design（基类选型 / 逻辑删除 / 审计字段）
 
@@ -25,16 +29,16 @@
 | AttributeDefTranslation | attribute_def_translation | uk(attribute_def_id, locale)；options 译文与主表等长 |
 | AttributeSet | attribute_set | label |
 | AttributeSetItem | attribute_set_item | uk(attribute_set_id, attribute_id)；visibility enum 三态 |
-| TagDimension | tag_dimension | name/description（**合并承载 er-diagram CustomTag 的 dimension 语义**） |
-| TagDimensionTranslation | tag_dimension_translation | uk(tag_dimension_id, locale) |
-| Tag | tag | dimension_id；name；cover 可空；status enum（**合并承载 CustomTag，不建 custom_tag 表**） |
-| TagTranslation | tag_translation | uk(tag_id, locale)（**合并承载 CustomTagTranslation**） |
+| CollectionGroup | collection_group | name/description（由旧 TagDimension 重命名） |
+| CollectionGroupTranslation | collection_group_translation | uk(collection_group_id, locale) |
+| Collection | collection | collection_group_id；name；status enum；无 cover（封面为商品图拼贴） |
+| CollectionTranslation | collection_translation | uk(collection_id, locale) |
 | Product | product | 全量字段见 DDL；slug 唯一；status enum；**冗余回写列 sales_30d / sales_refreshed_at / rating_avg / rating_count**（决策 29 + FLOW-P14，L1 留 L2 定稿——定稿为 Product 冗余列方案，不建独立聚合表） |
 | ProductTranslation | product_translation | uk(product_id, locale)；name/subtitle/description/seo_title/seo_description |
 | ProductImage | product_image | kind enum 四类；sort=0 主图；color_name（swatch） |
 | Sku | sku | sku_code 全局唯一；color×size 矩阵；stock + version 乐观锁（@Version，BE-DIM-4 扣减防超卖；本域编辑防丢失 409508） |
 | SizeChartRow | size_chart_row | us 必填 + uk/au + 四维体征数值 |
-| ProductTag（关联） | product_tag | uk(product_id, tag_id)；nm 关系（AdminProductUpsert.tag_ids 落点）；无审计需求仍用基类（成本可忽略，保持范式统一） |
+| ProductCollection（关联） | product_collection | uk(product_id, collection_id)；nm 关系（AdminProductUpsert.collection_ids 落点）；无审计需求仍用基类（成本可忽略，保持范式统一） |
 
 冗余列写权限约束：sales_30d/sales_refreshed_at/rating_avg/rating_count 仅 EVT-CAT-001/002 消费者与 EVT-CAT-003 定时任务可写；管理端整单覆盖（TX-CAT-002）不得触碰。
 
@@ -67,28 +71,28 @@
 - RM-CAT-046 `replaceItems(setId, items[])` —— 事务内 DELETE+批量 INSERT（TX-CAT-010 全量重写）
 - RM-CAT-047 `countItemsByAttributeId(attributeId) -> int` —— 409507 guard
 
-### TagDimensionRepository / TagDimensionTranslationRepository
+### CollectionGroupRepository / CollectionGroupTranslationRepository
 - RM-CAT-050 `listAll()` / RM-CAT-051 `findById(id)` / RM-CAT-052 `insert` / RM-CAT-053 `update` / RM-CAT-054 `deleteById`
-- RM-CAT-055 `listTranslationsByDimensionIds(ids)` / RM-CAT-056 `replaceTranslations(dimensionId, rows[])`
+- RM-CAT-055 `listTranslationsByGroupIds(ids)` / RM-CAT-056 `replaceTranslations(groupId, rows[])`
 
-### TagRepository / TagTranslationRepository
-- RM-CAT-060 `listByDimensionId(dimensionId?) -> List<Tag>` —— idx_tag_dimension
-- RM-CAT-061 `findById(id)` / RM-CAT-062 `listByIds(ids)`（tag_ids 存在性校验）
-- RM-CAT-063 `listEnabled(dimensionId?)` —— 消费端（status=enabled）
-- RM-CAT-064 `searchEnabledByName(qLike, locale) -> List<tagId>` —— E-CAT-02 STEP-CAT-04（主表 name LIKE + 附表 label LIKE UNION）
-- RM-CAT-065 `countByDimensionId(dimensionId) -> int` —— 409506 guard
+### CollectionRepository / CollectionTranslationRepository
+- RM-CAT-060 `listByGroupId(groupId?) -> List<Collection>` —— idx_collection_group
+- RM-CAT-061 `findById(id)` / RM-CAT-062 `listByIds(ids)`（collection_ids 存在性校验）
+- RM-CAT-063 `listEnabled(groupId?)` —— 消费端（status=enabled）
+- RM-CAT-064 `searchEnabledByName(qLike, locale) -> List<collectionId>` —— E-CAT-02 STEP-CAT-04（主表 name LIKE + 附表 label LIKE UNION）
+- RM-CAT-065 `countByGroupId(groupId) -> int` —— 409506 guard
 - RM-CAT-066 `insert` / RM-CAT-067 `update` / RM-CAT-068 `deleteById`
-- RM-CAT-069 `listTranslationsByTagIds(ids)` / RM-CAT-070 `replaceTranslations(tagId, rows[])`
+- RM-CAT-069 `listTranslationsByCollectionIds(ids)` / RM-CAT-070 `replaceTranslations(collectionId, rows[])`
 
 ### ProductRepository
 - RM-CAT-080 `findBySlugPublished(slug) -> Product?` —— uk_product_slug 点查（FLOW-P01 热路径）
 - RM-CAT-081 `findById(id)` / RM-CAT-082 `existsBySlugExcept(slug, exceptId?) -> bool`（409501）
-- RM-CAT-083 `pageStoreList(filter{categoryIds[], tagId?, color?, size?, priceMin?, priceMax?, sort}, page) -> Page<Product>` —— status=published；EXISTS 子查询挂 product_tag/sku（IDX-CAT-003/006/007）
+- RM-CAT-083 `pageStoreList(filter{categoryIds[], collectionId?, color?, size?, priceMin?, priceMax?, sort}, page) -> Page<Product>` —— status=published；EXISTS 子查询挂 product_collection/sku（IDX-CAT-003/006/007）
 - RM-CAT-084 `fulltextSearchMain(q, page) -> List<id+score>` —— `MATCH(name, subtitle) AGAINST(? IN NATURAL LANGUAGE MODE)` AND status=published（IDX-CAT-004）
 - RM-CAT-085 `pageAdminList(filter{status?, categoryIds[], search?}, page) -> Page<Product>` —— name/style_no LIKE
 - RM-CAT-086 `insert` / RM-CAT-087 `update`（冗余列不在 SET 列表）/ RM-CAT-088 `deleteById`
 - RM-CAT-089 `updateStatus(id, status)`（TX-CAT-004）/ RM-CAT-090 `patchFlags(id, partial{isNew?,isBest?,recommend?,sort?})`
-- RM-CAT-091 `listRecoNewArrivals(limit)` / RM-CAT-092 `listRecoBestSellers(limit)`（sales_30d DESC，全 0 回退 recommend）/ RM-CAT-093 `listRecoByTag(tagId, limit)` / RM-CAT-094 `listRecoSimilar(categoryId, priceLow, priceHigh, exceptId, limit)` / RM-CAT-095 `listRecoCrossCategory(rootCategoryId, exceptLeafCategoryId, limit)` —— 决策 29 五规则
+- RM-CAT-091 `listRecoNewArrivals(limit)` / RM-CAT-092 `listRecoBestSellers(limit)`（sales_30d DESC，全 0 回退 recommend）/ RM-CAT-093 `listRecoByCollection(collectionId, limit)` / RM-CAT-094 `listRecoSimilar(categoryId, priceLow, priceHigh, exceptId, limit)` / RM-CAT-095 `listRecoCrossCategory(rootCategoryId, exceptLeafCategoryId, limit)` —— 决策 29 五规则
 - RM-CAT-096 `countByCategoryIdsPublished(ids) -> Map<categoryId,int>` / RM-CAT-097 `countByCategoryIdsAll(ids) -> Map`（product_count 两口径）
 - RM-CAT-098 `updateSales30d(productId, sales, refreshedAt)`（EVT-CAT-001/003 专用）/ RM-CAT-099 `updateRating(productId, avg, count)`（EVT-CAT-002 专用）
 
@@ -97,26 +101,26 @@
 - RM-CAT-101 `replaceAll(productId, rows[])` / RM-CAT-102 `deleteByProductId(productId)`
 - RM-CAT-103 `fulltextSearch(q, locale, page) -> List<productId+score>` —— `MATCH(name, subtitle) AGAINST(?)` AND locale=?（IDX-CAT-010）
 
-### ProductImageRepository / SkuRepository / SizeChartRowRepository / ProductTagRepository
+### ProductImageRepository / SkuRepository / SizeChartRowRepository / ProductCollectionRepository
 - RM-CAT-110 `listByProductId(productId)`（image，ORDER BY sort）/ RM-CAT-111 `listByProductIds(ids)`（卡片主图/swatch 批查）/ RM-CAT-112 `replaceAll(productId, rows[])` / RM-CAT-113 `deleteByProductId`
 - RM-CAT-120 `listByProductId(productId)`（sku）/ RM-CAT-121 `existsBySkuCodes(codes[], exceptProductId?) -> List<String>`（409504）
 - RM-CAT-122 `casUpdate(sku) -> int` —— `UPDATE ... SET ..., version=version+1 WHERE id=? AND version=?`（CP-016：`setSql("version = version + 1")` + eq(version)，affected=0 → 409508）
 - RM-CAT-123 `insertBatch(skus[])`（version=0）/ RM-CAT-124 `deleteByIds(ids)` / RM-CAT-125 `sumStockByProductIds(ids) -> Map`（stock_total 派生）
 - RM-CAT-130 `listByProductId(productId)`（size_chart，ORDER BY bust ASC——E-CAT-05 区间匹配前置序）/ RM-CAT-131 `replaceAll(productId, rows[])` / RM-CAT-132 `deleteByProductId`
-- RM-CAT-140 `listTagIdsByProductId(productId)` / RM-CAT-141 `listByProductIds(ids)` / RM-CAT-142 `replaceAll(productId, tagIds[])` / RM-CAT-143 `deleteByProductId` / RM-CAT-144 `deleteByTagId(tagId)`（删标签级联摘除）/ RM-CAT-145 `countByTagIds(ids, publishedOnly) -> Map<tagId,int>`（product_count 两口径）/ RM-CAT-146 `listProductIdsByTagId(tagId, publishedOnly, limit)`
+- RM-CAT-140 `listCollectionIdsByProductId(productId)` / RM-CAT-141 `listByProductIds(ids)` / RM-CAT-142 `replaceAll(productId, collectionIds[])` / RM-CAT-143 `deleteByProductId` / RM-CAT-144 `deleteByCollectionId(collectionId)` / RM-CAT-145 `countByCollections(publishedOnly)` / RM-CAT-146 `listProductIdsByCollectionId(collectionId, limit)`
 
 ## 3. DTO ↔ Entity 映射（MAP-CAT）
 
 - MAP-CAT-001 Product→StoreProductCard：id/slug/name/subtitle/price/compare_at/multi_currency_prices/installment/is_new/is_best + 派生 image_url（image kind=gallery sort=0）/swatches（kind=swatch → {color_name,url}）/rating_avg/rating_count（冗余列）；**不暴露** sort/recommend/sales_30d/状态字段
-- MAP-CAT-002 Product+子资源→StoreProductDetail：全量版型/模特/护理字段 + images[]/skus[]（含 stock/version——version 暴露供下单 CAS 与购物车展示，无敏感性）/size_chart[]/tags[]（id/dimension_id/name）+ category_name 派生 + rating 冗余列；locale 解析后输出扁平文案（决策 13 回退在 Service 层完成）
+- MAP-CAT-002 Product+子资源→StoreProductDetail：全量版型/模特/护理字段 + images[]/skus[]（含 stock/version——version 暴露供下单 CAS 与购物车展示，无敏感性）/size_chart[]/collections[]（id/collection_group_id/name）+ category_name 派生 + rating 冗余列；locale 解析后输出扁平文案（决策 13 回退在 Service 层完成）
 - MAP-CAT-003 Product→AdminProductListItem：+style_no/category_name/status/recommend/sort/stock_total（SUM(sku.stock) 派生）/image_url
 - MAP-CAT-004 Product+子资源→AdminProductDetail：AdminProductUpsert 全字段回显 + id/created_at/updated_at + translations 三语 tab 原样（不回退合并）
 - MAP-CAT-005 Category→StoreCategoryNode：id/name(locale 解析)/parent_id/level/sort/product_count(published 口径)/children 递归；**不暴露** attribute_set_id/attr_overrides
 - MAP-CAT-006 Category→AdminCategoryNode：全字段 + product_count(全量口径) + translations + children
-- MAP-CAT-007 TagDimension+Tag→StoreTagDimensionGroup：维度 id/name(locale)/description + tags[]{id,name(locale),cover,product_count(published 口径)}；仅 status=enabled
+- MAP-CAT-007 CollectionGroup+Collection→StoreCollectionGroup：分组 id/name(locale)/description + collections[]{id,name(locale),product_count(published 口径)}；仅 status=enabled，消费端不返回 cover
 - MAP-CAT-008 AttributeSet+Items→AttributeSet DTO：label + items[]{attribute_id,visibility} + category_count 派生
 - MAP-CAT-009 AttributeDef→AttributeDef DTO：key/label/type/options + translations
-- MAP-CAT-010 Tag→Tag DTO（admin）：dimension_id/name/cover/status/product_count(全量口径) + translations
+- MAP-CAT-010 Collection→Collection DTO（admin）：collection_group_id/name/status/product_count/fallback_cover_urls（前 4 张商品主图）+ translations
 - MAP-CAT-011 SizeChartRow→recommended_row：原样行；SizeRecommendationResponse.dimension_notes 由 Service 区间匹配产出（非实体映射）
 - MAP-CAT-012 枚举：Java enum ↔ VARCHAR 契约字符串（draft/published、gallery/lifestyle/video/swatch、visible/optional/hidden、select/multiselect/text/toggle、enabled/disabled、es/fr）
 - MAP-CAT-013 JSON 列（attr_overrides/options/embellishments/occasions/style_tags/multi_currency_prices）：MyBatis-Plus JacksonTypeHandler（autoResultMap=true）↔ DTO 原生对象/数组
@@ -141,14 +145,14 @@
 | IDX-CAT-013 | attribute_def | `UNIQUE uk_attribute_def_key(\`key\`)` | key 唯一 |
 | IDX-CAT-014 | attribute_def_translation | `UNIQUE uk_adt(attribute_def_id, locale)` | 翻译合并 |
 | IDX-CAT-015 | attribute_set_item | `UNIQUE uk_asi(attribute_set_id, attribute_id)` + `idx_asi_attribute(attribute_id)` | 矩阵幂等 / 409507 计数 |
-| IDX-CAT-016 | tag | `idx_tag_dimension(dimension_id)` + `idx_tag_status(status)` | 维度筛选 / enabled 过滤 / 409506 计数 |
-| IDX-CAT-017 | tag_translation | `UNIQUE uk_tt(tag_id, locale)` | 翻译合并 |
-| IDX-CAT-018 | tag_dimension_translation | `UNIQUE uk_tdt(tag_dimension_id, locale)` | 翻译合并 |
-| IDX-CAT-019 | product_tag | `UNIQUE uk_ptag(product_id, tag_id)` + `idx_ptag_tag(tag_id)` | nm 幂等 / 标签反查 |
+| IDX-CAT-016 | collection | `idx_collection_group(collection_group_id)` + `idx_collection_status(status)` | 分组筛选 / enabled 过滤 / 409506 计数 |
+| IDX-CAT-017 | collection_translation | `UNIQUE uk_ct(collection_id, locale)` | 翻译合并 |
+| IDX-CAT-018 | collection_group_translation | `UNIQUE uk_cgt(collection_group_id, locale)` | 翻译合并 |
+| IDX-CAT-019 | product_collection | `UNIQUE uk_pcol(product_id, collection_id)` + `idx_pcol_collection(collection_id)` | nm 幂等 / 集合反查 |
 
 查询优化补充：
 - NP-CAT-001 防 N+1：列表卡片装配的 image/swatch/translation/rating 一律 productIds IN 批查（RM-CAT-111/100）
-- NP-CAT-002 分类树/标签分组 product_count 用单条 GROUP BY 聚合（RM-CAT-096/097/145），禁止逐节点 COUNT
+- NP-CAT-002 分类树/集合分组 product_count 用单条 GROUP BY 聚合（RM-CAT-096/097/145），禁止逐节点 COUNT
 - QP-CAT-001 store 列表 LIMIT/OFFSET 在千级 SKU 下可接受；total 走 COUNT 同条件（MyBatis-Plus Page）
 - QP-CAT-002 搜索合并去重在 Service 内存完成（三路 id+score，千级量安全），不做 SQL 大 UNION 排序
 
@@ -156,7 +160,7 @@
 
 | ID | 端点/流程 | 边界与回滚语义 |
 |---|---|---|
-| TX-CAT-001 | E-CAT-09 创建商品 | 单事务：product + image/sku/size_chart/product_tag/translation 批插 + operation_log；唯一索引冲突（slug/sku_code）映射 409501/409504 回滚；**缓存失效与 MQ publish 在事务提交后**（CP-031；MQ 失败不回滚，TTL 兜底） |
+| TX-CAT-001 | E-CAT-09 创建商品 | 单事务：product + image/sku/size_chart/product_collection/translation 批插 + operation_log；唯一索引冲突（slug/sku_code）映射 409501/409504 回滚；**缓存失效与 MQ publish 在事务提交后**（CP-031；MQ 失败不回滚，TTL 兜底） |
 | TX-CAT-002 | E-CAT-11 编辑商品 | 单事务整单覆盖；SKU CAS（RM-CAT-122）任一 affected=0 → VersionConflict 全量回滚 → 409508；冗余列不参与 SET |
 | TX-CAT-003 | E-CAT-12 删除商品 | 单事务：guard(409509) → 六表级联物理删除 + operation_log |
 | TX-CAT-004 | E-CAT-13 上下架 | 单事务：status UPDATE + operation_log；幂等短路不开事务 |
@@ -164,8 +168,8 @@
 | TX-CAT-006/007/008 | 分类创建/编辑/删除 | 单事务：主表 + translation 整单覆盖 + operation_log；删除前 guard 409502（商品数/子分类）在事务内复查（防并发挂商品） |
 | TX-CAT-009/010/011 | 属性集创建/编辑/删除 | 单事务；TX-CAT-010 矩阵 DELETE+INSERT 全量重写原子（同 identity TX-004 范式）；删除 guard 409503 事务内复查 |
 | TX-CAT-012/013/014 | 属性定义创建/编辑/删除 | 单事务；翻译 options 等长校验（CV-CAT-007）在写前；删除 guard 409507 事务内复查 |
-| TX-CAT-015/016/017 | 标签维度创建/编辑/删除 | 单事务；删除 guard 409506 事务内复查 |
-| TX-CAT-018/019/020 | 标签创建/编辑/删除 | 单事务；TX-CAT-020 含 product_tag 级联摘除（RM-CAT-144） |
+| TX-CAT-015/016/017 | 集合分组创建/编辑/删除 | 单事务；删除 guard 409506 事务内复查 |
+| TX-CAT-018/019/020 | 集合创建/编辑/删除 | 单事务；TX-CAT-020 先清 product_collection 与译文后物理删除 |
 | TX-CAT-021 | EVT-CAT-001 销量回写 | 消费者内单事务：按 product_id 集合逐一 RM-CAT-098；天然可重入（覆盖写幂等） |
 | TX-CAT-022 | EVT-CAT-002 评分回写 | 同上，RM-CAT-099 覆盖写 |
 | EC-CAT-001 | 乐观锁冲突策略 | 本域**编辑场景不重试**（与 trading 扣减重试 ×3 不同）：编辑冲突即用户层冲突，直接 409508 让用户刷新（error-strategy 前端约定"提示刷新重载表单"） |
@@ -177,8 +181,8 @@
 - CV-CAT-002 长度上限与 er-diagram/契约一致（见 DDL 列定义；超长 → 422501，DB 截断禁用 STRICT_TRANS_TABLES 保障）
 - CV-CAT-003 数值域：price/compare_at ≥0、stock ≥0、sort ≥0、lead_time_days ≥1、level 1..3、size_chart 数值 ≥0、rating_avg 0..5
 - CV-CAT-004 compare_at ≥ price 应用层校验（V-CAT-027）；DB 不建跨列 CHECK（保持 huihao 注解建表能力内）
-- CV-CAT-005 逻辑外键（CP-010 无物理 FK）：写入前校验引用存在——product.category_id（V-CAT-025）、product_tag.tag_id（V-CAT-034）、category.parent_id/attribute_set_id（V-CAT-044/045）、attribute_set_item.attribute_id（V-CAT-050）、tag.dimension_id（V-CAT-063）；对应 boundary-scenarios bs-676~686
-- CV-CAT-006 删除引用守卫：category←product/子分类（409502）、attribute_set←category（409503）、attribute_def←attribute_set_item（409507）、tag_dimension←tag（409506）；tag 删除无守卫但级联清 product_tag
+- CV-CAT-005 逻辑外键（CP-010 无物理 FK）：写入前校验引用存在——product.category_id（V-CAT-025）、product_collection.collection_id（V-CAT-034）、category.parent_id/attribute_set_id（V-CAT-044/045）、attribute_set_item.attribute_id（V-CAT-050）、collection.collection_group_id（V-CAT-063）
+- CV-CAT-006 删除引用守卫：category←product/子分类（409502）、attribute_set←category（409503）、attribute_def←attribute_set_item/product_attribute_value（409507）、collection_group←collection（409506）；collection 删除无守卫但级联清 product_collection
 - CV-CAT-007 attribute_def_translation.options 与主表 options 等长（V-CAT-058）；主表 options 变更（增删项）时 Service 同步对齐译文数组（缺位补 null 占位，等长不破坏）
 - CV-CAT-008 attr_overrides 仅含生效属性集内的 key 且 value ∈ 三态（V-CAT-047）
 - CV-CAT-009 translation locale 仅 {es,fr}（EN 存主表，决策 13）；uk(entity_id, locale) 防重
@@ -189,12 +193,12 @@
 
 | ID | key 模板 | TTL | 装载点 | 失效触发者（@CacheInvalidate + MQ content.invalidated） |
 |---|---|---|---|---|
-| CACHE-CAT-001 | `catalog:products:{filtersHash}:{locale}` | 300s | E-CAT-01 | 商品创建/编辑/删除/上下架/flags（TX-CAT-001~005）、标签写（间接：tag 筛选）、分类写 |
+| CACHE-CAT-001 | `catalog:products:{filtersHash}:{locale}` | 300s | E-CAT-01 | 商品创建/编辑/删除/上下架/flags（TX-CAT-001~005）、集合写（间接：collection 筛选）、分类写 |
 | CACHE-CAT-002 | `catalog:product:{slug}:{locale}` | 300s（null 值 60s） | E-CAT-04 | 商品编辑/删除/上下架（含 SKU/尺码表/翻译变更；旧 slug 一并失效） |
 | CACHE-CAT-003 | `catalog:search:{qNorm}:{locale}:{page}` | 60s | E-CAT-02 | **TTL 自然过期**（决策 17 短 TTL 兜底，无主动失效） |
-| CACHE-CAT-004 | `catalog:reco:{block}:{pid\|tid\|-}:{locale}` | 300s | E-CAT-03 | 商品写/flags/上下架 + **order.paid 销量回写**（EVT-CAT-001 末步失效）+ 标签写 |
+| CACHE-CAT-004 | `catalog:reco:{block}:{pid\|cid\|-}:{locale}` | 300s | E-CAT-03 | 商品写/flags/上下架 + **order.paid 销量回写**（EVT-CAT-001 末步失效）+ 集合写 |
 | CACHE-CAT-005 | `catalog:categories:{locale}` | 600s | E-CAT-06 | 分类创建/编辑/删除；商品增删/上下架（product_count 变化） |
-| CACHE-CAT-006 | `catalog:tags:{dim\|all}:{locale}` | 600s | E-CAT-07 | 标签/维度写；商品 tag_ids 变更、上下架（product_count 变化） |
+| CACHE-CAT-006 | `catalog:collections:{group\|all}:{locale}` | 600s | E-CAT-07 | 集合/分组写；商品 collection_ids 变更、上下架（product_count 变化） |
 
 - 穿透保护（BE-DIM-8）：`cacheNullValue=true`，null 短 TTL 60s（E-CAT-04 不存在 slug 不反复打穿源库）
 - key 一律含 locale 维度（决策 13）；**不含 currency**（决策 14 L1 定夺：仅 USD 基准价，换算放客户端）
@@ -207,7 +211,7 @@
 
 | 事件 | routing key | 触发 | payload |
 |---|---|---|---|
-| 内容失效 | `content.invalidated` | TX-CAT-001/002/003/004/005/006/007/008/016/017/018/019/020 提交后 | `{event_id(UUID), type: product_created\|product_updated\|product_status_changed\|product_flags_changed\|category_changed\|tag_changed, slug?, old_slug?, locales:[en,es,fr], occurred_at}` |
+| 内容失效 | `content.invalidated` | TX-CAT-001/002/003/004/005/006/007/008/016/017/018/019/020 提交后 | `{event_id(UUID), type: product_created\|product_updated\|product_status_changed\|product_flags_changed\|category_changed\|collection_changed, slug?, old_slug?, locales:[en,es,fr], occurred_at}` |
 
 消费者 `q.invalidate`（FLOW-P03，基建侧）：Next.js `POST /api/revalidate`（按 type 映射路径：PDP `/product/{slug}`、列表 `/wedding-dresses` 等聚合页、首页）×3 locale 路径 + Cloudflare purge API；nack ×3 指数退避 → `dreamy.dlq`。
 
@@ -300,53 +304,52 @@ CREATE TABLE attribute_set_item (
   KEY idx_asi_attribute (attribute_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='属性集明细行';
 
--- 7. tag_dimension 标签维度（合并承载 CustomTag 维度语义，不建 custom_tag 表）
-CREATE TABLE tag_dimension (
+-- 7. collection_group（旧 tag_dimension 重命名）
+CREATE TABLE collection_group (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   name        VARCHAR(64)  NOT NULL COMMENT '维度名(EN 基准)',
   description VARCHAR(255) NULL COMMENT '维度说明',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自定义标签维度';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合分组';
 
--- 8. tag_dimension_translation
-CREATE TABLE tag_dimension_translation (
+-- 8. collection_group_translation
+CREATE TABLE collection_group_translation (
   id               BIGINT      NOT NULL AUTO_INCREMENT,
-  tag_dimension_id BIGINT      NOT NULL,
+  collection_group_id BIGINT   NOT NULL,
   locale           VARCHAR(8)  NOT NULL COMMENT 'es|fr',
   name             VARCHAR(64) NULL,
   created_at       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_tdt (tag_dimension_id, locale)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标签维度多语言附表';
+  UNIQUE KEY uk_cgt (collection_group_id, locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合分组多语言附表';
 
--- 9. tag 自定义标签（合并承载 CustomTag，不建 custom_tag / custom_tag_translation 表）
-CREATE TABLE tag (
+-- 9. collection（旧 tag 重命名；不再持久化 cover）
+CREATE TABLE collection (
   id           BIGINT       NOT NULL AUTO_INCREMENT,
-  dimension_id BIGINT       NOT NULL COMMENT '逻辑外键 tag_dimension.id',
-  name         VARCHAR(64)  NOT NULL COMMENT '标签名(EN 基准)',
-  cover        VARCHAR(512) NULL COMMENT '封面图 URL（预签名上传 public_url），空=纯文字',
+  collection_group_id BIGINT NOT NULL COMMENT '逻辑外键 collection_group.id',
+  name         VARCHAR(64)  NOT NULL COMMENT '集合名(EN 基准)',
   status       VARCHAR(16)  NOT NULL DEFAULT 'enabled' COMMENT 'enabled|disabled',
   created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  KEY idx_tag_dimension (dimension_id),
-  KEY idx_tag_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自定义营销标签';
+  KEY idx_collection_group (collection_group_id),
+  KEY idx_collection_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='营销集合';
 
--- 10. tag_translation（合并承载 CustomTagTranslation）
-CREATE TABLE tag_translation (
+-- 10. collection_translation
+CREATE TABLE collection_translation (
   id         BIGINT      NOT NULL AUTO_INCREMENT,
-  tag_id     BIGINT      NOT NULL,
+  collection_id BIGINT  NOT NULL,
   locale     VARCHAR(8)  NOT NULL COMMENT 'es|fr',
   label      VARCHAR(64) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_tt (tag_id, locale)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标签多语言附表';
+  UNIQUE KEY uk_ct (collection_id, locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='集合多语言附表';
 
 -- 11. product 商品主档
 CREATE TABLE product (
@@ -383,7 +386,7 @@ CREATE TABLE product (
   season                VARCHAR(64)   NULL,
   embellishments        JSON          NULL COMMENT '装饰细节多选',
   occasions             JSON          NULL COMMENT '适合场合多选',
-  style_tags            JSON          NULL COMMENT '风格标签多选（自由文本，区别于 tag 实体）',
+  style_tags            JSON          NULL COMMENT '风格标签自由文本',
   model_height          VARCHAR(32)   NULL,
   model_size            VARCHAR(16)   NULL,
   model_body_type       VARCHAR(32)   NULL,
@@ -470,24 +473,24 @@ CREATE TABLE size_chart_row (
   KEY idx_scr_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品尺码对照表行（决策20.3 推荐数据源）';
 
--- 16. product_tag（Product-Tag nm 关系，AdminProductUpsert.tag_ids 落点）
-CREATE TABLE product_tag (
-  id         BIGINT      NOT NULL AUTO_INCREMENT,
-  product_id BIGINT      NOT NULL,
-  tag_id     BIGINT      NOT NULL,
+-- 16. product_collection（Product-Collection nm 关系，AdminProductUpsert.collection_ids 落点）
+CREATE TABLE product_collection (
+  id            BIGINT      NOT NULL AUTO_INCREMENT,
+  product_id    BIGINT      NOT NULL,
+  collection_id BIGINT      NOT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_ptag (product_id, tag_id),
-  KEY idx_ptag_tag (tag_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品-标签挂载';
+  UNIQUE KEY uk_pcol (product_id, collection_id),
+  KEY idx_pcol_collection (collection_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品-集合挂载';
 ```
 
-> 备注：①FULLTEXT ngram 依赖 MySQL 内置 ngram parser（`ngram_token_size=2` 默认即可，英/西/法均为空格分词语言，ngram 同时兼容数字货号）；②`processed_event` 幂等表归 trading 域 DDL（本域消费者复用，见 EVT-CAT-001）；③种子数据（决策 21）按本 DDL 灌入 portal-admin/portal-store mock 中的商品/分类/属性集/标签样例 + 三语 translation 行，归 L3 种子脚本任务。
+> 备注：①FULLTEXT ngram 依赖 MySQL 内置 ngram parser；②`processed_event` 幂等表归 trading 域 DDL；③种子数据使用商品/分类/属性集/集合样例 + 三语 translation 行。
 
 ## 10. 自检
 
-- [x] er-diagram 本域 10 实体 + 5 translation 附表全部建模；CustomTag/CustomTagTranslation 合并入 Tag/TagTranslation **不建表**（孤表归零）；新增 product_tag 关联表承载 nm
+- [x] CollectionGroup/Collection 及 translation 附表、product_collection 关系表均与当前实现对齐；collection 无 cover 列
 - [x] 基类选型（LongAuditableEntity）/ 逻辑删除（不启用，物理删除 + 守卫）/ 审计字段（created_at/updated_at）显式声明
 - [x] RM-CAT-001~146（分段编号，无重号）；MAP-CAT-001~014；IDX-CAT-001~019（**含 FULLTEXT ×2：主表 + translation 附表**）；TX-CAT-001~022 + EC-CAT-001/002；CV-CAT-001~011；EVT-CAT-001~003；CACHE-CAT-001~006
 - [x] 冗余回写落点定稿（L1 悬置项）：Product 冗余列 sales_30d/rating_avg/rating_count，仅 MQ 消费者/定时任务可写

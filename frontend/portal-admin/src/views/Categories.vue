@@ -452,7 +452,6 @@ async function toggleCollection(c: Collection, on: boolean) {
       {
         collectionGroupId: c.collectionGroupId,
         name: c.name,
-        cover: c.cover,
         status: on ? CollectionStatus.ENABLED : CollectionStatus.DISABLED,
         translations: c.translations || [],
       },
@@ -651,8 +650,7 @@ onMounted(() => {
         <div v-for="c in collectionsByActiveGroup" :key="c.id" class="panel flex aspect-[3/5] flex-col overflow-hidden">
           <!-- 图片区：扣除功能栏后的剩余空间，在此平均分配 -->
           <div class="min-h-0 flex-1">
-            <img v-if="c.cover" :src="c.cover" class="h-full w-full object-cover object-top" />
-            <template v-else-if="c.fallbackCoverUrls && c.fallbackCoverUrls.length">
+            <template v-if="c.fallbackCoverUrls && c.fallbackCoverUrls.length">
               <div v-if="c.fallbackCoverUrls.length === 1" class="grid h-full w-full grid-cols-1 gap-0.5">
                 <img :src="c.fallbackCoverUrls[0]" class="h-full w-full object-cover object-top" />
               </div>
@@ -849,8 +847,6 @@ onMounted(() => {
                   v-model="drawerTrans[l]"
                   :source-text="drawerName"
                   :target-lang="l"
-                  biz-type="category"
-                  :biz-ref="drawer != null ? String(drawer.node.id) : null"
                   field-label="名称"
                   compact
                 />

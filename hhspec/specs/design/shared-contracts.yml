@@ -14,7 +14,7 @@ naming:
 
 type_mapping:
   - domain_type: Long
-    api_type: integer (format: int64)
+    api_type: 'integer (format: int64)'
     db_type: BIGINT
     note: Java主键统一Long自增
 
@@ -24,7 +24,7 @@ type_mapping:
     note: 字符串长度由max约束决定
 
   - domain_type: LocalDateTime
-    api_type: string (format: date-time)
+    api_type: 'string (format: date-time)'
     db_type: DATETIME
     note: 时区处理在应用层，数据库存UTC
 
@@ -34,7 +34,7 @@ type_mapping:
     note: MySQL布尔用TINYINT(1)
 
   - domain_type: Enum (IntEnum)
-    api_type: integer (enum: [1,2,3])
+    api_type: 'integer (enum: [1,2,3])'
     db_type: TINYINT
     note: 整数枚举，OpenAPI用enum约束值域
 
@@ -55,7 +55,7 @@ cross_reference:
 
   api_to_error: |
     API错误响应中的code字段必须引用error-strategy.md中定义的6位错误码。
-    3新域号段：gateway=2, ai_translation=3, glossary=4
+    当前活跃域号段：gateway=2, ai_translation=3；glossary=4 已退役，不得新增引用
 
   test_to_api: |
     测试骨架中的端点调用必须使用api-detail中定义的完整路径和参数。
@@ -68,16 +68,12 @@ cross_reference:
 domain_boundaries:
   gateway:
     responsibilities: [配置CRUD, 测试连接, 模型同步]
-    not_responsible: [实际翻译调用, 术语表管理]
+    not_responsible: [实际翻译调用]
 
   ai_translation:
-    responsibilities: [翻译请求代理, 调用日志, system prompt组装]
-    not_responsible: [网关配置管理, 术语表CRUD]
-    external_deps: [gateway配置, glossary术语表]
-
-  glossary:
-    responsibilities: [术语CRUD, 启用状态管理]
-    not_responsible: [注入prompt逻辑（由ai_translation负责）]
+    responsibilities: [翻译请求代理, system prompt组装]
+    not_responsible: [网关配置管理, 调用日志, 术语表CRUD或注入]
+    external_deps: [gateway配置]
 
   catalog_incremental:
     responsibilities: [product_translation.designer_note CRUD, pick()回退逻辑]
@@ -98,16 +94,14 @@ shared_constants:
   ai_translation_timeout_sec: 30
   gateway_test_connection_timeout_sec: 10
   model_sync_batch_size: 100
-  translation_log_retention_days: 90
-  glossary_inject_max_terms: 50
   system_prompt_prefix: 'You are a professional translator for a bridal e-commerce platform. Translate the following text accurately while preserving tone and marketing appeal.'
 
 error_handling_contracts:
   external_gateway_failure: |
     AI网关调用失败时：
-    1. 记录ai_translation_log status=failed
-    2. 返回502/504错误码
-    3. 前端toast提示但允许继续保存（决策10）
+    1. 返回429/502/504错误码
+    2. 前端toast提示但允许继续保存（决策10）
+    3. 不写调用日志
 
   api_key_masking: |
     API Key响应掩码规则：
@@ -120,20 +114,14 @@ error_handling_contracts:
     { field: "字段名", value: "错误值", constraint: "约束描述" }
 
   concurrent_update_protection: |
-    网关配置/术语表编辑使用updated_at乐观锁，冲突返回409提示刷新重试。
+    网关配置编辑使用updated_at乐观锁，冲突返回409提示刷新重试。
 
 integration_contracts:
   ai_translation_to_gateway: |
     1. 读取enabled=true的gateway_type=AI配置（多个时取updated_at最新）
     2. 解密api_key_encrypted（内存中解密，不落日志）
     3. 调用外部网关/v1/chat/completions，超时30s
-    4. 记录ai_translation_log（含latency_ms/token_usage/status）
-
-  ai_translation_to_glossary: |
-    1. 查询enabled=true的所有术语
-    2. 仅注入源文本中实际命中的术语（term_en出现在source_text中）
-    3. 上限50条，超出按category优先级截断（廓形>领型>面料>工艺>其他）
-    4. 格式：Use these standard terms: "A-line" → "línea A" (ES) / "ligne A" (FR)
+    4. 返回译文、模型、成功状态和latency_ms，不持久化请求或结果
 
   catalog_to_ai_translation: |
     商品编辑页AI翻译按钮调用POST /api/admin/ai/translate：

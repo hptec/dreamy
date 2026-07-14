@@ -43,7 +43,8 @@ public class StoreWeddingService {
     public Paginated<StoreRealWedding> page(int page, int pageSize, String locale) {
         // STEP-MKT-01 查 JetCache marketing:weddings:{page}:{page_size}:{locale}
         String cacheKey = page + ":" + pageSize + ":" + locale;
-        Object cached = cache.get(Family.WEDDINGS, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.WEDDINGS, cacheKey);
+        Object cached = lookup.value();
         if (cached instanceof Paginated<?> hit) {
             return (Paginated<StoreRealWedding>) hit;
         }
@@ -55,7 +56,7 @@ public class StoreWeddingService {
         Paginated<StoreRealWedding> paginated = MarketingPaginatedSupport.of(result,
                 w -> toDto(w, translations.get(w.getId()), null));
         // STEP-MKT-04 写缓存
-        cache.put(Family.WEDDINGS, cacheKey, paginated);
+        cache.put(lookup, paginated);
         return paginated;
     }
 
@@ -67,7 +68,8 @@ public class StoreWeddingService {
         }
         // STEP-MKT-01 查 JetCache marketing:wedding:{id}:{locale}（null 值 60s）
         String cacheKey = id + ":" + locale;
-        Object cached = cache.get(Family.WEDDING, cacheKey);
+        MarketingCacheService.Lookup lookup = cache.lookup(Family.WEDDING, cacheKey);
+        Object cached = lookup.value();
         if (cache.isNullMarker(cached)) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
@@ -77,7 +79,7 @@ public class StoreWeddingService {
         // STEP-MKT-02 点查 published；不存在/draft → null 缓存 → 404701
         RealWedding wedding = weddingRepository.findByIdPublished(id);
         if (wedding == null) {
-            cache.putNullMarker(Family.WEDDING, cacheKey);
+            cache.putNullMarker(lookup);
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         // STEP-MKT-03 nm → catalogQueryPort.listProductRefs（仅 published 商品，缺失项静默剔除——CV-MKT-006）
@@ -87,7 +89,7 @@ public class StoreWeddingService {
         // STEP-MKT-04 translation 覆盖 → 写缓存
         RealWeddingTranslation t = translationsFor(List.of(id), locale).get(id);
         StoreRealWedding dto = toDto(wedding, t, products);
-        cache.put(Family.WEDDING, cacheKey, dto);
+        cache.put(lookup, dto);
         return dto;
     }
 

@@ -12,5 +12,4 @@ public interface RealWeddingDBConst extends MarketingCommonDBConst {
     String THEME = "theme";
     String WEDDING_DATE = "wedding_date";
     String STORY = "story";
-    public static final String DELETED_AT = "deleted_at";
 }

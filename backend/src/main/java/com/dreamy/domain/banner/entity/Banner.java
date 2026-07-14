@@ -69,6 +69,4 @@ public class Banner extends LongAuditableEntity {
     @Column(name = "cta_link_secondary", definition = "varchar(512) NULL COMMENT '次要 CTA 链接(EN 基准)'")
     private String ctaLinkSecondary;
 
-    @Column(name = BannerDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

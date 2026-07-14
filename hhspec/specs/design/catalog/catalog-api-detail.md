@@ -1,5 +1,10 @@
 # catalog API 详细设计（L2）
 
+> 当前契约覆盖声明：请先阅读 `catalog-contract-status.md`。本文早期章节中的
+> TagDimension/Tag、`/api/store/tags`、`/api/admin/tags` 和持久化 `cover` 均为迁移前历史
+> 术语，不是当前实现契约；当前端点为 CollectionGroup/Collection 与 `/api/store/collections`、
+> `/api/admin/collection-groups`、`/api/admin/collections`，集合封面使用 `fallback_cover_urls`。
+
 > 角色: l2_api_designer ｜ change: portal-api-integration ｜ domain: catalog
 > 方法论：每端点四部分 — 入参验证(V-CAT-NNN，全域连续唯一) / 业务步骤(STEP-CAT-NN，每端点独立编号段，溯源以「端点编号 E-CAT-NN + STEP-CAT-NN」组合唯一) / 出参构造 / 错误码映射。
 > 来源权威：api-contracts/catalog-api.openapi.yml（35 端点）+ data-flow.md（FLOW-P01/P02/P03/P17/P19 + 缓存矩阵 + MQ 拓扑）+ error-strategy.md（catalog 域段 5，17 码）+ er-diagram.yml + state-machine.yml。
@@ -11,7 +16,7 @@
   - `/api/store/*` → StoreJwtFilter（STORE_JWT_SECRET）。catalog 消费端 7 端点全部为**匿名公开**，经**配置化公开路径白名单**放行（见 0.1）；带 token 访问公开端点不报错（principal 可选注入，本域不消费）。
   - `/api/admin/*` → AdminJwtFilter（ADMIN_JWT_SECRET）+ RBAC 菜单权限 key 守卫：`/products`（admin-products + uploads）、`/categories`（categories + tag-dimensions + tags）、`/attribute-sets`（attribute-sets + attribute-defs）。缺权限 → 403 `40300`；跨端 token 误用 → 401 `40100`。
 - **i18n**：store 读 `locale` query 参数（en/es/fr，缺省 en；与 Accept-Language 并存时 query 优先），文案按决策 13 翻译回退（ES/FR 命中 translation 附表，缺翻译回退 EN 主表）；admin 固定中文。
-- **审计（admin 写操作，BE-DIM-7）**：AOP 切面写 operation_log；本域 action 枚举：`创建商品`/`编辑商品`/`删除商品`/`商品上下架`/`创建分类`/`编辑分类`/`删除分类`/`创建属性集`/`编辑属性集`/`删除属性集`/`创建属性定义`/`编辑属性定义`/`删除属性定义`/`创建标签维度`/`编辑标签维度`/`删除标签维度`/`创建标签`/`编辑标签`/`删除标签`（flags 行内变更归入 `编辑商品`，changes 记 before/after）。
+- **审计（admin 写操作，BE-DIM-7）**：AOP 切面写 operation_log；集合动作统一使用创建/编辑/删除集合分组、创建/编辑/删除集合及编辑/摘除集合商品。
 - **缓存（BE-DIM-8）**：消费端只读端点按缓存矩阵走 JetCache 两级 + CDN s-maxage；写操作 `@CacheInvalidate` + MQ `content.invalidated` 失效链（FLOW-P03）；后台端点一律不缓存。key/TTL 详见 catalog-data-detail.md 第 7 节（CACHE-CAT-*）。
 - **422 字段级错误结构**（error-strategy L2 要求 1）：`MethodArgumentNotValidException`/手工校验失败 → 422 `422501`，`details` 形如 `{ "fields": { "<field>": "<reason_key>" } }`（线上装入 R.data）；store 端 reason_key 由前端 next-intl 字典渲染，admin 端后端直出中文。
 
@@ -23,7 +28,7 @@
 |---|---|
 | `/api/store/products/**` | E-CAT-01 列表、E-CAT-02 搜索、E-CAT-03 推荐位、E-CAT-04 PDP、E-CAT-05 尺码推荐（POST） |
 | `/api/store/categories` | E-CAT-06 分类树 |
-| `/api/store/tags` | E-CAT-07 标签导航 |
+| `/api/store/collections` | E-CAT-07 集合导航 |
 
 写限流（E-CAT-05 为公开 POST）在 Cloudflare WAF 层（决策 11），后端不实现限流。
 
@@ -35,17 +40,17 @@
 
 **公开端点**：StoreJwtFilter 白名单 `/api/store/products/**`。
 
-**入参**: query `{ locale?, page?, page_size?, category_id?, tag_id?, color?, size?, price_min?, price_max?, sort? }`
+**入参**: query `{ locale?, page?, page_size?, category_id?, collection_id?, color?, size?, price_min?, price_max?, sort? }`
 - V-CAT-001 locale ∈ {en,es,fr}，缺省 en（枚举外 → 422 `422501` fields.locale=invalid_enum）
 - V-CAT-002 page ≥ 1 缺省 1；page_size 1..100 缺省 20（越界 → 422 `422501`）
 - V-CAT-003 price_min/price_max ≥ 0；二者均给定时 price_min ≤ price_max（否则 422 `422501` fields.price_min=range_invalid）
 - V-CAT-004 sort ∈ {newest, price_asc, price_desc, recommended}，缺省 recommended
-- V-CAT-005 color maxLength 32、size maxLength 16；category_id/tag_id 为正整数 int64（非法 → 422 `422501`）
+- V-CAT-005 color maxLength 32、size maxLength 16；category_id/collection_id 为正整数 int64（非法 → 422 `422501`）
 
 **业务步骤**:
 - STEP-CAT-01 组装缓存 key `catalog:products:{filtersHash}:{locale}`（filtersHash=全部筛选参数规范化序列化），查 JetCache（TTL 300s）命中即返回
 - STEP-CAT-02 category_id 给定 → 经分类树解析子树 id 集（含自身，最多 3 层；分类不存在 → 视为空集，返回空页，不 404）
-- STEP-CAT-03 查询 `product WHERE status=published`，叠加筛选：category_id IN 子树集 / EXISTS product_tag(tag_id) / EXISTS sku(color/size) / price BETWEEN；排序：newest=created_at DESC（决策 29 New Arrivals 规则）、price_asc/desc=price、recommended=sort ASC, created_at DESC；分页 LIMIT/OFFSET
+- STEP-CAT-03 查询 `product WHERE status=published`，叠加筛选：category_id IN 子树集 / EXISTS product_collection(collection_id) / EXISTS sku(color/size) / price BETWEEN；排序：newest=created_at DESC（决策 29 New Arrivals 规则）、price_asc/desc=price、recommended=sort ASC, created_at DESC；分页 LIMIT/OFFSET
 - STEP-CAT-04 批量装配卡片派生字段（防 N+1，单次 IN 批查）：主图（product_image kind∈{gallery} sort=0）、swatches（kind=swatch）、rating_avg/rating_count（商品冗余列直读，FLOW-P14 回写）
 - STEP-CAT-05 locale=es/fr → 批查 product_translation(product_id IN, locale)，命中字段覆盖 name/subtitle，缺翻译回退 EN（决策 13）
 - STEP-CAT-06 写 JetCache（结果，TTL 300s；空页同样缓存防穿透）→ 响应头 `Cache-Control: s-maxage=300`
@@ -65,8 +70,8 @@
 - STEP-CAT-01 查 JetCache `catalog:search:{qNorm}:{locale}:{page}`（qNorm=trim+lower，TTL 60s）命中即返回
 - STEP-CAT-02 EN 主检索：`SELECT id FROM product WHERE status=published AND MATCH(name, subtitle) AGAINST(? IN NATURAL LANGUAGE MODE)`（FULLTEXT ngram，IDX-CAT-004）
 - STEP-CAT-03 locale=es/fr → UNION 附表检索：`MATCH(pt.name, pt.subtitle) AGAINST(?)` ON product_translation.locale=? JOIN product(status=published)（IDX-CAT-010）
-- STEP-CAT-04 标签命中（决策 17「标签」覆盖）：tag.name（及 locale 对应 tag_translation.label）LIKE %q% AND status=enabled → 经 product_tag 取 published 商品 id 并入结果集（标签量级小，不建 FULLTEXT）
-- STEP-CAT-05 合并去重（保持相关度序：主表 MATCH 得分 DESC → 附表 → 标签命中按 sort）、分页、装配 StoreProductCard（同 E-CAT-01 STEP-CAT-04/05）
+- STEP-CAT-04 集合命中：collection.name（及 locale 对应 collection_translation.label）LIKE %q% AND status=enabled → 经 product_collection 取 published 商品 id 并入结果集
+- STEP-CAT-05 合并去重（保持相关度序：主表 MATCH 得分 DESC → 附表 → 集合命中按 sort）、分页、装配 StoreProductCard（同 E-CAT-01 STEP-CAT-04/05）
 - STEP-CAT-06 写 JetCache TTL 60s（短 TTL 自然过期兜底，无主动失效；CDN 不缓存本端点）
 
 **出参**: 200 Paginated（无结果空 data，不报错）
@@ -76,10 +81,10 @@
 
 **公开端点**：白名单 `/api/store/products/**`。
 
-**入参**: query `{ block!, product_id?, tag_id?, limit?, locale? }`
+**入参**: query `{ block!, product_id?, collection_id?, limit?, locale? }`
 - V-CAT-008 block 必填 ∈ {new_arrivals, best_sellers, shop_by_color, you_may_also_like, complete_the_look}
 - V-CAT-009 block=you_may_also_like/complete_the_look 时 product_id 必填（缺 → 422 `422501` fields.product_id=required）
-- V-CAT-010 block=shop_by_color 时 tag_id 必填（缺 → 422 `422501` fields.tag_id=required）
+- V-CAT-010 block=shop_by_color 时 collection_id 必填（缺 → 422 `422501` fields.collection_id=required）
 - V-CAT-011 limit 1..24 缺省 8
 
 **业务步骤**:
@@ -87,7 +92,7 @@
 - STEP-CAT-02 按 block 规则查询（一律仅 status=published，决策 29 规则化）：
   - new_arrivals：created_at DESC LIMIT limit
   - best_sellers：sales_30d DESC（商品冗余列，trading→catalog MQ 回写，EVT-CAT-001）；全部 sales_30d=0（冷启动）→ 回退 `recommend=true ORDER BY sort` 手动标记
-  - shop_by_color：EXISTS product_tag(tag_id=?) ORDER BY sort（tag 不存在/disabled → 空 items，不 404）
+  - shop_by_color：EXISTS product_collection(collection_id=?) ORDER BY sort（集合不存在/disabled → 空 items，不 404）
   - you_may_also_like：基准品（product_id；不存在或未发布 → 空 items）同 category_id + price ∈ [基准价×0.7, 基准价×1.3] 且 id≠基准 ORDER BY sort；不足 limit 放宽为仅同 category_id 补足
   - complete_the_look：同根品类下**其他叶子分类**（婚纱推配饰/面纱等关联品类规则凑数，不建关联表）ORDER BY sort
 - STEP-CAT-03 装配 StoreProductCard + locale 翻译（同 E-CAT-01）
@@ -107,9 +112,9 @@
 **业务步骤**:
 - STEP-CAT-01 查 JetCache `catalog:product:{slug}:{locale}`（TTL 300s；含 null 值缓存）命中：null → 404 `404501`；DTO → 返回
 - STEP-CAT-02 `SELECT product WHERE slug=? AND status=published`；不存在/未发布 → 写 null 缓存 60s（穿透保护，BE-DIM-8）→ 404 `404501`
-- STEP-CAT-03 批量取子资源（各一次 IN 查询）：product_image（按 sort ASC）、sku（含 stock/version 现货矩阵）、size_chart_row（按 id ASC）、product_tag JOIN tag(status=enabled)
+- STEP-CAT-03 批量取子资源（各一次 IN 查询）：product_image（按 sort ASC）、sku（含 stock/version 现货矩阵）、size_chart_row（按 id ASC）、product_collection JOIN collection(status=enabled)
 - STEP-CAT-04 取 category.name（分类名派生；es/fr 经 category_translation 解析）
-- STEP-CAT-05 locale=es/fr → product_translation 覆盖 name/subtitle/description/seo_title/seo_desc，tag_translation 覆盖标签 name，缺翻译回退 EN
+- STEP-CAT-05 locale=es/fr → product_translation 覆盖 name/subtitle/description/seo_title/seo_desc，collection_translation 覆盖集合 name，缺翻译回退 EN
 - STEP-CAT-06 装配 StoreProductDetail（含 lead_time_days/rush_available/custom_size_available 决策 6/20.6 字段、rating_avg/rating_count 冗余列）→ 写 JetCache TTL 300s → `Cache-Control: s-maxage=300`（ISR 商品页同源）
 
 **出参**: 200 StoreProductDetail
@@ -138,7 +143,7 @@
 
 ---
 
-## 2. STORE 分类与标签端点
+## 2. STORE 分类与集合端点
 
 ### E-CAT-06 listStoreCategories — GET /api/store/categories （FLOW-P01, ALIGN-004）
 
@@ -157,22 +162,22 @@
 **出参**: 200 `{ items: StoreCategoryNode[] }`（含 children 递归）
 **错误映射**: 500 `50000`
 
-### E-CAT-07 listStoreTags — GET /api/store/tags （ALIGN-004, 决策 29）
+### E-CAT-07 listStoreCollections — GET /api/store/collections （ALIGN-004, 决策 29）
 
-**公开端点**：白名单 `/api/store/tags`。
+**公开端点**：白名单 `/api/store/collections`。
 
-**入参**: query `{ locale?, dimension_id? }`
+**入参**: query `{ locale?, group_id? }`
 - V-CAT-018 locale 同 V-CAT-001
-- V-CAT-019 dimension_id 可选正整数（非法 → 422 `422501`）
+- V-CAT-019 group_id 可选正整数（非法 → 422 `422501`）
 
 **业务步骤**:
-- STEP-CAT-01 查 JetCache `catalog:tags:{dimension_id|all}:{locale}`（TTL 600s）命中即返回
-- STEP-CAT-02 `SELECT tag_dimension`（dimension_id 给定则过滤；不存在 → 空 items）+ `SELECT tag WHERE status=enabled` 按 dimension_id 分组
-- STEP-CAT-03 product_count 聚合：product_tag JOIN product(status=published) GROUP BY tag_id（消费端口径=仅已发布）
-- STEP-CAT-04 locale=es/fr → tag_dimension_translation.name / tag_translation.label 覆盖，缺翻译回退 EN；cover 可空（前台纯文字展示）
-- STEP-CAT-05 写 JetCache TTL 600s → `Cache-Control: s-maxage=600`（失效触发者：后台标签/维度写，CACHE-CAT-006）
+- STEP-CAT-01 查 JetCache `catalog:collections:{group_id|all}:{locale}`（TTL 600s）命中即返回
+- STEP-CAT-02 `SELECT collection_group`（group_id 给定则过滤；不存在 → 空 items）+ `SELECT collection WHERE status=enabled` 按 collection_group_id 分组
+- STEP-CAT-03 product_count 聚合：product_collection JOIN product(status=published) GROUP BY collection_id（消费端口径=仅已发布）
+- STEP-CAT-04 locale=es/fr → collection_group_translation.name / collection_translation.label 覆盖，缺翻译回退 EN；消费端不返回 cover
+- STEP-CAT-05 写 JetCache TTL 600s → `Cache-Control: s-maxage=600`（失效触发者：后台集合/分组写，CACHE-CAT-006）
 
-**出参**: 200 `{ items: StoreTagDimensionGroup[] }`
+**出参**: 200 `{ items: StoreCollectionGroup[] }`
 **错误映射**: 422 `422501` / 500 `50000`
 
 ---
@@ -208,7 +213,7 @@
 - V-CAT-031 images[]：url 必填 ≤512（来自预签名上传 public_url）；kind ∈ {gallery,lifestyle,video,swatch}；sort ≥ 0；kind=gallery 的 sort=0 至多一张（主图 js_guard）；kind=swatch 时 color_name ≤32
 - V-CAT-032 skus[]：sku_code 必填匹配 `^[A-Z0-9-]+$` ≤64；color 必填 ≤32；size 必填 ≤16；stock ≥ 0 缺省 0；提交集内 sku_code 不重复、(color,size) 组合不重复（重复 → 422 `422501` fields.skus）
 - V-CAT-033 size_chart[]：us 必填 ≤8；uk/au ≤8；bust/waist/hips/hollow_to_floor ≥ 0
-- V-CAT-034 tag_ids[]：去重；全部存在（不存在 → 422 `422501` fields.tag_ids=not_exists）
+- V-CAT-034 collection_ids[]：去重；全部存在（不存在 → 422 `422501` fields.collection_ids=not_exists）
 - V-CAT-035 translations[]：locale ∈ {es,fr} 且不重复；name ≤128 / subtitle ≤255 / seo_title ≤128 / seo_description ≤255
 - V-CAT-036 文本长度上限（er-diagram 对齐）：subtitle ≤255、product_type ≤64、fabric_composition ≤128、model_height ≤32、model_size ≤16、model_body_type ≤32、country_of_origin ≤64、style_no ≤32、seo_title ≤128、seo_desc ≤255
 
@@ -216,7 +221,7 @@
 - STEP-CAT-01 slug 唯一性：`SELECT id FROM product WHERE slug=?`（uk_product_slug 兜底）命中 → 409 `409501`
 - STEP-CAT-02 sku_code 全局唯一性：`SELECT sku_code FROM sku WHERE sku_code IN (...)`（uk_sku_code 兜底）命中 → 409 `409504`（details.sku_codes）
 - STEP-CAT-03 INSERT product（含 is_new/is_best/recommend/installment 缺省 false；sales_30d=0、rating_avg=0、rating_count=0 冗余列初始化）
-- STEP-CAT-04 批量 INSERT product_image / sku(version=0) / size_chart_row / product_tag / product_translation
+- STEP-CAT-04 批量 INSERT product_image / sku(version=0) / size_chart_row / product_collection / product_translation
 - STEP-CAT-05 INSERT operation_log(action=创建商品)
 - STEP-CAT-06 事务提交后：@CacheInvalidate `catalog:products:*`、`catalog:reco:*`、`catalog:categories:*`、`catalog:tags:*`（product_count 变化）→ MQ publish `content.invalidated {event_id, type:product_created, slug, locales:[en,es,fr]}`（status=published 才需 revalidate 路径；MQ 失败不回滚，TTL 兜底）
 
@@ -230,7 +235,7 @@
 
 **业务步骤**:
 - STEP-CAT-01 `SELECT product WHERE id=?`；不存在 → 404 `404501`
-- STEP-CAT-02 批量取 images/skus（含 version 供编辑回传）/size_chart/tag_ids/translations（三语 tab 全量）
+- STEP-CAT-02 批量取 images/skus（含 version 供编辑回传）/size_chart/collection_ids/translations（三语 tab 全量）
 - STEP-CAT-03 装配 AdminProductDetail（EN 主表字段原样，不做 locale 解析）
 
 **出参**: 200 AdminProductDetail
@@ -466,118 +471,133 @@
 
 ---
 
-## 6. ADMIN 标签维度与标签端点（RBAC `/categories`，不缓存）
+## 6. ADMIN 集合分组与集合端点（RBAC `/categories`，不缓存）
 
-### E-CAT-27 listAdminTagDimensions — GET /api/admin/tag-dimensions
+### E-CAT-27 listAdminCollectionGroups — GET /api/admin/collection-groups
 
 **入参**: 无（无 query/body）
 
 **业务步骤**:
-- STEP-CAT-01 `SELECT tag_dimension` + tag_count 派生（`COUNT(tag) GROUP BY dimension_id`，删除约束判定）+ 批查 translation
+- STEP-CAT-01 `SELECT collection_group` + collection_count 派生（`COUNT(collection) GROUP BY collection_group_id`，删除约束判定）+ 批查 translation
 
-**出参**: 200 `{ items: TagDimension[] }`
+**出参**: 200 `{ items: CollectionGroup[] }`
 **错误映射**: 403 `40300` / 500 `50000`
 
-### E-CAT-28 createAdminTagDimension — POST /api/admin/tag-dimensions （ALIGN-004 confirmAddDim, tag_dimension_lifecycle: →active）
+### E-CAT-28 createAdminCollectionGroup — POST /api/admin/collection-groups
 
-**入参**: body TagDimensionUpsert
+**入参**: body CollectionGroupUpsert
 - V-CAT-059 name 必填 trim 非空 ≤64；description ≤255
 - V-CAT-060 translations[] locale ∈ {es,fr} 不重复；name ≤64
 
 **业务步骤（单事务 TX-CAT-015）**:
-- STEP-CAT-01 INSERT tag_dimension + translation；INSERT operation_log(action=创建标签维度)
+- STEP-CAT-01 INSERT collection_group + translation；INSERT operation_log(action=创建集合分组)
 
-**出参**: 201 TagDimension（tag_count=0）
+**出参**: 201 CollectionGroup（collection_count=0）
 **错误映射**: 422 `422501` / 500 `50000`
 
-### E-CAT-29 updateAdminTagDimension — PUT /api/admin/tag-dimensions/{id}
+### E-CAT-29 updateAdminCollectionGroup — PUT /api/admin/collection-groups/{id}
 
-**入参**: path id；body TagDimensionUpsert
+**入参**: path id；body CollectionGroupUpsert
 - V-CAT-061 维度存在（不存在 → 404 `404505`）；复用 V-CAT-059/060
 
 **业务步骤（单事务 TX-CAT-016）**:
-- STEP-CAT-01 UPDATE tag_dimension + translation 整单覆盖；INSERT operation_log(action=编辑标签维度)
-- STEP-CAT-02 提交后失效 `catalog:tags:*` → MQ `content.invalidated {type:tag_changed, locales}`
+- STEP-CAT-01 UPDATE collection_group + translation 整单覆盖；INSERT operation_log(action=编辑集合分组)
+- STEP-CAT-02 提交后失效 `catalog:collections:*` → MQ `content.invalidated {type:collection_changed, locales}`
 
-**出参**: 200 TagDimension
+**出参**: 200 CollectionGroup
 **错误映射**: 404 `404505` / 422 `422501` / 500 `50000`
 
-### E-CAT-30 deleteAdminTagDimension — DELETE /api/admin/tag-dimensions/{id} （tag_dimension_lifecycle: active→deleted）
+### E-CAT-30 deleteAdminCollectionGroup — DELETE /api/admin/collection-groups/{id}
 
 **入参**: path id（合法性同 V-CAT-037 口径，非法视同不存在 → 404 `404505`）
 
 **业务步骤（单事务 TX-CAT-017）**:
 - STEP-CAT-01 不存在 → 404 `404505`
-- STEP-CAT-02 guard：`COUNT(tag WHERE dimension_id=?) > 0` → 409 `409506` TAG_DIMENSION_IN_USE（details.tag_count；原型 removeDim 级联删除标签的行为在真实端收紧为先清空标签，防误删营销数据——前端按 409506 toast 引导）
-- STEP-CAT-03 物理删除 tag_dimension + translation；INSERT operation_log(action=删除标签维度)
-- STEP-CAT-04 提交后失效 `catalog:tags:*` → MQ
+- STEP-CAT-02 guard：`COUNT(collection WHERE collection_group_id=?) > 0` → 409 `409506` COLLECTION_GROUP_IN_USE（details.collection_count）
+- STEP-CAT-03 先删 collection_group_translation，再物理删除 collection_group；INSERT operation_log(action=删除集合分组)
+- STEP-CAT-04 提交后失效 `catalog:collections:*` → MQ
 
 **出参**: 204
 **错误映射**: 404 `404505` / 409 `409506` / 500 `50000`
 
-### E-CAT-31 listAdminTags — GET /api/admin/tags
+### E-CAT-31 listAdminCollections — GET /api/admin/collections
 
-**入参**: query `{ dimension_id? }`
-- V-CAT-062 dimension_id 可选正整数
+**入参**: query `{ group_id? }`
+- V-CAT-062 group_id 可选正整数
 
 **业务步骤**:
-- STEP-CAT-01 `SELECT tag`（dimension_id 过滤）+ product_count 派生（product_tag 计数，后台口径=全部商品）+ 批查 translation
+- STEP-CAT-01 `SELECT collection`（group_id 过滤）+ product_count 派生（product_collection 计数，后台口径=全部商品）+ 批查 translation + `fallback_cover_urls`
 
-**出参**: 200 `{ items: Tag[] }`
+**出参**: 200 `{ items: Collection[] }`
 **错误映射**: 403 `40300` / 500 `50000`
 
-### E-CAT-32 createAdminTag — POST /api/admin/tags （ALIGN-004 confirmAddTag, tag_lifecycle: →enabled）
+### E-CAT-32 createAdminCollection — POST /api/admin/collections
 
-**入参**: body TagUpsert
-- V-CAT-063 dimension_id 必填且维度存在（不存在 → 404 `404505`）
-- V-CAT-064 name 必填 trim 非空（`:disabled=!newTagName.trim()` js_guard 后端兜底）≤64
+**入参**: body CollectionUpsert
+- V-CAT-063 collection_group_id 必填且分组存在（不存在 → 404 `404505`）
+- V-CAT-064 name 必填 trim 非空 ≤64
 - V-CAT-065 status 必填 ∈ {enabled, disabled}
-- V-CAT-066 cover ≤512（可空 → 前台纯文字展示）
+- V-CAT-066 Collection 无 cover 入参；响应 `fallback_cover_urls` 为集合前 4 张商品主图动态派生
 
 **业务步骤（单事务 TX-CAT-018）**:
-- STEP-CAT-01 INSERT tag + tag_translation；INSERT operation_log(action=创建标签)
-- STEP-CAT-02 提交后失效 `catalog:tags:*` → MQ
+- STEP-CAT-01 INSERT collection + collection_translation；INSERT operation_log(action=创建集合)
+- STEP-CAT-02 提交后失效 `catalog:collections:*` → MQ
 
-**出参**: 201 Tag（product_count=0）
+**出参**: 201 Collection（product_count=0）
 **错误映射**: 404 `404505` / 422 `422501` / 500 `50000`
 
-### E-CAT-33 updateAdminTag — PUT /api/admin/tags/{id} （tag_lifecycle: toggle_on/toggle_off；Toggle enabled 映射 status 枚举）
+### E-CAT-33 updateAdminCollection — PUT /api/admin/collections/{id}
 
-**入参**: path id；body TagUpsert
-- V-CAT-067 标签存在（不存在 → 404 `404505`）；复用 V-CAT-063~066（dimension_id 可改=移动维度）
+**入参**: path id；body CollectionUpsert
+- V-CAT-067 集合存在（不存在 → 404 `404505`）；复用 V-CAT-063~066（collection_group_id 可改=移动分组）
 
 **业务步骤（单事务 TX-CAT-019）**:
-- STEP-CAT-01 UPDATE tag + translation 整单覆盖；INSERT operation_log(action=编辑标签, changes 含 status 流转)
-- STEP-CAT-02 提交后失效 `catalog:tags:*`、`catalog:reco:*`（shop_by_color 依赖）、`catalog:products:*`（tag_id 筛选）→ MQ `content.invalidated {type:tag_changed, locales}`
+- STEP-CAT-01 UPDATE collection + translation 整单覆盖；INSERT operation_log(action=编辑集合, changes 含 status 流转)
+- STEP-CAT-02 提交后失效 `catalog:collections:*`、`catalog:reco:*`（shop_by_color 依赖）、`catalog:products:*`（collection_id 筛选）→ MQ `content.invalidated {type:collection_changed, locales}`
 
-**出参**: 200 Tag
+**出参**: 200 Collection
 **错误映射**: 404 `404505` / 422 `422501` / 500 `50000`
 
-### E-CAT-34 deleteAdminTag — DELETE /api/admin/tags/{id} （tag_lifecycle: →deleted，无前置 guard）
+### E-CAT-34 deleteAdminCollection — DELETE /api/admin/collections/{id}
 
 **入参**: path id
 - V-CAT-068 id 正整数 int64（非法视同不存在 → 404 `404505`）
 
 **业务步骤（单事务 TX-CAT-020）**:
 - STEP-CAT-01 不存在 → 404 `404505`
-- STEP-CAT-02 物理删除 tag + tag_translation + product_tag 挂载行（商品侧自动摘除标签）；INSERT operation_log(action=删除标签)
-- STEP-CAT-03 提交后失效 `catalog:tags:*`、`catalog:reco:*`、`catalog:products:*` → MQ
+- STEP-CAT-02 先删 product_collection 与 collection_translation，再物理删除 collection；INSERT operation_log(action=删除集合)
+- STEP-CAT-03 提交后失效 `catalog:collections:*`、`catalog:reco:*`、`catalog:products:*` → MQ
 
 **出参**: 204
 **错误映射**: 404 `404505` / 500 `50000`
+
+### E-CAT-35 listAdminCollectionProducts — GET /api/admin/collections/{id}/products
+
+- 集合不存在 → 404 `404505`；按 `product_collection.sort` 返回商品 id/name/slug/status/image_url/sort。
+- 历史孤儿挂载中的缺失商品跳过，不影响其余商品展示。
+
+### E-CAT-36 replaceAdminCollectionProducts — PUT /api/admin/collections/{id}/products
+
+- body `product_ids[]` 全量覆盖；全部商品必须存在，否则返回 404 `404501`。
+- 按数组顺序写入连续 sort；提交后失效 collections/reco/products 缓存族并发布 collection_changed。
+
+### E-CAT-37 removeAdminCollectionProduct — DELETE /api/admin/collections/{id}/products/{productId}
+
+- 集合不存在 → 404 `404505`；删除对应 product_collection 行（不存在时幂等成功）。
+- 提交后失效 collections/reco/products 缓存族并发布 collection_changed。
 
 ---
 
 ## 7. ADMIN 上传端点（RBAC `/products`，决策 9 / FLOW-P17）
 
-### E-CAT-35 presignAdminUpload — POST /api/admin/uploads/presign
+### E-CAT-38 presignAdminUpload — POST /api/admin/uploads/presign
 
-媒体基建由 catalog 域代管：商品图廊/色样/分类标签封面/Banner/内容封面共用本端点（scope 区分对象 key 前缀）。
+媒体基建由 catalog 域代管：商品图廊/色样/分类/Banner/内容封面共用本端点（scope 区分对象 key 前缀）。
 
 **入参**: body PresignRequest
 - V-CAT-069 file_name 必填 ≤255；sanitize（去路径分隔符/控制字符，仅保留 `[A-Za-z0-9._-]`，空结果 → 422 `422501` fields.file_name）
 - V-CAT-070 content_type 必填 ∈ MIME 白名单 {image/jpeg, image/png, image/webp, video/mp4}（白名单外 → 422 `422501` fields.content_type=unsupported）
-- V-CAT-071 scope ∈ {product, category, tag, banner, content} 缺省 product
+- V-CAT-071 scope ∈ {product, category, banner, content} 缺省 product
 
 **业务步骤**:
 - STEP-CAT-01 生成对象 key：`{scope}/{雪花序id}/{sanitizedFileName}`
@@ -592,11 +612,11 @@
 
 ## 8. 自检
 
-- [x] 35 端点全覆盖（store 7 + admin products 7 + categories 4 + attribute-sets 4 + attribute-defs 4 + tag-dimensions 4 + tags 4 + uploads 1）＝ E-CAT-01 ~ E-CAT-35
+- [x] 38 端点全覆盖（含集合商品管理 E-CAT-35~37 + 预签名 E-CAT-38）
 - [x] 每端点四部分齐全（入参验证 / 业务步骤 / 出参构造 / 错误码映射）
 - [x] V-CAT-001 ~ V-CAT-071 全域连续唯一；STEP-CAT-NN 每端点独立编号段（端点号 E-CAT-NN 提供唯一溯源前缀）
 - [x] 错误码全部出自 catalog-api.openapi.yml 码表（404501~404505 / 409501~409509 / 422501 / 422502 / 502501）+ identity 复用码（40100/40300/50000/50001），无臆造；契约未声明 404 的创建端点关联校验一律落 422501
 - [x] 公开端点全部标注 StoreJwtFilter 白名单条目（0.1 节，3 条 pattern 覆盖 7 端点）
 - [x] 缓存键/TTL/失效触发者与 data-flow.md 缓存矩阵一致；写端点全部标注失效链 + MQ 事件 + OperationLog action
 - [x] 事务边界 TX-CAT-001 ~ TX-CAT-020 与 catalog-data-detail.md 一一对应
-- [x] 状态机迁移（product_lifecycle/category_lifecycle/tag_lifecycle/tag_dimension_lifecycle/attribute_visibility_cycle）全部落到端点 guard
+- [x] 状态机迁移（product_lifecycle/category_lifecycle/collection_lifecycle/collection_group_lifecycle/attribute_visibility_cycle）全部落到端点 guard

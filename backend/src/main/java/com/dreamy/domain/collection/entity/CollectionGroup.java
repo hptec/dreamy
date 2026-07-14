@@ -1,6 +1,5 @@
 package com.dreamy.domain.collection.entity;
 
-import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.domain.collection.consts.CollectionGroupDBConst;
 import huihao.mysql.annotation.Column;
@@ -25,6 +24,4 @@ public class CollectionGroup extends LongAuditableEntity {
     @Column(name = CollectionGroupDBConst.DESCRIPTION, definition = "varchar(255) NULL COMMENT '分组说明'")
     private String description;
 
-    @Column(name = CollectionGroupDBConst.DELETED_AT, definition = "datetime DEFAULT NULL COMMENT '逻辑删除时间'")
-    private LocalDateTime deletedAt;
 }

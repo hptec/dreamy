@@ -129,11 +129,11 @@ machines:
       - id: draft
         desc: 草稿（status=1，ContentStatus.DRAFT）
       - id: published
-        desc: 已发布（status=2，ContentStatus.PUBLISHED）；HomePageSection.Hero 区块通过 BannerService 查询 position=HERO && status=published 的 Banner
+        desc: 已发布（status=2，ContentStatus.PUBLISHED）；唯一 HomePageSection.Hero 区块通过 StoreBannerService.list(HERO, locale) 查询投放窗口内的全部 Banner，按 sort/id 轮播
       - id: archived
         desc: 已归档（status=3，ContentStatus.ARCHIVED）
       - id: deleted
-        desc: 物理删除（基线 banner_lifecycle 含 deleted 终态；Banner.deletedAt 软删除标记）
+        desc: 物理删除终态（先删 banner_translation，再删 banner；Banner 无 deleted_at）
     transitions:
       - from: draft
         to: published

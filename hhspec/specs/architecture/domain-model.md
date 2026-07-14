@@ -24,7 +24,7 @@
 | **EmailTemplate**（配置实体） | — | 三语邮件模板 |
 | **Permission**（引用数据） | — | 菜单权限点字典（22 项菜单 key） |
 
-> 聚合边界说明：UserSession / UserIdentity 虽与 User 强相关，但出于「强制下线全集群即时生效」「会话仅 Redis 单级缓存」的性能与一致性诉求，建模为**通过 user_id 引用的独立持久化实体**（最终一致），不作为 User 的内聚集合强约束加载。User 聚合根仍负责维护跨这些实体的业务不变量（如解绑后 connected ≥ min_methods、主邮箱不可解绑）。
+> 聚合边界说明：UserSession / UserIdentity 虽与 User 强相关，但出于独立生命周期、按 token 点查与强制下线需求，建模为**通过 user_id 引用的独立持久化实体**，不作为 User 的内聚集合强约束加载。User 聚合根仍负责维护跨这些实体的业务不变量（如解绑后 connected ≥ min_methods、主邮箱不可解绑）。
 
 ## 聚合根
 
@@ -157,7 +157,7 @@
 
 - **归属聚合**: User（弱聚合，ID 引用）
 - **职责**: 消费端 store JWT 会话；access 2h + refresh 30d 滑动续期，refresh 可撤销。
-- **不变量**: `status=revoked` 后 token/refresh 立即失效；会话有效性缓存仅 Redis 单级（无本地残留），强制下线全集群即时生效。
+- **不变量**: `status=revoked` 后 token/refresh 立即失效；每次授权以 DB 状态为准，Redis 兼容键不影响撤销语义。
 
 **属性**: `id`(uuid pk)、`user_id`(ref→User required)、`token_id`(string required, =jti)、`refresh_token_id`(string)、`access_expires_at`、`refresh_expires_at`、`device`、`browser`、`ip`、`location`、`is_new_device`(bool)、`method`(enum[email,google,apple] required)、`status`(enum[active,revoked] required)、`last_active_at`、`created_at`
 
@@ -396,7 +396,7 @@ classDiagram
 
 - **关系类型**: 聚合（会话独立持久化，弱拥有）
 - **多重性**: 1:N
-- **说明**: 不限会话数；禁用/注销级联撤销；会话有效性仅 Redis 单级缓存。
+- **说明**: 不限会话数；禁用/注销级联撤销；会话有效性始终以 DB 状态为准。
 
 ### Role 与 Permission（经 RolePermission）
 
@@ -438,7 +438,7 @@ classDiagram
 
 ### 规则 R5：会话撤销强一致
 
-- **规则描述**: 强制下线/禁用/注销写 Redis 后全集群即时生效，会话有效性缓存无本地残留。
+- **规则描述**: 强制下线/禁用/注销的 DB 状态提交后全集群即时生效；Redis 兼容键删除失败不形成授权窗口。
 - **涉及实体**: UserSession
 - **验证时机**: 每次携带 token 的请求
 

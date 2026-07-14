@@ -39,20 +39,20 @@ wave_1: [api, data, ui_test] → wave_2: [error] → wave_3: [frontend, test]（
 → 完整见 **identity-frontend-detail.md**（portal-store: PAGE-S/COMP-S/STORE-S/FORM-S；portal-admin: PAGE-A/COMP-A/STORE-A/GUARD/FORM-A，含 RBAC 路由守卫+菜单渲染）。
 
 ## 6. 跨领域一致性验证
-→ 完整见 **conflict-report.yml**：18 维度全执行，16 COMPATIBLE + 2 GAP(CFL-17/18，P2 附最低补充要求，传递 L3) + 0 BLOCKING。
+→ 完整见 **conflict-report.yml**：18 维度全执行，17 COMPATIBLE + 1 GAP(CFL-17，P2 附最低补充要求，传递 L3) + 0 BLOCKING。
 裁定原则：契约稳定优先、安全/合规不可降级、DDL 权威对齐。
 
 ## 7. 设计决策记录
 - DR-01 双 JWT 独立密钥，禁止复用；跨端 token 误用 401（BE-DIM-6）
 - DR-02 归并以 (provider,provider_uid) 唯一索引保证幂等；email_verified 一致才自动并，冲突即拒（R1）
-- DR-03 会话有效性仅 Redis 单级 TTL30s 强一致全集群；写即失效（R5/BE-DIM-8）
+- DR-03 会话授权始终以 DB session/admin 状态为准；Redis TTL30s 键仅兼容滚动升级旧实例（R5/BE-DIM-8）
 - DR-04 枚举 VARCHAR+CHECK + Java enum 双保险（不用 MySQL ENUM）
 - DR-05 操作日志只读不可删，注销不删审计（正当利益 EDGE-026）
 - DR-06 角色重名用 40000 VALIDATION_ERROR 字段级，不新增码（CFL-17 裁定）
 - DR-07 前端 Next 用 zustand、Vue 用 Pinia；边界 snake_case→camelCase 统一转换
 
 ## 8. 风险记录与后续跟进
-- RISK-01 (CFL-18) Redis 不可用会话校验降级查 DB，强制下线即时性在恢复前有窗口，需 L3 + 运维监控
+- RISK-01 Redis 不可用不影响当前实例的 DB 权威会话校验；兼容键维护失败需告警并由 TTL 回收
 - RISK-02 permission 22 项 key 清单由 portal-admin 路由补全（L3）
 - RISK-03 超管全权限实现（显式写满 vs 应用层短路），L3 定夺
 - RISK-04 ES/FR 占位翻译需专业复核（标 TRANSLATION_PENDING）

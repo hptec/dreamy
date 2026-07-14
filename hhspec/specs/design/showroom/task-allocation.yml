@@ -38,7 +38,7 @@ supplementary_units:
     design_sections: [showroom-api-detail.md §0.1/§0.2]
     constraint_ids: [CV-SHR-007, CV-SHR-008]
     tests: [TC-SHR-001, TC-SHR-002, TC-SHR-013, TC-SHR-036, TC-SHR-039, TC-SHR-058, TC-SHR-059]
-    shared_with: [identity(StoreJwtFilter/JwtTokenProvider 宿主文件), review(method-aware METHOD:pattern 白名单机制定稿方 REV-IMPL-FILTER——同一匹配器实现), catalog/trading(白名单既有条目向后兼容)]
+    shared_with: [identity(StoreJwtFilter/JwtTokenProvider 宿主文件), "review(method-aware METHOD:pattern 白名单机制定稿方 REV-IMPL-FILTER——同一匹配器实现)", catalog/trading(白名单既有条目向后兼容)]
     notes: "与 review 域 method-aware 白名单兼容性显式声明（api-detail 0.2-3）；guest JWT 复用 storeKey + typ claim 体系，无新密钥"
 
   - id: SHR-IMPL-API
@@ -65,7 +65,7 @@ supplementary_units:
     summary: "q.showroom 消费者（order.paid → casOrder 推进 assign_status=ordered + last_ordered_at dye lot 回写；Redis SETNX event_id 幂等；队列参数 durable/prefetch=8/重试 5s/30s/180s×3/DLX dreamy.dlx→dreamy.dlq）"
     design_sections: [showroom-data-detail.md §8.2(EVT-SHR-003) + TX-SHR-012 + RM-SHR-024/037/038]
     tests: [TC-SHR-019, TC-SHR-020, TC-SHR-021, TC-SHR-030, TC-SHR-055, TC-SHR-056]
-    shared_with: [trading(order.paid 生产者 EVT-TRD-001——最小依赖面 event_id+customer_id+lines[].product_id 兼容基线)]
+    shared_with: ["trading(order.paid 生产者 EVT-TRD-001——最小依赖面 event_id+customer_id+lines[].product_id 兼容基线)"]
 
   - id: SHR-IMPL-STORE-FE
     summary: "portal-store 全量新建：app/showroom 双页（force-dynamic）+ components/showroom 组件组（copy-adapt+9 处显式偏离）+ GuestJoinGate + lib/api/showroom-api.ts + client.ts authTokenOverride + guest 会话 localStorage 存储/路由守卫/登录绑定重放 + PDP Add to Showroom 切面 + showroom i18n 命名空间三语 + 结算婚期带入 selector"

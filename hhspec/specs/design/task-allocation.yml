@@ -1,5 +1,8 @@
 meta:
   change_name: i18n-complete-with-ai-assist
+  document_status: historical_design
+  superseded_by: specs/design/i18n-runtime-status.md
+  runtime_note: translation logs and glossary were retired on 2026-06-17; legacy detail documents are historical only
   generated_at: '2026-06-16T20:00:00Z'
   generated_by: L2 Coordinator
   activation_mode: fallback_full_activation
@@ -19,7 +22,7 @@ tasks:
     expert: Designer-Backend
     description: 统一后端详细设计（API+Data+Error三职责）
     scope:
-      domains: [gateway, ai_translation, glossary, catalog_incremental, identity_incremental, trading_incremental]
+      domains: [gateway, ai_translation, catalog_incremental, identity_incremental, trading_incremental]
       endpoints:
         - POST /api/admin/gateway/configs
         - GET /api/admin/gateway/configs
@@ -29,28 +32,18 @@ tasks:
         - POST /api/admin/gateway/configs/{id}/sync-models
         - POST /api/admin/gateway/configs/{id}/test (测试连接, ISS-001)
         - POST /api/admin/ai/translate
-        - GET /api/admin/ai/translation-logs
-        - POST /api/admin/glossary/terms
-        - GET /api/admin/glossary/terms
-        - GET /api/admin/glossary/terms/{id} (术语详情, ISS-002)
-        - PUT /api/admin/glossary/terms/{id}
-        - DELETE /api/admin/glossary/terms/{id}
         - PUT /api/admin/catalog/products/{id} (增量：designer_note字段)
         - PUT /api/consumer/auth/profile (增量：locale_pref字段, StoreBearerAuth, ISS-003)
       entities:
         - ExternalGatewayConfig (新增)
-        - AiTranslationLog (新增)
-        - AiTranslationGlossary (新增)
         - ProductTranslation (修改：+designer_note列)
         - User (修改：+locale_pref列)
         - Order (修改：+locale_snapshot列)
-      error_codes: [18个新错误码，详见error-strategy.md]
+      error_codes: [当前活跃错误码以 GatewayErrorCode 与 active OpenAPI 为准]
     inputs:
       - source: specs/architecture/api-contracts/gateway-api.openapi.yml
         sections: [paths, components.schemas, info.error_codes]
       - source: specs/architecture/api-contracts/ai-translation-api.openapi.yml
-        sections: [paths, components.schemas, info.error_codes]
-      - source: specs/architecture/api-contracts/glossary-api.openapi.yml
         sections: [paths, components.schemas, info.error_codes]
       - source: specs/architecture/api-contracts/catalog-api-incremental.md
         sections: [designer_note字段增量]
@@ -82,7 +75,6 @@ tasks:
       edge_scenarios: 24
       ui_test_screens:
         - portal-admin: /system/gateways
-        - portal-admin: /system/glossary
         - portal-admin: AI翻译弹窗组件
         - portal-store: locale路由切换
         - portal-store: i18n文案验证
@@ -114,22 +106,19 @@ tasks:
     scope:
       new_pages:
         - /system/gateways  # 网关配置列表+CRUD表单
-        - /system/glossary  # 术语表列表+CRUD表单
       new_components:
         - AiTranslateModal  # AI翻译弹窗（11处嵌入点）
       modified_pages:
         - /catalog/products/:id/edit  # ProductEdit增加designerNote字段三语tab
     inputs:
       - source: acceptance.yml
-        sections: [FUNC-004~007网关配置, FUNC-008~010翻译弹窗, FUNC-022术语表]
+        sections: [FUNC-004~007网关配置, FUNC-008~010翻译弹窗]
       - source: decision.md
         sections: [决策1~10 admin相关]
       - source: specs/architecture/api-contracts/gateway-api.openapi.yml
         sections: [schemas用于表单字段]
       - source: specs/architecture/api-contracts/ai-translation-api.openapi.yml
         sections: [TranslateRequest schema]
-      - source: specs/architecture/api-contracts/glossary-api.openapi.yml
-        sections: [GlossaryTermUpsert schema]
     output_files:
       - i18n-admin-frontend-detail.md  # portal-admin组件树+状态管理+路由+表单交互
     dependencies: []

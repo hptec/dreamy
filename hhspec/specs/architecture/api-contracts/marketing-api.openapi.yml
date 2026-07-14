@@ -45,8 +45,23 @@ info:
     ## 缓存标注（BE-DIM-8）
     - 消费端内容读端点（banners/blogs/weddings/lookbooks/guides/flash-sales）：CDN s-maxage + JetCache 两级
       （key 含 locale 维度，决策 13）；失效触发者：后台对应写操作 @CacheInvalidate → RabbitMQ → revalidatePath + Cloudflare purge（s-758）。
+      源站 family 失效使用 Redis 共享代际 `marketing:cache-generation:{family}` 原子递增，缓存键实际形如
+      `marketing:banners:v{generation}:{position}:{locale}`；所有实例立即切换到新命名空间，旧代由 TTL 回收，不依赖单进程 key registry。
     - 定时投放与到期下线（Banner start/end、Coupon/FlashSale endAt）由 @Scheduled 扫描状态翻转并触发同一失效链（ALIGN-008/009）。
     - newsletter/contact/coupons/validate 写或校验端点不缓存。
+
+    ## 启动数据安全约定
+    - 营销/Banner 演示 seed 缺省关闭，仅 `DEMO_SEED_ENABLED=true` 时灌入；正式启动不创建或覆盖业务数据。
+    - 首个后台管理员需显式配置 `DREAMY_BOOTSTRAP_ADMIN_EMAIL` /
+      `DREAMY_BOOTSTRAP_ADMIN_PASSWORD`（至少 12 字符）；不提供生产默认公开密码。
+
+    ## 营销状态枚举线格式
+    query、request body、response body 均使用后端 IntEnum 数字值；列表查询省略 status 表示全部，不接受字符串 `all`：
+    - BannerPosition：1=HERO、2=FEATURED、3=TOPBAR
+    - ContentStatus（Banner/Blog）：1=DRAFT、2=PUBLISHED、3=ARCHIVED
+    - CouponStatus：1=DRAFT、2=SCHEDULED、3=ACTIVE、4=EXPIRING、5=EXPIRED
+    - FlashSaleStatus：1=DRAFT、2=SCHEDULED、3=ACTIVE、4=ENDED
+    - PublishStatus（Wedding/Lookbook/Guide）：1=DRAFT、2=PUBLISHED
 
     ## 版本历史
     - v1.0.0 (2026-06-10): 初始版本（ALIGN-008/009/010/011/012/016/030/034）
@@ -90,18 +105,19 @@ paths:
     get:
       summary: 在线 Banner（按位置）
       description: |
-        返回 status=published 且当前时间落于投放窗口（start_time/end_time）的 Banner，按 sort 排序；
+        返回 status=2（PUBLISHED）且当前时间落于投放窗口（start_time/end_time）的全部 Banner，按 sort ASC、id ASC 稳定排序；
         文案按 locale 解析（BannerTranslation）。
-        缓存：CDN s-maxage + JetCache 两级（key 含 position + locale）；失效：后台 Banner 写/定时投放翻转 → MQ → revalidatePath + purge。
+        首页 Hero 会消费 position=1（HERO）的整个有序数组作为轮播数据，不只取首条。
+        缓存：CDN s-maxage + JetCache 两级（Redis 共享代际 + position + locale）；失效：后台 Banner 写/投放窗口穿越 → 代际递增 + MQ → revalidatePath + purge。
       operationId: listStoreBanners
       tags: [store-content]
       security: []
       parameters:
         - name: position
           in: query
+          description: BannerPosition IntEnum（1=HERO、2=FEATURED、3=TOPBAR）
           schema:
-            type: string
-            enum: [hero, featured, topbar]
+            $ref: '#/components/schemas/BannerPosition'
         - $ref: '#/components/parameters/LocaleParam'
       responses:
         '200':
@@ -116,6 +132,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/StoreBanner'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -123,7 +141,7 @@ paths:
     get:
       summary: 博客文章列表
       description: |
-        status=published 文章，按 published_at 倒序；支持栏目筛选；按 locale 解析（BlogPostTranslation）。
+        status=2（PUBLISHED）文章，按 published_at 倒序；支持栏目筛选；按 locale 解析（BlogPostTranslation）。
         缓存：CDN s-maxage + JetCache 两级（key 含 category + 分页 + locale）；失效：后台博客写操作 → MQ → revalidatePath + purge。
       operationId: listStoreBlogs
       tags: [store-content]
@@ -170,7 +188,7 @@ paths:
     get:
       summary: 博客文章详情
       description: |
-        按 slug 读取 published 文章（阅读数 views 异步累加，不阻塞读路径）。
+        按 slug 读取 status=2（PUBLISHED）文章（阅读数 views 异步累加，不阻塞读路径）。
         缓存：CDN s-maxage（ISR 文章页同源）+ JetCache 两级（key 含 slug + locale）；失效：后台博客写操作 → MQ → revalidatePath + purge。
       operationId: getStoreBlog
       tags: [store-content]
@@ -199,7 +217,7 @@ paths:
     get:
       summary: 真实婚礼案例列表
       description: |
-        status=published 案例；按 locale 解析（RealWeddingTranslation）。
+        status=2（PUBLISHED）案例；按 locale 解析（RealWeddingTranslation）。
         缓存：CDN s-maxage + JetCache 两级（key 含分页 + locale）；失效：后台案例写操作 → MQ → revalidatePath + purge。
       operationId: listStoreWeddings
       tags: [store-content]
@@ -266,7 +284,7 @@ paths:
     get:
       summary: Lookbook 列表
       description: |
-        status=published；按 locale 解析（LookbookTranslation）。
+        status=2（PUBLISHED）；按 locale 解析（LookbookTranslation）。
         缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台 Lookbook 写操作 → MQ → revalidatePath + purge。
       operationId: listStoreLookbooks
       tags: [store-content]
@@ -315,7 +333,7 @@ paths:
     get:
       summary: 备婚指南列表（按阶段）
       description: |
-        status=published，按 phase 排序；按 locale 解析（GuideTranslation）。
+        status=2（PUBLISHED），按 phase 排序；按 locale 解析（GuideTranslation）。
         缓存：CDN s-maxage + JetCache 两级（key 含 locale）；失效：后台 Guide 写操作 → MQ → revalidatePath + purge。
       operationId: listStoreGuides
       tags: [store-content]
@@ -343,7 +361,7 @@ paths:
     get:
       summary: 进行中的闪购活动
       description: |
-        status=active 活动及关联商品卡片；到期由 @Scheduled 自动下线（ALIGN-008）。按 locale 解析（FlashSaleTranslation）。
+        status=3（ACTIVE）活动及关联商品卡片；到期由 @Scheduled 自动转为 4（ENDED）（ALIGN-008）。按 locale 解析（FlashSaleTranslation）。
         缓存：CDN s-maxage（短）+ JetCache 两级（key 含 locale，TTL 60s 兜底倒计时新鲜度）；失效：后台闪购写/到期下线 → MQ → revalidatePath + purge。
       operationId: listStoreFlashSales
       tags: [store-promotions]
@@ -508,10 +526,9 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - name: status
           in: query
+          description: CouponStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, scheduled, active, expiring, expired]
-            default: all
+            $ref: '#/components/schemas/CouponStatus'
         - name: search
           in: query
           description: 券码/名称模糊搜索
@@ -547,6 +564,8 @@ paths:
                     type: integer
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -613,7 +632,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     delete:
       summary: 删除优惠券
-      description: 仅 draft/expired 可删（409703）；已核销过的券（used_count > 0）不可删。写 OperationLog（action=删除优惠券）。
+      description: 仅 status=1（DRAFT）或 5（EXPIRED）可删（409703）；已核销过的券（used_count > 0）不可删。写 OperationLog（action=删除优惠券）。
       operationId: deleteAdminCoupon
       tags: [admin-coupons]
       security:
@@ -643,10 +662,9 @@ paths:
       parameters:
         - name: status
           in: query
+          description: FlashSaleStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, scheduled, active, ended]
-            default: all
+            $ref: '#/components/schemas/FlashSaleStatus'
       responses:
         '200':
           description: 成功
@@ -662,11 +680,13 @@ paths:
                       $ref: '#/components/schemas/FlashSale'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
       summary: 新增闪购活动
-      description: ALIGN-008（s-761）。end_at > start_at（422704）；到期 @Scheduled 自动转 ended 并触发缓存失效链。写 OperationLog（action=创建闪购）。
+      description: ALIGN-008（s-761）。end_at > start_at（422704）；到期 @Scheduled 自动转 status=4（ENDED）并触发缓存失效链。写 OperationLog（action=创建闪购）。
       operationId: createAdminFlashSale
       tags: [admin-flash-sales]
       security:
@@ -694,7 +714,7 @@ paths:
   /api/admin/promotions/flash-sales/{id}:
     put:
       summary: 编辑闪购活动
-      description: ended 活动不可编辑（409703）。写 OperationLog（action=编辑闪购）。
+      description: status=4（ENDED）活动不可编辑（409703）。写 OperationLog（action=编辑闪购）。
       operationId: updateAdminFlashSale
       tags: [admin-flash-sales]
       security:
@@ -726,7 +746,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     delete:
       summary: 删除闪购活动
-      description: 仅 draft 可删（409703）。写 OperationLog（action=删除闪购）。
+      description: 仅 status=1（DRAFT）可删（409703）。写 OperationLog（action=删除闪购）。
       operationId: deleteAdminFlashSale
       tags: [admin-flash-sales]
       security:
@@ -756,9 +776,9 @@ paths:
       parameters:
         - name: position
           in: query
+          description: BannerPosition IntEnum（1=HERO、2=FEATURED、3=TOPBAR）
           schema:
-            type: string
-            enum: [hero, featured, topbar]
+            $ref: '#/components/schemas/BannerPosition'
       responses:
         '200':
           description: 成功（按 sort 排序）
@@ -774,6 +794,8 @@ paths:
                       $ref: '#/components/schemas/Banner'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -830,6 +852,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFoundError'   # 404701
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
@@ -856,7 +880,7 @@ paths:
   /api/admin/banners/{id}/status:
     patch:
       summary: 上线/下线 Banner（行内 Toggle）
-      description: Toggle online 映射 status published/archived（草稿首次上线转 published）。触发缓存失效链。
+      description: Toggle online 映射 status=2（PUBLISHED）/3（ARCHIVED）；草稿首次上线由 1 转 2。触发缓存失效链。
       operationId: toggleAdminBannerStatus
       tags: [admin-banners]
       security:
@@ -872,8 +896,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published, archived]
+                  $ref: '#/components/schemas/ContentStatus'
       responses:
         '200':
           description: 成功
@@ -885,6 +908,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -901,10 +928,9 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - name: status
           in: query
+          description: ContentStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, published, archived]
-            default: all
+            $ref: '#/components/schemas/ContentStatus'
         - name: search
           in: query
           schema:
@@ -939,6 +965,8 @@ paths:
                     type: integer
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -1044,7 +1072,7 @@ paths:
   /api/admin/content/blogs/{id}/status:
     patch:
       summary: 发布/下线文章
-      description: draft→published（记 published_at）/ published→archived（发布状态机 guard，409703）。触发缓存失效链。写 OperationLog（action=文章发布状态变更）。
+      description: status 1（DRAFT）→2（PUBLISHED，记 published_at）/2→3（ARCHIVED）；非法迁移返回 409703。触发缓存失效链。写 OperationLog（action=文章发布状态变更）。
       operationId: patchAdminBlogStatus
       tags: [admin-blogs]
       security:
@@ -1060,8 +1088,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published, archived]
+                  $ref: '#/components/schemas/ContentStatus'
       responses:
         '200':
           description: 成功
@@ -1075,6 +1102,8 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/Conflict'        # 409703
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1091,10 +1120,9 @@ paths:
         - $ref: '#/components/parameters/PageSizeParam'
         - name: status
           in: query
+          description: PublishStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, published]
-            default: all
+            $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1124,6 +1152,8 @@ paths:
                     type: integer
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -1205,7 +1235,7 @@ paths:
   /api/admin/content/weddings/{id}/status:
     patch:
       summary: 发布/下线案例
-      description: real_wedding_publish 场景集。触发缓存失效链。写 OperationLog（action=案例发布状态变更）。
+      description: PublishStatus 1（DRAFT）↔2（PUBLISHED）场景集。触发缓存失效链。写 OperationLog（action=案例发布状态变更）。
       operationId: patchAdminWeddingStatus
       tags: [admin-weddings]
       security:
@@ -1221,8 +1251,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published]
+                  $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1236,6 +1265,8 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1250,10 +1281,9 @@ paths:
       parameters:
         - name: status
           in: query
+          description: PublishStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, published]
-            default: all
+            $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1269,6 +1299,8 @@ paths:
                       $ref: '#/components/schemas/Lookbook'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -1349,7 +1381,7 @@ paths:
   /api/admin/content/lookbooks/{id}/status:
     patch:
       summary: 发布/下线 Lookbook
-      description: lookbook publish 场景集。触发缓存失效链。
+      description: PublishStatus 1（DRAFT）↔2（PUBLISHED）场景集。触发缓存失效链。
       operationId: patchAdminLookbookStatus
       tags: [admin-lookbooks]
       security:
@@ -1365,8 +1397,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published]
+                  $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1380,6 +1411,8 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1394,10 +1427,9 @@ paths:
       parameters:
         - name: status
           in: query
+          description: PublishStatus IntEnum；省略表示全部，不接受字符串 all。
           schema:
-            type: string
-            enum: [all, draft, published]
-            default: all
+            $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1413,6 +1445,8 @@ paths:
                       $ref: '#/components/schemas/Guide'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
     post:
@@ -1493,7 +1527,7 @@ paths:
   /api/admin/content/guides/{id}/status:
     patch:
       summary: 发布/下线指南
-      description: guide publish 场景集。触发缓存失效链。
+      description: PublishStatus 1（DRAFT）↔2（PUBLISHED）场景集。触发缓存失效链。
       operationId: patchAdminGuideStatus
       tags: [admin-guides]
       security:
@@ -1509,8 +1543,7 @@ paths:
               required: [status]
               properties:
                 status:
-                  type: string
-                  enum: [draft, published]
+                  $ref: '#/components/schemas/PublishStatus'
       responses:
         '200':
           description: 成功
@@ -1524,6 +1557,8 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1620,6 +1655,7 @@ components:
           type: string
     BannerTranslation:
       type: object
+      description: Banner 的 ES/FR 文案。CTA 链接为语言无关字段，取 Banner 主表 cta_link/cta_link_secondary。
       required: [locale]
       properties:
         locale:
@@ -1627,10 +1663,21 @@ components:
           enum: [es, fr]
         title:
           type: string
+          maxLength: 255
+          nullable: true
         subtitle:
           type: string
+          maxLength: 255
+          nullable: true
         cta_text:
           type: string
+          maxLength: 64
+          nullable: true
+        cta_text_secondary:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: 第二 CTA 文案，缺失时回退 Banner.cta_text_secondary。
     BlogPostTranslation:
       type: object
       required: [locale]
@@ -1682,6 +1729,38 @@ components:
         story:
           type: string
 
+    # ---- 营销共享 IntEnum ----
+    BannerPosition:
+      type: integer
+      format: int32
+      enum: [1, 2, 3]
+      description: 1=HERO（首屏大图），2=FEATURED（精选位），3=TOPBAR（顶栏）。
+      example: 1
+    ContentStatus:
+      type: integer
+      format: int32
+      enum: [1, 2, 3]
+      description: Banner/Blog 共用。1=DRAFT（草稿），2=PUBLISHED（已发布），3=ARCHIVED（已归档）。
+      example: 2
+    CouponStatus:
+      type: integer
+      format: int32
+      enum: [1, 2, 3, 4, 5]
+      description: 1=DRAFT，2=SCHEDULED，3=ACTIVE，4=EXPIRING，5=EXPIRED。
+      example: 3
+    FlashSaleStatus:
+      type: integer
+      format: int32
+      enum: [1, 2, 3, 4]
+      description: 1=DRAFT，2=SCHEDULED，3=ACTIVE，4=ENDED。
+      example: 3
+    PublishStatus:
+      type: integer
+      format: int32
+      enum: [1, 2]
+      description: Wedding/Lookbook/Guide 共用。1=DRAFT，2=PUBLISHED。
+      example: 2
+
     # ---- 消费端内容 ----
     StoreBanner:
       type: object
@@ -1695,17 +1774,33 @@ components:
         image_url:
           type: string
         position:
-          type: string
-          enum: [hero, featured, topbar]
+          $ref: '#/components/schemas/BannerPosition'
         sort:
           type: integer
         title:
           type: string
           description: 文案（BannerTranslation，已按 locale 解析）
+          nullable: true
         subtitle:
           type: string
+          nullable: true
         cta_text:
           type: string
+          nullable: true
+        cta_link:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 第一 CTA 链接（语言无关）。
+        cta_text_secondary:
+          type: string
+          nullable: true
+          description: 已按 locale 解析的第二 CTA 文案。
+        cta_link_secondary:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 第二 CTA 链接（语言无关）。
     StoreBlogPostCard:
       type: object
       required: [id, title, slug]
@@ -1765,8 +1860,11 @@ components:
         cover:
           type: string
         status:
-          type: string
-          enum: [published]
+          allOf:
+            - $ref: '#/components/schemas/PublishStatus'
+            - type: integer
+              enum: [2]
+          description: 消费端只返回已发布案例，恒为 2（PUBLISHED）。
         title:
           type: string
           description: RealWeddingTranslation，已按 locale 解析
@@ -1905,8 +2003,7 @@ components:
           format: date-time
           description: js_guard：end_at > start_at（422704）
         status:
-          type: string
-          enum: [draft, scheduled, active, expiring, expired]
+          $ref: '#/components/schemas/CouponStatus'
         translations:
           type: array
           items:
@@ -1942,8 +2039,7 @@ components:
           format: date-time
           description: js_guard：end_at > start_at；到期定时任务自动下线
         status:
-          type: string
-          enum: [draft, scheduled, active, ended]
+          $ref: '#/components/schemas/FlashSaleStatus'
         product_ids:
           type: array
           description: 参与商品（nm 关系）
@@ -1974,8 +2070,7 @@ components:
         image_url:
           type: string
         position:
-          type: string
-          enum: [hero, featured, topbar]
+          $ref: '#/components/schemas/BannerPosition'
         start_time:
           type: string
           format: date-time
@@ -1984,10 +2079,40 @@ components:
           format: date-time
           description: js_guard：end_time > start_time（422704）
         status:
-          type: string
-          enum: [draft, published, archived]
+          $ref: '#/components/schemas/ContentStatus'
         sort:
           type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: EN 基准标题。
+        subtitle:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: EN 基准副题。
+        cta_text:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: EN 第一 CTA 文案。
+        cta_link:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 第一 CTA 链接（语言无关）。
+        cta_text_secondary:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: EN 第二 CTA 文案。
+        cta_link_secondary:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 第二 CTA 链接（语言无关）。
         translations:
           type: array
           items:
@@ -2025,8 +2150,7 @@ components:
           maxLength: 128
           description: 发布后静态文章页路径；唯一（409702）
         status:
-          type: string
-          enum: [draft, published, archived]
+          $ref: '#/components/schemas/ContentStatus'
         translations:
           type: array
           items:
@@ -2067,8 +2191,7 @@ components:
           type: string
           maxLength: 512
         status:
-          type: string
-          enum: [draft, published]
+          $ref: '#/components/schemas/PublishStatus'
         product_ids:
           type: array
           items:
@@ -2098,8 +2221,7 @@ components:
           type: string
           maxLength: 32
         status:
-          type: string
-          enum: [draft, published]
+          $ref: '#/components/schemas/PublishStatus'
         product_ids:
           type: array
           items:
@@ -2135,8 +2257,7 @@ components:
           type: integer
           minimum: 0
         status:
-          type: string
-          enum: [draft, published]
+          $ref: '#/components/schemas/PublishStatus'
         translations:
           type: array
           items:

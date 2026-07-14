@@ -95,4 +95,14 @@ class GatewayCryptoServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("未配置");
     }
+
+    @Test
+    @DisplayName("契约允许的 512 字符 Unicode Key 加密后可由 VARCHAR(4096) 完整承载")
+    void maxUnicodeKeyFitsEncryptedColumnContract() {
+        String plain = "婚".repeat(512);
+        String encrypted = service.encrypt(plain);
+
+        assertThat(encrypted.length()).isLessThanOrEqualTo(4096);
+        assertThat(service.decrypt(encrypted)).isEqualTo(plain);
+    }
 }

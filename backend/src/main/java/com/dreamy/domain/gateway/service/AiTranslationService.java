@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI 翻译服务（瘦版，仅 translate 后端代理）。
@@ -53,7 +54,8 @@ public class AiTranslationService {
     /** 翻译。失败抛 502/504（前端 toast 但允许继续保存）。 */
     public TranslateResult translate(TranslateRequest req) {
         if (req.sourceText() == null || req.sourceText().isBlank()) {
-            throw new GatewayException(GatewayErrorCode.SOURCE_TEXT_EMPTY);
+            throw GatewayException.fieldValidation(GatewayErrorCode.GATEWAY_VALIDATION,
+                    Map.of("source_text", "required"));
         }
         ExternalGatewayConfig gateway = loadEnabledAiGateway();
         String model = resolveModel(gateway, req.model());
@@ -93,7 +95,6 @@ public class AiTranslationService {
         LambdaQueryWrapper<ExternalGatewayConfig> qw = new LambdaQueryWrapper<>();
         qw.eq(ExternalGatewayConfig::getGatewayType, GatewayType.AI.getKey())
                 .eq(ExternalGatewayConfig::getEnabled, true)
-                .isNull(ExternalGatewayConfig::getDeletedAt)
                 .orderByDesc(ExternalGatewayConfig::getUpdatedAt)
                 .last("LIMIT 1");
         ExternalGatewayConfig gateway = gatewayMapper.selectOne(qw);
@@ -106,12 +107,16 @@ public class AiTranslationService {
     private String resolveModel(ExternalGatewayConfig gateway, String requestModel) {
         if (requestModel != null && !requestModel.isBlank()) {
             List<String> models = parseModelList(gateway.getModelList());
-            if (!models.isEmpty() && !models.contains(requestModel)) {
+            if (!models.contains(requestModel)) {
                 throw new GatewayException(GatewayErrorCode.INVALID_MODEL);
             }
             return requestModel;
         }
-        return gateway.getDefaultModel();
+        String defaultModel = gateway.getDefaultModel();
+        if (defaultModel == null || defaultModel.isBlank()) {
+            throw new GatewayException(GatewayErrorCode.INVALID_MODEL);
+        }
+        return defaultModel;
     }
 
     private String buildSystemPrompt(TranslateRequest req) {
@@ -129,7 +134,8 @@ public class AiTranslationService {
             return List.of();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<List<String>>() { });
+            List<String> models = objectMapper.readValue(json, new TypeReference<List<String>>() { });
+            return models == null ? List.of() : models;
         } catch (Exception ex) {
             return List.of();
         }

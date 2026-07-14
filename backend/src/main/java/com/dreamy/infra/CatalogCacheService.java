@@ -7,22 +7,23 @@ import com.alicp.jetcache.template.QuickConfig;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * catalog 域消费端缓存（JetCache 两级 Caffeine+Redis，CACHE-CAT-001~006）。
  * - key 模板与 TTL 与 data-flow 缓存矩阵逐行一致；key 含 locale 不含 currency（决策 13/14）。
  * - 穿透保护（BE-DIM-8）：PRODUCT 族 null 标记值短 TTL 60s（CACHE-CAT-002）。
- * - 模式失效：写路径全部经本组件 put，故按 family 维护 key 注册表，
- *   invalidateFamily 经 Cache.removeAll 两级同删（等价 L2「remote SCAN+DEL 封装 / 本地 invalidateAll by prefix」；
- *   多实例残留由 TTL 60~600s + CDN s-maxage 自然过期收敛，EC-CAT-002 同口径）。
+ * - 模式失效：family 使用 Redis 共享代际号。提交后递增代际，所有实例立即切换 namespace；
+ *   旧代际由 TTL 回收，不依赖当前进程曾写入过哪些 key。
  * - 缓存操作失败不影响主流程（EC-CAT-002：记告警，不回滚 DB）。
  */
 @Component
@@ -32,6 +33,42 @@ public class CatalogCacheService {
 
     /** null 穿透保护标记值（CACHE-CAT-002） */
     public static final String NULL_MARKER = "__catalog_null__";
+
+    private static final String GENERATION_KEY_PREFIX = "catalog:cache-generation:";
+    private static final DefaultRedisScript<Long> GENERATION_SCRIPT = new DefaultRedisScript<>("""
+            local generation_key = KEYS[1]
+            local high_water_key = KEYS[2]
+            local local_generation = tonumber(ARGV[1]) or 0
+            local must_advance = ARGV[2] == '1'
+            local remote_generation = tonumber(redis.call('GET', generation_key))
+            local high_water = tonumber(redis.call('GET', high_water_key)) or 0
+            local consistent = remote_generation ~= nil
+                and remote_generation >= local_generation
+                and remote_generation >= high_water
+
+            if consistent and not must_advance then
+                if remote_generation > high_water then
+                    redis.call('SET', high_water_key, string.format('%.0f', remote_generation))
+                end
+                return remote_generation
+            end
+
+            local base = math.max(local_generation, high_water)
+            if remote_generation ~= nil then
+                base = math.max(base, remote_generation)
+            end
+            local next_generation = base + 1
+            if remote_generation == nil then
+                local now = redis.call('TIME')
+                local time_generation = tonumber(now[1]) * 1000000 + tonumber(now[2])
+                next_generation = math.max(next_generation, time_generation)
+            end
+
+            local encoded = string.format('%.0f', next_generation)
+            redis.call('SET', generation_key, encoded)
+            redis.call('SET', high_water_key, encoded)
+            return next_generation
+            """, Long.class);
 
     /** 缓存族（key 前缀=族名，CACHE-CAT-001~006） */
     public enum Family {
@@ -56,12 +93,19 @@ public class CatalogCacheService {
     }
 
     private final CacheManager cacheManager;
+    private final StringRedisTemplate redis;
     private final Map<Family, Cache<String, Object>> caches = new ConcurrentHashMap<>();
-    /** family → 本实例写入过的 key 集合（family 级失效用） */
-    private final Map<Family, Set<String>> keyRegistry = new ConcurrentHashMap<>();
+    private final Map<Family, GenerationState> generationStates = new ConcurrentHashMap<>();
 
-    public CatalogCacheService(CacheManager cacheManager) {
+    private static final class GenerationState {
+        private final AtomicLong generation = new AtomicLong();
+        private final AtomicLong fallbackRevision = new AtomicLong();
+        private final AtomicLong reconciledRevision = new AtomicLong();
+    }
+
+    public CatalogCacheService(CacheManager cacheManager, StringRedisTemplate redis) {
         this.cacheManager = cacheManager;
+        this.redis = redis;
     }
 
     @PostConstruct
@@ -76,37 +120,42 @@ public class CatalogCacheService {
                     .syncLocal(false)
                     .build();
             caches.put(family, cacheManager.getOrCreateCache(qc));
-            keyRegistry.put(family, ConcurrentHashMap.newKeySet());
+            generationStates.put(family, new GenerationState());
         }
     }
 
+    public record Lookup(Family family, String key, long generation, Object value) {
+    }
+
     /** 读缓存；NULL_MARKER 命中由调用方判定（nullHit） */
-    public Object get(Family family, String key) {
+    public Lookup lookup(Family family, String key) {
+        long generation = currentGeneration(family);
         try {
-            return caches.get(family).get(key);
+            return new Lookup(family, key, generation,
+                    caches.get(family).get(versionedKey(generation, key)));
         } catch (Exception ex) {
             log.warn("[CACHE-CAT] get failed family={} key={} (EC-CAT-002 degrade to source)", family, key);
-            return null;
+            return new Lookup(family, key, generation, null);
         }
     }
 
     /** 写缓存（族缺省 TTL） */
-    public void put(Family family, String key, Object value) {
+    public void put(Lookup lookup, Object value) {
         try {
-            caches.get(family).put(key, value);
-            keyRegistry.get(family).add(key);
+            caches.get(lookup.family()).put(versionedKey(lookup.generation(), lookup.key()), value);
         } catch (Exception ex) {
-            log.warn("[CACHE-CAT] put failed family={} key={} (EC-CAT-002)", family, key);
+            log.warn("[CACHE-CAT] put failed family={} key={} (EC-CAT-002)", lookup.family(), lookup.key());
         }
     }
 
     /** 写 null 标记（穿透保护，60s 短 TTL——CACHE-CAT-002 / BE-DIM-8） */
-    public void putNullMarker(Family family, String key) {
+    public void putNullMarker(Lookup lookup) {
         try {
-            caches.get(family).put(key, NULL_MARKER, 60, TimeUnit.SECONDS);
-            keyRegistry.get(family).add(key);
+            caches.get(lookup.family()).put(
+                    versionedKey(lookup.generation(), lookup.key()), NULL_MARKER, 60, TimeUnit.SECONDS);
         } catch (Exception ex) {
-            log.warn("[CACHE-CAT] putNull failed family={} key={} (EC-CAT-002)", family, key);
+            log.warn("[CACHE-CAT] putNull failed family={} key={} (EC-CAT-002)",
+                    lookup.family(), lookup.key());
         }
     }
 
@@ -114,29 +163,16 @@ public class CatalogCacheService {
         return NULL_MARKER.equals(cached);
     }
 
-    /** 精确 key 失效（两级同删） */
-    public void invalidateKeys(Family family, Set<String> keys) {
-        if (keys == null || keys.isEmpty()) {
-            return;
-        }
-        try {
-            caches.get(family).removeAll(keys);
-            keyRegistry.get(family).removeAll(keys);
-        } catch (Exception ex) {
-            log.warn("[CACHE-CAT] invalidateKeys failed family={} (EC-CAT-002, TTL 兜底)", family);
-        }
-    }
-
-    /** family 级失效（`catalog:{family}:*` 语义） */
+    /** family 级失效（共享代际实现 `catalog:{family}:*` 语义） */
     public void invalidateFamily(Family family) {
+        GenerationState state = generationStates.get(family);
         try {
-            Set<String> keys = new HashSet<>(keyRegistry.get(family));
-            if (!keys.isEmpty()) {
-                caches.get(family).removeAll(keys);
-                keyRegistry.get(family).removeAll(keys);
-            }
+            reconcileGeneration(family, state, true);
         } catch (Exception ex) {
-            log.warn("[CACHE-CAT] invalidateFamily failed family={} (EC-CAT-002, TTL 兜底)", family);
+            long next = state.generation.incrementAndGet();
+            state.fallbackRevision.incrementAndGet();
+            log.warn("[CACHE-CAT] invalidateFamily Redis generation failed family={} "
+                    + "(local generation={}, EC-CAT-002 TTL fallback)", family, next);
         }
     }
 
@@ -145,6 +181,47 @@ public class CatalogCacheService {
         if (slug == null) {
             return;
         }
-        invalidateKeys(Family.PRODUCT, Set.of(slug + ":en", slug + ":es", slug + ":fr"));
+        invalidateFamily(Family.PRODUCT);
+    }
+
+    private long currentGeneration(Family family) {
+        GenerationState state = generationStates.get(family);
+        try {
+            return reconcileGeneration(family, state, false);
+        } catch (Exception ex) {
+            long local = state.generation.get();
+            log.warn("[CACHE-CAT] generation get failed family={} "
+                    + "(local generation={}, EC-CAT-002 degrade)", family, local);
+            return local;
+        }
+    }
+
+    private long reconcileGeneration(Family family, GenerationState state, boolean invalidate) {
+        long local = state.generation.get();
+        long fallbackRevision = state.fallbackRevision.get();
+        boolean mustAdvance = invalidate || fallbackRevision > state.reconciledRevision.get();
+        Long shared = redis.execute(
+                GENERATION_SCRIPT,
+                List.of(generationKey(family), generationHighWaterKey(family)),
+                Long.toString(local),
+                mustAdvance ? "1" : "0");
+        if (shared == null || shared < local) {
+            throw new IllegalStateException("Redis generation reconciliation returned an invalid value");
+        }
+        long generation = state.generation.accumulateAndGet(shared, Math::max);
+        state.reconciledRevision.accumulateAndGet(fallbackRevision, Math::max);
+        return generation;
+    }
+
+    private String generationKey(Family family) {
+        return GENERATION_KEY_PREFIX + "{" + family.name().toLowerCase(java.util.Locale.ROOT) + "}";
+    }
+
+    private String generationHighWaterKey(Family family) {
+        return generationKey(family) + ":high-water";
+    }
+
+    private String versionedKey(long generation, String key) {
+        return "v" + generation + ":" + key;
     }
 }

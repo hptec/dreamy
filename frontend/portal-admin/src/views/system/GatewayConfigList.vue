@@ -11,7 +11,7 @@ import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useGatewayStore } from '@/stores/gateway'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { GatewayType, GatewayErrorCode } from '@/api/types'
+import { GatewayType } from '@/api/types'
 import type { GatewayConfigDetail } from '@/api/types'
 import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { normalizeEnumFilter } from '@/utils/validators'
@@ -62,12 +62,7 @@ async function doConfirm() {
     toast.success('已删除')
     confirm.value = null
   } catch (e) {
-    if (e instanceof BizError && e.code === GatewayErrorCode.CONFIG_REFERENCED) {
-      toast.error('该配置已被翻译日志引用，不可删除')
-      confirm.value = null
-    } else {
-      toast.error(e instanceof BizError ? e.message : '删除失败')
-    }
+    toast.error(e instanceof BizError ? e.message : '删除失败')
   } finally {
     confirmBusy.value = false
   }

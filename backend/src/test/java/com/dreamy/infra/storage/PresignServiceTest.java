@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * S3 兼容预签名单元测试（决策 9 / E-CAT-35 STEP-CAT-02：PUT 预签名 600s）。
+ * S3 兼容预签名单元测试（决策 9 / E-CAT-38 STEP-CAT-02：PUT 预签名 600s）。
  * stub：本地假 URL 零外部依赖；real：SigV4 query 参数完备 + 配置缺失 fail（502501/502801 由域层映射）。
  */
 class PresignServiceTest {
