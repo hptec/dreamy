@@ -682,6 +682,7 @@ export type BannerPosition = typeof BannerPosition[keyof typeof BannerPosition]
 
 export interface BannerTranslation {
   locale: TranslationLocale
+  imageUrl?: string | null
   title?: string | null
   subtitle?: string | null
   ctaText?: string | null
@@ -697,7 +698,6 @@ export interface Banner {
   endTime?: string | null
   status: BannerStatus
   sort?: number | null
-  clicks?: number | null
   title?: string | null
   subtitle?: string | null
   ctaText?: string | null

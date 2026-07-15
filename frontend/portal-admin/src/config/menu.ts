@@ -92,7 +92,6 @@ export const menuGroups: MenuGroup[] = [
     label: '发布与系统',
     icon: RocketLaunchIcon,
     items: [
-      { title: '发布中心', to: '/publish', permission: '/publish' },
       { title: '物流配置', to: '/shipping', permission: '/shipping' },
       { title: '汇率与结算配置', to: '/settings', permission: '/settings' },
     ],
@@ -105,6 +104,7 @@ export const menuGroups: MenuGroup[] = [
       { title: '角色权限', to: '/system/roles', permission: '/system/roles' },
       { title: '登录与认证', to: '/system/auth', permission: '/system/auth' },
       { title: '操作日志', to: '/system/logs', permission: '/system/logs' },
+      { title: '缓存管理', to: '/system/cache', permission: '/system/cache' },
       // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）
       { title: '外部网关配置', to: '/system/gateways', permission: '/system/gateways' },
     ],

@@ -175,7 +175,8 @@ describe('分页/筛选参数纯函数', () => {
   })
 
   it('datetime-local 补秒 / date 起止扩展', () => {
-    expect(toIsoDateTime('2026-06-10T10:00')).toBe('2026-06-10T10:00:00')
+    const utcValue = toIsoDateTime('2026-06-10T10:00')!
+    expect(new Date(`${utcValue}Z`).getTime()).toBe(new Date('2026-06-10T10:00').getTime())
     expect(toIsoDateTime('')).toBeUndefined()
     expect(dateToStartOfDay('2026-06-10')).toBe('2026-06-10T00:00:00')
     expect(dateToEndOfDay('2026-06-10')).toBe('2026-06-10T23:59:59')

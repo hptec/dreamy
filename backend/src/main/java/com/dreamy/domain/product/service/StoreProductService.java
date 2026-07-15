@@ -211,7 +211,7 @@ public class StoreProductService {
         List<Product> ordered = pageIds.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
         List<StoreProductCard> cards = cardAssembler.assemble(ordered, locale);
         Paginated<StoreProductCard> result = CatalogPaginatedSupport.of(cards, ids.size(), page, pageSize);
-        // STEP-CAT-06 写缓存 TTL 60s（短 TTL 自然过期兜底，无主动失效；CDN 不缓存）
+        // STEP-CAT-06 写缓存 TTL 60s；商品/集合写操作同时创建 SEARCH 族失效任务
         cache.put(lookup, result);
         return result;
     }

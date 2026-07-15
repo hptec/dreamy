@@ -115,11 +115,11 @@ function groupActive(group: MenuGroup) {
         </div>
       </nav>
 
-      <!-- 发布快捷 -->
+      <!-- 缓存管理快捷 -->
       <div class="border-t border-white/8 p-3">
-        <RouterLink to="/publish" class="flex items-center gap-2 rounded-luxe bg-gold/15 px-3 py-2.5 text-[12.5px] font-medium text-gold-soft transition-colors hover:bg-gold/25">
+        <RouterLink to="/system/cache" class="flex items-center gap-2 rounded-luxe bg-gold/15 px-3 py-2.5 text-[12.5px] font-medium text-gold-soft transition-colors hover:bg-gold/25">
           <RocketLaunchIcon class="h-5 w-5 shrink-0" />
-          <span v-if="!collapsed || mobileOpen">发布中心</span>
+          <span v-if="!collapsed || mobileOpen">缓存管理</span>
         </RouterLink>
       </div>
     </aside>
@@ -149,9 +149,9 @@ function groupActive(group: MenuGroup) {
             <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
             <input class="field w-56 pl-9" placeholder="搜索商品 / 订单 / 用户…" />
           </div>
-          <!-- 发布按钮 -->
-          <RouterLink to="/publish" class="btn-gold hidden sm:inline-flex">
-            <RocketLaunchIcon class="h-4 w-4" /> 发布
+          <!-- 缓存管理按钮 -->
+          <RouterLink to="/system/cache" class="btn-gold hidden sm:inline-flex">
+            <RocketLaunchIcon class="h-4 w-4" /> 缓存
           </RouterLink>
           <!-- 通知 -->
           <button class="relative rounded-luxe p-2 text-ink-soft hover:bg-canvas-warm">

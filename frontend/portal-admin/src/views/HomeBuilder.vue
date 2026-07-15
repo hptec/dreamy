@@ -10,6 +10,7 @@ import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
 import { useHomeSectionStore } from '@/stores/homeSection'
 import { useCategoriesStore } from '@/stores/categories'
+import { useCollectionsStore } from '@/stores/collections'
 import { useToast } from '@/composables/useToast'
 import type { HomePageSection } from '@/api/siteBuilder'
 import {
@@ -41,6 +42,7 @@ interface HomeBlock {
 
 const store = useHomeSectionStore()
 const categoriesStore = useCategoriesStore()
+const collectionsStore = useCollectionsStore()
 const toast = useToast()
 const router = useRouter()
 
@@ -61,6 +63,8 @@ const showAddBlockModal = ref(false)
 const newBlockType = ref('custom')
 const deleteTarget = ref<HomeBlock | null>(null)
 const deleting = ref(false)
+const leaveDialogOpen = ref(false)
+const pendingLeaveRoute = ref<string | null>(null)
 
 useSortable(blockListEl, blocks, {
   animation: 180,
@@ -73,15 +77,23 @@ useSortable(blockListEl, blocks, {
 
 onMounted(async () => {
   window.addEventListener('beforeunload', guardBrowserLeave)
-  await Promise.allSettled([store.fetch(), categoriesStore.fetch()])
+  await Promise.allSettled([store.fetch(), categoriesStore.fetch(), collectionsStore.fetchGroups()])
+  const themeGroup = collectionsStore.groups.find((group) => group.name.toLowerCase() === 'theme')
+  if (themeGroup) await Promise.allSettled([collectionsStore.fetchCollections(themeGroup.id)])
   syncFromStore()
 })
 
 onBeforeUnmount(() => window.removeEventListener('beforeunload', guardBrowserLeave))
 
-onBeforeRouteLeave(() => {
+onBeforeRouteLeave((to) => {
   if (!dirty.value) return true
-  return window.confirm('当前有未保存的首页修改，确定离开吗？')
+
+  // Cancel the current navigation and keep a single in-app dialog open. A new
+  // menu click while the dialog is visible only replaces the pending target;
+  // it must not recreate the dialog or start competing navigations.
+  pendingLeaveRoute.value = to.fullPath
+  leaveDialogOpen.value = true
+  return false
 })
 
 watch(localeTab, () => {
@@ -100,6 +112,18 @@ const categoryOptions = computed(() => {
   }
   visit(categoriesStore.tree)
   return result
+})
+
+const themeOptions = computed(() => {
+  const themeGroup = collectionsStore.groups.find((group) => group.name.toLowerCase() === 'theme')
+  if (!themeGroup) return []
+  return collectionsStore.collectionsByGroup(themeGroup.id)
+    .filter((item) => item.status === 1)
+    .map((item) => ({
+      value: item.id,
+      label: item.name,
+      imageUrl: item.fallbackCoverUrls?.[0] || null,
+    }))
 })
 
 const previewUrl = computed(() => {
@@ -143,7 +167,11 @@ function normalizeBlockData(sectionType: string, raw: Record<string, any>) {
     delete data.count
     data.mode ||= 'auto'
     data.limit ||= 6
-    data.categoryIds ||= []
+    data.collectionIds ||= []
+    if (data.mode === 'manual' && data.collectionIds.length === 0 && data.categoryIds?.length) {
+      data.mode = 'auto'
+    }
+    delete data.categoryIds
   }
   if (sectionType === 'product_rail') {
     data.source ||= 'new_arrival'
@@ -195,6 +223,26 @@ function guardBrowserLeave(event: BeforeUnloadEvent) {
   event.preventDefault()
 }
 
+function cancelLeave() {
+  leaveDialogOpen.value = false
+  pendingLeaveRoute.value = null
+}
+
+async function confirmLeave() {
+  const destination = pendingLeaveRoute.value
+  if (!destination) {
+    cancelLeave()
+    return
+  }
+
+  // The user explicitly chose to discard the draft. Clear dirty before the
+  // new navigation so the route guard lets this one request through.
+  dirty.value = false
+  leaveDialogOpen.value = false
+  pendingLeaveRoute.value = null
+  await router.push(destination)
+}
+
 function onToggle(block: HomeBlock, enabled: boolean) {
   block.enabled = enabled
   touch()
@@ -210,21 +258,21 @@ function setProductSource(value: string | number | null | undefined) {
 function setThemeMode(value: string | number | null | undefined) {
   if (!activeBlock.value) return
   activeBlock.value.data.mode = value
-  if (value === 'manual') activeBlock.value.data.categoryIds ||= []
+  if (value === 'manual') activeBlock.value.data.collectionIds ||= []
   touch()
 }
 
-function toggleThemeCategory(id: number) {
+function toggleThemeCollection(id: number) {
   if (!activeBlock.value) return
-  const selected: number[] = activeBlock.value.data.categoryIds || []
-  activeBlock.value.data.categoryIds = selected.includes(id)
+  const selected: number[] = activeBlock.value.data.collectionIds || []
+  activeBlock.value.data.collectionIds = selected.includes(id)
     ? selected.filter((item) => item !== id)
     : [...selected, id]
   touch()
 }
 
 function defaultData(type: string) {
-  if (type === 'theme_cards') return { mode: 'auto', limit: 6, categoryIds: [] }
+  if (type === 'theme_cards') return { mode: 'auto', limit: 6, collectionIds: [] }
   if (type === 'product_rail') return { source: 'new_arrival', limit: 8, productIds: [] }
   if (type === 'editorial_feature') return { limit: 3 }
   return {}
@@ -517,8 +565,8 @@ async function confirmDelete() {
                   <SelectMenu
                     :model-value="activeBlock.data.mode || 'auto'"
                     :options="[
-                      { value: 'auto', label: '自动读取根分类' },
-                      { value: 'manual', label: '手动选择分类' },
+                      { value: 'auto', label: '自动读取 Theme 集合' },
+                      { value: 'manual', label: '手动选择主题' },
                     ]"
                     @change="setThemeMode"
                   />
@@ -529,20 +577,24 @@ async function confirmDelete() {
                 </div>
               </div>
               <div v-if="activeBlock.data.mode === 'manual'">
-                <label class="field-label">选择分类</label>
+                <label class="field-label">选择主题</label>
                 <div class="grid max-h-72 gap-1 overflow-y-auto border-y border-line py-2 sm:grid-cols-2">
                   <button
-                    v-for="option in categoryOptions"
+                    v-for="option in themeOptions"
                     :key="String(option.value)"
                     type="button"
                     class="flex min-h-10 items-center justify-between px-3 text-left text-[12px] transition-colors"
-                    :class="(activeBlock.data.categoryIds || []).includes(option.value) ? 'bg-gold/10 text-gold-deep' : 'text-ink-soft hover:bg-canvas-warm'"
-                    @click="toggleThemeCategory(option.value)"
+                    :class="(activeBlock.data.collectionIds || []).includes(option.value) ? 'bg-gold/10 text-gold-deep' : 'text-ink-soft hover:bg-canvas-warm'"
+                    @click="toggleThemeCollection(option.value)"
                   >
-                    <span>{{ option.label }}</span>
-                    <CheckIcon v-if="(activeBlock.data.categoryIds || []).includes(option.value)" class="h-4 w-4" />
+                    <span class="flex min-w-0 items-center gap-2">
+                      <img v-if="option.imageUrl" :src="option.imageUrl" alt="" class="h-8 w-6 shrink-0 rounded-sm object-cover" />
+                      <span class="truncate">{{ option.label }}</span>
+                    </span>
+                    <CheckIcon v-if="(activeBlock.data.collectionIds || []).includes(option.value)" class="h-4 w-4 shrink-0" />
                   </button>
                 </div>
+                <p v-if="themeOptions.length === 0" class="mt-2 text-[11px] text-ink-faint">请先在分类管理中维护 Theme 集合及集合商品</p>
               </div>
             </template>
 
@@ -755,6 +807,15 @@ async function confirmDelete() {
       :busy="deleting"
       @cancel="deleteTarget = null"
       @confirm="confirmDelete"
+    />
+    <ConfirmDialog
+      :open="leaveDialogOpen"
+      title="有未保存的修改"
+      message="Shop by theme 等首页设置尚未保存。现在离开将丢失这些修改，是否继续？"
+      confirm-text="放弃修改并离开"
+      danger
+      @cancel="cancelLeave"
+      @confirm="confirmLeave"
     />
   </div>
 </template>

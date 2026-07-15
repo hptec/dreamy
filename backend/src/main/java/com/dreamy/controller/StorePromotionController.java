@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 @RestController
 public class StorePromotionController {
 
-    private static final String CACHE_60 = "s-maxage=60";
+    private static final String CACHE_60 = "no-store";
     /** V-MKT-007 code trim 大写归一后 ^[A-Z0-9]+$ 且 ≤32 */
     private static final Pattern CODE_PATTERN = Pattern.compile("^[A-Z0-9]{1,32}$");
 
@@ -43,7 +43,7 @@ public class StorePromotionController {
         this.couponDomainService = couponDomainService;
     }
 
-    /** E-MKT-09 listStoreFlashSales（V-MKT-002；s-maxage=60 短） */
+    /** E-MKT-09 listStoreFlashSales（V-MKT-002；开发阶段响应 no-store） */
     @GetMapping("/api/store/promotions/flash-sales")
     public ResponseEntity<R<Map<String, List<StoreFlashSale>>>> listFlashSales(
             @RequestParam(required = false) String locale) {

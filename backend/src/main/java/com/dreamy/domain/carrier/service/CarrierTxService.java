@@ -2,13 +2,13 @@ package com.dreamy.domain.carrier.service;
 
 import com.dreamy.domain.carrier.entity.Carrier;
 import com.dreamy.domain.carrier.repository.CarrierRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationTarget;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.enums.CarrierStatus;
 import com.dreamy.dto.ShippingDtos.CarrierDto;
 import com.dreamy.error.ShippingErrorCode;
 import com.dreamy.error.ShippingException;
-import com.dreamy.infra.ShippingAfterCommitRunner;
 import com.dreamy.infra.ShippingAuditRecorder;
-import com.dreamy.infra.ShippingCacheService;
 import com.dreamy.support.ShippingValidation.ValidCarrier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * 承运方写事务服务（TX-SHP-001~004）。
@@ -33,18 +34,15 @@ public class CarrierTxService {
 
     private final CarrierRepository carrierRepository;
     private final ShippingAuditRecorder audit;
-    private final ShippingAfterCommitRunner afterCommit;
-    private final ShippingCacheService cache;
     private final ObjectMapper objectMapper;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public CarrierTxService(CarrierRepository carrierRepository, ShippingAuditRecorder audit,
-                            ShippingAfterCommitRunner afterCommit, ShippingCacheService cache,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper, CacheInvalidationTaskService cacheTasks) {
         this.carrierRepository = carrierRepository;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.cache = cache;
         this.objectMapper = objectMapper;
+        this.cacheTasks = cacheTasks;
     }
 
     /** TX-SHP-001（E-SHP-02）：INSERT carrier + operation_log，原子；提交后失效 shipping:carriers */
@@ -61,7 +59,7 @@ public class CarrierTxService {
         // STEP-SHP-02 审计（action=创建承运方，changes.after=载荷）
         audit.record("创建承运方", carrier.getName(), changesJson(null, after));
         // STEP-SHP-03 提交后失效（CACHE-SHP-001）
-        afterCommit.run(cache::invalidateCarriers);
+        enqueue("carrier.create", carrier);
         return after;
     }
 
@@ -88,7 +86,7 @@ public class CarrierTxService {
         // STEP-SHP-04 审计（action=编辑承运方，changes before/after）
         audit.record("编辑承运方", existing.getName(), changesJson(before, after));
         // STEP-SHP-05 提交后失效
-        afterCommit.run(cache::invalidateCarriers);
+        enqueue("carrier.update", existing);
         return after;
     }
 
@@ -110,7 +108,7 @@ public class CarrierTxService {
         // STEP-SHP-04 审计（action=删除承运方）
         audit.record("删除承运方", existing.getName(), changesJson(toDto(existing), null));
         // STEP-SHP-05 提交后失效
-        afterCommit.run(cache::invalidateCarriers);
+        enqueue("carrier.delete", existing);
     }
 
     /** TX-SHP-004（E-SHP-05）：findById → 幂等短路 → 状态机 guard → updateStatus + operation_log；提交后失效 */
@@ -136,7 +134,7 @@ public class CarrierTxService {
         audit.record("承运方状态变更", existing.getName(),
                 changesJson(Map.of("status", before.getKey()), Map.of("status", target.getKey())));
         // STEP-SHP-06 提交后失效
-        afterCommit.run(cache::invalidateCarriers);
+        enqueue("carrier.status", existing);
         return toDto(existing);
     }
 
@@ -144,6 +142,12 @@ public class CarrierTxService {
     static CarrierDto toDto(Carrier carrier) {
         return new CarrierDto(carrier.getId(), carrier.getName(), carrier.getZones(),
                 carrier.getLeadTime(), carrier.getStatus() == null ? null : carrier.getStatus().getKey());
+    }
+
+    private void enqueue(String triggerPoint, Carrier carrier) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "carrier", carrier.getId(), carrier.getName(), List.of(CacheInvalidationTarget.SHIPPING_CARRIERS),
+                null, Map.of(), null);
     }
 
     /** changes before/after JSON（BE-DIM-7） */

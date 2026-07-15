@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * RabbitMQ 事件拓扑配置（data-flow.md「MQ 事件拓扑」，BE-DIM-4）。
- * - topic exchange `dreamy.events`；5 队列 q.mail / q.showroom / q.catalog.sales / q.catalog.rating / q.invalidate；
+ * - topic exchange `dreamy.events`；4 队列 q.mail / q.showroom / q.catalog.sales / q.catalog.rating；
  * - 重试经 `dreamy.retry.{queue}`（per-message TTL 阶梯 + DLX 回投主队列）×3 → 超限路由
  *   DLX `dreamy.dlx` → `dreamy.dlq`（告警 + 人工重放）；
  * - 阶梯缺省 5s/30s/180s（showroom data-detail §8.2 口径），catalog 两队列 1s/4s/16s（catalog data-detail §8）；

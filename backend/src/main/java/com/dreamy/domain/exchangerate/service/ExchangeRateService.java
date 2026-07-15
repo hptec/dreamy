@@ -2,15 +2,15 @@ package com.dreamy.domain.exchangerate.service;
 
 import com.dreamy.domain.exchangerate.entity.ExchangeRate;
 import com.dreamy.domain.exchangerate.repository.ExchangeRateRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationTarget;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.TradingDtos.AdminExchangeRateDto;
 import com.dreamy.dto.TradingDtos.StoreExchangeRateDto;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
 import com.dreamy.infra.ExchangeRateCacheService;
-import com.dreamy.infra.TradingAfterCommitRunner;
 import com.dreamy.infra.TradingAuditRecorder;
 import com.dreamy.infra.TradingTxRunner;
-import com.dreamy.mq.TradingEventsPublisher;
 import com.dreamy.support.TradingParams;
 import org.springframework.stereotype.Service;
 
@@ -20,8 +20,8 @@ import java.util.Map;
 
 /**
  * 汇率服务（trading-api-detail §8/§11，FLOW-P18，决策 14；derived_scope host TASK-051）。
- * store 读：JetCache 两级 trading:exchange-rates（CACHE-TRD-001）+ CDN s-maxage（控制器响应头）；
- * admin 维护：TX-TRD-011 同事务审计 → 提交后失效链（@CacheInvalidate 语义 → MQ content.invalidated → purge）。
+ * store 读：JetCache 两级 trading:exchange-rates（CACHE-TRD-001）；
+ * admin 维护：TX-TRD-011 同事务审计并创建可追踪的缓存失效任务。
  * 语义（决策 14）：仅影响新订单锁汇，既有订单 exchange_rate 快照不变。
  */
 @Service
@@ -30,20 +30,17 @@ public class ExchangeRateService {
     private final ExchangeRateRepository exchangeRateRepository;
     private final ExchangeRateCacheService cacheService;
     private final TradingTxRunner txRunner;
-    private final TradingAfterCommitRunner afterCommit;
     private final TradingAuditRecorder audit;
-    private final TradingEventsPublisher eventsPublisher;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public ExchangeRateService(ExchangeRateRepository exchangeRateRepository,
                                ExchangeRateCacheService cacheService, TradingTxRunner txRunner,
-                               TradingAfterCommitRunner afterCommit, TradingAuditRecorder audit,
-                               TradingEventsPublisher eventsPublisher) {
+                               TradingAuditRecorder audit, CacheInvalidationTaskService cacheTasks) {
         this.exchangeRateRepository = exchangeRateRepository;
         this.cacheService = cacheService;
         this.txRunner = txRunner;
-        this.afterCommit = afterCommit;
         this.audit = audit;
-        this.eventsPublisher = eventsPublisher;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-listStoreExchangeRates（STEP-TRD-01~03：读穿缓存；payload 不含 updated_by） */
@@ -86,11 +83,9 @@ public class ExchangeRateService {
             audit.record(TradingAuditRecorder.ACTION_RATE_UPDATE, currency,
                     "{\"currency\":\"" + currency + "\",\"before\":\"" + before.getRate()
                             + "\",\"after\":\"" + rate + "\"}");
-            // 提交后失效链（CP-031：JetCache 失效 → MQ content.invalidated → Cloudflare purge，EVT-TRD-005）
-            afterCommit.run(() -> {
-                cacheService.invalidate();
-                eventsPublisher.publishExchangeRatesInvalidated();
-            });
+            cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "exchange_rate.update",
+                    "exchange_rate", currency, currency, List.of(CacheInvalidationTarget.TRADING_EXCHANGE_RATES),
+                    null, Map.of("rate", rate), null);
         });
         ExchangeRate updated = exchangeRateRepository.findByCurrency(currency);
         return new AdminExchangeRateDto(updated.getId(), updated.getCurrency(), updated.getRate(),

@@ -236,10 +236,10 @@ export const navConfig = {
 
 // ===== 站点装修：Banner（mall 广告列表范式） =====
 export const banners = [
-  { id: 1, name: 'Outdoor Edit 2026 主 Banner', position: '首页 Hero', img: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, start: '2026-05-01', end: '2026-08-31', online: true, clicks: 12840, sort: 100 },
-  { id: 2, name: 'Bridesmaid Color 推广', position: '首页 推荐位', img: `${REF}/birdygrey/bridesmaid-pink-bella-01.jpg`, start: '2026-05-10', end: '2026-07-10', online: true, clicks: 8210, sort: 90 },
-  { id: 3, name: 'Klarna 分期付款条', position: '全站 顶部条', img: `${REF}/davidsbridal/wedding-dress-04.jpg`, start: '2026-04-01', end: '2026-12-31', online: true, clicks: 24600, sort: 80 },
-  { id: 4, name: 'Spring Sale 春季促销', position: '品类页 顶部', img: `${REF}/kissprom/prom-champagne-lace-05.jpg`, start: '2026-03-01', end: '2026-05-30', online: false, clicks: 5400, sort: 60 }
+  { id: 1, name: 'Outdoor Edit 2026 主 Banner', position: '首页 Hero', img: `${REF}/kissprom/wedding-aline-tulle-01.jpg`, start: '2026-05-01', end: '2026-08-31', online: true, sort: 100 },
+  { id: 2, name: 'Bridesmaid Color 推广', position: '首页 推荐位', img: `${REF}/birdygrey/bridesmaid-pink-bella-01.jpg`, start: '2026-05-10', end: '2026-07-10', online: true, sort: 90 },
+  { id: 3, name: 'Klarna 分期付款条', position: '全站 顶部条', img: `${REF}/davidsbridal/wedding-dress-04.jpg`, start: '2026-04-01', end: '2026-12-31', online: true, sort: 80 },
+  { id: 4, name: 'Spring Sale 春季促销', position: '品类页 顶部', img: `${REF}/kissprom/prom-champagne-lace-05.jpg`, start: '2026-03-01', end: '2026-05-30', online: false, sort: 60 }
 ]
 
 // ===== 营销：优惠券 =====
@@ -345,7 +345,7 @@ export const menuPermissionKeys = [
   // 数据分析
   { key: '/analytics', group: '数据分析', label: '数据看板' },
   // 发布与系统
-  { key: '/publish', group: '发布与系统', label: '发布中心' },
+  { key: '/system/cache', group: '系统管理', label: '缓存管理' },
   { key: '/shipping', group: '发布与系统', label: '物流配置' },
   // 系统管理
   { key: '/system/admins', group: '系统管理', label: '管理员管理' },
@@ -381,7 +381,7 @@ export const roles = [
     permissions: [
       '/', '/products', '/categories',
       '/site/home', '/site/navigation', '/site/banners',
-      '/orders', '/refunds', '/analytics', '/publish', '/shipping'
+      '/orders', '/refunds', '/analytics', '/system/cache', '/shipping'
     ]
   },
   {
@@ -404,7 +404,7 @@ export const roles = [
       '/', '/site/home', '/site/navigation', '/site/banners',
       '/marketing/promotions', '/marketing/email',
       '/content/blog', '/content/weddings', '/content/lookbook',
-      '/publish'
+      '/system/cache'
     ]
   },
   {
@@ -471,10 +471,6 @@ export const auditLogs = [
   { id: 'log-8', time: '2026-05-29 09:02:23', user: 'Super Admin', action: '禁用管理员', target: 'Sam Data 账号已禁用', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
     { field: '状态', before: '正常', after: '已禁用' }
   ]},
-  { id: 'log-9', time: '2026-05-28 16:40:55', user: 'Super Admin', action: '发布站点', target: '23 个页面全量生成', ip: '203.0.113.7', ua: 'Chrome 125 / macOS', changes: [
-    { field: '受影响页面', before: '—', after: '23' },
-    { field: '构建耗时', before: '—', after: '34s' }
-  ]},
   { id: 'log-10', time: '2026-05-28 11:20:31', user: 'Grace PIM', action: '重置密码', target: 'Leo Orders 密码已重置', ip: '198.51.100.4', ua: 'Chrome 125 / Windows', changes: null },
   { id: 'log-11', time: '2026-05-27 15:05:19', user: 'Leo Orders', action: '删除管理员', target: '临时账号 temp-ops 已删除', ip: '198.51.100.9', ua: 'Firefox 126 / macOS', changes: [
     { field: '姓名', before: 'Temp Ops', after: '—（已删除）' }
@@ -483,20 +479,4 @@ export const auditLogs = [
 ]
 
 // 操作类型枚举（供日志筛选下拉）
-export const logActionTypes = ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章', '发布站点']
-
-// ===== 发布中心：待发布改动 + 历史 =====
-export const pendingChanges = [
-  { id: 'ch-1', type: '首页装修', summary: '更新 Hero 标题与副文案', author: 'Nina Editorial', time: '2026-05-29 09:02', affects: ['/'] },
-  { id: 'ch-2', type: '商品', summary: '上架 Petal Bridesmaid Dress', author: 'Grace PIM', time: '2026-05-29 08:41', affects: ['/special-occasion', '/product/petal-bridesmaid', '/'] },
-  { id: 'ch-3', type: 'Banner', summary: '下线「Spring Sale 春季促销」', author: 'Grace PIM', time: '2026-05-29 08:30', affects: ['/wedding-dresses', '/special-occasion', '/accessories'] },
-  { id: 'ch-4', type: '内容', summary: '发布文章 Vineyard Wedding Styling Tips', author: 'Nina Editorial', time: '2026-05-28 14:08', affects: ['/blog', '/blog/vineyard-wedding-styling-tips'] },
-  { id: 'ch-5', type: '导航', summary: '调整 Accessories Mega Menu 列', author: 'Super Admin', time: '2026-05-28 11:20', affects: ['全站 header'] }
-]
-
-export const publishHistory = [
-  { id: 'pub-128', time: '2026-05-28 17:40', author: 'Super Admin', pages: 21, duration: '34s', status: 'success', note: '发布 Memorial Day Flash 活动' },
-  { id: 'pub-127', time: '2026-05-26 10:12', author: 'Grace PIM', pages: 8, duration: '19s', status: 'success', note: '商品价格批量更新' },
-  { id: 'pub-126', time: '2026-05-24 09:05', author: 'Nina Editorial', pages: 5, duration: '14s', status: 'success', note: 'Blog 内容更新' },
-  { id: 'pub-125', time: '2026-05-22 15:33', author: 'Super Admin', pages: 27, duration: '41s', status: 'success', note: '全站重新生成' }
-]
+export const logActionTypes = ['登录', 'Google 登录', 'Apple 登录', '创建管理员', '编辑管理员', '删除管理员', '禁用管理员', '重置密码', '创建角色', '编辑角色', '删除角色', '权限变更', '账户合并', '强制下线', '认证配置变更', '编辑商品', '上架商品', '下架商品', '订单发货', '发布文章']

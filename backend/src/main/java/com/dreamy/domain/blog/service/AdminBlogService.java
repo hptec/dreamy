@@ -4,17 +4,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.domain.blog.entity.BlogPost;
 import com.dreamy.domain.blog.entity.BlogPostTranslation;
 import com.dreamy.domain.blog.repository.BlogPostRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.enums.ContentStatus;
 import com.dreamy.dto.AdminMarketingDtos.BlogPostDto;
 import com.dreamy.dto.AdminMarketingDtos.BlogPostUpsert;
 import com.dreamy.dto.MarketingTranslationDtos.BlogPostTranslationDto;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.support.ContentStateGuards;
 import com.dreamy.support.MarketingFieldErrors;
 import com.dreamy.support.MarketingParams;
@@ -43,19 +41,14 @@ public class AdminBlogService {
     private static final Pattern SLUG_PATTERN = Pattern.compile("^[a-z0-9-]{1,128}$");
 
     private final BlogPostRepository blogPostRepository;
-    private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
-    private final MarketingAfterCommitRunner afterCommit;
-    private final MarketingContentInvalidatedPublisher publisher;
+    private final CacheInvalidationTaskService cacheTasks;
 
-    public AdminBlogService(BlogPostRepository blogPostRepository, MarketingCacheService cache,
-                            MarketingAuditRecorder audit, MarketingAfterCommitRunner afterCommit,
-                            MarketingContentInvalidatedPublisher publisher) {
+    public AdminBlogService(BlogPostRepository blogPostRepository, MarketingAuditRecorder audit,
+                            CacheInvalidationTaskService cacheTasks) {
         this.blogPostRepository = blogPostRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.publisher = publisher;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-MKT-26：分页列表（status/search 筛选） */
@@ -110,7 +103,7 @@ public class AdminBlogService {
         audit.record("创建文章", n.title(), null);
         // STEP-MKT-04 提交后（published）失效 + MQ
         if (n.status() == ContentStatus.PUBLISHED) {
-            invalidateAfterCommit(n.slug(), null);
+            enqueue("blog.create", post, null);
         }
         return toDto(blogPostRepository.findById(post.getId()), nonNull(req.translations()));
     }
@@ -151,7 +144,7 @@ public class AdminBlogService {
         audit.record("编辑文章", n.title(), null);
         // STEP-MKT-06 提交后（DB 或目标 status=published，或 published→archived 下线）失效（新旧 slug 都失效）+ MQ
         if (oldStatus == ContentStatus.PUBLISHED || n.status() == ContentStatus.PUBLISHED) {
-            invalidateAfterCommit(n.slug(), oldSlug);
+            enqueue("blog.update", existing, oldSlug);
         }
         return toDto(blogPostRepository.findById(id), nonNull(req.translations()));
     }
@@ -169,7 +162,7 @@ public class AdminBlogService {
         audit.record("删除文章", existing.getTitle(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ（文章页 revalidate 后 404701，列表移除）
         if (existing.getStatus() == ContentStatus.PUBLISHED) {
-            invalidateAfterCommit(existing.getSlug(), null);
+            enqueue("blog.delete", existing, null);
         }
     }
 
@@ -206,7 +199,7 @@ public class AdminBlogService {
         audit.record("文章发布状态变更", existing.getTitle(),
                 "{\"from\":\"" + existing.getStatus().getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
         // STEP-MKT-05 提交后失效 + MQ + revalidate /blog、/blog/{slug} ×3 + purge
-        invalidateAfterCommit(existing.getSlug(), null);
+        enqueue("blog.status", existing, null);
         existing.setStatus(target);
         if (publishedAt != null) {
             existing.setPublishedAt(publishedAt);
@@ -214,15 +207,13 @@ public class AdminBlogService {
         return toDto(existing, translations.getOrDefault(id, List.of()));
     }
 
-    private void invalidateAfterCommit(String slug, String oldSlug) {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.BLOGS);
-            cache.invalidateBlogSlug(slug);
-            if (oldSlug != null && !oldSlug.equals(slug)) {
-                cache.invalidateBlogSlug(oldSlug);
-            }
-            publisher.publishBlog(slug, oldSlug);
-        });
+    private void enqueue(String triggerPoint, BlogPost post, String oldSlug) {
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        if (post.getSlug() != null) details.put("slug", post.getSlug());
+        if (oldSlug != null && !oldSlug.equals(post.getSlug())) details.put("old_slug", oldSlug);
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "blog", post.getId(), post.getTitle(), CacheInvalidationPlans.BLOG,
+                null, details, null);
     }
 
     private record Normalized(String title, String slug, ContentStatus status) {

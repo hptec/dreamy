@@ -1,7 +1,7 @@
 package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.banner.service.StoreBannerService;
-import com.dreamy.domain.category.service.StoreCategoryService;
+import com.dreamy.domain.collection.service.StoreCollectionService;
 import com.dreamy.domain.product.service.RecommendationService;
 import com.dreamy.domain.product.service.StoreProductService;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
@@ -10,10 +10,14 @@ import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
 import com.dreamy.domain.wedding.service.StoreWeddingService;
-import com.dreamy.dto.StoreCategoryNode;
+import com.dreamy.dto.StoreCollectionGroup.StoreCollectionItem;
 import com.dreamy.dto.StoreMarketingDtos.StoreBanner;
 import com.dreamy.dto.StoreMarketingDtos.StoreRealWedding;
 import com.dreamy.dto.StoreProductCard;
+import com.dreamy.dto.SiteBuilderDtos.StoreHomePageDto;
+import com.dreamy.dto.SiteBuilderDtos.StoreAnnouncementListDto;
+import com.dreamy.dto.SiteBuilderDtos.StoreFooterDto;
+import com.dreamy.dto.SiteBuilderDtos.StoreNavigationDto;
 import com.dreamy.enums.BannerPosition;
 import com.dreamy.support.MarketingPaginatedSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +36,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,10 +52,11 @@ class StoreContentSectionConfigTest {
     @Mock private FooterRepository footerRepository;
     @Mock private AnnouncementRepository announcementRepository;
     @Mock private StoreBannerService bannerService;
-    @Mock private StoreCategoryService categoryService;
+    @Mock private StoreCollectionService collectionService;
     @Mock private StoreProductService productService;
     @Mock private RecommendationService recommendationService;
     @Mock private StoreWeddingService weddingService;
+    @Mock private SiteBuilderCacheService cache;
 
     private StoreContentService service;
 
@@ -56,7 +64,48 @@ class StoreContentSectionConfigTest {
     void setUp() {
         service = new StoreContentService(sectionRepository, navigationRepository,
                 footerRepository, announcementRepository, new ObjectMapper(), bannerService,
-                categoryService, productService, recommendationService, weddingService);
+                collectionService, productService, recommendationService, weddingService,
+                java.time.Clock.systemUTC(), cache);
+        lenient().when(cache.lookup(any(), anyString())).thenAnswer(invocation ->
+                new SiteBuilderCacheService.Lookup(invocation.getArgument(0), invocation.getArgument(1), 1L, null));
+    }
+
+    @Test
+    void homeCacheHitSkipsDatabaseAndDownstreamAggregation() {
+        StoreHomePageDto cached = new StoreHomePageDto();
+        cached.setSections(List.of());
+        when(cache.lookup(SiteBuilderCacheService.Family.HOME, "es"))
+                .thenReturn(new SiteBuilderCacheService.Lookup(
+                        SiteBuilderCacheService.Family.HOME, "es", 7L, cached));
+
+        assertThat(service.getHome("es")).isSameAs(cached);
+
+        verifyNoInteractions(sectionRepository, bannerService, collectionService, productService,
+                recommendationService, weddingService);
+    }
+
+    @Test
+    void everyAggregateCacheHitSkipsItsSourceRepository() {
+        StoreHomePageDto home = new StoreHomePageDto();
+        StoreNavigationDto navigation = new StoreNavigationDto();
+        StoreFooterDto footer = new StoreFooterDto();
+        StoreAnnouncementListDto announcements = new StoreAnnouncementListDto();
+        when(cache.lookup(SiteBuilderCacheService.Family.HOME, "fr"))
+                .thenReturn(hit(SiteBuilderCacheService.Family.HOME, "fr", home));
+        when(cache.lookup(SiteBuilderCacheService.Family.NAVIGATION, "fr"))
+                .thenReturn(hit(SiteBuilderCacheService.Family.NAVIGATION, "fr", navigation));
+        when(cache.lookup(SiteBuilderCacheService.Family.FOOTER, "fr"))
+                .thenReturn(hit(SiteBuilderCacheService.Family.FOOTER, "fr", footer));
+        when(cache.lookup(SiteBuilderCacheService.Family.ANNOUNCEMENTS, "fr"))
+                .thenReturn(hit(SiteBuilderCacheService.Family.ANNOUNCEMENTS, "fr", announcements));
+
+        assertThat(service.getHome("fr")).isSameAs(home);
+        assertThat(service.getNavigation("fr")).isSameAs(navigation);
+        assertThat(service.getFooter("fr")).isSameAs(footer);
+        assertThat(service.getAnnouncements("fr")).isSameAs(announcements);
+
+        verifyNoInteractions(sectionRepository, navigationRepository, footerRepository, announcementRepository,
+                bannerService, collectionService, productService, recommendationService, weddingService);
     }
 
     @Test
@@ -104,26 +153,29 @@ class StoreContentSectionConfigTest {
     }
 
     @Test
-    void themeCardsAutoUsesCountAndRootCategoryOrder() {
+    void themeCardsAutoUsesCountAndThemeCollectionOrder() {
         when(sectionRepository.findEnabledOrderBySort()).thenReturn(List.of(
                 section("theme_cards", "{\"mode\":\"auto\",\"count\":\"2\"}")));
-        when(categoryService.listTree("en")).thenReturn(List.of(
-                category(1L, "One", List.of()),
-                category(2L, "Two", List.of()),
-                category(3L, "Three", List.of())));
+        when(collectionService.listThemeCollections("en")).thenReturn(List.of(
+                theme(1L, "Garden", 5, "/garden.jpg"),
+                theme(2L, "Beach", 4, "/beach.jpg"),
+                theme(3L, "Forest", 3, "/forest.jpg")));
 
         List<Map<String, Object>> cards = list(firstSectionData("en"), "cards");
 
         assertThat(cards).extracting(card -> card.get("id")).containsExactly(1L, 2L);
+        assertThat(cards).extracting(card -> card.get("image_url"))
+                .containsExactly("/garden.jpg", "/beach.jpg");
     }
 
     @Test
-    void themeCardsManualPreservesConfiguredOrderAcrossTreeLevels() {
+    void themeCardsManualPreservesConfiguredCollectionOrder() {
         long largeId = 4_294_967_296L;
         when(sectionRepository.findEnabledOrderBySort()).thenReturn(List.of(section("theme_cards",
-                "{\"mode\":\"manual\",\"category_ids\":[\"4294967296\",11,4294967296,999]}")));
-        when(categoryService.listTree("en")).thenReturn(List.of(
-                category(11L, "Root", List.of(category(largeId, "Child", List.of())))));
+                "{\"mode\":\"manual\",\"collection_ids\":[\"4294967296\",11,4294967296,999]}")));
+        when(collectionService.listThemeCollections("en")).thenReturn(List.of(
+                theme(11L, "Garden", 5, "/garden.jpg"),
+                theme(largeId, "Beach", 4, "/beach.jpg")));
 
         List<Map<String, Object>> cards = list(firstSectionData("en"), "cards");
 
@@ -224,8 +276,8 @@ class StoreContentSectionConfigTest {
         return section;
     }
 
-    private static StoreCategoryNode category(long id, String name, List<StoreCategoryNode> children) {
-        return new StoreCategoryNode(id, name, null, 0, 0, 0, children);
+    private static StoreCollectionItem theme(long id, String name, int productCount, String imageUrl) {
+        return new StoreCollectionItem(id, name, productCount, imageUrl);
     }
 
     private static StoreProductCard product(long id, String slug) {
@@ -236,6 +288,11 @@ class StoreContentSectionConfigTest {
     private static StoreRealWedding wedding(long id, String weddingDate) {
         return new StoreRealWedding(id, "Couple " + id, "Paris", "Classic", weddingDate,
                 "/wedding-" + id + ".jpg", 1, "Wedding " + id, null, null);
+    }
+
+    private static SiteBuilderCacheService.Lookup hit(SiteBuilderCacheService.Family family,
+                                                       String key, Object value) {
+        return new SiteBuilderCacheService.Lookup(family, key, 7L, value);
     }
 
     @SuppressWarnings("unchecked")

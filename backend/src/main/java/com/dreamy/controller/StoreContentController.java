@@ -31,12 +31,12 @@ import java.util.Map;
 
 /**
  * 消费端内容控制器（E-MKT-01~08，全部匿名公开——白名单 `/api/store/content/**`，api-detail §0.1）。
- * 响应带 `Cache-Control: s-maxage=300`（CDN 层，CACHE-MKT §8）；locale query 优先于 Accept-Language。
+ * force-dynamic 商城直连后端，响应 no-store；共享新鲜度由 JetCache + durable invalidation task 保证。
  */
 @RestController
 public class StoreContentController {
 
-    private static final String CACHE_300 = "s-maxage=300";
+    private static final String CACHE_300 = "no-store";
 
     private final StoreBannerService bannerService;
     private final StoreBlogService blogService;

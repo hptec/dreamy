@@ -92,6 +92,7 @@ public class DataInitializer {
     }
     /** permission 权限字典（后台菜单级路由，来源 portal-admin 路由表）。按 perm_code 幂等。 */
     private void initPermissions() {
+        migrateLegacyPublishPermission();
         String[][] perms = {
                 {"/", "工作台", "工作台"},
                 {"/dashboard", "工作台", "工作台"},
@@ -111,13 +112,13 @@ public class DataInitializer {
                 {"/content/lookbook", "内容管理", "Lookbook 与指南"},
                 {"/reviews", "内容管理", "评价与 Q&A"},
                 {"/analytics", "数据分析", "数据看板"},
-                {"/publish", "发布与系统", "发布中心"},
                 {"/shipping", "发布与系统", "物流配置"},
                 {"/settings", "发布与系统", "汇率与结算配置"},
                 {"/system/admins", "系统管理", "管理员管理"},
                 {"/system/roles", "系统管理", "角色权限"},
                 {"/system/auth", "系统管理", "登录与认证"},
                 {"/system/logs", "系统管理", "操作日志"},
+                {"/system/cache", "系统管理", "缓存管理"},
                 // i18n-complete-with-ai-assist：网关配置（AI 翻译代理仍用）
                 {"/system/gateways", "系统管理", "外部网关配置"},
                 {"/attribute-sets", "商品管理", "属性集"},
@@ -135,6 +136,40 @@ public class DataInitializer {
             pe.setLabel(p[2]);
             permissionMapper.insert(pe);
         }
+    }
+
+    /** 开发库兼容：合并旧 /publish 授权，但不保留旧权限或兼容路由。 */
+    private void migrateLegacyPublishPermission() {
+        Permission legacy = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
+                .eq(Permission::getPermCode, "/publish"));
+        if (legacy == null) return;
+        Permission cachePermission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
+                .eq(Permission::getPermCode, "/system/cache"));
+        if (cachePermission == null) {
+            legacy.setPermCode("/system/cache");
+            legacy.setGroup("系统管理");
+            legacy.setLabel("缓存管理");
+            permissionMapper.updateById(legacy);
+            log.info("[DataInitializer] 权限 /publish 已迁移为 /system/cache");
+            return;
+        }
+
+        java.util.Set<Long> rolesWithCachePermission = rolePermissionMapper.selectList(
+                        new LambdaQueryWrapper<RolePermission>()
+                                .eq(RolePermission::getPermissionId, cachePermission.getId()))
+                .stream().map(RolePermission::getRoleId).collect(java.util.stream.Collectors.toSet());
+        for (RolePermission relation : rolePermissionMapper.selectList(
+                new LambdaQueryWrapper<RolePermission>().eq(RolePermission::getPermissionId, legacy.getId()))) {
+            if (rolesWithCachePermission.contains(relation.getRoleId())) {
+                rolePermissionMapper.deleteById(relation.getId());
+            } else {
+                relation.setPermissionId(cachePermission.getId());
+                rolePermissionMapper.updateById(relation);
+                rolesWithCachePermission.add(relation.getRoleId());
+            }
+        }
+        permissionMapper.deleteById(legacy.getId());
+        log.info("[DataInitializer] 旧权限 /publish 已合并到 /system/cache 并删除");
     }
 
     /** 超管角色（is_locked=true）：缺则建，并关联全部权限（与应用层短路双保险 RISK-03）。返回 roleId。 */

@@ -1,0 +1,29 @@
+package com.dreamy.domain.cache.service;
+
+/** Explicit shared-business-cache targets exposed to tasks and the admin tool. */
+public enum CacheInvalidationTarget {
+    CATALOG_PRODUCTS,
+    CATALOG_PRODUCT,
+    CATALOG_SEARCH,
+    CATALOG_RECO,
+    CATALOG_CATEGORIES,
+    CATALOG_COLLECTIONS,
+    MARKETING_BANNERS,
+    MARKETING_BLOGS,
+    MARKETING_BLOG,
+    MARKETING_WEDDINGS,
+    MARKETING_WEDDING,
+    MARKETING_LOOKBOOKS,
+    MARKETING_LOOKBOOK,
+    MARKETING_GUIDES,
+    MARKETING_FLASH,
+    SITE_HOME,
+    SITE_NAVIGATION,
+    SITE_FOOTER,
+    SITE_ANNOUNCEMENTS,
+    REVIEW_REVIEWS,
+    REVIEW_QUESTIONS,
+    SHIPPING_CARRIERS,
+    SHIPPING_RATES,
+    TRADING_EXCHANGE_RATES
+}

@@ -164,10 +164,10 @@ public class CatalogCacheService {
     }
 
     /** family 级失效（共享代际实现 `catalog:{family}:*` 语义） */
-    public void invalidateFamily(Family family) {
+    void invalidateFamily(Family family) {
         GenerationState state = generationStates.get(family);
         try {
-            reconcileGeneration(family, state, true);
+            invalidateFamilyStrict(family);
         } catch (Exception ex) {
             long next = state.generation.incrementAndGet();
             state.fallbackRevision.incrementAndGet();
@@ -176,12 +176,9 @@ public class CatalogCacheService {
         }
     }
 
-    /** `catalog:product:{slug}:*` 失效（全 locale + null 标记，CACHE-CAT-002；新旧 slug 由调用方各调一次） */
-    public void invalidateProductSlug(String slug) {
-        if (slug == null) {
-            return;
-        }
-        invalidateFamily(Family.PRODUCT);
+    /** Durable task execution path: return the shared generation and surface Redis failures. */
+    public long invalidateFamilyStrict(Family family) {
+        return reconcileGeneration(family, generationStates.get(family), true);
     }
 
     private long currentGeneration(Family family) {

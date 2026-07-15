@@ -5,10 +5,7 @@ import com.dreamy.domain.question.entity.ProductQuestion;
 import com.dreamy.domain.question.repository.ProductQuestionRepository;
 import com.dreamy.error.ReviewErrorCode;
 import com.dreamy.error.ReviewException;
-import com.dreamy.infra.ReviewAfterCommitRunner;
 import com.dreamy.infra.ReviewAuditRecorder;
-import com.dreamy.infra.ReviewCacheService;
-import com.dreamy.mq.ReviewEventPublisher;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
 import com.dreamy.port.ReviewCatalogSnapshotPort.ProductBrief;
 import com.dreamy.testsupport.ReviewImmediateTxRunner;
@@ -25,14 +22,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * 后台 Q&A 状态机/可见性单元测试。
@@ -49,18 +40,16 @@ class AdminQuestionServiceTest {
     @Mock
     ReviewCatalogSnapshotPort catalogPort;
     @Mock
-    ReviewCacheService cache;
-    @Mock
     ReviewAuditRecorder audit;
     @Mock
-    ReviewEventPublisher events;
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     AdminQuestionService service;
 
     @BeforeEach
     void setUp() {
-        service = new AdminQuestionService(questionRepository, catalogPort, cache, audit,
-                new ReviewAfterCommitRunner(), events, new ReviewImmediateTxRunner(), new ObjectMapper());
+        service = new AdminQuestionService(questionRepository, catalogPort, audit, cacheTasks,
+                new ReviewImmediateTxRunner(), new ObjectMapper());
         lenient().when(catalogPort.getProductBriefs(any())).thenReturn(Map.of(
                 PRODUCT, new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", true)));
         lenient().when(catalogPort.getProductBrief(PRODUCT))
@@ -87,9 +76,9 @@ class AdminQuestionServiceTest {
         service.putAnswer(1L, "  Yes it does.  ");
         verify(questionRepository).saveAnswer(eq(1L), eq("Yes it does."), any(LocalDateTime.class), eq(true));
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_ANSWER), eq("question#1"), anyString());
-        verify(cache).invalidateProduct(ReviewCacheService.Family.QUESTIONS, PRODUCT);
-        verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_QUESTION_CHANGED,
-                "aurelia-gown", PRODUCT);
+        verify(cacheTasks).enqueue(anyString(), anyString(), anyString(),
+                nullable(Object.class), nullable(String.class), anyList(), nullable(LocalDateTime.class),
+                anyMap(), nullable(String.class));
     }
 
     @Test
@@ -120,12 +109,11 @@ class AdminQuestionServiceTest {
         verify(questionRepository).updateVisible(4L, QuestionVisibility.VISIBLE);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_ANSWER), eq("question#4"), anyString());
 
-        org.mockito.Mockito.clearInvocations(questionRepository, audit, events);
+        org.mockito.Mockito.clearInvocations(questionRepository, audit);
         when(questionRepository.findById(5L)).thenReturn(question(5L, null, QuestionVisibility.VISIBLE));
         service.patchVisibility(5L, 1);
         verify(questionRepository, never()).updateVisible(anyLong(), any());
         verify(audit, never()).record(anyString(), anyString(), any());
-        verify(events, never()).publishContentInvalidated(anyString(), anyString(), anyLong());
     }
 
     @Test

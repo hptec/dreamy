@@ -49,6 +49,8 @@ class AttributeDefServiceTest {
     CatalogCacheService cache;
     @Mock
     CatalogAfterCommitRunner afterCommit;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     @InjectMocks
     AttributeDefService service;
 

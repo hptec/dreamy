@@ -259,30 +259,30 @@ public class MarketingSeedInitializer {
 
         seedBanner(existingNames, "Outdoor Edit 2026 主 Banner", REF + "/kissprom/wedding-aline-tulle-01.jpg",
                 BannerPosition.HERO, LocalDateTime.of(2026, 5, 1, 0, 0), LocalDateTime.of(2026, 8, 31, 23, 59),
-                ContentStatus.PUBLISHED, 100, 12840, "/wedding-dresses",
+                ContentStatus.PUBLISHED, 100, "/wedding-dresses",
                 "Dresses made for golden hour", "The Outdoor Wedding Edit · 2026", "Shop the Collection",
                 "Vestidos para la hora dorada", "La Edición de Bodas al Aire Libre · 2026", "Ver la colección",
                 "Des robes pour l'heure dorée", "L'Édition Mariage en Plein Air · 2026", "Voir la collection");
         seedBanner(existingNames, "Garden Romance Hero（草稿示例）", REF + "/davidsbridal/bridesmaid-sage-01.jpg",
-                BannerPosition.HERO, null, null, ContentStatus.DRAFT, 10, 0, "/outdoor-weddings",
+                BannerPosition.HERO, null, null, ContentStatus.DRAFT, 10, "/outdoor-weddings",
                 "Where will you say I do?", "Garden Wedding Edit · Draft", "Preview the Edit",
                 "¿Dónde darás el sí?", "Edición Boda en el Jardín · Borrador", "Vista previa",
                 "Où allez-vous dire oui ?", "Édition Mariage au Jardin · Brouillon", "Prévisualiser");
         seedBanner(existingNames, "Bridesmaid Color 推广", REF + "/birdygrey/bridesmaid-pink-bella-01.jpg",
                 BannerPosition.FEATURED, LocalDateTime.of(2026, 5, 10, 0, 0), LocalDateTime.of(2026, 7, 10, 23, 59),
-                ContentStatus.PUBLISHED, 90, 8210, "/special-occasion",
+                ContentStatus.PUBLISHED, 90, "/special-occasion",
                 "Bridesmaid Colors for 2026", "Sage, dusty blue and terracotta", "Explore Colors",
                 "Colores de damas 2026", "Salvia, azul polvo y terracota", "Explorar colores",
                 "Couleurs demoiselles 2026", "Sauge, bleu poudré et terracotta", "Explorer");
         seedBanner(existingNames, "Klarna 分期付款条", REF + "/davidsbridal/wedding-dress-04.jpg",
                 BannerPosition.TOPBAR, LocalDateTime.of(2026, 4, 1, 0, 0), LocalDateTime.of(2026, 12, 31, 23, 59),
-                ContentStatus.PUBLISHED, 80, 24600, null,
+                ContentStatus.PUBLISHED, 80, null,
                 "Pay in 4 with Klarna", "Interest-free installments at checkout", "Learn More",
                 "Paga en 4 con Klarna", "Cuotas sin interés al pagar", "Saber más",
                 "Payez en 4 avec Klarna", "Mensualités sans frais au paiement", "En savoir plus");
         seedBanner(existingNames, "Spring Sale 春季促销", REF + "/kissprom/prom-champagne-lace-05.jpg",
                 BannerPosition.FEATURED, LocalDateTime.of(2026, 3, 1, 0, 0), LocalDateTime.of(2026, 5, 30, 23, 59),
-                ContentStatus.ARCHIVED, 60, 5400, "/special-occasion",
+                ContentStatus.ARCHIVED, 60, "/special-occasion",
                 "Spring Sale", "Up to 30% off selected styles", "Shop Sale",
                 "Rebajas de primavera", "Hasta 30% en estilos seleccionados", "Comprar",
                 "Soldes de printemps", "Jusqu'à -30% sur une sélection", "Voir les soldes");
@@ -291,7 +291,7 @@ public class MarketingSeedInitializer {
     @SuppressWarnings("java:S107")
     private void seedBanner(Set<String> existingNames, String name, String imageUrl,
                             BannerPosition position, LocalDateTime startTime,
-                            LocalDateTime endTime, ContentStatus status, int sort, int clicks,
+                            LocalDateTime endTime, ContentStatus status, int sort,
                             String ctaLink, String title, String subtitle, String cta,
                             String titleEs, String subtitleEs, String ctaEs,
                             String titleFr, String subtitleFr, String ctaFr) {
@@ -306,7 +306,6 @@ public class MarketingSeedInitializer {
         banner.setEndTime(endTime);
         banner.setStatus(status);
         banner.setSort(sort);
-        banner.setClicks(clicks);
         banner.setTitle(title);
         banner.setSubtitle(subtitle);
         banner.setCtaText(cta);

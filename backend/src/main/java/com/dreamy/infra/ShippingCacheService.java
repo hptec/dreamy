@@ -66,14 +66,12 @@ public class ShippingCacheService {
         return getOrLoad(KEY_RATES, loader);
     }
 
-    /** E-SHP-02~05 事务提交后失效 shipping:carriers */
-    public void invalidateCarriers() {
-        invalidate(KEY_CARRIERS);
+    public String invalidateCarriersStrict() {
+        return invalidateStrict(KEY_CARRIERS);
     }
 
-    /** E-SHP-07~09 事务提交后失效 shipping:rates */
-    public void invalidateRates() {
-        invalidate(KEY_RATES);
+    public String invalidateRatesStrict() {
+        return invalidateStrict(KEY_RATES);
     }
 
     @SuppressWarnings("unchecked")
@@ -93,11 +91,8 @@ public class ShippingCacheService {
         }
     }
 
-    private void invalidate(String key) {
-        try {
-            cache.remove(key);
-        } catch (Exception ex) {
-            log.warn("[CACHE-SHP] invalidate failed key=shipping:{} (TTL 600s 兜底)", key);
-        }
+    private String invalidateStrict(String key) {
+        cache.remove(key);
+        return "removed shipping:" + key;
     }
 }

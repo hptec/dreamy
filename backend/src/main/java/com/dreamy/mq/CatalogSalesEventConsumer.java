@@ -1,8 +1,8 @@
 package com.dreamy.mq;
 
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.infra.CatalogCacheService;
-import com.dreamy.infra.CatalogCacheService.Family;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.port.TradingQueryPort;
 import com.dreamy.infra.mq.AbstractIdempotentEventConsumer;
 import com.dreamy.infra.mq.DomainEvent;
@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,17 +31,19 @@ public class CatalogSalesEventConsumer extends AbstractIdempotentEventConsumer {
 
     private final TradingQueryPort tradingQueryPort;
     private final ProductRepository productRepository;
-    private final CatalogCacheService cache;
     private final TransactionTemplate transactionTemplate;
+    private final CacheInvalidationTaskService cacheTasks;
+    private final Clock clock;
 
     public CatalogSalesEventConsumer(EventIdempotencyGuard idempotencyGuard, TradingQueryPort tradingQueryPort,
-                                     ProductRepository productRepository, CatalogCacheService cache,
-                                     TransactionTemplate transactionTemplate) {
+                                     ProductRepository productRepository, TransactionTemplate transactionTemplate,
+                                     CacheInvalidationTaskService cacheTasks, Clock clock) {
         super(idempotencyGuard);
         this.tradingQueryPort = tradingQueryPort;
         this.productRepository = productRepository;
-        this.cache = cache;
         this.transactionTemplate = transactionTemplate;
+        this.cacheTasks = cacheTasks;
+        this.clock = clock;
     }
 
     @Override
@@ -61,7 +64,7 @@ public class CatalogSalesEventConsumer extends AbstractIdempotentEventConsumer {
             log.warn("[EVT-CAT-001] order.paid event_id={} without product lines", event.eventId());
             return;
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime windowStart = now.minusDays(30);
         // ③④ TX-CAT-021：消费者内单事务逐一覆盖写（天然可重入）
         transactionTemplate.executeWithoutResult(tx -> {
@@ -69,9 +72,10 @@ public class CatalogSalesEventConsumer extends AbstractIdempotentEventConsumer {
                 int sales = tradingQueryPort.sumPaidQty(productId, windowStart);
                 productRepository.updateSales30d(productId, sales, now);
             }
+            cacheTasks.enqueue(CacheInvalidationTaskService.MODE_SYSTEM_EVENT, "catalog.sales.refresh",
+                    "product_batch", event.eventId(), "销量回写", CacheInvalidationPlans.PRODUCT_SALES,
+                    null, Map.of("product_ids", productIds), "event:order.paid");
         });
-        // ⑤ 失效 catalog:reco:*（CACHE-CAT-004 失效触发者：order.paid 销量回写）
-        cache.invalidateFamily(Family.RECO);
         log.info("[EVT-CAT-001] sales_30d refreshed event_id={} products={}", event.eventId(), productIds);
     }
 

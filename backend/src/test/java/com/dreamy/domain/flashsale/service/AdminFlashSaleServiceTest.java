@@ -5,10 +5,7 @@ import com.dreamy.domain.flashsale.repository.FlashSaleRepository;
 import com.dreamy.enums.FlashSaleStatus;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,8 +15,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,15 +30,13 @@ class AdminFlashSaleServiceTest {
     @Mock
     FlashSaleRepository flashSaleRepository;
     @Mock
-    MarketingCacheService cache;
-    @Mock
     MarketingAuditRecorder audit;
     @Mock
-    MarketingAfterCommitRunner afterCommit;
-    @Mock
-    MarketingContentInvalidatedPublisher publisher;
-    @Mock
     CatalogQueryPort catalogQueryPort;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
+    @Mock
+    Clock clock;
     @InjectMocks
     AdminFlashSaleService service;
 
@@ -65,7 +62,8 @@ class AdminFlashSaleServiceTest {
         order.verify(flashSaleRepository).deleteById(2L);
         verify(flashSaleRepository, never()).update(any());
         verify(audit).record("删除闪购", "Flash sale", null);
-        verify(afterCommit, never()).run(any(Runnable.class));
+        verify(cacheTasks, never()).enqueue(anyString(), anyString(), anyString(), any(), any(), anyList(),
+                any(), anyMap(), any());
     }
 
     private static FlashSale sale(long id, FlashSaleStatus status) {

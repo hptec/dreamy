@@ -4,16 +4,14 @@ import com.dreamy.enums.FlashSaleStatus;
 import com.dreamy.domain.flashsale.entity.FlashSale;
 import com.dreamy.domain.flashsale.entity.FlashSaleTranslation;
 import com.dreamy.domain.flashsale.repository.FlashSaleRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminMarketingDtos.FlashSaleDto;
 import com.dreamy.dto.AdminMarketingDtos.FlashSaleUpsert;
 import com.dreamy.dto.MarketingTranslationDtos.FlashSaleTranslationDto;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import com.dreamy.support.MarketingFieldErrors;
 import com.dreamy.support.MarketingParams;
@@ -21,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,21 +38,19 @@ public class AdminFlashSaleService {
 
 
     private final FlashSaleRepository flashSaleRepository;
-    private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
-    private final MarketingAfterCommitRunner afterCommit;
-    private final MarketingContentInvalidatedPublisher publisher;
+    private final CacheInvalidationTaskService cacheTasks;
     private final CatalogQueryPort catalogQueryPort;
+    private final Clock clock;
 
-    public AdminFlashSaleService(FlashSaleRepository flashSaleRepository, MarketingCacheService cache,
-                                 MarketingAuditRecorder audit, MarketingAfterCommitRunner afterCommit,
-                                 MarketingContentInvalidatedPublisher publisher, CatalogQueryPort catalogQueryPort) {
+    public AdminFlashSaleService(FlashSaleRepository flashSaleRepository, MarketingAuditRecorder audit,
+                                 CacheInvalidationTaskService cacheTasks, CatalogQueryPort catalogQueryPort,
+                                 Clock clock) {
         this.flashSaleRepository = flashSaleRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.publisher = publisher;
+        this.cacheTasks = cacheTasks;
         this.catalogQueryPort = catalogQueryPort;
+        this.clock = clock;
     }
 
     /** E-MKT-17：列表（status 筛选 + product_ids/translations 批查防 N+1） */
@@ -86,7 +83,7 @@ public class AdminFlashSaleService {
         audit.record("创建闪购", n.name(), null);
         // STEP-MKT-03 提交后（active 时）失效 + MQ（draft/scheduled 无消费端可见性变化，不发——SCHED 翻转时再发）
         if (n.status() == FlashSaleStatus.ACTIVE) {
-            invalidateAfterCommit();
+            enqueue("flash_sale.create", sale);
         }
         return toDto(flashSaleRepository.findById(sale.getId()), n.productIds(), nonNull(req.translations()));
     }
@@ -114,7 +111,7 @@ public class AdminFlashSaleService {
         audit.record("编辑闪购", n.name(), null);
         // STEP-MKT-05 提交后（DB 或目标 status 含 active）失效 + MQ
         if (hadActiveFace || n.status() == FlashSaleStatus.ACTIVE) {
-            invalidateAfterCommit();
+            enqueue("flash_sale.update", existing);
         }
         return toDto(flashSaleRepository.findById(id), n.productIds(), nonNull(req.translations()));
     }
@@ -138,11 +135,10 @@ public class AdminFlashSaleService {
         // STEP-MKT-04 draft 无消费端可见性，不失效不发 MQ
     }
 
-    private void invalidateAfterCommit() {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.FLASH);
-            publisher.publish(MarketingContentInvalidatedPublisher.TYPE_FLASH_SALE_CHANGED);
-        });
+    private void enqueue(String triggerPoint, FlashSale sale) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "flash_sale", sale.getId(), sale.getName(), CacheInvalidationPlans.FLASH,
+                null, java.util.Map.of("status", sale.getStatus().getKey()), null);
     }
 
     private record Normalized(String name, String discount, FlashSaleStatus status, List<Long> productIds) {
@@ -151,7 +147,7 @@ public class AdminFlashSaleService {
     /** V-MKT-031~036（existing 非空=编辑：不可改入 ended，ended 由 SCHED 专有——V-MKT-037 放宽口径） */
     private Normalized validateUpsert(FlashSaleUpsert req, FlashSale existing) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         // V-MKT-031 name 必填 trim 非空 ≤64
         String name = MarketingParams.trimToNull(req.name());
         if (name == null) {

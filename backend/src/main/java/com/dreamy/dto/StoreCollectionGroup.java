@@ -12,6 +12,6 @@ public record StoreCollectionGroup(
         String description,
         List<StoreCollectionItem> collections
 ) {
-    public record StoreCollectionItem(Long id, String name, Integer productCount) {
+    public record StoreCollectionItem(Long id, String name, Integer productCount, String imageUrl) {
     }
 }

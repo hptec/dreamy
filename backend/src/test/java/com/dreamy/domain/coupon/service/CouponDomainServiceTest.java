@@ -9,9 +9,9 @@ import com.dreamy.enums.CouponType;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -39,8 +39,12 @@ class CouponDomainServiceTest {
 
     @Mock
     CouponRepository couponRepository;
-    @InjectMocks
     CouponDomainServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new CouponDomainServiceImpl(couponRepository, java.time.Clock.systemUTC());
+    }
 
     private static Coupon coupon(CouponStatus status, CouponType type, String value,
                                  BigDecimal minAmount, int totalLimit, int usedCount) {
@@ -54,8 +58,8 @@ class CouponDomainServiceTest {
         c.setMinAmount(minAmount);
         c.setTotalLimit(totalLimit);
         c.setUsedCount(usedCount);
-        c.setStartAt(LocalDateTime.now().minusDays(1));
-        c.setEndAt(LocalDateTime.now().plusDays(30));
+        c.setStartAt(LocalDateTime.now(java.time.Clock.systemUTC()).minusDays(1));
+        c.setEndAt(LocalDateTime.now(java.time.Clock.systemUTC()).plusDays(30));
         return c;
     }
 
@@ -74,7 +78,7 @@ class CouponDomainServiceTest {
                 .isEqualTo(422701);
 
         Coupon future = coupon(CouponStatus.ACTIVE, CouponType.DISCOUNT, "15% OFF", BigDecimal.ZERO, 100, 0);
-        future.setStartAt(LocalDateTime.now().plusDays(1));
+        future.setStartAt(LocalDateTime.now(java.time.Clock.systemUTC()).plusDays(1));
         when(couponRepository.findByCode("WELCOME15")).thenReturn(future);
         assertThat(service.validate("WELCOME15", new BigDecimal("100"), "en").reasonCode())
                 .isEqualTo(422701);
@@ -89,7 +93,7 @@ class CouponDomainServiceTest {
 
         // SCHED 未及时翻转：status=active 但 end_at 已过 → 实时判定兜底（CV-MKT-011）
         Coupon stale = coupon(CouponStatus.ACTIVE, CouponType.DISCOUNT, "15% OFF", BigDecimal.ZERO, 100, 0);
-        stale.setEndAt(LocalDateTime.now().minusMinutes(1));
+        stale.setEndAt(LocalDateTime.now(java.time.Clock.systemUTC()).minusMinutes(1));
         when(couponRepository.findByCode("WELCOME15")).thenReturn(stale);
         assertThat(service.validate("WELCOME15", new BigDecimal("100"), "en").reasonCode()).isEqualTo(422701);
     }

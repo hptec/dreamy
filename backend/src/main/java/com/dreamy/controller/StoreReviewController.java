@@ -26,12 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
  * 鉴权（§0.1 method-aware 白名单）：GET reviews/questions 匿名公开（登记 GET:/api/store/reviews、
  * GET:/api/store/questions——同路径 POST 仍 StoreBearerAuth 强制鉴权，customer_id=JWT subject，BE-DIM-6；
  * /api/store/reviews/mine 不入白名单，强制鉴权）。
- * 读端点 CDN `Cache-Control: s-maxage=60`（缓存矩阵）；提交端点与个人数据端点不缓存。
+ * 开发阶段所有读端点响应 `Cache-Control: no-store`；提交端点与个人数据端点同样不缓存。
  */
 @RestController
 public class StoreReviewController {
 
-    private static final String CACHE_60 = "s-maxage=60";
+    private static final String CACHE_60 = "no-store";
 
     private final StoreReviewService storeReviewService;
     private final StoreQuestionService storeQuestionService;
@@ -63,7 +63,7 @@ public class StoreReviewController {
      * E-REV-16 listMyReviews（F-049 我的评价，L3 修复轮新增）。
      * StoreBearerAuth：白名单条目 GET:/api/store/reviews 为精确路径不放行 /mine（MethodAwarePathMatcher
      * AntPath 精确匹配），无 token → 过滤器短路 401；customer_id=JWT subject（BE-DIM-6）。
-     * 个人数据不缓存（无 s-maxage）。
+     * 个人数据不缓存。
      */
     @GetMapping("/api/store/reviews/mine")
     public ResponseEntity<R<Paginated<StoreMyReviewDto>>> listMyReviews(

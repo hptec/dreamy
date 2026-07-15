@@ -4,17 +4,17 @@ import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.guide.entity.Guide;
 import com.dreamy.domain.guide.entity.GuideTranslation;
 import com.dreamy.domain.guide.repository.GuideRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminMarketingDtos.GuideDto;
 import com.dreamy.dto.AdminMarketingDtos.GuideUpsert;
 import com.dreamy.dto.MarketingTranslationDtos.GuideTranslationDto;
 import com.dreamy.dto.StoreMarketingDtos.StoreGuide;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
 import com.dreamy.infra.MarketingCacheService;
 import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.support.MarketingFieldErrors;
 import com.dreamy.support.MarketingParams;
 import com.dreamy.support.Translations;
@@ -40,17 +40,14 @@ public class GuideService {
     private final GuideRepository guideRepository;
     private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
-    private final MarketingAfterCommitRunner afterCommit;
-    private final MarketingContentInvalidatedPublisher publisher;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public GuideService(GuideRepository guideRepository, MarketingCacheService cache,
-                        MarketingAuditRecorder audit, MarketingAfterCommitRunner afterCommit,
-                        MarketingContentInvalidatedPublisher publisher) {
+                        MarketingAuditRecorder audit, CacheInvalidationTaskService cacheTasks) {
         this.guideRepository = guideRepository;
         this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.publisher = publisher;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-MKT-08：消费端 published 列表（ORDER BY phase, id + locale 回退 + JetCache 300s） */
@@ -103,7 +100,7 @@ public class GuideService {
         audit.record("创建指南", n.title(), null);
         // STEP-MKT-03 提交后（published）失效 + MQ → revalidate /wedding-guides ×3 + purge
         if (n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit();
+            enqueue("guide.create", guide);
         }
         return toDto(guideRepository.findById(guide.getId()), nonNull(req.translations()));
     }
@@ -125,7 +122,7 @@ public class GuideService {
         audit.record("编辑指南", n.title(), null);
         // STEP-MKT-03 提交后失效 + MQ（同 E-MKT-43 口径）
         if (wasPublished || n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit();
+            enqueue("guide.update", existing);
         }
         return toDto(guideRepository.findById(id), nonNull(req.translations()));
     }
@@ -143,7 +140,7 @@ public class GuideService {
         audit.record("删除指南", existing.getTitle(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ
         if (existing.getStatus() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit();
+            enqueue("guide.delete", existing);
         }
     }
 
@@ -169,16 +166,15 @@ public class GuideService {
         audit.record("指南发布状态变更", existing.getTitle(),
                 "{\"from\":\"" + existing.getStatus().getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
         // STEP-MKT-03 提交后失效 + MQ + revalidate /wedding-guides ×3 + purge
-        invalidateAfterCommit();
+        enqueue("guide.status", existing);
         existing.setStatus(target);
         return toDto(existing, translations.getOrDefault(id, List.of()));
     }
 
-    private void invalidateAfterCommit() {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.GUIDES);
-            publisher.publish(MarketingContentInvalidatedPublisher.TYPE_GUIDE_CHANGED);
-        });
+    private void enqueue(String triggerPoint, Guide guide) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "guide", guide.getId(), guide.getTitle(), CacheInvalidationPlans.GUIDE,
+                null, java.util.Map.of(), null);
     }
 
     private record Normalized(String phase, String timeframe, String title, Integer tasksCount,

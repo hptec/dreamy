@@ -11,12 +11,12 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 消费端汇率控制器（trading-api-detail §8，FLOW-P18，决策 14；匿名公开——
  * StoreJwtFilter 白名单 /api/store/exchange-rates）。
- * CDN s-maxage=600（CACHE-TRD-001）；payload 不含 updated_by。
+ * 开发阶段响应 no-store；payload 不含 updated_by。
  */
 @RestController
 public class StoreExchangeRateController {
 
-    private static final String CACHE_600 = "s-maxage=600";
+    private static final String CACHE_600 = "no-store";
 
     private final ExchangeRateService exchangeRateService;
 

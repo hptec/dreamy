@@ -5,9 +5,7 @@ import com.dreamy.domain.carrier.repository.CarrierRepository;
 import com.dreamy.enums.CarrierStatus;
 import com.dreamy.error.ShippingErrorCode;
 import com.dreamy.error.ShippingException;
-import com.dreamy.infra.ShippingAfterCommitRunner;
 import com.dreamy.infra.ShippingAuditRecorder;
-import com.dreamy.infra.ShippingCacheService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,26 +16,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CarrierTxServiceTest {
 
     @Mock CarrierRepository carrierRepository;
     @Mock ShippingAuditRecorder audit;
-    @Mock ShippingAfterCommitRunner afterCommit;
-    @Mock ShippingCacheService cache;
+    @Mock com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     private CarrierTxService service;
 
     @BeforeEach
     void setUp() {
-        service = new CarrierTxService(carrierRepository, audit, afterCommit, cache, new ObjectMapper());
+        service = new CarrierTxService(carrierRepository, audit, new ObjectMapper(), cacheTasks);
     }
 
     @Test
@@ -51,7 +44,9 @@ class CarrierTxServiceTest {
         verify(carrierRepository, never()).countEnabled();
         verify(carrierRepository).deleteById(7L);
         verify(audit).record(eq("删除承运方"), eq("DHL"), anyString());
-        verify(afterCommit).run(any(Runnable.class));
+        verify(cacheTasks).enqueue(anyString(), anyString(), anyString(),
+                nullable(Object.class), nullable(String.class), anyList(), nullable(java.time.LocalDateTime.class),
+                anyMap(), nullable(String.class));
     }
 
     @Test
@@ -68,7 +63,7 @@ class CarrierTxServiceTest {
 
         verify(carrierRepository, never()).deleteById(any());
         verify(audit, never()).record(anyString(), anyString(), any());
-        verify(afterCommit, never()).run(any());
+        verifyNoInteractions(cacheTasks);
     }
 
     private Carrier carrier(Long id, CarrierStatus status) {

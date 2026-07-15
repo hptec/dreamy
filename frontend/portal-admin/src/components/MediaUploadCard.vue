@@ -9,12 +9,14 @@ import type { PresignScope } from '@/api/types'
 const props = withDefaults(
   defineProps<{
     modelValue?: string | null
+    fallbackValue?: string | null
+    fallbackLabel?: string
     scope?: PresignScope
     label?: string
     aspect?: string
     allowVideo?: boolean
   }>(),
-  { modelValue: '', scope: 'product', label: '点击上传', aspect: 'aspect-[3/4]', allowVideo: false },
+  { modelValue: '', fallbackValue: '', fallbackLabel: '继承默认图片', scope: 'product', label: '点击上传', aspect: 'aspect-[3/4]', allowVideo: false },
 )
 
 const emit = defineEmits<{ (e: 'update:modelValue', url: string): void }>()
@@ -45,15 +47,18 @@ function clearImage() {
       class="group relative flex w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-luxe border-2 border-dashed text-ink-faint transition-colors hover:border-gold"
       :class="[aspect, error ? 'border-danger/60' : 'border-line']"
     >
-      <img v-if="modelValue" :src="modelValue" class="absolute inset-0 h-full w-full object-cover" />
+      <img v-if="modelValue || fallbackValue" :src="modelValue || fallbackValue || ''" class="absolute inset-0 h-full w-full object-cover" />
       <template v-else>
         <ArrowUpTrayIcon class="h-6 w-6" />
         <span class="mt-1 px-2 text-center text-[11px]">{{ label }}</span>
       </template>
       <span
-        v-if="modelValue && !uploading"
+        v-if="(modelValue || fallbackValue) && !uploading"
         class="absolute inset-0 flex items-center justify-center bg-ink/40 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100"
-      >更换</span>
+      >{{ modelValue ? '更换' : '上传独立图片' }}</span>
+      <span v-if="!modelValue && fallbackValue" class="absolute left-2 top-2 rounded bg-ink/70 px-2 py-1 text-[10px] text-white">
+        {{ fallbackLabel }}
+      </span>
       <!-- 进度条 -->
       <div v-if="uploading" class="absolute inset-x-0 bottom-0 bg-ink/60 px-2 py-1">
         <div class="h-1 overflow-hidden rounded-full bg-white/30">

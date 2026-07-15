@@ -16,8 +16,7 @@ import java.util.function.Supplier;
 
 /**
  * 汇率消费端缓存（CACHE-TRD-001：JetCache 两级 Caffeine+Redis，key `trading:exchange-rates`，
- * TTL 600s；CDN s-maxage=600 由控制器响应头输出；失效链 updateAdminExchangeRate →
- * invalidate → MQ content.invalidated → Cloudflare purge，FLOW-P18/EVT-TRD-005）。
+ * TTL 600s；updateAdminExchangeRate 写入后由持久化缓存任务清理，执行结果可在后台追踪。
  * 穿透保护：固定 5 行种子数据无穿透面（trading-data-detail §8）。
  * 缓存操作失败不影响主流程（TX-TRD-011 EC：失效失败不回滚 DB，TTL 600s 兜底收敛）。
  */
@@ -68,12 +67,8 @@ public class ExchangeRateCacheService {
         return loaded;
     }
 
-    /** 失效（updateAdminExchangeRate 事务提交后，CP-031） */
-    public void invalidate() {
-        try {
-            cache.remove(KEY);
-        } catch (Exception ex) {
-            log.warn("[CACHE-TRD-001] invalidate failed (TTL 600s 兜底收敛)", ex);
-        }
+    public String invalidateStrict() {
+        cache.remove(KEY);
+        return "removed " + KEY;
     }
 }

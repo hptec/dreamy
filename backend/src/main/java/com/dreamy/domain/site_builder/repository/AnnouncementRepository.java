@@ -39,7 +39,7 @@ public class AnnouncementRepository {
         return mapper.selectList(new LambdaQueryWrapper<Announcement>()
                 .eq(Announcement::getEnabled, true)
                 .and(w -> w.isNull(Announcement::getStartAt).or().le(Announcement::getStartAt, now))
-                .and(w -> w.isNull(Announcement::getEndAt).or().ge(Announcement::getEndAt, now))
+                .and(w -> w.isNull(Announcement::getEndAt).or().gt(Announcement::getEndAt, now))
                 .orderByDesc(Announcement::getPriority)
                 .orderByAsc(Announcement::getId));
     }

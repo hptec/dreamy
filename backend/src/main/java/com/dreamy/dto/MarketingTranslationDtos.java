@@ -17,7 +17,7 @@ public final class MarketingTranslationDtos {
     }
 
     /** openapi BannerTranslation（V-MKT-044） */
-    public record BannerTranslationDto(String locale, String title, String subtitle, String ctaText,
+    public record BannerTranslationDto(String locale, String imageUrl, String title, String subtitle, String ctaText,
                                        String ctaTextSecondary) {
     }
 

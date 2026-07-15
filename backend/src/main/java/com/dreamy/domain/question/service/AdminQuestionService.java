@@ -4,15 +4,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.enums.QuestionVisibility;
 import com.dreamy.domain.question.entity.ProductQuestion;
 import com.dreamy.domain.question.repository.ProductQuestionRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.ReviewDtos.AdminQuestionDto;
 import com.dreamy.error.ReviewErrorCode;
 import com.dreamy.error.ReviewException;
-import com.dreamy.infra.ReviewAfterCommitRunner;
 import com.dreamy.infra.ReviewAuditRecorder;
-import com.dreamy.infra.ReviewCacheService;
-import com.dreamy.infra.ReviewCacheService.Family;
 import com.dreamy.infra.ReviewTxRunner;
-import com.dreamy.mq.ReviewEventPublisher;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
 import com.dreamy.support.ReviewFieldErrors;
 import com.dreamy.support.PaginatedFactory;
@@ -30,31 +28,26 @@ import java.util.Set;
 
 /**
  * 后台 Q&A 服务（E-REV-13~15；TX-REV-008/009；TASK-049 question_answer_flow guard 内嵌）。
- * 失效链：`review:questions:{pid}:*` + content.invalidated(type=question_changed)，PDP Q&A 区同步刷新。
- * L2 TRACE: V-REV-031~037 / RM-REV-031~035 / CV-REV-006/009 / CACHE-REV-002 / EVT-REV-002。
+ * 前台可见写会创建持久化缓存任务，PDP Q&A 缓存由任务工作器清理。
+ * L2 TRACE: V-REV-031~037 / RM-REV-031~035 / CV-REV-006/009 / CACHE-REV-002。
  */
 @Service
 public class AdminQuestionService {
 
     private final ProductQuestionRepository questionRepository;
     private final ReviewCatalogSnapshotPort catalogPort;
-    private final ReviewCacheService cache;
     private final ReviewAuditRecorder audit;
-    private final ReviewAfterCommitRunner afterCommit;
-    private final ReviewEventPublisher events;
+    private final CacheInvalidationTaskService cacheTasks;
     private final ReviewTxRunner tx;
     private final ObjectMapper objectMapper;
 
     public AdminQuestionService(ProductQuestionRepository questionRepository, ReviewCatalogSnapshotPort catalogPort,
-                                ReviewCacheService cache, ReviewAuditRecorder audit,
-                                ReviewAfterCommitRunner afterCommit, ReviewEventPublisher events,
+                                ReviewAuditRecorder audit, CacheInvalidationTaskService cacheTasks,
                                 ReviewTxRunner tx, ObjectMapper objectMapper) {
         this.questionRepository = questionRepository;
         this.catalogPort = catalogPort;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.events = events;
+        this.cacheTasks = cacheTasks;
         this.tx = tx;
         this.objectMapper = objectMapper;
     }
@@ -116,13 +109,9 @@ public class AdminQuestionService {
             changes.put("answer_before", question.getAnswer());
             changes.put("answer_after", trimmed);
             audit.record(ReviewAuditRecorder.ACTION_ANSWER, "question#" + id, toJson(changes));
-            // STEP-REV-04 失效 questions + content.invalidated(question_changed)
+            // STEP-REV-04 创建 questions 缓存任务
             Long productId = question.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.QUESTIONS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_QUESTION_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueQuestion("question.answer", id, productId);
         });
         return readAdminDto(id);
     }
@@ -148,13 +137,9 @@ public class AdminQuestionService {
                     "visible", Map.of(
                             "from", question.getVisible() == null ? "" : question.getVisible().getKey(),
                             "to", target.getKey()))));
-            // STEP-REV-05 失效 + content.invalidated
+            // STEP-REV-05 创建 questions 缓存任务
             Long productId = question.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.QUESTIONS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_QUESTION_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueQuestion("question.visibility", id, productId);
         });
         return readAdminDto(id);
     }
@@ -185,9 +170,10 @@ public class AdminQuestionService {
                 q.getVisible() == null ? null : q.getVisible().getKey());
     }
 
-    private String slugOf(Long productId) {
-        ReviewCatalogSnapshotPort.ProductBrief brief = catalogPort.getProductBrief(productId);
-        return brief == null ? null : brief.slug();
+    private void enqueueQuestion(String triggerPoint, Long questionId, Long productId) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "question", questionId, "product:" + productId, CacheInvalidationPlans.QUESTION,
+                null, Map.of("product_id", productId), null);
     }
 
     private String toJson(Map<String, Object> changes) {

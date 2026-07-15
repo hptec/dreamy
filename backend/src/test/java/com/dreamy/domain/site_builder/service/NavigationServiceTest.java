@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -31,14 +31,14 @@ class NavigationServiceTest {
     @Mock
     private NavigationItemRepository repository;
     @Mock
-    private SiteBuilderCacheService cacheService;
+    private com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private NavigationService service;
 
     @BeforeEach
     void setUp() {
-        service = new NavigationService(repository, objectMapper, cacheService);
+        service = new NavigationService(repository, objectMapper, cacheTasks);
     }
 
     @Test
@@ -109,7 +109,8 @@ class NavigationServiceTest {
 
         verify(repository).deleteByIdsNotIn(List.of(1L));
         verify(repository).updateById(any(NavigationItem.class));
-        verify(cacheService).invalidateNavigationFamily();
+        verify(cacheTasks).enqueue(anyString(), eq("site_navigation.save"), eq("site_navigation"),
+                eq("navigation"), eq("导航配置"), anyList(), isNull(), anyMap(), isNull());
     }
 
     @Test

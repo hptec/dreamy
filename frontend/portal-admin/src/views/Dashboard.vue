@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // PAGE-ANA-A01 / COMP-ANA-A01~A06：工作台（布局栅格零改动；mock → E-ANA-01 + E-ANA-02 donut）
 // DEC-ANA-FE-2 KPI 本月口径 delta 移除；FE-3 待办 3 瓦片；FE-4 非契约面板空态；FE-5 趋势客户端切片
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import SparkArea from '@/components/SparkArea.vue'
@@ -9,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { cacheApi, type CacheTaskSummary } from '@/api'
 import {
   PlusIcon, ShoppingBagIcon, SwatchIcon, TicketIcon, DocumentPlusIcon,
   RocketLaunchIcon, ArrowPathIcon,
@@ -17,6 +18,7 @@ import {
 const store = useDashboardStore()
 const auth = useAuthStore()
 const toast = useToastStore()
+const cacheSummary = ref<CacheTaskSummary>({ scheduled: 0, pending: 0, running: 0, retrying: 0, succeeded: 0, partial: 0, failed: 0 })
 
 // ALIGN-009 / COMP-ANA-D02（决策 5，推翻 DEC-ANA-FE-4 ②）：快捷入口恢复原型 5 项（顺序逐字对照原型 L13-19）；
 // 「新建优惠券」走 impl 路由 /promotions（原型 /marketing/promotions 为旧路径，以 impl 路由为准）
@@ -25,7 +27,7 @@ const quickActions = [
   { label: '编辑首页', icon: SwatchIcon, to: '/site/home' },
   { label: '新建优惠券', icon: TicketIcon, to: '/promotions' },
   { label: '写一篇文章', icon: DocumentPlusIcon, to: '/content/blog' },
-  { label: '发布站点', icon: RocketLaunchIcon, to: '/publish' },
+  { label: '缓存管理', icon: RocketLaunchIcon, to: '/system/cache' },
 ]
 
 // KPI 卡（DEC-ANA-FE-2：本月口径，delta 行移除）
@@ -67,6 +69,9 @@ const todayText = computed(() => {
 
 function load() {
   store.fetch().catch(() => toast.error('加载工作台数据失败'))
+  if (auth.hasPermission('/system/cache')) {
+    cacheApi.getSummary().then((summary) => { cacheSummary.value = summary }).catch(() => undefined)
+  }
 }
 
 onMounted(load)
@@ -74,11 +79,10 @@ onMounted(load)
 
 <template>
   <div class="animate-fadeup">
-    <!-- ALIGN-009 / COMP-ANA-D01（决策 5）：actions 恢复「发布站点」按钮（对照原型 L40-43；路由 /publish 已存在，权限随现有菜单权限点） -->
     <PageHeader eyebrow="Overview" title="工作台" :subtitle="todayText">
       <template #actions>
         <RouterLink to="/analytics" class="btn-outline">查看完整看板</RouterLink>
-        <RouterLink to="/publish" class="btn-gold"><RocketLaunchIcon class="h-4 w-4" />发布站点</RouterLink>
+        <RouterLink to="/system/cache" class="btn-gold"><RocketLaunchIcon class="h-4 w-4" />缓存管理</RouterLink>
       </template>
     </PageHeader>
 
@@ -183,15 +187,23 @@ onMounted(load)
         </div>
       </div>
 
-      <!-- COMP-ANA-A06 / DEC-ANA-FE-4 ③：商品/用户总览、最近发布 → 卡片壳保留 + EmptyState（不展示 mock 假数） -->
+      <!-- COMP-ANA-A06：商品/用户总览与缓存运行概览 -->
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="panel p-6">
           <h3 class="mb-4 font-display text-lg font-semibold text-ink">商品 / 用户总览</h3>
           <EmptyState title="待运营统计接入" hint="该面板归属站点 CMS 与运营统计范围，由后续独立变更接入真实数据。" />
         </div>
-        <div class="panel p-6">
-          <h3 class="mb-4 font-display text-lg font-semibold text-ink">最近发布</h3>
-          <EmptyState title="待发布中心接入" hint="发布历史归属 Publish 范围，由后续独立变更接入。" />
+        <div v-if="auth.hasPermission('/system/cache')" class="panel p-6">
+          <div class="mb-4 flex items-center justify-between">
+            <h3 class="font-display text-lg font-semibold text-ink">缓存任务</h3>
+            <RouterLink to="/system/cache" class="text-[12px] font-medium text-gold-deep hover:text-gold">查看记录</RouterLink>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div><p class="text-[11px] text-ink-faint">计划中</p><p class="mt-1 text-xl font-semibold text-ink">{{ cacheSummary.scheduled }}</p></div>
+            <div><p class="text-[11px] text-ink-faint">处理中</p><p class="mt-1 text-xl font-semibold text-warn">{{ cacheSummary.pending + cacheSummary.running + cacheSummary.retrying }}</p></div>
+            <div><p class="text-[11px] text-ink-faint">已成功</p><p class="mt-1 text-xl font-semibold text-ok">{{ cacheSummary.succeeded }}</p></div>
+            <div><p class="text-[11px] text-ink-faint">异常</p><p class="mt-1 text-xl font-semibold" :class="cacheSummary.failed + cacheSummary.partial ? 'text-danger' : 'text-ink'">{{ cacheSummary.failed + cacheSummary.partial }}</p></div>
+          </div>
         </div>
       </div>
     </template>

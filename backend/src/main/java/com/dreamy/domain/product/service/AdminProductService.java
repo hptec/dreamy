@@ -36,11 +36,9 @@ import com.dreamy.dto.SkuDto;
 import com.dreamy.dto.TranslationDtos.ProductTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
-import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.infra.CatalogAuditRecorder;
-import com.dreamy.infra.CatalogCacheService;
-import com.dreamy.infra.CatalogCacheService.Family;
 import com.dreamy.port.TradingQueryPort;
 import com.dreamy.support.CatalogFieldErrors;
 import com.dreamy.support.CatalogPaginatedSupport;
@@ -84,10 +82,8 @@ public class AdminProductService {
     private final CollectionRepository collectionRepository;
     private final CategoryRepository categoryRepository;
     private final CategoryTreeService treeService;
-    private final CatalogCacheService cache;
     private final CatalogAuditRecorder audit;
-    private final CatalogAfterCommitRunner afterCommit;
-    private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final CacheInvalidationTaskService cacheTasks;
     private final TradingQueryPort tradingQueryPort;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
@@ -102,8 +98,7 @@ public class AdminProductService {
                                ProductAttributeConfigService attributeConfigService,
                                CollectionRepository collectionRepository,
                                CategoryRepository categoryRepository, CategoryTreeService treeService,
-                               CatalogCacheService cache, CatalogAuditRecorder audit,
-                               CatalogAfterCommitRunner afterCommit, ContentInvalidatedPublisher invalidatedPublisher,
+                               CatalogAuditRecorder audit, CacheInvalidationTaskService cacheTasks,
                                TradingQueryPort tradingQueryPort,
                                TransactionTemplate transactionTemplate, ObjectMapper objectMapper) {
         this.productRepository = productRepository;
@@ -118,10 +113,8 @@ public class AdminProductService {
         this.collectionRepository = collectionRepository;
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.invalidatedPublisher = invalidatedPublisher;
+        this.cacheTasks = cacheTasks;
         this.tradingQueryPort = tradingQueryPort;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
@@ -191,17 +184,10 @@ public class AdminProductService {
         // 面料/护理已随 applyUpsert 写入 product JSON 列（无需子表操作）
         // STEP-CAT-05 审计
         audit.record("创建商品", product.getName(), null);
-        // STEP-CAT-06 提交后失效链 + MQ（status=published 才需 revalidate 路径，事件统一发布由消费者按 type 处理）
+        // Durable intent is stored in the same transaction; the worker executes after commit.
         String slug = product.getSlug();
-        afterCommit.run(() -> {
-            // 清除同 slug 在创建前产生的 60s 负缓存，published 商品须在提交后立即可见。
-            cache.invalidateProductSlug(slug);
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_CREATED, slug, null);
-        });
+        enqueueProductTask("product.create", product.getId(), product.getName(), slug, null,
+                CacheInvalidationPlans.PRODUCT_FULL);
         return loadDetail(product.getId());
     }
 
@@ -258,19 +244,10 @@ public class AdminProductService {
         // 面料成分/护理标签已随 applyUpsert 写入 product 行（JSON 列，整单覆盖语义）
         // STEP-CAT-06 审计
         audit.record("编辑商品", existing.getName(), null);
-        // STEP-CAT-07 提交后失效链（新旧 slug 都失效；search 不主动失效 60s TTL 兜底）+ MQ
+        // New and old slug share the PRODUCT family generation; keep both in task details for audit.
         String newSlug = existing.getSlug();
-        afterCommit.run(() -> {
-            cache.invalidateProductSlug(oldSlug);
-            if (!newSlug.equals(oldSlug)) {
-                cache.invalidateProductSlug(newSlug);
-            }
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_UPDATED, newSlug, oldSlug);
-        });
+        enqueueProductTask("product.update", id, existing.getName(), newSlug, oldSlug,
+                CacheInvalidationPlans.PRODUCT_FULL);
         return loadDetail(id);
     }
 
@@ -299,15 +276,10 @@ public class AdminProductService {
         // 面料成分/护理标签为 product 行内 JSON 列，随 deleteById 一并删除
         // STEP-CAT-04 审计
         audit.record("删除商品", existing.getName(), null);
-        // STEP-CAT-05 提交后失效（draft 无消费端页面，不发 revalidate 事件）
+        // Draft deletion still clears negative/detail and aggregate cache generations deterministically.
         String slug = existing.getSlug();
-        afterCommit.run(() -> {
-            cache.invalidateProductSlug(slug);
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.COLLECTIONS);
-        });
+        enqueueProductTask("product.delete", id, existing.getName(), slug, null,
+                CacheInvalidationPlans.PRODUCT_FULL);
     }
 
     // ==================== E-CAT-13 toggleAdminProductStatus（TX-CAT-004） ====================
@@ -341,16 +313,10 @@ public class AdminProductService {
             // STEP-CAT-03 UPDATE + 审计（changes={from,to}）
             productRepository.updateStatus(id, target);
             audit.record("商品上下架", existing.getName(), changesJson(beforeChange, afterChange));
-            // STEP-CAT-04 提交后失效链 + MQ（下架后 PDP 回 404501）
+            // STEP-CAT-04 durable cache task（下架后 PDP 回 404501）
             String slug = existing.getSlug();
-            afterCommit.run(() -> {
-                cache.invalidateProductSlug(slug);
-                cache.invalidateFamily(Family.PRODUCTS);
-                cache.invalidateFamily(Family.RECO);
-                cache.invalidateFamily(Family.CATEGORIES);
-                cache.invalidateFamily(Family.COLLECTIONS);
-                invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_STATUS_CHANGED, slug, null);
-            });
+            enqueueProductTask("product.status", id, existing.getName(), slug, null,
+                    CacheInvalidationPlans.PRODUCT_FULL);
         });
         Product refreshed = productRepository.findById(id);
         return assembleListItems(List.of(refreshed)).get(0);
@@ -379,15 +345,20 @@ public class AdminProductService {
         productRepository.patchFlags(id, isNew, isBest, recommend, sort);
         Product refreshed = productRepository.findById(id);
         audit.record("编辑商品", existing.getName(), changesJson(before, flagsSnapshot(refreshed)));
-        // STEP-CAT-03 提交后失效 slug详情 + reco/products + MQ
+        // STEP-CAT-03 durable cache task
         String slug = existing.getSlug();
-        afterCommit.run(() -> {
-            cache.invalidateProductSlug(slug);    // 失效详情页（is_new/is_best在详情页也显示）
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_PRODUCT_FLAGS_CHANGED, slug, null);
-        });
+        enqueueProductTask("product.flags", id, existing.getName(), slug, null,
+                CacheInvalidationPlans.PRODUCT_FLAGS);
         return assembleListItems(List.of(refreshed)).get(0);
+    }
+
+    private void enqueueProductTask(String triggerPoint, Long id, String label, String slug, String oldSlug,
+                                    List<com.dreamy.domain.cache.service.CacheInvalidationTarget> targets) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        if (slug != null) details.put("slug", slug);
+        if (oldSlug != null && !oldSlug.equals(slug)) details.put("old_slug", oldSlug);
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "product", id, label, targets, null, details, null);
     }
 
     // ==================== 内部装配/校验 ====================

@@ -7,6 +7,8 @@ import com.dreamy.domain.review.entity.Review;
 import com.dreamy.domain.review.entity.ReviewImage;
 import com.dreamy.domain.review.repository.ReviewImageRepository;
 import com.dreamy.domain.review.repository.ReviewRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminReviewListDTO;
 import com.dreamy.dto.ReviewDtos.AdminReviewDto;
 import com.dreamy.dto.ReviewDtos.BatchResult;
@@ -15,8 +17,6 @@ import com.dreamy.error.ReviewErrorCode;
 import com.dreamy.error.ReviewException;
 import com.dreamy.infra.ReviewAfterCommitRunner;
 import com.dreamy.infra.ReviewAuditRecorder;
-import com.dreamy.infra.ReviewCacheService;
-import com.dreamy.infra.ReviewCacheService.Family;
 import com.dreamy.infra.ReviewTxRunner;
 import com.dreamy.mq.ReviewEventPublisher;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
@@ -37,9 +37,8 @@ import java.util.Set;
 
 /**
  * 后台评价服务（E-REV-06~12；TX-REV-002~007；TASK-047/048 状态机 guard 内嵌）。
- * 失效链（CP-031 事务提交后）：@CacheInvalidate `review:reviews:{pid}:*` + MQ
- * review.moderated（仅审核态变更）/ content.invalidated（全部前台可见写）。
- * L2 TRACE: V-REV-014~030 / RM-REV-005~014/020~023 / CV-REV-007 / EVT-REV-001/002 / CACHE-REV-001。
+ * 审核态变更继续发布 review.moderated 供评分聚合；前台缓存由持久化任务清理。
+ * L2 TRACE: V-REV-014~030 / RM-REV-005~014/020~023 / CV-REV-007 / EVT-REV-001 / CACHE-REV-001。
  */
 @Service
 public class AdminReviewService {
@@ -47,27 +46,28 @@ public class AdminReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewImageRepository imageRepository;
     private final ReviewCatalogSnapshotPort catalogPort;
-    private final ReviewCacheService cache;
     private final ReviewAuditRecorder audit;
     private final ReviewAfterCommitRunner afterCommit;
     private final ReviewEventPublisher events;
+    private final CacheInvalidationTaskService cacheTasks;
     private final ReviewTxRunner tx;
     private final ObjectMapper objectMapper;
     /** reply_author 固定写入操作者展示名（配置项缺省 "Dreamy Team"，与原型署名一致——E-REV-10 STEP-REV-03） */
     private final String replyAuthor;
 
     public AdminReviewService(ReviewRepository reviewRepository, ReviewImageRepository imageRepository,
-                              ReviewCatalogSnapshotPort catalogPort, ReviewCacheService cache,
+                              ReviewCatalogSnapshotPort catalogPort,
                               ReviewAuditRecorder audit, ReviewAfterCommitRunner afterCommit,
-                              ReviewEventPublisher events, ReviewTxRunner tx, ObjectMapper objectMapper,
+                              ReviewEventPublisher events, CacheInvalidationTaskService cacheTasks,
+                              ReviewTxRunner tx, ObjectMapper objectMapper,
                               @Value("${dreamy.review.reply-author:Dreamy Team}") String replyAuthor) {
         this.reviewRepository = reviewRepository;
         this.imageRepository = imageRepository;
         this.catalogPort = catalogPort;
-        this.cache = cache;
         this.audit = audit;
         this.afterCommit = afterCommit;
         this.events = events;
+        this.cacheTasks = cacheTasks;
         this.tx = tx;
         this.objectMapper = objectMapper;
         this.replyAuthor = replyAuthor;
@@ -145,13 +145,11 @@ public class AdminReviewService {
             }
             audit.record(ReviewAuditRecorder.ACTION_MODERATE, "review#" + id, toJson(changes));
             // STEP-REV-04 提交后失效链 + MQ（review.moderated 仅审核态变更 → rating 回写；
-            // content.invalidated → PDP 同步刷新；MQ 失败不回滚 EC-REV-002）
+            // 评分聚合事件提交后发布，PDP 缓存由同事务创建的任务刷新
             Long productId = review.getProductId();
+            enqueueReview("review.moderate", id, productId);
             afterCommit.run(() -> {
-                cache.invalidateProduct(Family.REVIEWS, productId);
                 events.publishModerated(productId, id, to.getKey());
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED,
-                        slugOf(productId), productId);
             });
         });
         return readAdminDto(id);
@@ -182,13 +180,9 @@ public class AdminReviewService {
             // STEP-REV-04 审计归入「评价审核」（§0 归入规则）
             audit.record(ReviewAuditRecorder.ACTION_MODERATE, "review#" + id,
                     toJson(Map.of("featured", Map.of("from", !featured, "to", featured))));
-            // STEP-REV-05 失效 + content.invalidated（不发 review.moderated——精选不改变 rating 聚合）
+            // STEP-REV-05 创建缓存任务（精选不改变 rating 聚合，不发 review.moderated）
             Long productId = review.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.REVIEWS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueReview("review.featured", id, productId);
         });
         return readAdminDto(id);
     }
@@ -261,14 +255,14 @@ public class AdminReviewService {
                         : batchAction == ReviewBatchAction.REJECT ? ReviewStatus.REJECTED.getKey() : null;
                 List<Long> products = new ArrayList<>(touchedProducts);
                 Map<Long, Long> moderated = new LinkedHashMap<>(moderatedProducts);
+                for (Long pid : products) {
+                    enqueueReview("review.batch." + batchAction.getKey(), moderated.get(pid), pid);
+                }
                 afterCommit.run(() -> {
                     for (Long pid : products) {
-                        cache.invalidateProduct(Family.REVIEWS, pid);
-                        String slug = slugOf(pid);
                         if (moderated.containsKey(pid)) {
                             events.publishModerated(pid, moderated.get(pid), statusKey);
                         }
-                        events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, slug, pid);
                     }
                 });
             }
@@ -337,13 +331,9 @@ public class AdminReviewService {
             changes.put("reply_before", review.getReplyContent());
             changes.put("reply_after", trimmed);
             audit.record(ReviewAuditRecorder.ACTION_MODERATE, "review#" + id, toJson(changes));
-            // STEP-REV-05 失效 + content.invalidated
+            // STEP-REV-05 创建缓存任务
             Long productId = review.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.REVIEWS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueReview("review.reply.put", id, productId);
         });
         return readAdminDto(id);
     }
@@ -363,13 +353,9 @@ public class AdminReviewService {
             audit.record(ReviewAuditRecorder.ACTION_MODERATE, "review#" + id, toJson(Map.of(
                     "reply_deleted", true,
                     "before", review.getReplyContent())));
-            // STEP-REV-05 失效 + content.invalidated
+            // STEP-REV-05 创建缓存任务
             Long productId = review.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.REVIEWS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueReview("review.reply.delete", id, productId);
         });
     }
 
@@ -397,13 +383,9 @@ public class AdminReviewService {
             audit.record(ReviewAuditRecorder.ACTION_MODERATE, "review#" + id, toJson(Map.of(
                     "image_id", imageId,
                     "rejected", Map.of("from", !rejected, "to", rejected))));
-            // STEP-REV-06 失效 + content.invalidated（驳回后前台立即不展示该图）
+            // STEP-REV-06 创建缓存任务，驳回后前台不再展示该图
             Long productId = review.getProductId();
-            afterCommit.run(() -> {
-                cache.invalidateProduct(Family.REVIEWS, productId);
-                events.publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED,
-                        slugOf(productId), productId);
-            });
+            enqueueReview("review.image.visibility", id, productId);
         });
         return new ReviewImageDto(image.getId(), image.getUrl(), rejected);
     }
@@ -450,10 +432,10 @@ public class AdminReviewService {
         return result;
     }
 
-    /** 失效事件 slug（ReviewCatalogSnapshotPort；商品已删除返回 null → 跳过 content.invalidated） */
-    private String slugOf(Long productId) {
-        ReviewCatalogSnapshotPort.ProductBrief brief = catalogPort.getProductBrief(productId);
-        return brief == null ? null : brief.slug();
+    private void enqueueReview(String triggerPoint, Long reviewId, Long productId) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "review", reviewId, "product:" + productId, CacheInvalidationPlans.REVIEW,
+                null, Map.of("product_id", productId), null);
     }
 
     private String toJson(Map<String, Object> changes) {

@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -38,14 +38,14 @@ class HomePageSectionServiceTest {
     @Mock
     private HomePageSectionRepository repository;
     @Mock
-    private SiteBuilderCacheService cacheService;
+    private com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private HomePageSectionService service;
 
     @BeforeEach
     void setUp() {
-        service = new HomePageSectionService(repository, objectMapper, cacheService);
+        service = new HomePageSectionService(repository, objectMapper, cacheTasks);
     }
 
     @Test
@@ -71,7 +71,8 @@ class HomePageSectionServiceTest {
         assertThat(result.getSectionType()).isEqualTo("product_rail");
         assertThat(result.getEnabled()).isTrue();
         verify(repository).insert(any(HomePageSection.class));
-        verify(cacheService).invalidateHomeSectionFamily();
+        verify(cacheTasks).enqueue(anyString(), eq("site_home.section.create"), eq("site_home"),
+                eq(1L), eq("New Arrivals"), anyList(), isNull(), anyMap(), isNull());
     }
 
     @Test
@@ -252,7 +253,6 @@ class HomePageSectionServiceTest {
 
         assertThat(first.getVersion()).isEqualTo(1);
         assertThat(second.getVersion()).isEqualTo(2);
-        verify(cacheService, times(2)).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -271,7 +271,6 @@ class HomePageSectionServiceTest {
         HomePageSectionDto result = service.toggle(id, true);
 
         assertThat(result.getEnabled()).isTrue();
-        verify(cacheService).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -296,7 +295,6 @@ class HomePageSectionServiceTest {
         service.delete(id);
 
         verify(repository).deleteById(id);
-        verify(cacheService).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -341,7 +339,6 @@ class HomePageSectionServiceTest {
 
         verify(repository).findAllOrderById();
         verify(repository).batchUpdateSort(anyList());
-        verify(cacheService).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -356,7 +353,6 @@ class HomePageSectionServiceTest {
 
         verify(repository, never()).findAllOrderById();
         verify(repository, never()).batchUpdateSort(anyList());
-        verify(cacheService, never()).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -370,7 +366,6 @@ class HomePageSectionServiceTest {
                         .isEqualTo(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
 
         verify(repository, never()).batchUpdateSort(anyList());
-        verify(cacheService, never()).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -384,7 +379,6 @@ class HomePageSectionServiceTest {
                 .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
                         .isEqualTo(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT));
 
-        verify(cacheService, never()).invalidateHomeSectionFamily();
     }
 
     private void assertSortValidation(List<SortItem> items, String field) {
@@ -452,7 +446,6 @@ class HomePageSectionServiceTest {
 
         verify(repository).findAllOrderById();
         assertThat(writeIds).containsExactly(2L, 1L);
-        verify(cacheService).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -483,7 +476,6 @@ class HomePageSectionServiceTest {
                         .containsEntry("reason", "homepage can contain only one hero section"));
 
         verify(repository, never()).updateByIdAndVersion(any());
-        verify(cacheService, never()).invalidateHomeSectionFamily();
     }
 
     @Test
@@ -499,7 +491,7 @@ class HomePageSectionServiceTest {
                             .containsEntry("reason", "homepage section item must not be null");
                 });
 
-        verifyNoInteractions(repository, cacheService);
+        verifyNoInteractions(repository);
     }
 
     @Test
@@ -560,6 +552,22 @@ class HomePageSectionServiceTest {
 
         HomePageSectionDto result = service.create(upsert);
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    void createHomeSection_themeCardsManualCollectionIds_success() throws Exception {
+        HomePageSectionUpsert upsert = new HomePageSectionUpsert();
+        upsert.setSectionType("theme_cards");
+        upsert.setEnabled(true);
+        upsert.setSortOrder(0);
+        upsert.setDataJson(objectMapper.readTree(
+                "{\"mode\":\"manual\",\"collection_ids\":[11,12]}"));
+        when(repository.insert(any())).thenAnswer(i -> {
+            ((HomePageSection) i.getArgument(0)).setId(1L);
+            return 1;
+        });
+
+        assertThat(service.create(upsert)).isNotNull();
     }
 
     @Test

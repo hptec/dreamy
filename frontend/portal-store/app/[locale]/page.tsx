@@ -48,14 +48,14 @@ export default async function HomePage({
                   {cards.map((card) => (
                     <Link
                       key={card.id}
-                      href={`/search?q=${encodeURIComponent(card.name)}`}
+                      href={`/products?collection=${card.id}`}
                       className="group relative aspect-[3/4] overflow-hidden rounded-sm bg-muted"
                     >
                       {card.imageUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={card.imageUrl}
-                          alt=""
+                          alt={card.name}
                           className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
                         />
                       )}

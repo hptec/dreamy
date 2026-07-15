@@ -53,6 +53,8 @@ export async function CollectionPage({
   const category = findCategoryByName(tree, categoryNames)
 
   const cat = single(searchParams.cat)
+  const collection = Number(single(searchParams.collection))
+  const collectionId = Number.isInteger(collection) && collection > 0 ? collection : undefined
   const requestedSort = single(searchParams.sort)
   // Site-builder's seeded footer links predate the catalog API enum.
   const sort = ({
@@ -72,6 +74,7 @@ export async function CollectionPage({
   const [data, filterDims] = await Promise.all([
     fetchStoreProducts({
       categoryId,
+      collectionId,
       color: single(searchParams.color),
       size: single(searchParams.size),
       priceMin,

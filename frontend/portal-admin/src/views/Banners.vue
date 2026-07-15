@@ -11,8 +11,8 @@ import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useBannersStore } from '@/stores/banners'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { formatDateTime } from '@/utils/format'
-import { PlusIcon, PencilSquareIcon, TrashIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/outline'
+import { formatUtcDateTime } from '@/utils/format'
+import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { BannerPosition, BannerStatus } from '@/api/types'
 import type { Banner } from '@/api/types'
 
@@ -98,10 +98,10 @@ onMounted(load)
       <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
-            <tr><th>Banner</th><th>广告位置</th><th>投放时间</th><th class="text-center">上线</th><th class="text-right"><CursorArrowRaysIcon class="ml-auto h-4 w-4" /></th><th>排序</th><th class="text-right">操作</th></tr>
+            <tr><th>Banner</th><th>广告位置</th><th>投放时间</th><th class="text-center">上线</th><th>排序</th><th class="text-right">操作</th></tr>
           </thead>
           <tbody>
-            <tr v-if="store.loading"><td colspan="7" class="py-10 text-center text-ink-faint">加载中…</td></tr>
+            <tr v-if="store.loading"><td colspan="6" class="py-10 text-center text-ink-faint">加载中…</td></tr>
             <tr v-for="b in store.list" v-else :key="b.id">
               <td>
                 <div class="flex items-center gap-3">
@@ -113,9 +113,8 @@ onMounted(load)
                 </div>
               </td>
               <td><span class="badge bg-ink/8 text-ink-soft">{{ positionLabel[b.position] || b.position }}</span></td>
-              <td class="text-[12px] text-ink-soft">{{ formatDateTime(b.startTime) }}<br />→ {{ formatDateTime(b.endTime) }}</td>
+              <td class="text-[12px] text-ink-soft">{{ formatUtcDateTime(b.startTime) }}<br />→ {{ formatUtcDateTime(b.endTime) }}</td>
               <td class="text-center"><Toggle :model-value="b.status === BannerStatus.PUBLISHED" @update:model-value="onToggle(b, $event)" /></td>
-              <td class="text-right text-ink-soft">{{ (b.clicks ?? 0).toLocaleString() }}</td>
               <td><input class="field w-16 px-2 py-1 text-center text-[12px]" type="number" :value="b.sort ?? 0" @blur="onSortBlur(b, $event)" /></td>
               <td>
                 <div class="flex items-center justify-end gap-1">

@@ -137,19 +137,24 @@ public class ReviewCacheService {
     }
 
     /** 写后切换整个资源族代际；评价/问答族独立，保证跨实例严格失效。 */
-    public void invalidateProduct(Family family, Long productId) {
+    void invalidateProduct(Family family, Long productId) {
         if (productId == null) {
             return;
         }
         GenerationState state = generationStates.get(family);
         try {
-            reconcileGeneration(family, state, true);
+            invalidateFamilyStrict(family);
         } catch (Exception ex) {
             long next = state.generation.incrementAndGet();
             state.fallbackRevision.incrementAndGet();
             log.warn("[CACHE-REV] invalidateProduct Redis generation failed family={} product={} "
                     + "(local generation={}, EC-REV-001 TTL fallback)", family, productId, next);
         }
+    }
+
+    /** Product IDs share a family generation, so durable execution invalidates the complete family. */
+    public long invalidateFamilyStrict(Family family) {
+        return reconcileGeneration(family, generationStates.get(family), true);
     }
 
     private long currentGeneration(Family family) {

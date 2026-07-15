@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,16 +32,18 @@ public class CouponDomainServiceImpl implements CouponDomainService {
     private static final Logger log = LoggerFactory.getLogger(CouponDomainServiceImpl.class);
 
     private final CouponRepository couponRepository;
+    private final Clock clock;
 
-    public CouponDomainServiceImpl(CouponRepository couponRepository) {
+    public CouponDomainServiceImpl(CouponRepository couponRepository, Clock clock) {
         this.couponRepository = couponRepository;
+        this.clock = clock;
     }
 
     @Override
     public CouponQuote validate(String code, BigDecimal subtotalUsd, String locale) {
         String normalized = normalizeCode(code);
         Coupon coupon = couponRepository.findByCode(normalized);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         Integer reason = availabilityReason(coupon, subtotalUsd, now);
         if (reason != null) {
             // 不存在不回显任何券信息——不泄露码表（E-MKT-10 STEP-MKT-05）
@@ -86,7 +89,7 @@ public class CouponDomainServiceImpl implements CouponDomainService {
         String normalized = normalizeCode(code);
         Coupon coupon = couponRepository.findByCode(normalized);
         // 复跑 validate 状态/窗口判定（防 TOCTOU）
-        Integer reason = availabilityReason(coupon, subtotalUsd, LocalDateTime.now());
+        Integer reason = availabilityReason(coupon, subtotalUsd, LocalDateTime.now(clock));
         if (reason != null) {
             throw new MarketingException(byReasonCode(reason));
         }

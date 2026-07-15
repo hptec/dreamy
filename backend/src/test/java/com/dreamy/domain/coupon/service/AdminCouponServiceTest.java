@@ -7,10 +7,10 @@ import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
 import com.dreamy.infra.MarketingAuditRecorder;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,8 +28,12 @@ class AdminCouponServiceTest {
     CouponRepository couponRepository;
     @Mock
     MarketingAuditRecorder audit;
-    @InjectMocks
     AdminCouponService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new AdminCouponService(couponRepository, audit, java.time.Clock.systemUTC());
+    }
 
     @Test
     @DisplayName("TX-MKT-003: 优惠券仅 draft/expired 且未核销可删，先清译文再物理删除")

@@ -53,8 +53,6 @@ const routes: RouteRecordRaw[] = [
   // 数据（占位）
   { path: '/analytics', name: 'analytics', component: () => import('@/views/Analytics.vue'), meta: { title: '数据看板', group: '数据分析', permission: '/analytics' } },
 
-  // 发布（占位）
-  { path: '/publish', name: 'publish', component: () => import('@/views/Publish.vue'), meta: { title: '发布中心', group: '发布与系统', permission: '/publish' } },
   { path: '/shipping', name: 'shipping', component: () => import('@/views/Shipping.vue'), meta: { title: '物流配置', group: '发布与系统', permission: '/shipping' } },
 
   // 系统管理（PAGE-A04~A07，本变更核心）
@@ -62,6 +60,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/system/roles', name: 'system-roles', component: () => import('@/views/RoleManagement.vue'), meta: { title: '角色权限', group: '系统管理', permission: '/system/roles' } },
   { path: '/system/auth', name: 'system-auth', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录与认证', group: '系统管理', permission: '/system/auth' } },
   { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理', permission: '/system/logs' } },
+  { path: '/system/cache', name: 'system-cache', component: () => import('@/views/system/CacheManagement.vue'), meta: { title: '缓存管理', group: '系统管理', permission: '/system/cache' } },
 
   // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）
   { path: '/system/gateways', name: 'system-gateways', component: () => import('@/views/system/GatewayConfigList.vue'), meta: { title: '外部网关配置', group: '系统管理', permission: '/system/gateways' } },

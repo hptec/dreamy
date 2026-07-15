@@ -110,9 +110,9 @@ class DomainEventPublishIdempotencyTest {
     }
 
     @Test
-    @DisplayName("binding key 不匹配的事件不分发（content.invalidated 不进 q.mail）")
+    @DisplayName("binding key 不匹配的事件不分发")
     void unmatchedRoutingKeyNotDispatched() {
-        publisher.publish("content.invalidated", Map.of("slug", "a"));
+        publisher.publish("inventory.changed", Map.of("sku", "a"));
         assertThat(consumer.handled).isEmpty();
     }
 
@@ -156,7 +156,7 @@ class DomainEventPublishIdempotencyTest {
         assertThat(TopicPatternMatcher.matches("refund.resolved", "refund.requested")).isFalse();
         assertThat(TopicPatternMatcher.matches("showroom.*", "showroom.invite")).isTrue();
         assertThat(TopicPatternMatcher.matches("#", "anything.at.all")).isTrue();
-        assertThat(TopicPatternMatcher.matches("review.moderated", "content.invalidated")).isFalse();
+        assertThat(TopicPatternMatcher.matches("review.moderated", "inventory.changed")).isFalse();
     }
 
     @Test

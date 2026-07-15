@@ -1,5 +1,5 @@
 // COMP-CAT-E01（ALIGN-018）颜色预设常量单测：名称/hex 逐项镜像原型 mock.js productColors
-// 组件级断言（swatch 点击切换 / 自定义 chip 渲染 / 保存后跳转 /publish）→ deferred-to-L3-test
+// 组件级断言（swatch 点击切换 / 自定义 chip 渲染 / 保存后返回列表）→ deferred-to-L3-test
 import { describe, expect, it } from 'vitest'
 import {
   PRODUCT_COLORS,

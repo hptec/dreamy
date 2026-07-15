@@ -11,6 +11,13 @@ export function formatDateTime(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** Backend business schedule/task timestamps are stored as UTC LocalDateTime (without a JSON zone suffix). */
+export function formatUtcDateTime(value?: string | null): string {
+  if (!value) return '—'
+  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+  return formatDateTime(explicitZone ? value : `${value}Z`)
+}
+
 export function formatDate(iso?: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -105,5 +112,10 @@ export function formatMoney(amount?: number | string | null, currency?: string |
 /** ISO（LocalDateTime）→ datetime-local 控件值（YYYY-MM-DDTHH:mm） */
 export function toDatetimeLocal(iso?: string | null): string {
   if (!iso) return ''
-  return iso.slice(0, 16)
+  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)
+  const instant = new Date(explicitZone ? iso : `${iso}Z`)
+  if (Number.isNaN(instant.getTime())) return iso.slice(0, 16)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`
+    + `T${pad(instant.getHours())}:${pad(instant.getMinutes())}`
 }

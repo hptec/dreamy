@@ -5,16 +5,14 @@ import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.wedding.entity.RealWedding;
 import com.dreamy.domain.wedding.entity.RealWeddingTranslation;
 import com.dreamy.domain.wedding.repository.RealWeddingRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminMarketingDtos.RealWeddingDto;
 import com.dreamy.dto.AdminMarketingDtos.RealWeddingUpsert;
 import com.dreamy.dto.MarketingTranslationDtos.RealWeddingTranslationDto;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import com.dreamy.support.MarketingFieldErrors;
 import com.dreamy.support.MarketingParams;
@@ -40,20 +38,15 @@ public class AdminWeddingService {
 
 
     private final RealWeddingRepository weddingRepository;
-    private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
-    private final MarketingAfterCommitRunner afterCommit;
-    private final MarketingContentInvalidatedPublisher publisher;
+    private final CacheInvalidationTaskService cacheTasks;
     private final CatalogQueryPort catalogQueryPort;
 
-    public AdminWeddingService(RealWeddingRepository weddingRepository, MarketingCacheService cache,
-                               MarketingAuditRecorder audit, MarketingAfterCommitRunner afterCommit,
-                               MarketingContentInvalidatedPublisher publisher, CatalogQueryPort catalogQueryPort) {
+    public AdminWeddingService(RealWeddingRepository weddingRepository, MarketingAuditRecorder audit,
+                               CacheInvalidationTaskService cacheTasks, CatalogQueryPort catalogQueryPort) {
         this.weddingRepository = weddingRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.publisher = publisher;
+        this.cacheTasks = cacheTasks;
         this.catalogQueryPort = catalogQueryPort;
     }
 
@@ -91,7 +84,7 @@ public class AdminWeddingService {
         audit.record("创建婚礼案例", n.couple(), null);
         // STEP-MKT-03 提交后（published）失效 + MQ
         if (n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(wedding.getId());
+            enqueue("wedding.create", wedding);
         }
         return toDto(weddingRepository.findById(wedding.getId()), n.productIds(), nonNull(req.translations()));
     }
@@ -115,7 +108,7 @@ public class AdminWeddingService {
         audit.record("编辑婚礼案例", n.couple(), null);
         // STEP-MKT-04 提交后失效 + MQ（draft 间编辑不发）
         if (wasPublished || n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(id);
+            enqueue("wedding.update", existing);
         }
         return toDto(weddingRepository.findById(id), n.productIds(), nonNull(req.translations()));
     }
@@ -134,7 +127,7 @@ public class AdminWeddingService {
         audit.record("删除婚礼案例", existing.getCouple(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ
         if (existing.getStatus() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(id);
+            enqueue("wedding.delete", existing);
         }
     }
 
@@ -161,17 +154,15 @@ public class AdminWeddingService {
         audit.record("案例发布状态变更", existing.getCouple(),
                 "{\"from\":\"" + existing.getStatus().getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
         // STEP-MKT-05 提交后失效 + MQ + revalidate + purge
-        invalidateAfterCommit(id);
+        enqueue("wedding.status", existing);
         existing.setStatus(target);
         return toDto(existing, productIds, translations.getOrDefault(id, List.of()));
     }
 
-    private void invalidateAfterCommit(Long id) {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.WEDDINGS);
-            cache.invalidateFamily(Family.WEDDING);
-            publisher.publishWedding(id);
-        });
+    private void enqueue(String triggerPoint, RealWedding wedding) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "wedding", wedding.getId(), wedding.getCouple(), CacheInvalidationPlans.WEDDING,
+                null, java.util.Map.of(), null);
     }
 
     private record Normalized(String couple, PublishStatus status, String title, String story,

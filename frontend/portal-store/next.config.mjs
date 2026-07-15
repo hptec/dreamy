@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 决策 22：去 output:'export' 静态导出 → Node standalone 运行时
-  // （ISR/revalidatePath 失效链可用；docker 容器部署 + CDN 前置，页面 Cache-Control: s-maxage 由 Next ISR 默认头承载）
+  // 开发阶段页面与接口统一实时读取，不启用 ISR/revalidatePath 发布链。
   output: 'standalone',
   // 锁定 workspace root 为本工程目录：根目录存在空壳 pnpm-lock.yaml 会令 Next 误判 root，
   // 导致 dev 下 public/ 静态资源定位错误（competitor-refs 图片 404）。

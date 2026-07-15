@@ -10,6 +10,8 @@ import com.dreamy.enums.AttributeVisibility;
 import com.dreamy.dto.AdminCatalogDtos.AttributeSetDto;
 import com.dreamy.dto.AdminCatalogDtos.AttributeSetItemDto;
 import com.dreamy.dto.AdminCatalogDtos.AttributeSetUpsert;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.infra.CatalogAfterCommitRunner;
@@ -39,18 +41,16 @@ public class AttributeSetService {
     private final AttributeDefRepository defRepository;
     private final CategoryRepository categoryRepository;
     private final CatalogAuditRecorder audit;
-    private final CatalogCacheService cache;
-    private final CatalogAfterCommitRunner afterCommit;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public AttributeSetService(AttributeSetRepository setRepository, AttributeDefRepository defRepository,
                                CategoryRepository categoryRepository, CatalogAuditRecorder audit,
-                               CatalogCacheService cache, CatalogAfterCommitRunner afterCommit) {
+                               CacheInvalidationTaskService cacheTasks) {
         this.setRepository = setRepository;
         this.defRepository = defRepository;
         this.categoryRepository = categoryRepository;
         this.audit = audit;
-        this.cache = cache;
-        this.afterCommit = afterCommit;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-CAT-19：列表（含矩阵明细 + category_count 派生——STEP-CAT-01/02） */
@@ -99,10 +99,9 @@ public class AttributeSetService {
         setRepository.replaceItems(id, items);
         audit.record("编辑属性集", req.label().trim(), null);
         // 矩阵变更影响 PDP attributes/PLP filters（E-CAT-21 STEP-CAT-04 口径更新）
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.PRODUCT);
-        });
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "attribute_set.update",
+                "attribute_set", id, req.label(), CacheInvalidationPlans.ATTRIBUTE,
+                null, java.util.Map.of(), null);
         int categoryCount = (int) categoryRepository.countByAttributeSetId(id);
         return new AttributeSetDto(id, req.label().trim(), normalizedItems(req), categoryCount);
     }

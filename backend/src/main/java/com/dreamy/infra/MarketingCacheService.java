@@ -173,10 +173,10 @@ public class MarketingCacheService {
     }
 
     /** family 级失效（共享代际 + TTL 回收，实现 `marketing:{family}:*` 语义） */
-    public void invalidateFamily(Family family) {
+    void invalidateFamily(Family family) {
         GenerationState state = generationStates.get(family);
         try {
-            reconcileGeneration(family, state, true);
+            invalidateFamilyStrict(family);
         } catch (Exception ex) {
             long next = state.generation.incrementAndGet();
             state.fallbackRevision.incrementAndGet();
@@ -185,13 +185,9 @@ public class MarketingCacheService {
         }
     }
 
-    /** `marketing:blog:{slug}:*` 失效（全 locale + null 标记，CACHE-MKT-003；新旧 slug 由调用方各调一次） */
-    public void invalidateBlogSlug(String slug) {
-        if (slug == null) {
-            return;
-        }
-        // 代际切换按族执行；详情缓存量小，换取多实例/并发回填下的严格一致失效。
-        invalidateFamily(Family.BLOG);
+    /** Durable task execution path: return the shared generation and surface Redis failures. */
+    public long invalidateFamilyStrict(Family family) {
+        return reconcileGeneration(family, generationStates.get(family), true);
     }
 
     private long currentGeneration(Family family) {

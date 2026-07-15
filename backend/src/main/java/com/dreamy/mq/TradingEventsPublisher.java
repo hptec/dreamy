@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * trading 域领域事件发布器（EVT-TRD-001~005，topic exchange dreamy.events；TASK-057）。
+ * trading 域领域事件发布器（EVT-TRD-001~004，topic exchange dreamy.events；TASK-057）。
  * 可靠性参数（trading-data-detail §6）：事务提交后发布（调用方经 TradingAfterCommitRunner）；
  * publish 失败不回滚本地事务，记告警日志（邮件/回写类人工补偿；缓存类靠 TTL 兜底）。
  * event_id 由 DomainEventPublisher 信封生成（消费幂等键）。
@@ -26,7 +26,6 @@ public class TradingEventsPublisher {
     public static final String KEY_ORDER_SHIPPED = "order.shipped";
     public static final String KEY_ORDER_CANCELLED = "order.cancelled";
     public static final String KEY_REFUND_RESOLVED = "refund.resolved";
-    public static final String KEY_CONTENT_INVALIDATED = "content.invalidated";
 
     public static final String CANCEL_REASON_TIMEOUT = "timeout";
     public static final String CANCEL_REASON_CUSTOMER = "customer";
@@ -100,14 +99,6 @@ public class TradingEventsPublisher {
             payload.put("reject_reason", rejectReason);
         }
         publish(KEY_REFUND_RESOLVED, payload);
-    }
-
-    /** EVT-TRD-005 content.invalidated（type=exchange_rates_updated，TX-TRD-011 提交后 → q.invalidate） */
-    public void publishExchangeRatesInvalidated() {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("type", "exchange_rates_updated");
-        payload.put("purge_paths", List.of("/api/store/exchange-rates"));
-        publish(KEY_CONTENT_INVALIDATED, payload);
     }
 
     private void publish(String routingKey, Map<String, Object> payload) {

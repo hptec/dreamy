@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 /**
  * 表 banner（站点广告位：首页 Hero/推荐位/顶部条）。基类 LongAuditableEntity（决策 12，无逻辑删除——全态可物理删除）。
  * 投放窗口 start_time/end_time：消费端读路径恒按窗口过滤（DEC-MKT-2，状态不随窗口翻转）；
- * clicks 只读统计列（本期无写入端点）；EN 文案列 title/subtitle/cta_text（DEC-MKT-1）。
+ * EN 文案列 title/subtitle/cta_text（DEC-MKT-1）。
  * L2 TRACE: marketing-data-detail §1.2/§11 DDL-1 / IDX-MKT-007 / TASK-007 / TASK-032 banner_lifecycle。
  */
 @Data
@@ -47,9 +47,6 @@ public class Banner extends LongAuditableEntity {
 
     @Column(name = BannerDBConst.SORT, definition = "int NOT NULL DEFAULT 0 COMMENT '排序'")
     private Integer sort;
-
-    @Column(name = BannerDBConst.CLICKS, definition = "int NOT NULL DEFAULT 0 COMMENT '点击统计只读（本期无写入端点）'")
-    private Integer clicks;
 
     @Column(name = BannerDBConst.TITLE, definition = "varchar(255) NULL COMMENT '文案标题(EN 基准，DEC-MKT-1)'")
     private String title;

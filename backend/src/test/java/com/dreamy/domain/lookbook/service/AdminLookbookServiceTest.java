@@ -3,28 +3,18 @@ package com.dreamy.domain.lookbook.service;
 import com.dreamy.domain.lookbook.entity.Lookbook;
 import com.dreamy.domain.lookbook.repository.LookbookRepository;
 import com.dreamy.enums.PublishStatus;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AdminLookbookServiceTest {
@@ -32,15 +22,11 @@ class AdminLookbookServiceTest {
     @Mock
     LookbookRepository lookbookRepository;
     @Mock
-    MarketingCacheService cache;
-    @Mock
     MarketingAuditRecorder audit;
     @Mock
-    MarketingAfterCommitRunner afterCommit;
-    @Mock
-    MarketingContentInvalidatedPublisher publisher;
-    @Mock
     CatalogQueryPort catalogQueryPort;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     @InjectMocks
     AdminLookbookService service;
 
@@ -61,12 +47,7 @@ class AdminLookbookServiceTest {
         order.verify(lookbookRepository).deleteById(1L);
         verify(lookbookRepository, never()).update(any());
         verify(audit).record("删除Lookbook", "Vineyard", null);
-        ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(callback.capture());
-        callback.getValue().run();
-        verify(cache).invalidateFamily(Family.LOOKBOOKS);
-        verify(cache).invalidateFamily(Family.LOOKBOOK);
-        verify(publisher).publish(eq(MarketingContentInvalidatedPublisher.TYPE_LOOKBOOK_CHANGED),
-                isNull(), isNull(), eq(1L));
+        verify(cacheTasks).enqueue(anyString(), eq("lookbook.delete"), eq("lookbook"), eq(1L), eq("Vineyard"),
+                anyList(), nullable(java.time.LocalDateTime.class), anyMap(), nullable(String.class));
     }
 }

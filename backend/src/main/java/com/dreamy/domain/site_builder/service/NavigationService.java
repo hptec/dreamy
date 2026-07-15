@@ -2,6 +2,8 @@ package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.site_builder.entity.NavigationItem;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.SiteBuilderDtos.NavigationItemDto;
 import com.dreamy.dto.SiteBuilderDtos.NavigationItemUpsert;
 import com.dreamy.dto.SiteBuilderDtos.NavigationSaveRequest;
@@ -28,14 +30,12 @@ public class NavigationService {
 
     private final NavigationItemRepository repository;
     private final ObjectMapper objectMapper;
-    private final SiteBuilderCacheService cacheService;
-
+    private final CacheInvalidationTaskService cacheTasks;
     public NavigationService(NavigationItemRepository repository,
-                             ObjectMapper objectMapper,
-                             SiteBuilderCacheService cacheService) {
+                             ObjectMapper objectMapper, CacheInvalidationTaskService cacheTasks) {
         this.repository = repository;
         this.objectMapper = objectMapper;
-        this.cacheService = cacheService;
+        this.cacheTasks = cacheTasks;
     }
 
     public List<NavigationItemDto> list() {
@@ -77,7 +77,9 @@ public class NavigationService {
                 repository.insert(entity);
             }
         }
-        cacheService.invalidateNavigationFamily();
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "site_navigation.save",
+                "site_navigation", "navigation", "导航配置", CacheInvalidationPlans.SITE_NAVIGATION_PLAN,
+                null, Map.of("item_count", request.getItems().size()), null);
         return list();
     }
 

@@ -38,17 +38,36 @@ const form = ref({
   ctaTextSecondary: '',
   ctaLinkSecondary: '',
 })
-const trans = ref<Record<'es' | 'fr', { title: string; subtitle: string; ctaText: string; ctaTextSecondary: string }>>({
-  es: { title: '', subtitle: '', ctaText: '', ctaTextSecondary: '' },
-  fr: { title: '', subtitle: '', ctaText: '', ctaTextSecondary: '' },
+const trans = ref<Record<'es' | 'fr', { imageUrl: string; title: string; subtitle: string; ctaText: string; ctaTextSecondary: string }>>({
+  es: { imageUrl: '', title: '', subtitle: '', ctaText: '', ctaTextSecondary: '' },
+  fr: { imageUrl: '', title: '', subtitle: '', ctaText: '', ctaTextSecondary: '' },
 })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
 
+const displayStatus = computed({
+  get: () => form.value.status === BannerStatus.PUBLISHED ? BannerStatus.PUBLISHED : BannerStatus.ARCHIVED,
+  set: (status: BannerStatus) => {
+    if (status === BannerStatus.PUBLISHED) {
+      form.value.status = status
+      return
+    }
+    form.value.status = !props.editing || props.editing.status === BannerStatus.DRAFT
+      ? BannerStatus.DRAFT
+      : BannerStatus.ARCHIVED
+  },
+})
+
+function updateDisplayStatus(status: unknown) {
+  if (status === BannerStatus.PUBLISHED || status === BannerStatus.ARCHIVED) {
+    displayStatus.value = status
+  }
+}
+
 const filled = computed(() => ({
   en: !!(form.value.title || form.value.subtitle || form.value.ctaText || form.value.ctaTextSecondary),
-  es: !!(trans.value.es.title || trans.value.es.subtitle || trans.value.es.ctaText || trans.value.es.ctaTextSecondary),
-  fr: !!(trans.value.fr.title || trans.value.fr.subtitle || trans.value.fr.ctaText || trans.value.fr.ctaTextSecondary),
+  es: !!(trans.value.es.imageUrl || trans.value.es.title || trans.value.es.subtitle || trans.value.es.ctaText || trans.value.es.ctaTextSecondary),
+  fr: !!(trans.value.fr.imageUrl || trans.value.fr.title || trans.value.fr.subtitle || trans.value.fr.ctaText || trans.value.fr.ctaTextSecondary),
 }))
 
 watch(
@@ -77,8 +96,8 @@ watch(
       : { name: '', imageUrl: '', position: BannerPosition.HERO, startTime: '', endTime: '', status: BannerStatus.DRAFT, sort: 0, title: '', subtitle: '', ctaText: '', ctaLink: '', ctaTextSecondary: '', ctaLinkSecondary: '' }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
-      es: { title: byLocale('es')?.title || '', subtitle: byLocale('es')?.subtitle || '', ctaText: byLocale('es')?.ctaText || '', ctaTextSecondary: byLocale('es')?.ctaTextSecondary || '' },
-      fr: { title: byLocale('fr')?.title || '', subtitle: byLocale('fr')?.subtitle || '', ctaText: byLocale('fr')?.ctaText || '', ctaTextSecondary: byLocale('fr')?.ctaTextSecondary || '' },
+      es: { imageUrl: byLocale('es')?.imageUrl || '', title: byLocale('es')?.title || '', subtitle: byLocale('es')?.subtitle || '', ctaText: byLocale('es')?.ctaText || '', ctaTextSecondary: byLocale('es')?.ctaTextSecondary || '' },
+      fr: { imageUrl: byLocale('fr')?.imageUrl || '', title: byLocale('fr')?.title || '', subtitle: byLocale('fr')?.subtitle || '', ctaText: byLocale('fr')?.ctaText || '', ctaTextSecondary: byLocale('fr')?.ctaTextSecondary || '' },
     }
   },
 )
@@ -87,8 +106,8 @@ function buildTranslations(): BannerTranslation[] {
   const rows: BannerTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    if (t.title.trim() || t.subtitle.trim() || t.ctaText.trim() || t.ctaTextSecondary.trim()) {
-      rows.push({ locale: l, title: t.title.trim() || null, subtitle: t.subtitle.trim() || null, ctaText: t.ctaText.trim() || null, ctaTextSecondary: t.ctaTextSecondary.trim() || null })
+    if (t.imageUrl || t.title.trim() || t.subtitle.trim() || t.ctaText.trim() || t.ctaTextSecondary.trim()) {
+      rows.push({ locale: l, imageUrl: t.imageUrl || null, title: t.title.trim() || null, subtitle: t.subtitle.trim() || null, ctaText: t.ctaText.trim() || null, ctaTextSecondary: t.ctaTextSecondary.trim() || null })
     }
   }
   return rows
@@ -185,31 +204,79 @@ async function submit() {
       <div v-if="!homeHero">
         <label class="field-label">状态</label>
         <SelectMenu
-          :model-value="form.status"
-          :options="[{ value: BannerStatus.DRAFT, label: '草稿' }, { value: BannerStatus.PUBLISHED, label: '已发布' }, { value: BannerStatus.ARCHIVED, label: '已下线' }]"
-          @update:model-value="form.status = $event as typeof form.status"
+          :model-value="displayStatus"
+          :options="[{ value: BannerStatus.PUBLISHED, label: '上线' }, { value: BannerStatus.ARCHIVED, label: '下线' }]"
+          @update:model-value="updateDisplayStatus"
         />
       </div>
       <div class="rounded-luxe border border-line p-4">
         <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">展示文案（EN，可选——DEC-MKT-1）</p>
         <div class="space-y-3">
-          <input v-model="form.title" class="field" placeholder="标题 title" />
-          <input v-model="form.subtitle" class="field" placeholder="副标题 subtitle" />
-          <input v-model="form.ctaText" class="field" placeholder="按钮文案 cta_text" />
-          <input v-model="form.ctaLink" class="field" placeholder="按钮链接，如 /wedding-dresses" />
-          <input v-model="form.ctaTextSecondary" class="field" placeholder="次要按钮文案（选填）" />
-          <input v-model="form.ctaLinkSecondary" class="field" placeholder="次要按钮链接，如 /outdoor-weddings" />
+          <div>
+            <label class="field-label">标题</label>
+            <input v-model="form.title" class="field" placeholder="请输入标题" />
+          </div>
+          <div>
+            <label class="field-label">副标题</label>
+            <input v-model="form.subtitle" class="field" placeholder="请输入副标题" />
+          </div>
+          <div>
+            <label class="field-label">主要按钮文案</label>
+            <input v-model="form.ctaText" class="field" placeholder="如 Shop Now" />
+          </div>
+          <div>
+            <label class="field-label">主要按钮链接</label>
+            <input v-model="form.ctaLink" class="field" placeholder="如 /wedding-dresses" />
+          </div>
+          <div>
+            <label class="field-label">次要按钮文案</label>
+            <input v-model="form.ctaTextSecondary" class="field" placeholder="选填" />
+          </div>
+          <div>
+            <label class="field-label">次要按钮链接</label>
+            <input v-model="form.ctaLinkSecondary" class="field" placeholder="如 /outdoor-weddings" />
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-3">
-      <input v-model="trans[l].title" class="field" :placeholder="`标题 title（${l.toUpperCase()}）`" />
-      <input v-model="trans[l].subtitle" class="field" :placeholder="`副标题 subtitle（${l.toUpperCase()}）`" />
-      <input v-model="trans[l].ctaText" class="field" :placeholder="`按钮文案 cta_text（${l.toUpperCase()}）`" />
-      <input v-model="trans[l].ctaTextSecondary" class="field" :placeholder="`次要按钮文案（${l.toUpperCase()}）`" />
-      <p class="text-[11px] text-ink-faint">留空时消费端回退 EN 文案（决策 13）。</p>
-    </div>
+    <template v-for="l in ['es', 'fr'] as const" :key="l">
+      <div v-if="locale === l" class="space-y-3">
+        <div>
+          <label class="field-label">Banner 图（{{ l.toUpperCase() }}，选填）</label>
+          <MediaUploadCard
+            v-model="trans[l].imageUrl"
+            :fallback-value="form.imageUrl"
+            fallback-label="继承 EN 图片"
+            scope="banner"
+            aspect="aspect-[16/6]"
+            label="点击上传 Banner 图"
+          />
+        </div>
+        <div class="rounded-luxe border border-line p-4">
+          <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-ink-faint">展示文案（{{ l.toUpperCase() }}，可选）</p>
+          <div class="space-y-3">
+            <div>
+              <label class="field-label">标题</label>
+              <input v-model="trans[l].title" class="field" :placeholder="form.title ? `继承 EN：${form.title}` : '请输入标题'" />
+            </div>
+            <div>
+              <label class="field-label">副标题</label>
+              <input v-model="trans[l].subtitle" class="field" :placeholder="form.subtitle ? `继承 EN：${form.subtitle}` : '请输入副标题'" />
+            </div>
+            <div>
+              <label class="field-label">主要按钮文案</label>
+              <input v-model="trans[l].ctaText" class="field" :placeholder="form.ctaText ? `继承 EN：${form.ctaText}` : '请输入主要按钮文案'" />
+            </div>
+            <div>
+              <label class="field-label">次要按钮文案</label>
+              <input v-model="trans[l].ctaTextSecondary" class="field" :placeholder="form.ctaTextSecondary ? `继承 EN：${form.ctaTextSecondary}` : '请输入次要按钮文案'" />
+            </div>
+          </div>
+          <p class="mt-3 text-[11px] text-ink-faint">空白字段继承 EN 内容；主要及次要按钮链接统一使用 EN 配置。</p>
+        </div>
+      </div>
+    </template>
 
     <template #footer>
       <button class="btn-outline" @click="emit('close')">取消</button>

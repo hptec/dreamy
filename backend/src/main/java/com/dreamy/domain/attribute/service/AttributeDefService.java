@@ -10,6 +10,8 @@ import com.dreamy.domain.product.repository.ProductAttributeValueRepository;
 import com.dreamy.dto.AdminCatalogDtos.AttributeDefDto;
 import com.dreamy.dto.AdminCatalogDtos.AttributeDefUpsert;
 import com.dreamy.dto.TranslationDtos.AttributeDefTranslationDto;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.infra.CatalogAfterCommitRunner;
@@ -43,19 +45,16 @@ public class AttributeDefService {
     private final AttributeSetRepository setRepository;
     private final ProductAttributeValueRepository attributeValueRepository;
     private final CatalogAuditRecorder audit;
-    private final CatalogCacheService cache;
-    private final CatalogAfterCommitRunner afterCommit;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public AttributeDefService(AttributeDefRepository defRepository, AttributeSetRepository setRepository,
                                ProductAttributeValueRepository attributeValueRepository,
-                               CatalogAuditRecorder audit, CatalogCacheService cache,
-                               CatalogAfterCommitRunner afterCommit) {
+                               CatalogAuditRecorder audit, CacheInvalidationTaskService cacheTasks) {
         this.defRepository = defRepository;
         this.setRepository = setRepository;
         this.attributeValueRepository = attributeValueRepository;
         this.audit = audit;
-        this.cache = cache;
-        this.afterCommit = afterCommit;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-CAT-23：属性字典列表（含三语 translations） */
@@ -150,10 +149,9 @@ public class AttributeDefService {
 
     /** 属性字典变更 → PDP/PLP 缓存族失效（提交后执行） */
     private void invalidateStoreCaches() {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.PRODUCT);
-        });
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "attribute_definition.change",
+                "attribute_definition", null, null, CacheInvalidationPlans.ATTRIBUTE,
+                null, Map.of(), null);
     }
 
     /** V-CAT-053~056/058 校验（existing 非空=编辑场景，key 唯一性豁免自身） */

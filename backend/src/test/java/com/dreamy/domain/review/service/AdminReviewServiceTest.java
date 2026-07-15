@@ -11,7 +11,6 @@ import com.dreamy.error.ReviewErrorCode;
 import com.dreamy.error.ReviewException;
 import com.dreamy.infra.ReviewAfterCommitRunner;
 import com.dreamy.infra.ReviewAuditRecorder;
-import com.dreamy.infra.ReviewCacheService;
 import com.dreamy.mq.ReviewEventPublisher;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
 import com.dreamy.port.ReviewCatalogSnapshotPort.ProductBrief;
@@ -30,15 +29,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * 后台评价服务守卫/批量语义单元测试。
@@ -59,19 +51,19 @@ class AdminReviewServiceTest {
     @Mock
     ReviewCatalogSnapshotPort catalogPort;
     @Mock
-    ReviewCacheService cache;
-    @Mock
     ReviewAuditRecorder audit;
     @Mock
     ReviewEventPublisher events;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     AdminReviewService service;
 
     @BeforeEach
     void setUp() {
         // ReviewAfterCommitRunner 真实实例：单测无事务同步 → 失效链立即执行，可对 events 断言
-        service = new AdminReviewService(reviewRepository, imageRepository, catalogPort, cache, audit,
-                new ReviewAfterCommitRunner(), events, new ReviewImmediateTxRunner(), new ObjectMapper(), "Dreamy Team");
+        service = new AdminReviewService(reviewRepository, imageRepository, catalogPort, audit,
+                new ReviewAfterCommitRunner(), events, cacheTasks, new ReviewImmediateTxRunner(), new ObjectMapper(), "Dreamy Team");
         lenient().when(imageRepository.listByReviewIds(any(), eq(false))).thenReturn(List.of());
         lenient().when(catalogPort.getProductBriefs(any())).thenReturn(Map.of(
                 PRODUCT, new ProductBrief(PRODUCT, "aurelia-gown", "Aurelia Gown", true)));
@@ -94,15 +86,14 @@ class AdminReviewServiceTest {
     // ==================== E-REV-07 审核 guard（TC-REV-011/024 单测面） ====================
 
     @Test
-    @DisplayName("TC-REV-024 [P0]: pending→approved 审核成功，发 review.moderated + content.invalidated")
+    @DisplayName("TC-REV-024 [P0]: pending→approved 审核成功，发 review.moderated 并创建缓存任务")
     void moderateApprove() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.PENDING, false));
         when(reviewRepository.casModerate(1L, ReviewStatus.APPROVED)).thenReturn(1);
         service.moderate(1L, 2);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_MODERATE), eq("review#1"), anyString());
         verify(events).publishModerated(PRODUCT, 1L, 2);
-        verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
-        verify(cache).invalidateProduct(ReviewCacheService.Family.REVIEWS, PRODUCT);
+        verifyCacheTask();
     }
 
     @Test
@@ -146,7 +137,7 @@ class AdminReviewServiceTest {
         when(reviewRepository.casSetFeatured(3L)).thenReturn(1);
         service.setFeatured(3L, true);
         verify(events, never()).publishModerated(anyLong(), any(), anyInt());
-        verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
+        verifyCacheTask();
     }
 
     @Test
@@ -156,7 +147,6 @@ class AdminReviewServiceTest {
         service.setFeatured(4L, true);
         verify(reviewRepository, never()).casSetFeatured(anyLong());
         verify(audit, never()).record(anyString(), anyString(), any());
-        verify(events, never()).publishContentInvalidated(anyString(), anyString(), anyLong());
     }
 
     // ==================== E-REV-09 批量语义矩阵（TC-REV-002/025/036 单测面） ====================
@@ -208,7 +198,7 @@ class AdminReviewServiceTest {
         assertThat(result.skippedIds()).containsExactly(2L, 3L, 4L);
         // feature 不发 review.moderated（rating 不变——TC-REV-020）
         verify(events, never()).publishModerated(anyLong(), any(), anyInt());
-        verify(events).publishContentInvalidated(ReviewEventPublisher.TYPE_REVIEW_CHANGED, "aurelia-gown", PRODUCT);
+        verifyCacheTask();
 
         // unfeature：featured=1→更新，featured=0→skipped
         when(reviewRepository.listByIds(any())).thenReturn(List.of(
@@ -234,6 +224,12 @@ class AdminReviewServiceTest {
                 .isInstanceOf(ReviewException.class);
         assertThatThrownBy(() -> service.batch(List.of(1L), "__invalid__"))
                 .isInstanceOf(ReviewException.class);
+    }
+
+    private void verifyCacheTask() {
+        verify(cacheTasks, atLeastOnce()).enqueue(anyString(), anyString(), anyString(),
+                nullable(Object.class), nullable(String.class), anyList(), nullable(LocalDateTime.class),
+                anyMap(), nullable(String.class));
     }
 
     @Test

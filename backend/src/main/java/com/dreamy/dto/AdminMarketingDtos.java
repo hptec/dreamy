@@ -16,7 +16,7 @@ import java.util.List;
  * 后台 DTO 集（openapi CouponUpsert/Coupon/FlashSaleUpsert/FlashSale/BannerUpsert/Banner/
  * BlogPostUpsert/BlogPost/RealWeddingUpsert/RealWedding/LookbookUpsert/Lookbook/GuideUpsert/Guide）。
  * Upsert 含 DEC-MKT-1 可选 EN 文案增量字段（additive，不改既有契约字段）；
- * used_count/clicks/views/published_at 只读（V-MKT-029/046/056：请求体提交一律忽略）。
+ * used_count/views/published_at 只读（V-MKT-029/056：请求体提交一律忽略）。
  */
 public final class AdminMarketingDtos {
 
@@ -56,9 +56,9 @@ public final class AdminMarketingDtos {
                                List<BannerTranslationDto> translations) {
     }
 
-    /** openapi Banner（clicks 只读） */
+    /** openapi Banner */
     public record BannerDto(Long id, String name, String imageUrl, Integer position, LocalDateTime startTime,
-                            LocalDateTime endTime, Integer status, Integer sort, Integer clicks, String title,
+                            LocalDateTime endTime, Integer status, Integer sort, String title,
                             String subtitle, String ctaText, String ctaLink, String ctaTextSecondary,
                             String ctaLinkSecondary, List<BannerTranslationDto> translations) {
     }

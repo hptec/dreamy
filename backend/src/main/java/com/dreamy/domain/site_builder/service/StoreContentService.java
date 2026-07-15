@@ -1,7 +1,7 @@
 package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.banner.service.StoreBannerService;
-import com.dreamy.domain.category.service.StoreCategoryService;
+import com.dreamy.domain.collection.service.StoreCollectionService;
 import com.dreamy.domain.product.service.StoreProductService;
 import com.dreamy.domain.product.service.RecommendationService;
 import com.dreamy.domain.wedding.service.StoreWeddingService;
@@ -14,7 +14,7 @@ import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
-import com.dreamy.dto.StoreCategoryNode;
+import com.dreamy.dto.StoreCollectionGroup.StoreCollectionItem;
 import com.dreamy.dto.StoreMarketingDtos.StoreBanner;
 import com.dreamy.dto.StoreMarketingDtos.StoreRealWedding;
 import com.dreamy.dto.StoreProductCard;
@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,10 +60,12 @@ public class StoreContentService {
     private final AnnouncementRepository announcementRepository;
     private final ObjectMapper objectMapper;
     private final StoreBannerService bannerService;
-    private final StoreCategoryService categoryService;
+    private final StoreCollectionService collectionService;
     private final StoreProductService productService;
     private final RecommendationService recommendationService;
     private final StoreWeddingService weddingService;
+    private final Clock clock;
+    private final SiteBuilderCacheService cache;
 
     public StoreContentService(HomePageSectionRepository homeSectionRepository,
                                NavigationItemRepository navigationRepository,
@@ -70,23 +73,28 @@ public class StoreContentService {
                                AnnouncementRepository announcementRepository,
                                ObjectMapper objectMapper,
                                StoreBannerService bannerService,
-                               StoreCategoryService categoryService,
+                               StoreCollectionService collectionService,
                                StoreProductService productService,
                                RecommendationService recommendationService,
-                               StoreWeddingService weddingService) {
+                               StoreWeddingService weddingService,
+                               Clock clock, SiteBuilderCacheService cache) {
         this.homeSectionRepository = homeSectionRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
         this.announcementRepository = announcementRepository;
         this.objectMapper = objectMapper;
         this.bannerService = bannerService;
-        this.categoryService = categoryService;
+        this.collectionService = collectionService;
         this.productService = productService;
         this.recommendationService = recommendationService;
         this.weddingService = weddingService;
+        this.clock = clock;
+        this.cache = cache;
     }
 
     public StoreHomePageDto getHome(String locale) {
+        SiteBuilderCacheService.Lookup lookup = cache.lookup(SiteBuilderCacheService.Family.HOME, locale);
+        if (lookup.value() instanceof StoreHomePageDto hit) return hit;
         List<HomePageSection> sections = homeSectionRepository.findEnabledOrderBySort();
         List<StoreHomeSectionDto> dtos = new ArrayList<>();
         for (HomePageSection section : sections) {
@@ -101,6 +109,7 @@ public class StoreContentService {
         }
         StoreHomePageDto result = new StoreHomePageDto();
         result.setSections(dtos);
+        cache.put(lookup, result);
         return result;
     }
 
@@ -184,9 +193,9 @@ public class StoreContentService {
     }
 
     /**
-     * ThemeCards 派生：调用 StoreCategoryService.listTree(locale) 取根分类（level=0）。
+     * ThemeCards 派生：读取 Theme 集合分组，封面取集合内排序最前的已上架商品主图。
      * data_json config：{ mode: "auto", count: 6 } 或
-     * { mode: "manual", category_ids: [3, 1] }。手动模式严格保留运营选择顺序。
+     * { mode: "manual", collection_ids: [3, 1] }。手动模式严格保留运营选择顺序。
      * 失败降级空 cards + WARN（DG-02）。
      */
     private Map<String, Object> deriveThemeCardsData(HomePageSection section, String locale) {
@@ -197,30 +206,31 @@ public class StoreContentService {
         int count = readBoundedIntConfig(section.getDataJson(), "count", legacyLimit, 1, 8);
         String mode = readStringConfig(section.getDataJson(), "mode", "auto");
         try {
-            List<StoreCategoryNode> tree = categoryService.listTree(locale);
-            List<StoreCategoryNode> selected;
+            List<StoreCollectionItem> themes = collectionService.listThemeCollections(locale);
+            List<StoreCollectionItem> selected;
             if ("manual".equals(mode)) {
-                Map<Long, StoreCategoryNode> byId = new HashMap<>();
-                flattenCategories(tree).forEach(node -> byId.put(node.id(), node));
-                selected = readLongListConfig(section.getDataJson(), "category_ids").stream()
+                Map<Long, StoreCollectionItem> byId = themes.stream()
+                        .collect(Collectors.toMap(StoreCollectionItem::id, item -> item));
+                selected = readLongListConfig(section.getDataJson(), "collection_ids").stream()
                         .map(byId::get)
                         .filter(java.util.Objects::nonNull)
                         .toList();
             } else {
-                selected = tree.stream().limit(count).toList();
+                selected = themes.stream().limit(count).toList();
             }
             List<Map<String, Object>> cards = new ArrayList<>();
-            for (StoreCategoryNode node : selected) {
+            for (StoreCollectionItem theme : selected) {
                 Map<String, Object> card = new HashMap<>();
-                card.put("id", node.id());
-                card.put("name", node.name());
-                card.put("product_count", node.productCount());
+                card.put("id", theme.id());
+                card.put("name", theme.name());
+                card.put("product_count", theme.productCount());
+                card.put("image_url", theme.imageUrl());
                 cards.add(card);
             }
             data.put("cards", cards);
-            log.debug("[StoreContent] ThemeCards derived {} categories", cards.size());
+            log.debug("[StoreContent] ThemeCards derived {} theme collections", cards.size());
         } catch (Exception e) {
-            log.warn("[StoreContent] ThemeCards CategoryService unavailable, degrade to empty (DG-02)", e);
+            log.warn("[StoreContent] ThemeCards CollectionService unavailable, degrade to empty (DG-02)", e);
             data.put("cards", List.of());
         }
         return data;
@@ -392,18 +402,6 @@ public class StoreContentService {
         return null;
     }
 
-    private List<StoreCategoryNode> flattenCategories(List<StoreCategoryNode> roots) {
-        List<StoreCategoryNode> result = new ArrayList<>();
-        if (roots == null) return result;
-        for (StoreCategoryNode node : roots) {
-            result.add(node);
-            if (node.children() != null) {
-                result.addAll(flattenCategories(node.children()));
-            }
-        }
-        return result;
-    }
-
     private String normalizeProductSort(String sort) {
         return switch (sort) {
             case "new" -> "newest";
@@ -414,6 +412,8 @@ public class StoreContentService {
     }
 
     public StoreNavigationDto getNavigation(String locale) {
+        SiteBuilderCacheService.Lookup lookup = cache.lookup(SiteBuilderCacheService.Family.NAVIGATION, locale);
+        if (lookup.value() instanceof StoreNavigationDto hit) return hit;
         List<NavigationItem> items = navigationRepository.findEnabledOrderBySort();
         List<StoreNavigationItemDto> dtos = items.stream().map(item -> {
             StoreNavigationItemDto dto = new StoreNavigationItemDto();
@@ -436,10 +436,13 @@ public class StoreContentService {
         }).collect(Collectors.toList());
         StoreNavigationDto result = new StoreNavigationDto();
         result.setItems(dtos);
+        cache.put(lookup, result);
         return result;
     }
 
     public StoreFooterDto getFooter(String locale) {
+        SiteBuilderCacheService.Lookup lookup = cache.lookup(SiteBuilderCacheService.Family.FOOTER, locale);
+        if (lookup.value() instanceof StoreFooterDto hit) return hit;
         List<FooterColumn> columns = footerRepository.findAllColumnsOrderBySort();
         List<FooterLink> links = footerRepository.findAllLinksOrderBySort();
         Map<Long, List<FooterLink>> linksByColumn = links.stream()
@@ -464,11 +467,14 @@ public class StoreContentService {
         }).collect(Collectors.toList());
         StoreFooterDto result = new StoreFooterDto();
         result.setColumns(columnDtos);
+        cache.put(lookup, result);
         return result;
     }
 
     public StoreAnnouncementListDto getAnnouncements(String locale) {
-        List<Announcement> entities = announcementRepository.findActiveByTimeWindow(LocalDateTime.now());
+        SiteBuilderCacheService.Lookup lookup = cache.lookup(SiteBuilderCacheService.Family.ANNOUNCEMENTS, locale);
+        if (lookup.value() instanceof StoreAnnouncementListDto hit) return hit;
+        List<Announcement> entities = announcementRepository.findActiveByTimeWindow(LocalDateTime.now(clock));
         List<StoreAnnouncementDto> dtos = entities.stream().map(a -> {
             StoreAnnouncementDto dto = new StoreAnnouncementDto();
             dto.setId(a.getId());
@@ -480,6 +486,7 @@ public class StoreContentService {
         }).collect(Collectors.toList());
         StoreAnnouncementListDto result = new StoreAnnouncementListDto();
         result.setAnnouncements(dtos);
+        cache.put(lookup, result);
         return result;
     }
 

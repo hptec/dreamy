@@ -58,7 +58,7 @@ public class BannerRepository {
         bannerMapper.insert(banner);
     }
 
-    /** RM-MKT-005 update（SET 不含 clicks——V-MKT-046 只读列写权限约束） */
+    /** RM-MKT-005 update */
     public void update(Banner banner) {
         bannerMapper.update(null, new LambdaUpdateWrapper<Banner>()
                 .eq(Banner::getId, banner.getId())

@@ -12,7 +12,6 @@ public interface BannerDBConst extends MarketingCommonDBConst {
     String START_TIME = "start_time";
     String END_TIME = "end_time";
     String SORT = "sort";
-    String CLICKS = "clicks";
     String SUBTITLE = "subtitle";
     String CTA_TEXT = "cta_text";
 }

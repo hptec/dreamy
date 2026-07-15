@@ -23,7 +23,7 @@ import java.util.Map;
 @RestController
 public class StoreCategoryController {
 
-    private static final String CACHE_600 = "s-maxage=600";
+    private static final String CACHE_600 = "no-store";
 
     private final StoreCategoryService storeCategoryService;
     private final StoreCollectionService storeCollectionService;

@@ -180,8 +180,6 @@ dreamy:
       "[q.catalog.rating]":
         binding-keys: ["review.moderated"]
         retry-ttl-ms: 1000,4000,16000
-      "[q.invalidate]":
-        binding-keys: ["content.invalidated"]
   # S3 兼容对象存储预签名（决策 9；dev 缺省 stub 返回本地假 URL）
   storage:
     mode: ${STORAGE_MODE:stub}
@@ -205,18 +203,6 @@ dreamy:
   # marketing 域：coupon active→expiring 阈值（DEC-MKT-3，缺省 72h）
   marketing:
     coupon-expiring-hours: 72
-  # q.invalidate 失效消费者下游（EVT-MKT-002 / FLOW-P03 / 决策 22/27）：
-  # mode=stub（dev 缺省，仅日志不出网）；real 时 POST {next-internal-url}/api/revalidate
-  # （header x-revalidate-token）+ Cloudflare purge（zone token 仅后端配置，不落日志）
-  invalidate:
-    mode: ${INVALIDATE_MODE:stub}
-    next-internal-url: ${NEXT_INTERNAL_URL:http://localhost:5173}
-    revalidate-token: ${REVALIDATE_TOKEN:}
-    site-base-url: ${SITE_BASE_URL:http://localhost:5173}
-    timeout-ms: 5000
-    cloudflare:
-      zone-id: ${CF_ZONE_ID:}
-      api-token: ${CF_API_TOKEN:}
   # i18n 外部网关（决策 1/5/6）：API Key AES-256-GCM 加密密钥（Base64 256-bit/32 字节，启动 fail-fast 校验）
   # 模型定时刷新扫描间隔（决策5；scheduled 策略网关按各自 interval 到期触发 syncModels）
   gateway:

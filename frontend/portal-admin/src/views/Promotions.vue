@@ -13,7 +13,7 @@ import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { usePromotionsStore } from '@/stores/promotions'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { formatDateTime } from '@/utils/format'
+import { formatUtcDateTime } from '@/utils/format'
 import { PlusIcon, PencilSquareIcon, TrashIcon, ClockIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import { CouponStatus, CouponType, FlashSaleStatus } from '@/api/types'
 import type { Coupon, FlashSale } from '@/api/types'
@@ -157,7 +157,7 @@ onMounted(load)
           </div>
           <div class="p-4 text-[12px] text-ink-soft">
             <p>门槛：{{ Number(c.minAmount) > 0 ? '满 $' + Number(c.minAmount) : '无门槛' }} · 类型：{{ couponTypeLabel[c.type] || c.type }}</p>
-            <p v-if="c.startAt">有效期：{{ formatDateTime(c.startAt) }} → {{ formatDateTime(c.endAt) }}</p>
+            <p v-if="c.startAt">有效期：{{ formatUtcDateTime(c.startAt) }} → {{ formatUtcDateTime(c.endAt) }}</p>
             <div class="mt-2 flex items-center justify-between">
               <span>已用 {{ (c.usedCount ?? 0).toLocaleString() }} / {{ fmtLimit(c) }}</span>
               <div class="flex gap-1">
@@ -203,8 +203,8 @@ onMounted(load)
               <td class="flex items-center gap-2 font-medium text-ink"><ClockIcon class="h-4 w-4 text-gold-deep" />{{ f.name }}</td>
               <td class="text-right">{{ f.productIds?.length ?? 0 }}</td>
               <td class="text-gold-deep">{{ f.discount }}</td>
-              <td class="text-[12px] text-ink-soft">{{ formatDateTime(f.startAt) }}</td>
-              <td class="text-[12px] text-ink-soft">{{ formatDateTime(f.endAt) }}</td>
+              <td class="text-[12px] text-ink-soft">{{ formatUtcDateTime(f.startAt) }}</td>
+              <td class="text-[12px] text-ink-soft">{{ formatUtcDateTime(f.endAt) }}</td>
               <td><StatusBadge :tone="flashTone[f.status]" :label="flashLabel[f.status]" /></td>
               <td>
                 <div class="flex items-center justify-end gap-1">

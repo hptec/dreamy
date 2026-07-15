@@ -1,18 +1,13 @@
 package com.dreamy.domain.product.service;
 
 import com.dreamy.aspect.CatalogAdminWrite;
-import com.dreamy.domain.product.entity.Product;
-import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.dto.AdminProductBatchDtos.BatchFailure;
 import com.dreamy.enums.ProductStatus;
 import com.dreamy.dto.AdminProductBatchDtos.BatchResult;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
 import com.dreamy.i18n.CatalogMessageResolver;
-import com.dreamy.infra.CatalogAfterCommitRunner;
 import com.dreamy.infra.CatalogAuditRecorder;
-import com.dreamy.infra.CatalogCacheService;
-import com.dreamy.infra.CatalogCacheService.Family;
 import com.dreamy.support.CatalogFieldErrors;
 import com.dreamy.i18n.RequestLocaleContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,14 +16,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 后台商品批量操作服务（API-CAT-01 batchAdminProducts；admin-prototype-alignment ALIGN-007）。
@@ -36,7 +28,7 @@ import java.util.stream.Collectors;
  * 每行独立事务提交（TX-CAT-01——本方法无事务，单品 service 方法各自开启行级事务，禁止把循环包进单事务）。
  * L2 TRACE: V-001/V-002 / STEP-01~04 / RM-CAT-02a~d / TX-CAT-01 / EC-CAT-01 / CV-CAT-01。
  *
- * 缓存失效策略：批量操作完成后统一失效，避免单品操作重复失效导致的性能问题。
+ * 缓存失效策略：每个成功行与其业务事务一起创建 durable task，失败行不产生记录。
  */
 @Service
 public class AdminProductBatchService {
@@ -50,24 +42,15 @@ public class AdminProductBatchService {
     static final int ROW_INTERNAL_ERROR_CODE = 500500;
 
     private final AdminProductService adminProductService;
-    private final ProductRepository productRepository;
-    private final CatalogCacheService cache;
-    private final CatalogAfterCommitRunner afterCommit;
     private final CatalogAuditRecorder audit;
     private final CatalogMessageResolver messageResolver;
     private final ObjectMapper objectMapper;
 
     public AdminProductBatchService(AdminProductService adminProductService,
-                                    ProductRepository productRepository,
-                                    CatalogCacheService cache,
-                                    CatalogAfterCommitRunner afterCommit,
                                     CatalogAuditRecorder audit,
                                     CatalogMessageResolver messageResolver,
                                     ObjectMapper objectMapper) {
         this.adminProductService = adminProductService;
-        this.productRepository = productRepository;
-        this.cache = cache;
-        this.afterCommit = afterCommit;
         this.audit = audit;
         this.messageResolver = messageResolver;
         this.objectMapper = objectMapper;
@@ -103,7 +86,7 @@ public class AdminProductBatchService {
      * API-CAT-01 主流程。参数非法 → 422501（既有 4xx 参数错误口径，沿用 FIELD_VALIDATION_FAILED，
      * 不新增 400 码——catalog-api-detail「不新增错误码」约束）；部分/全部失败仍 200。
      *
-     * 缓存失效：操作前收集所有商品slug，操作成功后统一失效相关缓存族，避免重复失效。
+     * 缓存失效：每个成功行由 AdminProductService 在对应行事务内写入 durable task。
      */
     @CatalogAdminWrite
     public BatchResult execute(String actionParam, List<Long> idsParam) {
@@ -126,15 +109,6 @@ public class AdminProductBatchService {
         errors.throwIfAny();
         List<Long> ids = new ArrayList<>(new LinkedHashSet<>(idsParam));
 
-        // STEP-01 操作前收集所有商品slug（用于后续缓存失效）
-        Map<Long, String> slugById = new HashMap<>();
-        for (Long id : ids) {
-            Product product = productRepository.findById(id);
-            if (product != null) {
-                slugById.put(id, product.getSlug());
-            }
-        }
-
         // STEP-02 逐条容错：行级独立事务（单品 service 自带），整体不回滚
         List<Long> successIds = new ArrayList<>();
         List<BatchFailure> failures = new ArrayList<>();
@@ -156,18 +130,6 @@ public class AdminProductBatchService {
                 failures.add(new BatchFailure(id, ROW_INTERNAL_ERROR_CODE,
                         messageResolver.resolve("error.500500", RequestLocaleContext.get())));
             }
-        }
-
-        // STEP-03 批量操作成功后统一失效缓存（避免单品操作重复失效）
-        if (!successIds.isEmpty()) {
-            Set<String> slugsToInvalidate = successIds.stream()
-                    .map(slugById::get)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-
-            afterCommit.run(() -> {
-                invalidateCacheForBatchAction(action, slugsToInvalidate);
-            });
         }
 
         // STEP-04 写 OperationLog 一条（action=批量{操作名}，detail 含 ids 总数/成功数/失败数）
@@ -204,47 +166,4 @@ public class AdminProductBatchService {
         }
     }
 
-    /**
-     * 批量操作后统一失效缓存策略。
-     * 根据不同操作类型失效对应的缓存族，避免单品操作重复失效导致的性能问题。
-     *
-     * @param action 批量操作类型
-     * @param slugs 成功操作的商品slug集合
-     */
-    private void invalidateCacheForBatchAction(BatchAction action, Set<String> slugs) {
-        try {
-            switch (action) {
-                case PUBLISH, UNPUBLISH -> {
-                    // 上架/下架：影响商品列表、详情页、推荐、分类、集合
-                    for (String slug : slugs) {
-                        cache.invalidateProductSlug(slug);
-                    }
-                    cache.invalidateFamily(Family.PRODUCTS);
-                    cache.invalidateFamily(Family.RECO);
-                    cache.invalidateFamily(Family.CATEGORIES);
-                    cache.invalidateFamily(Family.COLLECTIONS);
-                    log.info("[CATALOG-BATCH] cache invalidated for {} action={} count={}",
-                            action.key, action.key, slugs.size());
-                }
-                case RECOMMEND, UNRECOMMEND -> {
-                    // 推荐/取消推荐：影响推荐列表、商品列表
-                    cache.invalidateFamily(Family.RECO);
-                    cache.invalidateFamily(Family.PRODUCTS);
-                    log.info("[CATALOG-BATCH] cache invalidated for {} action={} count={}",
-                            action.key, action.key, slugs.size());
-                }
-                case DELETE -> {
-                    // 删除：影响商品列表、推荐、分类、集合（已删除无需失效详情页）
-                    cache.invalidateFamily(Family.PRODUCTS);
-                    cache.invalidateFamily(Family.RECO);
-                    cache.invalidateFamily(Family.CATEGORIES);
-                    cache.invalidateFamily(Family.COLLECTIONS);
-                    log.info("[CATALOG-BATCH] cache invalidated for delete action count={}", slugs.size());
-                }
-            }
-        } catch (Exception ex) {
-            // 缓存失效失败不影响主流程（EC-CAT-002：TTL兜底）
-            log.warn("[CATALOG-BATCH] cache invalidation failed action={} (EC-CAT-002 TTL fallback)", action.key, ex);
-        }
-    }
 }

@@ -25,11 +25,9 @@ import com.dreamy.dto.TranslationDtos.CollectionGroupTranslationDto;
 import com.dreamy.dto.TranslationDtos.CollectionTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
-import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.infra.CatalogAuditRecorder;
-import com.dreamy.infra.CatalogCacheService;
-import com.dreamy.infra.CatalogCacheService.Family;
 import com.dreamy.support.CatalogFieldErrors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -57,27 +55,22 @@ public class CollectionAdminService {
     private final ProductCollectionRepository productCollectionRepository;
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
-    private final CatalogCacheService cache;
     private final CatalogAuditRecorder audit;
-    private final CatalogAfterCommitRunner afterCommit;
-    private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final CacheInvalidationTaskService cacheTasks;
     private final ObjectMapper objectMapper;
 
     public CollectionAdminService(CollectionGroupRepository groupRepository, CollectionRepository collectionRepository,
                                   ProductCollectionRepository productCollectionRepository,
                                   ProductRepository productRepository, ProductImageRepository productImageRepository,
-                                  CatalogCacheService cache,
-                                  CatalogAuditRecorder audit, CatalogAfterCommitRunner afterCommit,
-                                  ContentInvalidatedPublisher invalidatedPublisher, ObjectMapper objectMapper) {
+                                  CatalogAuditRecorder audit, CacheInvalidationTaskService cacheTasks,
+                                  ObjectMapper objectMapper) {
         this.groupRepository = groupRepository;
         this.collectionRepository = collectionRepository;
         this.productCollectionRepository = productCollectionRepository;
         this.productRepository = productRepository;
         this.productImageRepository = productImageRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.invalidatedPublisher = invalidatedPublisher;
+        this.cacheTasks = cacheTasks;
         this.objectMapper = objectMapper;
     }
 
@@ -105,10 +98,7 @@ public class CollectionAdminService {
         groupRepository.insert(group);
         groupRepository.replaceTranslations(group.getId(), toGroupTranslationRows(req.translations()));
         audit.record("创建集合分组", group.getName(), null);
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection_group.create", "collection_group", group.getId(), group.getName());
         return new CollectionGroupDto(group.getId(), group.getName(), group.getDescription(), 0,
                 req.translations() == null ? List.of() : req.translations());
     }
@@ -129,10 +119,7 @@ public class CollectionAdminService {
         groupRepository.replaceTranslations(id, toGroupTranslationRows(req.translations()));
         audit.record("编辑集合分组", existing.getName(), null);
         // STEP-CAT-02 提交后失效 catalog:collections:* → MQ collection_changed
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection_group.update", "collection_group", id, existing.getName());
         int collectionCount = (int) collectionRepository.countByGroupId(id);
         return new CollectionGroupDto(id, existing.getName(), existing.getDescription(), collectionCount,
                 req.translations() == null ? List.of() : req.translations());
@@ -152,10 +139,7 @@ public class CollectionAdminService {
         }
         groupRepository.deleteById(id);
         audit.record("删除集合分组", existing.getName(), null);
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection_group.delete", "collection_group", id, existing.getName());
     }
 
     // ==================== 集合 E-CAT-31~34 ====================
@@ -231,10 +215,7 @@ public class CollectionAdminService {
         collectionRepository.insert(collection);
         collectionRepository.replaceTranslations(collection.getId(), toCollectionTranslationRows(req.translations()));
         audit.record("创建集合", collection.getName(), null);
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection.create", "collection", collection.getId(), collection.getName());
         return toCollectionDto(collection, 0, resolveFallbackCoverUrls(collection.getId(), 4),
                 req.translations() == null ? List.of() : req.translations());
     }
@@ -258,12 +239,7 @@ public class CollectionAdminService {
         // 审计 changes 含 status 流转（BE-DIM-7）
         audit.record("编辑集合", existing.getName(), statusChangesJson(oldStatus, existing.getStatus()));
         // STEP-CAT-02 提交后失效 collections/reco（shop_by_color）/products（collection_id 筛选）→ MQ
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection.update", "collection", id, existing.getName());
         Map<Long, Integer> counts = productCollectionRepository.countByCollections(false);
         return toCollectionDto(existing, counts.getOrDefault(id, 0), resolveFallbackCoverUrls(id, 4),
                 req.translations() == null ? List.of() : req.translations());
@@ -282,12 +258,7 @@ public class CollectionAdminService {
         collectionRepository.deleteTranslationsByCollectionId(id);
         collectionRepository.deleteById(id);
         audit.record("删除集合", existing.getName(), null);
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection.delete", "collection", id, existing.getName());
     }
 
     // ==================== 校验/装配 ====================
@@ -472,12 +443,7 @@ public class CollectionAdminService {
         }
         productCollectionRepository.replaceAllByCollection(collectionId, productIds);
         audit.record("编辑集合商品", existing.getName(), productsChangeJson(productIds));
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection.products.replace", "collection", collectionId, existing.getName());
     }
 
     /** E-CAT-37 removeCollectionProduct —— 单条摘除（TX-CAT-022） */
@@ -491,12 +457,13 @@ public class CollectionAdminService {
         productCollectionRepository.deleteByCollectionIdAndProductId(collectionId, productId);
         audit.record("摘除集合商品", existing.getName(),
                 productsChangeJson(List.of(productId)));
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.COLLECTIONS);
-            cache.invalidateFamily(Family.RECO);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
-        });
+        enqueue("collection.product.remove", "collection", collectionId, existing.getName());
+    }
+
+    private void enqueue(String triggerPoint, String resourceType, Long resourceId, String label) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                resourceType, resourceId, label, CacheInvalidationPlans.COLLECTION,
+                null, Map.of(), null);
     }
 
     private String productsChangeJson(List<Long> productIds) {

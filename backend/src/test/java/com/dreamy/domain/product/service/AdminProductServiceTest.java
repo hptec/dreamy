@@ -20,7 +20,6 @@ import com.dreamy.dto.AdminProductUpsert;
 import com.dreamy.dto.SkuDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
 import com.dreamy.infra.CatalogAfterCommitRunner;
 import com.dreamy.infra.CatalogAuditRecorder;
 import com.dreamy.infra.CatalogCacheService;
@@ -36,16 +35,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -90,11 +87,11 @@ class AdminProductServiceTest {
     @Mock
     CatalogAfterCommitRunner afterCommit;
     @Mock
-    ContentInvalidatedPublisher invalidatedPublisher;
-    @Mock
     TradingQueryPort tradingQueryPort;
     @Mock
     TransactionTemplate transactionTemplate;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     AdminProductService service;
 
@@ -103,7 +100,7 @@ class AdminProductServiceTest {
         service = new AdminProductService(productRepository, translationRepository, imageRepository,
                 skuRepository, sizeChartRepository, productCollectionRepository, attributeValueRepository,
                 attributeDefRepository, attributeConfigService, collectionRepository, categoryRepository,
-                treeService, cache, audit, afterCommit, invalidatedPublisher, tradingQueryPort,
+                treeService, audit, cacheTasks, tradingQueryPort,
                 transactionTemplate, new ObjectMapper());
     }
 
@@ -176,10 +173,7 @@ class AdminProductServiceTest {
         verify(translationRepository).deleteByProductId(11L);
         verify(attributeValueRepository).deleteByProductId(11L);
         verify(audit).record(eq("删除商品"), any(), any());
-        ArgumentCaptor<Runnable> afterCommitAction = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(afterCommitAction.capture());
-        afterCommitAction.getValue().run();
-        verify(cache).invalidateProductSlug("aurelia-gown");
+        verifyCacheTask();
     }
 
     @Test
@@ -207,10 +201,7 @@ class AdminProductServiceTest {
 
         service.create(req);
 
-        ArgumentCaptor<Runnable> afterCommitAction = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(afterCommitAction.capture());
-        afterCommitAction.getValue().run();
-        verify(cache).invalidateProductSlug("aurelia-gown");
+        verifyCacheTask();
     }
 
     @Test
@@ -224,14 +215,13 @@ class AdminProductServiceTest {
         service.update(10L, upsertWithSku(
                 new SkuDto(null, "AUR-IVORY-2", "Ivory", "US 2", 5, null)));
 
-        ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(action.capture());
-        action.getValue().run();
-        verify(cache).invalidateProductSlug("aurelia-gown");
-        verify(cache).invalidateFamily(CatalogCacheService.Family.PRODUCTS);
-        verify(cache).invalidateFamily(CatalogCacheService.Family.RECO);
-        verify(cache).invalidateFamily(CatalogCacheService.Family.CATEGORIES);
-        verify(cache).invalidateFamily(CatalogCacheService.Family.COLLECTIONS);
+        verifyCacheTask();
+    }
+
+    private void verifyCacheTask() {
+        verify(cacheTasks, atLeastOnce()).enqueue(anyString(), anyString(), anyString(),
+                nullable(Object.class), nullable(String.class), anyList(), nullable(LocalDateTime.class),
+                anyMap(), nullable(String.class));
     }
 
     @Test
@@ -247,7 +237,6 @@ class AdminProductServiceTest {
         assertThat(item.status()).isEqualTo(2);
         verify(transactionTemplate, never()).executeWithoutResult(any());
         verify(audit, never()).record(any(), any(), any());
-        verify(invalidatedPublisher, never()).publish(any(), any(), any());
     }
 
     @Test

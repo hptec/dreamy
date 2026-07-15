@@ -3,6 +3,8 @@ package com.dreamy.domain.site_builder.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.dreamy.domain.site_builder.entity.Announcement;
 import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.SiteBuilderDtos.AnnouncementDto;
 import com.dreamy.dto.SiteBuilderDtos.AnnouncementUpsert;
 import com.dreamy.error.SiteBuilderErrorCode;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,13 +24,12 @@ public class AnnouncementService {
 
     private final AnnouncementRepository repository;
     private final ObjectMapper objectMapper;
-    private final SiteBuilderCacheService cacheService;
-
+    private final CacheInvalidationTaskService cacheTasks;
     public AnnouncementService(AnnouncementRepository repository, ObjectMapper objectMapper,
-                               SiteBuilderCacheService cacheService) {
+                               CacheInvalidationTaskService cacheTasks) {
         this.repository = repository;
         this.objectMapper = objectMapper;
-        this.cacheService = cacheService;
+        this.cacheTasks = cacheTasks;
     }
 
     public IPage<Announcement> list(int page, int size, Boolean enabledOnly) {
@@ -49,7 +51,8 @@ public class AnnouncementService {
         applyUpsert(entity, upsert);
         entity.setVersion(0);
         repository.insert(entity);
-        cacheService.invalidateAnnouncementFamily();
+        enqueueImmediate("site_announcement.create", entity);
+        replaceWindowTasks(entity);
         return toDto(entity);
     }
 
@@ -69,16 +72,18 @@ public class AnnouncementService {
         if (rows == 0) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
-        cacheService.invalidateAnnouncementFamily();
+        enqueueImmediate("site_announcement.update", entity);
+        replaceWindowTasks(entity);
         return toDto(entity);
     }
 
     @Transactional
     public void delete(Long id) {
-        repository.findById(id)
+        Announcement existing = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_NOT_FOUND));
         repository.deleteById(id);
-        cacheService.invalidateAnnouncementFamily();
+        enqueueImmediate("site_announcement.delete", existing);
+        cacheTasks.cancelFuture("site_announcement", id, "site_announcement.window.");
     }
 
     @Transactional
@@ -91,8 +96,41 @@ public class AnnouncementService {
         }
         entity.setEnabled(enabled);
         entity.setVersion(entity.getVersion() + 1);
-        cacheService.invalidateAnnouncementFamily();
+        enqueueImmediate("site_announcement.toggle", entity);
+        replaceWindowTasks(entity);
         return toDto(entity);
+    }
+
+    private void enqueueImmediate(String triggerPoint, Announcement entity) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "site_announcement", entity.getId(), entity.getContent(),
+                CacheInvalidationPlans.SITE_ANNOUNCEMENTS_PLAN, null, details(entity), null);
+    }
+
+    private void replaceWindowTasks(Announcement entity) {
+        cacheTasks.cancelFuture("site_announcement", entity.getId(), "site_announcement.window.");
+        if (!Boolean.TRUE.equals(entity.getEnabled())) return;
+        scheduleBoundary(entity, "start", entity.getStartAt());
+        scheduleBoundary(entity, "end", entity.getEndAt());
+    }
+
+    private void scheduleBoundary(Announcement entity, String boundary, LocalDateTime executeAt) {
+        if (executeAt == null || !executeAt.isAfter(cacheTasks.now())) return;
+        Map<String, Object> details = details(entity);
+        details.put("boundary", boundary);
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_SCHEDULED,
+                "site_announcement.window." + boundary, "site_announcement", entity.getId(),
+                entity.getContent(), CacheInvalidationPlans.SITE_ANNOUNCEMENTS_PLAN,
+                executeAt, details, null);
+    }
+
+    private Map<String, Object> details(Announcement entity) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("enabled", entity.getEnabled());
+        details.put("priority", entity.getPriority());
+        if (entity.getStartAt() != null) details.put("start_at", entity.getStartAt());
+        if (entity.getEndAt() != null) details.put("end_at", entity.getEndAt());
+        return details;
     }
 
     private void validate(AnnouncementUpsert upsert) {

@@ -14,6 +14,17 @@ PORT="${1:-18081}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# 本地开发统一从 Git 忽略的环境文件加载敏感配置；部署环境仍由宿主/密钥管理器注入。
+# 可用 BACKEND_ENV_FILE=/absolute/path/to/file 覆盖默认位置，便于 CI 或多套本地环境。
+ENV_FILE="${BACKEND_ENV_FILE:-${PROJECT_ROOT}/.env.backend.local}"
+if [ -f "${ENV_FILE}" ]; then
+  echo "[backend] 加载本地环境文件: ${ENV_FILE}"
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+fi
+
 # JDK 25（identity-auth-fullstack 后端要求 GraalVM 25）
 if [ -d "/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home" ]; then
   export JAVA_HOME="/Library/Java/JavaVirtualMachines/graalvm-jdk-25.0.2+10.1/Contents/Home"
@@ -28,6 +39,7 @@ for variable in DB_PASSWORD STORE_JWT_SECRET ADMIN_JWT_SECRET DREAMY_GATEWAY_AES
 done
 if [ "${#missing[@]}" -gt 0 ]; then
   echo "[backend] 错误: 缺少必需环境变量: ${missing[*]}" >&2
+  echo "[backend] 本地开发请复制 scripts/.env.backend.example 为 .env.backend.local 后填写现有值。" >&2
   echo "[backend] JWT 密钥需至少 32 字节且两端不同；AES 密钥需为 Base64 编码的 32 字节稳定密钥。" >&2
   exit 1
 fi

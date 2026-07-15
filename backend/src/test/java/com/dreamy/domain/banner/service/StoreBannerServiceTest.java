@@ -12,6 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,11 +25,12 @@ import static org.mockito.Mockito.when;
 class StoreBannerServiceTest {
 
     @Test
-    @DisplayName("CTA 链接始终来自 Banner 主表，历史 translation 链接不会覆盖")
-    void secondaryCtaLinkIsNeverTranslated() {
+    @DisplayName("译文图片和文案覆盖英语，缺失字段及 CTA 链接回退英语")
+    void translationOverridesAvailableFieldsAndFallsBackToEnglish() {
         BannerRepository repository = mock(BannerRepository.class);
         MarketingCacheService cache = mock(MarketingCacheService.class);
-        StoreBannerService service = new StoreBannerService(repository, cache);
+        StoreBannerService service = new StoreBannerService(repository, cache,
+                Clock.fixed(Instant.parse("2026-06-10T12:00:00Z"), ZoneOffset.UTC));
         Lookup lookup = new Lookup(Family.BANNERS, "1:es", 7L, null);
 
         Banner banner = new Banner();
@@ -41,6 +45,7 @@ class StoreBannerServiceTest {
         BannerTranslation translation = new BannerTranslation();
         translation.setBannerId(1L);
         translation.setLocale("es");
+        translation.setImageUrl("/hero-es.jpg");
         translation.setCtaTextSecondary("Más información");
         translation.setCtaLinkSecondary("/legacy-translated-link");
 
@@ -51,7 +56,13 @@ class StoreBannerServiceTest {
 
         StoreBanner result = service.list(BannerPosition.HERO, "es").getFirst();
 
-        assertThat(result.ctaTextSecondary()).isEqualTo("Más información");
+        assertThat(result.imageUrl()).isEqualTo("/hero-es.jpg");
         assertThat(result.ctaLinkSecondary()).isEqualTo("/canonical-secondary-link");
+        assertThat(result.ctaTextSecondary()).isEqualTo("Más información");
+
+        translation.setImageUrl(" ");
+        StoreBanner fallbackResult = service.list(BannerPosition.HERO, "es").getFirst();
+
+        assertThat(fallbackResult.imageUrl()).isEqualTo("/hero.jpg");
     }
 }

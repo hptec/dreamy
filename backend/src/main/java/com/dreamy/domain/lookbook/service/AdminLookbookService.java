@@ -4,16 +4,14 @@ import com.dreamy.enums.PublishStatus;
 import com.dreamy.domain.lookbook.entity.Lookbook;
 import com.dreamy.domain.lookbook.entity.LookbookTranslation;
 import com.dreamy.domain.lookbook.repository.LookbookRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminMarketingDtos.LookbookDto;
 import com.dreamy.dto.AdminMarketingDtos.LookbookUpsert;
 import com.dreamy.dto.MarketingTranslationDtos.LookbookTranslationDto;
 import com.dreamy.error.MarketingErrorCode;
 import com.dreamy.error.MarketingException;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import com.dreamy.support.MarketingFieldErrors;
 import com.dreamy.support.MarketingParams;
@@ -37,20 +35,15 @@ public class AdminLookbookService {
 
 
     private final LookbookRepository lookbookRepository;
-    private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
-    private final MarketingAfterCommitRunner afterCommit;
-    private final MarketingContentInvalidatedPublisher publisher;
+    private final CacheInvalidationTaskService cacheTasks;
     private final CatalogQueryPort catalogQueryPort;
 
-    public AdminLookbookService(LookbookRepository lookbookRepository, MarketingCacheService cache,
-                                MarketingAuditRecorder audit, MarketingAfterCommitRunner afterCommit,
-                                MarketingContentInvalidatedPublisher publisher, CatalogQueryPort catalogQueryPort) {
+    public AdminLookbookService(LookbookRepository lookbookRepository, MarketingAuditRecorder audit,
+                                CacheInvalidationTaskService cacheTasks, CatalogQueryPort catalogQueryPort) {
         this.lookbookRepository = lookbookRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.publisher = publisher;
+        this.cacheTasks = cacheTasks;
         this.catalogQueryPort = catalogQueryPort;
     }
 
@@ -84,7 +77,7 @@ public class AdminLookbookService {
         audit.record("创建Lookbook", n.title(), null);
         // STEP-MKT-03 提交后（published）失效 + MQ → revalidate /inspiration ×3 + purge
         if (n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(lookbook.getId());
+            enqueue("lookbook.create", lookbook);
         }
         return toDto(lookbookRepository.findById(lookbook.getId()), n.productIds(), nonNull(req.translations()));
     }
@@ -108,7 +101,7 @@ public class AdminLookbookService {
         audit.record("编辑Lookbook", n.title(), null);
         // STEP-MKT-03 提交后失效 + MQ（同 E-MKT-38 口径，draft 间编辑不发）
         if (wasPublished || n.status() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(id);
+            enqueue("lookbook.update", existing);
         }
         return toDto(lookbookRepository.findById(id), n.productIds(), nonNull(req.translations()));
     }
@@ -127,7 +120,7 @@ public class AdminLookbookService {
         audit.record("删除Lookbook", existing.getTitle(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ
         if (existing.getStatus() == PublishStatus.PUBLISHED) {
-            invalidateAfterCommit(id);
+            enqueue("lookbook.delete", existing);
         }
     }
 
@@ -154,17 +147,15 @@ public class AdminLookbookService {
         audit.record("Lookbook发布状态变更", existing.getTitle(),
                 "{\"from\":\"" + existing.getStatus().getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
         // STEP-MKT-03 提交后失效 + MQ + revalidate /inspiration ×3 + purge
-        invalidateAfterCommit(id);
+        enqueue("lookbook.status", existing);
         existing.setStatus(target);
         return toDto(existing, productIds, translations.getOrDefault(id, List.of()));
     }
 
-    private void invalidateAfterCommit(Long id) {
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.LOOKBOOKS);
-            cache.invalidateFamily(Family.LOOKBOOK);
-            publisher.publish(MarketingContentInvalidatedPublisher.TYPE_LOOKBOOK_CHANGED, null, null, id);
-        });
+    private void enqueue(String triggerPoint, Lookbook lookbook) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "lookbook", lookbook.getId(), lookbook.getTitle(), CacheInvalidationPlans.LOOKBOOK,
+                null, java.util.Map.of(), null);
     }
 
     private record Normalized(String title, String theme, PublishStatus status, String description,

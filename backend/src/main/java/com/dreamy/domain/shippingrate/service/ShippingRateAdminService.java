@@ -2,13 +2,13 @@ package com.dreamy.domain.shippingrate.service;
 
 import com.dreamy.domain.shippingrate.entity.ShippingRate;
 import com.dreamy.domain.shippingrate.repository.ShippingRateRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationTarget;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.ShippingDtos.ShippingRateDto;
 import com.dreamy.dto.ShippingDtos.ShippingRateUpsert;
 import com.dreamy.error.ShippingErrorCode;
 import com.dreamy.error.ShippingException;
-import com.dreamy.infra.ShippingAfterCommitRunner;
 import com.dreamy.infra.ShippingAuditRecorder;
-import com.dreamy.infra.ShippingCacheService;
 import com.dreamy.support.ShippingValidation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -32,18 +32,15 @@ public class ShippingRateAdminService {
 
     private final ShippingRateRepository rateRepository;
     private final ShippingAuditRecorder audit;
-    private final ShippingAfterCommitRunner afterCommit;
-    private final ShippingCacheService cache;
     private final ObjectMapper objectMapper;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public ShippingRateAdminService(ShippingRateRepository rateRepository, ShippingAuditRecorder audit,
-                                    ShippingAfterCommitRunner afterCommit, ShippingCacheService cache,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper, CacheInvalidationTaskService cacheTasks) {
         this.rateRepository = rateRepository;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.cache = cache;
         this.objectMapper = objectMapper;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-SHP-06 listAdminShippingRates：STEP-SHP-01 全量 ORDER BY id ASC（RM-SHP-010，不分页不缓存） */
@@ -74,7 +71,7 @@ public class ShippingRateAdminService {
         // STEP-SHP-03 审计（action=创建运费规则）
         audit.record("创建运费规则", rate.getZone(), changesJson(null, after));
         // STEP-SHP-04 提交后失效 shipping:rates（CACHE-SHP-002，结算报价 600s TTL 内即时生效）
-        afterCommit.run(cache::invalidateRates);
+        enqueue("shipping_rate.create", rate);
         return after;
     }
 
@@ -107,7 +104,7 @@ public class ShippingRateAdminService {
         // STEP-SHP-04 审计（action=编辑运费规则）
         audit.record("编辑运费规则", existing.getZone(), changesJson(before, after));
         // STEP-SHP-05 提交后失效（已创建订单 shipping_fee 为快照不变）
-        afterCommit.run(cache::invalidateRates);
+        enqueue("shipping_rate.update", existing);
         return after;
     }
 
@@ -125,13 +122,21 @@ public class ShippingRateAdminService {
         audit.record("删除运费规则", existing == null ? ("ID:" + id) : existing.getZone(),
                 changesJson(existing == null ? null : toDto(existing), null));
         // STEP-SHP-03 提交后失效
-        afterCommit.run(cache::invalidateRates);
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "shipping_rate.delete",
+                "shipping_rate", id, existing == null ? null : existing.getZone(),
+                List.of(CacheInvalidationTarget.SHIPPING_RATES), null, Map.of(), null);
     }
 
     /** MAP-SHP-002（DECIMAL NULL → JSON null 原样透出，不补 0） */
     static ShippingRateDto toDto(ShippingRate rate) {
         return new ShippingRateDto(rate.getId(), rate.getZone(), rate.getFeeUnder(), rate.getFeeOver(),
                 rate.getThreshold());
+    }
+
+    private void enqueue(String triggerPoint, ShippingRate rate) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "shipping_rate", rate.getId(), rate.getZone(), List.of(CacheInvalidationTarget.SHIPPING_RATES),
+                null, Map.of(), null);
     }
 
     private String changesJson(Object before, Object after) {

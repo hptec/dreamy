@@ -18,6 +18,7 @@ import huihao.page.Paginated;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,7 +27,7 @@ import java.util.Map;
 
 /**
  * 后台优惠券服务（E-MKT-13~16；TX-MKT-001~003；TASK-042 coupon_lifecycle guard）。
- * coupon 无消费端缓存面——写操作不发 content.invalidated、无 @CacheInvalidate（E-MKT-14 STEP-MKT-04 归因）。
+ * coupon 无消费端缓存面，因此写操作不创建缓存任务（E-MKT-14 STEP-MKT-04 归因）。
  * L2 TRACE: V-MKT-016~029 / RM-MKT-101~106/110~112。
  */
 @Service
@@ -35,10 +36,12 @@ public class AdminCouponService {
 
     private final CouponRepository couponRepository;
     private final MarketingAuditRecorder audit;
+    private final Clock clock;
 
-    public AdminCouponService(CouponRepository couponRepository, MarketingAuditRecorder audit) {
+    public AdminCouponService(CouponRepository couponRepository, MarketingAuditRecorder audit, Clock clock) {
         this.couponRepository = couponRepository;
         this.audit = audit;
+        this.clock = clock;
     }
 
     /** E-MKT-13：分页列表（status/search 筛选 + translations 三语 tab 原样） */
@@ -65,7 +68,7 @@ public class AdminCouponService {
     /** E-MKT-14：创建优惠券（TX-MKT-001） */
     @Transactional
     public CouponDto create(CouponUpsert req) {
-        CouponUpsertValidator.Normalized n = CouponUpsertValidator.validate(req, null, LocalDateTime.now());
+        CouponUpsertValidator.Normalized n = CouponUpsertValidator.validate(req, null, LocalDateTime.now(clock));
         // STEP-MKT-01 code 唯一性（uk_coupon_code 兜底）→ 409701
         if (couponRepository.existsByCodeExcept(n.code(), null)) {
             throw new MarketingException(MarketingErrorCode.COUPON_CODE_EXISTS);
@@ -90,7 +93,7 @@ public class AdminCouponService {
         if (existing == null) {
             throw new MarketingException(MarketingErrorCode.COUPON_NOT_FOUND);
         }
-        CouponUpsertValidator.Normalized n = CouponUpsertValidator.validate(req, existing, LocalDateTime.now());
+        CouponUpsertValidator.Normalized n = CouponUpsertValidator.validate(req, existing, LocalDateTime.now(clock));
         // STEP-MKT-02 状态机 guard：active/expiring 改 code → 409703（已上线券改码使用户手中券码失效）
         if ((existing.getStatus() == CouponStatus.ACTIVE || existing.getStatus() == CouponStatus.EXPIRING)
                 && !existing.getCode().equals(n.code())) {

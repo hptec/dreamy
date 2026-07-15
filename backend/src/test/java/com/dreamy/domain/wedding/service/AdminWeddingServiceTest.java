@@ -3,26 +3,18 @@ package com.dreamy.domain.wedding.service;
 import com.dreamy.domain.wedding.entity.RealWedding;
 import com.dreamy.domain.wedding.repository.RealWeddingRepository;
 import com.dreamy.enums.PublishStatus;
-import com.dreamy.infra.MarketingAfterCommitRunner;
 import com.dreamy.infra.MarketingAuditRecorder;
-import com.dreamy.infra.MarketingCacheService;
-import com.dreamy.infra.MarketingCacheService.Family;
-import com.dreamy.mq.MarketingContentInvalidatedPublisher;
 import com.dreamy.port.CatalogQueryPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AdminWeddingServiceTest {
@@ -30,15 +22,11 @@ class AdminWeddingServiceTest {
     @Mock
     RealWeddingRepository weddingRepository;
     @Mock
-    MarketingCacheService cache;
-    @Mock
     MarketingAuditRecorder audit;
     @Mock
-    MarketingAfterCommitRunner afterCommit;
-    @Mock
-    MarketingContentInvalidatedPublisher publisher;
-    @Mock
     CatalogQueryPort catalogQueryPort;
+    @Mock
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     @InjectMocks
     AdminWeddingService service;
 
@@ -59,11 +47,8 @@ class AdminWeddingServiceTest {
         order.verify(weddingRepository).deleteById(1L);
         verify(weddingRepository, never()).update(any());
         verify(audit).record("删除婚礼案例", "Emma & James", null);
-        ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(callback.capture());
-        callback.getValue().run();
-        verify(cache).invalidateFamily(Family.WEDDINGS);
-        verify(cache).invalidateFamily(Family.WEDDING);
-        verify(publisher).publishWedding(1L);
+        verify(cacheTasks).enqueue(anyString(), eq("wedding.delete"), eq("wedding"), eq(1L),
+                eq("Emma & James"), anyList(), nullable(java.time.LocalDateTime.class), anyMap(),
+                nullable(String.class));
     }
 }

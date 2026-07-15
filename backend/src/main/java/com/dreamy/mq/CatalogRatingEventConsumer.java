@@ -2,6 +2,8 @@ package com.dreamy.mq;
 
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.infra.CatalogCacheService;
 import com.dreamy.infra.CatalogCacheService.Family;
 import com.dreamy.port.ReviewQueryPort;
@@ -29,15 +31,17 @@ public class CatalogRatingEventConsumer extends AbstractIdempotentEventConsumer 
     private final ProductRepository productRepository;
     private final CatalogCacheService cache;
     private final TransactionTemplate transactionTemplate;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public CatalogRatingEventConsumer(EventIdempotencyGuard idempotencyGuard, ReviewQueryPort reviewQueryPort,
                                       ProductRepository productRepository, CatalogCacheService cache,
-                                      TransactionTemplate transactionTemplate) {
+                                      TransactionTemplate transactionTemplate, CacheInvalidationTaskService cacheTasks) {
         super(idempotencyGuard);
         this.reviewQueryPort = reviewQueryPort;
         this.productRepository = productRepository;
         this.cache = cache;
         this.transactionTemplate = transactionTemplate;
+        this.cacheTasks = cacheTasks;
     }
 
     @Override
@@ -65,12 +69,12 @@ public class CatalogRatingEventConsumer extends AbstractIdempotentEventConsumer 
         }
         // ② 聚合 ③ TX-CAT-022 覆盖写
         ReviewQueryPort.RatingSummary summary = reviewQueryPort.approvedRatingSummary(productId);
-        transactionTemplate.executeWithoutResult(tx ->
-                productRepository.updateRating(productId, summary.avg(), summary.count()));
-        // ④ 失效（CACHE-CAT-002/001/004）
-        cache.invalidateProductSlug(product.getSlug());
-        cache.invalidateFamily(Family.PRODUCTS);
-        cache.invalidateFamily(Family.RECO);
+        transactionTemplate.executeWithoutResult(tx -> {
+            productRepository.updateRating(productId, summary.avg(), summary.count());
+            cacheTasks.enqueue(CacheInvalidationTaskService.MODE_SYSTEM_EVENT, "catalog.rating.refresh",
+                    "product", productId, product.getName(), CacheInvalidationPlans.PRODUCT_FLAGS,
+                    null, Map.of("event_id", event.eventId()), "event:review.moderated");
+        });
         log.info("[EVT-CAT-002] rating refreshed event_id={} product={} avg={} count={}",
                 event.eventId(), productId, summary.avg(), summary.count());
     }

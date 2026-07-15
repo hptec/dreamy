@@ -35,14 +35,15 @@ class AnnouncementServiceTest {
     @Mock
     private AnnouncementRepository repository;
     @Mock
-    private SiteBuilderCacheService cacheService;
+    private com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private AnnouncementService service;
 
     @BeforeEach
     void setUp() {
-        service = new AnnouncementService(repository, objectMapper, cacheService);
+        service = new AnnouncementService(repository, objectMapper, cacheTasks);
+        lenient().when(cacheTasks.now()).thenReturn(LocalDateTime.of(2026, 1, 1, 0, 0));
     }
 
     @Test
@@ -66,7 +67,14 @@ class AnnouncementServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getPriority()).isEqualTo(1);
-        verify(cacheService).invalidateAnnouncementFamily();
+        verify(cacheTasks).enqueue(anyString(), eq("site_announcement.create"), eq("site_announcement"),
+                eq(1L), eq("Free shipping"), anyList(), isNull(), anyMap(), isNull());
+        verify(cacheTasks).enqueue(anyString(), eq("site_announcement.window.start"),
+                eq("site_announcement"), eq(1L), eq("Free shipping"), anyList(),
+                eq(upsert.getStartAt()), anyMap(), isNull());
+        verify(cacheTasks).enqueue(anyString(), eq("site_announcement.window.end"),
+                eq("site_announcement"), eq(1L), eq("Free shipping"), anyList(),
+                eq(upsert.getEndAt()), anyMap(), isNull());
     }
 
     @Test
@@ -163,7 +171,6 @@ class AnnouncementServiceTest {
         AnnouncementDto result = service.toggle(1L, true);
 
         assertThat(result.getEnabled()).isTrue();
-        verify(cacheService).invalidateAnnouncementFamily();
     }
 
     @Test
@@ -176,7 +183,7 @@ class AnnouncementServiceTest {
         service.delete(1L);
 
         verify(repository).deleteById(1L);
-        verify(cacheService).invalidateAnnouncementFamily();
+        verify(cacheTasks).cancelFuture("site_announcement", 1L, "site_announcement.window.");
     }
 
     @Test
@@ -250,6 +257,5 @@ class AnnouncementServiceTest {
 
         assertThat(first.getVersion()).isEqualTo(1);
         assertThat(second.getVersion()).isEqualTo(2);
-        verify(cacheService, times(2)).invalidateAnnouncementFamily();
     }
 }

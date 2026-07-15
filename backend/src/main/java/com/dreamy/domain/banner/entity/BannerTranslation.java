@@ -27,6 +27,9 @@ public class BannerTranslation extends LongAuditableEntity {
     @Column(name = BannerTranslationDBConst.LOCALE, definition = "varchar(8) NOT NULL COMMENT 'es|fr（EN 存主表）'")
     private String locale;
 
+    @Column(name = BannerTranslationDBConst.IMAGE_URL, definition = "varchar(512) NULL COMMENT '语言专属 Banner 图'")
+    private String imageUrl;
+
     @Column(name = BannerTranslationDBConst.TITLE, definition = "varchar(255) NULL")
     private String title;
 

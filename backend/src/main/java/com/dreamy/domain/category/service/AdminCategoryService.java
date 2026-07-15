@@ -14,12 +14,10 @@ import com.dreamy.dto.AdminCategoryUpsert;
 import com.dreamy.dto.TranslationDtos.CategoryTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
 import com.dreamy.aspect.CatalogAdminWrite;
-import com.dreamy.infra.CatalogAfterCommitRunner;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.infra.CatalogAuditRecorder;
-import com.dreamy.infra.CatalogCacheService;
-import com.dreamy.infra.CatalogCacheService.Family;
 import com.dreamy.support.CatalogFieldErrors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,25 +44,20 @@ public class AdminCategoryService {
     private final ProductRepository productRepository;
     private final AttributeSetRepository attributeSetRepository;
     private final AttributeDefRepository attributeDefRepository;
-    private final CatalogCacheService cache;
     private final CatalogAuditRecorder audit;
-    private final CatalogAfterCommitRunner afterCommit;
-    private final ContentInvalidatedPublisher invalidatedPublisher;
+    private final CacheInvalidationTaskService cacheTasks;
 
     public AdminCategoryService(CategoryRepository categoryRepository, CategoryTreeService treeService,
                                 ProductRepository productRepository, AttributeSetRepository attributeSetRepository,
-                                AttributeDefRepository attributeDefRepository, CatalogCacheService cache,
-                                CatalogAuditRecorder audit, CatalogAfterCommitRunner afterCommit,
-                                ContentInvalidatedPublisher invalidatedPublisher) {
+                                AttributeDefRepository attributeDefRepository, CatalogAuditRecorder audit,
+                                CacheInvalidationTaskService cacheTasks) {
         this.categoryRepository = categoryRepository;
         this.treeService = treeService;
         this.productRepository = productRepository;
         this.attributeSetRepository = attributeSetRepository;
         this.attributeDefRepository = attributeDefRepository;
-        this.cache = cache;
         this.audit = audit;
-        this.afterCommit = afterCommit;
-        this.invalidatedPublisher = invalidatedPublisher;
+        this.cacheTasks = cacheTasks;
     }
 
     /** E-CAT-15：后台三层树（product_count 全量口径含 draft——STEP-CAT-02；translations 原样——STEP-CAT-03） */
@@ -93,12 +86,7 @@ public class AdminCategoryService {
         categoryRepository.replaceTranslations(category.getId(), toTranslationRows(req.translations()));
         // STEP-CAT-03 审计（事务内）
         audit.record("创建分类", category.getName(), null);
-        // STEP-CAT-04 提交后失效 + MQ（CP-031；PRODUCTS 含 filters 缓存——CACHE-KEY 一致性）
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.PRODUCTS);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_CATEGORY_CHANGED);
-        });
+        enqueue("category.create", category, CacheInvalidationPlans.CATEGORY_CREATE);
         return toNode(category, 0, List.of(), req.translations() == null ? List.of() : req.translations());
     }
 
@@ -129,12 +117,7 @@ public class AdminCategoryService {
         audit.record("编辑分类", existing.getName(), null);
         // STEP-CAT-04 提交后失效 catalog:categories:* + catalog:products:* + catalog:product:*
         // （列表含 category_name 派生；attribute_set_id/attr_overrides 变更影响 PDP attributes/PLP filters）→ MQ
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.CATEGORIES);
-            cache.invalidateFamily(Family.PRODUCTS);
-            cache.invalidateFamily(Family.PRODUCT);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_CATEGORY_CHANGED);
-        });
+        enqueue("category.update", existing, CacheInvalidationPlans.CATEGORY_UPDATE);
         Map<Long, Integer> counts = treeService.rollupCounts(categoryRepository.listAll(),
                 productRepository.countByCategoryAll());
         return toNode(existing, counts.getOrDefault(id, 0), List.of(),
@@ -166,11 +149,13 @@ public class AdminCategoryService {
         categoryRepository.deleteTranslationsByCategoryId(id);
         categoryRepository.deleteById(id);
         audit.record("删除分类", existing.getName(), null);
-        // STEP-CAT-05 提交后失效 + MQ
-        afterCommit.run(() -> {
-            cache.invalidateFamily(Family.CATEGORIES);
-            invalidatedPublisher.publish(ContentInvalidatedPublisher.TYPE_CATEGORY_CHANGED);
-        });
+        enqueue("category.delete", existing, CacheInvalidationPlans.CATEGORY_DELETE);
+    }
+
+    private void enqueue(String triggerPoint, Category category,
+                         List<com.dreamy.domain.cache.service.CacheInvalidationTarget> targets) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "category", category.getId(), category.getName(), targets, null, Map.of(), null);
     }
 
     /** V-CAT-043~047 校验；返回父分类（创建场景），编辑场景返回 null */

@@ -29,12 +29,12 @@ import java.util.Map;
 
 /**
  * 消费端商品控制器（E-CAT-01~05，全部匿名公开——StoreJwtFilter 白名单 /api/store/products/**）。
- * i18n：locale query 优先于 Accept-Language（api-detail §0）；CDN 头按缓存矩阵输出 s-maxage。
+ * i18n：locale query 优先于 Accept-Language（api-detail §0）；开发阶段统一输出 no-store。
  */
 @RestController
 public class StoreProductController {
 
-    private static final String CACHE_300 = "s-maxage=300";
+    private static final String CACHE_300 = "no-store";
 
     private final StoreProductService storeProductService;
     private final RecommendationService recommendationService;

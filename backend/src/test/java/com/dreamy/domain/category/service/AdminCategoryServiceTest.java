@@ -13,7 +13,6 @@ import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.dto.AdminCategoryUpsert;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
 import com.dreamy.infra.CatalogAfterCommitRunner;
 import com.dreamy.infra.CatalogAuditRecorder;
 import com.dreamy.infra.CatalogCacheService;
@@ -61,7 +60,7 @@ class AdminCategoryServiceTest {
     @Mock
     CatalogAfterCommitRunner afterCommit;
     @Mock
-    ContentInvalidatedPublisher invalidatedPublisher;
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     AdminCategoryService service;
     CategoryTreeService treeService;
@@ -70,8 +69,7 @@ class AdminCategoryServiceTest {
     void setUp() {
         treeService = new CategoryTreeService(categoryRepository);
         service = new AdminCategoryService(categoryRepository, treeService, productRepository,
-                attributeSetRepository, attributeDefRepository, cache, audit, afterCommit,
-                invalidatedPublisher);
+                attributeSetRepository, attributeDefRepository, audit, cacheTasks);
     }
 
     private static Category category(long id, Long parentId, int level, Long attributeSetId) {

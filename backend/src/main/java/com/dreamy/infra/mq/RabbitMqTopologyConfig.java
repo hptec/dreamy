@@ -24,7 +24,7 @@ import java.util.List;
  * - topic exchange `dreamy.events`（durable）；
  * - 业务队列（durable，x-dead-letter-exchange=dreamy.dlx）+ topic bindings：
  *   q.mail ← order.* / showroom.* / refund.resolved；q.showroom ← order.paid；
- *   q.catalog.sales ← order.paid；q.catalog.rating ← review.moderated；q.invalidate ← content.invalidated；
+ *   q.catalog.sales ← order.paid；q.catalog.rating ← review.moderated；
  * - 重试队列 `dreamy.retry.{queue}`（durable，per-message TTL 阶梯，到期经 default exchange 回投主队列）；
  * - DLX `dreamy.dlx`（fanout）→ `dreamy.dlq`（告警 + 人工重放）。
  * 队列/绑定均由 dreamy.mq.queues 配置驱动，新增消费队列零代码改动。

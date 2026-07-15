@@ -8,6 +8,7 @@ public interface BannerTranslationDBConst extends MarketingCommonDBConst {
     String TABLE = "banner_translation";
 
     String BANNER_ID = "banner_id";
+    String IMAGE_URL = "image_url";
     String SUBTITLE = "subtitle";
     String CTA_TEXT = "cta_text";
 }

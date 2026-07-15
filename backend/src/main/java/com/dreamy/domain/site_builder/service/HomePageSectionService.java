@@ -3,6 +3,8 @@ package com.dreamy.domain.site_builder.service;
 import com.dreamy.aspect.HomePageSectionWrite;
 import com.dreamy.domain.site_builder.entity.HomePageSection;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionDto;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSaveItem;
 import com.dreamy.dto.SiteBuilderDtos.HomePageSectionUpsert;
@@ -17,11 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 首页区块服务（FLOW-SB01）。保存后直接失效首页缓存并对外生效。
+ * 首页区块服务（FLOW-SB01）。消费端实时读取，保存后直接对外生效。
  */
 @Service
 public class HomePageSectionService {
@@ -32,14 +35,12 @@ public class HomePageSectionService {
 
     private final HomePageSectionRepository repository;
     private final ObjectMapper objectMapper;
-    private final SiteBuilderCacheService cacheService;
-
+    private final CacheInvalidationTaskService cacheTasks;
     public HomePageSectionService(HomePageSectionRepository repository,
-                                  ObjectMapper objectMapper,
-                                  SiteBuilderCacheService cacheService) {
+                                  ObjectMapper objectMapper, CacheInvalidationTaskService cacheTasks) {
         this.repository = repository;
         this.objectMapper = objectMapper;
-        this.cacheService = cacheService;
+        this.cacheTasks = cacheTasks;
     }
 
     @Transactional
@@ -55,7 +56,7 @@ public class HomePageSectionService {
         entity.setVersion(0);
         applyJsonFields(entity, upsert);
         repository.insert(entity);
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.section.create", entity.getId(), entity.getLabel(), sectionDetails(entity));
         return toDto(entity);
     }
 
@@ -79,7 +80,7 @@ public class HomePageSectionService {
         if (rows == 0) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.section.update", id, entity.getLabel(), sectionDetails(entity));
         return toDto(entity);
     }
 
@@ -150,17 +151,18 @@ public class HomePageSectionService {
                 throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
             }
         }
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.save_all", "homepage", "首页装修",
+                Map.of("section_count", items.size()));
         return list(false);
     }
 
     @Transactional
     @HomePageSectionWrite
     public void delete(Long id) {
-        repository.findById(id)
+        HomePageSection existing = repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         repository.deleteById(id);
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.section.delete", id, existing.getLabel(), sectionDetails(existing));
     }
 
     @Transactional
@@ -197,7 +199,7 @@ public class HomePageSectionService {
         if (repository.batchUpdateSort(pairs) != items.size()) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.sort", "homepage", "首页区块排序", Map.of("section_count", items.size()));
     }
 
     @Transactional
@@ -211,7 +213,7 @@ public class HomePageSectionService {
         }
         entity.setEnabled(enabled);
         entity.setVersion(entity.getVersion() + 1);
-        cacheService.invalidateHomeSectionFamily();
+        enqueue("site_home.section.toggle", id, entity.getLabel(), sectionDetails(entity));
         return toDto(entity);
     }
 
@@ -225,6 +227,19 @@ public class HomePageSectionService {
     public HomePageSectionDto get(Long id) {
         return toDto(repository.findById(id)
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND)));
+    }
+
+    private void enqueue(String triggerPoint, Object resourceId, String label, Map<String, Object> details) {
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, triggerPoint,
+                "site_home", resourceId, label, CacheInvalidationPlans.SITE_HOME_PLAN,
+                null, details, null);
+    }
+
+    private Map<String, Object> sectionDetails(HomePageSection section) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        if (section.getSectionType() != null) details.put("section_type", section.getSectionType());
+        if (section.getEnabled() != null) details.put("enabled", section.getEnabled());
+        return details;
     }
 
     private void validate(HomePageSectionUpsert upsert, String currentType) {
@@ -310,8 +325,8 @@ public class HomePageSectionService {
                         throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
                     }
                     if ("manual".equals(mode)) {
-                        JsonNode categoryIds = dataJson.get("category_ids");
-                        if (categoryIds == null || !categoryIds.isArray() || categoryIds.size() == 0) {
+                        JsonNode collectionIds = dataJson.get("collection_ids");
+                        if (collectionIds == null || !collectionIds.isArray() || collectionIds.size() == 0) {
                             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID);
                         }
                     }

@@ -16,7 +16,7 @@ public final class StoreMarketingDtos {
     private StoreMarketingDtos() {
     }
 
-    /** openapi StoreBanner（MAP-MKT-001：不暴露 clicks/status/start_time/end_time；KD-14 扩展 cta_link + cta_*_secondary） */
+    /** openapi StoreBanner（MAP-MKT-001：不暴露 status/start_time/end_time；KD-14 扩展 cta_link + cta_*_secondary） */
     public record StoreBanner(Long id, String name, String imageUrl, Integer position, Integer sort,
                               String title, String subtitle, String ctaText, String ctaLink,
                               String ctaTextSecondary, String ctaLinkSecondary) implements Serializable {

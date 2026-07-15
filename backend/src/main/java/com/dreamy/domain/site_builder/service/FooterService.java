@@ -3,6 +3,8 @@ package com.dreamy.domain.site_builder.service;
 import com.dreamy.domain.site_builder.entity.FooterColumn;
 import com.dreamy.domain.site_builder.entity.FooterLink;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
+import com.dreamy.domain.cache.service.CacheInvalidationPlans;
+import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.SiteBuilderDtos.FooterColumnDto;
 import com.dreamy.dto.SiteBuilderDtos.FooterColumnUpsert;
 import com.dreamy.dto.SiteBuilderDtos.FooterLinkDto;
@@ -26,13 +28,12 @@ public class FooterService {
 
     private final FooterRepository repository;
     private final ObjectMapper objectMapper;
-    private final SiteBuilderCacheService cacheService;
-
+    private final CacheInvalidationTaskService cacheTasks;
     public FooterService(FooterRepository repository, ObjectMapper objectMapper,
-                         SiteBuilderCacheService cacheService) {
+                         CacheInvalidationTaskService cacheTasks) {
         this.repository = repository;
         this.objectMapper = objectMapper;
-        this.cacheService = cacheService;
+        this.cacheTasks = cacheTasks;
     }
 
     public List<FooterColumnDto> list() {
@@ -83,7 +84,9 @@ public class FooterService {
                 }
             }
         }
-        cacheService.invalidateFooterFamily();
+        cacheTasks.enqueue(CacheInvalidationTaskService.MODE_BUSINESS_WRITE, "site_footer.save",
+                "site_footer", "footer", "页脚配置", CacheInvalidationPlans.SITE_FOOTER_PLAN,
+                null, Map.of("column_count", request.getColumns().size()), null);
         return list();
     }
 

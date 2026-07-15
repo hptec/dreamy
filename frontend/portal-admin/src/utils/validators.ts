@@ -272,7 +272,9 @@ export function normalizeEnumFilter<T extends number>(value: T | 'all' | '' | nu
 /** datetime-local（YYYY-MM-DDTHH:mm）→ 后端 LocalDateTime ISO（补秒） */
 export function toIsoDateTime(value?: string | null): string | undefined {
   if (!value) return undefined
-  return value.length === 16 ? `${value}:00` : value
+  const instant = new Date(value)
+  if (Number.isNaN(instant.getTime())) return value.length === 16 ? `${value}:00` : value
+  return instant.toISOString().slice(0, 19)
 }
 
 /** date（YYYY-MM-DD）→ 起始/截止 LocalDateTime */

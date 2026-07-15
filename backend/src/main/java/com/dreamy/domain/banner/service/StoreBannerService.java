@@ -11,6 +11,7 @@ import com.dreamy.infra.MarketingCacheService.Family;
 import com.dreamy.support.Translations;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,10 +28,12 @@ public class StoreBannerService {
 
     private final BannerRepository bannerRepository;
     private final MarketingCacheService cache;
+    private final Clock clock;
 
-    public StoreBannerService(BannerRepository bannerRepository, MarketingCacheService cache) {
+    public StoreBannerService(BannerRepository bannerRepository, MarketingCacheService cache, Clock clock) {
         this.bannerRepository = bannerRepository;
         this.cache = cache;
+        this.clock = clock;
     }
 
     /** E-MKT-01：投放清单（窗口过滤 + locale 翻译回退 + JetCache 300s，空集同样缓存） */
@@ -44,14 +47,15 @@ public class StoreBannerService {
             return (List<StoreBanner>) hit;
         }
         // STEP-MKT-02 窗口谓词查询（DEC-MKT-2 权威读口径），ORDER BY sort, id
-        List<Banner> banners = bannerRepository.listStoreActive(position, LocalDateTime.now());
+        List<Banner> banners = bannerRepository.listStoreActive(position, LocalDateTime.now(clock));
         // STEP-MKT-03 locale=es/fr → 批查 translation 覆盖 title/subtitle/cta_text，缺翻译回退 EN（DEC-MKT-1）
         Map<Long, BannerTranslation> translations = translationsFor(banners, locale);
-        // STEP-MKT-04 装配 StoreBanner（不暴露 clicks/status/start_time/end_time）→ 写缓存
+        // STEP-MKT-04 装配 StoreBanner（不暴露 status/start_time/end_time）→ 写缓存
         List<StoreBanner> items = new ArrayList<>(banners.size());
         for (Banner b : banners) {
             BannerTranslation t = translations.get(b.getId());
-            items.add(new StoreBanner(b.getId(), b.getName(), b.getImageUrl(), b.getPosition().getKey(), b.getSort(),
+            items.add(new StoreBanner(b.getId(), b.getName(),
+                    Translations.coalesce(t == null ? null : t.getImageUrl(), b.getImageUrl()), b.getPosition().getKey(), b.getSort(),
                     Translations.coalesce(t == null ? null : t.getTitle(), b.getTitle()),
                     Translations.coalesce(t == null ? null : t.getSubtitle(), b.getSubtitle()),
                     Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText()),

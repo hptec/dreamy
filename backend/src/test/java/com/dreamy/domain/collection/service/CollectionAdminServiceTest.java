@@ -12,7 +12,6 @@ import com.dreamy.dto.AdminCatalogDtos.CollectionGroupUpsert;
 import com.dreamy.dto.TranslationDtos.CollectionTranslationDto;
 import com.dreamy.error.CatalogErrorCode;
 import com.dreamy.error.CatalogException;
-import com.dreamy.event.ContentInvalidatedPublisher;
 import com.dreamy.infra.CatalogAfterCommitRunner;
 import com.dreamy.infra.CatalogAuditRecorder;
 import com.dreamy.infra.CatalogCacheService;
@@ -31,11 +30,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * 集合分组/集合生命周期守卫单元测试（TASK-035/036）。
@@ -61,15 +57,14 @@ class CollectionAdminServiceTest {
     @Mock
     CatalogAfterCommitRunner afterCommit;
     @Mock
-    ContentInvalidatedPublisher invalidatedPublisher;
+    com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
 
     CollectionAdminService service;
 
     @BeforeEach
     void setUp() {
         service = new CollectionAdminService(groupRepository, collectionRepository, productCollectionRepository,
-                productRepository, productImageRepository, cache,
-                audit, afterCommit, invalidatedPublisher, new ObjectMapper());
+                productRepository, productImageRepository, audit, cacheTasks, new ObjectMapper());
     }
 
     @Test
@@ -98,11 +93,9 @@ class CollectionAdminServiceTest {
     void createGroupInvalidatesCollectionsAfterCommit() {
         service.createGroup(new CollectionGroupUpsert("Style", null, null));
 
-        ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
-        verify(afterCommit).run(action.capture());
-        action.getValue().run();
-        verify(cache).invalidateFamily(CatalogCacheService.Family.COLLECTIONS);
-        verify(invalidatedPublisher).publish(ContentInvalidatedPublisher.TYPE_COLLECTION_CHANGED);
+        verify(cacheTasks).enqueue(anyString(), anyString(), anyString(),
+                nullable(Object.class), nullable(String.class), anyList(), nullable(java.time.LocalDateTime.class),
+                anyMap(), nullable(String.class));
     }
 
     @Test
