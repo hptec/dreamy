@@ -128,8 +128,8 @@ public class AnnouncementService {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("enabled", entity.getEnabled());
         details.put("priority", entity.getPriority());
-        if (entity.getStartAt() != null) details.put("start_at", entity.getStartAt());
-        if (entity.getEndAt() != null) details.put("end_at", entity.getEndAt());
+        if (entity.getStartAt() != null) details.put("start_at", entity.getStartAt().toString());
+        if (entity.getEndAt() != null) details.put("end_at", entity.getEndAt().toString());
         return details;
     }
 

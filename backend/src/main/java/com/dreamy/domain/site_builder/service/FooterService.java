@@ -106,7 +106,7 @@ public class FooterService {
                             !l.getColumnId().equals(c.getId())) {
                         throw SiteBuilderException.of(SiteBuilderErrorCode.FOOTER_COLUMN_REF_INVALID);
                     }
-                    if (l.getUrl() != null && !l.getUrl().matches("^https?://.*")) {
+                    if (l.getUrl() != null && !l.getUrl().matches("^(https?://|/).*")) {
                         throw SiteBuilderException.of(SiteBuilderErrorCode.FOOTER_LINK_URL_INVALID);
                     }
                 }
