@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { fetchStoreWedding } from '@/lib/api/marketing-server'
-import { ProductCard, productRefToCard } from '@/components/product/product-card'
+import { ProductCard } from '@/components/product/product-card'
+import type { StoreProductCard } from '@/lib/api/store-types'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 /**
@@ -62,7 +63,10 @@ export default async function RealWeddingDetail({ params }: { params: Promise<{ 
           <div className="container-luxe">
             <SectionHeading eyebrow="Get the look" title="Shop this wedding" />
             <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
-              {products.map((p) => <ProductCard key={p.id} product={productRefToCard(p)} />)}
+              {products.map((p) => {
+                const card: StoreProductCard = { id: p.id, slug: p.slug, name: p.name, price: p.price, imageUrl: p.imageUrl, installment: false }
+                return <ProductCard key={p.id} product={card} />
+              })}
             </div>
           </div>
         </section>
