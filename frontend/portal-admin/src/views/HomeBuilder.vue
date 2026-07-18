@@ -141,13 +141,20 @@ function syncFromStore() {
 }
 
 function toBlock(section: HomePageSection): HomeBlock {
+  const data = normalizeBlockData(section.sectionType, parseJson(section.dataJson, {}))
+  const i18n = normalizeI18n(parseJson(section.i18nJson, {}))
+  // 存量 custom 区块的 ctaText 在 data 里（单语言），迁移到 i18n.en 走多语言覆盖通道
+  if (section.sectionType === 'custom' && data.ctaText && !i18n.en.ctaText) {
+    i18n.en.ctaText = data.ctaText
+    delete data.ctaText
+  }
   return {
     id: section.id,
     sectionType: section.sectionType,
     enabled: section.enabled,
     sortOrder: section.sortOrder,
-    data: normalizeBlockData(section.sectionType, parseJson(section.dataJson, {})),
-    i18n: normalizeI18n(parseJson(section.i18nJson, {})),
+    data,
+    i18n,
     version: section.version,
   }
 }
@@ -206,8 +213,9 @@ function typeLabel(type: string) {
 }
 
 function blockTitle(block: HomeBlock) {
+  // 区块列表标题固定取 EN，不随编辑区语言 Tab 切换，避免定位参照漂移
   if (block.sectionType === 'hero') return typeLabel(block.sectionType)
-  return block.i18n[localeTab.value]?.heading || typeLabel(block.sectionType)
+  return block.i18n.en?.heading || typeLabel(block.sectionType)
 }
 
 function eventValue(event: Event) {
@@ -698,8 +706,12 @@ async function confirmDelete() {
               </div>
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label class="field-label">按钮文案</label>
-                  <input v-model="activeBlock.data.ctaText" class="field" @input="touch" />
+                  <label class="field-label">按钮文案（{{ localeTab }}）</label>
+                  <input
+                    :value="activeBlock.i18n[localeTab].ctaText"
+                    class="field"
+                    @input="activeBlock.i18n[localeTab].ctaText = eventValue($event); touch()"
+                  />
                 </div>
                 <div>
                   <label class="field-label">按钮链接</label>

@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import Toggle from '@/components/Toggle.vue'
+import LocaleTabs from '@/components/LocaleTabs.vue'
 import { useNavigationStore, useFooterStore, useAnnouncementStore } from '@/stores/siteBuilder'
 import { useToast } from '@/composables/useToast'
 import {
@@ -47,7 +48,7 @@ function syncFromStores() {
   footer.value = footerStore.columns.map((c) => ({
     id: c.id,
     title: c.title,
-    links: (c.links || []).map((l) => ({ id: l.id, label: l.label, url: l.url, target: l.target })),
+    links: (c.links || []).map((l) => ({ id: l.id, label: l.label, url: l.url, target: l.target, i18n: parseJson(l.i18nJson, {}) })),
     sortOrder: c.sortOrder,
     enabled: c.enabled,
     i18n: parseJson(c.i18nJson, {}),
@@ -78,9 +79,62 @@ function parseMegaMenuColumns(megaMenu) {
 
 function touch() { dirty.value = true }
 
-function currentLabel(item) {
-  return (item.i18n && item.i18n[localeTab.value] && item.i18n[localeTab.value].label) || item.label
+// 多语言编辑：EN 写基准字段（label/title/content），ES/FR 写 i18n[locale][field]
+// ES/FR 清空时删除该字段，消费端回退 EN（空串否则会遮蔽兜底）
+function ensureI18n(obj, locale) {
+  if (!obj.i18n) obj.i18n = {}
+  if (!obj.i18n[locale]) obj.i18n[locale] = {}
+  return obj.i18n[locale]
 }
+
+function i18nValue(obj, field) {
+  if (localeTab.value === 'en') return obj[field] ?? ''
+  return obj.i18n?.[localeTab.value]?.[field] ?? ''
+}
+
+function setI18nValue(obj, field, event) {
+  const value = event.target.value
+  if (localeTab.value === 'en') {
+    obj[field] = value
+  } else {
+    const node = ensureI18n(obj, localeTab.value)
+    if (value.trim() === '') {
+      delete node[field]
+      if (Object.keys(node).length === 0) delete obj.i18n[localeTab.value]
+    } else {
+      node[field] = value
+    }
+  }
+  touch()
+}
+
+function announcementContent(a) {
+  return a.contentI18n?.[localeTab.value]?.content ?? ''
+}
+
+function setAnnouncementContent(a, event) {
+  const value = event.target.value
+  if (!a.contentI18n) a.contentI18n = {}
+  if (localeTab.value !== 'en' && value.trim() === '') {
+    delete a.contentI18n[localeTab.value]
+  } else {
+    if (!a.contentI18n[localeTab.value]) a.contentI18n[localeTab.value] = { content: '' }
+    a.contentI18n[localeTab.value].content = value
+  }
+  touch()
+}
+
+const localeFilled = computed(() => {
+  const has = (v) => !!(v && String(v).trim())
+  const check = (locale) => {
+    if (tab.value === 'main') return main.value.some((i) => has(i.i18n?.[locale]?.label))
+    if (tab.value === 'footer') {
+      return footer.value.some((c) => has(c.i18n?.[locale]?.title) || (c.links || []).some((l) => has(l.i18n?.[locale]?.label)))
+    }
+    return announcements.value.some((a) => has(a.contentI18n?.[locale]?.content))
+  }
+  return { en: true, es: check('es'), fr: check('fr') }
+})
 
 function addItem() {
   main.value.push({
@@ -147,6 +201,7 @@ async function saveAll() {
         label: l.label,
         url: l.url,
         target: l.target || 'self',
+        i18nJson: l.i18n,
         sortOrder: lidx,
       })),
     }))
@@ -192,12 +247,19 @@ async function saveAll() {
         :class="tab === t[0] ? 'border-gold font-medium text-ink' : 'border-transparent text-ink-faint hover:text-ink'">{{ t[1] }}</button>
     </div>
 
+    <LocaleTabs v-model="localeTab" :filled="localeFilled" />
+
     <!-- 主导航 -->
     <div v-show="tab === 'main'" class="space-y-3">
       <div v-for="(item, i) in main" :key="i" class="panel p-4">
         <div class="flex items-center gap-3">
           <Bars3Icon class="h-4 w-4 cursor-grab text-ink-faint" />
-          <input v-model="item.label" @input="touch" class="field w-48 font-medium" />
+          <input
+            :value="i18nValue(item, 'label')"
+            @input="setI18nValue(item, 'label', $event)"
+            :placeholder="localeTab === 'en' ? '' : (item.label || 'EN 基准文案')"
+            class="field w-48 font-medium"
+          />
           <div class="flex items-center text-[12px] text-ink-faint">
             <span class="px-2">链接类型</span>
             <SelectMenu v-model="item.linkType" class="w-32" :options="[{ value: 'custom', label: '自定义 URL' }, { value: 'taxonomy', label: '分类引用' }]" @change="touch" />
@@ -222,14 +284,24 @@ async function saveAll() {
     <!-- 页脚 -->
     <div v-show="tab === 'footer'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div v-for="(col, i) in footer" :key="i" class="panel p-4">
-        <input v-model="col.title" @input="touch" class="field mb-3 font-medium" />
+        <input
+          :value="i18nValue(col, 'title')"
+          @input="setI18nValue(col, 'title', $event)"
+          :placeholder="localeTab === 'en' ? '' : (col.title || 'EN 基准文案')"
+          class="field mb-3 font-medium"
+        />
         <div class="space-y-1.5">
           <div v-for="(link, lidx) in col.links" :key="lidx" class="flex items-center gap-1.5 text-[12px]">
             <Bars3Icon class="h-3 w-3 text-ink-faint" />
-            <input v-model="link.label" @input="touch" class="flex-1 border-b border-line bg-transparent py-1 text-ink-soft outline-none focus:border-gold" placeholder="链接文本" />
+            <input
+              :value="i18nValue(link, 'label')"
+              @input="setI18nValue(link, 'label', $event)"
+              :placeholder="localeTab === 'en' ? '链接文本' : (link.label || 'EN 基准文案')"
+              class="flex-1 border-b border-line bg-transparent py-1 text-ink-soft outline-none focus:border-gold"
+            />
             <input v-model="link.url" @input="touch" class="flex-1 border-b border-line bg-transparent py-1 text-ink-faint outline-none focus:border-gold" placeholder="URL" />
           </div>
-          <button class="btn-ghost text-[11px]" @click="col.links.push({ label: '', url: '', target: 'self' }); touch()"><PlusIcon class="h-3 w-3" />添加</button>
+          <button class="btn-ghost text-[11px]" @click="col.links.push({ label: '', url: '', target: 'self', i18n: {} }); touch()"><PlusIcon class="h-3 w-3" />添加</button>
         </div>
       </div>
     </div>
@@ -240,7 +312,12 @@ async function saveAll() {
       <div class="space-y-2">
         <div v-for="(a, i) in announcements" :key="i" class="flex items-center gap-2">
           <span class="text-[12px] text-ink-faint">{{ i + 1 }}</span>
-          <input v-model="a.contentI18n.en.content" @input="touch" class="field text-[13px] flex-1" placeholder="公告内容（EN 基准）" />
+          <input
+            :value="announcementContent(a)"
+            @input="setAnnouncementContent(a, $event)"
+            :placeholder="localeTab === 'en' ? '公告内容（EN 基准）' : (a.contentI18n?.en?.content || 'EN 基准文案')"
+            class="field text-[13px] flex-1"
+          />
           <input v-model.number="a.priority" @input="touch" type="number" class="field w-16 text-[12px]" placeholder="优先级" />
           <Toggle :model-value="a.enabled" @update:model-value="a.enabled = $event; touch()" />
           <button class="btn-danger-ghost" @click="removeAnnouncement(i)"><TrashIcon class="h-4 w-4" /></button>
@@ -248,7 +325,7 @@ async function saveAll() {
       </div>
       <button class="btn-ghost mt-3" @click="addAnnouncement"><PlusIcon class="h-4 w-4" />添加公告</button>
       <div class="mt-5 rounded-luxe bg-ink px-4 py-2 text-center text-[12px] text-canvas">
-        {{ announcements[0]?.contentI18n?.en?.content || '（无公告）' }}
+        {{ announcements[0]?.contentI18n?.[localeTab]?.content || announcements[0]?.contentI18n?.en?.content || '（无公告）' }}
       </div>
     </div>
   </div>

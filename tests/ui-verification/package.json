@@ -1,0 +1,8 @@
+{
+  "name": "dreamy-ui-verification",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
