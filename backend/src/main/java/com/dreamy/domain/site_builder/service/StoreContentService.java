@@ -1,9 +1,23 @@
 package com.dreamy.domain.site_builder.service;
 
 import com.dreamy.domain.banner.service.StoreBannerService;
+import com.dreamy.domain.blog.entity.BlogPost;
+import com.dreamy.domain.blog.repository.BlogPostRepository;
+import com.dreamy.domain.category.entity.Category;
+import com.dreamy.domain.category.repository.CategoryRepository;
+import com.dreamy.domain.collection.entity.Collection;
+import com.dreamy.domain.collection.repository.CollectionRepository;
 import com.dreamy.domain.collection.service.StoreCollectionService;
+import com.dreamy.domain.guide.entity.Guide;
+import com.dreamy.domain.guide.repository.GuideRepository;
+import com.dreamy.domain.lookbook.entity.Lookbook;
+import com.dreamy.domain.lookbook.repository.LookbookRepository;
+import com.dreamy.domain.product.entity.Product;
+import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.domain.product.service.StoreProductService;
 import com.dreamy.domain.product.service.RecommendationService;
+import com.dreamy.domain.wedding.entity.RealWedding;
+import com.dreamy.domain.wedding.repository.RealWeddingRepository;
 import com.dreamy.domain.wedding.service.StoreWeddingService;
 import com.dreamy.domain.site_builder.entity.Announcement;
 import com.dreamy.domain.site_builder.entity.FooterColumn;
@@ -28,6 +42,11 @@ import com.dreamy.dto.SiteBuilderDtos.StoreHomePageDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationDto;
 import com.dreamy.dto.SiteBuilderDtos.StoreNavigationItemDto;
 import com.dreamy.enums.BannerPosition;
+import com.dreamy.enums.ContentStatus;
+import com.dreamy.enums.LinkType;
+import com.dreamy.enums.NavPageKey;
+import com.dreamy.enums.ProductStatus;
+import com.dreamy.enums.PublishStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import huihao.page.Paginated;
@@ -66,6 +85,13 @@ public class StoreContentService {
     private final StoreWeddingService weddingService;
     private final Clock clock;
     private final SiteBuilderCacheService cache;
+    private final CategoryRepository categoryRepository;
+    private final CollectionRepository collectionRepository;
+    private final ProductRepository productRepository;
+    private final BlogPostRepository blogPostRepository;
+    private final RealWeddingRepository weddingRepository;
+    private final LookbookRepository lookbookRepository;
+    private final GuideRepository guideRepository;
 
     public StoreContentService(HomePageSectionRepository homeSectionRepository,
                                NavigationItemRepository navigationRepository,
@@ -77,7 +103,14 @@ public class StoreContentService {
                                StoreProductService productService,
                                RecommendationService recommendationService,
                                StoreWeddingService weddingService,
-                               Clock clock, SiteBuilderCacheService cache) {
+                               Clock clock, SiteBuilderCacheService cache,
+                               CategoryRepository categoryRepository,
+                               CollectionRepository collectionRepository,
+                               ProductRepository productRepository,
+                               BlogPostRepository blogPostRepository,
+                               RealWeddingRepository weddingRepository,
+                               LookbookRepository lookbookRepository,
+                               GuideRepository guideRepository) {
         this.homeSectionRepository = homeSectionRepository;
         this.navigationRepository = navigationRepository;
         this.footerRepository = footerRepository;
@@ -90,6 +123,13 @@ public class StoreContentService {
         this.weddingService = weddingService;
         this.clock = clock;
         this.cache = cache;
+        this.categoryRepository = categoryRepository;
+        this.collectionRepository = collectionRepository;
+        this.productRepository = productRepository;
+        this.blogPostRepository = blogPostRepository;
+        this.weddingRepository = weddingRepository;
+        this.lookbookRepository = lookbookRepository;
+        this.guideRepository = guideRepository;
     }
 
     public StoreHomePageDto getHome(String locale) {
@@ -415,15 +455,20 @@ public class StoreContentService {
         SiteBuilderCacheService.Lookup lookup = cache.lookup(SiteBuilderCacheService.Family.NAVIGATION, locale);
         if (lookup.value() instanceof StoreNavigationDto hit) return hit;
         List<NavigationItem> items = navigationRepository.findEnabledOrderBySort();
-        List<StoreNavigationItemDto> dtos = items.stream().map(item -> {
+        List<StoreNavigationItemDto> dtos = new ArrayList<>();
+        for (NavigationItem item : items) {
+            String resolvedUrl = resolveNavUrl(item);
+            if (resolvedUrl == null) {
+                // 引用目标不存在/未发布/配置非法 → 降级隐藏该项，避免死链
+                continue;
+            }
             StoreNavigationItemDto dto = new StoreNavigationItemDto();
             dto.setId(item.getId());
             dto.setParentId(item.getParentId());
             dto.setLabel(resolveI18nField(item.getI18nJson(), locale, "label", item.getLabel()));
-            dto.setUrl(item.getUrl());
+            dto.setUrl(resolvedUrl);
             dto.setTarget(item.getTarget());
-            dto.setLinkType(item.getLinkType());
-            dto.setTaxonomyId(item.getTaxonomyId());
+            dto.setLinkType(item.getLinkType() != null ? item.getLinkType().getKey() : LinkType.CUSTOM.getKey());
             dto.setSortOrder(item.getSortOrder());
             if (item.getMegaMenuJson() != null) {
                 try {
@@ -432,12 +477,66 @@ public class StoreContentService {
                     log.warn("[StoreContent] parse mega_menu_json failed item_id={}", item.getId());
                 }
             }
-            return dto;
-        }).collect(Collectors.toList());
+            dtos.add(dto);
+        }
         StoreNavigationDto result = new StoreNavigationDto();
         result.setItems(dtos);
         cache.put(lookup, result);
         return result;
+    }
+
+    /**
+     * 按 link_type 解析最终 URL；解析失败返回 null（目标不存在/未发布/配置非法）。
+     * 引用型目标状态变化经缓存 TTL（600s）最终一致。
+     */
+    private String resolveNavUrl(NavigationItem item) {
+        LinkType type = item.getLinkType() != null ? item.getLinkType() : LinkType.CUSTOM;
+        try {
+            return switch (type) {
+                case CUSTOM -> (item.getUrl() == null || item.getUrl().isBlank()) ? null : item.getUrl();
+                case PAGE -> {
+                    NavPageKey page = NavPageKey.of(item.getPageKey());
+                    yield page != null ? page.getPath() : null;
+                }
+                case CATEGORY -> {
+                    Category c = item.getRefId() == null ? null : categoryRepository.findById(item.getRefId());
+                    yield c != null ? "/products?cat=" + java.net.URLEncoder.encode(c.getName(), java.nio.charset.StandardCharsets.UTF_8) : null;
+                }
+                case COLLECTION -> {
+                    Collection c = item.getRefId() == null ? null : collectionRepository.findById(item.getRefId());
+                    yield c != null ? "/products?collection=" + c.getId() : null;
+                }
+                case PRODUCT -> {
+                    Product p = item.getRefId() == null ? null : productRepository.findById(item.getRefId());
+                    yield p != null && p.getStatus() == ProductStatus.PUBLISHED && p.getSlug() != null
+                            ? "/product/" + p.getSlug() : null;
+                }
+                case BLOG_POST -> {
+                    BlogPost b = item.getRefId() == null ? null : blogPostRepository.findById(item.getRefId());
+                    yield b != null && b.getStatus() == ContentStatus.PUBLISHED && b.getSlug() != null
+                            ? "/blog/" + b.getSlug() : null;
+                }
+                case REAL_WEDDING -> {
+                    RealWedding w = item.getRefId() == null ? null : weddingRepository.findById(item.getRefId());
+                    yield w != null && w.getStatus() == PublishStatus.PUBLISHED
+                            ? "/real-weddings/" + w.getId() : null;
+                }
+                case LOOKBOOK -> {
+                    // 前端暂无画册详情页，落 /inspiration 列表
+                    Lookbook l = item.getRefId() == null ? null : lookbookRepository.findById(item.getRefId());
+                    yield l != null && l.getStatus() == PublishStatus.PUBLISHED ? "/inspiration" : null;
+                }
+                case GUIDE -> {
+                    // 前端暂无指南详情页，落 /wedding-guides 列表
+                    Guide g = item.getRefId() == null ? null : guideRepository.findById(item.getRefId());
+                    yield g != null && g.getStatus() == PublishStatus.PUBLISHED ? "/wedding-guides" : null;
+                }
+            };
+        } catch (Exception e) {
+            log.warn("[StoreContent] resolve nav url failed item_id={} link_type={} ref_id={}",
+                    item.getId(), type, item.getRefId());
+            return null;
+        }
     }
 
     public StoreFooterDto getFooter(String locale) {

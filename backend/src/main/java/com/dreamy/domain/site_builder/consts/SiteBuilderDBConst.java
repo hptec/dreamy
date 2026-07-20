@@ -33,7 +33,8 @@ public interface SiteBuilderDBConst {
     String URL = "url";
     String TARGET = "target";
     String LINK_TYPE = "link_type";
-    String TAXONOMY_ID = "taxonomy_id";
+    String REF_ID = "ref_id";
+    String PAGE_KEY = "page_key";
     String MEGA_MENU_JSON = "mega_menu_json";
 
     // footer_columns

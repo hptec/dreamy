@@ -11,6 +11,7 @@ import com.dreamy.domain.site_builder.repository.AnnouncementRepository;
 import com.dreamy.domain.site_builder.repository.FooterRepository;
 import com.dreamy.domain.site_builder.repository.HomePageSectionRepository;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
+import com.dreamy.enums.LinkType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -108,26 +109,25 @@ public class SiteBuilderDataSeed {
         return s;
     }
 
-    /** 3 个顶级导航项：Home / Shop / Real Weddings */
+    /** 3 个顶级导航项：Home / Shop / Real Weddings（page 型，演示系统页引用） */
     private void seedNavigation() {
         if (navigationRepository.findAllOrderBySort().size() > 0) {
             return;
         }
-        navigationRepository.insert(buildNav("Home", "/", 1, "custom", null));
-        navigationRepository.insert(buildNav("Shop", "/products", 2, "custom", null));
-        navigationRepository.insert(buildNav("Real Weddings", "/real-weddings", 3, "custom", null));
+        navigationRepository.insert(buildNavPage("Home", "home", 1));
+        navigationRepository.insert(buildNavPage("Shop", "products", 2));
+        navigationRepository.insert(buildNavPage("Real Weddings", "real-weddings", 3));
         log.info("[SiteBuilderDataSeed] navigation_items 3 条演示数据已初始化");
     }
 
-    private NavigationItem buildNav(String label, String url, int sort, String linkType, Long taxonomyId) {
+    private NavigationItem buildNavPage(String label, String pageKey, int sort) {
         NavigationItem n = new NavigationItem();
         n.setLabel(label);
-        n.setUrl(url);
+        n.setPageKey(pageKey);
         n.setSortOrder(sort);
         n.setEnabled(true);
         n.setTarget("self");
-        n.setLinkType(linkType);
-        n.setTaxonomyId(taxonomyId);
+        n.setLinkType(LinkType.PAGE);
         n.setVersion(0);
         return n;
     }

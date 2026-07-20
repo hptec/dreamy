@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { LocalizedLink as Link } from '@/components/localized-link'
 import { usePathname } from 'next/navigation'
-import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe } from 'lucide-react'
+import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe, Check } from 'lucide-react'
 import { mainNav, announcements as staticAnnouncements, currencies, languages } from '@/data/navigation'
 import type { StoreProductCard } from '@/lib/api/store-types'
 import { searchStoreProducts } from '@/lib/api/catalog-api'
@@ -37,11 +37,11 @@ export function SiteHeader({
   const hydrate = useAuthStore((s) => s.hydrate)
   const accountHref = isAuthenticated ? '/account' : '/account/login'
   const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
-  // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav
+  // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav；url 已由后端按 linkType 解析
   const navItems = navigationItems && navigationItems.length > 0
     ? navigationItems.filter((i) => i.parentId === null).map((i) => ({
         label: i.label,
-        href: i.linkType === 'custom' ? (i.url ?? '/') : `/categories/${i.taxonomyId}`,
+        href: i.url ?? '/',
         megaMenu: i.megaMenu,
       }))
     : mainNav
@@ -169,32 +169,92 @@ function CurrencyLang({ currency, setCurrency, language, setLanguage }: any) {
   return (
     <div className="flex items-center gap-3">
       <Globe className="h-3.5 w-3.5 text-gold-light" />
-      <select
+      <TopbarSelect
         value={currency}
-        onChange={(e) => setCurrency(e.target.value)}
-        className="cursor-pointer bg-transparent text-canvas outline-none [&>option]:text-ink"
-        aria-label={t.layout.header.currencyAria}
-      >
-        {currencies.map((c) => (
-          <option key={c.code} value={c.code}>{c.label}</option>
-        ))}
-      </select>
+        options={currencies}
+        onChange={setCurrency}
+        ariaLabel={t.layout.header.currencyAria}
+      />
       <span className="text-gold-light/40">|</span>
-      <select
+      <TopbarSelect
         value={locale.toUpperCase()}
-        onChange={(e) => {
-          const code = e.target.value
+        options={languages}
+        onChange={(code) => {
           setLanguage(code)
           // 语言切换：写 cookie + 跳转到 locale 前缀 URL（决策 11）
           setLocale(code.toLowerCase() as Locale)
         }}
-        className="cursor-pointer bg-transparent text-canvas outline-none [&>option]:text-ink"
-        aria-label={t.layout.header.languageAria}
+        ariaLabel={t.layout.header.languageAria}
+      />
+    </div>
+  )
+}
+
+function TopbarSelect({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  value: string
+  options: { code: string; label: string }[]
+  onChange: (code: string) => void
+  ariaLabel: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const current = options.find((o) => o.code === value)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        className="flex cursor-pointer items-center gap-1 tracking-wide transition-colors hover:text-gold-light"
       >
-        {languages.map((l) => (
-          <option key={l.code} value={l.code}>{l.label}</option>
-        ))}
-      </select>
+        {current?.label ?? value}
+        <ChevronDown className={cn('h-3 w-3 text-gold-light/70 transition-transform duration-200', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute left-1/2 top-full z-50 mt-2.5 w-36 -translate-x-1/2 animate-fadeup border border-gold-light/20 bg-ink py-1.5 shadow-lift">
+          {options.map((o) => (
+            <button
+              key={o.code}
+              type="button"
+              onClick={() => {
+                onChange(o.code)
+                setOpen(false)
+              }}
+              className={cn(
+                'flex w-full cursor-pointer items-center justify-between px-4 py-2 text-left text-[11px] tracking-wide transition-colors',
+                o.code === value ? 'text-gold-light' : 'text-canvas/70 hover:bg-white/5 hover:text-canvas'
+              )}
+            >
+              {o.label}
+              {o.code === value && <Check className="h-3 w-3" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -400,8 +400,8 @@ paths:
       description: |
         NavigationConfig.vue 主导航 Tab "保存并重新生成 header" 按钮触发（KD-4 保存即发布）。
         入参为完整导航项数组，后端 diff 当前 DB 状态：新增/更新/删除/重排 sort_order 一次性 @Transactional 完成（BE-DIM-4）。
-        js_guard：link_type=taxonomy 时 taxonomy_id 非空（TaxonomyService.findById 校验，422802 TAXONOMY_REF_INVALID，FLOW-010）；
-        link_type=custom 时 custom_href 非空；
+        js_guard：link_type=1(custom) 时 url 非空（422809）；link_type=2(page) 时 page_key 合法（422810）；
+        link_type=3..9（引用型）时 ref_id 非空且跨域存在（404805 NAVIGATION_REF_NOT_FOUND）；
         mega_menu_json.source=category-children 时 ref_id 非空；source=taxonomy-type 时 ref_type ∈ [theme, category]（422806 MEGA_MENU_CONFIG_INVALID）。
         保存成功触发 in-process 缓存失效链（NAVIGATION 族，header+footer 共用，GRD-004/GRD-W01）。
         写 OperationLog（action=保存主导航配置）。
@@ -440,6 +440,59 @@ paths:
           $ref: '#/components/responses/Conflict'        # 409802
         '422':
           $ref: '#/components/responses/ValidationError'  # 422801/422802/422806/422807/422808
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/admin/site-builder/navigation/link-options:
+    get:
+      summary: 导航引用目标下拉选项
+      description: |
+        NavigationConfig.vue 引用型链接（link_type=3..9）的目标选择器数据源。
+        按 type 查对应域已发布/启用记录，keyword 过滤（name/title LIKE），上限 50 条。
+        返回 {id, label, sub}：label 主文案（name/title/couple），sub 辅助（slug/层级/阶段/主题）。
+      operationId: getNavigationLinkOptions
+      tags: [admin-navigation]
+      security:
+        - AdminBearerAuth: [/site/navigation]
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: integer
+            enum: [3, 4, 5, 6, 7, 8, 9]
+          description: LinkType 引用型 key（3=category 4=collection 5=product 6=blog_post 7=real_wedding 8=lookbook 9=guide）
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 名称模糊过滤
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [options]
+                properties:
+                  options:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, label]
+                      properties:
+                        id:
+                          type: integer
+                          format: int64
+                        label:
+                          type: string
+                        sub:
+                          type: string
+                          nullable: true
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -803,9 +856,10 @@ paths:
       description: |
         KD-11/KD-13 扩展基线 marketing-api POST /api/store/newsletter（不新建独立端点，GRD-009）。
         首页 Newsletter 区块订阅入口，source=home_block(4) 表示首页区块来源（NewsletterSource.HOME_BLOCK，GRD-009）。
-        GRD2-003 方案 A：(email, source) 复合唯一约束，同邮箱同来源重复订阅幂等返回成功（200 + subscribed=true）；
-        不同来源新增记录（如先 FOOTER 订阅后再 HOME_BLOCK 订阅，新增一条 source=HOME_BLOCK 记录）。
-        GRD-001/KD-12：本期不扩展退订状态机，subscriber_status 单态 subscribed，订阅即生效；不发码不发邮件（对齐基线决策 26）。
+        【2026-07-18 退订变更】GRD2-003 复合 (email, source) 唯一方案 A 正式废止（从未落库，与退订单记录模型冲突）：
+        保持 uk_newsletter_email(email) 单列唯一，同邮箱重复订阅首写胜出（source 记录首次订阅入口）。
+        【2026-07-18 退订变更】KD-12 单态决定废止：subscriber_status 双态（status/unsubscribed_at 字段），
+        支持邮件签名链接退订（POST /api/store/newsletter/unsubscribe）与退订后复活（重新订阅 status 2→1）；不发码不发邮件（对齐基线决策 26）。
         email 存储前小写归一（对齐基线 NewsletterService.normalizeEmail）。
         限流靠 Cloudflare WAF（与基线一致）。不缓存。
         错误码沿用 marketing 域（422704 FIELD_VALIDATION_FAILED 邮箱格式非法等），本契约不重复声明。
@@ -1042,29 +1096,28 @@ components:
           maxLength: 64
           description: 导航项标签（EN 基准，存主表；ES/FR 翻译存 i18n_json.label）
         link_type:
-          type: string
-          enum: [taxonomy, custom]
+          type: integer
+          enum: [1, 2, 3, 4, 5, 6, 7, 8, 9]
           description: |
-            链接类型。taxonomy 时引用 Taxonomy（品类/主题），href 从 TaxonomyService 派生；
-            custom 时存 custom_href 自定义 URL。
-        taxonomy_id:
+            LinkType IntEnum：1=custom 自定义 URL；2=page 系统页（page_key）；
+            3=category 4=collection 5=product 6=blog_post 7=real_wedding 8=lookbook 9=guide（ref_id 引用）。
+            校验：custom→url 非空（422809）；page→page_key 合法（422810）；
+            引用型→ref_id 非空且跨域存在（404805 NAVIGATION_REF_NOT_FOUND）。
+        ref_id:
           type: integer
           format: int64
           nullable: true
-          description: link_type=taxonomy 时必填；引用 Taxonomy.id（Category 或 Collection 多态，GRD-002）。
-        taxonomy_type:
+          description: 引用资源 id（link_type=3..9 时必填，跨域存在性校验）。
+        page_key:
           type: string
-          enum: [category, theme]
+          maxLength: 64
           nullable: true
-          description: |
-            派生字段（OQ-4 方案 A 冗余存储）。link_type=taxonomy 时必填；
-            标识引用的是品类（Category）还是主题（Collection with collectionGroupId=主题组）。
-            TaxonomyService.findById 校验存在性 + 类型一致性（422802 TAXONOMY_REF_INVALID）。
-        custom_href:
+          description: 系统页 key（link_type=2 时必填；NavPageKey 枚举：home/products/blog/real-weddings 等）。
+        url:
           type: string
-          maxLength: 255
+          maxLength: 512
           nullable: true
-          description: link_type=custom 时必填；自定义 URL。
+          description: 自定义 URL（link_type=1 时必填）。
         mega_menu_json:
           type: array
           nullable: true
@@ -1536,7 +1589,7 @@ components:
     StoreNavigationItem:
       type: object
       required: [id, label, link_type, sort_order]
-      description: 消费端主导航项（已按 locale 解析 label；mega_menu 列子链接从 TaxonomyService 派生）。
+      description: 消费端主导航项（已按 locale 解析 label；url 由后端按 link_type 解析为最终链接，引用目标缺失/未发布的项不下发）。
       properties:
         id:
           type: integer
@@ -1545,13 +1598,15 @@ components:
           type: string
           description: i18n_json[locale].label（缺翻译回退 EN 主表 label）
         link_type:
-          type: string
-          enum: [taxonomy, custom]
-        href:
+          type: integer
+          description: LinkType IntEnum（1=custom 2=page 3=category 4=collection 5=product 6=blog_post 7=real_wedding 8=lookbook 9=guide）
+        url:
           type: string
           description: |
-            派生链接。link_type=taxonomy 时由 TaxonomyService 派生（type=category → /categories/{slug}；type=theme → /themes/{slug}）；
-            link_type=custom 时取 custom_href。
+            后端解析的最终链接。规则：custom→原样；page→NavPageKey 路径；
+            category→/products?cat={name}；collection→/products?collection={id}；
+            product→/product/{slug}（已上架）；blog_post→/blog/{slug}（已发布）；
+            real_wedding→/real-weddings/{id}（已发布）；lookbook→/inspiration；guide→/wedding-guides。
         sort_order:
           type: integer
         mega_menu:

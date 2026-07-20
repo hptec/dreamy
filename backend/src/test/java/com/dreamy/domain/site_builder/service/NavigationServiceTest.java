@@ -1,9 +1,18 @@
 package com.dreamy.domain.site_builder.service;
 
+import com.dreamy.domain.blog.repository.BlogPostRepository;
+import com.dreamy.domain.category.entity.Category;
+import com.dreamy.domain.category.repository.CategoryRepository;
+import com.dreamy.domain.collection.repository.CollectionRepository;
+import com.dreamy.domain.guide.repository.GuideRepository;
+import com.dreamy.domain.lookbook.repository.LookbookRepository;
+import com.dreamy.domain.product.repository.ProductRepository;
 import com.dreamy.domain.site_builder.entity.NavigationItem;
 import com.dreamy.domain.site_builder.repository.NavigationItemRepository;
+import com.dreamy.domain.wedding.repository.RealWeddingRepository;
 import com.dreamy.dto.SiteBuilderDtos.NavigationItemUpsert;
 import com.dreamy.dto.SiteBuilderDtos.NavigationSaveRequest;
+import com.dreamy.enums.LinkType;
 import com.dreamy.error.SiteBuilderErrorCode;
 import com.dreamy.error.SiteBuilderException;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,8 +30,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * NavigationService 单元测试（TC-U021~U035）。
- * 覆盖 acceptance s-003~s-004（状态机）+ bs-081~bs-160（边界场景，重点循环依赖检测）。
+ * NavigationService 单元测试。
+ * 覆盖：循环依赖检测 + 按 link_type 校验（custom url / page page_key / 引用型 ref 跨域存在性）。
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NavigationService 单元测试")
@@ -32,26 +41,50 @@ class NavigationServiceTest {
     private NavigationItemRepository repository;
     @Mock
     private com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
+    @Mock
+    private CategoryRepository categoryRepository;
+    @Mock
+    private CollectionRepository collectionRepository;
+    @Mock
+    private ProductRepository productRepository;
+    @Mock
+    private BlogPostRepository blogPostRepository;
+    @Mock
+    private RealWeddingRepository weddingRepository;
+    @Mock
+    private LookbookRepository lookbookRepository;
+    @Mock
+    private GuideRepository guideRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private NavigationService service;
 
     @BeforeEach
     void setUp() {
-        service = new NavigationService(repository, objectMapper, cacheTasks);
+        service = new NavigationService(repository, objectMapper, cacheTasks,
+                categoryRepository, collectionRepository, productRepository,
+                blogPostRepository, weddingRepository, lookbookRepository, guideRepository);
+    }
+
+    private NavigationItemUpsert customItem(String label, String url) {
+        NavigationItemUpsert item = new NavigationItemUpsert();
+        item.setLabel(label);
+        item.setLinkType(LinkType.CUSTOM.getKey());
+        item.setUrl(url);
+        item.setSortOrder(0);
+        item.setEnabled(true);
+        return item;
     }
 
     @Test
     @DisplayName("TC-N001: saveNavigation 循环依赖检测 → 409802")
     void saveNavigation_cycleDetected_throwsCycle() {
-        NavigationItemUpsert item1 = new NavigationItemUpsert();
+        NavigationItemUpsert item1 = customItem("A", "/a");
         item1.setId(1L);
         item1.setParentId(2L);
-        item1.setLabel("A");
-        NavigationItemUpsert item2 = new NavigationItemUpsert();
+        NavigationItemUpsert item2 = customItem("B", "/b");
         item2.setId(2L);
         item2.setParentId(1L);
-        item2.setLabel("B");
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item1, item2));
@@ -63,12 +96,11 @@ class NavigationServiceTest {
     }
 
     @Test
-    @DisplayName("TC-N002: saveNavigation link_type=taxonomy 但 taxonomyId 为空 → 404805")
-    void saveNavigation_taxonomyWithoutId_throwsTaxonomyNotFound() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
-        item.setLabel("Category");
-        item.setLinkType("taxonomy");
-        item.setTaxonomyId(null);
+    @DisplayName("TC-N002: 引用型 ref_id 为空 → 404805")
+    void saveNavigation_refTypeWithoutRefId_throwsRefNotFound() {
+        NavigationItemUpsert item = customItem("Category", null);
+        item.setLinkType(LinkType.CATEGORY.getKey());
+        item.setRefId(null);
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item));
@@ -76,7 +108,24 @@ class NavigationServiceTest {
         assertThatThrownBy(() -> service.save(request))
                 .isInstanceOf(SiteBuilderException.class)
                 .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
-                        .isEqualTo(SiteBuilderErrorCode.TAXONOMY_NOT_FOUND));
+                        .isEqualTo(SiteBuilderErrorCode.NAVIGATION_REF_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("TC-N002b: 引用型 ref_id 目标不存在 → 404805")
+    void saveNavigation_refTargetMissing_throwsRefNotFound() {
+        NavigationItemUpsert item = customItem("Category", null);
+        item.setLinkType(LinkType.CATEGORY.getKey());
+        item.setRefId(999L);
+        when(categoryRepository.findById(999L)).thenReturn(null);
+
+        NavigationSaveRequest request = new NavigationSaveRequest();
+        request.setItems(List.of(item));
+
+        assertThatThrownBy(() -> service.save(request))
+                .isInstanceOf(SiteBuilderException.class)
+                .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
+                        .isEqualTo(SiteBuilderErrorCode.NAVIGATION_REF_NOT_FOUND));
     }
 
     @Test
@@ -92,13 +141,8 @@ class NavigationServiceTest {
     @Test
     @DisplayName("TC-N004: saveNavigation 正常整体替换")
     void saveNavigation_normalReplace_success() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
+        NavigationItemUpsert item = customItem("Home", "/");
         item.setId(1L);
-        item.setLabel("Home");
-        item.setLinkType("custom");
-        item.setUrl("/");
-        item.setSortOrder(0);
-        item.setEnabled(true);
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item));
@@ -116,15 +160,8 @@ class NavigationServiceTest {
     @Test
     @DisplayName("TC-N005: saveNavigation 新增项（id 为 null）走 insert 路径")
     void saveNavigation_newItem_insertPath() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
-        item.setLabel("New Item");
-        item.setLinkType("custom");
-        item.setUrl("/new");
-        item.setSortOrder(0);
-        item.setEnabled(true);
-
         NavigationSaveRequest request = new NavigationSaveRequest();
-        request.setItems(List.of(item));
+        request.setItems(List.of(customItem("New Item", "/new")));
 
         when(repository.findAllOrderBySort()).thenReturn(List.of());
 
@@ -136,18 +173,15 @@ class NavigationServiceTest {
     @Test
     @DisplayName("TC-N006: saveNavigation 3 级循环依赖检测")
     void saveNavigation_threeLevelCycleDetected() {
-        NavigationItemUpsert i1 = new NavigationItemUpsert();
+        NavigationItemUpsert i1 = customItem("A", "/a");
         i1.setId(1L);
         i1.setParentId(3L);
-        i1.setLabel("A");
-        NavigationItemUpsert i2 = new NavigationItemUpsert();
+        NavigationItemUpsert i2 = customItem("B", "/b");
         i2.setId(2L);
         i2.setParentId(1L);
-        i2.setLabel("B");
-        NavigationItemUpsert i3 = new NavigationItemUpsert();
+        NavigationItemUpsert i3 = customItem("C", "/c");
         i3.setId(3L);
         i3.setParentId(2L);
-        i3.setLabel("C");
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(i1, i2, i3));
@@ -174,12 +208,9 @@ class NavigationServiceTest {
     @Test
     @DisplayName("TC-N008: saveNavigation 自引用循环（id=parent_id）")
     void saveNavigation_selfReferenceCycle() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
+        NavigationItemUpsert item = customItem("Self", "/");
         item.setId(1L);
-        item.setParentId(1L);  // 自引用
-        item.setLabel("Self");
-        item.setLinkType("custom");
-        item.setUrl("/");
+        item.setParentId(1L);
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item));
@@ -191,32 +222,42 @@ class NavigationServiceTest {
     }
 
     @Test
-    @DisplayName("TC-N009: saveNavigation 无 parent_id 顶级项合法")
-    void saveNavigation_topLevelItem_success() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
-        item.setLabel("Top");
-        item.setLinkType("custom");
-        item.setUrl("/top");
-        item.setSortOrder(0);
-        item.setEnabled(true);
+    @DisplayName("TC-N009: page 型 page_key 非法 → 422810")
+    void saveNavigation_invalidPageKey_throws() {
+        NavigationItemUpsert item = customItem("Page", null);
+        item.setLinkType(LinkType.PAGE.getKey());
+        item.setPageKey("not-exist-page");
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item));
 
-        when(repository.findAllOrderBySort()).thenReturn(List.of());
-
-        service.save(request);
-        verify(repository).insert(any(NavigationItem.class));
+        assertThatThrownBy(() -> service.save(request))
+                .isInstanceOf(SiteBuilderException.class)
+                .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
+                        .isEqualTo(SiteBuilderErrorCode.NAVIGATION_PAGE_KEY_INVALID));
     }
 
     @Test
-    @DisplayName("TC-N010: saveNavigation link_type=custom 但 url 为空（允许，由前端校验）")
-    void saveNavigation_customWithoutUrl_accepted() {
-        NavigationItemUpsert item = new NavigationItemUpsert();
-        item.setLabel("Custom No URL");
-        item.setLinkType("custom");
-        item.setSortOrder(0);
-        item.setEnabled(true);
+    @DisplayName("TC-N010: custom 型 url 为空 → 422809")
+    void saveNavigation_customWithoutUrl_throws() {
+        NavigationItemUpsert item = customItem("Custom No URL", null);
+
+        NavigationSaveRequest request = new NavigationSaveRequest();
+        request.setItems(List.of(item));
+
+        assertThatThrownBy(() -> service.save(request))
+                .isInstanceOf(SiteBuilderException.class)
+                .satisfies(ex -> assertThat(((SiteBuilderException) ex).getErrorCode())
+                        .isEqualTo(SiteBuilderErrorCode.NAVIGATION_URL_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("TC-N011: page 型合法 page_key 通过，不适用字段被清理")
+    void saveNavigation_pageType_cleansIrrelevantFields() {
+        NavigationItemUpsert item = customItem("Home", "/should-be-cleared");
+        item.setLinkType(LinkType.PAGE.getKey());
+        item.setPageKey("home");
+        item.setRefId(123L);
 
         NavigationSaveRequest request = new NavigationSaveRequest();
         request.setItems(List.of(item));
@@ -224,6 +265,38 @@ class NavigationServiceTest {
         when(repository.findAllOrderBySort()).thenReturn(List.of());
 
         service.save(request);
-        verify(repository).insert(any());
+
+        verify(repository).insert(argThat((NavigationItem e) ->
+                e.getLinkType() == LinkType.PAGE
+                        && "home".equals(e.getPageKey())
+                        && e.getUrl() == null
+                        && e.getRefId() == null));
+    }
+
+    @Test
+    @DisplayName("TC-N012: 引用型 category 目标存在 → 通过且 url/pageKey 被清理")
+    void saveNavigation_categoryRef_success() {
+        Category category = new Category();
+        category.setId(7L);
+        category.setName("A-Line");
+        when(categoryRepository.findById(7L)).thenReturn(category);
+
+        NavigationItemUpsert item = customItem("A-Line", "/should-be-cleared");
+        item.setLinkType(LinkType.CATEGORY.getKey());
+        item.setRefId(7L);
+        item.setPageKey("home");
+
+        NavigationSaveRequest request = new NavigationSaveRequest();
+        request.setItems(List.of(item));
+
+        when(repository.findAllOrderBySort()).thenReturn(List.of());
+
+        service.save(request);
+
+        verify(repository).insert(argThat((NavigationItem e) ->
+                e.getLinkType() == LinkType.CATEGORY
+                        && Long.valueOf(7L).equals(e.getRefId())
+                        && e.getUrl() == null
+                        && e.getPageKey() == null));
     }
 }

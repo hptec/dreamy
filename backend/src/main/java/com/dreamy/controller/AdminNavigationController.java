@@ -5,13 +5,16 @@ import com.dreamy.domain.site_builder.service.FooterService;
 import com.dreamy.domain.site_builder.service.NavigationService;
 import com.dreamy.dto.SiteBuilderDtos.FooterColumnDto;
 import com.dreamy.dto.SiteBuilderDtos.FooterSaveRequest;
+import com.dreamy.dto.SiteBuilderDtos.LinkOptionDto;
 import com.dreamy.dto.SiteBuilderDtos.NavigationItemDto;
 import com.dreamy.dto.SiteBuilderDtos.NavigationSaveRequest;
+import com.dreamy.enums.LinkType;
 import huihao.web.R;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -41,6 +44,19 @@ public class AdminNavigationController {
     public ResponseEntity<R<Map<String, List<NavigationItemDto>>>> saveNavigation(
             @RequestBody NavigationSaveRequest req) {
         return ResponseEntity.ok(R.ok(Map.of("items", navigationService.save(req))));
+    }
+
+    /** 导航引用目标下拉选项（type=LinkType.key，引用型 3..9 有效）。 */
+    @RequirePermission(PERMISSION)
+    @GetMapping("/api/admin/site-builder/navigation/link-options")
+    public ResponseEntity<R<Map<String, List<LinkOptionDto>>>> linkOptions(
+            @RequestParam Integer type,
+            @RequestParam(required = false) String keyword) {
+        LinkType linkType = LinkType.of(type);
+        List<LinkOptionDto> options = linkType == null
+                ? List.of()
+                : navigationService.linkOptions(linkType, keyword);
+        return ResponseEntity.ok(R.ok(Map.of("options", options)));
     }
 
     @RequirePermission(PERMISSION)

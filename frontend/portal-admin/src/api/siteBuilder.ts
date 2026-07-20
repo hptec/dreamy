@@ -43,8 +43,9 @@ export interface NavigationItem {
   labelI18nKey: string | null
   url: string | null
   target: string
-  linkType: string
-  taxonomyId: number | null
+  linkType: number
+  refId: number | null
+  pageKey: string | null
   megaMenuJson: any
   i18nJson: any
   sortOrder: number
@@ -59,12 +60,32 @@ export interface NavigationItemUpsert {
   labelI18nKey?: string
   url?: string
   target?: string
-  linkType?: string
-  taxonomyId?: number
+  linkType?: number
+  refId?: number | null
+  pageKey?: string | null
   megaMenuJson?: any
   i18nJson?: any
   sortOrder?: number
   enabled?: boolean
+}
+
+/** LinkType 整数契约（与后端 com.dreamy.enums.LinkType 对齐） */
+export const LinkType = {
+  CUSTOM: 1,
+  PAGE: 2,
+  CATEGORY: 3,
+  COLLECTION: 4,
+  PRODUCT: 5,
+  BLOG_POST: 6,
+  REAL_WEDDING: 7,
+  LOOKBOOK: 8,
+  GUIDE: 9,
+} as const
+
+export interface LinkOption {
+  id: number
+  label: string
+  sub: string | null
 }
 
 export interface FooterColumn {
@@ -171,6 +192,11 @@ export function getNavigation(): Promise<{ items: NavigationItem[] }> {
 
 export function saveNavigation(items: NavigationItemUpsert[]): Promise<{ items: NavigationItem[] }> {
   return put<{ items: NavigationItem[] }>('/api/admin/site-builder/navigation', { items })
+}
+
+export function fetchLinkOptions(type: number, keyword?: string): Promise<{ options: LinkOption[] }> {
+  const query = keyword ? `?type=${type}&keyword=${encodeURIComponent(keyword)}` : `?type=${type}`
+  return get<{ options: LinkOption[] }>(`/api/admin/site-builder/navigation/link-options${query}`)
 }
 
 export function getFooter(): Promise<{ columns: FooterColumn[] }> {

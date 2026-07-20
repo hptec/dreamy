@@ -1,10 +1,11 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import Toggle from '@/components/Toggle.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import { useNavigationStore, useFooterStore, useAnnouncementStore } from '@/stores/siteBuilder'
+import { fetchLinkOptions, LinkType } from '@/api/siteBuilder'
 import { useToast } from '@/composables/useToast'
 import {
   Bars3Icon, PlusIcon, TrashIcon, RocketLaunchIcon, EyeIcon, ChevronRightIcon
@@ -22,6 +23,94 @@ const announcements = ref([])
 const dirty = ref(false)
 const localeTab = ref('en')
 
+const LINK_TYPE_OPTIONS = [
+  { value: LinkType.CUSTOM, label: '自定义 URL' },
+  { value: LinkType.PAGE, label: '系统页' },
+  { value: LinkType.CATEGORY, label: '商品分类' },
+  { value: LinkType.COLLECTION, label: '合集' },
+  { value: LinkType.PRODUCT, label: '商品' },
+  { value: LinkType.BLOG_POST, label: '博客文章' },
+  { value: LinkType.REAL_WEDDING, label: '真实婚礼' },
+  { value: LinkType.LOOKBOOK, label: '画册' },
+  { value: LinkType.GUIDE, label: '指南' },
+]
+
+// 系统页 page_key（与后端 NavPageKey 对齐）
+const PAGE_KEY_OPTIONS = [
+  { value: 'home', label: '首页（/）' },
+  { value: 'products', label: '全部商品（/products）' },
+  { value: 'wedding-dresses', label: '婚纱（/wedding-dresses）' },
+  { value: 'special-occasion', label: '特殊场合（/special-occasion）' },
+  { value: 'accessories', label: '配饰（/accessories）' },
+  { value: 'outdoor-weddings', label: '户外婚礼（/outdoor-weddings）' },
+  { value: 'real-weddings', label: '真实婚礼（/real-weddings）' },
+  { value: 'inspiration', label: '灵感（/inspiration）' },
+  { value: 'blog', label: '博客（/blog）' },
+  { value: 'wedding-guides', label: '备婚指南（/wedding-guides）' },
+  { value: 'showroom', label: 'Showroom（/showroom）' },
+  { value: 'about', label: '关于我们（/about）' },
+  { value: 'contact', label: '联系我们（/contact）' },
+  { value: 'faq', label: 'FAQ（/faq）' },
+  { value: 'search', label: '搜索（/search）' },
+  { value: 'cart', label: '购物袋（/cart）' },
+  { value: 'account-login', label: '登录（/account/login）' },
+  { value: 'account-orders', label: '我的订单（/account/orders）' },
+  { value: 'account-wishlist', label: '心愿单（/account/wishlist）' },
+]
+
+// 引用型选项缓存：{ [linkType]: LinkOption[] }
+const linkOptionsCache = reactive({})
+
+function isRefType(linkType) {
+  return linkType >= LinkType.CATEGORY && linkType <= LinkType.GUIDE
+}
+
+async function loadLinkOptions(linkType, keyword) {
+  try {
+    const res = await fetchLinkOptions(linkType, keyword || undefined)
+    linkOptionsCache[linkType] = res.options || []
+  } catch (e) {
+    toast.error(e.message ?? '加载选项失败')
+  }
+}
+
+function refOptions(item) {
+  const options = (linkOptionsCache[item.linkType] || []).map((o) => ({
+    value: o.id,
+    label: o.sub ? `${o.label} · ${o.sub}` : o.label,
+  }))
+  // 当前选中项不在前 50 条时占位显示，避免 SelectMenu 空白
+  if (item.refId != null && !options.some((o) => o.value === item.refId)) {
+    options.unshift({ value: item.refId, label: `#${item.refId}` })
+  }
+  return options
+}
+
+let searchTimer = null
+function onRefKeywordInput(item, event) {
+  item._refKeyword = event.target.value
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadLinkOptions(item.linkType, item._refKeyword), 300)
+}
+
+function onLinkTypeChange(item) {
+  // 切换类型时清理不适用字段（后端 applyUpsert 也会兜底清理）
+  if (item.linkType === LinkType.CUSTOM) {
+    item.refId = null
+    item.pageKey = null
+  } else if (item.linkType === LinkType.PAGE) {
+    item.href = ''
+    item.refId = null
+    item.pageKey = item.pageKey || 'home'
+  } else if (isRefType(item.linkType)) {
+    item.href = ''
+    item.pageKey = null
+    item._refKeyword = ''
+    if (!linkOptionsCache[item.linkType]) loadLinkOptions(item.linkType)
+  }
+  touch()
+}
+
 onMounted(async () => {
   await Promise.all([
     navStore.fetch(),
@@ -29,6 +118,11 @@ onMounted(async () => {
     announcementStore.fetch(),
   ])
   syncFromStores()
+  // 预拉取当前列表中引用型的选项
+  const refTypes = [...new Set(main.value.filter((i) => isRefType(i.linkType)).map((i) => i.linkType))]
+  for (const t of refTypes) {
+    loadLinkOptions(t)
+  }
 })
 
 function syncFromStores() {
@@ -36,8 +130,9 @@ function syncFromStores() {
     id: i.id,
     label: i.label,
     href: i.url || '',
-    linkType: i.linkType || 'custom',
-    taxonomyId: i.taxonomyId,
+    linkType: i.linkType || LinkType.CUSTOM,
+    refId: i.refId ?? null,
+    pageKey: i.pageKey ?? null,
     columns: parseMegaMenuColumns(i.megaMenuJson),
     enabled: i.enabled,
     sortOrder: i.sortOrder,
@@ -140,7 +235,9 @@ function addItem() {
   main.value.push({
     label: 'New Item',
     href: '',
-    linkType: 'custom',
+    linkType: LinkType.CUSTOM,
+    refId: null,
+    pageKey: null,
     columns: 0,
     enabled: true,
     sortOrder: main.value.length,
@@ -180,7 +277,8 @@ async function saveAll() {
       label: b.label,
       url: b.href,
       linkType: b.linkType,
-      taxonomyId: b.taxonomyId,
+      refId: b.refId,
+      pageKey: b.pageKey,
       target: 'self',
       sortOrder: idx,
       enabled: b.enabled,
@@ -262,15 +360,33 @@ async function saveAll() {
           />
           <div class="flex items-center text-[12px] text-ink-faint">
             <span class="px-2">链接类型</span>
-            <SelectMenu v-model="item.linkType" class="w-32" :options="[{ value: 'custom', label: '自定义 URL' }, { value: 'taxonomy', label: '分类引用' }]" @change="touch" />
+            <SelectMenu v-model="item.linkType" class="w-32" :options="LINK_TYPE_OPTIONS" @update:model-value="onLinkTypeChange(item)" />
           </div>
-          <div v-if="item.linkType === 'custom'" class="flex items-center text-[12px] text-ink-faint">
+          <!-- 自定义 URL -->
+          <div v-if="item.linkType === LinkType.CUSTOM" class="flex items-center text-[12px] text-ink-faint">
             <span class="px-2">URL</span>
-            <input v-model="item.href" @input="touch" class="field w-56 text-[12px]" />
+            <input v-model="item.href" @input="touch" class="field w-56 text-[12px]" placeholder="/path 或 https://..." />
           </div>
-          <div v-else class="flex items-center text-[12px] text-ink-faint">
-            <span class="px-2">taxonomy_id</span>
-            <input v-model.number="item.taxonomyId" @input="touch" type="number" class="field w-24 text-[12px]" />
+          <!-- 系统页 -->
+          <div v-else-if="item.linkType === LinkType.PAGE" class="flex items-center text-[12px] text-ink-faint">
+            <span class="px-2">页面</span>
+            <SelectMenu v-model="item.pageKey" class="w-56" :options="PAGE_KEY_OPTIONS" placeholder="选择系统页" @update:model-value="touch" />
+          </div>
+          <!-- 内部资源引用 -->
+          <div v-else-if="isRefType(item.linkType)" class="flex items-center gap-1 text-[12px] text-ink-faint">
+            <input
+              :value="item._refKeyword || ''"
+              @input="onRefKeywordInput(item, $event)"
+              class="field w-28 text-[12px]"
+              placeholder="搜索..."
+            />
+            <SelectMenu
+              :model-value="item.refId"
+              @update:model-value="item.refId = $event; touch()"
+              class="w-56"
+              :options="refOptions(item)"
+              placeholder="选择目标"
+            />
           </div>
           <div class="ml-auto flex items-center gap-2 text-[12px] text-ink-soft">
             <Toggle :model-value="item.enabled" @update:model-value="item.enabled = $event; touch()" />

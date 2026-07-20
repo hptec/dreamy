@@ -177,10 +177,10 @@ export interface StoreNavigationItem {
   id: number
   parentId: number | null
   label: string
+  /** 后端已按 linkType 解析的最终 URL（引用目标缺失/未发布的项不下发） */
   url: string | null
   target: string
-  linkType: string
-  taxonomyId: number | null
+  linkType: number
   megaMenu: any
   sortOrder: number
 }

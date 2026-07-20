@@ -57,6 +57,13 @@ class StoreContentSectionConfigTest {
     @Mock private RecommendationService recommendationService;
     @Mock private StoreWeddingService weddingService;
     @Mock private SiteBuilderCacheService cache;
+    @Mock private com.dreamy.domain.category.repository.CategoryRepository categoryRepository;
+    @Mock private com.dreamy.domain.collection.repository.CollectionRepository collectionRepository;
+    @Mock private com.dreamy.domain.product.repository.ProductRepository productRepository;
+    @Mock private com.dreamy.domain.blog.repository.BlogPostRepository blogPostRepository;
+    @Mock private com.dreamy.domain.wedding.repository.RealWeddingRepository realWeddingRepository;
+    @Mock private com.dreamy.domain.lookbook.repository.LookbookRepository lookbookRepository;
+    @Mock private com.dreamy.domain.guide.repository.GuideRepository guideRepository;
 
     private StoreContentService service;
 
@@ -65,7 +72,9 @@ class StoreContentSectionConfigTest {
         service = new StoreContentService(sectionRepository, navigationRepository,
                 footerRepository, announcementRepository, new ObjectMapper(), bannerService,
                 collectionService, productService, recommendationService, weddingService,
-                java.time.Clock.systemUTC(), cache);
+                java.time.Clock.systemUTC(), cache, categoryRepository, collectionRepository,
+                productRepository, blogPostRepository, realWeddingRepository, lookbookRepository,
+                guideRepository);
         lenient().when(cache.lookup(any(), anyString())).thenAnswer(invocation ->
                 new SiteBuilderCacheService.Lookup(invocation.getArgument(0), invocation.getArgument(1), 1L, null));
     }

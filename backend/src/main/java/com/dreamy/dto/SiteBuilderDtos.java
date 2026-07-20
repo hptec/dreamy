@@ -73,8 +73,9 @@ public class SiteBuilderDtos {
         private String labelI18nKey;
         private String url;
         private String target;
-        private String linkType;
-        private Long taxonomyId;
+        private Integer linkType;
+        private Long refId;
+        private String pageKey;
         @JsonRawValue
         private String megaMenuJson;
         @JsonRawValue
@@ -92,8 +93,9 @@ public class SiteBuilderDtos {
         private String labelI18nKey;
         private String url;
         private String target;
-        private String linkType;
-        private Long taxonomyId;
+        private Integer linkType;
+        private Long refId;
+        private String pageKey;
         private JsonNode megaMenuJson;
         private JsonNode i18nJson;
         private Integer sortOrder;
@@ -104,6 +106,23 @@ public class SiteBuilderDtos {
     public static class NavigationSaveRequest {
         private java.util.List<NavigationItemUpsert> items;
         private Integer version;
+    }
+
+    /** 导航引用目标下拉选项（link-options 端点）。label 主文案，sub 辅助（slug/阶段/层级）。 */
+    @Data
+    public static class LinkOptionDto {
+        private Long id;
+        private String label;
+        private String sub;
+
+        public LinkOptionDto() {
+        }
+
+        public LinkOptionDto(Long id, String label, String sub) {
+            this.id = id;
+            this.label = label;
+            this.sub = sub;
+        }
     }
 
     @Data
@@ -204,8 +223,7 @@ public class SiteBuilderDtos {
         private String label;
         private String url;
         private String target;
-        private String linkType;
-        private Long taxonomyId;
+        private Integer linkType;
         private Object megaMenu;
         private Integer sortOrder;
     }
