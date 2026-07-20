@@ -130,6 +130,8 @@ dreamy:
       - /api/store/content/**
       - /api/store/promotions/flash-sales
       - /api/store/newsletter
+      # 退订端点（method-aware；既有 /api/store/newsletter 精确匹配不覆盖子路径）
+      - POST:/api/store/newsletter/unsubscribe
       - /api/store/contact
       # review 域登记 2 条 method-aware（review-api-detail 0.1；同路径 POST 仍强制鉴权）
       - GET:/api/store/reviews
@@ -203,6 +205,10 @@ dreamy:
   # marketing 域：coupon active→expiring 阈值（DEC-MKT-3，缺省 72h）
   marketing:
     coupon-expiring-hours: 72
+    # newsletter 退订 token HMAC 密钥（≥32 字符，启动 fail-fast；轮换即作废旧链接）
+    unsubscribe-secret: ${NEWSLETTER_UNSUBSCRIBE_SECRET:}
+    # 退订 token 有效期（秒，缺省 30 天）
+    unsubscribe-token-ttl-seconds: 2592000
   # i18n 外部网关（决策 1/5/6）：API Key AES-256-GCM 加密密钥（Base64 256-bit/32 字节，启动 fail-fast 校验）
   # 模型定时刷新扫描间隔（决策5；scheduled 策略网关按各自 interval 到期触发 syncModels）
   gateway:

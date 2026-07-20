@@ -320,19 +320,23 @@ CREATE TABLE flash_sale_product (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='闪购-商品挂载';
 
 -- -----------------------------------------------------------------------------
--- 18. newsletter_subscriber（决策 26；IDX-MKT-021）
+-- 18. newsletter_subscriber（决策 26；IDX-MKT-021；2026-07-18 退订变更方案 A）
 -- -----------------------------------------------------------------------------
 CREATE TABLE newsletter_subscriber (
-  id            BIGINT       NOT NULL AUTO_INCREMENT,
-  email         VARCHAR(255) NOT NULL COMMENT '小写归一，唯一（幂等判重）',
-  source        VARCHAR(16)  NOT NULL COMMENT 'footer|modal|exit_intent',
-  locale        VARCHAR(8)   NOT NULL COMMENT 'en|es|fr',
-  subscribed_at DATETIME(3)  NOT NULL COMMENT '订阅时间',
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  id              BIGINT       NOT NULL AUTO_INCREMENT,
+  email           VARCHAR(255) NOT NULL COMMENT '小写归一，唯一（幂等判重）',
+  source          VARCHAR(16)  NOT NULL COMMENT 'footer|modal|exit_intent|home_block',
+  locale          VARCHAR(8)   NOT NULL COMMENT 'en|es|fr',
+  status          TINYINT      NOT NULL DEFAULT 1 COMMENT '1=已订阅 2=已退订（2026-07-18 退订变更新增）',
+  subscribed_at   DATETIME(3)  NOT NULL COMMENT '订阅时间（复活时更新）',
+  unsubscribed_at DATETIME(3)  NULL COMMENT '退订时间（2026-07-18 退订变更新增；重复退订保留首次，复活清空）',
+  created_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uk_newsletter_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Newsletter 订阅（仅落表，不发码不发邮件）';
+-- 存量库经手动迁移 V20260718_newsletter_unsubscribe.sql 加 status/unsubscribed_at（项目无 Flyway）。
+-- GRD2-003 复合 (email, source) 唯一方案已于 2026-07-18 正式废止（从未落库，与退订单记录模型冲突）。
 
 -- -----------------------------------------------------------------------------
 -- 19. contact_message（决策 30；IDX-MKT-022）

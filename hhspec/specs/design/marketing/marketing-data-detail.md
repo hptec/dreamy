@@ -97,7 +97,15 @@
 - RM-MKT-130 `listProductIdsByFlashId(id)` / RM-MKT-131 `listProductIdsByFlashIds(ids) -> Map` / RM-MKT-132 `replaceProducts(flashId, productIds[])` / RM-MKT-133 `deleteProductsByFlashId`
 
 ### NewsletterSubscriberRepository / ContactMessageRepository
-- RM-MKT-140 `insertIgnoreDuplicate(subscriber) -> void` —— `INSERT ... ON DUPLICATE KEY UPDATE id=id`（uk_newsletter_email；幂等空操作，E-MKT-11）
+- RM-MKT-140 `upsertReactivating(subscriber) -> void` —— `INSERT ... ON DUPLICATE KEY UPDATE`（uk_newsletter_email；E-MKT-11。
+  【2026-07-18 退订变更】取代原 `insertIgnoreDuplicate`（`ON DUPLICATE KEY UPDATE id=id` 首写胜出）：
+  旧 status=1 → 空操作；旧 status=2 → 复活（status→1、subscribed_at→新值、unsubscribed_at→NULL、source/locale→新值）。
+  条件赋值在前、status 最后赋值（MySQL 从左到右求值），8.0.20+ `AS new` 别名）
+- RM-MKT-140b `unsubscribeByEmail(email, genTime) -> int` —— 【2026-07-18 退订变更】单语句原子退订：
+  `UPDATE ... SET unsubscribed_at=IF(status=2,unsubscribed_at,NOW(3)), updated_at=IF(status=2,updated_at,NOW(3)), status=2 WHERE email=? AND subscribed_at <= ?`；
+  WHERE 原子含代际谓词（gen=token 绑定的持久化 subscribed_at），复活后旧 token 匹配 0 行防并发竞态；
+  返回 0 行时由 Service 再 SELECT 区分"不存在/已退订（幂等 200）"与"代际落后（422704 field=token）"
+- RM-MKT-140c `findByEmail(email) -> NewsletterSubscriber?` —— 【2026-07-18 退订变更】退订 0 行后错误分类 + 退订 token 生成取持久化 subscribed_at
 - RM-MKT-141 `insert(contactMessage)`（E-MKT-12）
 
 ## 3. DTO ↔ Entity 映射（MAP-MKT）
@@ -141,7 +149,7 @@
 | IDX-MKT-018 | flash_sale_product | `UNIQUE uk_fsp(flash_sale_id, product_id)` + `idx_fsp_product(product_id)` | nm 幂等 / 商品反查 |
 | IDX-MKT-019 | real_wedding_product | `UNIQUE uk_rwp(real_wedding_id, product_id)` + `idx_rwp_product(product_id)` | 同上 |
 | IDX-MKT-020 | lookbook_product | `UNIQUE uk_lbp(lookbook_id, product_id)` + `idx_lbp_product(product_id)` | 同上 |
-| IDX-MKT-021 | newsletter_subscriber | `UNIQUE uk_newsletter_email(email)` | E-MKT-11 幂等判重 |
+| IDX-MKT-021 | newsletter_subscriber | `UNIQUE uk_newsletter_email(email)` | E-MKT-11 幂等判重（2026-07-18 确认保持单列唯一，GRD2-003 复合唯一方案废止） |
 | IDX-MKT-022 | contact_message | `idx_contact_submitted(submitted_at)` | 运营直查库时间序（决策 30） |
 
 查询优化补充：
@@ -534,18 +542,22 @@ CREATE TABLE flash_sale_product (
   KEY idx_fsp_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='闪购-商品挂载';
 
--- 18. newsletter_subscriber（决策 26）
+-- 18. newsletter_subscriber（决策 26 + 2026-07-18 退订变更方案 A）
 CREATE TABLE newsletter_subscriber (
-  id            BIGINT       NOT NULL AUTO_INCREMENT,
-  email         VARCHAR(255) NOT NULL COMMENT '小写归一，唯一（幂等判重）',
-  source        VARCHAR(16)  NOT NULL COMMENT 'footer|modal|exit_intent',
-  locale        VARCHAR(8)   NOT NULL COMMENT 'en|es|fr',
-  subscribed_at DATETIME(3)  NOT NULL COMMENT '订阅时间',
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  id              BIGINT       NOT NULL AUTO_INCREMENT,
+  email           VARCHAR(255) NOT NULL COMMENT '小写归一，唯一（幂等判重）',
+  source          VARCHAR(16)  NOT NULL COMMENT 'footer|modal|exit_intent|home_block',
+  locale          VARCHAR(8)   NOT NULL COMMENT 'en|es|fr',
+  status          TINYINT      NOT NULL DEFAULT 1 COMMENT '1=已订阅 2=已退订（2026-07-18 退订变更新增）',
+  subscribed_at   DATETIME(3)  NOT NULL COMMENT '订阅时间（复活时更新）',
+  unsubscribed_at DATETIME(3)  NULL COMMENT '退订时间（2026-07-18 退订变更新增；重复退订保留首次，复活清空）',
+  created_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uk_newsletter_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Newsletter 订阅（仅落表，不发码不发邮件）';
+-- 注：status/unsubscribed_at 两列经手动迁移 V20260718_newsletter_unsubscribe.sql 加入（项目无 Flyway）。
+-- GRD2-003 复合 (email, source) 唯一方案已于 2026-07-18 正式废止（从未落库，与退订单记录模型冲突）。
 
 -- 19. contact_message（决策 30）
 CREATE TABLE contact_message (

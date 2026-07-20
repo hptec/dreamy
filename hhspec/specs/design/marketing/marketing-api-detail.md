@@ -205,11 +205,25 @@
 
 **业务步骤**:
 - STEP-MKT-01 email 小写归一（trim + lowercase——幂等判重口径统一）
-- STEP-MKT-02 `INSERT newsletter_subscriber(email, source, locale, subscribed_at=now) ON DUPLICATE KEY UPDATE id=id`（uk_newsletter_email；**重复订阅为空操作，首写胜出**，不更新 source/locale）
-- STEP-MKT-03 无论新增或重复一律返回 `{subscribed:true}`（响应体/状态码/耗时特征完全一致，**不泄露邮箱是否已存在**——js_guard 幂等 + 防枚举）；不发码不发邮件（决策 26 显式降级）
+- STEP-MKT-02 订阅 upsert（uk_newsletter_email）。【2026-07-18 退订变更】取代原 `INSERT ... ON DUPLICATE KEY UPDATE id=id`（首写胜出）：旧 status=1 → 空操作（source/locale/subscribed_at 保持）；旧 status=2 → 复活（status→1、subscribed_at→新值、unsubscribed_at→NULL、source/locale→新值）。条件赋值在前、status 最后赋值（MySQL 从左到右求值），8.0.20+ `AS new` 别名且旧行列引用带表名限定
+- STEP-MKT-03 无论新增/重复/复活一律返回 `{subscribed:true}`（响应体/状态码/耗时特征完全一致，**不泄露邮箱是否已存在**——js_guard 幂等 + 防枚举）；不发码不发邮件（决策 26 显式降级）
 
 **出参**: 200 `{ subscribed: true }`
 **错误映射**: 422 `422704` / 500 `50000`,`50001`
+
+### unsubscribeNewsletter — POST /api/store/newsletter/unsubscribe （2026-07-18 退订变更，方案 A）
+
+**入参**: body `{ token! }` —— 邮件链接 HMAC-SHA256 签名 token（`u1.<b64url(email)>.<b64url(expEpochMillis)>.<b64url(genEpochMillis)>.<b64url(sig)>`，30 天有效期，密钥 NEWSLETTER_UNSUBSCRIBE_SECRET ≥32 UTF-8 字节启动 fail-fast）
+- token 解析防御：总长 ≤1024、严格 5 段、版本前缀 u1、email ≤255、时间戳纯数字、恒定时间签名比对、Clock 注入；一切畸形/过期/签名不符统一 422 `422704` fields.token=invalid_or_expired（不区分原因）
+
+**业务步骤**:
+- STEP-01 token 校验（gen=生成时持久化 subscribed_at epoch 毫秒，代际绑定）
+- STEP-02 单语句原子退订：`UPDATE ... SET unsubscribed_at=IF(status=2,unsubscribed_at,NOW(3)), updated_at=IF(status=2,updated_at,NOW(3)), status=2 WHERE email=? AND subscribed_at = gen`（代际**等值**谓词；复活/时钟回滚/备份恢复产生的代际漂移均匹配 0 行）
+- STEP-03 0 行时再 SELECT 分类（仅用于错误响应，状态正确性已由原子谓词保证）：email 不存在/已退订 → 幂等 200；仍订阅但代际不一致 → 422 `422704` fields.token
+
+**出参**: 200 `{ unsubscribed: true }`（不存在/已退订同样 200，不泄露存在性；重复退订保留首次 unsubscribed_at）
+**错误映射**: 422 `422704` / 500 `50000`,`50001`
+**前端**: `/[locale]/unsubscribe` 落地页确认按钮触发（不用 GET，防邮件客户端预扫描误触发）；noindex + no-referrer；挂载即 replaceState 抹 query
 
 ### E-MKT-12 submitContactMessage — POST /api/store/contact （ALIGN-034, 决策 30）
 

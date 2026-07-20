@@ -31,6 +31,8 @@ class MethodAwarePathMatcherTest {
             "/api/store/promotions/flash-sales",
             "/api/store/newsletter",
             "/api/store/contact",
+            // 2026-07-18 退订端点（method-aware；/api/store/newsletter 精确匹配不覆盖子路径）
+            "POST:/api/store/newsletter/unsubscribe",
             // review 2 条 method-aware
             "GET:/api/store/reviews",
             "GET:/api/store/questions",
@@ -72,6 +74,15 @@ class MethodAwarePathMatcherTest {
         assertThat(matcher.matches("GET", "/api/store/content/banners")).isTrue();
         assertThat(matcher.matches("POST", "/api/store/newsletter")).isTrue();
         assertThat(matcher.matches("POST", "/api/store/contact")).isTrue();
+    }
+
+    @Test
+    @DisplayName("退订端点：POST 公开 / GET 与其他子路径不放行（防预扫描 GET 触发 + 精确匹配不泄露）")
+    void newsletterUnsubscribeMethodAware() {
+        assertThat(matcher.matches("POST", "/api/store/newsletter/unsubscribe")).isTrue();
+        assertThat(matcher.matches("GET", "/api/store/newsletter/unsubscribe")).isFalse();
+        assertThat(matcher.matches("POST", "/api/store/newsletter/unsubscribe/extra")).isFalse();
+        assertThat(matcher.matches("POST", "/api/store/newsletters")).isFalse();
     }
 
     @Test

@@ -32,7 +32,7 @@ fi
 
 # 敏感配置没有代码库默认值。启动前必须显式注入，防止开发凭据被误带到部署环境。
 missing=()
-for variable in DB_PASSWORD STORE_JWT_SECRET ADMIN_JWT_SECRET DREAMY_GATEWAY_AES_KEY; do
+for variable in DB_PASSWORD STORE_JWT_SECRET ADMIN_JWT_SECRET DREAMY_GATEWAY_AES_KEY NEWSLETTER_UNSUBSCRIBE_SECRET; do
   if [ -z "${!variable:-}" ]; then
     missing+=("${variable}")
   fi

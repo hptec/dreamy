@@ -2,6 +2,7 @@ package com.dreamy.domain.subscriber.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.dreamy.enums.NewsletterSource;
+import com.dreamy.enums.SubscriberStatus;
 import com.dreamy.domain.subscriber.consts.NewsletterSubscriberDBConst;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
@@ -34,6 +35,12 @@ public class NewsletterSubscriber extends LongAuditableEntity {
     @Column(name = NewsletterSubscriberDBConst.LOCALE, definition = "varchar(8) NOT NULL COMMENT 'en|es|fr'")
     private String locale;
 
+    @Column(name = NewsletterSubscriberDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '1=已订阅 2=已退订'")
+    private SubscriberStatus status;
+
     @Column(name = NewsletterSubscriberDBConst.SUBSCRIBED_AT, definition = "datetime(3) NOT NULL COMMENT '订阅时间'")
     private LocalDateTime subscribedAt;
+
+    @Column(name = NewsletterSubscriberDBConst.UNSUBSCRIBED_AT, definition = "datetime(3) NULL COMMENT '退订时间（重复退订保留首次时间）'")
+    private LocalDateTime unsubscribedAt;
 }

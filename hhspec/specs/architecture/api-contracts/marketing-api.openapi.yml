@@ -430,7 +430,8 @@ paths:
       summary: Newsletter 订阅
       description: |
         ALIGN-030。仅落表收集：email 唯一，重复订阅幂等返回成功（js_guard）；不发码不发邮件（弹窗文案为纯订阅确认）。
-        记录 source（footer/modal/exit_intent）与 locale。限流靠 WAF（决策 11）。不缓存。
+        记录 source（footer/modal/exit_intent/home_block）与 locale。限流靠 WAF（决策 11）。不缓存。
+        【2026-07-18 退订变更】已退订邮箱重新订阅执行复活（status 2→1，unsubscribed_at 清空，响应不变）。
       operationId: subscribeNewsletter
       tags: [store-newsletter]
       security: []
@@ -454,7 +455,7 @@ paths:
                   enum: [en, es, fr]
       responses:
         '200':
-          description: 已订阅（含重复订阅幂等返回）
+          description: 已订阅（含重复订阅幂等返回与退订后复活）
           content:
             application/json:
               schema:
@@ -465,6 +466,46 @@ paths:
                     type: boolean
         '422':
           $ref: '#/components/responses/ValidationError'  # 422704 邮箱格式
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/store/newsletter/unsubscribe:
+    post:
+      summary: Newsletter 退订（邮件签名链接）
+      description: |
+        2026-07-18 退订变更（方案 A）。请求体携带邮件链接中的 HMAC-SHA256 签名 token
+        （u1.<b64url(email)>.<b64url(expEpochMillis)>.<b64url(genEpochMillis)>.<b64url(sig)>，30 天有效期，
+        gen 绑定订阅代际=持久化 subscribed_at epoch 毫秒，复活后旧 token 自动失效）。
+        幂等：email 不存在或已退订亦返回 200 {unsubscribed:true}（不泄露存在性）；
+        重复退订保留首次 unsubscribed_at。前端落地页确认按钮触发（不用 GET，防邮件客户端预扫描误触发）。
+        限流靠 WAF（决策 11）。不缓存。
+      operationId: unsubscribeNewsletter
+      tags: [store-newsletter]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  maxLength: 1024
+      responses:
+        '200':
+          description: 已退订（含不存在/已退订幂等返回）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unsubscribed]
+                properties:
+                  unsubscribed:
+                    type: boolean
+        '422':
+          $ref: '#/components/responses/ValidationError'  # 422704 field=token（无效/过期/代际落后）
         '500':
           $ref: '#/components/responses/InternalError'
 

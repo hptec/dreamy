@@ -9,5 +9,7 @@ public interface NewsletterSubscriberDBConst extends MarketingCommonDBConst {
 
     String EMAIL = "email";
     String SOURCE = "source";
+    String STATUS = "status";
     String SUBSCRIBED_AT = "subscribed_at";
+    String UNSUBSCRIBED_AT = "unsubscribed_at";
 }

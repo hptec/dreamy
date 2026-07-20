@@ -27,6 +27,8 @@ meta:
     HomePageSection/NavigationItem/FooterColumn/FooterLink/Announcement 5 个主实体新增 i18n_json JSON 列（JacksonTypeHandler + autoResultMap=true，对齐 Category.attrOverrides 模式）；
     GRD2-002 修正 HomePageSection.data_json 描述（Newsletter 文案存 i18n_json，Hero/Announcement 数据从其他域派生）；
     GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 uk_newsletter_email(email) 迁移到 uk_newsletter_email_source(email, source) 复合唯一，保证 KD-13 source 数据完整性。
+    【2026-07-18 退订变更】GRD2-003 方案 A 正式废止：复合唯一从未落库（物理表与实体仍为 uk_newsletter_email(email)），
+    且与退订功能"每邮箱一条生命周期记录"模型不兼容（token 代际绑定 + findByEmail 均要求单记录）。保持单列唯一，source 首写胜出。
     KD-16 决策覆盖 KD-3 和 GRD-W08：不建独立 *_translations 表，GRD-W08 推荐的 FooterColumnTranslation/FooterLinkTranslation 不采纳。
 
 entities:
@@ -139,12 +141,14 @@ entities:
       - {n: email, t: String, req: true, maxlen: 255, source: 'KD-11 邮箱输入；pattern=email；存储时小写归一（对齐基线 NewsletterSubscriber.email 唯一约束）'}
       - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：IntEnum 类型对齐基线 NewsletterSource；HOME_BLOCK(4) 为本变更新增（首页区块订阅入口）'}
       - {n: locale, t: String, req: true, maxlen: 8, source: '订阅时页面语言（en|es|fr，对齐基线 NewsletterSubscriber.locale）'}
-      - {n: subscribedAt, t: LocalDateTime, req: true, source: '订阅时间（订阅即生效，KD-12 单态 subscribed）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: '订阅时间（订阅即生效；2026-07-18 退订变更后复活时更新为最新订阅时间）'}
+      - {n: status, t: 'IntEnum<SubscriberStatus>', vals: [SUBSCRIBED(1), UNSUBSCRIBED(2)], req: true, source: '【2026-07-18 退订变更】方案 A 双态（取代 KD-12 单态决定），tinyint DEFAULT 1'}
+      - {n: unsubscribedAt, t: LocalDateTime, req: false, source: '【2026-07-18 退订变更】退订时间（datetime(3) NULL；重复退订保留首次时间，复活时清空）'}
       - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
       - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
     relations: []
     constraints:
-      - {type: unique, expr: '(email, source)', desc: 'GRD-001/KD-12 修正：同邮箱同来源订阅幂等（重复订阅返回成功）；与基线 NewsletterSubscriber 的 uk_newsletter_email(email) 兼容（合并方案下需迁移到 uk(email, source)，详见 modified_entities.NewsletterSubscriber.changed_constraints）'}
+      - {type: unique, expr: '(email)', desc: '【2026-07-18 退订变更】保持 uk_newsletter_email(email) 单列唯一（物理表与代码实际约束）。GRD2-003 复合 (email, source) 唯一方案 A 正式废止：从未落库，且与退订"每邮箱一条生命周期记录"模型不兼容。同邮箱重复订阅首写胜出，source 记录首次订阅入口'}
       - {type: js_guard, expr: 'email 格式校验（pattern=email，存储前小写归一）', source: "'prototype/portal-admin/src/views/HomeBuilder.vue > Newsletter 区块邮箱输入 + 基线 NewsletterService.normalizeEmail [INFERRED]'"}
       - {type: js_guard, expr: 'subscribedAt 非空（订阅即生效，无 pending 态）', source: 'KD-12 单态 subscribed 状态机'}
 
@@ -276,13 +280,16 @@ entities:
       - {n: email, t: String, req: true, maxlen: 255, source: 'baseline NewsletterSubscriber.email（小写归一唯一，uk_newsletter_email 索引）'}
       - {n: source, t: 'IntEnum<NewsletterSource>', vals: [FOOTER(1), MODAL(2), EXIT_INTENT(3), HOME_BLOCK(4)], req: true, source: 'GRD-009/KD-13 修正：baseline IntEnum NewsletterSource（1=页脚/2=弹窗/3=退出挽留），本变更 added HOME_BLOCK(4)（首页区块订阅）'}
       - {n: locale, t: String, req: true, maxlen: 8, source: 'baseline NewsletterSubscriber.locale（en|es|fr）'}
-      - {n: subscribedAt, t: LocalDateTime, req: true, source: 'baseline NewsletterSubscriber.subscribedAt（订阅时间，KD-12 单态订阅）'}
+      - {n: status, t: 'IntEnum<SubscriberStatus>', vals: [SUBSCRIBED(1), UNSUBSCRIBED(2)], req: true, source: '【2026-07-18 退订变更】方案 A 双态（取代 KD-12 单态决定）'}
+      - {n: subscribedAt, t: LocalDateTime, req: true, source: 'baseline NewsletterSubscriber.subscribedAt（订阅时间；复活时更新）'}
+      - {n: unsubscribedAt, t: LocalDateTime, req: false, source: '【2026-07-18 退订变更】退订时间（NULL；重复退订保留首次，复活清空）'}
       - {n: created_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
       - {n: updated_at, t: LocalDateTime, source: 'LongAuditableEntity 基类 [INFERRED]'}
     relations: []
     notes: |
-      基线字段：email/source/locale/subscribedAt（NewsletterSubscriber.java:28-38），无 status/unsubscribed_at 字段。
-      GRD-001/KD-12 决定本期不扩展退订状态机，保留基线 subscribedAt 单字段模式；acceptance s-017~s-022 退订/重订阅场景裁剪。
+      基线字段：email/source/locale/subscribedAt（NewsletterSubscriber.java:28-38）。
+      【2026-07-18 退订变更】KD-12 单态决定废止：新增 status(SubscriberStatus IntEnum)/unsubscribedAt 字段，
+      方案 A 双态状态机落地（退订幂等 + 复活语义）；acceptance 退订/重订阅场景随该变更恢复覆盖。
       GRD-009/KD-13 决定扩展基线 POST /api/store/newsletter 接收 source=HOME_BLOCK(4)，不新建独立端点。
       本变更 source 枚举新增 HOME_BLOCK(4)，详见 modified_entities.NewsletterSource / NewsletterSubscriber。
 
@@ -312,22 +319,22 @@ modified_entities:
         source: 'KD-11/KD-13 首页 Newsletter 区块订阅入口（GRD-009 修正：IntEnum key=4，对齐基线 NewsletterSource FOOTER=1/MODAL=2/EXIT_INTENT=3）'
     changed_constraints:
       - type: unique_index_migration
+        status: '【2026-07-18 退订变更】SUPERSEDED（正式废止，DDL 从未执行，物理表与实体仍为 uk_newsletter_email(email)）'
         before: 'uk_newsletter_email(email) — 单字段 email 唯一（NewsletterSubscriber.java:23）'
-        after: 'uk_newsletter_email_source(email, source) — 复合唯一（GRD2-003 方案 A：同邮箱同来源幂等短路，不同来源新增记录）'
+        after: '保持 uk_newsletter_email(email) 不变 —— 复合 (email, source) 方案废止'
         rationale: |
-          GRD2-003 修正：KD-13 新增 source=HOME_BLOCK(4) 用于区分订阅入口（首页/页脚/弹窗/退出意图）。
-          若保留 email 单字段唯一，同邮箱先从 FOOTER 订阅后再从 HOME_BLOCK 订阅会被短路，HOME_BLOCK 订阅"丢失"但响应 {subscribed:true}，
-          source 数据失真，无法分析订阅入口转化率（电商 Newsletter 核心运营能力）。
-          方案 A 复合唯一保证 source 数据完整性；NewsletterService.insertIgnoreDuplicate 语义变为"同邮箱同来源重复订阅幂等短路，不同来源新增记录"。
-        ddl: 'ALTER TABLE newsletter_subscriber DROP INDEX uk_newsletter_email, ADD UNIQUE KEY uk_newsletter_email_source (email, source);'
-        acceptance_impact: 'acceptance.yml s-336 等订阅场景需校验同邮箱不同来源可创建多条记录（GRD2-003 方案 A）'
+          2026-07-18 退订变更废止 GRD2-003 方案 A：
+          1. 复合唯一从未落库（物理表与实体注解均为 uk_newsletter_email(email) 单列唯一），规格与实现已漂移；
+          2. 退订功能要求"每邮箱一条生命周期记录"（HMAC token 代际 gen 绑定 subscribed_at + findByEmail 单记录语义），
+             复合唯一允许同邮箱多记录，与该模型根本冲突；
+          3. source 数据口径接受首写胜出（记录首次订阅入口），运营转化率分析以首次来源为准。
+        ddl: '无需 DDL（保持现状）；2026-07-18 退订变更实际 DDL 见 V20260718_newsletter_unsubscribe.sql（加 status/unsubscribed_at）'
+        acceptance_impact: '订阅场景校验同邮箱重复订阅幂等空操作（首写胜出）；退订/复活场景见 state-machine.yml subscriber_status'
     notes: |
-      GRD-001/KD-12 修正：本期不扩展退订状态机，保留基线模式。
-      - 不添加 status 字段（基线无此字段，KD-12 决定本期不扩展）。
-      - 不添加 unsubscribed_at 字段（同上）。
-      - GRD2-003 方案 A：修改 unique 约束为 (email, source) 复合唯一，保证 KD-13 source 数据完整性。
-      - 扩展 source 枚举值新增 HOME_BLOCK(4)（IntEnum key=4）。
-      acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
+      【2026-07-18 退订变更】KD-12 单态决定废止：已添加 status/unsubscribed_at 字段（方案 A 双态），
+      GRD2-003 复合唯一方案 A 同步废止（见 changed_constraints）。
+      - 扩展 source 枚举值新增 HOME_BLOCK(4)（IntEnum key=4）（保留）。
+      acceptance 退订/重订阅场景随 2026-07-18 变更恢复覆盖。
 
   - id: CacheInvalidationLog
     meta: {source: modified, baseline_ref: 'backend/src/main/java/com/dreamy/domain/cache/entity/CacheInvalidationLog.java:31-78'}

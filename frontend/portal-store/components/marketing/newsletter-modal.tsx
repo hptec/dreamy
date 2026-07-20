@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { X } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
 import { NewsletterSource } from '@/lib/api/store-types'
@@ -20,6 +21,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function NewsletterModal() {
   const { locale, te } = useI18n()
+  const pathname = usePathname()
+  // 退订落地页不弹订阅弹窗（用户正在退订，上下文冲突）
+  const suppressed = pathname.endsWith('/unsubscribe')
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
@@ -28,6 +32,7 @@ export function NewsletterModal() {
   const sourceRef = useRef<NewsletterSource>(NewsletterSource.MODAL)
 
   useEffect(() => {
+    if (suppressed) return
     if (sessionStorage.getItem(SEEN_KEY)) return
     const t = setTimeout(() => {
       if (!sessionStorage.getItem(SEEN_KEY)) {
@@ -47,7 +52,7 @@ export function NewsletterModal() {
       clearTimeout(t)
       document.removeEventListener('mouseleave', onLeave)
     }
-  }, [])
+  }, [suppressed])
 
   const close = () => {
     setOpen(false)

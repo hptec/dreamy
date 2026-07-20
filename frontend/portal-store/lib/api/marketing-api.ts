@@ -46,3 +46,12 @@ export async function submitContactMessage(input: {
   })
   return res.submitted
 }
+
+/** Newsletter 退订（邮件链接签名 token；token 无效/过期/代际落后 → 422704 field=token） */
+export async function unsubscribeNewsletter(token: string): Promise<boolean> {
+  const res = await request<{ unsubscribed: boolean }>('/api/store/newsletter/unsubscribe', {
+    method: 'POST',
+    body: { token }
+  })
+  return res.unsubscribed
+}

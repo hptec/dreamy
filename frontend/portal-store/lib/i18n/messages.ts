@@ -253,6 +253,19 @@ export interface UiMessages {
     deleteAccountConfirmWord: string
     deleteAccountSubmit: string
   }
+  unsubscribe: {
+    title: string
+    body: string
+    confirm: string
+    confirming: string
+    successTitle: string
+    successBody: string
+    invalidTitle: string
+    invalidBody: string
+    errorTitle: string
+    errorBody: string
+    retry: string
+  }
 }
 
 const en: UiMessages = {
@@ -500,6 +513,19 @@ const en: UiMessages = {
     deleteAccountConfirmLabel: 'Type DELETE to confirm',
     deleteAccountConfirmWord: 'DELETE',
     deleteAccountSubmit: 'Delete account'
+  },
+  unsubscribe: {
+    title: 'Unsubscribe from our newsletter',
+    body: 'You are about to stop receiving Dreamy news and private offers. You can subscribe again anytime.',
+    confirm: 'Confirm unsubscribe',
+    confirming: 'Unsubscribing…',
+    successTitle: 'You have been unsubscribed',
+    successBody: 'You will no longer receive our newsletter. We are sorry to see you go.',
+    invalidTitle: 'This link is no longer valid',
+    invalidBody: 'The unsubscribe link is invalid or has expired. Please use the link from our latest email.',
+    errorTitle: 'Something went wrong',
+    errorBody: 'We could not process your request right now. Please try again.',
+    retry: 'Try again'
   }
 }
 
@@ -749,6 +775,19 @@ const es: DeepPartial<UiMessages> = {
     deleteAccountConfirmLabel: 'Escriba DELETE para confirmar',
     deleteAccountConfirmWord: 'DELETE',
     deleteAccountSubmit: 'Eliminar cuenta'
+  },
+  unsubscribe: {
+    title: 'Cancelar la suscripcion al boletin',
+    body: 'Esta a punto de dejar de recibir noticias y ofertas privadas de Dreamy. Puede suscribirse de nuevo en cualquier momento.',
+    confirm: 'Confirmar cancelacion',
+    confirming: 'Cancelando…',
+    successTitle: 'Suscripcion cancelada',
+    successBody: 'Ya no recibira nuestro boletin. Lamentamos verle partir.',
+    invalidTitle: 'Este enlace ya no es valido',
+    invalidBody: 'El enlace de cancelacion es invalido o ha caducado. Utilice el enlace de nuestro ultimo correo.',
+    errorTitle: 'Algo salio mal',
+    errorBody: 'No pudimos procesar su solicitud en este momento. Intentelo de nuevo.',
+    retry: 'Intentar de nuevo'
   }
 }
 
@@ -998,6 +1037,19 @@ const fr: DeepPartial<UiMessages> = {
     deleteAccountConfirmLabel: 'Tapez DELETE pour confirmer',
     deleteAccountConfirmWord: 'DELETE',
     deleteAccountSubmit: 'Supprimer le compte'
+  },
+  unsubscribe: {
+    title: 'Se desabonner de la newsletter',
+    body: 'Vous etes sur le point de ne plus recevoir les nouvelles et offres privees de Dreamy. Vous pouvez vous reabonner a tout moment.',
+    confirm: 'Confirmer le desabonnement',
+    confirming: 'Desabonnement…',
+    successTitle: 'Vous etes desabonne',
+    successBody: 'Vous ne recevrez plus notre newsletter. Nous sommes tristes de vous voir partir.',
+    invalidTitle: 'Ce lien n est plus valide',
+    invalidBody: 'Le lien de desabonnement est invalide ou a expire. Veuillez utiliser le lien de notre dernier e-mail.',
+    errorTitle: 'Une erreur est survenue',
+    errorBody: 'Nous n avons pas pu traiter votre demande. Veuillez reessayer.',
+    retry: 'Reessayer'
   }
 }
 

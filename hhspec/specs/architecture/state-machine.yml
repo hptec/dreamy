@@ -15,6 +15,7 @@ meta:
     KD-4 保存即发布（与 Banners 一致），无草稿态：HomePageSection/NavigationItem/Announcement/FooterColumn 状态机均仅 enabled/disabled 二态。
     Banner 状态机引用基线 banner_lifecycle（meta.source=baseline）。
     GRD-001/KD-12 修正：Subscriber 状态机简化为单态 subscribed（移除 pending/unsubscribed），本期不扩展退订/重订阅状态机。
+    【2026-07-18 退订变更】KD-12 单态决定已废止：方案 A（主表加 status/unsubscribed_at）落地，subscriber_status 双态状态机生效。
     GRD-005 修正：所有缓存失效 event_type 命名统一 _changed 后缀（home_section_changed/navigation_changed/announcement_changed），对齐基线 banner_changed 等命名。
     GRD-W01 修正：side_effect 缓存失效改为 in-process cache.invalidateFamily + publisher.publish（非 HTTP 自调 POST /api/admin/cache/invalidate）。
     GRD-W04 修正：KD-1 措辞已修正为"不引入 SSG，保持 force-dynamic + JetCache 两级缓存 + in-process 失效链"。
@@ -184,38 +185,73 @@ machines:
     notes: '本变更不修改 Banner 状态机；KD-2 仅引用 position=HERO && status=published 的 Banner 作为 Hero 区块数据源；KD-14 新增 cta_text_secondary/cta_link_secondary 字段不影响状态机。'
 
   - id: subscriber_status
-    desc: Newsletter 订阅者状态机（KD-11/KD-12 修正）。GRD-001/KD-12 修正：本期不扩展退订状态机，简化为单态 subscribed（移除 pending/unsubscribed）。订阅即生效，无双重确认，无退订/重订阅转换。GRD-009/KD-13 修正：订阅 API 扩展基线 POST /api/store/newsletter，新增 source=HOME_BLOCK(4)（不新建 /api/store/subscribers/subscribe）。GRD2-003 方案 A：NewsletterSubscriber 唯一约束从 (email) 迁移到 (email, source) 复合唯一，保证 KD-13 source 数据完整性（同邮箱同来源幂等短路，不同来源新增记录）。
+    desc: |
+      Newsletter 订阅者状态机（2026-07-18 退订变更取代 GRD-001/KD-12 单态决定）。
+      双态 subscribed/unsubscribed（方案 A：主表加 status + unsubscribed_at，不建独立日志表）。
+      订阅即生效，无双重确认；退订经邮件签名 token 链接（POST /api/store/newsletter/unsubscribe，落地页确认按钮，不用 GET 防预扫描误触发）；
+      退订后再订阅可复活（status 2→1，unsubscribed_at 清空，subscribed_at 更新）。
+      【取代 GRD2-003 方案 A】唯一约束保持 uk_newsletter_email(email) 单列唯一（物理表与代码实际约束；
+      复合 (email, source) 唯一从未落库，且与"每邮箱一条生命周期记录"的退订模型不兼容，正式废弃）。
+      source 数据口径：同邮箱重复订阅首写胜出，source 记录首次订阅入口。
     meta: {source: new}
     entity: Subscriber
-    state_field: subscribedAt
+    state_field: status
     initial: subscribed
     states:
       - id: subscribed
-        desc: 已订阅（subscribedAt 非空，订阅即生效；KD-12 单态，无 pending/unsubscribed 状态）
+        desc: 已订阅（status=1，subscribedAt 非空，订阅即生效；无 pending 双重确认）
+      - id: unsubscribed
+        desc: 已退订（status=2，unsubscribedAt 非空；重复退订幂等空操作，保留首次 unsubscribedAt）
     transitions:
       - from: subscribed
         to: subscribed
         event: subscribe
-        trigger: 消费端 POST /api/store/newsletter（GRD-009/KD-13 修正：扩展基线端点，source=HOME_BLOCK(4) 表示首页 Newsletter 区块订阅入口）
-        guard: email 格式合法 && email 小写归一后 (email, source) 唯一性校验通过（重复订阅幂等返回成功，KD-11）
-        source: 'KD-11 完整订阅表单（邮箱输入 + API）+ KD-12 单态订阅 + KD-13 扩展基线 API'
+        trigger: 消费端 POST /api/store/newsletter（source ∈ FOOTER(1)/MODAL(2)/EXIT_INTENT(3)/HOME_BLOCK(4)）
+        guard: email 格式合法 && email 小写归一后 uk_newsletter_email 唯一性校验通过（重复订阅幂等空操作，首写胜出）
+        source: 'KD-11 完整订阅表单 + KD-13 扩展基线 API + 2026-07-18 退订变更（单语句 upsert）'
+      - from: subscribed
+        to: unsubscribed
+        event: unsubscribe
+        trigger: 消费端 POST /api/store/newsletter/unsubscribe（邮件链接 HMAC-SHA256 签名 token，30 天有效期）
+        guard: token 签名合法且未过期且 gen（token 绑定的订阅代际=持久化 subscribed_at epoch 毫秒）不落后于当前记录
+          （WHERE 原子谓词 subscribed_at <= gen；token 无效/过期/代际落后 → 422704 field=token；
+          email 不存在或已退订 → 幂等 200 不泄露存在性）
+        source: '2026-07-18 退订变更（方案 A）'
+      - from: unsubscribed
+        to: subscribed
+        event: resubscribe
+        trigger: 消费端 POST /api/store/newsletter（与 subscribe 同端点同语义）
+        guard: email 格式合法；单语句 upsert 仅当旧 status=2 时复活：status→1、subscribed_at→新值、unsubscribed_at→NULL、source/locale→新值
+        source: '2026-07-18 退订变更（复活语义，取代 KD-12 裁剪决定）'
+      - from: unsubscribed
+        to: unsubscribed
+        event: unsubscribe
+        trigger: 消费端 POST /api/store/newsletter/unsubscribe
+        guard: 幂等空操作（保留首次 unsubscribed_at），响应仍 200 {unsubscribed:true}
+        source: '2026-07-18 退订变更（幂等）'
     side_effects:
-      - on: [subscribe]
+      - on: [subscribe, resubscribe]
         action: |
           订阅副作用（KD-11）：
-          1. NewsletterSubscriber 持久化（email/source/locale/subscribedAt）
+          1. NewsletterSubscriber 持久化（email/source/locale/status/subscribedAt）
           2. 可选触发欢迎邮件（本期不发邮件，对齐基线 NewsletterSubscriber 决策26）
           3. 无缓存失效副作用（订阅数据不进消费端缓存，无 cache.invalidateFamily 调用）
-        source: 'KD-11 + 基线 NewsletterSubscriber 模式 + KD-12 不扩展状态机'
+        source: 'KD-11 + 基线 NewsletterSubscriber 模式'
+      - on: [unsubscribe]
+        action: |
+          退订副作用（2026-07-18）：
+          1. NewsletterSubscriber status=2 + unsubscribed_at=NOW(3)（重复退订保留首次时间）
+          2. 无邮件/无 MQ/无缓存失效副作用
+        source: '2026-07-18 退订变更'
     notes: |
-      GRD-001/KD-12 修正记录：
-        - 移除 pending 态（基线 NewsletterSubscriber 无 status 字段，本期不扩展）。
-        - 移除 unsubscribed 态与 unsubscribe/resubscribe/resubmit 转换（本期不实现退订/重订阅）。
-        - 状态机简化为单态 subscribed + subscribe 自转换（重复订阅幂等）。
-        - acceptance.yml s-017~s-022 退订/重订阅场景由父代理裁剪。
-      GRD-009/KD-13 修正记录：
+      2026-07-18 退订变更修正记录：
+        - KD-12 单态决定废止：新增 status/unsubscribed_at 字段（DDL V20260718_newsletter_unsubscribe.sql），双态状态机落地。
+        - GRD2-003 方案 A（uk 迁移到 (email, source) 复合唯一）正式废止：从未落库，且与退订单记录模型冲突；保持 uk_newsletter_email(email)。
+        - 退订 token：u1.<b64url(email)>.<b64url(expEpochMillis)>.<b64url(genEpochMillis)>.<b64url(sig)>，
+          HMAC-SHA256 域分离签名；gen 代际绑定防"旧链接退订复活后的新订阅"。
+      GRD-009/KD-13 修正记录（保留）：
         - 订阅 API 路径扩展基线 POST /api/store/newsletter，不新建 /api/store/subscribers/subscribe。
-        - source 字段改为 IntEnum NewsletterSource [1=FOOTER, 2=MODAL, 3=EXIT_INTENT, 4=HOME_BLOCK]。
+        - source 字段为 IntEnum NewsletterSource [1=FOOTER, 2=MODAL, 3=EXIT_INTENT, 4=HOME_BLOCK]。
 
   - id: footer_column_status
     desc: 页脚栏目启用/禁用切换。KD-4 保存即发布。管理端可对单个页脚栏目启停，影响全站 footer 渲染。GRD-W08 修正：本期补齐 FooterColumnTranslation/FooterLinkTranslation 双表 i18n。
@@ -262,7 +298,7 @@ open_questions:
     recommendation: '方案 A（保持基线现状，本变更不扩展定时任务范围）'
 
   - id: SM-OQ-2
-    topic: Subscriber 单态订阅的扩展性（GRD-001/KD-12 修正后）
+    topic: Subscriber 单态订阅的扩展性（GRD-001/KD-12 修正后）【2026-07-18 已落地：方案 A 退订双态已实现，本 OQ 关闭】
     question: GRD-001/KD-12 修正后 subscriber_status 简化为单态 subscribed（移除 pending/unsubscribed）。未来如需引入双重确认或退订功能，扩展路径如何？
     options:
       - '方案 A：本期单态 subscribed，未来扩展时新增 pending/unsubscribed 状态 + NewsletterSubscriber.status/unsubscribed_at 字段（向后兼容）'

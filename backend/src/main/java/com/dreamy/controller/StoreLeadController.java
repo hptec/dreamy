@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * 消费端落表控制器（E-MKT-11 newsletter + E-MKT-12 contact；FLOW-P19②③）。
- * 公开 POST（白名单 `/api/store/newsletter`、`/api/store/contact`），WAF 限流（决策 11），
+ * 消费端落表控制器（E-MKT-11 newsletter + 退订 + E-MKT-12 contact；FLOW-P19②③）。
+ * 公开 POST（白名单 `/api/store/newsletter`、`/api/store/newsletter/unsubscribe`、`/api/store/contact`），WAF 限流（决策 11），
  * 不缓存、不发 MQ、不写 OperationLog。
  */
 @RestController
@@ -35,6 +35,17 @@ public class StoreLeadController {
     public ResponseEntity<R<Map<String, Boolean>>> subscribe(@RequestBody NewsletterRequest req) {
         newsletterService.subscribe(req.email(), req.source(), req.locale());
         return ResponseEntity.ok(R.ok(Map.of("subscribed", true)));
+    }
+
+    /** 退订请求体（token 为邮件链接里的签名退订 token） */
+    public record UnsubscribeRequest(String token) {
+    }
+
+    /** 退订：token 有效即退（幂等，不存在/已退订亦 200 不泄露存在性）；token 无效/过期/代际落后 → 422704 field=token */
+    @PostMapping("/api/store/newsletter/unsubscribe")
+    public ResponseEntity<R<Map<String, Boolean>>> unsubscribe(@RequestBody UnsubscribeRequest req) {
+        newsletterService.unsubscribe(req.token());
+        return ResponseEntity.ok(R.ok(Map.of("unsubscribed", true)));
     }
 
     /** E-MKT-12 请求体（V-MKT-012~015） */
