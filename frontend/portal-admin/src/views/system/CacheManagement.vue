@@ -72,6 +72,26 @@ const targetLabels: Record<string, string> = {
   TRADING_EXCHANGE_RATES: '汇率',
 }
 
+/** 尝试次数只在偏离「一次跑通」时才有信息量，成功首跑返回 null 由模板隐藏。 */
+function attemptLabel(task: CacheInvalidationTask): string | null {
+  const attempt = task.attemptCount ?? 0
+  const max = task.maxAttempts ?? 0
+  if (attempt <= 0) return null
+  switch (task.status) {
+    case CacheTaskStatus.SUCCEEDED:
+      return attempt <= 1 ? null : `重试 ${attempt - 1} 次后成功`
+    case CacheTaskStatus.RUNNING:
+      return `第 ${attempt + 1} 次尝试执行中`
+    case CacheTaskStatus.RETRYING:
+      return `已尝试 ${attempt} 次，还可重试 ${Math.max(0, max - attempt)} 次`
+    case CacheTaskStatus.FAILED:
+    case CacheTaskStatus.PARTIAL:
+      return `已尝试 ${attempt} 次，不再自动重试`
+    default:
+      return `已尝试 ${attempt} 次`
+  }
+}
+
 const activeCount = computed(() => summary.value.pending + summary.value.running + summary.value.retrying)
 const failureCount = computed(() => summary.value.failed + summary.value.partial)
 
@@ -210,7 +230,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
                 <span v-if="task.completedAt">完成 {{ formatUtcDateTime(task.completedAt) }}</span>
                 <span v-if="task.nextRetryAt">重试 {{ formatUtcDateTime(task.nextRetryAt) }}</span>
                 <span>触发者 {{ task.triggeredBy }}</span>
-                <span>执行 {{ task.attemptCount }}/{{ task.maxAttempts }} 次</span>
+                <span v-if="attemptLabel(task)">{{ attemptLabel(task) }}</span>
               </div>
             </div>
             <button v-if="task.status === CacheTaskStatus.FAILED || task.status === CacheTaskStatus.PARTIAL" class="btn-outline shrink-0" @click="retry(task)"><ArrowPathIcon class="h-4 w-4" />重试</button>
@@ -222,7 +242,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
               <CheckCircleIcon v-if="step.status === 1" class="mt-0.5 h-4 w-4 shrink-0 text-ok" />
               <XCircleIcon v-else-if="step.status === 2" class="mt-0.5 h-4 w-4 shrink-0 text-error" />
               <ExclamationTriangleIcon v-else class="mt-0.5 h-4 w-4 shrink-0 text-warn" />
-              <div class="min-w-0"><p class="text-[12px] font-medium">{{ targetLabels[step.target] || step.target }} · 第 {{ step.attempt }} 次</p><p class="text-[11px] text-ink-faint">{{ formatUtcDateTime(step.startedAt) }}<span v-if="step.completedAt"> → {{ formatUtcDateTime(step.completedAt) }}</span></p><p v-if="step.resultDetail" class="text-[11px] text-ink-faint">{{ step.resultDetail }}</p><p v-if="step.errorMessage" class="text-[11px] text-error">{{ step.errorMessage }}</p></div>
+              <div class="min-w-0"><p class="text-[12px] font-medium">{{ targetLabels[step.target] || step.target }}<span v-if="step.attempt > 1"> · 第 {{ step.attempt }} 次尝试</span></p><p class="text-[11px] text-ink-faint">{{ formatUtcDateTime(step.startedAt) }}<span v-if="step.completedAt"> → {{ formatUtcDateTime(step.completedAt) }}</span></p><p v-if="step.resultDetail" class="text-[11px] text-ink-faint">{{ step.resultDetail }}</p><p v-if="step.errorMessage" class="text-[11px] text-error">{{ step.errorMessage }}</p></div>
             </div>
           </div>
         </div>
