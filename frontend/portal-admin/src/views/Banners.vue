@@ -11,7 +11,7 @@ import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useBannersStore } from '@/stores/banners'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { formatUtcDateTime } from '@/utils/format'
+import { formatUtcDateTime, utcDateTimeToMillis } from '@/utils/format'
 import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { BannerPosition, BannerStatus } from '@/api/types'
 import type { Banner } from '@/api/types'
@@ -52,7 +52,8 @@ async function onSortBlur(b: Banner, e: Event) {
 
 /** DEC-MKT-2：已过投放窗（now > endTime）灰色角标（前端派生） */
 function expired(b: Banner): boolean {
-  return !!b.endTime && new Date(b.endTime).getTime() < Date.now()
+  const end = utcDateTimeToMillis(b.endTime)
+  return !Number.isNaN(end) && end < Date.now()
 }
 
 async function doDelete() {

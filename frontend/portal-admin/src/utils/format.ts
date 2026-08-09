@@ -11,11 +11,18 @@ export function formatDateTime(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+const HAS_EXPLICIT_ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i
+
 /** Backend business schedule/task timestamps are stored as UTC LocalDateTime (without a JSON zone suffix). */
 export function formatUtcDateTime(value?: string | null): string {
   if (!value) return '—'
-  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
-  return formatDateTime(explicitZone ? value : `${value}Z`)
+  return formatDateTime(HAS_EXPLICIT_ZONE.test(value) ? value : `${value}Z`)
+}
+
+/** UTC LocalDateTime → epoch 毫秒，供窗口比较使用（裸 new Date 会按本地时区解析而偏移） */
+export function utcDateTimeToMillis(value?: string | null): number {
+  if (!value) return NaN
+  return new Date(HAS_EXPLICIT_ZONE.test(value) ? value : `${value}Z`).getTime()
 }
 
 export function formatDate(iso?: string | null): string {
@@ -112,8 +119,7 @@ export function formatMoney(amount?: number | string | null, currency?: string |
 /** ISO（LocalDateTime）→ datetime-local 控件值（YYYY-MM-DDTHH:mm） */
 export function toDatetimeLocal(iso?: string | null): string {
   if (!iso) return ''
-  const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)
-  const instant = new Date(explicitZone ? iso : `${iso}Z`)
+  const instant = new Date(HAS_EXPLICIT_ZONE.test(iso) ? iso : `${iso}Z`)
   if (Number.isNaN(instant.getTime())) return iso.slice(0, 16)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`
