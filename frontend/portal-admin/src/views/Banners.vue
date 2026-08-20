@@ -24,7 +24,7 @@ const editing = ref<Banner | null>(null)
 const confirm = ref<Banner | null>(null)
 const confirmBusy = ref(false)
 
-const positionLabel: Record<number, string> = { [BannerPosition.HERO]: '首屏主视觉', [BannerPosition.FEATURED]: '推荐位', [BannerPosition.TOPBAR]: '顶部通告条' }
+const positionLabel: Record<number, string> = { [BannerPosition.HERO]: '首屏主视觉', [BannerPosition.FEATURED]: '推荐位' }
 
 function load() {
   store.fetch().catch((e) => toast.error(e instanceof BizError ? e.message : '加载 Banner 失败'))
