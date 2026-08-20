@@ -70,7 +70,8 @@ public class AdminBannerService {
         applyUpsert(banner, n, req);
         // STEP-MKT-01 INSERT banner + translation 批插
         bannerRepository.insert(banner);
-        bannerRepository.replaceTranslations(banner.getId(), toTranslationRows(req.translations()));
+        List<BannerTranslationDto> translations = normalizeTranslations(req.translations(), n.position());
+        bannerRepository.replaceTranslations(banner.getId(), toTranslationRows(translations));
         // STEP-MKT-02 审计
         audit.record("创建Banner", banner.getName(), null);
         // STEP-MKT-03 published 内容创建可追踪的即时失效任务
@@ -78,7 +79,7 @@ public class AdminBannerService {
             enqueueImmediate("banner.create", banner);
         }
         replaceWindowTasks(banner);
-        return toDto(bannerRepository.findById(banner.getId()), nonNull(req.translations()));
+        return toDto(bannerRepository.findById(banner.getId()), translations);
     }
 
     /** E-MKT-23：编辑（TX-MKT-008；整单保存，status 迁移合法性同 E-MKT-25 guard） */
@@ -98,13 +99,14 @@ public class AdminBannerService {
         // STEP-MKT-03 UPDATE + translation 整单覆盖
         applyUpsert(existing, n, req);
         bannerRepository.update(existing);
-        bannerRepository.replaceTranslations(id, toTranslationRows(req.translations()));
+        List<BannerTranslationDto> translations = normalizeTranslations(req.translations(), n.position());
+        bannerRepository.replaceTranslations(id, toTranslationRows(translations));
         // STEP-MKT-04 审计
         audit.record("编辑Banner", existing.getName(), null);
         // STEP-MKT-05 写成功触发失效任务，draft 间编辑同样覆盖潜在投放清单变化
         enqueueImmediate("banner.update", existing);
         replaceWindowTasks(existing);
-        return toDto(bannerRepository.findById(id), nonNull(req.translations()));
+        return toDto(bannerRepository.findById(id), translations);
     }
 
     /** E-MKT-24：删除（TX-MKT-009；banner_lifecycle 全态可删） */
@@ -224,18 +226,19 @@ public class AdminBannerService {
         String subtitle = MarketingParams.checkMaxLength(req.subtitle(), 255, "subtitle", errors);
         String ctaText = MarketingParams.checkMaxLength(req.ctaText(), 64, "cta_text", errors);
         String ctaLink = MarketingParams.checkMaxLength(req.ctaLink(), 512, "cta_link", errors);
-        String ctaTextSecondary = MarketingParams.checkMaxLength(
+        String ctaTextSecondary = position == BannerPosition.FEATURED ? null : MarketingParams.checkMaxLength(
                 req.ctaTextSecondary(), 64, "cta_text_secondary", errors);
-        String ctaLinkSecondary = MarketingParams.checkMaxLength(
+        String ctaLinkSecondary = position == BannerPosition.FEATURED ? null : MarketingParams.checkMaxLength(
                 req.ctaLinkSecondary(), 512, "cta_link_secondary", errors);
-        validateTranslations(req.translations(), errors);
+        validateTranslations(req.translations(), position, errors);
         errors.throwIfAny();
         return new Normalized(name, imageUrl, position, status, req.sort(), title, subtitle, ctaText,
                 ctaLink, ctaTextSecondary, ctaLinkSecondary);
     }
 
     /** V-MKT-044 translations locale ∈ {es,fr} 不重复；图片 ≤512，title/subtitle ≤255、cta_text ≤64（CV-MKT-007） */
-    private void validateTranslations(List<BannerTranslationDto> translations, MarketingFieldErrors errors) {
+    private void validateTranslations(List<BannerTranslationDto> translations, BannerPosition position,
+                                      MarketingFieldErrors errors) {
         if (translations == null) {
             return;
         }
@@ -258,7 +261,8 @@ public class AdminBannerService {
             if (t.ctaText() != null && t.ctaText().length() > 64) {
                 errors.reject("translations", "cta_text_too_long");
             }
-            if (t.ctaTextSecondary() != null && t.ctaTextSecondary().length() > 64) {
+            if (position != BannerPosition.FEATURED
+                    && t.ctaTextSecondary() != null && t.ctaTextSecondary().length() > 64) {
                 errors.reject("translations", "cta_text_secondary_too_long");
             }
         }
@@ -298,6 +302,20 @@ public class AdminBannerService {
         return rows;
     }
 
+    private List<BannerTranslationDto> normalizeTranslations(List<BannerTranslationDto> translations,
+                                                              BannerPosition position) {
+        if (translations == null) {
+            return List.of();
+        }
+        if (position != BannerPosition.FEATURED) {
+            return translations;
+        }
+        return translations.stream()
+                .map(t -> new BannerTranslationDto(t.locale(), t.imageUrl(), t.title(), t.subtitle(),
+                        t.ctaText(), null))
+                .toList();
+    }
+
     private Map<Long, List<BannerTranslationDto>> translationsByBanner(List<Long> ids) {
         Map<Long, List<BannerTranslationDto>> map = new HashMap<>();
         for (BannerTranslation row : bannerRepository.listTranslationsByBannerIds(ids)) {
@@ -308,13 +326,12 @@ public class AdminBannerService {
         return map;
     }
 
-    private List<BannerTranslationDto> nonNull(List<BannerTranslationDto> translations) {
-        return translations == null ? List.of() : translations;
-    }
-
     private BannerDto toDto(Banner b, List<BannerTranslationDto> translations) {
+        boolean supportsSecondaryCta = b.getPosition() != BannerPosition.FEATURED;
         return new BannerDto(b.getId(), b.getName(), b.getImageUrl(), b.getPosition().getKey(), b.getStartTime(),
                 b.getEndTime(), b.getStatus().getKey(), b.getSort(), b.getTitle(), b.getSubtitle(),
-                b.getCtaText(), b.getCtaLink(), b.getCtaTextSecondary(), b.getCtaLinkSecondary(), translations);
+                b.getCtaText(), b.getCtaLink(), supportsSecondaryCta ? b.getCtaTextSecondary() : null,
+                supportsSecondaryCta ? b.getCtaLinkSecondary() : null,
+                normalizeTranslations(translations, b.getPosition()));
     }
 }

@@ -19,7 +19,7 @@ import { CartDrawer } from '@/components/cart/cart-drawer'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n, stripLocale } from '@/lib/i18n/i18n-context'
 import type { Locale } from '@/lib/api/types'
-import { cn } from '@/lib/utils'
+import { cn, linkTargetProps } from '@/lib/utils'
 
 import type { StoreNavigationItem } from '@/lib/api/site-builder-server'
 
@@ -42,6 +42,7 @@ export function SiteHeader({
     ? navigationItems.filter((i) => i.parentId === null).map((i) => ({
         label: i.label,
         href: i.url ?? '/',
+        target: i.target,
         megaMenu: i.megaMenu,
       }))
     : mainNav
@@ -112,6 +113,7 @@ export function SiteHeader({
                 <div key={item.label} onMouseEnter={() => setOpenMenu(item.label)} className="py-7">
                   <Link
                     href={item.href}
+                    {...linkTargetProps('target' in item ? item.target : undefined)}
                     className={cn(
                       'flex items-center gap-1 text-[13px] font-medium uppercase tracking-luxe transition-colors hover:text-gold-deep',
                       activePath.startsWith(item.href) && item.href !== '/' ? 'text-gold-deep' : 'text-ink'

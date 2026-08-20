@@ -3,7 +3,7 @@ package com.dreamy.error;
 import lombok.Getter;
 
 /**
- * site_builder 域错误码枚举（23 码，域段 8）。
+ * site_builder 域错误码枚举（26 码，域段 8）。
  * 6 位码：HTTP(3) + 域段(1=8) + 序号(2)。
  * 权威来源：error-strategy.md site_builder 段 + site-builder-api.openapi.yml info 码表。
  */
@@ -23,6 +23,7 @@ public enum SiteBuilderErrorCode {
     FOOTER_COLUMN_SORT_CONFLICT(409803, 409, "error.409803"),
     ANNOUNCEMENT_TIME_WINDOW_CONFLICT(409804, 409, "error.409804"),
     NAVIGATION_VERSION_CONFLICT(409805, 409, "error.409805"),
+    ANNOUNCEMENT_VERSION_CONFLICT(409806, 409, "error.409806"),
 
     // ===== 422 =====
     HOME_SECTION_DATA_JSON_INVALID(422801, 422, "error.422801"),

@@ -11,6 +11,7 @@ import { serverGet } from './server-fetch'
 
 export type StoreHomeSectionType =
   | 'hero'
+  | 'featuredBanner'
   | 'themeCards'
   | 'productRail'
   | 'editorialFeature'
@@ -36,6 +37,10 @@ export interface StoreHeroSlide {
 
 export interface StoreHeroData extends StoreHeroSlide {
   /** 全部在线 HERO Banner，按后台 sort/id 顺序。扁平字段保留用于滚动部署兼容。 */
+  banners?: StoreHeroSlide[]
+}
+
+export interface StoreFeaturedBannerData {
   banners?: StoreHeroSlide[]
 }
 
@@ -94,6 +99,7 @@ export interface StoreCustomData {
 
 interface StoreHomeSectionDataMap {
   hero: StoreHeroData
+  featuredBanner: StoreFeaturedBannerData
   themeCards: StoreThemeCardsData
   productRail: StoreProductRailData
   editorialFeature: StoreEditorialFeatureData
@@ -120,6 +126,8 @@ interface RawStoreHomePage {
 
 const SECTION_TYPE_MAP: Record<string, StoreHomeSectionType> = {
   hero: 'hero',
+  featured_banner: 'featuredBanner',
+  featuredBanner: 'featuredBanner',
   theme_cards: 'themeCards',
   themeCards: 'themeCards',
   product_rail: 'productRail',
@@ -157,6 +165,8 @@ function normalizeHomePage(page: RawStoreHomePage | null): StoreHomePage | null 
     switch (sectionType) {
       case 'hero':
         return [{ sectionType, data: normalizeHeroData(data) }]
+      case 'featuredBanner':
+        return [{ sectionType, data: { banners: normalizeHeroData(data).banners } }]
       case 'themeCards':
         return [{ sectionType, data: data as StoreThemeCardsData }]
       case 'productRail':

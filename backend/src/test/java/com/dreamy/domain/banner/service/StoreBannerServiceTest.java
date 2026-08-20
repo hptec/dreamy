@@ -65,4 +65,51 @@ class StoreBannerServiceTest {
 
         assertThat(fallbackResult.imageUrl()).isEqualTo("/hero.jpg");
     }
+
+    @Test
+    @DisplayName("推荐位公开数据不提供次要 CTA")
+    void featuredBannerDoesNotExposeSecondaryCta() {
+        BannerRepository repository = mock(BannerRepository.class);
+        MarketingCacheService cache = mock(MarketingCacheService.class);
+        StoreBannerService service = new StoreBannerService(repository, cache,
+                Clock.fixed(Instant.parse("2026-06-10T12:00:00Z"), ZoneOffset.UTC));
+        Lookup lookup = new Lookup(Family.BANNERS, "2:en", 7L, null);
+
+        Banner banner = new Banner();
+        banner.setId(4L);
+        banner.setName("Spring Sale");
+        banner.setImageUrl("/spring.jpg");
+        banner.setPosition(BannerPosition.FEATURED);
+        banner.setSort(0);
+        banner.setCtaTextSecondary("View offers");
+        banner.setCtaLinkSecondary("/offers");
+
+        when(cache.lookup(Family.BANNERS, "2:en")).thenReturn(lookup);
+        when(repository.listStoreActive(any(BannerPosition.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(banner));
+
+        StoreBanner result = service.list(BannerPosition.FEATURED, "en").getFirst();
+
+        assertThat(result.ctaTextSecondary()).isNull();
+        assertThat(result.ctaLinkSecondary()).isNull();
+    }
+
+    @Test
+    @DisplayName("推荐位旧缓存中的次要 CTA 也不对外返回")
+    void featuredBannerCachedValueDoesNotExposeSecondaryCta() {
+        BannerRepository repository = mock(BannerRepository.class);
+        MarketingCacheService cache = mock(MarketingCacheService.class);
+        StoreBannerService service = new StoreBannerService(repository, cache,
+                Clock.fixed(Instant.parse("2026-06-10T12:00:00Z"), ZoneOffset.UTC));
+        StoreBanner cached = new StoreBanner(4L, "Spring Sale", "/spring.jpg",
+                BannerPosition.FEATURED.getKey(), 0, "Spring Sale", null, "Shop Sale", "/sale",
+                "View offers", "/offers");
+        when(cache.lookup(Family.BANNERS, "2:en"))
+                .thenReturn(new Lookup(Family.BANNERS, "2:en", 7L, List.of(cached)));
+
+        StoreBanner result = service.list(BannerPosition.FEATURED, "en").getFirst();
+
+        assertThat(result.ctaTextSecondary()).isNull();
+        assertThat(result.ctaLinkSecondary()).isNull();
+    }
 }

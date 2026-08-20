@@ -31,7 +31,7 @@ public class HomePageSectionService {
 
     private static final Logger log = LoggerFactory.getLogger(HomePageSectionService.class);
     private static final List<String> VALID_TYPES = List.of(
-            "hero", "theme_cards", "product_rail", "editorial_feature", "newsletter", "custom");
+            "hero", "featured_banner", "theme_cards", "product_rail", "editorial_feature", "newsletter", "custom");
 
     private final HomePageSectionRepository repository;
     private final ObjectMapper objectMapper;
@@ -47,7 +47,7 @@ public class HomePageSectionService {
     @HomePageSectionWrite
     public HomePageSectionDto create(HomePageSectionUpsert upsert) {
         validate(upsert, null);
-        validateHeroSingleton(upsert.getSectionType(), null);
+        validateBannerSingleton(upsert.getSectionType(), null);
         HomePageSection entity = new HomePageSection();
         entity.setSectionType(upsert.getSectionType());
         entity.setEnabled(upsert.getEnabled());
@@ -67,7 +67,7 @@ public class HomePageSectionService {
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_NOT_FOUND));
         validate(upsert, entity.getSectionType());
         String targetType = upsert.getSectionType() == null ? entity.getSectionType() : upsert.getSectionType();
-        validateHeroSingleton(targetType, id);
+        validateBannerSingleton(targetType, id);
         if (upsert.getVersion() == null || !upsert.getVersion().equals(entity.getVersion())) {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
         }
@@ -103,6 +103,9 @@ public class HomePageSectionService {
             throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
                     Map.of("reason", "homepage can contain only one hero section"));
         }
+        if (items.stream().filter(item -> "featured_banner".equals(item.getSectionType())).count() > 1) {
+            throw featuredBannerSingletonConflict();
+        }
         Map<Long, HomePageSection> existingById = repository.findAllOrderById().stream()
                 .collect(Collectors.toMap(HomePageSection::getId, section -> section));
         for (HomePageSaveItem item : items) {
@@ -131,6 +134,18 @@ public class HomePageSectionService {
                 .count();
         if (finalHeroCount > 1) {
             throw heroSingletonConflict();
+        }
+        long finalFeaturedBannerCount = existingById.values().stream()
+                .filter(section -> {
+                    HomePageSaveItem requested = requestedById.get(section.getId());
+                    String finalType = requested == null || requested.getSectionType() == null
+                            ? section.getSectionType()
+                            : requested.getSectionType();
+                    return "featured_banner".equals(finalType);
+                })
+                .count();
+        if (finalFeaturedBannerCount > 1) {
+            throw featuredBannerSingletonConflict();
         }
 
         // Stable ordering keeps multi-row updates deterministic and remains compatible during rolling upgrades.
@@ -259,9 +274,13 @@ public class HomePageSectionService {
         validateI18nJson(upsert.getI18nJson());
     }
 
-    private void validateHeroSingleton(String sectionType, Long excludeId) {
+    private void validateBannerSingleton(String sectionType, Long excludeId) {
         if ("hero".equals(sectionType) && repository.countByTypeExcludingId("hero", excludeId) > 0) {
             throw heroSingletonConflict();
+        }
+        if ("featured_banner".equals(sectionType)
+                && repository.countByTypeExcludingId("featured_banner", excludeId) > 0) {
+            throw featuredBannerSingletonConflict();
         }
     }
 
@@ -270,12 +289,18 @@ public class HomePageSectionService {
                 Map.of("reason", "homepage can contain only one hero section"));
     }
 
+    private SiteBuilderException featuredBannerSingletonConflict() {
+        return SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_DATA_JSON_INVALID,
+                Map.of("reason", "homepage can contain only one featured banner section"));
+    }
+
     private void validateJsGuard(String type, JsonNode dataJson, JsonNode i18nJson) {
         switch (type) {
             case "hero":
+            case "featured_banner":
                 if (dataJson != null && !dataJson.isNull() && dataJson.size() > 0) {
                     throw SiteBuilderException.of(SiteBuilderErrorCode.SECTION_TYPE_DATA_MISMATCH,
-                            Map.of("reason", "hero data_json must be empty (derived from Banner)"));
+                            Map.of("reason", type + " data_json must be empty (derived from Banner)"));
                 }
                 break;
             case "newsletter":

@@ -17,6 +17,7 @@ import com.dreamy.controller.StoreSiteBuilderController;
 
 import com.dreamy.i18n.RequestLocaleContext;
 import com.dreamy.i18n.MarketingMessageResolver;
+import com.dreamy.i18n.SiteBuilderMessageResolver;
 import huihao.web.R;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -47,9 +48,12 @@ public class MarketingExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(MarketingExceptionHandler.class);
 
     private final MarketingMessageResolver messageResolver;
+    private final SiteBuilderMessageResolver siteBuilderMessageResolver;
 
-    public MarketingExceptionHandler(MarketingMessageResolver messageResolver) {
+    public MarketingExceptionHandler(MarketingMessageResolver messageResolver,
+                                     SiteBuilderMessageResolver siteBuilderMessageResolver) {
         this.messageResolver = messageResolver;
+        this.siteBuilderMessageResolver = siteBuilderMessageResolver;
     }
 
     /** marketing 域业务异常 → 6 位码映射 */
@@ -115,9 +119,9 @@ public class MarketingExceptionHandler {
         return ResponseEntity.status(code.getHttpStatus()).body(new R<>(code.getCode(), message, details));
     }
 
-    /** site_builder 域 R 包络（message 暂用 code，后续接入 site_builder message bundle） */
+    /** site_builder 域 R 包络：{code, message(locale), data=details}；HTTP 状态取码高 3 位 */
     private ResponseEntity<R<Object>> buildSiteBuilder(SiteBuilderErrorCode code, Map<String, Object> details) {
-        String message = code.name();
+        String message = siteBuilderMessageResolver.resolve(code, RequestLocaleContext.get());
         return ResponseEntity.status(code.getHttpStatus()).body(new R<>(code.getCode(), message, details));
     }
 }

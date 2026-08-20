@@ -22,7 +22,7 @@ import lombok.EqualsAndHashCode;
 @TableName(value = "home_sections", autoResultMap = true)
 public class HomePageSection extends LongAuditableEntity {
 
-    @Column(name = SiteBuilderDBConst.SECTION_TYPE, definition = "varchar(32) NOT NULL COMMENT '区块类型：hero/theme_cards/product_rail/editorial_feature/newsletter/custom'")
+    @Column(name = SiteBuilderDBConst.SECTION_TYPE, definition = "varchar(32) NOT NULL COMMENT '区块类型：hero/featured_banner/theme_cards/product_rail/editorial_feature/newsletter/custom'")
     private String sectionType;
 
     @Column(name = SiteBuilderDBConst.ENABLED, definition = "tinyint(1) NOT NULL DEFAULT 1 COMMENT '启用状态'")

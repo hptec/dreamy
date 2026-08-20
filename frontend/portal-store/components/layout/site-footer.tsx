@@ -13,7 +13,7 @@ import { subscribeNewsletter } from '@/lib/api/marketing-api'
 import { NewsletterSource } from '@/lib/api/store-types'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
-import { cn } from '@/lib/utils'
+import { cn, linkTargetProps } from '@/lib/utils'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -22,12 +22,16 @@ import type { StoreFooterColumn } from '@/lib/api/site-builder-server'
 export function SiteFooter({ columns: serverColumns }: { columns?: StoreFooterColumn[] }) {
   const { locale, te, t } = useI18n()
   // KD-5：页脚栏目从 site_builder 域读取，空回退静态 footerNav
-  const columns = serverColumns && serverColumns.length > 0
-    ? serverColumns.map((c) => ({
-        title: c.title,
-        links: (c.links ?? []).map((l) => ({ label: l.label, href: l.url })),
-      }))
-    : footerNav
+  const columns: { title: string; links: { label: string; href: string; target?: string }[] }[] =
+    serverColumns && serverColumns.length > 0
+      ? serverColumns.map((c) => ({
+          title: c.title,
+          links: (c.links ?? []).map((l) => ({ label: l.label, href: l.url, target: l.target })),
+        }))
+      : footerNav.map((c) => ({
+          title: c.title,
+          links: c.links.map((l) => ({ label: l.label, href: l.href })),
+        }))
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
   const [invalid, setInvalid] = useState(false)
@@ -98,7 +102,7 @@ export function SiteFooter({ columns: serverColumns }: { columns?: StoreFooterCo
             <ul className="space-y-2.5">
               {col.links.map((l) => (
                 <li key={l.label}>
-                  <Link href={l.href} className="text-sm text-canvas/70 transition-colors hover:text-canvas">{l.label}</Link>
+                  <Link href={l.href} {...linkTargetProps(l.target)} className="text-sm text-canvas/70 transition-colors hover:text-canvas">{l.label}</Link>
                 </li>
               ))}
             </ul>

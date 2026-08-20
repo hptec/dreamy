@@ -65,7 +65,7 @@ public class SiteBuilderDataSeed {
         log.info("[SiteBuilderDataSeed] site_builder 域演示数据初始化完成");
     }
 
-    /** 5 个首页区块：Hero / ThemeCards / ProductRail / EditorialFeature / Newsletter */
+    /** 6 个首页区块：Hero / FeaturedBanner / ThemeCards / ProductRail / EditorialFeature / Newsletter */
     private void seedHomeSections() {
         Set<String> existingTypes = new HashSet<>();
         homeSectionRepository.findAllOrderBySort().stream()
@@ -73,16 +73,17 @@ public class SiteBuilderDataSeed {
                 .forEach(existingTypes::add);
 
         seedHomeSection(existingTypes, "hero", 1, true, null, null, "Hero 主视觉");
-        seedHomeSection(existingTypes, "theme_cards", 2, true, "{\"mode\":\"auto\",\"limit\":6}",
+        seedHomeSection(existingTypes, "featured_banner", 2, true, null, null, "活动 Banner");
+        seedHomeSection(existingTypes, "theme_cards", 3, true, "{\"mode\":\"auto\",\"limit\":6}",
                 "{\"en\":{\"eyebrow\":\"Explore\",\"heading\":\"Shop by Theme\",\"description\":\"Find the setting that feels like your story.\"},\"es\":{\"eyebrow\":\"Explorar\",\"heading\":\"Comprar por Tema\",\"description\":\"Encuentra el escenario que se parece a tu historia.\"},\"fr\":{\"eyebrow\":\"Explorer\",\"heading\":\"Acheter par Thème\",\"description\":\"Trouvez le décor qui ressemble à votre histoire.\"}}",
                 "主题分类卡片");
-        seedHomeSection(existingTypes, "product_rail", 3, true, "{\"source\":\"new_arrival\",\"limit\":4,\"sort\":\"newest\"}",
+        seedHomeSection(existingTypes, "product_rail", 4, true, "{\"source\":\"new_arrival\",\"limit\":4,\"sort\":\"newest\"}",
                 "{\"en\":{\"eyebrow\":\"Just in\",\"heading\":\"New Arrivals\",\"description\":\"Fresh silhouettes for celebrations under open skies.\"},\"es\":{\"eyebrow\":\"Novedades\",\"heading\":\"Recién Llegados\",\"description\":\"Nuevas siluetas para celebraciones al aire libre.\"},\"fr\":{\"eyebrow\":\"Nouveautés\",\"heading\":\"Nouveaux Arrivages\",\"description\":\"De nouvelles silhouettes pour célébrer à ciel ouvert.\"}}",
                 "新品推荐");
-        seedHomeSection(existingTypes, "editorial_feature", 4, true, "{\"limit\":3}",
+        seedHomeSection(existingTypes, "editorial_feature", 5, true, "{\"limit\":3}",
                 "{\"en\":{\"eyebrow\":\"Real love stories\",\"heading\":\"Real Outdoor Weddings\",\"description\":\"Celebrations, details, and dresses from real Dreamy couples.\"},\"es\":{\"eyebrow\":\"Historias de amor reales\",\"heading\":\"Bodas Reales al Aire Libre\",\"description\":\"Celebraciones, detalles y vestidos de parejas Dreamy reales.\"},\"fr\":{\"eyebrow\":\"Vraies histoires d'amour\",\"heading\":\"Vrais Mariages en Plein Air\",\"description\":\"Célébrations, détails et robes de vrais couples Dreamy.\"}}",
                 "真实婚礼故事");
-        seedHomeSection(existingTypes, "newsletter", 5, true, null,
+        seedHomeSection(existingTypes, "newsletter", 6, true, null,
                 "{\"en\":{\"eyebrow\":\"Stay in touch\",\"heading\":\"Join the Dreamy List\",\"description\":\"New collections, planning inspiration, and private offers—sent thoughtfully.\",\"placeholder\":\"Your email\",\"cta\":\"Subscribe\"},\"es\":{\"eyebrow\":\"Sigamos en contacto\",\"heading\":\"Únete a la Lista Dreamy\",\"description\":\"Nuevas colecciones, inspiración y ofertas privadas.\",\"placeholder\":\"Tu correo\",\"cta\":\"Suscribirse\"},\"fr\":{\"eyebrow\":\"Restons en contact\",\"heading\":\"Rejoindre la Liste Dreamy\",\"description\":\"Nouvelles collections, inspirations et offres privées.\",\"placeholder\":\"Votre e-mail\",\"cta\":\"S'abonner\"}}",
                 "邮件订阅");
     }

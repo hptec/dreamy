@@ -65,12 +65,12 @@ public class AnnouncementService {
             checkTimeWindowConflict(upsert.getPriority(), upsert.getStartAt(), upsert.getEndAt(), id);
         }
         if (upsert.getVersion() == null || !upsert.getVersion().equals(entity.getVersion())) {
-            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+            throw SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_VERSION_CONFLICT);
         }
         applyUpsert(entity, upsert);
         int rows = repository.updateByIdAndVersion(entity);
         if (rows == 0) {
-            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+            throw SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_VERSION_CONFLICT);
         }
         enqueueImmediate("site_announcement.update", entity);
         replaceWindowTasks(entity);
@@ -92,7 +92,7 @@ public class AnnouncementService {
                 .orElseThrow(() -> SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_NOT_FOUND));
         int rows = repository.updateEnabled(id, enabled, entity.getVersion());
         if (rows == 0) {
-            throw SiteBuilderException.of(SiteBuilderErrorCode.HOME_SECTION_SORT_CONFLICT);
+            throw SiteBuilderException.of(SiteBuilderErrorCode.ANNOUNCEMENT_VERSION_CONFLICT);
         }
         entity.setEnabled(enabled);
         entity.setVersion(entity.getVersion() + 1);

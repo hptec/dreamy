@@ -4,6 +4,7 @@ import com.dreamy.domain.banner.entity.Banner;
 import com.dreamy.domain.banner.entity.BannerTranslation;
 import com.dreamy.domain.banner.repository.BannerRepository;
 import com.dreamy.dto.AdminMarketingDtos.BannerUpsert;
+import com.dreamy.dto.MarketingTranslationDtos.BannerTranslationDto;
 import com.dreamy.enums.BannerPosition;
 import com.dreamy.enums.ContentStatus;
 import com.dreamy.infra.MarketingAuditRecorder;
@@ -118,5 +119,36 @@ class AdminBannerServiceTest {
                 eq("Summer Hero"), anyList(), eq(now.plusHours(1)), anyMap(), nullable(String.class));
         verify(cacheTasks).enqueue(anyString(), eq("banner.window.end"), eq("banner"), eq(7L),
                 eq("Summer Hero"), anyList(), eq(now.plusHours(3)), anyMap(), nullable(String.class));
+    }
+
+    @Test
+    @DisplayName("推荐位保存时清空主记录及翻译中的次要 CTA")
+    void featuredBannerDiscardsSecondaryCta() {
+        Banner banner = new Banner();
+        banner.setId(4L);
+        banner.setName("Spring Sale");
+        banner.setImageUrl("/spring.jpg");
+        banner.setPosition(BannerPosition.HERO);
+        banner.setStatus(ContentStatus.DRAFT);
+        banner.setSort(0);
+        banner.setCtaTextSecondary("Old secondary");
+        banner.setCtaLinkSecondary("/old-secondary");
+        when(bannerRepository.findById(4L)).thenReturn(banner);
+
+        BannerUpsert request = new BannerUpsert("Spring Sale", "/spring.jpg",
+                BannerPosition.FEATURED.getKey(), null, null, ContentStatus.DRAFT.getKey(), 0,
+                "Spring Sale", null, "Shop Sale", "/sale", "View offers", "/offers",
+                List.of(new BannerTranslationDto("es", null, "Oferta de primavera", null,
+                        "Comprar", "Ver ofertas")));
+
+        var result = service.update(4L, request);
+
+        assertThat(banner.getCtaTextSecondary()).isNull();
+        assertThat(banner.getCtaLinkSecondary()).isNull();
+        assertThat(result.ctaTextSecondary()).isNull();
+        assertThat(result.ctaLinkSecondary()).isNull();
+        assertThat(result.translations().getFirst().ctaTextSecondary()).isNull();
+        verify(bannerRepository).replaceTranslations(eq(4L), argThat(rows ->
+                rows.size() == 1 && rows.getFirst().getCtaTextSecondary() == null));
     }
 }

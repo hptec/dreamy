@@ -63,3 +63,11 @@ export function daysUntil(dateStr: string): number {
   today.setHours(0, 0, 0, 0)
   return Math.round((target.getTime() - today.getTime()) / 86400000)
 }
+
+/**
+ * 站点装修配置的 target=blank → 新标签打开。
+ * rel 必带 noopener：否则新页面能通过 window.opener 反向跳转原页面（tabnabbing）。
+ */
+export function linkTargetProps(target?: string | null) {
+  return target === 'blank' ? { target: '_blank', rel: 'noopener noreferrer' } : {}
+}

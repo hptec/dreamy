@@ -65,9 +65,11 @@ export async function CollectionPage({
   const page = Math.max(1, Number(single(searchParams.page) ?? '1') || 1)
   const { priceMin, priceMax } = parsePriceParam(single(searchParams.price))
 
-  // cat 兼容数字 id 与子分类 name（slug）；未命中则回退父分类
+  // cat 兼容数字 id 与分类 name（slug）；先父分类子级，再全树（/products 等无父分类聚合页）；未命中回退父分类
   const catNumeric = cat ? Number(cat) : NaN
-  const catByName = Number.isNaN(catNumeric) ? category?.children?.find((c) => c.name === cat)?.id : undefined
+  const catByName = Number.isNaN(catNumeric) && cat
+    ? (category?.children?.find((c) => c.name === cat)?.id ?? findCategoryByName(tree, [cat])?.id)
+    : undefined
   const categoryId = (Number.isNaN(catNumeric) ? catByName : catNumeric) ?? category?.id
   const attrs = parseAttrParams(searchParams)
 

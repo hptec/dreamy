@@ -44,6 +44,7 @@ const trans = ref<Record<'es' | 'fr', { imageUrl: string; title: string; subtitl
 })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
+const supportsSecondaryCta = computed(() => form.value.position !== BannerPosition.FEATURED)
 
 const displayStatus = computed({
   get: () => form.value.status === BannerStatus.PUBLISHED ? BannerStatus.PUBLISHED : BannerStatus.ARCHIVED,
@@ -65,9 +66,9 @@ function updateDisplayStatus(status: unknown) {
 }
 
 const filled = computed(() => ({
-  en: !!(form.value.title || form.value.subtitle || form.value.ctaText || form.value.ctaTextSecondary),
-  es: !!(trans.value.es.imageUrl || trans.value.es.title || trans.value.es.subtitle || trans.value.es.ctaText || trans.value.es.ctaTextSecondary),
-  fr: !!(trans.value.fr.imageUrl || trans.value.fr.title || trans.value.fr.subtitle || trans.value.fr.ctaText || trans.value.fr.ctaTextSecondary),
+  en: !!(form.value.title || form.value.subtitle || form.value.ctaText || (supportsSecondaryCta.value && form.value.ctaTextSecondary)),
+  es: !!(trans.value.es.imageUrl || trans.value.es.title || trans.value.es.subtitle || trans.value.es.ctaText || (supportsSecondaryCta.value && trans.value.es.ctaTextSecondary)),
+  fr: !!(trans.value.fr.imageUrl || trans.value.fr.title || trans.value.fr.subtitle || trans.value.fr.ctaText || (supportsSecondaryCta.value && trans.value.fr.ctaTextSecondary)),
 }))
 
 watch(
@@ -106,8 +107,9 @@ function buildTranslations(): BannerTranslation[] {
   const rows: BannerTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    if (t.imageUrl || t.title.trim() || t.subtitle.trim() || t.ctaText.trim() || t.ctaTextSecondary.trim()) {
-      rows.push({ locale: l, imageUrl: t.imageUrl || null, title: t.title.trim() || null, subtitle: t.subtitle.trim() || null, ctaText: t.ctaText.trim() || null, ctaTextSecondary: t.ctaTextSecondary.trim() || null })
+    const secondaryText = supportsSecondaryCta.value ? t.ctaTextSecondary.trim() : ''
+    if (t.imageUrl || t.title.trim() || t.subtitle.trim() || t.ctaText.trim() || secondaryText) {
+      rows.push({ locale: l, imageUrl: t.imageUrl || null, title: t.title.trim() || null, subtitle: t.subtitle.trim() || null, ctaText: t.ctaText.trim() || null, ctaTextSecondary: secondaryText || null })
     }
   }
   return rows
@@ -134,8 +136,8 @@ async function submit() {
         subtitle: form.value.subtitle.trim() || null,
         ctaText: form.value.ctaText.trim() || null,
         ctaLink: form.value.ctaLink.trim() || null,
-        ctaTextSecondary: form.value.ctaTextSecondary.trim() || null,
-        ctaLinkSecondary: form.value.ctaLinkSecondary.trim() || null,
+        ctaTextSecondary: supportsSecondaryCta.value ? form.value.ctaTextSecondary.trim() || null : null,
+        ctaLinkSecondary: supportsSecondaryCta.value ? form.value.ctaLinkSecondary.trim() || null : null,
         translations: buildTranslations(),
       },
       props.editing?.id,
@@ -228,11 +230,11 @@ async function submit() {
             <label class="field-label">主要按钮链接</label>
             <input v-model="form.ctaLink" class="field" placeholder="如 /wedding-dresses" />
           </div>
-          <div>
+          <div v-if="supportsSecondaryCta">
             <label class="field-label">次要按钮文案</label>
             <input v-model="form.ctaTextSecondary" class="field" placeholder="选填" />
           </div>
-          <div>
+          <div v-if="supportsSecondaryCta">
             <label class="field-label">次要按钮链接</label>
             <input v-model="form.ctaLinkSecondary" class="field" placeholder="如 /outdoor-weddings" />
           </div>
@@ -268,12 +270,14 @@ async function submit() {
               <label class="field-label">主要按钮文案</label>
               <input v-model="trans[l].ctaText" class="field" :placeholder="form.ctaText ? `继承 EN：${form.ctaText}` : '请输入主要按钮文案'" />
             </div>
-            <div>
+            <div v-if="supportsSecondaryCta">
               <label class="field-label">次要按钮文案</label>
               <input v-model="trans[l].ctaTextSecondary" class="field" :placeholder="form.ctaTextSecondary ? `继承 EN：${form.ctaTextSecondary}` : '请输入次要按钮文案'" />
             </div>
           </div>
-          <p class="mt-3 text-[11px] text-ink-faint">空白字段继承 EN 内容；主要及次要按钮链接统一使用 EN 配置。</p>
+          <p class="mt-3 text-[11px] text-ink-faint">
+            {{ supportsSecondaryCta ? '空白字段继承 EN 内容；主要及次要按钮链接统一使用 EN 配置。' : '空白字段继承 EN 内容；主要按钮链接统一使用 EN 配置。' }}
+          </p>
         </div>
       </div>
     </template>

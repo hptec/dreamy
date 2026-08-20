@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import PageHeader from '@/components/PageHeader.vue'
@@ -14,20 +14,13 @@ import { useCollectionsStore } from '@/stores/collections'
 import { useToast } from '@/composables/useToast'
 import type { HomePageSection } from '@/api/siteBuilder'
 import {
-  ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   Bars3Icon,
   CheckIcon,
-  ComputerDesktopIcon,
-  DevicePhoneMobileIcon,
-  EyeIcon,
-  PencilSquareIcon,
   PlusIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline'
 
-type WorkspaceTab = 'edit' | 'preview'
-type PreviewMode = 'desktop' | 'mobile'
 type LocaleCode = 'en' | 'es' | 'fr'
 
 interface HomeBlock {
@@ -46,18 +39,13 @@ const collectionsStore = useCollectionsStore()
 const toast = useToast()
 const router = useRouter()
 
-const STORE_BASE = import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173'
 const locales: LocaleCode[] = ['en', 'es', 'fr']
 
 const blocks = ref<HomeBlock[]>([])
 const activeId = ref<number | null>(null)
-const workspaceTab = ref<WorkspaceTab>('edit')
-const previewMode = ref<PreviewMode>('desktop')
 const localeTab = ref<LocaleCode>('en')
 const dirty = ref(false)
 const saving = ref(false)
-const previewLoading = ref(false)
-const previewRevision = ref(0)
 const blockListEl = ref<HTMLElement | null>(null)
 const showAddBlockModal = ref(false)
 const newBlockType = ref('custom')
@@ -96,10 +84,6 @@ onBeforeRouteLeave((to) => {
   return false
 })
 
-watch(localeTab, () => {
-  if (workspaceTab.value === 'preview') refreshPreview()
-})
-
 const activeBlock = computed(() => blocks.value.find((block) => block.id === activeId.value) ?? null)
 
 const categoryOptions = computed(() => {
@@ -124,12 +108,6 @@ const themeOptions = computed(() => {
       label: item.name,
       imageUrl: item.fallbackCoverUrls?.[0] || null,
     }))
-})
-
-const previewUrl = computed(() => {
-  const localePath = localeTab.value === 'en' ? '' : `/${localeTab.value}`
-  const separator = STORE_BASE.includes('?') ? '&' : '?'
-  return `${STORE_BASE}${localePath}${separator}builder_preview=${previewRevision.value}`
 })
 
 function syncFromStore() {
@@ -203,6 +181,7 @@ function parseJson(value: unknown, fallback: Record<string, any>) {
 function typeLabel(type: string) {
   const labels: Record<string, string> = {
     hero: '首屏主视觉',
+    featured_banner: '活动 Banner',
     theme_cards: '分类卡片',
     product_rail: '商品推荐',
     editorial_feature: '真实婚礼',
@@ -214,7 +193,7 @@ function typeLabel(type: string) {
 
 function blockTitle(block: HomeBlock) {
   // 区块列表标题固定取 EN，不随编辑区语言 Tab 切换，避免定位参照漂移
-  if (block.sectionType === 'hero') return typeLabel(block.sectionType)
+  if (['hero', 'featured_banner'].includes(block.sectionType)) return typeLabel(block.sectionType)
   return block.i18n.en?.heading || typeLabel(block.sectionType)
 }
 
@@ -321,23 +300,6 @@ async function saveAll(showSuccess = true) {
   }
 }
 
-async function switchWorkspaceTab(tab: WorkspaceTab) {
-  if (tab === workspaceTab.value) return
-  if (tab === 'preview' && !(await saveAll(false))) return
-  workspaceTab.value = tab
-  if (tab === 'preview') refreshPreview()
-}
-
-function refreshPreview() {
-  previewLoading.value = true
-  previewRevision.value += 1
-}
-
-function openPreviewWindow() {
-  const localePath = localeTab.value === 'en' ? '' : `/${localeTab.value}`
-  window.open(`${STORE_BASE}${localePath}`, '_blank', 'noopener,noreferrer')
-}
-
 function openBannerManager() {
   const href = router.resolve('/banners').href
   window.open(href, '_blank', 'noopener,noreferrer')
@@ -388,7 +350,7 @@ async function confirmDelete() {
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Site Builder" title="首页装修" subtitle="编辑首页区块并在真实商城中预览">
+    <PageHeader eyebrow="Site Builder" title="首页装修" subtitle="编辑首页区块，保存后在商城前台实时生效">
       <template #actions>
         <span v-if="dirty" class="badge bg-warn/14 text-warn">
           <span class="h-1.5 w-1.5 rounded-full bg-current"></span>未保存
@@ -399,33 +361,10 @@ async function confirmDelete() {
       </template>
     </PageHeader>
 
-    <div class="mb-5 flex border-b border-line" role="tablist" aria-label="首页装修视图">
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="workspaceTab === 'edit'"
-        class="flex min-h-11 items-center gap-2 border-b-2 px-5 text-[13px] font-medium transition-colors"
-        :class="workspaceTab === 'edit' ? 'border-gold text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-        @click="switchWorkspaceTab('edit')"
-      >
-        <PencilSquareIcon class="h-4 w-4" />模块设置
-      </button>
-      <button
-        type="button"
-        role="tab"
-        :aria-selected="workspaceTab === 'preview'"
-        class="flex min-h-11 items-center gap-2 border-b-2 px-5 text-[13px] font-medium transition-colors"
-        :class="workspaceTab === 'preview' ? 'border-gold text-ink' : 'border-transparent text-ink-faint hover:text-ink'"
-        @click="switchWorkspaceTab('preview')"
-      >
-        <EyeIcon class="h-4 w-4" />页面预览
-      </button>
-    </div>
-
     <div v-if="store.loading" class="panel p-8 text-center text-ink-faint">加载中...</div>
     <div v-else-if="store.error" class="panel p-8 text-center text-danger">{{ store.error }}</div>
 
-    <div v-else v-show="workspaceTab === 'edit'" class="grid grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div v-else class="grid grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside class="panel self-start p-4 lg:sticky lg:top-5">
         <div class="mb-3 flex items-center justify-between">
           <p class="eyebrow">页面区块</p>
@@ -467,7 +406,7 @@ async function confirmDelete() {
             </button>
           </div>
 
-          <div v-if="activeBlock.sectionType !== 'hero'" class="mb-6 flex gap-1 border-b border-line">
+          <div v-if="!['hero', 'featured_banner'].includes(activeBlock.sectionType)" class="mb-6 flex gap-1 border-b border-line">
             <button
               v-for="locale in locales"
               :key="locale"
@@ -613,11 +552,11 @@ async function confirmDelete() {
               </div>
             </template>
 
-            <template v-else-if="activeBlock.sectionType === 'hero'">
+            <template v-else-if="['hero', 'featured_banner'].includes(activeBlock.sectionType)">
               <div class="flex flex-col gap-4 border-y border-line py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p class="text-[13px] font-medium text-ink">内容源：Banner 管理</p>
-                  <p class="mt-1 text-[12px] text-ink-faint">广告位置：首页 Hero</p>
+                  <p class="mt-1 text-[12px] text-ink-faint">广告位置：{{ activeBlock.sectionType === 'hero' ? '首页 Hero' : '首页活动推荐位' }}</p>
                 </div>
                 <button type="button" class="btn-outline shrink-0" @click="openBannerManager">
                   <ArrowTopRightOnSquareIcon class="h-4 w-4" />打开 Banner 管理
@@ -725,60 +664,6 @@ async function confirmDelete() {
       </section>
     </div>
 
-    <section v-if="!store.loading && !store.error && workspaceTab === 'preview'" class="overflow-hidden rounded-luxe border border-line bg-white">
-      <div class="flex flex-col gap-3 border-b border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-1">
-          <button
-            v-for="locale in locales"
-            :key="locale"
-            type="button"
-            class="min-h-9 px-3 text-[12px] uppercase transition-colors"
-            :class="localeTab === locale ? 'border-b-2 border-gold text-ink' : 'text-ink-faint hover:text-ink'"
-            @click="localeTab = locale"
-          >
-            {{ locale }}
-          </button>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="rounded-luxe p-2 transition-colors"
-            :class="previewMode === 'desktop' ? 'bg-ink text-canvas' : 'text-ink-faint hover:bg-canvas-warm'"
-            title="桌面预览"
-            @click="previewMode = 'desktop'"
-          >
-            <ComputerDesktopIcon class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            class="rounded-luxe p-2 transition-colors"
-            :class="previewMode === 'mobile' ? 'bg-ink text-canvas' : 'text-ink-faint hover:bg-canvas-warm'"
-            title="手机预览"
-            @click="previewMode = 'mobile'"
-          >
-            <DevicePhoneMobileIcon class="h-4 w-4" />
-          </button>
-          <button type="button" class="btn-ghost ml-1" title="刷新预览" @click="refreshPreview">
-            <ArrowPathIcon class="h-4 w-4" />
-          </button>
-          <button type="button" class="btn-ghost" title="在新窗口打开" @click="openPreviewWindow">
-            <ArrowTopRightOnSquareIcon class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-      <div class="relative flex min-h-[680px] justify-center overflow-auto bg-canvas-warm/50 p-3 sm:p-5">
-        <div v-if="previewLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/80 text-[13px] text-ink-faint">加载预览...</div>
-        <iframe
-          :key="previewRevision"
-          :src="previewUrl"
-          title="商城首页预览"
-          class="bg-white shadow-panel transition-[width] duration-200"
-          :class="previewMode === 'mobile' ? 'h-[780px] w-[390px] max-w-full' : 'h-[calc(100vh-250px)] min-h-[720px] w-full'"
-          @load="previewLoading = false"
-        ></iframe>
-      </div>
-    </section>
-
     <div v-if="showAddBlockModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 backdrop-blur-sm" @click="showAddBlockModal = false">
       <div class="panel w-full max-w-md p-6" @click.stop>
         <h3 class="font-display text-lg text-ink">添加区块</h3>
@@ -788,6 +673,7 @@ async function confirmDelete() {
             v-model="newBlockType"
             :options="[
               { value: 'hero', label: '首屏主视觉', disabled: blocks.some((block) => block.sectionType === 'hero') },
+              { value: 'featured_banner', label: '活动 Banner', disabled: blocks.some((block) => block.sectionType === 'featured_banner') },
               { value: 'theme_cards', label: '分类卡片' },
               { value: 'product_rail', label: '商品推荐' },
               { value: 'editorial_feature', label: '真实婚礼' },
@@ -801,7 +687,7 @@ async function confirmDelete() {
           <button
             type="button"
             class="btn-gold"
-            :disabled="newBlockType === 'hero' && blocks.some((block) => block.sectionType === 'hero')"
+            :disabled="['hero', 'featured_banner'].includes(newBlockType) && blocks.some((block) => block.sectionType === newBlockType)"
             @click="addBlock"
           >
             添加

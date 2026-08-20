@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { fetchStoreHome } from '@/lib/api/site-builder-server'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 import { HomeHeroCarousel } from '@/components/marketing/home-hero-carousel'
+import { FeaturedBannerSection } from '@/components/marketing/featured-banner-section'
 import { HomeNewsletterForm } from './home-newsletter-form'
 import type { Locale } from '@/lib/api/types'
 
@@ -30,6 +31,10 @@ export default async function HomePage({
           case 'hero': {
             const { data } = section
             return <HomeHeroCarousel key={key} slides={data.banners ?? []} />
+          }
+
+          case 'featuredBanner': {
+            return <FeaturedBannerSection key={key} banners={section.data.banners ?? []} />
           }
 
           case 'themeCards': {

@@ -72,8 +72,9 @@ export function I18nProvider({ children, initialLocale }: { children: ReactNode;
           /* 非阻塞：持久化失败不影响前端切换 */
         })
       }
-      // 跳到对应 locale 前缀 URL（保持当前路径）
-      const target = withLocale(pathname ?? '/', next)
+      // 跳到对应 locale 前缀 URL（保持当前路径与查询参数）
+      const search = typeof window !== 'undefined' ? window.location.search : ''
+      const target = withLocale(pathname ?? '/', next) + search
       router.push(target)
     },
     [pathname, router]

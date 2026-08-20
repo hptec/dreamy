@@ -139,7 +139,8 @@ public class StoreContentService {
         List<StoreHomeSectionDto> dtos = new ArrayList<>();
         for (HomePageSection section : sections) {
             Map<String, Object> data = deriveSectionData(section, locale);
-            if ("hero".equals(section.getSectionType()) && data.isEmpty()) {
+            if (("hero".equals(section.getSectionType()) || "featured_banner".equals(section.getSectionType()))
+                    && data.isEmpty()) {
                 continue;
             }
             StoreHomeSectionDto dto = new StoreHomeSectionDto();
@@ -158,6 +159,9 @@ public class StoreContentService {
         switch (section.getSectionType()) {
             case "hero":
                 data.putAll(deriveHeroData(locale));
+                break;
+            case "featured_banner":
+                data.putAll(deriveFeaturedBannerData(locale));
                 break;
             case "newsletter":
                 Map<String, Object> i18n = resolveI18n(section.getI18nJson(), locale, null);
@@ -217,6 +221,20 @@ public class StoreContentService {
             log.warn("[StoreContent] Hero BannerService unavailable, omit section (DG-01)", e);
         }
         return hero;
+    }
+
+    /** 首页活动 Banner：Banner 管理中 FEATURED 位置的有效投放，按 sort/id 顺序展示。 */
+    private Map<String, Object> deriveFeaturedBannerData(String locale) {
+        Map<String, Object> featured = new HashMap<>();
+        try {
+            List<StoreBanner> banners = bannerService.list(BannerPosition.FEATURED, locale);
+            if (!banners.isEmpty()) {
+                featured.put("banners", banners.stream().map(this::toHeroSlide).toList());
+            }
+        } catch (Exception e) {
+            log.warn("[StoreContent] Featured BannerService unavailable, omit section (DG-01)", e);
+        }
+        return featured;
     }
 
     private Map<String, Object> toHeroSlide(StoreBanner banner) {

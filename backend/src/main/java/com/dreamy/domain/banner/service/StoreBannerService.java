@@ -44,7 +44,7 @@ public class StoreBannerService {
         MarketingCacheService.Lookup lookup = cache.lookup(Family.BANNERS, cacheKey);
         Object cached = lookup.value();
         if (cached instanceof List<?> hit) {
-            return (List<StoreBanner>) hit;
+            return ((List<StoreBanner>) hit).stream().map(this::withoutUnsupportedSecondaryCta).toList();
         }
         // STEP-MKT-02 窗口谓词查询（DEC-MKT-2 权威读口径），ORDER BY sort, id
         List<Banner> banners = bannerRepository.listStoreActive(position, LocalDateTime.now(clock));
@@ -54,17 +54,28 @@ public class StoreBannerService {
         List<StoreBanner> items = new ArrayList<>(banners.size());
         for (Banner b : banners) {
             BannerTranslation t = translations.get(b.getId());
+            boolean supportsSecondaryCta = b.getPosition() != BannerPosition.FEATURED;
             items.add(new StoreBanner(b.getId(), b.getName(),
                     Translations.coalesce(t == null ? null : t.getImageUrl(), b.getImageUrl()), b.getPosition().getKey(), b.getSort(),
                     Translations.coalesce(t == null ? null : t.getTitle(), b.getTitle()),
                     Translations.coalesce(t == null ? null : t.getSubtitle(), b.getSubtitle()),
                     Translations.coalesce(t == null ? null : t.getCtaText(), b.getCtaText()),
                     b.getCtaLink(),
-                    Translations.coalesce(t == null ? null : t.getCtaTextSecondary(), b.getCtaTextSecondary()),
-                    b.getCtaLinkSecondary()));
+                    supportsSecondaryCta
+                            ? Translations.coalesce(t == null ? null : t.getCtaTextSecondary(), b.getCtaTextSecondary())
+                            : null,
+                    supportsSecondaryCta ? b.getCtaLinkSecondary() : null));
         }
         cache.put(lookup, items);
         return items;
+    }
+
+    private StoreBanner withoutUnsupportedSecondaryCta(StoreBanner banner) {
+        if (!BannerPosition.FEATURED.getKey().equals(banner.position())) {
+            return banner;
+        }
+        return new StoreBanner(banner.id(), banner.name(), banner.imageUrl(), banner.position(), banner.sort(),
+                banner.title(), banner.subtitle(), banner.ctaText(), banner.ctaLink(), null, null);
     }
 
     /**
