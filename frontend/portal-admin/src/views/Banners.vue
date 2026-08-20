@@ -89,7 +89,6 @@ onMounted(load)
           { value: 'all', label: '全部广告位' },
           { value: BannerPosition.HERO, label: '首屏主视觉' },
           { value: BannerPosition.FEATURED, label: '推荐位' },
-          { value: BannerPosition.TOPBAR, label: '顶部通告条' },
         ]"
         @change="load"
       />

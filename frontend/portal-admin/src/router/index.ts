@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
 
   // 站点装修（占位）
   { path: '/site/home', name: 'home-builder', component: () => import('@/views/HomeBuilder.vue'), meta: { title: '首页装修', group: '站点装修', permission: '/site/home' } },
-  { path: '/site/navigation', name: 'navigation-config', component: () => import('@/views/NavigationConfig.vue'), meta: { title: '导航与页脚', group: '站点装修', permission: '/site/navigation' } },
+  { path: '/site/navigation', name: 'navigation-config', component: () => import('@/views/NavigationConfig.vue'), meta: { title: '导航、页脚与公告', group: '站点装修', permission: '/site/navigation' } },
   // PAGE-MKT-A02：Banner 路由对齐契约权限点 /banners（旧 /site/banners 重定向兼容）
   { path: '/banners', name: 'banners', component: () => import('@/views/Banners.vue'), meta: { title: 'Banner 管理', group: '站点装修', permission: '/banners' } },
   { path: '/site/banners', redirect: '/banners' },

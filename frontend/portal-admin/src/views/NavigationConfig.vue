@@ -462,7 +462,7 @@ async function saveAll() {
 
 <template>
   <div class="animate-fadeup">
-    <PageHeader eyebrow="Site Builder" title="导航与页脚" subtitle="配置全站主导航、Mega Menu、页脚栏目与顶部公告条">
+    <PageHeader eyebrow="Site Builder" title="导航、页脚与公告" subtitle="配置全站主导航、Mega Menu、页脚栏目与顶部公告条">
       <template #actions>
         <span v-if="dirty" class="badge bg-warn/14 text-warn"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>未发布改动</span>
         <button class="btn-gold" @click="saveAll" :disabled="!dirty"><RocketLaunchIcon class="h-4 w-4" />保存</button>
@@ -602,7 +602,6 @@ async function saveAll() {
               :placeholder="localeTab === 'en' ? '公告内容（EN 基准）' : (a.contentI18n?.en?.content || 'EN 基准文案')"
               class="field text-[13px] flex-1"
             />
-            <input v-model.number="a.priority" @input="touch" type="number" class="field w-16 text-[12px]" placeholder="优先级" />
             <Toggle :model-value="a.enabled" @update:model-value="a.enabled = $event; touch()" />
             <button class="btn-danger-ghost" @click="removeAnnouncement(i)"><TrashIcon class="h-4 w-4" /></button>
           </div>

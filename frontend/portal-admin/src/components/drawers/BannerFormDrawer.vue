@@ -183,7 +183,7 @@ async function submit() {
           <label class="field-label">广告位置 *</label>
           <SelectMenu
             :model-value="form.position"
-            :options="[{ value: BannerPosition.HERO, label: '首屏主视觉' }, { value: BannerPosition.FEATURED, label: '推荐位' }, { value: BannerPosition.TOPBAR, label: '顶部通告条' }]"
+            :options="[{ value: BannerPosition.HERO, label: '首屏主视觉' }, { value: BannerPosition.FEATURED, label: '推荐位' }]"
             @update:model-value="form.position = $event as typeof form.position"
           />
         </div>

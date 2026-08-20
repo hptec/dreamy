@@ -39,7 +39,7 @@ export const menuGroups: MenuGroup[] = [
     badge: 'CMS',
     items: [
       { title: '首页装修', to: '/site/home', permission: '/site/home' },
-      { title: '导航与页脚', to: '/site/navigation', permission: '/site/navigation' },
+      { title: '导航、页脚与公告', to: '/site/navigation', permission: '/site/navigation' },
       { title: 'Banner 管理', to: '/banners', permission: '/banners' },
     ],
   },
