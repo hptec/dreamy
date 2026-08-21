@@ -46,4 +46,52 @@ public class BlogViewsCounter {
             log.warn("[SCHED-MKT-02] views compensate failed blog_post_id={} delta={}", blogPostId, delta);
         }
     }
+
+    /** 读取 Redis 中尚未 flush 的增量（GET，失败按 0 兜底不影响读路径）。
+     *  2026-08-21 新增：配合"详情接口实时叠加"，使消费端与 admin 看到的 views = DB + Redis。 */
+    public long getDelta(Long blogPostId) {
+        if (blogPostId == null) {
+            return 0;
+        }
+        try {
+            String value = redis.opsForValue().get(KEY_PREFIX + blogPostId);
+            if (value == null || value.isBlank()) {
+                return 0;
+            }
+            return Long.parseLong(value);
+        } catch (Exception ex) {
+            log.warn("[DEC-MKT-6] views GET failed blog_post_id={} (fallback to DB value)", blogPostId);
+            return 0;
+        }
+    }
+
+    /** 批量版 getDelta（admin 列表用，单次 MGET 避免 N 次 RTT） */
+    public java.util.Map<Long, Long> getDeltas(java.util.Collection<Long> blogPostIds) {
+        if (blogPostIds == null || blogPostIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        java.util.List<Long> ids = blogPostIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return java.util.Map.of();
+        }
+        try {
+            java.util.List<String> keys = ids.stream().map(id -> KEY_PREFIX + id).toList();
+            java.util.List<String> values = redis.opsForValue().multiGet(keys);
+            java.util.Map<Long, Long> result = new java.util.HashMap<>();
+            for (int i = 0; i < ids.size(); i++) {
+                String v = values == null ? null : values.get(i);
+                if (v != null && !v.isBlank()) {
+                    try {
+                        result.put(ids.get(i), Long.parseLong(v));
+                    } catch (NumberFormatException ignored) {
+                        // 脏数据按 0
+                    }
+                }
+            }
+            return result;
+        } catch (Exception ex) {
+            log.warn("[DEC-MKT-6] views MGET failed (fallback to DB value)");
+            return java.util.Map.of();
+        }
+    }
 }

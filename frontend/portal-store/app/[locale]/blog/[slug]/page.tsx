@@ -3,11 +3,14 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { fetchStoreBlog, fetchStoreBlogs } from '@/lib/api/marketing-server'
 import { Eyebrow } from '@/components/ui/primitives'
+import { BlogPostBody } from '@/components/blog/BlogPostBody'
+import { BlogViewTracker } from '@/components/blog/BlogViewTracker'
 import { formatDateTimeLong } from '@/lib/utils'
 
 /**
  * /blog/[slug]（PAGE-MKT-S04）：404701 → notFound()；
- * content 单字符串按换行 split 渲染段落；seo_title/seo_description → generateMetadata。
+ * 2026-08-20: content 改为 react-markdown SSR 渲染（替换 split(/\n+/)），支持 GFM 表格/链接/图片。
+ * seo_title/seo_description → generateMetadata。
  */
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +19,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const { data: post } = await fetchStoreBlog(slug)
   if (!post) return { title: 'Post Not Found' }
-  return { title: post.seoTitle ?? post.title, description: post.seoDescription ?? post.excerpt }
+  return {
+    title: post.seoTitle ?? post.title,
+    description: post.seoDescription ?? post.excerpt,
+    openGraph: post.cover
+      ? {
+          title: post.seoTitle ?? post.title,
+          description: post.seoDescription ?? post.excerpt ?? undefined,
+          images: [{ url: post.cover, alt: post.title }],
+          type: 'article',
+          publishedTime: post.publishedAt ?? undefined,
+          authors: post.author ? [post.author] : undefined,
+        }
+      : undefined,
+    twitter: post.cover
+      ? {
+          card: 'summary_large_image',
+          title: post.seoTitle ?? post.title,
+          description: post.seoDescription ?? post.excerpt ?? undefined,
+          images: [post.cover],
+        }
+      : undefined,
+  }
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -26,10 +50,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const relatedPage = await fetchStoreBlogs({ page: 1, pageSize: 4 })
   const related = (relatedPage?.data ?? []).filter((b) => b.slug !== slug).slice(0, 2)
-  const paragraphs = post.content.split(/\n+/).filter((p) => p.trim().length > 0)
 
   return (
     <div>
+      <BlogViewTracker slug={post.slug} />
       <article className="container-luxe max-w-3xl py-12">
         <Link href="/blog" className="text-sm text-gold-deep underline">← Back to blog</Link>
         <Eyebrow className="mt-6">{post.category}</Eyebrow>
@@ -41,9 +65,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <img src={post.cover} alt={post.title} className="h-full w-full object-cover" />
           </div>
         )}
-        <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink-soft">
-          {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
-        </div>
+        <BlogPostBody content={post.content} />
       </article>
 
       {related.length > 0 && (

@@ -55,3 +55,10 @@ export async function unsubscribeNewsletter(token: string): Promise<boolean> {
   })
   return res.unsubscribed
 }
+
+/** 2026-08-21 新增: E-MKT-03B 阅读计数（sessionStorage UV 去重由 BlogViewTracker 保证） */
+export async function recordBlogView(slug: string): Promise<void> {
+  await request<void>(`/api/store/content/blogs/${encodeURIComponent(slug)}/view`, {
+    method: 'POST'
+  })
+}

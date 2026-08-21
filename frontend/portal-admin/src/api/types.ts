@@ -750,6 +750,13 @@ export interface BlogPost {
   status: ContentStatus
   publishedAt?: string | null
   views?: number | null
+  // 2026-08-20 新增：EN 主表 SEO/摘要 + 字数统计 + 乐观锁
+  excerpt?: string | null
+  seoTitle?: string | null
+  seoDescription?: string | null
+  wordCount?: number | null
+  readingMinutes?: number | null
+  version?: number | null
   translations?: BlogPostTranslation[] | null
 }
 
@@ -761,7 +768,22 @@ export interface BlogPostUpsert {
   content?: string | null
   slug?: string | null
   status: ContentStatus
+  // 2026-08-20 新增：EN 主表 SEO/摘要 + 乐观锁
+  excerpt?: string | null
+  seoTitle?: string | null
+  seoDescription?: string | null
+  /** update 必填（乐观锁版本号）；create 忽略 */
+  version?: number | null
+  /** 2026-08-21 新增：首次发布时间（运营可改；null=维持自动语义；不允许未来时间） */
+  publishedAt?: string | null
   translations?: BlogPostTranslation[] | null
+}
+
+/** 2026-08-20 新增：预览 token 响应 */
+export interface BlogPreviewToken {
+  token: string
+  previewUrl: string
+  expiresAt: string
 }
 
 export interface RealWeddingTranslation {

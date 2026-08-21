@@ -63,14 +63,19 @@ public final class AdminMarketingDtos {
                             String ctaLinkSecondary, List<BannerTranslationDto> translations) {
     }
 
-    /** openapi BlogPostUpsert（V-MKT-050~054） */
+    /** openapi BlogPostUpsert（V-MKT-050~054 + 2026-08-20 新增 excerpt/seoTitle/seoDescription/version
+     *  + 2026-08-21 新增 publishedAt——运营可改首次发布时间，null 表示维持自动语义） */
     public record BlogPostUpsert(String title, String cover, String category, String author, String content,
-                                 String slug, Integer status, List<BlogPostTranslationDto> translations) {
+                                 String slug, Integer status, String excerpt, String seoTitle, String seoDescription,
+                                 Long version, LocalDateTime publishedAt,
+                                 List<BlogPostTranslationDto> translations) {
     }
 
-    /** openapi BlogPost（published_at/views 只读） */
+    /** openapi BlogPost（published_at/views 只读；2026-08-20 新增 excerpt/seoTitle/seoDescription/wordCount/readingMinutes/version） */
     public record BlogPostDto(Long id, String title, String cover, String category, String author, String content,
                               String slug, Integer status, LocalDateTime publishedAt, Integer views,
+                              String excerpt, String seoTitle, String seoDescription,
+                              Integer wordCount, java.math.BigDecimal readingMinutes, Long version,
                               List<BlogPostTranslationDto> translations) {
     }
 

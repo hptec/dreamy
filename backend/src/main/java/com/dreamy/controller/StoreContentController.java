@@ -1,6 +1,7 @@
 package com.dreamy.controller;
 
 import com.dreamy.domain.banner.service.StoreBannerService;
+import com.dreamy.domain.blog.service.BlogPreviewService;
 import com.dreamy.domain.blog.service.StoreBlogService;
 import com.dreamy.enums.BannerPosition;
 import com.dreamy.domain.guide.service.GuideService;
@@ -23,6 +24,7 @@ import huihao.web.R;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,15 +45,17 @@ public class StoreContentController {
     private final StoreWeddingService weddingService;
     private final StoreLookbookService lookbookService;
     private final GuideService guideService;
+    private final BlogPreviewService blogPreviewService;
 
     public StoreContentController(StoreBannerService bannerService, StoreBlogService blogService,
                                   StoreWeddingService weddingService, StoreLookbookService lookbookService,
-                                  GuideService guideService) {
+                                  GuideService guideService, BlogPreviewService blogPreviewService) {
         this.bannerService = bannerService;
         this.blogService = blogService;
         this.weddingService = weddingService;
         this.lookbookService = lookbookService;
         this.guideService = guideService;
+        this.blogPreviewService = blogPreviewService;
     }
 
     /** E-MKT-01 listStoreBanners（V-MKT-001/002） */
@@ -103,6 +107,39 @@ public class StoreContentController {
         RequestLocaleContext.set(MarketingMessageResolver.toLocale(parsedLocale));
         StoreBlogPostDetail detail = blogService.getBySlug(slug, parsedLocale);
         return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(detail));
+    }
+
+    /** 2026-08-21 新增：E-MKT-03B 阅读计数（sessionStorage UV 由前端去重，本端点信任调用）。
+     *  无缓存无鉴权无响应体；slug 不存在/未发布静默 204（防探测同 E-MKT-03 口径）。 */
+    @PostMapping("/api/store/content/blogs/{slug}/view")
+    public ResponseEntity<Void> recordBlogView(@PathVariable String slug) {
+        blogService.recordView(slug);
+        return ResponseEntity.noContent().header("Cache-Control", "no-store").build();
+    }
+
+    /** 2026-08-20 新增：草稿预览（凭 token 直读，不校验 status，不走缓存）。
+     *  X-Robots-Tag noindex/nofollow 防搜索引擎索引预览链接。 */
+    @GetMapping("/api/store/content/blogs/preview/{token}")
+    public ResponseEntity<R<StoreBlogPostDetail>> previewBlog(@PathVariable String token,
+                                                              @RequestParam(required = false) String locale) {
+        MarketingFieldErrors errors = new MarketingFieldErrors();
+        String parsedLocale = MarketingParams.parseLocale(locale, errors);
+        errors.throwIfAny();
+        RequestLocaleContext.set(MarketingMessageResolver.toLocale(parsedLocale));
+        Long postId = blogPreviewService.resolvePostId(token);
+        StoreBlogPostDetail detail = blogService.getByIdForPreview(postId, parsedLocale);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .header("X-Robots-Tag", "noindex, nofollow")
+                .body(R.ok(detail));
+    }
+
+    /** 2026-08-20 新增：sitemap 数据（仅 published，供 portal-store app/sitemap.ts 拉取）。
+     *  路径用 /sitemap-blogs 避免与 /blogs/{slug} 冲突。 */
+    @GetMapping("/api/store/content/sitemap-blogs")
+    public ResponseEntity<R<Map<String, Object>>> sitemapBlogs() {
+        List<StoreBlogService.SitemapEntry> entries = blogService.listPublishedForSitemap();
+        return ResponseEntity.ok().header("Cache-Control", CACHE_300).body(R.ok(Map.of("items", entries)));
     }
 
     /** E-MKT-04 listStoreWeddings（复用 V-MKT-002/004） */

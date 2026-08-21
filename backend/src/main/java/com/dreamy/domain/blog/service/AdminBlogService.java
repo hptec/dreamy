@@ -21,11 +21,14 @@ import huihao.page.Paginated;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -40,15 +43,38 @@ public class AdminBlogService {
 
     private static final Pattern SLUG_PATTERN = Pattern.compile("^[a-z0-9-]{1,128}$");
 
+    /** 2026-08-20：slug 保留字黑名单（命中抛 422 RESERVED_SLUG），避免与系统/路由冲突 */
+    private static final Set<String> RESERVED_SLUGS = Set.of(
+            "admin", "api", "blog", "preview", "new", "edit", "_next", "sitemap.xml", "robots.txt", "favicon.ico");
+
+    /** 2026-08-20：正文长度上限（防止 MEDIUMTEXT 滥用 + 控制 RSC 渲染开销） */
+    private static final int CONTENT_MAX_LENGTH = 200_000;
+
     private final BlogPostRepository blogPostRepository;
     private final MarketingAuditRecorder audit;
     private final CacheInvalidationTaskService cacheTasks;
+    private final BlogPreviewService previewService;
+    private final BlogViewsCounter viewsCounter;
 
     public AdminBlogService(BlogPostRepository blogPostRepository, MarketingAuditRecorder audit,
-                            CacheInvalidationTaskService cacheTasks) {
+                            CacheInvalidationTaskService cacheTasks, BlogPreviewService previewService,
+                            BlogViewsCounter viewsCounter) {
         this.blogPostRepository = blogPostRepository;
         this.audit = audit;
         this.cacheTasks = cacheTasks;
+        this.previewService = previewService;
+        this.viewsCounter = viewsCounter;
+    }
+
+    /** 2026-08-20 新增：生成预览 token（4h TTL），写入审计 */
+    public BlogPreviewService.PreviewToken createPreviewToken(Long id) {
+        BlogPost existing = blogPostRepository.findById(id);
+        if (existing == null) {
+            throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
+        }
+        BlogPreviewService.PreviewToken token = previewService.issue(id);
+        audit.record("生成预览 token", existing.getTitle(), null);
+        return token;
     }
 
     /** E-MKT-26：分页列表（status/search 筛选） */
@@ -69,7 +95,12 @@ public class AdminBlogService {
         Page<BlogPost> result = blogPostRepository.pageAdmin(statusEnum, parsedSearch, parsedPage, parsedPageSize);
         Map<Long, List<BlogPostTranslationDto>> translations = translationsByPost(
                 result.getRecords().stream().map(BlogPost::getId).toList());
-        return MarketingPaginatedSupport.of(result, p -> toDto(p, translations.getOrDefault(p.getId(), List.of())));
+        // 2026-08-21：实时 views = DB + Redis 未 flush 增量（单次 MGET）
+        Map<Long, Long> liveDeltas = viewsCounter.getDeltas(
+                result.getRecords().stream().map(BlogPost::getId).toList());
+        return MarketingPaginatedSupport.of(result,
+                p -> toDto(p, translations.getOrDefault(p.getId(), List.of()),
+                        liveDeltas.getOrDefault(p.getId(), 0L)));
     }
 
     /** E-MKT-28：编辑详情（translations 三语 tab 全量原样，admin 不回退合并） */
@@ -79,7 +110,8 @@ public class AdminBlogService {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
         }
         Map<Long, List<BlogPostTranslationDto>> translations = translationsByPost(List.of(id));
-        return toDto(post, translations.getOrDefault(id, List.of()));
+        // 2026-08-21：实时 views = DB + Redis 未 flush 增量
+        return toDto(post, translations.getOrDefault(id, List.of()), viewsCounter.getDelta(id));
     }
 
     /** E-MKT-27：创建（TX-MKT-011；blog_post_lifecycle 初态 draft/published） */
@@ -91,10 +123,13 @@ public class AdminBlogService {
             throw new MarketingException(MarketingErrorCode.SLUG_EXISTS);
         }
         // STEP-MKT-02 INSERT（published 记 published_at=now；views=0 初始化）+ translation 批插
+        // 2026-08-21: 请求显式带 publishedAt → 用请求值（覆盖自动语义）；否则按 status 走默认
         BlogPost post = new BlogPost();
         applyUpsert(post, n, req);
         post.setViews(0);
-        if (n.status() == ContentStatus.PUBLISHED) {
+        if (req.publishedAt() != null) {
+            post.setPublishedAt(req.publishedAt());
+        } else if (n.status() == ContentStatus.PUBLISHED) {
             post.setPublishedAt(LocalDateTime.now());
         }
         blogPostRepository.insert(post);
@@ -108,13 +143,18 @@ public class AdminBlogService {
         return toDto(blogPostRepository.findById(post.getId()), nonNull(req.translations()));
     }
 
-    /** E-MKT-29：编辑（TX-MKT-012；已发布保存即触发失效链 s-758） */
+    /** E-MKT-29：编辑（TX-MKT-012；已发布保存即触发失效链 s-758）
+     *  2026-08-20: 加乐观锁——req.version 必须与 DB 一致，否则抛 409 VERSION_CONFLICT */
     @Transactional
     public BlogPostDto update(Long id, BlogPostUpsert req) {
         // STEP-MKT-01 不存在 → 404701
         BlogPost existing = blogPostRepository.findById(id);
         if (existing == null) {
             throw new MarketingException(MarketingErrorCode.CONTENT_NOT_FOUND);
+        }
+        // 2026-08-20: 乐观锁版本校验（前端在表单带回 version；version=null 视为旧客户端,允许继续以兼容）
+        if (req.version() != null && !req.version().equals(existing.getVersion())) {
+            throw new MarketingException(MarketingErrorCode.VERSION_CONFLICT);
         }
         Normalized n = validateUpsert(req, false);
         // STEP-MKT-02 status 变更迁移 guard（blog_post_lifecycle）→ 409703
@@ -133,12 +173,21 @@ public class AdminBlogService {
         }
         String oldSlug = existing.getSlug();
         ContentStatus oldStatus = existing.getStatus();
-        // STEP-MKT-04 UPDATE（SET 不含 views——V-MKT-056；published_at 仅 draft→published 写入，编辑不刷新）
+        // STEP-MKT-04 UPDATE（SET 不含 views——V-MKT-056）
+        // 2026-08-21: published_at 优先级——请求显式带 → 用请求值（运营可改首次发布时间）；
+        //                     请求 null + draft→published → 自动 now()；
+        //                     请求 null + 其他场景 → 保留 DB 现值
         applyUpsert(existing, n, req);
-        if (statusChanged && oldStatus == ContentStatus.DRAFT && n.status() == ContentStatus.PUBLISHED) {
+        if (req.publishedAt() != null) {
+            existing.setPublishedAt(req.publishedAt());
+        } else if (statusChanged && oldStatus == ContentStatus.DRAFT && n.status() == ContentStatus.PUBLISHED) {
             existing.setPublishedAt(LocalDateTime.now());
         }
-        blogPostRepository.update(existing);
+        int updated = blogPostRepository.update(existing);
+        if (updated == 0) {
+            // 并发下 version 被他人 +1 导致 update 失败
+            throw new MarketingException(MarketingErrorCode.VERSION_CONFLICT);
+        }
         blogPostRepository.replaceTranslations(id, toTranslationRows(req.translations()));
         // STEP-MKT-05 审计
         audit.record("编辑文章", n.title(), null);
@@ -166,7 +215,9 @@ public class AdminBlogService {
         }
     }
 
-    /** E-MKT-31：发布状态变更（TX-MKT-014；blog_post_lifecycle publish/unpublish/republish） */
+    /** E-MKT-31：发布状态变更（TX-MKT-014；blog_post_lifecycle publish/unpublish/republish）
+     *  2026-08-20: 改状态前置条件 UPDATE（不走 @Version，避免与 update() 互相阻塞）；
+     *  并发下同态操作后置者收 409 STATE_CHANGED */
     @Transactional
     public BlogPostDto patchStatus(Long id, Integer statusRaw) {
         // V-MKT-057 status 必填枚举
@@ -194,10 +245,15 @@ public class AdminBlogService {
             }
             publishedAt = LocalDateTime.now();
         }
-        // STEP-MKT-04 UPDATE + 审计（archived→published republish 不刷新 published_at）
-        blogPostRepository.updateStatus(id, target, publishedAt);
+        // 2026-08-20: 状态前置条件 UPDATE，受影响行=0 表示并发下状态已被他人变更
+        ContentStatus fromStatus = existing.getStatus();
+        int updated = blogPostRepository.updateStatusWithPrecondition(id, fromStatus, target, publishedAt);
+        if (updated == 0) {
+            throw new MarketingException(MarketingErrorCode.STATE_CHANGED);
+        }
+        // STEP-MKT-04 审计（archived→published republish 不刷新 published_at）
         audit.record("文章发布状态变更", existing.getTitle(),
-                "{\"from\":\"" + existing.getStatus().getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
+                "{\"from\":\"" + fromStatus.getKey() + "\",\"to\":\"" + target.getKey() + "\"}");
         // STEP-MKT-05 提交后失效 + MQ + revalidate /blog、/blog/{slug} ×3 + purge
         enqueue("blog.status", existing, null);
         existing.setStatus(target);
@@ -219,7 +275,7 @@ public class AdminBlogService {
     private record Normalized(String title, String slug, ContentStatus status) {
     }
 
-    /** V-MKT-050~054 */
+    /** V-MKT-050~054 + 2026-08-20 新增: slug 归一化小写 + 保留字黑名单 + content 长度上限 + EN 三列长度校验 */
     private Normalized validateUpsert(BlogPostUpsert req, boolean create) {
         MarketingFieldErrors errors = new MarketingFieldErrors();
         // V-MKT-050 title 必填 trim 非空 ≤200（publish guard title!=null 前移为必填）
@@ -233,6 +289,14 @@ public class AdminBlogService {
         MarketingParams.checkMaxLength(req.cover(), 512, "cover", errors);
         MarketingParams.checkMaxLength(req.category(), 64, "category", errors);
         MarketingParams.checkMaxLength(req.author(), 64, "author", errors);
+        // 2026-08-20: EN 主表 SEO 三列长度
+        MarketingParams.checkMaxLength(req.excerpt(), 500, "excerpt", errors);
+        MarketingParams.checkMaxLength(req.seoTitle(), 128, "seo_title", errors);
+        MarketingParams.checkMaxLength(req.seoDescription(), 255, "seo_description", errors);
+        // 2026-08-20: content 长度上限（MEDIUMTEXT 防御）
+        if (req.content() != null && req.content().length() > CONTENT_MAX_LENGTH) {
+            throw new MarketingException(MarketingErrorCode.CONTENT_TOO_LARGE);
+        }
         // V-MKT-053 status 必填；创建态仅 draft/published
         ContentStatus status = ContentStatus.of(req.status());
         if (status == null) {
@@ -241,13 +305,24 @@ public class AdminBlogService {
             errors.reject("status", "invalid_initial");
         }
         // V-MKT-052 slug 可选 pattern ^[a-z0-9-]+$ ≤128；status=published 时必填
+        // 2026-08-20: 先归一化小写再校验；保留字黑名单
         String slug = MarketingParams.trimToNull(req.slug());
-        if (slug != null && !SLUG_PATTERN.matcher(slug).matches()) {
-            errors.reject("slug", "pattern_invalid");
-            slug = null;
+        if (slug != null) {
+            slug = slug.toLowerCase(Locale.ROOT).trim();
+            if (RESERVED_SLUGS.contains(slug)) {
+                throw new MarketingException(MarketingErrorCode.RESERVED_SLUG);
+            }
+            if (!SLUG_PATTERN.matcher(slug).matches()) {
+                errors.reject("slug", "pattern_invalid");
+                slug = null;
+            }
         }
         if (status == ContentStatus.PUBLISHED && slug == null) {
             errors.reject("slug", "required_for_publish");
+        }
+        // 2026-08-21: publishedAt 不允许是未来时间（防止预发布错觉；留 null 走自动语义）
+        if (req.publishedAt() != null && req.publishedAt().isAfter(LocalDateTime.now())) {
+            errors.reject("published_at", "future_not_allowed");
         }
         // V-MKT-054 translations
         validateTranslations(req.translations(), errors);
@@ -288,8 +363,29 @@ public class AdminBlogService {
         post.setCategory(MarketingParams.trimToNull(req.category()));
         post.setAuthor(MarketingParams.trimToNull(req.author()));
         post.setContent(req.content());
+        post.setExcerpt(MarketingParams.trimToNull(req.excerpt()));
+        post.setSeoTitle(MarketingParams.trimToNull(req.seoTitle()));
+        post.setSeoDescription(MarketingParams.trimToNull(req.seoDescription()));
         post.setSlug(n.slug());
         post.setStatus(n.status());
+        // 2026-08-20: 字数统计 + 阅读时长（保存时同步计算，10 万字 < 100ms）
+        computeWordCountAndReadingTime(post);
+    }
+
+    /** 2026-08-20: 中英混排字数统计 —— CJK 按字、Latin 按词（空白分隔）；阅读时长 = cjk/300 + latin/200（分钟，向上取 0.1） */
+    private void computeWordCountAndReadingTime(BlogPost post) {
+        String content = post.getContent();
+        if (content == null || content.isBlank()) {
+            post.setWordCount(0);
+            post.setReadingMinutes(BigDecimal.ZERO);
+            return;
+        }
+        int cjk = content.replaceAll("[^\\u4e00-\\u9fa5]", "").length();
+        String latinText = content.replaceAll("[\\u4e00-\\u9fa5]", " ").trim();
+        int latin = latinText.isEmpty() ? 0 : latinText.split("\\s+").length;
+        post.setWordCount(cjk + latin);
+        double minutes = (cjk / 300.0) + (latin / 200.0);
+        post.setReadingMinutes(BigDecimal.valueOf(minutes).setScale(1, RoundingMode.CEILING));
     }
 
     private List<BlogPostTranslation> toTranslationRows(List<BlogPostTranslationDto> dtos) {
@@ -325,7 +421,17 @@ public class AdminBlogService {
     }
 
     private BlogPostDto toDto(BlogPost p, List<BlogPostTranslationDto> translations) {
+        return toDto(p, translations, 0L);
+    }
+
+    /** 2026-08-21：实时 views 版（delta 来自 Redis 未 flush 增量） */
+    private BlogPostDto toDto(BlogPost p, List<BlogPostTranslationDto> translations, long viewsDelta) {
+        int baseViews = p.getViews() == null ? 0 : p.getViews();
+        int liveViews = (int) Math.min(Integer.MAX_VALUE, baseViews + viewsDelta);
         return new BlogPostDto(p.getId(), p.getTitle(), p.getCover(), p.getCategory(), p.getAuthor(), p.getContent(),
-                p.getSlug(), p.getStatus().getKey(), p.getPublishedAt(), p.getViews(), translations);
+                p.getSlug(), p.getStatus().getKey(), p.getPublishedAt(), liveViews,
+                p.getExcerpt(), p.getSeoTitle(), p.getSeoDescription(),
+                p.getWordCount(), p.getReadingMinutes(), p.getVersion(),
+                translations);
     }
 }
