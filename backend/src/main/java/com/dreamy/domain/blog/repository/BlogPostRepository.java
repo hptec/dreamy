@@ -78,18 +78,26 @@ public class BlogPostRepository {
         blogPostMapper.insert(post);
     }
 
-    /** RM-MKT-026 update（SET 不含 views——V-MKT-056 只读列；published_at 由调用方按迁移语义传入） */
-    public void update(BlogPost post) {
-        blogPostMapper.update(null, new LambdaUpdateWrapper<BlogPost>()
+    /** RM-MKT-026 update（SET 不含 views——V-MKT-056 只读列；published_at 由调用方按迁移语义传入；
+     *  2026-08-20：MyBatis-Plus @Version 自动追加 SET version=version+1 WHERE version=#{entity.version}） */
+    public int update(BlogPost post) {
+        return blogPostMapper.update(null, new LambdaUpdateWrapper<BlogPost>()
                 .eq(BlogPost::getId, post.getId())
+                .eq(BlogPost::getVersion, post.getVersion())
                 .set(BlogPost::getTitle, post.getTitle())
                 .set(BlogPost::getCover, post.getCover())
                 .set(BlogPost::getCategory, post.getCategory())
                 .set(BlogPost::getAuthor, post.getAuthor())
                 .set(BlogPost::getContent, post.getContent())
+                .set(BlogPost::getExcerpt, post.getExcerpt())
+                .set(BlogPost::getSeoTitle, post.getSeoTitle())
+                .set(BlogPost::getSeoDescription, post.getSeoDescription())
+                .set(BlogPost::getWordCount, post.getWordCount())
+                .set(BlogPost::getReadingMinutes, post.getReadingMinutes())
                 .set(BlogPost::getSlug, post.getSlug())
                 .set(BlogPost::getStatus, post.getStatus())
-                .set(BlogPost::getPublishedAt, post.getPublishedAt()));
+                .set(BlogPost::getPublishedAt, post.getPublishedAt())
+                .setSql("version = version + 1"));
     }
 
     /** RM-MKT-027 deleteById */
@@ -106,6 +114,20 @@ public class BlogPostRepository {
             uw.set(BlogPost::getPublishedAt, publishedAt);
         }
         blogPostMapper.update(null, uw);
+    }
+
+    /** 2026-08-20 新增：状态前置条件 UPDATE，防止 patchStatus 并发覆盖（不加 version——状态机前置条件已足够）。
+     *  返回受影响行数，0 表示前置状态被他人修改，调用方抛 409 STATE_CHANGED。 */
+    public int updateStatusWithPrecondition(Long id, ContentStatus expectedFrom, ContentStatus target,
+                                            LocalDateTime publishedAt) {
+        LambdaUpdateWrapper<BlogPost> uw = new LambdaUpdateWrapper<BlogPost>()
+                .eq(BlogPost::getId, id)
+                .eq(BlogPost::getStatus, expectedFrom)
+                .set(BlogPost::getStatus, target);
+        if (publishedAt != null) {
+            uw.set(BlogPost::getPublishedAt, publishedAt);
+        }
+        return blogPostMapper.update(null, uw);
     }
 
     /** RM-MKT-029 incrementViews —— views=views+delta（仅 SCHED-MKT-02，TX-MKT-030） */

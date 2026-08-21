@@ -13,4 +13,11 @@ public interface BlogPostDBConst extends MarketingCommonDBConst {
     String SLUG = "slug";
     String PUBLISHED_AT = "published_at";
     String VIEWS = "views";
+
+    String EXCERPT = "excerpt";
+    String SEO_TITLE = "seo_title";
+    String SEO_DESCRIPTION = "seo_description";
+    String WORD_COUNT = "word_count";
+    String READING_MINUTES = "reading_minutes";
+    String VERSION = "version";
 }

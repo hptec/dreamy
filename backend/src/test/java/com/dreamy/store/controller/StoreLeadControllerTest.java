@@ -37,7 +37,8 @@ class StoreLeadControllerTest {
         ContactService contactService = mock(ContactService.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new StoreLeadController(newsletterService, contactService))
-                .setControllerAdvice(new MarketingExceptionHandler(new MarketingMessageResolver()))
+                .setControllerAdvice(new MarketingExceptionHandler(new MarketingMessageResolver(),
+                        new com.dreamy.i18n.SiteBuilderMessageResolver()))
                 .build();
     }
 

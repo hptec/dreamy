@@ -11,6 +11,9 @@ import lombok.Getter;
 @Getter
 public enum MarketingErrorCode {
 
+    // ===== 401 =====
+    PREVIEW_TOKEN_INVALID(401701, 401, "error.401701"),
+
     // ===== 404 =====
     CONTENT_NOT_FOUND(404701, 404, "error.404701"),
     COUPON_NOT_FOUND(404702, 404, "error.404702"),
@@ -20,12 +23,16 @@ public enum MarketingErrorCode {
     COUPON_CODE_EXISTS(409701, 409, "error.409701"),
     SLUG_EXISTS(409702, 409, "error.409702"),
     CONTENT_STATE_INVALID(409703, 409, "error.409703"),
+    VERSION_CONFLICT(409704, 409, "error.409704"),
+    STATE_CHANGED(409705, 409, "error.409705"),
 
     // ===== 422 =====
     COUPON_INVALID(422701, 422, "error.422701"),
     COUPON_MIN_AMOUNT_NOT_MET(422702, 422, "error.422702"),
     COUPON_EXHAUSTED(422703, 422, "error.422703"),
-    FIELD_VALIDATION_FAILED(422704, 422, "error.422704");
+    FIELD_VALIDATION_FAILED(422704, 422, "error.422704"),
+    RESERVED_SLUG(422705, 422, "error.422705"),
+    CONTENT_TOO_LARGE(422706, 422, "error.422706");
 
     /** 数字业务码（契约稳定锚点） */
     private final int code;

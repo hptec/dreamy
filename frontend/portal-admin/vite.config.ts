@@ -15,6 +15,17 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 2026-08-20: vditor 独立分包,避免主 bundle 膨胀约 800KB;仅 Blog 编辑路由加载
+          vditor: ['vditor'],
+          vendor: ['vue', 'vue-router', 'pinia', 'axios']
+        }
+      }
+    }
+  },
   server: {
     port: 5174,
     host: 'localhost',

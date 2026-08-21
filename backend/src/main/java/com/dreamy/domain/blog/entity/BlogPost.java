@@ -1,6 +1,8 @@
 package com.dreamy.domain.blog.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.dreamy.domain.blog.consts.BlogPostDBConst;
 import com.dreamy.enums.ContentStatus;
 import huihao.mysql.annotation.Column;
@@ -10,6 +12,7 @@ import huihao.mysql.auditable.LongAuditableEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -40,8 +43,23 @@ public class BlogPost extends LongAuditableEntity {
     @Column(name = BlogPostDBConst.AUTHOR, definition = "varchar(64) NULL")
     private String author;
 
-    @Column(name = BlogPostDBConst.CONTENT, definition = "text NULL COMMENT '正文(EN 基准)'")
+    @Column(name = BlogPostDBConst.CONTENT, definition = "mediumtext NULL COMMENT '正文(EN 基准, Markdown 格式)'")
     private String content;
+
+    @Column(name = BlogPostDBConst.EXCERPT, definition = "varchar(500) NULL COMMENT 'EN 摘要(主表提升)'")
+    private String excerpt;
+
+    @Column(name = BlogPostDBConst.SEO_TITLE, definition = "varchar(128) NULL COMMENT 'EN SEO 标题'")
+    private String seoTitle;
+
+    @Column(name = BlogPostDBConst.SEO_DESCRIPTION, definition = "varchar(255) NULL COMMENT 'EN SEO 描述'")
+    private String seoDescription;
+
+    @Column(name = BlogPostDBConst.WORD_COUNT, definition = "int NOT NULL DEFAULT 0 COMMENT '字数(CJK按字+Latin按词)'")
+    private Integer wordCount;
+
+    @Column(name = BlogPostDBConst.READING_MINUTES, definition = "decimal(5,1) NOT NULL DEFAULT 0 COMMENT '阅读时长(cjk/300+latin/200)'")
+    private BigDecimal readingMinutes;
 
     @Column(name = BlogPostDBConst.SLUG, definition = "varchar(128) NULL COMMENT '静态文章页路径 ^[a-z0-9-]+$；published 必填（CV-MKT-012）'")
     private String slug;
@@ -54,5 +72,10 @@ public class BlogPost extends LongAuditableEntity {
 
     @Column(name = BlogPostDBConst.VIEWS, definition = "int NOT NULL DEFAULT 0 COMMENT '阅读数近似计数（SCHED-MKT-02 flush，DEC-MKT-6）'")
     private Integer views;
+
+    @Version
+    @Column(name = BlogPostDBConst.VERSION, definition = "bigint NOT NULL DEFAULT 0 COMMENT '乐观锁(仅 update 全量保存使用;patchStatus 走状态前置条件不增 version)'")
+    @TableField(BlogPostDBConst.VERSION)
+    private Long version;
 
 }

@@ -7,6 +7,7 @@ import type {
   BannerUpsert,
   BlogPost,
   BlogPostUpsert,
+  BlogPreviewToken,
   ContentStatus,
   Coupon,
   CouponStatus,
@@ -116,6 +117,11 @@ export function deleteBlog(id: number): Promise<void> {
 
 export function patchBlogStatus(id: number, status: ContentStatus): Promise<BlogPost> {
   return patch<BlogPost>(`/api/admin/content/blogs/${id}/status`, { status })
+}
+
+/** 2026-08-20 新增: 生成预览 token（4h TTL） */
+export function createBlogPreviewToken(id: number): Promise<BlogPreviewToken> {
+  return post<BlogPreviewToken>(`/api/admin/content/blogs/${id}/preview-token`)
 }
 
 // ===== Real Weddings E-MKT-32~36 =====

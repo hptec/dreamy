@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { SUPPORTED_LOCALES, siteBaseUrl, localizedUrl } from '@/lib/i18n/seo'
 import { fetchStoreProducts } from '@/lib/api/catalog-server'
+import { fetchStoreBlogSitemap } from '@/lib/api/marketing-server'
 import type { Locale } from '@/lib/api/types'
 
 /**
@@ -8,6 +9,7 @@ import type { Locale } from '@/lib/api/types'
  * 每条 URL 在 en/es/fr 三语各生成一条，并附 alternates.languages（hreflang）。
  * - 静态页：固定路径集合。
  * - 商品页：E-CAT-01 拉取首批 slug（失败时静态页仍可用，不阻塞）。
+ * - Blog 详情页：2026-08-20 新增，拉取已发布博客（失败不阻塞）。
  */
 
 export const dynamic = 'force-dynamic'
@@ -60,6 +62,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {
     /* 上游不可用：仅输出静态条目 */
+  }
+
+  // 2026-08-20 新增: Blog 详情页（published,失败不阻塞）
+  try {
+    const blogPosts = await fetchStoreBlogSitemap()
+    for (const p of blogPosts) {
+      if (p.slug) {
+        const lastMod = p.updatedAt ? new Date(p.updatedAt) : undefined
+        entries.push(...entriesFor(`/blog/${p.slug}`, lastMod))
+      }
+    }
+  } catch {
+    /* 上游不可用：忽略 blog 条目 */
   }
 
   // base 兜底（确保至少返回非空）

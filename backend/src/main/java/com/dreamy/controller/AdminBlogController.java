@@ -2,6 +2,7 @@ package com.dreamy.controller;
 
 import com.dreamy.aspect.RequirePermission;
 import com.dreamy.domain.blog.service.AdminBlogService;
+import com.dreamy.domain.blog.service.BlogPreviewService;
 import com.dreamy.dto.AdminMarketingDtos.BlogPostDto;
 import com.dreamy.dto.AdminMarketingDtos.BlogPostUpsert;
 import com.dreamy.dto.AdminMarketingDtos.StatusPatch;
@@ -79,6 +80,13 @@ public class AdminBlogController {
     @PatchMapping("/api/admin/content/blogs/{id}/status")
     public ResponseEntity<R<BlogPostDto>> patchStatus(@PathVariable String id, @RequestBody StatusPatch req) {
         return ResponseEntity.ok(R.ok(adminBlogService.patchStatus(parseId(id), req.status())));
+    }
+
+    /** 2026-08-20 新增：预览 token 生成（4h TTL；灰度期可再叠加角色校验） */
+    @RequirePermission(PERMISSION)
+    @PostMapping("/api/admin/content/blogs/{id}/preview-token")
+    public ResponseEntity<R<BlogPreviewService.PreviewToken>> createPreviewToken(@PathVariable String id) {
+        return ResponseEntity.ok(R.ok(adminBlogService.createPreviewToken(parseId(id))));
     }
 
     /** V-MKT-055：id 非法视同不存在 → 404701 */

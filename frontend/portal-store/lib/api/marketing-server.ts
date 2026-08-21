@@ -44,6 +44,21 @@ export const fetchStoreBlog = cache((slug: string): Promise<ServerResult<StoreBl
   )
 })
 
+/** 2026-08-20 新增: 博客预览（凭 token,不走缓存） */
+export function fetchStoreBlogPreview(token: string): Promise<ServerResult<StoreBlogPostDetail>> {
+  return serverGetWithStatus<StoreBlogPostDetail>(
+    `/api/store/content/blogs/preview/${encodeURIComponent(token)}`
+  )
+}
+
+/** 2026-08-20 新增: sitemap 拉取已发布博客 */
+export async function fetchStoreBlogSitemap(): Promise<Array<{ slug: string; updatedAt: string }>> {
+  const res = await serverGet<{ items: Array<{ slug: string; updatedAt: string }> }>(
+    '/api/store/content/sitemap-blogs'
+  )
+  return res?.items ?? []
+}
+
 /** E-MKT-04 真实婚礼列表 */
 export function fetchStoreWeddings(
   params: { page?: number; pageSize?: number } = {}
