@@ -4,6 +4,7 @@ import { fetchStoreBlogPreview } from '@/lib/api/marketing-server'
 import { Eyebrow } from '@/components/ui/primitives'
 import { BlogPostBody } from '@/components/blog/BlogPostBody'
 import { formatDateTimeLong } from '@/lib/utils'
+import type { Locale } from '@/lib/api/types'
 
 /**
  * /blog/preview/[token]（2026-08-20 新增）
@@ -11,12 +12,16 @@ import { formatDateTimeLong } from '@/lib/utils'
  * - force-dynamic + no-store:绝不缓存
  * - X-Robots-Tag noindex/nofollow:防搜索引擎索引
  * - 顶部 Banner 提示 + 过期时间显示
+ * - 2026-08-28: 透传 ?locale=es|fr 给后端,管理员可在 admin 抽屉切到 ES/FR tab 后点预览直接看对应译文
  */
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+type PageParams = { locale: string; token: string }
+type PageSearch = { locale?: string }
+
+export async function generateMetadata({ params }: { params: Promise<PageParams> }): Promise<Metadata> {
   await params // 消费参数避免未用警告
   return {
     title: 'Blog Preview',
@@ -24,9 +29,18 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   }
 }
 
-export default async function BlogPreviewPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
-  const result = await fetchStoreBlogPreview(token)
+export default async function BlogPreviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<PageParams>
+  searchParams: Promise<PageSearch>
+}) {
+  const [{ locale: pathLocale, token }, sp] = await Promise.all([params, searchParams])
+  // 优先 query locale（admin 预览当前 tab 语言）；fallback 路径 locale（手动分享场景）
+  const rawLocale = sp.locale ?? pathLocale
+  const activeLocale: Locale = rawLocale === 'es' || rawLocale === 'fr' ? rawLocale : 'en'
+  const result = await fetchStoreBlogPreview(token, activeLocale)
   if (!result.data) notFound()
 
   const post = result.data

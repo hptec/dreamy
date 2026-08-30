@@ -12,7 +12,7 @@ import VditorEditor from '@/components/blog/VditorEditor.vue'
 import { useBlogStore } from '@/stores/blog'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
-import { extractFieldErrors, validateBlogForm, type FieldErrors } from '@/utils/validators'
+import { extractFieldErrors, slugify, validateBlogForm, type FieldErrors } from '@/utils/validators'
 import { formatDateTime } from '@/utils/format'
 import { ContentStatus } from '@/api/types'
 import type { BlogPost, BlogPostTranslation } from '@/api/types'
@@ -60,10 +60,24 @@ const form = ref({
 })
 type TransRow = { title: string; excerpt: string; body: string; seoTitle: string; seoDescription: string }
 const emptyTrans = (): TransRow => ({ title: '', excerpt: '', body: '', seoTitle: '', seoDescription: '' })
-const trans = ref<Record<'es' | 'fr', TransRow>>({ es: emptyTrans(), fr: emptyTrans() })
+const TRANS_LOCALES = ['es', 'fr'] as const
+type TransLocale = (typeof TRANS_LOCALES)[number]
+const trans = ref<Record<TransLocale, TransRow>>({ es: emptyTrans(), fr: emptyTrans() })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
 const previewing = ref(false)
+
+// slug 自动生成：新建态且用户未手动改过 slug 时,跟随标题；手动改/已有 slug 后停手
+const slugTouched = ref(false)
+
+watch(
+  () => form.value.title,
+  (title) => {
+    if (props.editing?.id) return
+    if (slugTouched.value) return
+    form.value.slug = slugify(title || '')
+  },
+)
 
 // 409 冲突弹窗状态
 const conflict = ref<{ show: boolean; latestVersion: number | null }>({ show: false, latestVersion: null })
@@ -87,6 +101,7 @@ watch(
     errors.value = {}
     conflict.value = { show: false, latestVersion: null }
     const e = props.editing
+    slugTouched.value = !!e?.slug
     form.value = e
       ? {
           title: e.title,
@@ -133,7 +148,7 @@ watch(
 
 function buildTranslations(): BlogPostTranslation[] {
   const rows: BlogPostTranslation[] = []
-  for (const l of ['es', 'fr'] as const) {
+  for (const l of TRANS_LOCALES) {
     const t = trans.value[l]
     if (Object.values(t).some((v) => !!v)) {
       rows.push({
@@ -263,7 +278,8 @@ async function conflictForceOverwrite() {
   }
 }
 
-/** 预览 → 生成 token 新窗口打开 /blog/preview/{token} */
+/** 预览 → 生成 token 新窗口打开 /blog/preview/{token}
+ *  2026-08-28: 拼接当前 tab locale 为 query,使预览页能拉到对应译文 */
 async function preview() {
   if (!props.editing?.id) {
     toast.error('请先保存文章后再预览')
@@ -272,7 +288,8 @@ async function preview() {
   previewing.value = true
   try {
     const t = await marketingApi.createBlogPreviewToken(props.editing.id)
-    window.open(`${STORE_BASE}${t.previewUrl}`, '_blank')
+    const url = locale.value === 'en' ? `${STORE_BASE}${t.previewUrl}` : `${STORE_BASE}${t.previewUrl}?locale=${locale.value}`
+    window.open(url, '_blank')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '生成预览链接失败')
   } finally {
@@ -298,13 +315,24 @@ async function preview() {
             <span v-if="form.status === ContentStatus.PUBLISHED" class="text-danger"> *</span>
             <span v-if="slugLocked" class="ml-1 text-[11px] text-ink-faint">（发布后锁定）</span>
           </label>
-          <input
-            v-model="form.slug"
-            class="field font-mono"
-            :class="{ 'cursor-not-allowed bg-canvas-warm/50 opacity-70': slugLocked }"
-            :disabled="slugLocked"
-            placeholder="how-to-choose-veil"
-          />
+          <div class="flex items-stretch gap-2">
+            <input
+              v-model="form.slug"
+              class="field font-mono flex-1"
+              :class="{ 'cursor-not-allowed bg-canvas-warm/50 opacity-70': slugLocked }"
+              :disabled="slugLocked"
+              placeholder="how-to-choose-veil"
+              @input="slugTouched = true"
+            />
+            <button
+              v-if="!slugLocked"
+              type="button"
+              class="btn-outline shrink-0 px-2.5 text-[12px]"
+              :disabled="!form.title.trim()"
+              title="根据当前标题重新生成 slug"
+              @click="form.slug = slugify(form.title); slugTouched = false"
+            >从标题生成</button>
+          </div>
           <p v-if="errors.slug" class="mt-1 text-[11px] text-danger">{{ errors.slug }}</p>
         </div>
         <div>
@@ -381,7 +409,8 @@ async function preview() {
       </p>
     </div>
 
-    <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-4">
+    <template v-for="l in TRANS_LOCALES" :key="l">
+      <div v-if="locale === l" class="space-y-4">
       <div>
         <div class="mb-1.5 flex items-center justify-between">
           <label class="field-label mb-0">标题（{{ l.toUpperCase() }}）</label>
@@ -393,11 +422,7 @@ async function preview() {
             compact
           />
         </div>
-        <input v-model="trans[l].title" class="field" />
-      </div>
-      <div>
-        <label class="field-label">摘要 excerpt（{{ l.toUpperCase() }}）</label>
-        <textarea v-model="trans[l].excerpt" rows="2" class="field resize-none"></textarea>
+        <input v-model="trans[l].title" class="field" maxlength="200" />
       </div>
       <div>
         <div class="mb-1.5 flex items-center justify-between">
@@ -412,18 +437,35 @@ async function preview() {
         </div>
         <textarea v-model="trans[l].body" rows="8" class="field resize-y leading-relaxed"></textarea>
       </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">SEO Title（{{ l.toUpperCase() }}）</label>
-          <input v-model="trans[l].seoTitle" class="field" />
+      <details class="rounded border border-line bg-canvas-warm/30 p-3">
+        <summary class="cursor-pointer text-[13px] font-medium text-ink">SEO 设置（{{ l.toUpperCase() }}，可选）</summary>
+        <div class="mt-3 space-y-3">
+          <div>
+            <label class="field-label">
+              摘要 excerpt
+              <span class="ml-2 text-[11px] text-ink-faint">{{ trans[l].excerpt.length }} / 160</span>
+            </label>
+            <textarea v-model="trans[l].excerpt" rows="2" maxlength="500" class="field resize-none" placeholder="列表卡片/SEO 描述展示用，留空时消费端回退 EN"></textarea>
+          </div>
+          <div>
+            <label class="field-label">
+              SEO Title
+              <span class="ml-2 text-[11px] text-ink-faint">{{ trans[l].seoTitle.length }} / 60</span>
+            </label>
+            <input v-model="trans[l].seoTitle" maxlength="128" class="field" placeholder="留空时回退 EN" />
+          </div>
+          <div>
+            <label class="field-label">
+              SEO Description
+              <span class="ml-2 text-[11px] text-ink-faint">{{ trans[l].seoDescription.length }} / 160</span>
+            </label>
+            <textarea v-model="trans[l].seoDescription" rows="2" maxlength="255" class="field resize-none" placeholder="留空时回退 EN"></textarea>
+          </div>
         </div>
-        <div>
-          <label class="field-label">SEO Description（{{ l.toUpperCase() }}）</label>
-          <input v-model="trans[l].seoDescription" class="field" />
-        </div>
-      </div>
+      </details>
       <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13，可部分提交）。</p>
-    </div>
+      </div>
+    </template>
 
     <template #footer>
       <button class="btn-outline" @click="emit('close')">取消</button>

@@ -167,6 +167,18 @@ export interface UiMessages {
   empty: {
     generic: string
   }
+  blog: {
+    title: string
+    eyebrow: string
+    description: string
+    empty: string
+    backToBlog: string
+    keepReading: string
+    previous: string
+    next: string
+    pageOf: string
+    notFound: string
+  }
   error: {
     generic: string
     notFoundTitle: string
@@ -423,6 +435,18 @@ const en: UiMessages = {
   },
   empty: {
     generic: 'Nothing here yet.'
+  },
+  blog: {
+    title: 'Wedding Blog',
+    eyebrow: 'The Journal',
+    description: 'Planning tips, fabric guides, and outdoor wedding inspiration.',
+    empty: 'New stories are on the way — check back soon.',
+    backToBlog: '← Back to blog',
+    keepReading: 'Keep reading',
+    previous: 'Previous',
+    next: 'Next',
+    pageOf: 'Page {page} of {total}',
+    notFound: 'Post Not Found'
   },
   error: {
     generic: 'Something went wrong. Please try again.',
@@ -686,6 +710,18 @@ const es: DeepPartial<UiMessages> = {
   empty: {
     generic: 'Aun no hay nada aqui.'
   },
+  blog: {
+    title: 'Blog de Bodas',
+    eyebrow: 'El Diario',
+    description: 'Consejos de planificacion, guias de telas e inspiracion para bodas al aire libre.',
+    empty: 'Nuevas historias estan en camino — vuelve pronto.',
+    backToBlog: '← Volver al blog',
+    keepReading: 'Sigue leyendo',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    pageOf: 'Pagina {page} de {total}',
+    notFound: 'Articulo no encontrado'
+  },
   error: {
     generic: 'Algo salio mal. Intentelo de nuevo.',
     notFoundTitle: 'Esta pagina se perdio',
@@ -947,6 +983,18 @@ const fr: DeepPartial<UiMessages> = {
   },
   empty: {
     generic: 'Rien ici pour le moment.'
+  },
+  blog: {
+    title: 'Blog Mariage',
+    eyebrow: 'Le Journal',
+    description: 'Conseils de planification, guides des tissus et inspiration pour mariages en plein air.',
+    empty: 'De nouvelles histoires arrivent — revenez bientot.',
+    backToBlog: '← Retour au blog',
+    keepReading: 'Continuer a lire',
+    previous: 'Precedent',
+    next: 'Suivant',
+    pageOf: 'Page {page} sur {total}',
+    notFound: 'Article introuvable'
   },
   error: {
     generic: 'Une erreur est survenue. Veuillez reessayer.',

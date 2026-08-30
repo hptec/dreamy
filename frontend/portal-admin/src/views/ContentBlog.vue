@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // PAGE-MKT-A03 / COMP-MKT-A06：Blog 文章（卡片网格保持；filter tabs 改服务端参数 + 补『已归档』tab；
 // 发布预判 slug 空 422704；published 行「下线」/archived 行「重新发布」；预览新窗口）
+// 2026-08-28: 卡片右上角加 ES/FR 翻译状态国旗(LocaleFlag),运营一眼看到哪些文章译文未填
 import { onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -8,6 +9,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import BlogEditDrawer from '@/components/drawers/BlogEditDrawer.vue'
+import LocaleFlag from '@/components/ui/LocaleFlag.vue'
 import { useBlogStore } from '@/stores/blog'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -118,6 +120,13 @@ async function doDelete() {
 }
 
 onMounted(load)
+
+/** 2026-08-28: 从 translations 派生单语状态：有任一字段视为 filled，否则 missing */
+function transState(p: BlogPost, locale: 'es' | 'fr'): 'filled' | 'missing' {
+  const t = p.translations?.find((x) => x.locale === locale)
+  if (!t) return 'missing'
+  return (t.title || t.excerpt || t.body || t.seoTitle || t.seoDescription) ? 'filled' : 'missing'
+}
 </script>
 
 <template>
@@ -152,6 +161,11 @@ onMounted(load)
           <img v-if="p.cover" :src="p.cover" class="h-full w-full object-cover" />
           <div v-else class="flex h-full w-full items-center justify-center bg-canvas-warm text-ink-faint">无封面</div>
           <StatusBadge class="absolute left-3 top-3" :tone="statusTone[p.status]" :label="statusLabel[p.status]" />
+          <!-- 2026-08-28: ES/FR 翻译状态国旗（filled 彩色/missing 灰），便于运营快速识别待补译文 -->
+          <div class="absolute right-3 top-3 flex items-center gap-1.5 rounded bg-white/85 px-1.5 py-0.5 backdrop-blur-sm">
+            <LocaleFlag locale="es" :state="transState(p, 'es')" />
+            <LocaleFlag locale="fr" :state="transState(p, 'fr')" />
+          </div>
         </div>
         <div class="p-4">
           <span class="text-[11px] uppercase tracking-wide text-gold-deep">{{ p.category || 'Uncategorized' }}</span>

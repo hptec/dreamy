@@ -32,4 +32,7 @@ public class RealWeddingTranslation extends LongAuditableEntity {
 
     @Column(name = RealWeddingTranslationDBConst.STORY, definition = "text NULL")
     private String story;
+
+    @Column(name = RealWeddingTranslationDBConst.THEME, definition = "varchar(32) NULL COMMENT '主题翻译（EN 主表 real_wedding.theme 的译文）'")
+    private String theme;
 }

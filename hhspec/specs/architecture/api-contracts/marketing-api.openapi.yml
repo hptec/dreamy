@@ -1769,6 +1769,9 @@ components:
           type: string
         story:
           type: string
+        theme:
+          type: string
+          maxLength: 32
 
     # ---- 营销共享 IntEnum ----
     BannerPosition:

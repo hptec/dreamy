@@ -67,6 +67,7 @@ export const fieldI18nPolicy: Record<string, Record<string, FieldI18nPolicy>> = 
   real_wedding: {
     title: 'translate',
     story: 'translate',
+    theme: 'translate',
   },
 }
 

@@ -211,7 +211,7 @@ public class AdminWeddingService {
         return deduped;
     }
 
-    /** V-MKT-063 translations locale ∈ {es,fr} 不重复；title ≤200 / story TEXT */
+    /** V-MKT-063 translations locale ∈ {es,fr} 不重复；title ≤200 / story TEXT / theme ≤32 */
     private void validateTranslations(List<RealWeddingTranslationDto> translations, MarketingFieldErrors errors) {
         if (translations == null) {
             return;
@@ -225,6 +225,9 @@ public class AdminWeddingService {
             }
             if (t.title() != null && t.title().length() > 200) {
                 errors.reject("translations", "title_too_long");
+            }
+            if (t.theme() != null && t.theme().length() > 32) {
+                errors.reject("translations", "theme_too_long");
             }
         }
     }
@@ -250,6 +253,7 @@ public class AdminWeddingService {
             row.setLocale(dto.locale());
             row.setTitle(dto.title());
             row.setStory(dto.story());
+            row.setTheme(dto.theme());
             rows.add(row);
         }
         return rows;
@@ -259,7 +263,7 @@ public class AdminWeddingService {
         Map<Long, List<RealWeddingTranslationDto>> map = new HashMap<>();
         for (RealWeddingTranslation row : weddingRepository.listTranslationsByWeddingIds(ids)) {
             map.computeIfAbsent(row.getRealWeddingId(), k -> new ArrayList<>())
-                    .add(new RealWeddingTranslationDto(row.getLocale(), row.getTitle(), row.getStory()));
+                    .add(new RealWeddingTranslationDto(row.getLocale(), row.getTitle(), row.getStory(), row.getTheme()));
         }
         return map;
     }

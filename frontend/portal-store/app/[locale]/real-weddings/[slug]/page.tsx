@@ -5,6 +5,8 @@ import { fetchStoreWedding } from '@/lib/api/marketing-server'
 import { ProductCard } from '@/components/product/product-card'
 import type { StoreProductCard } from '@/lib/api/store-types'
 import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
+import { BlogPostBody } from '@/components/blog/BlogPostBody'
+import type { Locale } from '@/lib/api/types'
 
 /**
  * /real-weddings/[slug]（PAGE-MKT-S06）：路由段目录名保持 [slug]、参数值改数字 id（契约按 id 取详情）；
@@ -15,51 +17,56 @@ import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params
+type PageParams = { locale: string; slug: string }
+
+export async function generateMetadata({ params }: { params: Promise<PageParams> }): Promise<Metadata> {
+  const { locale, slug } = await params
+  const activeLocale = (locale as Locale) ?? 'en'
   const id = Number(slug)
   if (!Number.isFinite(id)) return { title: 'Wedding Not Found' }
-  const { data: w } = await fetchStoreWedding(id)
+  const { data: w } = await fetchStoreWedding(id, activeLocale)
   if (!w) return { title: 'Wedding Not Found' }
   return { title: `${w.couple} · Real Wedding`, description: w.title }
 }
 
-export default async function RealWeddingDetail({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
+export default async function RealWeddingDetail({ params }: { params: Promise<PageParams> }) {
+  const { locale, slug } = await params
+  const activeLocale = (locale as Locale) ?? 'en'
   const id = Number(slug)
   if (!Number.isFinite(id)) notFound()
-  const { data: w } = await fetchStoreWedding(id)
+  const { data: w } = await fetchStoreWedding(id, activeLocale)
   if (!w) notFound()
 
   const products = w.products ?? []
-  const paragraphs = (w.story ?? '').split(/\n+/).filter((p) => p.trim().length > 0)
 
   return (
     <div>
-      <section className="relative h-[65vh] min-h-[440px] overflow-hidden bg-muted">
-        {w.cover && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={w.cover} alt={w.couple} className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink/70 to-ink/10" />
-        <div className="container-luxe relative flex h-full flex-col justify-end pb-12 text-canvas">
-          <Eyebrow className="text-gold-light">{[w.theme ? `${w.theme} Wedding` : 'Real Wedding', w.location].filter(Boolean).join(' · ')}</Eyebrow>
-          <h1 className="mt-2 font-display text-5xl font-medium lg:text-6xl">{w.couple}</h1>
-          {w.weddingDate && <p className="text-canvas/80">{w.weddingDate}</p>}
+      <section className="container-luxe pt-14 pb-10 text-center lg:pt-20 lg:pb-14">
+        <Eyebrow>{[w.theme ? `${w.theme} Wedding` : 'Real Wedding', w.location].filter(Boolean).join(' · ')}</Eyebrow>
+        <h1 className="heading-display mx-auto mt-4 max-w-4xl text-5xl lg:text-7xl">{w.couple}</h1>
+        <div className="mx-auto mt-6 flex items-center justify-center gap-4 text-sm text-ink-faint">
+          <span className="h-px w-10 bg-line" aria-hidden />
+          {w.weddingDate && <span className="uppercase tracking-luxe">{w.weddingDate}</span>}
+          <span className="h-px w-10 bg-line" aria-hidden />
         </div>
+        {w.title && <p className="mx-auto mt-6 max-w-2xl font-display text-xl italic leading-relaxed text-ink-soft lg:text-2xl">{w.title}</p>}
       </section>
 
-      <article className="container-luxe max-w-3xl py-16">
-        {w.title && <p className="font-display text-2xl leading-relaxed text-ink">{w.title}</p>}
-        {paragraphs.length > 0 && (
-          <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink-soft">
-            {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
+      {w.cover && (
+        <section className="container-luxe">
+          <div className="mx-auto aspect-[4/5] max-w-3xl overflow-hidden rounded-sm bg-muted lg:max-w-4xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={w.cover} alt={w.couple} className="h-full w-full object-cover" />
           </div>
-        )}
+        </section>
+      )}
+
+      <article className="container-luxe max-w-3xl py-16 lg:py-20">
+        {w.story && <BlogPostBody content={w.story} />}
       </article>
 
       {products.length > 0 && (
-        <section className="bg-muted py-16">
+        <section className="bg-muted py-16 lg:py-20">
           <div className="container-luxe">
             <SectionHeading eyebrow="Get the look" title="Shop this wedding" />
             <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
@@ -72,7 +79,7 @@ export default async function RealWeddingDetail({ params }: { params: Promise<{ 
         </section>
       )}
 
-      <div className="container-luxe py-12 text-center">
+      <div className="container-luxe py-14 text-center">
         <Link href="/real-weddings" className="btn-outline">← All Real Weddings</Link>
       </div>
     </div>

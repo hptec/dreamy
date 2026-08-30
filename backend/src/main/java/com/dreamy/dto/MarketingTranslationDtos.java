@@ -26,8 +26,8 @@ public final class MarketingTranslationDtos {
                                          String seoTitle, String seoDescription) {
     }
 
-    /** openapi RealWeddingTranslation（V-MKT-063） */
-    public record RealWeddingTranslationDto(String locale, String title, String story) {
+    /** openapi RealWeddingTranslation（V-MKT-063；2026-08-30 增 theme） */
+    public record RealWeddingTranslationDto(String locale, String title, String story, String theme) {
     }
 
     /** openapi LookbookTranslation（V-MKT-071） */

@@ -9,4 +9,5 @@ public interface RealWeddingTranslationDBConst extends MarketingCommonDBConst {
 
     String REAL_WEDDING_ID = "real_wedding_id";
     String STORY = "story";
+    String THEME = "theme";
 }

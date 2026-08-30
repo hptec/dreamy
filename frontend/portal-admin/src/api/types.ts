@@ -790,6 +790,7 @@ export interface RealWeddingTranslation {
   locale: TranslationLocale
   title?: string | null
   story?: string | null
+  theme?: string | null
 }
 
 export interface RealWedding {

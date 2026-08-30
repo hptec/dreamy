@@ -44,6 +44,22 @@ export function isBizCode(e: unknown, code: number): boolean {
 
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/**
+ * 标题 → slug 自动生成（小写字母/数字/中划线，连续分隔折叠）：
+ * 非 ASCII（如中文）逐字符剥离后若为空则回退空串，由后端发布 guard 拦截。
+ */
+export function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 128)
+    .replace(/-+$/g, '')
+}
+
 /** V-CAT-053 镜像：属性定义 key（小写字母开头，仅小写字母/数字/下划线，≤64） */
 export const ATTR_KEY_PATTERN = /^[a-z][a-z0-9_]*$/
 

@@ -30,7 +30,7 @@ export async function fetchStoreBanners(position: BannerPosition): Promise<Store
 
 /** E-MKT-02 博客列表 */
 export function fetchStoreBlogs(
-  params: { category?: string; page?: number; pageSize?: number } = {}
+  params: { category?: string; page?: number; pageSize?: number; locale?: string } = {}
 ): Promise<Paginated<StoreBlogPostCard> | null> {
   return serverGet<Paginated<StoreBlogPostCard>>('/api/store/content/blogs', {
     query: { ...params }
@@ -38,16 +38,19 @@ export function fetchStoreBlogs(
 }
 
 /** E-MKT-03 博客详情（404701 → notFound；React cache 每请求单飞） */
-export const fetchStoreBlog = cache((slug: string): Promise<ServerResult<StoreBlogPostDetail>> => {
+export const fetchStoreBlog = cache((slug: string, locale?: string): Promise<ServerResult<StoreBlogPostDetail>> => {
   return serverGetWithStatus<StoreBlogPostDetail>(
-    `/api/store/content/blogs/${encodeURIComponent(slug)}`
+    `/api/store/content/blogs/${encodeURIComponent(slug)}`,
+    { query: locale ? { locale } : undefined }
   )
 })
 
-/** 2026-08-20 新增: 博客预览（凭 token,不走缓存） */
-export function fetchStoreBlogPreview(token: string): Promise<ServerResult<StoreBlogPostDetail>> {
+/** 2026-08-20 新增: 博客预览（凭 token,不走缓存）
+ *  2026-08-28: 支持 locale 参数,管理员预览 ES/FR 译文 */
+export function fetchStoreBlogPreview(token: string, locale?: string): Promise<ServerResult<StoreBlogPostDetail>> {
   return serverGetWithStatus<StoreBlogPostDetail>(
-    `/api/store/content/blogs/preview/${encodeURIComponent(token)}`
+    `/api/store/content/blogs/preview/${encodeURIComponent(token)}`,
+    { query: locale ? { locale } : undefined }
   )
 }
 
@@ -61,7 +64,7 @@ export async function fetchStoreBlogSitemap(): Promise<Array<{ slug: string; upd
 
 /** E-MKT-04 真实婚礼列表 */
 export function fetchStoreWeddings(
-  params: { page?: number; pageSize?: number } = {}
+  params: { page?: number; pageSize?: number; locale?: string } = {}
 ): Promise<Paginated<StoreRealWedding> | null> {
   return serverGet<Paginated<StoreRealWedding>>('/api/store/content/weddings', {
     query: { ...params }
@@ -69,8 +72,11 @@ export function fetchStoreWeddings(
 }
 
 /** E-MKT-05 真实婚礼详情（React cache 每请求单飞） */
-export const fetchStoreWedding = cache((id: number): Promise<ServerResult<StoreRealWedding>> => {
-  return serverGetWithStatus<StoreRealWedding>(`/api/store/content/weddings/${id}`)
+export const fetchStoreWedding = cache((id: number, locale?: string): Promise<ServerResult<StoreRealWedding>> => {
+  return serverGetWithStatus<StoreRealWedding>(
+    `/api/store/content/weddings/${id}`,
+    { query: locale ? { locale } : undefined }
+  )
 })
 
 /** E-MKT-06 Lookbook 列表 */

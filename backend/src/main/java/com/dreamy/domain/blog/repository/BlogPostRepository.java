@@ -45,11 +45,14 @@ public class BlogPostRepository {
                 .eq(BlogPost::getStatus, ContentStatus.PUBLISHED));
     }
 
-    /** RM-MKT-022 pageAdmin —— title LIKE（E-MKT-26，ORDER BY COALESCE(published_at, created_at) DESC, id DESC） */
+    /** RM-MKT-022 pageAdmin —— title LIKE（E-MKT-26，ORDER BY COALESCE(published_at, created_at) DESC, id DESC）
+     *  2026-08-21：status == null（admin「全部」tab）时排除 archived——归档视为冷宫，仅 status=archived 时可见。 */
     public Page<BlogPost> pageAdmin(ContentStatus status, String search, int page, int pageSize) {
         LambdaQueryWrapper<BlogPost> qw = new LambdaQueryWrapper<>();
         if (status != null) {
             qw.eq(BlogPost::getStatus, status);
+        } else {
+            qw.ne(BlogPost::getStatus, ContentStatus.ARCHIVED);
         }
         if (search != null) {
             qw.like(BlogPost::getTitle, search);

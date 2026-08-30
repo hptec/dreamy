@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { fetchStoreWeddings } from '@/lib/api/marketing-server'
 
 import { SectionHeading } from '@/components/ui/primitives'
+import type { Locale } from '@/lib/api/types'
 
 /** /real-weddings（PAGE-MKT-S05，layout-keep + data-swap）：E-MKT-04；链接 href=/real-weddings/{id}。 */
 
@@ -13,8 +14,12 @@ export const metadata: Metadata = {
   description: 'Real outdoor weddings styled in Dreamy gowns and dresses. Shop the looks.'
 }
 
-export default async function RealWeddingsPage() {
-  const result = await fetchStoreWeddings({ page: 1, pageSize: 12 })
+type PageParams = { locale: string }
+
+export default async function RealWeddingsPage({ params }: { params: Promise<PageParams> }) {
+  const { locale } = await params
+  const activeLocale = (locale as Locale) ?? 'en'
+  const result = await fetchStoreWeddings({ page: 1, pageSize: 12, locale: activeLocale })
   const weddings = result?.data ?? []
 
   return (

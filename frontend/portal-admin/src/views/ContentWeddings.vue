@@ -13,7 +13,7 @@ import { useWeddingsStore } from '@/stores/weddings'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import {
-  PlusIcon, PencilSquareIcon, TrashIcon, ShoppingBagIcon, MapPinIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon,
+  PlusIcon, PencilSquareIcon, TrashIcon, ShoppingBagIcon, MapPinIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon, EyeIcon,
 } from '@heroicons/vue/24/outline'
 import { PublishStatus } from '@/api/types'
 import type { RealWedding } from '@/api/types'
@@ -25,9 +25,16 @@ const drawer = ref(false)
 const editing = ref<RealWedding | null>(null)
 const confirm = ref<RealWedding | null>(null)
 const confirmBusy = ref(false)
+const STORE_BASE = import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173'
 
 function load() {
   store.fetch().catch((e) => toast.error(e instanceof BizError ? e.message : '加载婚礼故事失败'))
+}
+
+/** 已发布案例可直接打开前台详情；草稿暂无前台预览接口，避免打开 404。 */
+function preview(w: RealWedding) {
+  if (w.status !== PublishStatus.PUBLISHED) return
+  window.open(`${STORE_BASE}/real-weddings/${w.id}`, '_blank')
 }
 
 /** draft↔published 双向流转 */
@@ -102,6 +109,13 @@ onMounted(load)
                 <ShoppingBagIcon class="h-3.5 w-3.5" />Shop the Look · {{ w.productIds?.length ?? 0 }} 件
               </span>
               <div class="ml-auto flex gap-1">
+                <button
+                  class="btn-ghost disabled:opacity-40"
+                  :disabled="w.status !== PublishStatus.PUBLISHED"
+                  :aria-label="w.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'"
+                  :title="w.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'"
+                  @click="preview(w)"
+                ><EyeIcon class="h-4 w-4" /></button>
                 <button class="btn-ghost" :title="w.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleStatus(w)">
                   <component :is="w.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
                 </button>

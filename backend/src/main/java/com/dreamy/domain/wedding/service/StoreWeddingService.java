@@ -95,7 +95,9 @@ public class StoreWeddingService {
 
     private StoreRealWedding toDto(RealWedding w, RealWeddingTranslation t,
                                    List<CatalogQueryPort.ProductRef> products) {
-        return new StoreRealWedding(w.getId(), w.getCouple(), w.getLocation(), w.getTheme(), w.getWeddingDate(),
+        return new StoreRealWedding(w.getId(), w.getCouple(), w.getLocation(),
+                Translations.coalesce(t == null ? null : t.getTheme(), w.getTheme()),
+                w.getWeddingDate(),
                 w.getCover(), PublishStatus.PUBLISHED.getKey(),
                 Translations.coalesce(t == null ? null : t.getTitle(), w.getTitle()),
                 Translations.coalesce(t == null ? null : t.getStory(), w.getStory()),

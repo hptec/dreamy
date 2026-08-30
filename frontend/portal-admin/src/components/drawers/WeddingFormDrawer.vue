@@ -7,6 +7,7 @@ import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
+import VditorEditor from '@/components/blog/VditorEditor.vue'
 import { useWeddingsStore } from '@/stores/weddings'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -32,17 +33,17 @@ const form = ref({
   story: '',
   productIds: [] as number[],
 })
-const trans = ref<Record<'es' | 'fr', { title: string; story: string }>>({
-  es: { title: '', story: '' },
-  fr: { title: '', story: '' },
+const trans = ref<Record<'es' | 'fr', { title: string; story: string; theme: string }>>({
+  es: { title: '', story: '', theme: '' },
+  fr: { title: '', story: '', theme: '' },
 })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
 
 const filled = computed(() => ({
-  en: !!(form.value.title || form.value.story),
-  es: !!(trans.value.es.title || trans.value.es.story),
-  fr: !!(trans.value.fr.title || trans.value.fr.story),
+  en: !!(form.value.title || form.value.story || form.value.theme),
+  es: !!(trans.value.es.title || trans.value.es.story || trans.value.es.theme),
+  fr: !!(trans.value.fr.title || trans.value.fr.story || trans.value.fr.theme),
 }))
 
 watch(
@@ -67,8 +68,8 @@ watch(
       : { couple: '', location: '', theme: '', weddingDate: '', cover: '', status: PublishStatus.DRAFT, title: '', story: '', productIds: [] }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
-      es: { title: byLocale('es')?.title || '', story: byLocale('es')?.story || '' },
-      fr: { title: byLocale('fr')?.title || '', story: byLocale('fr')?.story || '' },
+      es: { title: byLocale('es')?.title || '', story: byLocale('es')?.story || '', theme: byLocale('es')?.theme || '' },
+      fr: { title: byLocale('fr')?.title || '', story: byLocale('fr')?.story || '', theme: byLocale('fr')?.theme || '' },
     }
   },
 )
@@ -77,8 +78,8 @@ function buildTranslations(): RealWeddingTranslation[] {
   const rows: RealWeddingTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    if (t.title.trim() || t.story.trim()) {
-      rows.push({ locale: l, title: t.title.trim() || null, story: t.story.trim() || null })
+    if (t.title.trim() || t.story.trim() || t.theme.trim()) {
+      rows.push({ locale: l, title: t.title.trim() || null, story: t.story.trim() || null, theme: t.theme.trim() || null })
     }
   }
   return rows
@@ -144,11 +145,12 @@ async function submit() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">主题</label>
-          <input v-model="form.theme" class="field" placeholder="如 Garden Romance" />
+          <input v-model="form.theme" class="field" maxlength="32" placeholder="如 Garden Romance" />
         </div>
         <div>
           <label class="field-label">婚期</label>
-          <input v-model="form.weddingDate" type="date" class="field" />
+          <!-- wedding_date 存储格式为 yyyy-MM（varchar(16)），用 month 输入避免 date 格式不匹配 -->
+          <input v-model="form.weddingDate" type="month" class="field" />
         </div>
       </div>
       <div class="grid grid-cols-2 gap-4">
@@ -166,12 +168,12 @@ async function submit() {
         </div>
       </div>
       <div>
-        <label class="field-label">标题（EN，可选）</label>
-        <input v-model="form.title" class="field" />
+        <label class="field-label">标题（可选）</label>
+        <input v-model="form.title" class="field" maxlength="200" />
       </div>
       <div>
-        <label class="field-label">故事正文（EN）</label>
-        <textarea v-model="form.story" rows="6" class="field resize-y leading-relaxed"></textarea>
+        <label class="field-label">故事正文</label>
+        <VditorEditor v-model="form.story" :height="360" upload-scope="content" />
       </div>
       <div>
         <label class="field-label">Shop the Look 关联商品</label>
@@ -180,17 +182,23 @@ async function submit() {
       </div>
     </div>
 
-    <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-4">
-      <div>
-        <label class="field-label">标题（{{ l.toUpperCase() }}）</label>
-        <input v-model="trans[l].title" class="field" />
+    <template v-for="l in ['es', 'fr'] as const" :key="l">
+      <div v-show="locale === l" class="space-y-4">
+        <div>
+          <label class="field-label">主题（{{ l.toUpperCase() }}）</label>
+          <input v-model="trans[l].theme" class="field" maxlength="32" />
+        </div>
+        <div>
+          <label class="field-label">标题（{{ l.toUpperCase() }}）</label>
+          <input v-model="trans[l].title" class="field" maxlength="200" />
+        </div>
+        <div>
+          <label class="field-label">故事正文（{{ l.toUpperCase() }}）</label>
+          <VditorEditor v-model="trans[l].story" :height="360" upload-scope="content" />
+        </div>
+        <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
       </div>
-      <div>
-        <label class="field-label">故事正文（{{ l.toUpperCase() }}）</label>
-        <textarea v-model="trans[l].story" rows="6" class="field resize-y leading-relaxed"></textarea>
-      </div>
-      <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
-    </div>
+    </template>
 
     <template #footer>
       <button class="btn-outline" @click="emit('close')">取消</button>
