@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
+import VditorEditor from '@/components/blog/VditorEditor.vue'
 import { useLookbookStore } from '@/stores/lookbook'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -117,7 +118,7 @@ async function submit() {
   <DrawerShell :open="open" eyebrow="Content · CMS" :title="editing ? '编辑指南' : '新增指南'" @close="emit('close')">
     <LocaleTabs v-model="locale" :filled="filled" />
 
-    <div v-show="locale === 'en'" class="space-y-4">
+    <div v-if="locale === 'en'" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">阶段 *</label>
@@ -150,21 +151,23 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">正文（EN）</label>
-        <textarea v-model="form.body" rows="5" class="field resize-y leading-relaxed"></textarea>
+        <VditorEditor v-model="form.body" :height="320" upload-scope="content" />
       </div>
     </div>
 
-    <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-4">
+    <template v-for="l in ['es', 'fr'] as const" :key="l">
+    <div v-if="locale === l" class="space-y-4">
       <div>
         <label class="field-label">标题（{{ l.toUpperCase() }}）</label>
         <input v-model="trans[l].title" class="field" />
       </div>
       <div>
         <label class="field-label">正文（{{ l.toUpperCase() }}）</label>
-        <textarea v-model="trans[l].body" rows="5" class="field resize-y leading-relaxed"></textarea>
+        <VditorEditor v-model="trans[l].body" :height="320" upload-scope="content" />
       </div>
       <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
     </div>
+    </template>
 
     <template #footer>
       <button class="btn-outline" @click="emit('close')">取消</button>

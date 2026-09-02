@@ -117,7 +117,7 @@
 - MAP-MKT-005 BlogPost→BlogPost DTO（admin）：Upsert 全字段 + id/published_at/views + translations 原样
 - MAP-MKT-006 RealWedding→StoreRealWedding：id/couple/location/theme/wedding_date/cover/status=2(PUBLISHED 恒定)/title/story(locale 解析) + products[]（详情，ProductRef 经 catalogQueryPort）
 - MAP-MKT-007 RealWedding→RealWedding DTO（admin）：Upsert + id + product_ids + translations 原样
-- MAP-MKT-008 Lookbook→StoreLookbook：id/title(locale)/theme/description(locale) + products[]（详情）；Lookbook→Lookbook DTO（admin）同构 + product_ids
+- MAP-MKT-008 Lookbook→StoreLookbook：id/title(locale)/theme/cover/fallback_cover/description(locale) + products[]（详情）；cover 为空时 fallback_cover 取关联顺序中首张已发布商品主图；Lookbook→Lookbook DTO（admin）同构 + product_ids
 - MAP-MKT-009 Guide→StoreGuide：id/phase/timeframe/title(locale)/body(locale)/tasks_count；Guide→Guide DTO（admin）+ translations
 - MAP-MKT-010 Coupon→Coupon DTO（admin）：Upsert 全字段 + id/used_count（只读）+ translations；Coupon→CouponValidateResponse.coupon：code/name(locale)/type/value/min_amount（**不暴露** used_count/total_limit/状态——校验语义经 reason_code 表达）
 - MAP-MKT-011 FlashSale→StoreFlashSale：id/name(locale)/discount/start_at/end_at + products[]（ProductRef）；FlashSale→FlashSale DTO（admin）+ product_ids + translations
@@ -410,6 +410,7 @@ CREATE TABLE lookbook (
   title       VARCHAR(128) NOT NULL COMMENT '画册标题(EN 基准)',
   theme       VARCHAR(32)  NULL COMMENT 'Vineyard/Beach/Forest',
   status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
+  cover       VARCHAR(512) NULL COMMENT '独立封面；为空时回退关联商品主图',
   description VARCHAR(500) NULL COMMENT '画册描述(EN 基准)',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),

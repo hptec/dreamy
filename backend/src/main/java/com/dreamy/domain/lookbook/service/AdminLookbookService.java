@@ -59,8 +59,9 @@ public class AdminLookbookService {
         List<Long> ids = lookbooks.stream().map(Lookbook::getId).toList();
         Map<Long, List<Long>> productIds = lookbookRepository.listProductIdsByLookbookIds(ids);
         Map<Long, List<LookbookTranslationDto>> translations = translationsByLookbook(ids);
+        Map<Long, String> fallbackCovers = LookbookCoverResolver.resolve(productIds, catalogQueryPort, "en");
         return lookbooks.stream().map(lb -> toDto(lb, productIds.getOrDefault(lb.getId(), List.of()),
-                translations.getOrDefault(lb.getId(), List.of()))).toList();
+                translations.getOrDefault(lb.getId(), List.of()), fallbackCovers.get(lb.getId()))).toList();
     }
 
     /** E-MKT-38：创建（TX-MKT-019） */
@@ -79,7 +80,8 @@ public class AdminLookbookService {
         if (n.status() == PublishStatus.PUBLISHED) {
             enqueue("lookbook.create", lookbook);
         }
-        return toDto(lookbookRepository.findById(lookbook.getId()), n.productIds(), nonNull(req.translations()));
+        return toDto(lookbookRepository.findById(lookbook.getId()), n.productIds(), nonNull(req.translations()),
+                LookbookCoverResolver.firstImage(n.productIds(), catalogQueryPort.listProductRefs(n.productIds(), "en")));
     }
 
     /** E-MKT-39：编辑（TX-MKT-020） */
@@ -103,7 +105,8 @@ public class AdminLookbookService {
         if (wasPublished || n.status() == PublishStatus.PUBLISHED) {
             enqueue("lookbook.update", existing);
         }
-        return toDto(lookbookRepository.findById(id), n.productIds(), nonNull(req.translations()));
+        return toDto(lookbookRepository.findById(id), n.productIds(), nonNull(req.translations()),
+                LookbookCoverResolver.firstImage(n.productIds(), catalogQueryPort.listProductRefs(n.productIds(), "en")));
     }
 
     /** E-MKT-40：删除（TX-MKT-021） */
@@ -140,7 +143,8 @@ public class AdminLookbookService {
         Map<Long, List<LookbookTranslationDto>> translations = translationsByLookbook(List.of(id));
         // STEP-MKT-01 同态幂等短路
         if (existing.getStatus() == target) {
-            return toDto(existing, productIds, translations.getOrDefault(id, List.of()));
+            return toDto(existing, productIds, translations.getOrDefault(id, List.of()),
+                    LookbookCoverResolver.firstImage(productIds, catalogQueryPort.listProductRefs(productIds, "en")));
         }
         // STEP-MKT-02 UPDATE + 审计
         lookbookRepository.updateStatus(id, target);
@@ -149,7 +153,8 @@ public class AdminLookbookService {
         // STEP-MKT-03 提交后失效 + MQ + revalidate /inspiration ×3 + purge
         enqueue("lookbook.status", existing);
         existing.setStatus(target);
-        return toDto(existing, productIds, translations.getOrDefault(id, List.of()));
+        return toDto(existing, productIds, translations.getOrDefault(id, List.of()),
+                LookbookCoverResolver.firstImage(productIds, catalogQueryPort.listProductRefs(productIds, "en")));
     }
 
     private void enqueue(String triggerPoint, Lookbook lookbook) {
@@ -158,7 +163,7 @@ public class AdminLookbookService {
                 null, java.util.Map.of(), null);
     }
 
-    private record Normalized(String title, String theme, PublishStatus status, String description,
+    private record Normalized(String title, String theme, PublishStatus status, String description, String cover,
                               List<Long> productIds) {
     }
 
@@ -175,6 +180,7 @@ public class AdminLookbookService {
         // V-MKT-068 theme ≤32 可选；description EN ≤500 可选（DEC-MKT-1）
         String theme = MarketingParams.checkMaxLength(req.theme(), 32, "theme", errors);
         String description = MarketingParams.checkMaxLength(req.description(), 500, "description", errors);
+        String cover = MarketingParams.checkMaxLength(req.cover(), 512, "cover", errors);
         // V-MKT-069 status 必填 ∈ {draft, published}
         PublishStatus status = PublishStatus.of(req.status());
         if (status == null) {
@@ -191,7 +197,7 @@ public class AdminLookbookService {
         // V-MKT-071 translations
         validateTranslations(req.translations(), errors);
         errors.throwIfAny();
-        return new Normalized(title, theme, status, description, productIds);
+        return new Normalized(title, theme, status, description, cover, productIds);
     }
 
     /** V-MKT-071 translations locale ∈ {es,fr} 不重复；title ≤128 / description ≤500 */
@@ -220,6 +226,7 @@ public class AdminLookbookService {
         lookbook.setTheme(n.theme());
         lookbook.setStatus(n.status());
         lookbook.setDescription(n.description());
+        lookbook.setCover(n.cover());
     }
 
     private List<LookbookTranslation> toTranslationRows(List<LookbookTranslationDto> dtos) {
@@ -250,8 +257,9 @@ public class AdminLookbookService {
         return translations == null ? List.of() : translations;
     }
 
-    private LookbookDto toDto(Lookbook lb, List<Long> productIds, List<LookbookTranslationDto> translations) {
+    private LookbookDto toDto(Lookbook lb, List<Long> productIds, List<LookbookTranslationDto> translations,
+                              String fallbackCover) {
         return new LookbookDto(lb.getId(), lb.getTitle(), lb.getTheme(), lb.getStatus().getKey(),
-                lb.getDescription(), productIds, translations);
+                lb.getDescription(), lb.getCover(), fallbackCover, productIds, translations);
     }
 }

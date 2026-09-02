@@ -1931,6 +1931,16 @@ components:
           description: 已按 locale 解析
         theme:
           type: string
+        cover:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 运营上传的独立封面；为空时使用 fallback_cover
+        fallback_cover:
+          type: string
+          nullable: true
+          readOnly: true
+          description: 首张关联已发布商品主图的服务端兜底
         description:
           type: string
         products:
@@ -2264,6 +2274,11 @@ components:
         theme:
           type: string
           maxLength: 32
+        cover:
+          type: string
+          maxLength: 512
+          nullable: true
+          description: 可选独立封面；为空时自动取关联商品主图
         status:
           $ref: '#/components/schemas/PublishStatus'
         product_ids:
@@ -2284,6 +2299,11 @@ components:
             id:
               type: integer
               format: int64
+            fallback_cover:
+              type: string
+              nullable: true
+              readOnly: true
+              description: 首张关联已发布商品主图的服务端兜底
     GuideUpsert:
       type: object
       required: [phase, title, status]

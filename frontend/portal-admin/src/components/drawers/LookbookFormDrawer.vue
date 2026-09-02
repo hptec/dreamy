@@ -5,6 +5,7 @@ import DrawerShell from '@/components/DrawerShell.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import LocaleTabs from '@/components/LocaleTabs.vue'
 import ProductPickerPanel from '@/components/ProductPickerPanel.vue'
+import MediaUploadCard from '@/components/MediaUploadCard.vue'
 import { useLookbookStore } from '@/stores/lookbook'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
@@ -23,6 +24,7 @@ const form = ref({
   title: '',
   theme: '',
   description: '',
+  cover: '',
   status: PublishStatus.DRAFT as PublishStatus,
   productIds: [] as number[],
 })
@@ -51,10 +53,11 @@ watch(
           title: e.title,
           theme: e.theme || '',
           description: e.description || '',
+          cover: e.cover || '',
           status: e.status,
           productIds: [...(e.productIds || [])],
         }
-      : { title: '', theme: '', description: '', status: PublishStatus.DRAFT, productIds: [] }
+      : { title: '', theme: '', description: '', cover: '', status: PublishStatus.DRAFT, productIds: [] }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
     trans.value = {
       es: { title: byLocale('es')?.title || '', description: byLocale('es')?.description || '' },
@@ -88,6 +91,7 @@ async function submit() {
         title: form.value.title.trim(),
         theme: form.value.theme.trim() || null,
         description: form.value.description.trim() || null,
+        cover: form.value.cover.trim() || null,
         status: form.value.status,
         productIds: form.value.productIds,
         translations: buildTranslations(),
@@ -115,7 +119,7 @@ async function submit() {
   <DrawerShell :open="open" eyebrow="Content · CMS" :title="editing ? '编辑 Lookbook' : '新增 Lookbook'" @close="emit('close')">
     <LocaleTabs v-model="locale" :filled="filled" />
 
-    <div v-show="locale === 'en'" class="space-y-4">
+    <div v-if="locale === 'en'" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">标题 *</label>
@@ -129,7 +133,18 @@ async function submit() {
       </div>
       <div>
         <label class="field-label">描述（EN）</label>
-        <textarea v-model="form.description" rows="3" class="field resize-none"></textarea>
+        <textarea v-model="form.description" rows="3" class="field resize-none" placeholder="简短描述画册风格与适用场景" />
+      </div>
+      <div>
+        <label class="field-label">封面图（可选）</label>
+        <MediaUploadCard
+          v-model="form.cover"
+          :fallback-value="props.editing?.fallbackCover"
+          fallback-label="自动取首张商品图"
+          scope="content"
+          aspect="aspect-[4/5]"
+          label="点击上传封面"
+        />
       </div>
       <div>
         <label class="field-label">状态</label>
@@ -146,17 +161,19 @@ async function submit() {
       </div>
     </div>
 
-    <div v-for="l in ['es', 'fr'] as const" v-show="locale === l" :key="l" class="space-y-4">
+    <template v-for="l in ['es', 'fr'] as const" :key="l">
+    <div v-if="locale === l" class="space-y-4">
       <div>
         <label class="field-label">标题（{{ l.toUpperCase() }}）</label>
         <input v-model="trans[l].title" class="field" />
       </div>
       <div>
         <label class="field-label">描述（{{ l.toUpperCase() }}）</label>
-        <textarea v-model="trans[l].description" rows="3" class="field resize-none"></textarea>
+        <textarea v-model="trans[l].description" rows="3" class="field resize-none" placeholder="简短描述画册风格与适用场景" />
       </div>
       <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
     </div>
+    </template>
 
     <template #footer>
       <button class="btn-outline" @click="emit('close')">取消</button>

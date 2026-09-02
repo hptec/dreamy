@@ -168,6 +168,7 @@ CREATE TABLE lookbook (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   title       VARCHAR(128) NOT NULL COMMENT '画册标题(EN 基准)',
   theme       VARCHAR(32)  NULL COMMENT 'Vineyard/Beach/Forest',
+  cover       VARCHAR(512) NULL COMMENT '独立封面；为空时回退关联商品主图',
   status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
   description VARCHAR(500) NULL COMMENT '画册描述(EN 基准)',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

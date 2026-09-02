@@ -479,6 +479,10 @@ export interface StoreLookbook {
   title: string
   theme?: string
   description?: string
+  /** 运营上传的独立封面；为空时使用 fallbackCover */
+  cover?: string
+  /** 首张关联已发布商品主图，服务端派生 */
+  fallbackCover?: string
   products?: ProductRef[]
 }
 

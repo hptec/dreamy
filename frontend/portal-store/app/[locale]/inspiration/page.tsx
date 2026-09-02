@@ -14,10 +14,18 @@ export const metadata: Metadata = {
   description: 'Outdoor wedding inspiration, lookbooks, and color palettes to bring your vision to life.'
 }
 
-export default async function InspirationPage() {
+export default async function InspirationPage({
+  searchParams,
+  params
+}: {
+  searchParams: Promise<{ lookbook?: string }>
+  params: Promise<{ locale: string }>
+}) {
+  const query = await searchParams
+  const { locale } = await params
   const [lookbooks, weddingsPage] = await Promise.all([
-    fetchStoreLookbooks(),
-    fetchStoreWeddings({ page: 1, pageSize: 3 })
+    fetchStoreLookbooks(locale),
+    fetchStoreWeddings({ page: 1, pageSize: 3, locale })
   ])
   const weddings = weddingsPage?.data ?? []
 
@@ -39,7 +47,7 @@ export default async function InspirationPage() {
           {lookbooks.length === 0 ? (
             <p className="py-16 text-center text-ink-soft">Lookbooks are being curated — check back soon.</p>
           ) : (
-            <LookbookGrid lookbooks={lookbooks} />
+            <LookbookGrid lookbooks={lookbooks} initialId={query.lookbook ? Number(query.lookbook) : undefined} />
           )}
         </div>
       </section>

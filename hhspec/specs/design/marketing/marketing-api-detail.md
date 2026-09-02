@@ -625,7 +625,7 @@
 - V-MKT-066 status 可选 PublishStatus ∈ {1=DRAFT,2=PUBLISHED}，省略表示全部，字符串 `all`/枚举外值 → 422 `422704`
 
 **业务步骤**:
-- STEP-MKT-01 `SELECT lookbook`（status 过滤）ORDER BY id DESC + 批查 lookbook_product（件数派生）+ lookbook_translation
+- STEP-MKT-01 `SELECT lookbook`（status 过滤）ORDER BY id DESC + 批查 lookbook_product（件数派生）+ lookbook_translation；cover 为空时批量解析关联商品首张主图为 fallback_cover
 
 **出参**: 200 `{ items: Lookbook[] }`
 **错误映射**: 403 `40300` / 500 `50000`
@@ -634,7 +634,7 @@
 
 **入参**: body LookbookUpsert
 - V-MKT-067 title 必填 trim 非空 ≤128（bs-215）
-- V-MKT-068 theme ≤32 可选（bs-216/493）；description EN ≤500 可选（DEC-MKT-1）
+- V-MKT-068 theme ≤32 可选（bs-216/493）；cover ≤512 可选（为空时 fallback 为首张关联已发布商品主图）；description EN ≤500 可选（DEC-MKT-1）
 - V-MKT-069 status 必填 PublishStatus ∈ {1=DRAFT,2=PUBLISHED}（bs-217/494）
 - V-MKT-070 product_ids[] 去重 + catalogQueryPort 存在性校验（→ 422 `422704` fields.product_ids=not_exists；bs-700）
 - V-MKT-071 translations[] locale ∈ {es, fr} 不重复；title ≤128 / description ≤500

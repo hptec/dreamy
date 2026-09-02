@@ -39,9 +39,9 @@ public final class StoreMarketingDtos {
                                    List<ProductRef> products) implements Serializable {
     }
 
-    /** openapi StoreLookbook（MAP-MKT-008：products 详情返回） */
-    public record StoreLookbook(Long id, String title, String theme, String description,
-                                List<ProductRef> products) implements Serializable {
+    /** openapi StoreLookbook（MAP-MKT-008：cover 为独立封面；fallback_cover 为首张关联商品主图） */
+    public record StoreLookbook(Long id, String title, String theme, String description, String cover,
+                                String fallbackCover, List<ProductRef> products) implements Serializable {
     }
 
     /** openapi StoreGuide（MAP-MKT-009） */

@@ -28,6 +28,9 @@ public class Lookbook extends LongAuditableEntity {
     @Column(name = LookbookDBConst.THEME, definition = "varchar(32) NULL COMMENT 'Vineyard/Beach/Forest'")
     private String theme;
 
+    @Column(name = LookbookDBConst.COVER, definition = "varchar(512) NULL COMMENT '独立封面；为空时回退关联商品主图'")
+    private String cover;
+
     @Column(name = LookbookDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布'")
     private PublishStatus status;
 

@@ -13,7 +13,9 @@ import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
 import {
   PlusIcon, PencilSquareIcon, TrashIcon, PhotoIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon,
+  EyeIcon,
 } from '@heroicons/vue/24/outline'
+import LocaleFlag from '@/components/ui/LocaleFlag.vue'
 import { PublishStatus } from '@/api/types'
 import type { Guide, Lookbook } from '@/api/types'
 
@@ -27,6 +29,21 @@ const guideDrawer = ref(false)
 const editingGuide = ref<Guide | null>(null)
 const confirm = ref<{ kind: 'lookbook' | 'guide'; id: number; name: string } | null>(null)
 const confirmBusy = ref(false)
+const STORE_BASE = import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173'
+
+function coverForLookbook(l: Lookbook) {
+  return l.cover || l.fallbackCover || ''
+}
+
+function previewLookbook(l: Lookbook) {
+  if (l.status !== PublishStatus.PUBLISHED) return
+  window.open(`${STORE_BASE}/inspiration?lookbook=${l.id}`, '_blank')
+}
+
+function previewGuide(g: Guide) {
+  if (g.status !== PublishStatus.PUBLISHED) return
+  window.open(`${STORE_BASE}/wedding-guides#guide-${g.id}`, '_blank')
+}
 
 function load() {
   store.fetchLookbooks().catch((e) => toast.error(e instanceof BizError ? e.message : '加载 Lookbook 失败'))
@@ -104,20 +121,29 @@ onMounted(load)
       </div>
       <EmptyState v-else-if="!store.lookbooks.length" title="暂无 Lookbook" hint="点击右上角「新增」创建画册。" />
       <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div v-for="l in store.lookbooks" :key="l.id" class="panel p-5">
-          <div class="flex items-center justify-between">
-            <PhotoIcon class="h-8 w-8 text-gold-deep" />
-            <StatusBadge :tone="l.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="l.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
+        <div v-for="l in store.lookbooks" :key="l.id" class="panel overflow-hidden">
+          <div class="relative h-44 bg-canvas-warm">
+            <img v-if="coverForLookbook(l)" :src="coverForLookbook(l)" :alt="`${l.title} 封面`" class="h-full w-full object-cover" />
+            <div v-else class="flex h-full w-full items-center justify-center text-ink-faint"><PhotoIcon class="h-8 w-8" /></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-ink/65 via-transparent to-transparent" />
+            <div class="absolute right-3 top-3"><StatusBadge :tone="l.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="l.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" /></div>
+            <p class="absolute bottom-3 left-4 flex items-center gap-2 text-xs text-canvas/80"><PhotoIcon class="h-4 w-4" />{{ l.cover ? 'Lookbook 封面' : l.fallbackCover ? '自动封面' : '暂无封面' }}</p>
           </div>
-          <h3 class="mt-3 font-display text-lg font-medium text-ink">{{ l.title }}</h3>
-          <p class="text-[12px] text-ink-faint">{{ l.theme || '—' }} · {{ l.productIds?.length ?? 0 }} 件商品锚点</p>
+          <div class="p-5">
+            <h3 class="font-display text-lg font-medium text-ink">{{ l.title }}</h3>
+            <p class="text-[12px] text-ink-faint">{{ l.theme || '—' }} · {{ l.productIds?.length ?? 0 }} 件商品锚点</p>
+          <div class="mt-2 flex items-center gap-1" aria-label="翻译状态">
+            <LocaleFlag v-for="locale in ['es', 'fr'] as const" :key="locale" :locale="locale" :state="l.translations?.some((t) => t.locale === locale && (t.title || t.description)) ? 'filled' : 'missing'" />
+          </div>
           <div class="mt-3 flex gap-1 border-t border-line pt-3">
+            <button class="btn-ghost disabled:opacity-40" :disabled="l.status !== PublishStatus.PUBLISHED" :title="l.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'" @click="previewLookbook(l)"><EyeIcon class="h-4 w-4" />预览</button>
             <button class="btn-ghost" @click="editingLookbook = l; lookbookDrawer = true"><PencilSquareIcon class="h-4 w-4" />编辑</button>
             <button class="btn-ghost" :title="l.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleLookbook(l)">
               <component :is="l.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
               {{ l.status === PublishStatus.PUBLISHED ? '下线' : '发布' }}
             </button>
             <button class="btn-danger-ghost ml-auto" @click="confirm = { kind: 'lookbook', id: l.id, name: l.title }"><TrashIcon class="h-4 w-4" /></button>
+          </div>
           </div>
         </div>
       </div>
@@ -137,9 +163,13 @@ onMounted(load)
             <span class="rounded-full bg-canvas-warm px-2 py-0.5 text-[11px] text-ink-faint">{{ g.timeframe || '—' }}</span>
           </div>
           <p class="text-[12px] text-ink-soft">{{ g.phase }} · {{ g.tasksCount ?? 0 }} 个待办任务</p>
+          <div class="mt-1 flex items-center gap-1" aria-label="翻译状态">
+            <LocaleFlag v-for="locale in ['es', 'fr'] as const" :key="locale" :locale="locale" :state="g.translations?.some((t) => t.locale === locale && (t.title || t.body)) ? 'filled' : 'missing'" />
+          </div>
         </div>
         <StatusBadge :tone="g.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="g.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
         <div class="flex gap-1">
+          <button class="btn-ghost disabled:opacity-40" :disabled="g.status !== PublishStatus.PUBLISHED" :title="g.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'" @click="previewGuide(g)"><EyeIcon class="h-4 w-4" /></button>
           <button class="btn-ghost" :title="g.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleGuide(g)">
             <component :is="g.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
           </button>

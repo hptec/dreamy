@@ -17,6 +17,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { PublishStatus } from '@/api/types'
 import type { RealWedding } from '@/api/types'
+import LocaleFlag from '@/components/ui/LocaleFlag.vue'
 
 const store = useWeddingsStore()
 const toast = useToastStore()
@@ -101,6 +102,9 @@ onMounted(load)
                 <h3 class="mt-1.5 font-display text-xl font-medium text-ink">{{ w.couple }}</h3>
                 <p class="flex items-center gap-1 text-[12px] text-ink-soft"><MapPinIcon class="h-3.5 w-3.5" />{{ w.location || '—' }}</p>
                 <p class="text-[11px] text-ink-faint">{{ w.weddingDate || '—' }}</p>
+                <div class="mt-1 flex items-center gap-1" aria-label="翻译状态">
+                  <LocaleFlag v-for="locale in ['es', 'fr'] as const" :key="locale" :locale="locale" :state="w.translations?.some((t) => t.locale === locale && (t.title || t.story || t.theme)) ? 'filled' : 'missing'" />
+                </div>
               </div>
               <StatusBadge :tone="w.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="w.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
             </div>

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ListChecks } from 'lucide-react'
 import { fetchStoreGuides } from '@/lib/api/marketing-server'
 import { Eyebrow } from '@/components/ui/primitives'
+import { GuideBody } from '@/components/marketing/guide-body'
 
 /**
  * /wedding-guides（PAGE-MKT-S08，layout-keep + data-swap）：mock guides → E-MKT-08。
@@ -37,7 +38,7 @@ export default async function WeddingGuidesPage() {
             <div className="absolute bottom-0 left-6 top-0 w-px bg-line sm:left-1/2" />
             <div className="space-y-12">
               {guides.map((g, i) => (
-                <div key={g.id} className={`relative grid gap-6 sm:grid-cols-2 ${i % 2 ? 'sm:[direction:rtl]' : ''}`}>
+                <div id={`guide-${g.id}`} key={g.id} className={`relative grid gap-6 sm:grid-cols-2 ${i % 2 ? 'sm:[direction:rtl]' : ''}`}>
                   <div className="absolute left-6 top-2 z-10 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full bg-gold ring-4 ring-canvas sm:left-1/2" />
                   <div className={`pl-12 [direction:ltr] sm:pl-0 ${i % 2 ? 'sm:pr-12 sm:text-right' : 'sm:pl-12'}`}>
                     <Eyebrow>{[g.phase, g.timeframe].filter(Boolean).join(' · ')}</Eyebrow>
@@ -45,7 +46,7 @@ export default async function WeddingGuidesPage() {
                   </div>
                   <div className="pl-12 [direction:ltr] sm:pl-0">
                     <div className="space-y-3 rounded-sm border border-line bg-surface p-5">
-                      {g.body && <p className="text-sm leading-relaxed text-ink-soft">{g.body}</p>}
+                      {g.body && <GuideBody body={g.body} />}
                       {typeof g.tasksCount === 'number' && g.tasksCount > 0 && (
                         <p className="flex items-center gap-2 text-xs text-gold-deep">
                           <ListChecks className="h-4 w-4" /> {g.tasksCount} checklist {g.tasksCount === 1 ? 'task' : 'tasks'}

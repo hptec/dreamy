@@ -5,10 +5,14 @@
 
 import { request } from './client'
 import type { CouponValidateResponse, NewsletterSource, StoreLookbook } from './store-types'
+import type { Locale } from './types'
 
 /** E-MKT-07 Lookbook 详情（COMP-MKT-S07 卡片展开取关联商品） */
-export function getStoreLookbook(id: number): Promise<StoreLookbook> {
-  return request<StoreLookbook>(`/api/store/content/lookbooks/${id}`)
+export function getStoreLookbook(id: number, locale?: Locale): Promise<StoreLookbook> {
+  return request<StoreLookbook>(`/api/store/content/lookbooks/${id}`, {
+    locale,
+    query: locale ? { locale } : undefined
+  })
 }
 
 /** E-MKT-10 券校验（StoreBearerAuth；不可用 200+valid=false+reason_code 不抛错） */

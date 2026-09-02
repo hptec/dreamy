@@ -44,11 +44,14 @@ public class StoreLookbookService {
             return (List<StoreLookbook>) hit;
         }
         List<Lookbook> lookbooks = lookbookRepository.listStorePublished();
+        List<Long> ids = lookbooks.stream().map(Lookbook::getId).toList();
         Map<Long, LookbookTranslation> translations = translationsFor(
-                lookbooks.stream().map(Lookbook::getId).toList(), locale);
+                ids, locale);
+        Map<Long, List<Long>> productIds = lookbookRepository.listProductIdsByLookbookIds(ids);
+        Map<Long, String> fallbackCovers = LookbookCoverResolver.resolve(productIds, catalogQueryPort, locale);
         List<StoreLookbook> items = new ArrayList<>(lookbooks.size());
         for (Lookbook lb : lookbooks) {
-            items.add(toDto(lb, translations.get(lb.getId()), null));
+            items.add(toDto(lb, translations.get(lb.getId()), null, fallbackCovers.get(lb.getId())));
         }
         cache.put(lookup, items);
         return items;
@@ -79,17 +82,18 @@ public class StoreLookbookService {
         List<CatalogQueryPort.ProductRef> products = productIds.isEmpty()
                 ? List.of() : catalogQueryPort.listProductRefs(productIds, locale);
         LookbookTranslation t = translationsFor(List.of(id), locale).get(id);
-        StoreLookbook dto = toDto(lookbook, t, products);
+        StoreLookbook dto = toDto(lookbook, t, products, LookbookCoverResolver.firstImage(productIds, products));
         cache.put(lookup, dto);
         return dto;
     }
 
-    private StoreLookbook toDto(Lookbook lb, LookbookTranslation t, List<CatalogQueryPort.ProductRef> products) {
+    private StoreLookbook toDto(Lookbook lb, LookbookTranslation t, List<CatalogQueryPort.ProductRef> products,
+                                String fallbackCover) {
         return new StoreLookbook(lb.getId(),
                 Translations.coalesce(t == null ? null : t.getTitle(), lb.getTitle()),
                 lb.getTheme(),
                 Translations.coalesce(t == null ? null : t.getDescription(), lb.getDescription()),
-                products);
+                lb.getCover(), fallbackCover, products);
     }
 
     private Map<Long, LookbookTranslation> translationsFor(List<Long> ids, String locale) {

@@ -130,7 +130,7 @@ async function submit() {
   <DrawerShell :open="open" eyebrow="Content · CMS" :title="editing ? '编辑婚礼故事' : '新增婚礼故事'" width="max-w-2xl" @close="emit('close')">
     <LocaleTabs v-model="locale" :filled="filled" />
 
-    <div v-show="locale === 'en'" class="space-y-4">
+    <div v-if="locale === 'en'" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="field-label">新人 *</label>
@@ -183,7 +183,7 @@ async function submit() {
     </div>
 
     <template v-for="l in ['es', 'fr'] as const" :key="l">
-      <div v-show="locale === l" class="space-y-4">
+      <div v-if="locale === l" class="space-y-4">
         <div>
           <label class="field-label">主题（{{ l.toUpperCase() }}）</label>
           <input v-model="trans[l].theme" class="field" maxlength="32" />

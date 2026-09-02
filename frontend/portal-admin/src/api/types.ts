@@ -832,6 +832,10 @@ export interface Lookbook {
   theme?: string | null
   status: PublishStatus
   description?: string | null
+  /** 运营上传的独立封面；为空时使用 fallbackCover */
+  cover?: string | null
+  /** 首张关联已发布商品主图，服务端派生 */
+  fallbackCover?: string | null
   productIds?: number[] | null
   translations?: LookbookTranslation[] | null
 }
@@ -841,6 +845,7 @@ export interface LookbookUpsert {
   theme?: string | null
   status: PublishStatus
   description?: string | null
+  cover?: string | null
   productIds?: number[] | null
   translations?: LookbookTranslation[] | null
 }

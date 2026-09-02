@@ -91,14 +91,14 @@ public final class AdminMarketingDtos {
                                  List<RealWeddingTranslationDto> translations) {
     }
 
-    /** openapi LookbookUpsert（V-MKT-067~071；description=DEC-MKT-1 增量字段） */
-    public record LookbookUpsert(String title, String theme, Integer status, String description,
+    /** openapi LookbookUpsert（V-MKT-067~071；description=DEC-MKT-1 增量字段；cover 可选） */
+    public record LookbookUpsert(String title, String theme, Integer status, String description, String cover,
                                  List<Long> productIds, List<LookbookTranslationDto> translations) {
     }
 
     /** openapi Lookbook */
-    public record LookbookDto(Long id, String title, String theme, Integer status, String description,
-                              List<Long> productIds, List<LookbookTranslationDto> translations) {
+    public record LookbookDto(Long id, String title, String theme, Integer status, String description, String cover,
+                              String fallbackCover, List<Long> productIds, List<LookbookTranslationDto> translations) {
     }
 
     /** openapi GuideUpsert（V-MKT-075~080；body=DEC-MKT-1 增量字段） */

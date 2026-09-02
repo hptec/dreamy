@@ -80,8 +80,10 @@ export const fetchStoreWedding = cache((id: number, locale?: string): Promise<Se
 })
 
 /** E-MKT-06 Lookbook 列表 */
-export async function fetchStoreLookbooks(): Promise<StoreLookbook[]> {
-  const res = await serverGet<{ items: StoreLookbook[] }>('/api/store/content/lookbooks')
+export async function fetchStoreLookbooks(locale?: string): Promise<StoreLookbook[]> {
+  const res = await serverGet<{ items: StoreLookbook[] }>('/api/store/content/lookbooks', {
+    query: locale ? { locale } : undefined
+  })
   return res?.items ?? []
 }
 
