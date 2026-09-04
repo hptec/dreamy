@@ -46,7 +46,7 @@ public final class StoreMarketingDtos {
 
     /** openapi StoreGuide（MAP-MKT-009） */
     public record StoreGuide(Long id, String phase, String timeframe, String title, String body,
-                             Integer tasksCount) implements Serializable {
+                             Integer tasksCount, List<com.dreamy.dto.AdminMarketingDtos.GuideTask> tasks) implements Serializable {
     }
 
     /** openapi StoreFlashSale（MAP-MKT-011：end_at 为前端倒计时依据） */

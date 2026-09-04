@@ -102,12 +102,13 @@ public final class AdminMarketingDtos {
     }
 
     /** openapi GuideUpsert（V-MKT-075~080；body=DEC-MKT-1 增量字段） */
-    public record GuideUpsert(String phase, String timeframe, String title, Integer tasksCount, Integer status,
+    public record GuideTask(Long taskId, String label) {}
+    public record GuideUpsert(String phase, String timeframe, String title, Integer tasksCount, List<GuideTask> tasks, Integer status, Integer sortOrder,
                               String body, List<GuideTranslationDto> translations) {
     }
 
     /** openapi Guide */
-    public record GuideDto(Long id, String phase, String timeframe, String title, Integer tasksCount, Integer status,
+    public record GuideDto(Long id, String phase, String timeframe, String title, Integer tasksCount, List<GuideTask> tasks, Integer status, Integer sortOrder,
                            String body, List<GuideTranslationDto> translations) {
     }
 }

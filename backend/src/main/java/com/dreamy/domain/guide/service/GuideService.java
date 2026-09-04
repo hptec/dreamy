@@ -8,6 +8,7 @@ import com.dreamy.domain.cache.service.CacheInvalidationPlans;
 import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
 import com.dreamy.dto.AdminMarketingDtos.GuideDto;
 import com.dreamy.dto.AdminMarketingDtos.GuideUpsert;
+import com.dreamy.dto.AdminMarketingDtos.GuideTask;
 import com.dreamy.dto.MarketingTranslationDtos.GuideTranslationDto;
 import com.dreamy.dto.StoreMarketingDtos.StoreGuide;
 import com.dreamy.error.MarketingErrorCode;
@@ -35,19 +36,19 @@ import java.util.Set;
  */
 @Service
 public class GuideService {
-
-
     private final GuideRepository guideRepository;
+    private final GuideTaskService guideTasks;
     private final MarketingCacheService cache;
     private final MarketingAuditRecorder audit;
     private final CacheInvalidationTaskService cacheTasks;
 
     public GuideService(GuideRepository guideRepository, MarketingCacheService cache,
-                        MarketingAuditRecorder audit, CacheInvalidationTaskService cacheTasks) {
+                        MarketingAuditRecorder audit, CacheInvalidationTaskService cacheTasks, GuideTaskService guideTasks) {
         this.guideRepository = guideRepository;
         this.cache = cache;
         this.audit = audit;
         this.cacheTasks = cacheTasks;
+        this.guideTasks = guideTasks;
     }
 
     /** E-MKT-08：消费端 published 列表（ORDER BY phase, id + locale 回退 + JetCache 300s） */
@@ -62,12 +63,13 @@ public class GuideService {
         Map<Long, GuideTranslation> translations = storeTranslationsFor(
                 guides.stream().map(Guide::getId).toList(), locale);
         List<StoreGuide> items = new ArrayList<>(guides.size());
+        Map<Long, List<GuideTask>> tasksByGuide = guideTasks.listByGuideIds(guides.stream().map(Guide::getId).toList(), locale);
         for (Guide g : guides) {
             GuideTranslation t = translations.get(g.getId());
             items.add(new StoreGuide(g.getId(), g.getPhase(), g.getTimeframe(),
                     Translations.coalesce(t == null ? null : t.getTitle(), g.getTitle()),
                     Translations.coalesce(t == null ? null : t.getBody(), g.getBody()),
-                    g.getTasksCount()));
+                    tasksByGuide.getOrDefault(g.getId(), List.of()).size(), tasksByGuide.getOrDefault(g.getId(), List.of())));
         }
         cache.put(lookup, items);
         return items;
@@ -87,6 +89,31 @@ public class GuideService {
         return guides.stream().map(g -> toDto(g, translations.getOrDefault(g.getId(), List.of()))).toList();
     }
 
+    /** Returns the persisted, stable IDs for tasks a shopper can currently complete. */
+    public Set<Long> publishedTaskIds(Long guideId) {
+        Guide guide = guideRepository.findById(guideId);
+        if (guide == null || guide.getStatus() != PublishStatus.PUBLISHED) {
+            return Set.of();
+        }
+        return guideTasks.ids(guideId);
+    }
+
+    @Transactional
+    public List<GuideDto> reorder(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return listAdmin(null);
+        List<Guide> current = guideRepository.listAdmin(null);
+        Set<Long> valid = current.stream().map(Guide::getId).collect(java.util.stream.Collectors.toSet());
+        if (ids.size() != valid.size() || !valid.containsAll(ids) || new HashSet<>(ids).size() != ids.size())
+            throw MarketingException.fieldValidation("ids", "invalid_order");
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            guideRepository.updateSortOrder(id, i);
+            Guide guide = current.stream().filter(item -> item.getId().equals(id)).findFirst().orElse(null);
+            if (guide != null && guide.getStatus() == PublishStatus.PUBLISHED) enqueue("guide.reorder", guide);
+        }
+        return listAdmin(null);
+    }
+
     /** E-MKT-43：创建（TX-MKT-023） */
     @Transactional
     public GuideDto create(GuideUpsert req) {
@@ -94,15 +121,18 @@ public class GuideService {
         // STEP-MKT-01 INSERT guide + translation 批插
         Guide guide = new Guide();
         applyUpsert(guide, n);
+        guide.setSortOrder(req.sortOrder() == null ? 0 : req.sortOrder());
         guideRepository.insert(guide);
+        guideTasks.replace(guide.getId(), n.tasks());
         guideRepository.replaceTranslations(guide.getId(), toTranslationRows(req.translations()));
+        guideTasks.replaceTranslations(guide.getId(), req.translations());
         // STEP-MKT-02 审计
         audit.record("创建指南", n.title(), null);
         // STEP-MKT-03 提交后（published）失效 + MQ → revalidate /wedding-guides ×3 + purge
         if (n.status() == PublishStatus.PUBLISHED) {
             enqueue("guide.create", guide);
         }
-        return toDto(guideRepository.findById(guide.getId()), nonNull(req.translations()));
+        return toDto(guideRepository.findById(guide.getId()), translationsByGuide(List.of(guide.getId())).getOrDefault(guide.getId(), List.of()));
     }
 
     /** E-MKT-44：编辑（TX-MKT-024） */
@@ -117,14 +147,17 @@ public class GuideService {
         boolean wasPublished = existing.getStatus() == PublishStatus.PUBLISHED;
         // STEP-MKT-02 UPDATE + translation 整单覆盖 + 审计
         applyUpsert(existing, n);
+        if (req.sortOrder() != null) existing.setSortOrder(req.sortOrder());
         guideRepository.update(existing);
+        guideTasks.replace(id, n.tasks());
         guideRepository.replaceTranslations(id, toTranslationRows(req.translations()));
+        guideTasks.replaceTranslations(id, req.translations());
         audit.record("编辑指南", n.title(), null);
         // STEP-MKT-03 提交后失效 + MQ（同 E-MKT-43 口径）
         if (wasPublished || n.status() == PublishStatus.PUBLISHED) {
             enqueue("guide.update", existing);
         }
-        return toDto(guideRepository.findById(id), nonNull(req.translations()));
+        return toDto(guideRepository.findById(id), translationsByGuide(List.of(id)).getOrDefault(id, List.of()));
     }
 
     /** E-MKT-45：删除（TX-MKT-025） */
@@ -136,6 +169,7 @@ public class GuideService {
         }
         // STEP-MKT-02 物理删除双表 + 审计（先清译文，再删主表）
         guideRepository.deleteTranslationsByGuideId(id);
+        guideTasks.deleteByGuideId(id);
         guideRepository.deleteById(id);
         audit.record("删除指南", existing.getTitle(), null);
         // STEP-MKT-03 提交后（原 published）失效 + MQ
@@ -178,7 +212,7 @@ public class GuideService {
     }
 
     private record Normalized(String phase, String timeframe, String title, Integer tasksCount,
-                              PublishStatus status, String body) {
+                              PublishStatus status, String body, List<GuideTask> tasks) {
     }
 
     /** V-MKT-075~080 */
@@ -200,12 +234,8 @@ public class GuideService {
         } else if (title.length() > 128) {
             errors.reject("title", "too_long");
         }
-        // V-MKT-078 tasks_count 可选 int ≥0 缺省 0（CV-MKT-003）
-        Integer tasksCount = req.tasksCount() == null ? 0 : req.tasksCount();
-        if (tasksCount < 0) {
-            errors.reject("tasks_count", "range_invalid");
-            tasksCount = 0;
-        }
+        List<GuideTask> tasks = normalizeTaskInput(req.tasks(), errors);
+        Integer tasksCount = tasks.size();
         // V-MKT-079 status 必填 ∈ {draft, published}
         PublishStatus status = PublishStatus.of(req.status());
         if (status == null) {
@@ -214,7 +244,7 @@ public class GuideService {
         // V-MKT-080 translations
         validateTranslations(req.translations(), errors);
         errors.throwIfAny();
-        return new Normalized(phase, timeframe, title, tasksCount, status, req.body());
+        return new Normalized(phase, timeframe, title, tasksCount, status, req.body(), tasks);
     }
 
     /** V-MKT-080 translations locale ∈ {es,fr} 不重复；title ≤128 / body TEXT */
@@ -232,6 +262,13 @@ public class GuideService {
             if (t.title() != null && t.title().length() > 128) {
                 errors.reject("translations", "title_too_long");
             }
+            if (t.tasks() != null) {
+                for (var task : t.tasks()) {
+                    if (task != null && task.label() != null && task.label().length() > 256) {
+                        errors.reject("translations", "task_label_too_long");
+                    }
+                }
+            }
         }
     }
 
@@ -239,7 +276,6 @@ public class GuideService {
         guide.setPhase(n.phase());
         guide.setTimeframe(n.timeframe());
         guide.setTitle(n.title());
-        guide.setTasksCount(n.tasksCount());
         guide.setStatus(n.status());
         guide.setBody(n.body());
     }
@@ -276,7 +312,8 @@ public class GuideService {
         Map<Long, List<GuideTranslationDto>> map = new HashMap<>();
         for (GuideTranslation row : guideRepository.listTranslationsByGuideIds(ids)) {
             map.computeIfAbsent(row.getGuideId(), k -> new ArrayList<>())
-                    .add(new GuideTranslationDto(row.getLocale(), row.getTitle(), row.getBody()));
+                    .add(new GuideTranslationDto(row.getLocale(), row.getTitle(), row.getBody(),
+                            guideTasks.translations(row.getGuideId()).getOrDefault(row.getLocale(), List.of())));
         }
         return map;
     }
@@ -286,7 +323,25 @@ public class GuideService {
     }
 
     private GuideDto toDto(Guide g, List<GuideTranslationDto> translations) {
-        return new GuideDto(g.getId(), g.getPhase(), g.getTimeframe(), g.getTitle(), g.getTasksCount(),
-                g.getStatus().getKey(), g.getBody(), translations);
+        List<GuideTask> tasks = guideTasks.list(g.getId());
+        return new GuideDto(g.getId(), g.getPhase(), g.getTimeframe(), g.getTitle(), tasks.size(), tasks,
+                g.getStatus().getKey(), g.getSortOrder(), g.getBody(), translations);
+    }
+    private List<GuideTask> normalizeTaskInput(List<GuideTask> input, MarketingFieldErrors errors) {
+        if (input == null) return List.of();
+        if (input.size() > 50) errors.reject("tasks", "too_many");
+        List<GuideTask> tasks = new ArrayList<>();
+        for (int i = 0; i < input.size(); i++) {
+            GuideTask raw = input.get(i);
+            String label = raw == null ? null : MarketingParams.trimToNull(raw.label());
+            if (label == null) {
+                errors.reject("tasks", "item_required");
+            } else if (label.length() > 256) {
+                errors.reject("tasks", "item_too_long");
+            } else {
+                tasks.add(new GuideTask(raw.taskId(), label));
+            }
+        }
+        return tasks;
     }
 }

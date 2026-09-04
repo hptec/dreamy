@@ -31,6 +31,10 @@ import com.dreamy.domain.flashsale.repository.FlashSaleRepository;
 import com.dreamy.domain.guide.entity.Guide;
 import com.dreamy.domain.guide.entity.GuideTranslation;
 import com.dreamy.domain.guide.repository.GuideRepository;
+import com.dreamy.domain.guide.service.GuideTaskService;
+import com.dreamy.dto.AdminMarketingDtos.GuideTask;
+import com.dreamy.dto.MarketingTranslationDtos.GuideTaskTranslationDto;
+import com.dreamy.dto.MarketingTranslationDtos.GuideTranslationDto;
 import com.dreamy.domain.lookbook.entity.Lookbook;
 import com.dreamy.domain.lookbook.entity.LookbookTranslation;
 import com.dreamy.domain.lookbook.repository.LookbookRepository;
@@ -78,6 +82,7 @@ public class MarketingSeedInitializer {
     private final RealWeddingRepository weddingRepository;
     private final LookbookRepository lookbookRepository;
     private final GuideRepository guideRepository;
+    private final GuideTaskService guideTaskService;
     private final ProductRepository catalogProductRepository;
     private final PermissionMapper permissionMapper;
     private final RoleMapper roleMapper;
@@ -86,7 +91,7 @@ public class MarketingSeedInitializer {
     public MarketingSeedInitializer(CouponMapper couponMapper, CouponRepository couponRepository,
                                     FlashSaleRepository flashSaleRepository, BannerRepository bannerRepository,
                                     BlogPostRepository blogPostRepository, RealWeddingRepository weddingRepository,
-                                    LookbookRepository lookbookRepository, GuideRepository guideRepository,
+                                    LookbookRepository lookbookRepository, GuideRepository guideRepository, GuideTaskService guideTaskService,
                                     ProductRepository catalogProductRepository, PermissionMapper permissionMapper,
                                     RoleMapper roleMapper, RolePermissionMapper rolePermissionMapper) {
         this.couponMapper = couponMapper;
@@ -97,6 +102,7 @@ public class MarketingSeedInitializer {
         this.weddingRepository = weddingRepository;
         this.lookbookRepository = lookbookRepository;
         this.guideRepository = guideRepository;
+        this.guideTaskService = guideTaskService;
         this.catalogProductRepository = catalogProductRepository;
         this.permissionMapper = permissionMapper;
         this.roleMapper = roleMapper;
@@ -109,6 +115,7 @@ public class MarketingSeedInitializer {
         ensurePermission("/promotions", "营销活动", "促销管理（券与闪购）");
         ensurePermission("/banners", "站点装修", "Banner 投放");
         seedBanners();
+        backfillGuideTaskTranslations();
         if (couponMapper.selectCount(null) > 0) {
             return;
         }
@@ -521,39 +528,68 @@ public class MarketingSeedInitializer {
 
     /** content.ts weddingGuides ×5（g-5 draft——mock.js 状态） */
     private void seedGuides() {
-        seedGuide("Phase 1", "12+ months out", "Dream & Discover", 4, PublishStatus.PUBLISHED,
-                "Set your vision, budget, and date. Tasks: Define your wedding vibe & venue type; "
-                        + "Set your dress budget; Start a moodboard; Book a Color Palette consultation.",
-                "Soñar y Descubrir", "Rêver et Découvrir");
-        seedGuide("Phase 2", "9-12 months out", "Find Your Gown", 4, PublishStatus.PUBLISHED,
-                "The fun part — finding the one. Tasks: Browse silhouettes by venue; Order fabric swatches; "
-                        + "Try styles at home; Place your gown order (allow custom time).",
-                "Encuentra tu vestido", "Trouvez votre robe");
-        seedGuide("Phase 3", "6-9 months out", "Style Your Party", 4, PublishStatus.PUBLISHED,
-                "Dress your bridesmaids and family. Tasks: Choose your bridesmaid palette; "
-                        + "Share the group link with your party; Order mother-of-the-bride dress; Select flower girl looks.",
-                "Viste a tu cortejo", "Habillez votre cortège");
-        seedGuide("Phase 4", "3-6 months out", "Accessorize", 4, PublishStatus.PUBLISHED,
-                "Complete every look. Tasks: Choose your veil & headpiece; Pick wedding shoes; "
-                        + "Add jewelry & finishing touches; Plan a second reception look.",
-                "Accesorios", "Accessoirisez");
-        seedGuide("Phase 5", "1-3 months out", "Final Fittings", 4, PublishStatus.DRAFT,
-                "Perfect the fit. Tasks: Schedule alterations; Break in your shoes; "
-                        + "Final accessory check; Confirm delivery dates.",
-                null, null);
+        seedGuide("Phase 1", "12+ months out", "Dream & Discover",
+                List.of("Define your wedding vibe & venue type", "Set your dress budget", "Start a moodboard", "Book a Color Palette consultation"),
+                PublishStatus.PUBLISHED, "Set your vision, budget, and date.",
+                "Soñar y Descubrir", List.of("Define el estilo y el tipo de lugar de tu boda", "Establece el presupuesto para tu vestido", "Crea un moodboard", "Reserva una consulta de paleta de colores"),
+                "Rêver et Découvrir", List.of("Définissez l ambiance et le type de lieu de votre mariage", "Fixez le budget de votre robe", "Créez un moodboard", "Réservez une consultation de palette de couleurs"));
+        seedGuide("Phase 2", "9-12 months out", "Find Your Gown",
+                List.of("Browse silhouettes by venue", "Order fabric swatches", "Try styles at home", "Place your gown order (allow custom time)"),
+                PublishStatus.PUBLISHED, "The fun part — finding the one.",
+                "Encuentra tu vestido", List.of("Explora siluetas según el lugar", "Pide muestras de tela", "Pruébate estilos en casa", "Haz el pedido de tu vestido con tiempo para personalizarlo"),
+                "Trouvez votre robe", List.of("Explorez les silhouettes selon le lieu", "Commandez des échantillons de tissu", "Essayez les modèles chez vous", "Commandez votre robe en prévoyant le délai de personnalisation"));
+        seedGuide("Phase 3", "6-9 months out", "Style Your Party",
+                List.of("Choose your bridesmaid palette", "Share the group link with your party", "Order mother-of-the-bride dress", "Select flower girl looks"),
+                PublishStatus.PUBLISHED, "Dress your bridesmaids and family.",
+                "Viste a tu cortejo", List.of("Elige la paleta de tus damas de honor", "Comparte el enlace del grupo con tu cortejo", "Pide el vestido de la madre de la novia", "Elige los looks de las niñas de las flores"),
+                "Habillez votre cortège", List.of("Choisissez la palette de vos demoiselles d honneur", "Partagez le lien du groupe avec votre cortège", "Commandez la tenue de la mère de la mariée", "Choisissez les tenues des demoiselles d honneur junior"));
+        seedGuide("Phase 4", "3-6 months out", "Accessorize",
+                List.of("Choose your veil & headpiece", "Pick wedding shoes", "Add jewelry & finishing touches", "Plan a second reception look"),
+                PublishStatus.PUBLISHED, "Complete every look.",
+                "Accesorios", List.of("Elige el velo y el tocado", "Elige los zapatos de boda", "Añade joyas y los toques finales", "Planea un segundo look para la recepción"),
+                "Accessoirisez", List.of("Choisissez votre voile et votre coiffe", "Choisissez vos chaussures de mariage", "Ajoutez bijoux et touches finales", "Prévoyez une seconde tenue pour la réception"));
+        seedGuide("Phase 5", "1-3 months out", "Final Fittings",
+                List.of("Schedule alterations", "Break in your shoes", "Final accessory check", "Confirm delivery dates"),
+                PublishStatus.DRAFT, "Perfect the fit.",
+                "Pruebas finales", List.of("Programa los arreglos", "Estrena poco a poco tus zapatos", "Haz la revisión final de los accesorios", "Confirma las fechas de entrega"),
+                "Derniers essayages", List.of("Planifiez les retouches", "Assouplissez vos chaussures", "Vérifiez une dernière fois les accessoires", "Confirmez les dates de livraison"));
+    }
+
+    /** Existing deployments skip the full demo seed, so backfill task labels independently. */
+    private void backfillGuideTaskTranslations() {
+        java.util.Map<String, List<String>> es = java.util.Map.of(
+                "Phase 1", List.of("Define el estilo y el tipo de lugar de tu boda", "Establece el presupuesto para tu vestido", "Crea un moodboard", "Reserva una consulta de paleta de colores"),
+                "Phase 2", List.of("Explora siluetas según el lugar", "Pide muestras de tela", "Pruébate estilos en casa", "Haz el pedido de tu vestido con tiempo para personalizarlo"),
+                "Phase 3", List.of("Elige la paleta de tus damas de honor", "Comparte el enlace del grupo con tu cortejo", "Pide el vestido de la madre de la novia", "Elige los looks de las niñas de las flores"),
+                "Phase 4", List.of("Elige el velo y el tocado", "Elige los zapatos de boda", "Añade joyas y los toques finales", "Planea un segundo look para la recepción"),
+                "Phase 5", List.of("Programa los arreglos", "Estrena poco a poco tus zapatos", "Haz la revisión final de los accesorios", "Confirma las fechas de entrega"),
+                "Phase 6", List.of("Confirma las medidas finales y los arreglos", "Plancha con vapor y guarda el vestido con cuidado", "Prepara un kit de costura de emergencia", "Comparte el horario de preparación con tu cortejo", "Confirma el contacto de entrega del lugar"),
+                "Phase 7", List.of("Organiza la limpieza profesional del vestido", "Elige una caja de conservación o una vitrina", "Guarda juntos el velo y los accesorios", "Anota los proveedores y detalles que más te gustaron"));
+        java.util.Map<String, List<String>> fr = java.util.Map.of(
+                "Phase 1", List.of("Définissez l ambiance et le type de lieu de votre mariage", "Fixez le budget de votre robe", "Créez un moodboard", "Réservez une consultation de palette de couleurs"),
+                "Phase 2", List.of("Explorez les silhouettes selon le lieu", "Commandez des échantillons de tissu", "Essayez les modèles chez vous", "Commandez votre robe en prévoyant le délai de personnalisation"),
+                "Phase 3", List.of("Choisissez la palette de vos demoiselles d honneur", "Partagez le lien du groupe avec votre cortège", "Commandez la tenue de la mère de la mariée", "Choisissez les tenues des demoiselles d honneur junior"),
+                "Phase 4", List.of("Choisissez votre voile et votre coiffe", "Choisissez vos chaussures de mariage", "Ajoutez bijoux et touches finales", "Prévoyez une seconde tenue pour la réception"),
+                "Phase 5", List.of("Planifiez les retouches", "Assouplissez vos chaussures", "Vérifiez une dernière fois les accessoires", "Confirmez les dates de livraison"),
+                "Phase 6", List.of("Confirmez les mesures finales et les retouches", "Défroissez et rangez la robe avec soin", "Préparez une trousse de couture d urgence", "Partagez le planning des préparatifs avec votre cortège", "Confirmez le contact de livraison du lieu"),
+                "Phase 7", List.of("Organisez le nettoyage professionnel de la robe", "Choisissez une boîte de conservation ou une vitrine", "Rangez ensemble votre voile et vos accessoires", "Notez les prestataires et les détails que vous avez aimés"));
+        for (Guide guide : guideRepository.listAdmin(null)) {
+            if (es.containsKey(guide.getPhase())) guideTaskService.seedMissingTranslations(guide.getId(), "es", es.get(guide.getPhase()));
+            if (fr.containsKey(guide.getPhase())) guideTaskService.seedMissingTranslations(guide.getId(), "fr", fr.get(guide.getPhase()));
+        }
     }
 
     @SuppressWarnings("java:S107")
-    private void seedGuide(String phase, String timeframe, String title, int tasksCount, PublishStatus status,
-                           String body, String titleEs, String titleFr) {
+    private void seedGuide(String phase, String timeframe, String title, List<String> tasks, PublishStatus status,
+                           String body, String titleEs, List<String> tasksEs, String titleFr, List<String> tasksFr) {
         Guide guide = new Guide();
         guide.setPhase(phase);
         guide.setTimeframe(timeframe);
         guide.setTitle(title);
-        guide.setTasksCount(tasksCount);
         guide.setStatus(status);
         guide.setBody(body);
         guideRepository.insert(guide);
+        guideTaskService.replace(guide.getId(), tasks.stream().map(label -> new GuideTask(null, label)).toList());
         List<GuideTranslation> rows = new ArrayList<>();
         if (titleEs != null) {
             rows.add(guideTranslation("es", titleEs));
@@ -562,6 +598,19 @@ public class MarketingSeedInitializer {
             rows.add(guideTranslation("fr", titleFr));
         }
         guideRepository.replaceTranslations(guide.getId(), rows);
+        List<GuideTask> persistedTasks = guideTaskService.list(guide.getId());
+        guideTaskService.replaceTranslations(guide.getId(), List.of(
+                guideTaskTranslation("es", titleEs, tasksEs, persistedTasks),
+                guideTaskTranslation("fr", titleFr, tasksFr, persistedTasks)));
+    }
+
+    private GuideTranslationDto guideTaskTranslation(String locale, String title, List<String> labels,
+                                                      List<GuideTask> tasks) {
+        List<GuideTaskTranslationDto> translatedTasks = new ArrayList<>();
+        for (int i = 0; i < Math.min(tasks.size(), labels.size()); i++) {
+            translatedTasks.add(new GuideTaskTranslationDto(tasks.get(i).taskId(), labels.get(i)));
+        }
+        return new GuideTranslationDto(locale, title, null, translatedTasks);
     }
 
     private GuideTranslation guideTranslation(String locale, String title) {

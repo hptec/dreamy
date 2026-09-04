@@ -214,7 +214,6 @@ CREATE TABLE guide (
   phase       VARCHAR(32)  NOT NULL COMMENT '备婚阶段，如 Phase 1',
   timeframe   VARCHAR(64)  NULL COMMENT '如 12+ months out',
   title       VARCHAR(128) NOT NULL COMMENT '指南标题(EN 基准)',
-  tasks_count INT          NOT NULL DEFAULT 0 COMMENT '待办任务数',
   status      TINYINT      NOT NULL DEFAULT 1 COMMENT '1=DRAFT 2=PUBLISHED',
   body        TEXT         NULL COMMENT '指南正文(EN 基准)',
   created_at  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -226,6 +225,17 @@ CREATE TABLE guide (
 -- -----------------------------------------------------------------------------
 -- 12. guide_translation（IDX-MKT-015）
 -- -----------------------------------------------------------------------------
+CREATE TABLE guide_task (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  guide_id BIGINT NOT NULL,
+  label VARCHAR(256) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_guide_task_guide_sort (guide_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='备婚指南待办任务';
+
 CREATE TABLE guide_translation (
   id         BIGINT       NOT NULL AUTO_INCREMENT,
   guide_id   BIGINT       NOT NULL,
@@ -237,6 +247,19 @@ CREATE TABLE guide_translation (
   PRIMARY KEY (id),
   UNIQUE KEY uk_gt (guide_id, locale)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='指南多语言附表';
+
+CREATE TABLE user_guide_task (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  guide_id BIGINT NOT NULL,
+  task_id BIGINT UNSIGNED NOT NULL,
+  completed_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_user_guide_task (user_id, guide_id, task_id),
+  KEY idx_user_guide (user_id, guide_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='消费者 Wedding Guide 任务进度';
 
 -- -----------------------------------------------------------------------------
 -- 13. coupon（含 EN description；used_count 仅核销 CAS 可写；IDX-MKT-001/002）

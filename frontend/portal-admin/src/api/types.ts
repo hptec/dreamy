@@ -854,6 +854,7 @@ export interface GuideTranslation {
   locale: TranslationLocale
   title?: string | null
   body?: string | null
+  tasks?: { taskId?: number; label: string }[] | null
 }
 
 export interface Guide {
@@ -862,7 +863,9 @@ export interface Guide {
   timeframe?: string | null
   title: string
   tasksCount?: number | null
+  tasks?: { taskId: number; label: string }[] | null
   status: PublishStatus
+  sortOrder?: number | null
   body?: string | null
   translations?: GuideTranslation[] | null
 }
@@ -872,7 +875,9 @@ export interface GuideUpsert {
   timeframe?: string | null
   title: string
   tasksCount?: number | null
+  tasks?: { taskId: number; label: string }[] | null
   status: PublishStatus
+  sortOrder?: number | null
   body?: string | null
   translations?: GuideTranslation[] | null
 }

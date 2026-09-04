@@ -87,9 +87,11 @@ export async function fetchStoreLookbooks(locale?: string): Promise<StoreLookboo
   return res?.items ?? []
 }
 
-/** E-MKT-08 备婚指南列表 */
-export async function fetchStoreGuides(): Promise<StoreGuide[]> {
-  const res = await serverGet<{ items: StoreGuide[] }>('/api/store/content/guides')
+/** E-MKT-08 备婚指南列表（按 locale 解析译文） */
+export async function fetchStoreGuides(locale?: string): Promise<StoreGuide[]> {
+  const res = await serverGet<{ items: StoreGuide[] }>('/api/store/content/guides', {
+    query: locale ? { locale } : undefined
+  })
   return res?.items ?? []
 }
 

@@ -1758,6 +1758,20 @@ components:
           type: string
         body:
           type: string
+        tasks:
+          type: array
+          description: 按稳定 task_id 对齐的 ES/FR 待办任务文案
+          items:
+            type: object
+            required: [label]
+            properties:
+              task_id:
+                type: integer
+                format: int64
+                nullable: true
+                description: 编辑已有任务时传稳定 ID；新增任务可省略，服务端持久化后返回
+              label:
+                type: string
     RealWeddingTranslation:
       type: object
       required: [locale]
@@ -1966,6 +1980,18 @@ components:
           type: string
         tasks_count:
           type: integer
+        tasks:
+          type: array
+          description: 独立待办任务列表；与正文 body 完全无关
+          items:
+            type: object
+            required: [task_id, label]
+            properties:
+              task_id:
+                type: integer
+                format: int64
+              label:
+                type: string
     StoreFlashSale:
       type: object
       required: [id, name, discount, start_at, end_at]
@@ -2320,6 +2346,19 @@ components:
         tasks_count:
           type: integer
           minimum: 0
+        tasks:
+          type: array
+          description: 独立待办任务列表；数量由服务端根据数组计算
+          items:
+            type: object
+            required: [task_id, label]
+            properties:
+              task_id:
+                type: integer
+                format: int64
+              label:
+                type: string
+                maxLength: 256
         status:
           $ref: '#/components/schemas/PublishStatus'
         translations:

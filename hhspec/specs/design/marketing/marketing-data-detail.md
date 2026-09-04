@@ -31,7 +31,7 @@
 | LookbookTranslation | lookbook_translation | uk(lookbook_id, locale) |
 | LookbookProduct（关联） | lookbook_product | uk(lookbook_id, product_id) |
 | Guide | guide | phase/title 必填；tasks_count；PublishStatus 1/2；EN 文案列 body |
-| GuideTranslation | guide_translation | uk(guide_id, locale) |
+| GuideTranslation | guide_translation | uk(guide_id, locale)；tasks 文案通过 guide_task_translation 按 task_id + locale 存储 |
 | Coupon | coupon | code 唯一大写；type 三枚举；value 可解析串（DEC-MKT-4）；min_amount/total_limit（缺省 100000=不限，DEC-MKT-5）/used_count（仅核销 CAS 可写）；五态 status（SCHED 翻转）；EN 文案列 description |
 | CouponTranslation | coupon_translation | uk(coupon_id, locale)；name/description |
 | FlashSale | flash_sale | name/discount/start_at/end_at 必填；四态 status（SCHED 翻转 active/ended） |

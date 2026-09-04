@@ -7,6 +7,17 @@ import { request } from './client'
 import type { CouponValidateResponse, NewsletterSource, StoreLookbook } from './store-types'
 import type { Locale } from './types'
 
+export type GuideTask = { taskId: number; label: string }
+export type GuideProgress = Record<string, number[]>
+
+export function getGuideProgress(): Promise<GuideProgress> {
+  return request<GuideProgress>('/api/store/account/guide-progress', { auth: true })
+}
+
+export function saveGuideProgress(guideId: number, tasks: number[]): Promise<GuideProgress> {
+  return request<GuideProgress>(`/api/store/account/guide-progress/${guideId}`, { method: 'PUT', auth: true, body: { taskIds: tasks } })
+}
+
 /** E-MKT-07 Lookbook 详情（COMP-MKT-S07 卡片展开取关联商品） */
 export function getStoreLookbook(id: number, locale?: Locale): Promise<StoreLookbook> {
   return request<StoreLookbook>(`/api/store/content/lookbooks/${id}`, {

@@ -35,6 +35,10 @@ public final class MarketingTranslationDtos {
     }
 
     /** openapi GuideTranslation（V-MKT-080） */
-    public record GuideTranslationDto(String locale, String title, String body) {
+    public record GuideTranslationDto(String locale, String title, String body,
+                                      java.util.List<GuideTaskTranslationDto> tasks) {
+    }
+
+    public record GuideTaskTranslationDto(Long taskId, String label) {
     }
 }

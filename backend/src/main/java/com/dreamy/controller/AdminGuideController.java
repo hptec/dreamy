@@ -72,6 +72,18 @@ public class AdminGuideController {
         return ResponseEntity.ok(R.ok(guideService.patchStatus(parseId(id), req.status())));
     }
 
+    @RequirePermission(PERMISSION)
+    @PatchMapping("/api/admin/content/guides/order")
+    public ResponseEntity<R<Map<String, List<GuideDto>>>> reorder(@RequestBody Map<String, List<Long>> req) {
+        return ResponseEntity.ok(R.ok(Map.of("items", guideService.reorder(req.get("ids")))));
+    }
+
+    @RequirePermission(PERMISSION)
+    @PostMapping("/api/admin/content/guides/reorder")
+    public ResponseEntity<R<Map<String, List<GuideDto>>>> reorderPost(@RequestBody Map<String, List<Long>> req) {
+        return ResponseEntity.ok(R.ok(Map.of("items", guideService.reorder(req.get("ids")))));
+    }
+
     /** V-MKT-081：id 非法视同不存在 → 404701 */
     private Long parseId(String raw) {
         try {

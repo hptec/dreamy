@@ -31,13 +31,13 @@ public class Guide extends LongAuditableEntity {
     @Column(name = GuideDBConst.TITLE, definition = "varchar(128) NOT NULL COMMENT '指南标题(EN 基准)'")
     private String title;
 
-    @Column(name = GuideDBConst.TASKS_COUNT, definition = "int NOT NULL DEFAULT 0 COMMENT '待办任务数'")
-    private Integer tasksCount;
-
     @Column(name = GuideDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '状态：1=草稿 2=已发布'")
     private PublishStatus status;
 
     @Column(name = GuideDBConst.BODY, definition = "text NULL COMMENT '指南正文(EN 基准，DEC-MKT-1)'")
     private String body;
+
+    @Column(name = GuideDBConst.SORT_ORDER, definition = "int NOT NULL DEFAULT 0 COMMENT '排序（升序）'")
+    private Integer sortOrder;
 
 }

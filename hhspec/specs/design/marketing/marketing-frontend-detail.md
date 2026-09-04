@@ -79,7 +79,7 @@ listGuides(status?: PublishStatus[1|2]) / createGuide / updateGuide / deleteGuid
 - COMP-MKT-A07 `BlogEditDrawer`（大抽屉，Dialog `as` 配齐）：title/slug（pattern 即时提示 + published 必填星标联动）/category/author/cover（上传 scope=content）/content（textarea 富文本基线——沿用既有 field 风格，不引入新编辑器依赖）/status + **三语 tab**：EN 主字段，ES/FR translations（title/excerpt/body/seo_title/seo_description）；views/published_at 只读展示
 - COMP-MKT-A08 `ContentWeddings.vue`（PAGE-MKT-A04）：卡片网格保持（cover/theme/couple/location/date/StatusBadge/Shop the Look 件数）；「新增婚礼故事」/「编辑」→ WeddingFormDrawer；StatusBadge 点击或操作区「发布/下线」→ patchStatus（PublishStatus 1↔2）；删除确认
 - COMP-MKT-A09 `WeddingFormDrawer`：couple/location/theme/wedding_date/cover（上传）/status + EN 文案区（title/story）+ ES/FR 三语 tab（title/story）+ Shop the Look 商品选择器（useProductPicker）
-- COMP-MKT-A10 `ContentLookbook.vue`（PAGE-MKT-A05）：双 tab 保持。lookbook 卡片：「编辑」→ LookbookFormDrawer（title/theme/description EN + 三语 tab + 商品选择器）；guide 行：「编辑」→ GuideFormDrawer（phase/timeframe/title/tasks_count/body EN + 三语 tab）；两类均含「发布/下线」与删除
+- COMP-MKT-A10 `ContentLookbook.vue`（PAGE-MKT-A05）：双 tab 保持。lookbook 卡片：「编辑」→ LookbookFormDrawer（title/theme/description EN + 三语 tab + 商品选择器）；guide 行：「编辑」→ GuideFormDrawer（phase/timeframe/title/tasks/body EN + 三语 tab，tasks 按稳定 task_id 维护 ES/FR label）；两类均含「发布/下线」与删除
 - COMP-MKT-A11 空/加载态：列表 loading 骨架行 + EmptyState 复用既有组件风格（强对照约束 2）
 
 ### A.5 表单交互（FORM-MKT-A）

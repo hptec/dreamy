@@ -9,5 +9,5 @@ public interface GuideDBConst extends MarketingCommonDBConst {
 
     String PHASE = "phase";
     String TIMEFRAME = "timeframe";
-    String TASKS_COUNT = "tasks_count";
+    String SORT_ORDER = "sort_order";
 }

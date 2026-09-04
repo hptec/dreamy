@@ -493,6 +493,7 @@ export interface StoreGuide {
   title: string
   body?: string
   tasksCount?: number
+  tasks?: { taskId: number; label: string }[]
 }
 
 export interface StoreFlashSale {

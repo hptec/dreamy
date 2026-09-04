@@ -193,3 +193,7 @@ export function deleteGuide(id: number): Promise<void> {
 export function patchGuideStatus(id: number, status: PublishStatus): Promise<Guide> {
   return patch<Guide>(`/api/admin/content/guides/${id}/status`, { status })
 }
+
+export function reorderGuides(ids: number[]): Promise<{ items: Guide[] }> {
+  return post<{ items: Guide[] }>('/api/admin/content/guides/reorder', { ids })
+}

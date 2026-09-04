@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// COMP-MKT-A10 GuideFormDrawer：phase/timeframe/title/tasks_count/body EN + 三语 tab（title/body）
+// COMP-MKT-A10 GuideFormDrawer：phase/timeframe/title/tasks/body EN + 三语 tab（title/body）
 import { computed, ref, watch } from 'vue'
 import DrawerShell from '@/components/DrawerShell.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
@@ -23,21 +23,21 @@ const form = ref({
   phase: '',
   timeframe: '',
   title: '',
-  tasksCount: 0,
+  tasks: [] as { taskId?: number; label: string }[],
   body: '',
   status: PublishStatus.DRAFT as PublishStatus,
 })
-const trans = ref<Record<'es' | 'fr', { title: string; body: string }>>({
-  es: { title: '', body: '' },
-  fr: { title: '', body: '' },
+const trans = ref<Record<'es' | 'fr', { title: string; body: string; tasks: { taskId?: number; label: string }[] }>>({
+  es: { title: '', body: '', tasks: [] },
+  fr: { title: '', body: '', tasks: [] },
 })
 const errors = ref<FieldErrors>({})
 const saving = ref(false)
 
 const filled = computed(() => ({
   en: !!(form.value.title || form.value.body),
-  es: !!(trans.value.es.title || trans.value.es.body),
-  fr: !!(trans.value.fr.title || trans.value.fr.body),
+  es: !!(trans.value.es.title || trans.value.es.body || trans.value.es.tasks.some((task) => task.label)),
+  fr: !!(trans.value.fr.title || trans.value.fr.body || trans.value.fr.tasks.some((task) => task.label)),
 }))
 
 watch(
@@ -52,15 +52,19 @@ watch(
           phase: e.phase,
           timeframe: e.timeframe || '',
           title: e.title,
-          tasksCount: e.tasksCount ?? 0,
+          tasks: e.tasks ?? [],
           body: e.body || '',
           status: e.status,
         }
-      : { phase: '', timeframe: '', title: '', tasksCount: 0, body: '', status: PublishStatus.DRAFT }
+      : { phase: '', timeframe: '', title: '', tasks: [], body: '', status: PublishStatus.DRAFT }
     const byLocale = (l: 'es' | 'fr') => e?.translations?.find((t) => t.locale === l)
+    const localizedTasks = (l: 'es' | 'fr') => form.value.tasks.map((task) => ({
+      taskId: task.taskId,
+      label: byLocale(l)?.tasks?.find((translated) => translated.taskId === task.taskId)?.label || '',
+    }))
     trans.value = {
-      es: { title: byLocale('es')?.title || '', body: byLocale('es')?.body || '' },
-      fr: { title: byLocale('fr')?.title || '', body: byLocale('fr')?.body || '' },
+      es: { title: byLocale('es')?.title || '', body: byLocale('es')?.body || '', tasks: localizedTasks('es') },
+      fr: { title: byLocale('fr')?.title || '', body: byLocale('fr')?.body || '', tasks: localizedTasks('fr') },
     }
   },
 )
@@ -69,11 +73,23 @@ function buildTranslations(): GuideTranslation[] {
   const rows: GuideTranslation[] = []
   for (const l of ['es', 'fr'] as const) {
     const t = trans.value[l]
-    if (t.title.trim() || t.body.trim()) {
-      rows.push({ locale: l, title: t.title.trim() || null, body: t.body.trim() || null })
+    if (t.title.trim() || t.body.trim() || t.tasks.some((task) => task.label.trim())) {
+      rows.push({ locale: l, title: t.title.trim() || null, body: t.body.trim() || null, tasks: t.tasks.filter((task) => task.label.trim()).map((task) => ({ taskId: task.taskId, label: task.label.trim() })) })
     }
   }
   return rows
+}
+
+function addTask() {
+  form.value.tasks.push({ label: '' })
+  trans.value.es.tasks.push({ label: '' })
+  trans.value.fr.tasks.push({ label: '' })
+}
+
+function removeTask(index: number) {
+  form.value.tasks.splice(index, 1)
+  trans.value.es.tasks.splice(index, 1)
+  trans.value.fr.tasks.splice(index, 1)
 }
 
 async function submit() {
@@ -91,7 +107,7 @@ async function submit() {
         phase: form.value.phase.trim(),
         timeframe: form.value.timeframe.trim() || null,
         title: form.value.title.trim(),
-        tasksCount: Number(form.value.tasksCount) || 0,
+        tasks: form.value.tasks.map((t) => ({ taskId: t.taskId, label: t.label.trim() })).filter((t) => t.label),
         body: form.value.body.trim() || null,
         status: form.value.status,
         translations: buildTranslations(),
@@ -137,21 +153,25 @@ async function submit() {
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="field-label">待办任务数</label>
-          <input v-model.number="form.tasksCount" type="number" min="0" class="field" />
-        </div>
-        <div>
           <label class="field-label">状态</label>
           <SelectMenu
             :model-value="form.status"
             :options="[{ value: PublishStatus.DRAFT, label: '草稿' }, { value: PublishStatus.PUBLISHED, label: '已发布' }]"
             @update:model-value="form.status = $event as typeof form.status"
           />
-        </div>
+        </div><div></div>
       </div>
       <div>
         <label class="field-label">正文（EN）</label>
+        <p class="mb-2 text-[11px] text-ink-faint">任务清单请在下方单独维护，正文仅用于补充说明。</p>
         <VditorEditor v-model="form.body" :height="320" upload-scope="content" />
+      </div>
+      <div>
+        <label class="field-label">待办任务</label>
+        <div class="space-y-2">
+          <div v-for="(task, i) in form.tasks" :key="task.taskId ?? `new-${i}`" class="flex gap-2"><input v-model="task.label" class="field" :placeholder="`任务 ${i + 1}`" /><button type="button" class="btn-danger-ghost" @click="removeTask(i)">删除</button></div>
+          <button type="button" class="btn-outline" @click="addTask">+ 添加任务</button>
+        </div>
       </div>
     </div>
 
@@ -164,6 +184,13 @@ async function submit() {
       <div>
         <label class="field-label">正文（{{ l.toUpperCase() }}）</label>
         <VditorEditor v-model="trans[l].body" :height="320" upload-scope="content" />
+      </div>
+      <div>
+        <label class="field-label">待办任务（{{ l.toUpperCase() }}）</label>
+        <div class="space-y-2">
+          <input v-for="(task, i) in trans[l].tasks" :key="task.taskId ?? i" v-model="task.label" class="field" :placeholder="form.tasks[i]?.label || `任务 ${i + 1}`" />
+        </div>
+        <p class="mt-2 text-[11px] text-ink-faint">按 EN 任务顺序填写；留空时回退 EN。</p>
       </div>
       <p class="text-[11px] text-ink-faint">留空时消费端回退 EN（决策 13）。</p>
     </div>

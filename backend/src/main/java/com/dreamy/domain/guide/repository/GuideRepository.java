@@ -29,6 +29,7 @@ public class GuideRepository {
     public List<Guide> listStorePublished() {
         return guideMapper.selectList(new LambdaQueryWrapper<Guide>()
                 .eq(Guide::getStatus, PublishStatus.PUBLISHED)
+                .orderByAsc(Guide::getSortOrder)
                 .orderByAsc(Guide::getPhase)
                 .orderByAsc(Guide::getId));
     }
@@ -39,7 +40,7 @@ public class GuideRepository {
         if (status != null) {
             qw.eq(Guide::getStatus, status);
         }
-        return guideMapper.selectList(qw.orderByAsc(Guide::getPhase).orderByAsc(Guide::getId));
+        return guideMapper.selectList(qw.orderByAsc(Guide::getSortOrder).orderByAsc(Guide::getPhase).orderByAsc(Guide::getId));
     }
 
     /** RM-MKT-082 findById */
@@ -67,6 +68,10 @@ public class GuideRepository {
         guideMapper.update(null, new LambdaUpdateWrapper<Guide>()
                 .eq(Guide::getId, id)
                 .set(Guide::getStatus, status));
+    }
+
+    public void updateSortOrder(Long id, int sortOrder) {
+        guideMapper.update(null, new LambdaUpdateWrapper<Guide>().eq(Guide::getId, id).set(Guide::getSortOrder, sortOrder));
     }
 
     /** RM-MKT-087 listTranslationsByGuideIds —— 批查防 N+1（NP-MKT-001） */
