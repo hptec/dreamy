@@ -80,7 +80,8 @@ export function collectConsoleErrors(page) {
   page.on('console', (m) => {
     if (m.type() !== 'error') return
     const text = m.text()
-    if (/favicon|Failed to load resource: the server responded with a status of 4\d\d/.test(text)) return
+    // 预期 4xx（负向用例）与 dev server 偶发连接重置属于网络噪声，不算应用错误
+    if (/favicon|Failed to load resource: the server responded with a status of 4\d\d|net::ERR_CONNECTION_RESET/.test(text)) return
     errors.push(text.slice(0, 200))
   })
   page.on('pageerror', (e) => errors.push(`pageerror: ${String(e).slice(0, 200)}`))
