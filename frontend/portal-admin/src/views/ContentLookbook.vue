@@ -14,6 +14,7 @@ import { BizError } from '@/api/client'
 import {
   PlusIcon, PencilSquareIcon, TrashIcon, PhotoIcon, RocketLaunchIcon, ArchiveBoxArrowDownIcon,
   EyeIcon,
+  ArrowUpIcon, ArrowDownIcon,
 } from '@heroicons/vue/24/outline'
 import LocaleFlag from '@/components/ui/LocaleFlag.vue'
 import { PublishStatus } from '@/api/types'
@@ -35,14 +36,8 @@ function coverForLookbook(l: Lookbook) {
   return l.cover || l.fallbackCover || ''
 }
 
-function previewLookbook(l: Lookbook) {
-  if (l.status !== PublishStatus.PUBLISHED) return
-  window.open(`${STORE_BASE}/inspiration?lookbook=${l.id}`, '_blank')
-}
-
-function previewGuide(g: Guide) {
-  if (g.status !== PublishStatus.PUBLISHED) return
-  window.open(`${STORE_BASE}/wedding-guides#guide-${g.id}`, '_blank')
+function previewPage() {
+  window.open(`${STORE_BASE}/${tab.value === 'lookbook' ? 'inspiration' : 'wedding-guides'}`, '_blank')
 }
 
 function load() {
@@ -80,6 +75,19 @@ async function toggleGuide(g: Guide) {
   }
 }
 
+async function moveGuide(index: number, delta: number) {
+  const target = index + delta
+  if (target < 0 || target >= store.guides.length) return
+  const ids = store.guides.map((item) => item.id)
+  ;[ids[index], ids[target]] = [ids[target], ids[index]]
+  try {
+    await store.reorderGuides(ids)
+    toast.success('指南顺序已保存')
+  } catch (e) {
+    toast.error(e instanceof BizError ? e.message : '调整顺序失败')
+  }
+}
+
 async function doDelete() {
   if (!confirm.value) return
   confirmBusy.value = true
@@ -101,7 +109,10 @@ onMounted(load)
 <template>
   <div class="animate-fadeup">
     <PageHeader eyebrow="Content · CMS" title="Lookbook 与指南" subtitle="管理主题画册与婚礼筹备时间轴指南">
-      <template #actions><button class="btn-primary" @click="openNew"><PlusIcon class="h-4 w-4" />新增</button></template>
+      <template #actions>
+        <button class="btn-ghost" @click="previewPage"><EyeIcon class="h-4 w-4" />预览页面</button>
+        <button class="btn-primary" @click="openNew"><PlusIcon class="h-4 w-4" />新增</button>
+      </template>
     </PageHeader>
 
     <div class="mb-4 flex gap-1 border-b border-line">
@@ -136,7 +147,6 @@ onMounted(load)
             <LocaleFlag v-for="locale in ['es', 'fr'] as const" :key="locale" :locale="locale" :state="l.translations?.some((t) => t.locale === locale && (t.title || t.description)) ? 'filled' : 'missing'" />
           </div>
           <div class="mt-3 flex gap-1 border-t border-line pt-3">
-            <button class="btn-ghost disabled:opacity-40" :disabled="l.status !== PublishStatus.PUBLISHED" :title="l.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'" @click="previewLookbook(l)"><EyeIcon class="h-4 w-4" />预览</button>
             <button class="btn-ghost" @click="editingLookbook = l; lookbookDrawer = true"><PencilSquareIcon class="h-4 w-4" />编辑</button>
             <button class="btn-ghost" :title="l.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleLookbook(l)">
               <component :is="l.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
@@ -162,14 +172,15 @@ onMounted(load)
             <span class="font-display text-base font-medium text-ink">{{ g.title }}</span>
             <span class="rounded-full bg-canvas-warm px-2 py-0.5 text-[11px] text-ink-faint">{{ g.timeframe || '—' }}</span>
           </div>
-          <p class="text-[12px] text-ink-soft">{{ g.phase }} · {{ g.tasksCount ?? 0 }} 个待办任务</p>
+          <p class="text-[12px] text-ink-soft">{{ g.phase }} · {{ g.tasks?.length ?? 0 }} 个待办任务</p>
           <div class="mt-1 flex items-center gap-1" aria-label="翻译状态">
             <LocaleFlag v-for="locale in ['es', 'fr'] as const" :key="locale" :locale="locale" :state="g.translations?.some((t) => t.locale === locale && (t.title || t.body)) ? 'filled' : 'missing'" />
           </div>
         </div>
         <StatusBadge :tone="g.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="g.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
         <div class="flex gap-1">
-          <button class="btn-ghost disabled:opacity-40" :disabled="g.status !== PublishStatus.PUBLISHED" :title="g.status === PublishStatus.PUBLISHED ? '前台预览' : '仅已发布内容可预览'" @click="previewGuide(g)"><EyeIcon class="h-4 w-4" /></button>
+          <button class="btn-ghost disabled:opacity-40" :disabled="i === 0" title="上移" @click="moveGuide(i, -1)"><ArrowUpIcon class="h-4 w-4" /></button>
+          <button class="btn-ghost disabled:opacity-40" :disabled="i === store.guides.length - 1" title="下移" @click="moveGuide(i, 1)"><ArrowDownIcon class="h-4 w-4" /></button>
           <button class="btn-ghost" :title="g.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleGuide(g)">
             <component :is="g.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
           </button>

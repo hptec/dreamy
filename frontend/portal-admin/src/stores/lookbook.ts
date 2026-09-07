@@ -68,6 +68,12 @@ export const useLookbookStore = defineStore('lookbook', () => {
     return updated
   }
 
+  async function reorderGuides(ids: number[]) {
+    const res = await marketingApi.reorderGuides(ids)
+    guides.value = res.items
+    return res.items
+  }
+
   return {
     lookbooks,
     guides,
@@ -82,5 +88,6 @@ export const useLookbookStore = defineStore('lookbook', () => {
     saveGuide,
     removeGuide,
     patchGuideStatus,
+    reorderGuides,
   }
 })
