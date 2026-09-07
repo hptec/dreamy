@@ -6,6 +6,7 @@ import com.dreamy.enums.PaymentStatus;
 import com.dreamy.domain.payment.entity.Payment;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
@@ -69,6 +70,21 @@ public class PaymentRepository {
 
     public int casUpdateStatus(Long id, PaymentStatus from, PaymentStatus to) {
         return casUpdateStatus(id, Arrays.asList(from), to, null, null);
+    }
+
+    /**
+     * order-flow-complete §2.2：退款批准累计（仅退本次 delta）——单条 UPDATE：
+     * refunded_amount += delta；status = 累计 ≥ amount ? REFUNDED : PARTIALLY_REFUNDED；
+     * WHERE status ∈ {SUCCEEDED, PARTIALLY_REFUNDED}（affected=0 = 支付单非可退态，调用方告警）。
+     */
+    public int applyRefund(Long id, BigDecimal delta) {
+        return mapper.update(null, new LambdaUpdateWrapper<Payment>()
+                .eq(Payment::getId, id)
+                .in(Payment::getStatus, List.of(PaymentStatus.SUCCEEDED, PaymentStatus.PARTIALLY_REFUNDED))
+                // MySQL 单表 UPDATE 按 SET 顺序即时生效：status 表达式须先于 refunded_amount 赋值求值
+                .setSql("status = IF(refunded_amount + {0} >= amount, {1}, {2})", delta,
+                        PaymentStatus.REFUNDED.getKey(), PaymentStatus.PARTIALLY_REFUNDED.getKey())
+                .setSql("refunded_amount = refunded_amount + {0}", delta));
     }
 
     /** RM-TRD-044 retryOrderPayment 重建凭据（status 复位 created） */

@@ -5,6 +5,7 @@ import com.dreamy.infra.stripe.StripeClient;
 import com.dreamy.infra.stripe.StripePaymentIntent;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
 import com.dreamy.domain.cart.service.StoreCartService;
+import com.dreamy.enums.OrderActorType;
 import com.dreamy.enums.OrderStatus;
 import com.dreamy.enums.RefundStatus;
 import com.dreamy.domain.order.entity.Order;
@@ -16,14 +17,20 @@ import com.dreamy.domain.payment.repository.PaymentRepository;
 import com.dreamy.domain.refund.entity.Refund;
 import com.dreamy.domain.refund.repository.RefundRepository;
 import com.dreamy.domain.refund.service.RefundEligibility;
+import com.dreamy.dto.TradingDtos.CartItemCreate;
 import com.dreamy.dto.TradingDtos.OrderLineDto;
 import com.dreamy.dto.TradingDtos.PaymentCredential;
 import com.dreamy.dto.TradingDtos.PaymentSummaryDto;
+import com.dreamy.dto.TradingDtos.ReorderResponse;
+import com.dreamy.dto.TradingDtos.ReorderSkipped;
 import com.dreamy.dto.TradingDtos.StoreOrderDetail;
 import com.dreamy.dto.TradingDtos.StoreOrderListItem;
 import com.dreamy.dto.TradingDtos.StoreRefundDto;
+import com.dreamy.dto.TradingDtos.TaxBreakdownDto;
+import com.dreamy.error.CatalogException;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
+import com.dreamy.infra.TradingTxRunner;
 import com.dreamy.mq.TradingEventsPublisher;
 import com.dreamy.support.TradingFieldErrors;
 import com.dreamy.support.TradingPaginatedSupport;
@@ -31,14 +38,17 @@ import com.dreamy.support.TradingParams;
 import huihao.page.Paginated;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 消费端订单服务（trading-api-detail §5；TASK-051/038）。
+ * 消费端订单服务（trading-api-detail §5；TASK-051/038；order-flow-complete B/I）。
  * user_id 强隔离（BE-DIM-6）：跨用户/不存在一律 404601 防探测。
  * 行级退款资格派生（决策 24，RefundEligibility 与 RefundService 同口径三处一致）。
+ * 新增：confirm-delivery（SHIPPED/DELIVERED → COMPLETED）/ reorder（行商品回购物车）/ 详情 events[]（customer_visible）。
  */
 @Service
 public class StoreOrderService {
@@ -50,11 +60,16 @@ public class StoreOrderService {
     private final CheckoutConfigRepository checkoutConfigRepository;
     private final OrderCancelService orderCancelService;
     private final StripeClient stripeClient;
+    private final OrderEventRecorder orderEventRecorder;
+    private final TradingTxRunner txRunner;
+    private final StoreCartService storeCartService;
 
     public StoreOrderService(OrderRepository orderRepository, OrderLineRepository orderLineRepository,
                              PaymentRepository paymentRepository, RefundRepository refundRepository,
                              CheckoutConfigRepository checkoutConfigRepository,
-                             OrderCancelService orderCancelService, StripeClient stripeClient) {
+                             OrderCancelService orderCancelService, StripeClient stripeClient,
+                             OrderEventRecorder orderEventRecorder, TradingTxRunner txRunner,
+                             StoreCartService storeCartService) {
         this.orderRepository = orderRepository;
         this.orderLineRepository = orderLineRepository;
         this.paymentRepository = paymentRepository;
@@ -62,6 +77,9 @@ public class StoreOrderService {
         this.checkoutConfigRepository = checkoutConfigRepository;
         this.orderCancelService = orderCancelService;
         this.stripeClient = stripeClient;
+        this.orderEventRecorder = orderEventRecorder;
+        this.txRunner = txRunner;
+        this.storeCartService = storeCartService;
     }
 
     /** E-listStoreOrders（V-TRD-030/031 + STEP-TRD-01/02；Paginated 六字段） */
@@ -163,6 +181,63 @@ public class StoreOrderService {
         return new PaymentCredential(rebuilt.id(), rebuilt.clientSecret());
     }
 
+    /**
+     * E-confirmDelivery（order-flow-complete §3.1 B）：SHIPPED/DELIVERED → COMPLETED（CAS，非法态 409602）；
+     * SHIPPED 起跳同写 delivered_at；与自动签收/自动完成互不阻塞（STATE-5：谁先 CAS 成功谁生效）。
+     */
+    public StoreOrderDetail confirmDelivery(Long customerId, Long orderId) {
+        Order order = orderRepository.findByIdAndCustomerId(orderId, customerId);
+        if (order == null) {
+            throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
+        }
+        OrderStatus from = order.getStatus();
+        if (from != OrderStatus.SHIPPED && from != OrderStatus.DELIVERED) {
+            throw TradingException.orderStateInvalid();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        txRunner.inTx(() -> {
+            int affected = orderRepository.casUpdateStatus(orderId, from, OrderStatus.COMPLETED, uw -> {
+                uw.set(Order::getCompletedAt, now);
+                if (from == OrderStatus.SHIPPED) {
+                    uw.set(Order::getDeliveredAt, now);
+                }
+            });
+            if (affected == 0) {
+                throw TradingException.orderStateInvalid();
+            }
+            orderEventRecorder.statusChanged(orderId, from, OrderStatus.COMPLETED, OrderActorType.CUSTOMER,
+                    customerId, "delivery confirmed by customer", true);
+        });
+        return assembleDetail(orderRepository.findById(orderId));
+    }
+
+    /**
+     * E-reorder（order-flow-complete §3.1 I）：行商品回购物车（复用 StoreCartService.addItem 校验：
+     * 商品下架 404501 / SKU 缺货 409601 / 定制不再开放 422604 → 跳过并返回 skipped[reason_code]）。
+     */
+    public ReorderResponse reorder(Long customerId, Long orderId, String locale) {
+        Order order = orderRepository.findByIdAndCustomerId(orderId, customerId);
+        if (order == null) {
+            throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
+        }
+        List<OrderLine> lines = orderLineRepository.listByOrderId(orderId);
+        int added = 0;
+        List<ReorderSkipped> skipped = new ArrayList<>();
+        for (OrderLine line : lines) {
+            CartItemCreate request = new CartItemCreate(line.getProductId(), line.getSkuId(), line.getQty(),
+                    StoreCartService.fromMap(line.getCustomSizeData()));
+            try {
+                storeCartService.addItem(customerId, request, locale);
+                added++;
+            } catch (TradingException ex) {
+                skipped.add(new ReorderSkipped(line.getId(), ex.getErrorCode().getCode()));
+            } catch (CatalogException ex) {
+                skipped.add(new ReorderSkipped(line.getId(), ex.getErrorCode().getCode()));
+            }
+        }
+        return new ReorderResponse(added, skipped);
+    }
+
     // ==================== 装配（MAP-TRD-003/004） ====================
 
     private StoreOrderListItem toListItem(Order o, OrderLineRepository.LineAggregate aggregate) {
@@ -172,7 +247,10 @@ public class StoreOrderService {
                 o.getPaymentMethod(), o.getCarrier(), o.getTrackingNo(), o.getExpiresAt(), o.getPaidAt(),
                 o.getShippedAt(), o.getCompletedAt(), o.getCreatedAt(),
                 aggregate == null ? 0 : aggregate.lineCount(),
-                aggregate == null ? null : aggregate.firstLineImg());
+                aggregate == null ? null : aggregate.firstLineImg(),
+                keyOf(o.getProductionStage()), o.getDeliveredAt(), o.getTaxAmount(), keyOf(o.getIncoterm()),
+                o.getRefundedAmount(), o.getAmountVersion(), o.getEstimatedDeliveryFrom(),
+                o.getEstimatedDeliveryTo(), keyOf(o.getShippingServiceLevel()));
     }
 
     /** StoreOrderDetail 装配（行级 refundable + 整单 refund_eligible 派生——决策 24） */
@@ -186,7 +264,7 @@ public class StoreOrderService {
         boolean hasCustomLine = lines.stream().anyMatch(l -> l.getCustomSizeData() != null);
         boolean hasPending = refunds.stream().anyMatch(r -> r.getStatus() == RefundStatus.PENDING);
         boolean eligible = RefundEligibility.orderEligible(order.getStatus(), hasPending, hasCustomLine,
-                order.getPaidAt(), graceHours, now);
+                order.getPaidAt(), graceHours, now, order.getTotalAmount(), order.getRefundedAmount());
         Integer blockReason = null;
         if (!eligible && hasCustomLine
                 && RefundEligibility.customProduced(order.getPaidAt(), graceHours, now)) {
@@ -201,7 +279,57 @@ public class StoreOrderService {
                 order.getTotalAmount(), order.getCouponId(), order.getPaymentMethod(), order.getCarrier(),
                 order.getTrackingNo(), order.getExpiresAt(), order.getPaidAt(), order.getShippedAt(),
                 order.getCompletedAt(), order.getCreatedAt(), lineDtos, order.getAddressSnapshot(),
-                toPaymentSummary(payment), eligible, blockReason, refundDtos);
+                toPaymentSummary(payment), eligible, blockReason, refundDtos,
+                keyOf(order.getProductionStage()), order.getDeliveredAt(), order.getTaxAmount(),
+                toTaxBreakdown(order.getTaxBreakdown()), keyOf(order.getIncoterm()), order.getRefundedAmount(),
+                order.getAmountVersion(), order.getEstimatedDeliveryFrom(), order.getEstimatedDeliveryTo(),
+                keyOf(order.getShippingServiceLevel()),
+                orderEventRecorder.listCustomerVisible(order.getId()),
+                // shipments[] 由 P1-B ShipmentService 接入（本阶段空列表）
+                List.of());
+    }
+
+    /** IntEnum → 契约整数码（null 透传） */
+    static Integer keyOf(huihao.enums.typeable.IntEnum value) {
+        return value == null ? null : value.getKey();
+    }
+
+    /** orders.tax_breakdown JSON → DTO（P1-B 写入形状 [{type,label,rate_scaled,base,amount}]） */
+    static List<TaxBreakdownDto> toTaxBreakdown(List<Map<String, Object>> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<TaxBreakdownDto> result = new ArrayList<>(raw.size());
+        for (Map<String, Object> item : raw) {
+            result.add(new TaxBreakdownDto(asInteger(item.get("type")), asString(item.get("label")),
+                    asInteger(item.get("rate_scaled")), asDecimal(item.get("base")), asDecimal(item.get("amount"))));
+        }
+        return result;
+    }
+
+    private static Integer asInteger(Object v) {
+        return v instanceof Number n ? n.intValue() : null;
+    }
+
+    private static String asString(Object v) {
+        return v == null ? null : String.valueOf(v);
+    }
+
+    private static BigDecimal asDecimal(Object v) {
+        if (v instanceof BigDecimal d) {
+            return d;
+        }
+        if (v instanceof Number n) {
+            return new BigDecimal(n.toString());
+        }
+        if (v instanceof String s && !s.isBlank()) {
+            try {
+                return new BigDecimal(s);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     static OrderLineDto toLineDto(OrderLine line, Order order, int graceHours, LocalDateTime now) {
@@ -218,12 +346,12 @@ public class StoreOrderService {
             return null;
         }
         return new PaymentSummaryDto(payment.getProvider(), payment.getPaymentIntentId(), payment.getAmount(),
-                payment.getCurrency(), payment.getStatus().getKey(), payment.getCardSummary(), payment.getPaidAt());
+                payment.getCurrency(), payment.getStatus().getKey(), payment.getCardSummary(), payment.getPaidAt(),
+                payment.getRefundedAmount());
     }
 
     /** MAP-TRD-007：StoreRefund 视图隐藏 stripe_refund_id/return_tracking_no/customer_* */
     static StoreRefundDto toStoreRefund(Refund refund) {
-        return new StoreRefundDto(refund.getId(), refund.getRefundNo(), refund.getOrderId(), refund.getAmount(),
-                refund.getCurrency(), refund.getReason(), refund.getStatus().getKey(), refund.getAppliedAt());
+        return com.dreamy.domain.refund.service.RefundService.toStoreDto(refund);
     }
 }

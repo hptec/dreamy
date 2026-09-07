@@ -26,11 +26,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -84,6 +86,10 @@ class OrderCreateServiceTest {
     StripeClient stripeClient;
     @Mock
     StoreOrderService storeOrderService;
+    @Mock
+    com.dreamy.domain.checkout.repository.CheckoutConfigRepository checkoutConfigRepository;
+    @Mock
+    OrderEventRecorder orderEventRecorder;
 
     OrderCreateService service;
 
@@ -91,7 +97,11 @@ class OrderCreateServiceTest {
     void setUp() {
         service = new OrderCreateService(orderRepository, orderLineRepository, paymentRepository,
                 cartItemRepository, checkoutQuoteService, orderNoGenerator, skuStockAdapter,
-                couponDomainService, stripeClient, new TradingImmediateTxRunner(), storeOrderService);
+                couponDomainService, stripeClient, new TradingImmediateTxRunner(), storeOrderService,
+                checkoutConfigRepository, orderEventRecorder);
+        com.dreamy.domain.checkout.entity.CheckoutConfig config = new com.dreamy.domain.checkout.entity.CheckoutConfig();
+        config.setPendingTimeoutMinutes(45);
+        lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
         lenient().when(orderNoGenerator.nextOrderNo()).thenReturn("DRM-20260610-0001");
         lenient().when(checkoutQuoteService.compute(anyLong(), anyLong(), isNull(), anyString(), anyString(),
                 any(), anyBoolean(), any(), anyString(), eq(true))).thenReturn(computation(null));
@@ -153,6 +163,34 @@ class OrderCreateServiceTest {
         assertThat(resp.payment().paymentIntentId()).isEqualTo("pi_1");
         assertThat(resp.payment().clientSecret()).isEqualTo("pi_1_secret");
         verify(couponDomainService, never()).redeem(any(), any());
+    }
+
+    @Test
+    @DisplayName("order-flow-complete §2.1 写规则：新订单 amount_version=2 / tax_amount=0 / refunded_amount=0；expires_at 取 checkout_config.pending_timeout_minutes；创建 PENDING 事件(CUSTOMER)")
+    void buildOrderWritesVersionAndTimeout() {
+        LocalDateTime before = LocalDateTime.now();
+        service.createOrder(CUSTOMER, request(null));
+        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).insert(captor.capture());
+        Order order = captor.getValue();
+        assertThat(order.getAmountVersion()).isEqualTo(OrderCreateService.AMOUNT_VERSION_CURRENT).isEqualTo(2);
+        assertThat(order.getTaxAmount()).isEqualByComparingTo("0.00");
+        assertThat(order.getRefundedAmount()).isEqualByComparingTo("0.00");
+        // pending_timeout_minutes=45（setUp 配置）而非旧硬编码 30
+        assertThat(order.getExpiresAt()).isAfter(before.plusMinutes(44)).isBefore(before.plusMinutes(46));
+        verify(orderEventRecorder).statusChanged(eq(100L), isNull(), eq(com.dreamy.enums.OrderStatus.PENDING),
+                eq(com.dreamy.enums.OrderActorType.CUSTOMER), eq(CUSTOMER), any(), eq(true));
+    }
+
+    @Test
+    @DisplayName("checkout_config 读取失败 → expires_at 回退 30 分钟缺省，不阻断下单")
+    void pendingTimeoutFallback() {
+        when(checkoutConfigRepository.getSingleton()).thenThrow(new RuntimeException("db"));
+        LocalDateTime before = LocalDateTime.now();
+        service.createOrder(CUSTOMER, request(null));
+        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).insert(captor.capture());
+        assertThat(captor.getValue().getExpiresAt()).isAfter(before.plusMinutes(29)).isBefore(before.plusMinutes(31));
     }
 
     @Test

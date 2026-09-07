@@ -3,7 +3,10 @@ package com.dreamy.domain.order.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.domain.user.entity.User;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
+import com.dreamy.enums.OrderActorType;
+import com.dreamy.enums.OrderEventType;
 import com.dreamy.enums.OrderStatus;
+import com.dreamy.enums.ProductionStage;
 import com.dreamy.domain.order.entity.Order;
 import com.dreamy.domain.order.repository.OrderLineRepository;
 import com.dreamy.domain.order.repository.OrderRepository;
@@ -26,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +42,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -70,6 +76,8 @@ class AdminOrderServiceTest {
     TradingAuditRecorder audit;
     @Mock
     TradingEventsPublisher eventsPublisher;
+    @Mock
+    OrderEventRecorder orderEventRecorder;
 
     AdminOrderService service;
 
@@ -77,7 +85,8 @@ class AdminOrderServiceTest {
     void setUp() {
         service = new AdminOrderService(orderRepository, orderLineRepository, paymentRepository, refundRepository,
                 checkoutConfigRepository, orderCancelService, refundService,
-                new TradingImmediateTxRunner(), new TradingAfterCommitRunner(), audit, eventsPublisher);
+                new TradingImmediateTxRunner(), new TradingAfterCommitRunner(), audit, eventsPublisher,
+                orderEventRecorder);
         lenient().when(refundService.loadUsers(any())).thenReturn(Map.of());
         lenient().when(orderLineRepository.sumQtyByOrderIds(any())).thenReturn(Map.of());
     }
@@ -124,7 +133,7 @@ class AdminOrderServiceTest {
     @Test
     @DisplayName("API-TRD-01/RM-TRD-01b/01c：列表派生 country=address_snapshot.country、item_count=SUM(qty)，缺失聚合 → 0")
     void listDerivesCountryAndItemCount() {
-        when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
+        when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenReturn(pageOf(List.of(order(1L, "US"), order(2L, null))));
         when(refundService.loadUsers(any())).thenReturn(Map.of(7L, user(7L, "Alice", "alice@example.com")));
         when(orderLineRepository.sumQtyByOrderIds(any())).thenReturn(Map.of(1L, 3));
@@ -147,19 +156,19 @@ class AdminOrderServiceTest {
     void listSearchResolvesCustomerIdsByNameOrEmail() {
         when(refundService.findUserIdsByNameOrEmailLike("Alice")).thenReturn(List.of(7L));
         when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), eq("Alice"), eq(List.of(7L)),
-                anyInt(), anyInt())).thenReturn(pageOf(List.of()));
+                any(), any(), anyInt(), anyInt())).thenReturn(pageOf(List.of()));
 
         service.list(1, 20, null, "Alice", null, null, null);
 
         verify(refundService).findUserIdsByNameOrEmailLike("Alice");
         verify(orderRepository).pageByAdminFilter(any(), any(), any(), any(), eq("Alice"), eq(List.of(7L)),
-                anyInt(), anyInt());
+                any(), any(), anyInt(), anyInt());
     }
 
     @Test
     @DisplayName("API-TRD-03：search 为空时不触发 identity 解析")
     void listWithoutSearchSkipsCustomerResolution() {
-        when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
+        when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenReturn(pageOf(List.of()));
 
         service.list(1, 20, null, null, null, null, null);
@@ -316,5 +325,238 @@ class AdminOrderServiceTest {
                 + "order_no,customer_name,customer_email,country,item_count,total_amount,currency,payment_method,status,created_at\n");
         verify(audit).record(eq(TradingAuditRecorder.ACTION_ORDER_EXPORT), eq("orders"),
                 contains("\"status\":\"2\",\"search\":\"alice\",\"currency\":\"USD\""));
+    }
+
+    // ==================== order-flow-complete B/J ====================
+
+    private void stubDetailDeps(Order returned) {
+        lenient().when(orderRepository.findById(returned.getId())).thenReturn(returned);
+        lenient().when(orderLineRepository.listByOrderId(returned.getId())).thenReturn(List.of());
+        lenient().when(refundRepository.listByOrderId(returned.getId())).thenReturn(List.of());
+        lenient().when(paymentRepository.findByOrderId(returned.getId())).thenReturn(null);
+        lenient().when(orderEventRecorder.listAdmin(returned.getId())).thenReturn(List.of());
+        com.dreamy.domain.checkout.entity.CheckoutConfig config = new com.dreamy.domain.checkout.entity.CheckoutConfig();
+        config.setCustomRefundGraceHours(24);
+        lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
+    }
+
+    private Order withStatus(Order o, OrderStatus status) {
+        o.setStatus(status);
+        return o;
+    }
+
+    @Test
+    @DisplayName("PATCH status=8：SHIPPED→DELIVERED（delivered_at）+ 事件(ADMIN) + order.delivered")
+    void patchStatusDelivered() {
+        Order shipped = withStatus(order(1L, "US"), OrderStatus.SHIPPED);
+        Order delivered = withStatus(order(1L, "US"), OrderStatus.DELIVERED);
+        when(orderRepository.findById(1L)).thenReturn(shipped, delivered);
+        stubDetailDeps(delivered);
+        when(orderRepository.findById(1L)).thenReturn(shipped, delivered);
+        when(orderRepository.casUpdateStatus(eq(1L), eq(OrderStatus.SHIPPED), eq(OrderStatus.DELIVERED), any()))
+                .thenReturn(1);
+
+        var detail = service.patchStatus(1L, 8);
+
+        assertThat(detail.status()).isEqualTo(8);
+        verify(orderEventRecorder).statusChanged(eq(1L), eq(OrderStatus.SHIPPED), eq(OrderStatus.DELIVERED),
+                eq(OrderActorType.ADMIN), any(), any(), eq(true));
+        verify(eventsPublisher).publishOrderDelivered(any(Order.class), eq("en"));
+        verify(audit).record(eq(TradingAuditRecorder.ACTION_ORDER_STATUS), eq(shipped.getOrderNo()),
+                contains("delivered"));
+    }
+
+    @Test
+    @DisplayName("PATCH status=4：DELIVERED→COMPLETED（不再写 delivered_at）；SHIPPED→COMPLETED（同写 delivered_at）；事件 ADMIN")
+    void patchStatusCompleted() {
+        Order delivered = withStatus(order(1L, "US"), OrderStatus.DELIVERED);
+        Order completed = withStatus(order(1L, "US"), OrderStatus.COMPLETED);
+        stubDetailDeps(completed);
+        when(orderRepository.findById(1L)).thenReturn(delivered, completed);
+        when(orderRepository.casUpdateStatus(eq(1L), eq(OrderStatus.DELIVERED), eq(OrderStatus.COMPLETED), any()))
+                .thenReturn(1);
+        service.patchStatus(1L, 4);
+        verify(orderEventRecorder).statusChanged(eq(1L), eq(OrderStatus.DELIVERED), eq(OrderStatus.COMPLETED),
+                eq(OrderActorType.ADMIN), any(), any(), eq(true));
+
+        Order shipped = withStatus(order(1L, "US"), OrderStatus.SHIPPED);
+        when(orderRepository.findById(1L)).thenReturn(shipped, completed);
+        when(orderRepository.casUpdateStatus(eq(1L), eq(OrderStatus.SHIPPED), eq(OrderStatus.COMPLETED), any()))
+                .thenReturn(1);
+        service.patchStatus(1L, 4);
+        verify(orderEventRecorder).statusChanged(eq(1L), eq(OrderStatus.SHIPPED), eq(OrderStatus.COMPLETED),
+                eq(OrderActorType.ADMIN), any(), any(), eq(true));
+    }
+
+    @Test
+    @DisplayName("PATCH status=5：PENDING → OrderCancelService(admin, operatorId)；PAID → RefundService.adminCancelPaidOrder；SHIPPED → 409602；status=2/3 → 422601")
+    void patchStatusCancelled() {
+        Order pending = withStatus(order(1L, "US"), OrderStatus.PENDING);
+        Order cancelled = withStatus(order(1L, "US"), OrderStatus.CANCELLED);
+        stubDetailDeps(cancelled);
+        when(orderRepository.findById(1L)).thenReturn(pending, cancelled);
+        when(orderCancelService.cancelPending(eq(pending), eq(TradingEventsPublisher.CANCEL_REASON_ADMIN), any()))
+                .thenReturn(true);
+        service.patchStatus(1L, 5);
+        verify(orderCancelService).cancelPending(eq(pending), eq("admin"), any());
+        verify(refundService, never()).adminCancelPaidOrder(any());
+
+        Order paid = withStatus(order(1L, "US"), OrderStatus.PAID);
+        when(orderRepository.findById(1L)).thenReturn(paid, cancelled);
+        service.patchStatus(1L, 5);
+        verify(refundService).adminCancelPaidOrder(paid);
+
+        Order shipped = withStatus(order(1L, "US"), OrderStatus.SHIPPED);
+        when(orderRepository.findById(1L)).thenReturn(shipped);
+        assertThatThrownBy(() -> service.patchStatus(1L, 5))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+        assertThatThrownBy(() -> service.patchStatus(1L, 2))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
+        assertThatThrownBy(() -> service.patchStatus(1L, 3))
+                .isInstanceOf(TradingException.class);
+    }
+
+    @Test
+    @DisplayName("production-stage：仅 PAID；1→2 递进发 order.production + PRODUCTION 事件；3→2 回退一档允许；1→3 跳级 409602；非 PAID 409602；非法枚举 422601")
+    void patchProductionStage() {
+        Order paid = withStatus(order(1L, "US"), OrderStatus.PAID);
+        paid.setProductionStage(ProductionStage.PENDING_REVIEW);
+        Order after = withStatus(order(1L, "US"), OrderStatus.PAID);
+        after.setProductionStage(ProductionStage.IN_PRODUCTION);
+        stubDetailDeps(after);
+        when(orderRepository.findById(1L)).thenReturn(paid, after);
+        when(orderRepository.casUpdateProductionStage(1L, ProductionStage.PENDING_REVIEW, ProductionStage.IN_PRODUCTION))
+                .thenReturn(1);
+
+        var detail = service.patchProductionStage(1L, 2);
+
+        assertThat(detail.productionStage()).isEqualTo(2);
+        verify(orderEventRecorder).productionStageChanged(eq(1L), eq(ProductionStage.PENDING_REVIEW),
+                eq(ProductionStage.IN_PRODUCTION), eq(OrderActorType.ADMIN), any(), isNull());
+        verify(eventsPublisher).publishOrderProduction(any(Order.class), eq(ProductionStage.IN_PRODUCTION), eq("en"));
+
+        // 回退一档 3→2：允许，不发 order.production（delta<0）
+        Order qc = withStatus(order(1L, "US"), OrderStatus.PAID);
+        qc.setProductionStage(ProductionStage.QUALITY_CHECK);
+        when(orderRepository.findById(1L)).thenReturn(qc, after);
+        when(orderRepository.casUpdateProductionStage(1L, ProductionStage.QUALITY_CHECK, ProductionStage.IN_PRODUCTION))
+                .thenReturn(1);
+        service.patchProductionStage(1L, 2);
+        verify(orderEventRecorder).productionStageChanged(eq(1L), eq(ProductionStage.QUALITY_CHECK),
+                eq(ProductionStage.IN_PRODUCTION), eq(OrderActorType.ADMIN), any(), eq("rolled back one stage"));
+        verify(eventsPublisher, org.mockito.Mockito.times(1)).publishOrderProduction(any(), any(), any());
+
+        // 跳级 1→3
+        when(orderRepository.findById(1L)).thenReturn(paid);
+        assertThatThrownBy(() -> service.patchProductionStage(1L, 3))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+        // 非 PAID
+        when(orderRepository.findById(1L)).thenReturn(withStatus(order(1L, "US"), OrderStatus.SHIPPED));
+        assertThatThrownBy(() -> service.patchProductionStage(1L, 2))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+        // 非法枚举
+        assertThatThrownBy(() -> service.patchProductionStage(1L, 9))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
+    }
+
+    @Test
+    @DisplayName("ship：PAID→SHIPPED 置 production_stage=NULL；写 PRODUCTION(收尾)/SHIPMENT/STATUS_CHANGED 事件；order.shipped 事务内发布")
+    void shipWritesEventsAndClearsStage() {
+        Order paid = withStatus(order(1L, "US"), OrderStatus.PAID);
+        paid.setProductionStage(ProductionStage.READY_TO_SHIP);
+        Order shipped = withStatus(order(1L, "US"), OrderStatus.SHIPPED);
+        stubDetailDeps(shipped);
+        when(orderRepository.findById(1L)).thenReturn(paid, shipped);
+        when(orderRepository.casUpdateStatus(eq(1L), eq(OrderStatus.PAID), eq(OrderStatus.SHIPPED), any()))
+                .thenReturn(1);
+
+        service.ship(1L, "DHL Express", "DHL123");
+
+        verify(orderEventRecorder).productionStageChanged(eq(1L), eq(ProductionStage.READY_TO_SHIP), isNull(),
+                eq(OrderActorType.ADMIN), any(), eq("shipped"));
+        verify(orderEventRecorder).record(eq(1L), eq(OrderEventType.SHIPMENT), eq(OrderActorType.ADMIN), any(),
+                eq("Shipped via DHL Express"), eq("DHL123"), any(), eq(true));
+        verify(orderEventRecorder).statusChanged(eq(1L), eq(OrderStatus.PAID), eq(OrderStatus.SHIPPED),
+                eq(OrderActorType.SYSTEM), isNull(), any(), eq(true));
+        verify(eventsPublisher).publishOrderShipped(argThat(o -> "DHL123".equals(o.getTrackingNo())
+                && o.getStatus() == OrderStatus.SHIPPED), eq("en"));
+    }
+
+    @Test
+    @DisplayName("notes：content 必填 ≤512；customer_visible 缺省 false → 'Internal note'；返回 OrderEventDto")
+    void addNote() {
+        Order paid = withStatus(order(1L, "US"), OrderStatus.PAID);
+        when(orderRepository.findById(1L)).thenReturn(paid);
+        com.dreamy.domain.order.entity.OrderEvent saved = new com.dreamy.domain.order.entity.OrderEvent();
+        saved.setId(77L);
+        saved.setType(OrderEventType.NOTE);
+        saved.setActorType(OrderActorType.ADMIN);
+        saved.setTitle("Internal note");
+        saved.setDetail("call customer");
+        saved.setCustomerVisible(false);
+        when(orderEventRecorder.record(eq(1L), eq(OrderEventType.NOTE), eq(OrderActorType.ADMIN), any(),
+                eq("Internal note"), eq("call customer"), isNull(), eq(false))).thenReturn(saved);
+        when(orderEventRecorder.toDtos(eq(List.of(saved)), eq(true))).thenReturn(List.of(
+                new com.dreamy.dto.TradingDtos.OrderEventDto(77L, 2, 3, null, "Ops", "Internal note",
+                        "call customer", null, false, null)));
+
+        var dto = service.addNote(1L, "call customer", null);
+
+        assertThat(dto.id()).isEqualTo(77L);
+        assertThat(dto.customerVisible()).isFalse();
+        assertThatThrownBy(() -> service.addNote(1L, "  ", true))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
+    }
+
+    @Test
+    @DisplayName("列表：production_stage/wedding_before 筛选透传；wedding_days_left 派生；production_stage 非法 → 422601")
+    void listWithNewFilters() {
+        Order o = withStatus(order(1L, "US"), OrderStatus.PAID);
+        o.setProductionStage(ProductionStage.QUALITY_CHECK);
+        o.setWeddingDate(LocalDate.now().plusDays(10));
+        when(orderRepository.pageByAdminFilter(any(), any(), any(), any(), any(), any(),
+                eq(ProductionStage.QUALITY_CHECK), eq(LocalDate.of(2026, 12, 31)), anyInt(), anyInt()))
+                .thenReturn(pageOf(List.of(o)));
+
+        var result = service.list(1, 20, null, null, null, null, null, 3, LocalDate.of(2026, 12, 31));
+
+        AdminOrderListItem item = result.getData().get(0);
+        assertThat(item.productionStage()).isEqualTo(3);
+        assertThat(item.weddingDaysLeft()).isEqualTo(10L);
+        assertThatThrownBy(() -> service.list(1, 20, null, null, null, null, null, 9, null))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
+    }
+
+    @Test
+    @DisplayName("详情：events 全量（listAdmin）+ 新字段 + shipments 空 + wedding_days_left/locale_snapshot")
+    void detailAssemblyNewFields() {
+        Order o = withStatus(order(1L, "US"), OrderStatus.DELIVERED);
+        o.setProductionStage(null);
+        o.setDeliveredAt(LocalDateTime.of(2026, 9, 7, 9, 0));
+        o.setRefundedAmount(new BigDecimal("37.00"));
+        o.setAmountVersion(2);
+        o.setLocaleSnapshot("es");
+        stubDetailDeps(o);
+        when(orderEventRecorder.listAdmin(1L)).thenReturn(List.of(
+                new com.dreamy.dto.TradingDtos.OrderEventDto(1L, 2, 3, 3L, "Ops", "Internal note", null, null,
+                        false, null)));
+
+        var detail = service.getDetail(1L);
+
+        assertThat(detail.status()).isEqualTo(8);
+        assertThat(detail.deliveredAt()).isEqualTo(LocalDateTime.of(2026, 9, 7, 9, 0));
+        assertThat(detail.refundedAmount()).isEqualByComparingTo("37.00");
+        assertThat(detail.amountVersion()).isEqualTo(2);
+        assertThat(detail.localeSnapshot()).isEqualTo("es");
+        assertThat(detail.events()).hasSize(1);
+        assertThat(detail.events().get(0).customerVisible()).isFalse();
+        assertThat(detail.shipments()).isEmpty();
     }
 }

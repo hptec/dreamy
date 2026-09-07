@@ -173,7 +173,7 @@ dreamy:
     default-retry-ttl-ms: 5000,30000,180000
     queues:
       "[q.mail]":
-        binding-keys: ["order.*", "showroom.*", "refund.resolved"]
+        binding-keys: ["order.*", "showroom.*", "refund.*"]
       "[q.showroom]":
         binding-keys: ["order.paid"]
       "[q.catalog.sales]":

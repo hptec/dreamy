@@ -1,6 +1,8 @@
 package com.dreamy.infra.mail;
 
-import com.dreamy.infra.mail.MailSender;
+import com.dreamy.domain.order.service.OrderEventRecorder;
+import com.dreamy.enums.OrderActorType;
+import com.dreamy.enums.OrderEventType;
 import com.dreamy.infra.mail.repository.MailRecordRepository;
 import com.dreamy.infra.mq.AbstractIdempotentEventConsumer;
 import com.dreamy.infra.mq.DomainEvent;
@@ -20,7 +22,7 @@ import java.util.Set;
 /**
  * q.mail 邮件事件消费者（FLOW-P11，决策 16/20.5；L3 修复轮补全 FUNC-016/FUNC-019 / TC-TRD-070）。
  * 绑定拓扑（application.yml dreamy.mq.queues / RabbitMqTopologyConfig）：
- *   q.mail ← order.* / showroom.* / refund.resolved。
+ *   q.mail ← order.* / showroom.* / refund.*。
  * 消费链（双层幂等 + MailRecord 状态机）：
  * ① event_id 幂等闸（AbstractIdempotentEventConsumer：Redis SETNX；失败释放键允许重投重入）；
  * ② 事件 type → MailType 映射（MailType.fromEventType；无邮件语义事件如 order.cancelled → ack 跳过）；
@@ -32,6 +34,7 @@ import java.util.Set;
  * ⑥ 失败：retry_count+1 → failed + 异常上抛（释放幂等键 → real 模式 dreamy.retry.q.mail 阶梯
  *    5s/30s/180s 重投）；超 dreamy.mq.max-retries=3 → status=dead 正常 ack（dlq 语义，告警人工补发，bs-670）。
  * 日志脱敏：invite_url/invite_token 不入日志，邮箱掩码由 MailSender 实现承载。
+ * order-flow-complete §4.5：订单类邮件发送成功后写 order_event(EMAIL, SYSTEM, 不可见)。
  */
 @Component
 public class MailEventConsumer extends AbstractIdempotentEventConsumer {
@@ -39,7 +42,7 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
     public static final String QUEUE = "q.mail";
 
     /** 模板变量黑名单：结构型/非渲染字段不进 vars */
-    private static final Set<String> NON_TEMPLATE_KEYS = Set.of("lines", "customer_id", "occurred_at");
+    private static final Set<String> NON_TEMPLATE_KEYS = Set.of("lines", "customer_id", "occurred_at", "order_id");
 
     private static final String DEFAULT_LOCALE = "en";
     private static final Set<String> SUPPORTED_LOCALES = Set.of("en", "es", "fr");
@@ -49,19 +52,22 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
     private final MailSender mailSender;
     private final MqProperties mqProperties;
     private final ObjectMapper objectMapper;
+    private final OrderEventRecorder orderEventRecorder;
 
     public MailEventConsumer(EventIdempotencyGuard idempotencyGuard,
                              MailRecordRepository mailRecordRepository,
                              CustomerEmailPort customerEmailPort,
                              MailSender mailSender,
                              MqProperties mqProperties,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             OrderEventRecorder orderEventRecorder) {
         super(idempotencyGuard);
         this.mailRecordRepository = mailRecordRepository;
         this.customerEmailPort = customerEmailPort;
         this.mailSender = mailSender;
         this.mqProperties = mqProperties;
         this.objectMapper = objectMapper;
+        this.orderEventRecorder = orderEventRecorder;
     }
 
     @Override
@@ -71,7 +77,7 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
 
     @Override
     public List<String> bindingKeys() {
-        return List.of("order.*", "showroom.*", "refund.resolved");
+        return List.of("order.*", "showroom.*", "refund.*");
     }
 
     @Override
@@ -124,6 +130,27 @@ public class MailEventConsumer extends AbstractIdempotentEventConsumer {
         }
         mailRecordRepository.markSent(record.getId(), LocalDateTime.now());
         log.info("[MAIL] event_id={} type={} locale={} sent", event.eventId(), type.getKey(), locale);
+        recordOrderEmailEvent(type, payload, locale);
+    }
+
+    /** order-flow-complete §4.5：订单类邮件已发送 → order_event(EMAIL, SYSTEM, customer_visible=0)；失败不影响主链 */
+    private void recordOrderEmailEvent(MailType type, Map<String, Object> payload, String locale) {
+        if (type.isShowroom() || orderEventRecorder == null) {
+            return;
+        }
+        Long orderId = asLong(payload.get("order_id"));
+        if (orderId == null) {
+            return;
+        }
+        try {
+            Map<String, Object> eventPayload = new LinkedHashMap<>();
+            eventPayload.put("mail_type", type.getKey());
+            eventPayload.put("locale", locale);
+            orderEventRecorder.record(orderId, OrderEventType.EMAIL, OrderActorType.SYSTEM, null,
+                    "Email sent: " + type.name().toLowerCase(), null, eventPayload, false);
+        } catch (RuntimeException ex) {
+            log.warn("[MAIL] order_event(EMAIL) record failed order_id={} type={}", orderId, type.getKey(), ex);
+        }
     }
 
     /** ④ event_id 幂等落表 pending；唯一索引冲突（并发重投竞态）→ 回读既有记录 */

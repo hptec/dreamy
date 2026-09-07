@@ -34,7 +34,7 @@ class ShowroomEventPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new ShowroomEventPublisher(domainEventPublisher, "http://localhost:5173/");
+        publisher = new ShowroomEventPublisher(domainEventPublisher, "http://localhost:5173/", "stub");
         lenient().when(domainEventPublisher.publish(any(), any())).thenReturn("evt-1");
     }
 
@@ -85,5 +85,25 @@ class ShowroomEventPublisherTest {
     void inviteUrlNormalized() {
         assertThat(publisher.inviteUrl(8L, "tok-1"))
                 .isEqualTo("http://localhost:5173/showroom/8?invite=tok-1");
+    }
+
+    @Test
+    @DisplayName("启动 fail-fast：smtp 发信模式 + 回环基址拒绝启动（覆盖协议/大小写/IPv6 变体）")
+    void rejectsLoopbackBaseWhenSmtp() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "http://localhost:5173", "smtp"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "http://127.0.0.1:5173", "smtp"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "https://localhost:5173", "smtp"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "http://LOCALHOST:5173", "smtp"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "http://[::1]:5173", "smtp"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ShowroomEventPublisher(domainEventPublisher, "not a url", "smtp"));
+        // smtp + 公网地址 / stub + localhost 均放行
+        new ShowroomEventPublisher(domainEventPublisher, "http://localhost:5173", "stub");
+        new ShowroomEventPublisher(domainEventPublisher, "https://dreamy.com", "smtp");
     }
 }

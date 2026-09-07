@@ -2,7 +2,10 @@ package com.dreamy.domain.order.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.domain.user.entity.User;
+import com.dreamy.enums.OrderActorType;
+import com.dreamy.enums.OrderEventType;
 import com.dreamy.enums.OrderStatus;
+import com.dreamy.enums.ProductionStage;
 import com.dreamy.domain.order.entity.Order;
 import com.dreamy.domain.order.entity.OrderLine;
 import com.dreamy.domain.order.repository.OrderLineRepository;
@@ -15,6 +18,7 @@ import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
 import com.dreamy.dto.TradingDtos.AdminOrderDetail;
 import com.dreamy.dto.TradingDtos.AdminOrderListItem;
 import com.dreamy.dto.TradingDtos.AdminRefundDto;
+import com.dreamy.dto.TradingDtos.OrderEventDto;
 import com.dreamy.dto.TradingDtos.OrderLineDto;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
@@ -28,15 +32,20 @@ import com.dreamy.support.TradingParams;
 import huihao.page.Paginated;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 后台订单服务（trading-api-detail §9，FLOW-P09，OP-009/s-752；TASK-053）。
- * 发货 TX-TRD-004a：cas(paid→shipped, set carrier/tracking_no/shipped_at) + 审计 → 提交后 MQ order.shipped。
- * 完成 TX-TRD-004b：cas(shipped→completed, set completed_at) + 审计（解锁评价 s-756）。
- * 后台取消：guard pending（paid 取消须先走退款流程 → 409602 hint），事务体复用 OrderCancelService。
+ * 后台订单服务（trading-api-detail §9，FLOW-P09，OP-009/s-752；TASK-053；order-flow-complete B/J）。
+ * 发货 TX-TRD-004a：cas(paid→shipped, set carrier/tracking_no/shipped_at, production_stage=NULL) + 事件 + 审计
+ *   + MQ order.shipped（outbox 事务内）。P1-B 接入 ShipmentService 后本方法改为委托。
+ * 状态 PATCH（§3.2）：3→4 / 8→4（completed_at）、3→8（delivered_at + MQ order.delivered）、
+ *   1→5（OrderCancelService）、2→5（RefundService.adminCancelPaidOrder：同事务创建并批准全额退款）。
+ * 制作阶段（STATE-2）：仅 PAID；1→2→3→4 递进，允许回退一档；进入 2 发 order.production。
+ * 备注：order_event(NOTE, ADMIN, customer_visible 按选择)。
  */
 @Service
 public class AdminOrderService {
@@ -52,13 +61,15 @@ public class AdminOrderService {
     private final TradingAfterCommitRunner afterCommit;
     private final TradingAuditRecorder audit;
     private final TradingEventsPublisher eventsPublisher;
+    private final OrderEventRecorder orderEventRecorder;
 
     public AdminOrderService(OrderRepository orderRepository, OrderLineRepository orderLineRepository,
                              PaymentRepository paymentRepository, RefundRepository refundRepository,
                              CheckoutConfigRepository checkoutConfigRepository,
                              OrderCancelService orderCancelService, RefundService refundService,
                              TradingTxRunner txRunner, TradingAfterCommitRunner afterCommit,
-                             TradingAuditRecorder audit, TradingEventsPublisher eventsPublisher) {
+                             TradingAuditRecorder audit, TradingEventsPublisher eventsPublisher,
+                             OrderEventRecorder orderEventRecorder) {
         this.orderRepository = orderRepository;
         this.orderLineRepository = orderLineRepository;
         this.paymentRepository = paymentRepository;
@@ -70,20 +81,34 @@ public class AdminOrderService {
         this.afterCommit = afterCommit;
         this.audit = audit;
         this.eventsPublisher = eventsPublisher;
+        this.orderEventRecorder = orderEventRecorder;
     }
 
     /** E-listAdminOrders（V-TRD-043~047 + STEP-TRD-01/02；API-TRD-03 搜索范围含客户名——ALIGN-015） */
     public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, Integer status, String search,
                                               String currency, LocalDateTime from, LocalDateTime to) {
+        return list(page, pageSize, status, search, currency, from, to, null, null);
+    }
+
+    /** E-listAdminOrders（order-flow-complete §3.2：追加 production_stage / wedding_before 筛选） */
+    public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, Integer status, String search,
+                                              String currency, LocalDateTime from, LocalDateTime to,
+                                              Integer productionStage, LocalDate weddingBefore) {
         TradingFieldErrors errors = new TradingFieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
         int parsedSize = TradingParams.parsePageSize(pageSize, errors);
         AdminOrderFilter filter = parseFilter(status, search, currency, from, to, errors);
+        if (productionStage != null && ProductionStage.of(productionStage) == null) {
+            errors.reject("production_stage", "invalid_enum");
+        }
+        errors.throwIfAny();
+        ProductionStage stageFilter = productionStage == null ? null : ProductionStage.of(productionStage);
         // RM-TRD-02 客户名/邮箱搜索：identity 先解析 customer_ids 再回本域 IN（避免跨域 join）
         List<Long> customerIds = filter.keyword() == null ? null
                 : refundService.findUserIdsByNameOrEmailLike(filter.keyword());
         Page<Order> result = orderRepository.pageByAdminFilter(filter.status(), filter.currency(),
-                filter.from(), filter.to(), filter.keyword(), customerIds, parsedPage, parsedSize);
+                filter.from(), filter.to(), filter.keyword(), customerIds, stageFilter, weddingBefore,
+                parsedPage, parsedSize);
         // STEP-TRD-02 customer_name/customer_email 批量联取（防 N+1）
         Map<Long, User> users = refundService.loadUsers(
                 result.getRecords().stream().map(Order::getCustomerId).distinct().toList());
@@ -265,62 +290,175 @@ public class AdminOrderService {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
         LocalDateTime now = LocalDateTime.now();
+        Long operatorId = audit.currentOperatorId();
+        ProductionStage fromStage = order.getProductionStage();
         txRunner.inTx(() -> {
-            // 状态机 guard：paid→shipped（affected=0 → 409602，无变更无需回滚动作）
+            // 状态机 guard：paid→shipped（affected=0 → 409602，无变更无需回滚动作）；STATE-2：production_stage 置 NULL
             int affected = orderRepository.casUpdateStatus(orderId, OrderStatus.PAID, OrderStatus.SHIPPED,
-                    uw -> uw.set(Order::getCarrier, carrier)
-                            .set(Order::getTrackingNo, parsedTrackingNo)
-                            .set(Order::getShippedAt, now));
+                    uw -> {
+                        uw.set(Order::getCarrier, carrier)
+                                .set(Order::getTrackingNo, parsedTrackingNo)
+                                .set(Order::getShippedAt, now);
+                        OrderRepository.setProductionStage(uw, null);
+                    });
             if (affected == 0) {
                 throw TradingException.orderStateInvalid();
             }
+            // §4.5：PAID→SHIPPED → order_event(STATUS_CHANGED, 可见)；制作阶段历史保留在 PRODUCTION 事件
+            if (fromStage != null) {
+                orderEventRecorder.productionStageChanged(orderId, fromStage, null, OrderActorType.ADMIN,
+                        operatorId, "shipped");
+            }
+            Map<String, Object> shipmentPayload = new java.util.LinkedHashMap<>();
+            shipmentPayload.put("carrier", carrier);
+            shipmentPayload.put("tracking_no", parsedTrackingNo);
+            orderEventRecorder.record(orderId, OrderEventType.SHIPMENT, OrderActorType.ADMIN, operatorId,
+                    "Shipped via " + carrier, parsedTrackingNo, shipmentPayload, true);
+            orderEventRecorder.statusChanged(orderId, OrderStatus.PAID, OrderStatus.SHIPPED, OrderActorType.SYSTEM,
+                    null, "all lines shipped", true);
             // 同事务审计（action=订单发货）
             audit.record(TradingAuditRecorder.ACTION_ORDER_SHIP, order.getOrderNo(),
                     "{\"carrier\":\"" + carrier + "\",\"tracking_no\":\"" + parsedTrackingNo + "\"}");
-            // 提交后 MQ order.shipped（EVT-TRD-002 → 发货邮件 FLOW-P11）
-            afterCommit.run(() -> {
-                Order shipped = orderRepository.findById(orderId);
-                // FUNC-020：发货邮件语言取下单语言快照（消费侧再按 user.locale_pref 优先覆盖）
-                String locale = shipped.getLocaleSnapshot() != null ? shipped.getLocaleSnapshot() : "en";
-                eventsPublisher.publishOrderShipped(shipped, locale);
-            });
+            // MQ order.shipped（EVT-TRD-002 → 发货邮件 FLOW-P11；outbox 事务内落表，提交后投递）
+            order.setStatus(OrderStatus.SHIPPED);
+            order.setCarrier(carrier);
+            order.setTrackingNo(parsedTrackingNo);
+            order.setShippedAt(now);
+            // FUNC-020：发货邮件语言取下单语言快照（消费侧再按 user.locale_pref 优先覆盖）
+            eventsPublisher.publishOrderShipped(order, localeOf(order));
         });
         return assembleDetail(orderRepository.findById(orderId));
     }
 
-    /** E-patchAdminOrderStatus（V-TRD-051 + STEP-TRD-01~04；TX-TRD-004b） */
+    private static String localeOf(Order order) {
+        return order.getLocaleSnapshot() != null ? order.getLocaleSnapshot() : "en";
+    }
+
+    /**
+     * E-patchAdminOrderStatus（V-TRD-051 + STEP-TRD-01~04；TX-TRD-004b；order-flow-complete §3.2 扩展）：
+     * 4=COMPLETED（3→4 / 8→4）、8=DELIVERED（3→8）、5=CANCELLED（1→5 取消回补 / 2→5 同事务创建并批准全额退款）。
+     */
     public AdminOrderDetail patchStatus(Long orderId, Integer status) {
-        if (!OrderStatus.COMPLETED.getKey().equals(status) && !OrderStatus.CANCELLED.getKey().equals(status)) {
+        OrderStatus target = OrderStatus.of(status);
+        if (target != OrderStatus.COMPLETED && target != OrderStatus.CANCELLED && target != OrderStatus.DELIVERED) {
             throw TradingException.fieldValidation("status", "invalid_enum");
         }
         Order order = orderRepository.findById(orderId);
         if (order == null) {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
-        if (OrderStatus.COMPLETED.getKey().equals(status)) {
-            // shipped→completed（解锁评价提交 s-756，review 域按 completed 订单校验购买资格）
-            LocalDateTime now = LocalDateTime.now();
-            txRunner.inTx(() -> {
-                if (orderRepository.casUpdateStatus(orderId, OrderStatus.SHIPPED, OrderStatus.COMPLETED,
-                        uw -> uw.set(Order::getCompletedAt, now)) == 0) {
-                    throw TradingException.orderStateInvalid();
+        Long operatorId = audit.currentOperatorId();
+        LocalDateTime now = LocalDateTime.now();
+        switch (target) {
+            case COMPLETED -> {
+                // shipped|delivered→completed（解锁评价提交 s-756，review 域按 completed 订单校验购买资格）
+                OrderStatus from = order.getStatus() == OrderStatus.DELIVERED ? OrderStatus.DELIVERED : OrderStatus.SHIPPED;
+                txRunner.inTx(() -> {
+                    if (orderRepository.casUpdateStatus(orderId, from, OrderStatus.COMPLETED, uw -> {
+                        uw.set(Order::getCompletedAt, now);
+                        if (from == OrderStatus.SHIPPED) {
+                            uw.set(Order::getDeliveredAt, now);
+                        }
+                    }) == 0) {
+                        throw TradingException.orderStateInvalid();
+                    }
+                    orderEventRecorder.statusChanged(orderId, from, OrderStatus.COMPLETED, OrderActorType.ADMIN,
+                            operatorId, "completed by admin", true);
+                    audit.record(TradingAuditRecorder.ACTION_ORDER_STATUS, order.getOrderNo(),
+                            "{\"status\":\"completed\"}");
+                });
+            }
+            case DELIVERED -> {
+                // shipped→delivered（手动标记签收；delivered_at + MQ order.delivered）
+                txRunner.inTx(() -> {
+                    if (orderRepository.casUpdateStatus(orderId, OrderStatus.SHIPPED, OrderStatus.DELIVERED,
+                            uw -> uw.set(Order::getDeliveredAt, now)) == 0) {
+                        throw TradingException.orderStateInvalid();
+                    }
+                    orderEventRecorder.statusChanged(orderId, OrderStatus.SHIPPED, OrderStatus.DELIVERED,
+                            OrderActorType.ADMIN, operatorId, "marked delivered by admin", true);
+                    audit.record(TradingAuditRecorder.ACTION_ORDER_STATUS, order.getOrderNo(),
+                            "{\"status\":\"delivered\"}");
+                    order.setStatus(OrderStatus.DELIVERED);
+                    order.setDeliveredAt(now);
+                    eventsPublisher.publishOrderDelivered(order, localeOf(order));
+                });
+            }
+            case CANCELLED -> {
+                if (order.getStatus() == OrderStatus.PENDING) {
+                    if (!orderCancelService.cancelPending(order, TradingEventsPublisher.CANCEL_REASON_ADMIN,
+                            operatorId)) {
+                        throw TradingException.orderStateInvalid();
+                    }
+                } else if (order.getStatus() == OrderStatus.PAID) {
+                    // STATE-7：后台取消已支付 = 同事务创建并批准全额退款 → CANCELLED（区别于 REFUNDED）
+                    refundService.adminCancelPaidOrder(order);
+                } else {
+                    throw new TradingException(TradingErrorCode.ORDER_STATE_INVALID,
+                            Map.of("hint", "仅 pending/paid 订单可后台取消"));
                 }
                 audit.record(TradingAuditRecorder.ACTION_ORDER_STATUS, order.getOrderNo(),
-                        "{\"status\":\"completed\"}");
-            });
-        } else {
-            // cancelled：guard pending（paid 取消须先走退款流程）
-            if (order.getStatus() != OrderStatus.PENDING) {
-                throw new TradingException(TradingErrorCode.ORDER_STATE_INVALID,
-                        Map.of("hint", "paid 订单请走退款"));
+                        "{\"status\":\"cancelled\"}");
             }
-            if (!orderCancelService.cancelPending(order, TradingEventsPublisher.CANCEL_REASON_ADMIN)) {
-                throw TradingException.orderStateInvalid();
-            }
-            audit.record(TradingAuditRecorder.ACTION_ORDER_STATUS, order.getOrderNo(),
-                    "{\"status\":\"cancelled\"}");
+            default -> throw TradingException.fieldValidation("status", "invalid_enum");
         }
         return assembleDetail(orderRepository.findById(orderId));
+    }
+
+    /**
+     * E-patchProductionStage（order-flow-complete §3.2 / STATE-2）：仅 PAID；1→2→3→4 递进或回退一档；
+     * 进入 IN_PRODUCTION(2) 发 order.production；写 order_event(PRODUCTION, ADMIN, 可见)。
+     */
+    public AdminOrderDetail patchProductionStage(Long orderId, Integer stage) {
+        ProductionStage target = ProductionStage.of(stage);
+        if (target == null) {
+            throw TradingException.fieldValidation("stage", stage == null ? "required" : "invalid_enum");
+        }
+        Order order = orderRepository.findById(orderId);
+        if (order == null) {
+            throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
+        }
+        if (order.getStatus() != OrderStatus.PAID) {
+            throw TradingException.orderStateInvalid();
+        }
+        ProductionStage current = order.getProductionStage();
+        int currentKey = current == null ? 0 : current.getKey();
+        int delta = target.getKey() - currentKey;
+        // 递进一档（或从空置 1）/ 回退一档纠错；其余 409602
+        if (delta != 1 && delta != -1) {
+            throw TradingException.orderStateInvalid();
+        }
+        Long operatorId = audit.currentOperatorId();
+        txRunner.inTx(() -> {
+            if (orderRepository.casUpdateProductionStage(orderId, current, target) == 0) {
+                throw TradingException.orderStateInvalid();
+            }
+            orderEventRecorder.productionStageChanged(orderId, current, target, OrderActorType.ADMIN, operatorId,
+                    delta < 0 ? "rolled back one stage" : null);
+            audit.record(TradingAuditRecorder.ACTION_ORDER_STATUS, order.getOrderNo(),
+                    "{\"production_stage\":" + target.getKey() + "}");
+            if (target == ProductionStage.IN_PRODUCTION && delta > 0) {
+                order.setProductionStage(target);
+                eventsPublisher.publishOrderProduction(order, target, localeOf(order));
+            }
+        });
+        return assembleDetail(orderRepository.findById(orderId));
+    }
+
+    /** E-addOrderNote（order-flow-complete §3.2）：order_event(NOTE, ADMIN, customer_visible 按选择） */
+    public OrderEventDto addNote(Long orderId, String content, Boolean customerVisible) {
+        TradingFieldErrors errors = new TradingFieldErrors();
+        String parsed = TradingParams.requireText(content, 512, "content", errors);
+        errors.throwIfAny();
+        Order order = orderRepository.findById(orderId);
+        if (order == null) {
+            throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
+        }
+        Long operatorId = audit.currentOperatorId();
+        boolean visible = Boolean.TRUE.equals(customerVisible);
+        var event = txRunner.inTx(() -> orderEventRecorder.record(orderId, OrderEventType.NOTE,
+                OrderActorType.ADMIN, operatorId, visible ? "Note" : "Internal note", parsed, null, visible));
+        return orderEventRecorder.toDtos(List.of(event), true).get(0);
     }
 
     // ==================== 装配（MAP-TRD-005 + API-TRD-01 扩展列） ====================
@@ -333,7 +471,15 @@ public class AdminOrderService {
                 o.getPaymentMethod(), o.getCarrier(), o.getTrackingNo(), o.getExpiresAt(), o.getPaidAt(),
                 o.getShippedAt(), o.getCompletedAt(), o.getCreatedAt(), o.getCustomerId(),
                 user == null ? null : user.getName(), user == null ? null : user.getEmail(),
-                extractCountry(o), itemCounts.getOrDefault(o.getId(), 0));
+                extractCountry(o), itemCounts.getOrDefault(o.getId(), 0),
+                StoreOrderService.keyOf(o.getProductionStage()), weddingDaysLeft(o.getWeddingDate()),
+                o.getDeliveredAt(), o.getTaxAmount(), o.getRefundedAmount(), o.getAmountVersion(),
+                StoreOrderService.keyOf(o.getShippingServiceLevel()));
+    }
+
+    /** 距婚期天数（today→wedding_date；已过为负；无婚期 null） */
+    static Long weddingDaysLeft(LocalDate weddingDate) {
+        return weddingDate == null ? null : ChronoUnit.DAYS.between(LocalDate.now(), weddingDate);
     }
 
     /** AdminOrderDetail 装配（客户信息/定制明细/支付摘要/地址快照/礼品包装/工单/状态时间线） */
@@ -357,6 +503,14 @@ public class AdminOrderService {
                 user == null ? null : user.getName(), user == null ? null : user.getEmail(),
                 user == null ? null : user.getPhone(), lineDtos, order.getAddressSnapshot(),
                 StoreOrderService.toPaymentSummary(paymentRepository.findByOrderId(order.getId())),
-                refundDtos);
+                refundDtos,
+                StoreOrderService.keyOf(order.getProductionStage()), order.getDeliveredAt(), order.getTaxAmount(),
+                StoreOrderService.toTaxBreakdown(order.getTaxBreakdown()), StoreOrderService.keyOf(order.getIncoterm()),
+                order.getRefundedAmount(), order.getAmountVersion(), order.getEstimatedDeliveryFrom(),
+                order.getEstimatedDeliveryTo(), StoreOrderService.keyOf(order.getShippingServiceLevel()),
+                weddingDaysLeft(order.getWeddingDate()), order.getLocaleSnapshot(),
+                orderEventRecorder.listAdmin(order.getId()),
+                // shipments[] 由 P1-B ShipmentService 接入（本阶段空列表）
+                List.of());
     }
 }

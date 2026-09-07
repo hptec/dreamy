@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 public class MailRecord extends LongAuditableEntity {
 
     @Column(name = MailRecordDBConst.TYPE,
-            definition = "tinyint NOT NULL COMMENT '邮件类型：1=订单确认 2=订单发货 3=退款处理结果 4=样品间邀请 5=样品间指派 6=样品间提醒（决策 20.5 扩展枚举）'")
+            definition = "tinyint NOT NULL COMMENT '邮件类型：1=订单确认 2=订单发货 3=退款处理结果 4=样品间邀请 5=样品间指派 6=样品间提醒 7=订单取消 8=订单签收 9=进入制作 10=退款受理'")
     private MailType type;
 
     @Column(name = MailRecordDBConst.RECIPIENT,

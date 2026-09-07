@@ -8,6 +8,7 @@ import com.dreamy.controller.StoreCartController;
 import com.dreamy.controller.StoreCheckoutController;
 import com.dreamy.controller.StoreExchangeRateController;
 import com.dreamy.controller.StoreOrderController;
+import com.dreamy.controller.StorePaymentConfirmController;
 import com.dreamy.controller.StorePaymentWebhookController;
 import com.dreamy.controller.StoreWishlistController;
 
@@ -44,7 +45,7 @@ import java.util.Map;
  * Stripe 基础设施异常 → 502601/504601（BE-DIM-5 降级矩阵）。
  * identity 复用码（40100/40300/50000 等 BizException）仍由 identity GlobalExceptionHandler 兜底处理。
  */
-@RestControllerAdvice(assignableTypes = {AdminCheckoutSettingsController.class, AdminOrderController.class, AdminRefundController.class, StoreAddressController.class, StoreCartController.class, StoreCheckoutController.class, StoreExchangeRateController.class, StoreOrderController.class, StorePaymentWebhookController.class, StoreWishlistController.class})
+@RestControllerAdvice(assignableTypes = {AdminCheckoutSettingsController.class, AdminOrderController.class, AdminRefundController.class, StoreAddressController.class, StoreCartController.class, StoreCheckoutController.class, StoreExchangeRateController.class, StoreOrderController.class, StorePaymentConfirmController.class, StorePaymentWebhookController.class, StoreWishlistController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TradingExceptionHandler {
 

@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.enums.OrderStatus;
+import com.dreamy.enums.ProductionStage;
 import com.dreamy.domain.order.entity.Order;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -78,9 +81,22 @@ public class OrderRepository {
     /** RM-TRD-025 后台分页（status/currency/时间窗/订单号 LIKE 或 customer_ids IN——客户名/邮箱命中由 identity 先解析） */
     public Page<Order> pageByAdminFilter(OrderStatus status, String currency, LocalDateTime from, LocalDateTime to,
                                          String orderNoLike, List<Long> customerIds, int page, int pageSize) {
-        LambdaQueryWrapper<Order> qw = adminFilter(status, currency, from, to, orderNoLike, customerIds)
-                .orderByDesc(Order::getCreatedAt)
-                .orderByDesc(Order::getId);
+        return pageByAdminFilter(status, currency, from, to, orderNoLike, customerIds, null, null, page, pageSize);
+    }
+
+    /** order-flow-complete §3.2：追加 production_stage / wedding_before 筛选 */
+    public Page<Order> pageByAdminFilter(OrderStatus status, String currency, LocalDateTime from, LocalDateTime to,
+                                         String orderNoLike, List<Long> customerIds,
+                                         ProductionStage productionStage, LocalDate weddingBefore,
+                                         int page, int pageSize) {
+        LambdaQueryWrapper<Order> qw = adminFilter(status, currency, from, to, orderNoLike, customerIds);
+        if (productionStage != null) {
+            qw.eq(Order::getProductionStage, productionStage);
+        }
+        if (weddingBefore != null) {
+            qw.isNotNull(Order::getWeddingDate).le(Order::getWeddingDate, weddingBefore);
+        }
+        qw.orderByDesc(Order::getCreatedAt).orderByDesc(Order::getId);
         return mapper.selectPage(new Page<>(page, pageSize), qw);
     }
 
@@ -141,9 +157,88 @@ public class OrderRepository {
         return mapper.update(null, uw);
     }
 
-    /** refunding→paid|shipped 还原（TX-TRD-009c：按 shipped_at 判定还原态） */
+    /** refunding→from_status 还原（TX-TRD-009c 驳回 / 部分批准：还原 refund.from_status 快照；PAID 回写 from_stage） */
+    public int casRestoreFromRefunding(Long id, OrderStatus restoreTo, ProductionStage restoreStage) {
+        return casUpdateStatus(id, OrderStatus.REFUNDING, restoreTo,
+                uw -> setProductionStage(uw, restoreTo == OrderStatus.PAID ? restoreStage : null));
+    }
+
+    /** 兼容旧签名（不回写制作阶段） */
     public int casRestoreFromRefunding(Long id, OrderStatus restoreTo) {
-        return casUpdateStatus(id, OrderStatus.REFUNDING, restoreTo, null);
+        return casRestoreFromRefunding(id, restoreTo, null);
+    }
+
+    /**
+     * order-flow-complete STATE-6：退款批准累计（条件更新 refunded_amount + amount ≤ total_amount，
+     * affected=0 → 422908）。
+     */
+    public int addRefundedAmount(Long id, BigDecimal amount) {
+        return mapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, id)
+                .apply("refunded_amount + {0} <= total_amount", amount)
+                .setSql("refunded_amount = refunded_amount + {0}", amount));
+    }
+
+    /**
+     * order-flow-complete STATE-6：退款批准后单条 UPDATE 判定终态——
+     * refunded_amount ≥ total_amount → REFUNDED（production_stage 清空）；否则还原 from_status（PAID 回写 from_stage）。
+     * WHERE status=REFUNDING（affected=0 → 409602）。
+     */
+    public int casResolveRefunding(Long id, OrderStatus fromStatus, ProductionStage fromStage) {
+        OrderStatus restore = fromStatus == null ? OrderStatus.PAID : fromStatus;
+        Integer stageKey = restore == OrderStatus.PAID && fromStage != null ? fromStage.getKey() : null;
+        return mapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, id)
+                .eq(Order::getStatus, OrderStatus.REFUNDING)
+                .setSql("status = IF(refunded_amount >= total_amount, {0}, {1})",
+                        OrderStatus.REFUNDED.getKey(), restore.getKey())
+                .setSql("production_stage = IF(refunded_amount >= total_amount, NULL, {0})", stageKey));
+    }
+
+    /**
+     * order-flow-complete STATE-2：制作阶段条件更新（仅 status=PAID；from 为当前阶段防并发覆盖，from=null 表示当前为空）。
+     */
+    public int casUpdateProductionStage(Long id, ProductionStage from, ProductionStage to) {
+        LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, id)
+                .eq(Order::getStatus, OrderStatus.PAID);
+        setProductionStage(uw, to);
+        if (from == null) {
+            uw.isNull(Order::getProductionStage);
+        } else {
+            uw.eq(Order::getProductionStage, from);
+        }
+        return mapper.update(null, uw);
+    }
+
+    /** production_stage SET（null → 显式 NULL 字面量，规避 null 参数 jdbcType 依赖） */
+    public static void setProductionStage(LambdaUpdateWrapper<Order> uw, ProductionStage stage) {
+        if (stage == null) {
+            uw.setSql("production_stage = NULL");
+        } else {
+            uw.set(Order::getProductionStage, stage);
+        }
+    }
+
+    /** OrderAutoCompleteScheduler 规则一：DELIVERED 且 delivered_at < cutoff → 待自动完成 */
+    public List<Order> listDeliveredBefore(LocalDateTime cutoff, int limit) {
+        return mapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.DELIVERED)
+                .isNotNull(Order::getDeliveredAt)
+                .lt(Order::getDeliveredAt, cutoff)
+                .orderByAsc(Order::getId)
+                .last("LIMIT " + limit));
+    }
+
+    /** OrderAutoCompleteScheduler 规则二：SHIPPED 且 shipped_at < cutoff 且无签收 → 待自动签收 */
+    public List<Order> listShippedBefore(LocalDateTime cutoff, int limit) {
+        return mapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.SHIPPED)
+                .isNotNull(Order::getShippedAt)
+                .lt(Order::getShippedAt, cutoff)
+                .isNull(Order::getDeliveredAt)
+                .orderByAsc(Order::getId)
+                .last("LIMIT " + limit));
     }
 
     /** RM-TRD-027 过期 pending 扫描（idx_order_status_expires，SCHED-TRD-001 分页批量） */

@@ -3,10 +3,13 @@ package com.dreamy.controller;
 import com.dreamy.domain.order.service.StoreOrderService;
 import com.dreamy.domain.refund.service.RefundService;
 import com.dreamy.dto.TradingDtos.PaymentCredential;
+import com.dreamy.dto.TradingDtos.ReorderResponse;
 import com.dreamy.dto.TradingDtos.StoreOrderDetail;
 import com.dreamy.dto.TradingDtos.StoreOrderListItem;
 import com.dreamy.dto.TradingDtos.StoreRefundApply;
 import com.dreamy.dto.TradingDtos.StoreRefundDto;
+import com.dreamy.support.TradingFieldErrors;
+import com.dreamy.support.TradingParams;
 import huihao.page.Paginated;
 import huihao.web.R;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 消费端订单控制器（trading-api-detail §5：listStoreOrders/getStoreOrder/cancelStoreOrder/
- * retryOrderPayment/applyStoreRefund；user_id 强隔离 BE-DIM-6）。
+ * retryOrderPayment/applyStoreRefund；order-flow-complete §3.1：confirm-delivery/reorder；user_id 强隔离 BE-DIM-6）。
  */
 @RestController
 public class StoreOrderController {
@@ -57,6 +60,22 @@ public class StoreOrderController {
     @PostMapping("/api/store/orders/{id}/payment-intent")
     public ResponseEntity<R<PaymentCredential>> retryPayment(@PathVariable Long id) {
         return ResponseEntity.ok(R.ok(storeOrderService.retryPayment(StoreAuth.customerId(), id)));
+    }
+
+    /** E-confirmDelivery（order-flow-complete B：SHIPPED/DELIVERED → COMPLETED，非法态 409602） */
+    @PostMapping("/api/store/orders/{id}/confirm-delivery")
+    public ResponseEntity<R<StoreOrderDetail>> confirmDelivery(@PathVariable Long id) {
+        return ResponseEntity.ok(R.ok(storeOrderService.confirmDelivery(StoreAuth.customerId(), id)));
+    }
+
+    /** E-reorder（order-flow-complete I：行商品回购物车，缺货/下架跳过并返回 skipped[]） */
+    @PostMapping("/api/store/orders/{id}/reorder")
+    public ResponseEntity<R<ReorderResponse>> reorder(@PathVariable Long id,
+                                                      @RequestParam(required = false) String locale) {
+        TradingFieldErrors errors = new TradingFieldErrors();
+        String parsedLocale = TradingParams.parseLocale(locale, errors);
+        errors.throwIfAny();
+        return ResponseEntity.ok(R.ok(storeOrderService.reorder(StoreAuth.customerId(), id, parsedLocale)));
     }
 
     /** E-applyStoreRefund（201；TX-TRD-009a） */

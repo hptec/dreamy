@@ -93,8 +93,15 @@ public class TradingSeedInitializer {
         config.setId(CheckoutConfig.SINGLETON_ID);
         config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
         config.setCustomRefundGraceHours(24);
+        // order-flow-complete §2.3 新字段默认值
+        config.setAutoCompleteDays(7);
+        config.setAutoDeliverDays(30);
+        config.setPendingTimeoutMinutes(30);
+        config.setExchangeRateSpreadScaled(0);
+        config.setProductionDaysDefault(21);
         checkoutConfigRepository.insert(config);
-        log.info("[TRADING-SEED] checkout_config 单例已初始化（gift_wrap_fee_usd=15.00, grace=24h）");
+        log.info("[TRADING-SEED] checkout_config 单例已初始化（gift_wrap_fee_usd=15.00, grace=24h, "
+                + "auto_complete=7d, auto_deliver=30d, pending_timeout=30m, spread=0, production_days=21）");
     }
 
     /** /settings 权限点注册 + 超管角色绑定（与 catalog ensureAttributeSetsPermission 同范式） */

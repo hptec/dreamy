@@ -7,6 +7,7 @@ import com.dreamy.domain.checkout.entity.CheckoutConfig;
 import com.dreamy.enums.OrderStatus;
 import com.dreamy.enums.PaymentStatus;
 import com.dreamy.domain.order.entity.Order;
+import com.dreamy.domain.order.entity.OrderLine;
 import com.dreamy.domain.order.repository.OrderLineRepository;
 import com.dreamy.domain.order.repository.OrderRepository;
 import com.dreamy.domain.payment.entity.Payment;
@@ -15,6 +16,7 @@ import com.dreamy.domain.refund.repository.RefundRepository;
 import com.dreamy.dto.TradingDtos.PaymentCredential;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
+import com.dreamy.testsupport.TradingImmediateTxRunner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -62,13 +67,26 @@ class StoreOrderServiceTest {
     OrderCancelService orderCancelService;
     @Mock
     StripeClient stripeClient;
+    @Mock
+    OrderEventRecorder orderEventRecorder;
+    @Mock
+    com.dreamy.domain.cart.service.StoreCartService storeCartService;
 
     StoreOrderService service;
+
+    /** 初始化 MyBatis-Plus lambda 缓存（LambdaUpdateWrapper.set(Order::getX) 需 Order TableInfo）。 */
+    @org.junit.jupiter.api.BeforeAll
+    static void initMybatisPlusCache() {
+        org.apache.ibatis.builder.MapperBuilderAssistant assistant = new org.apache.ibatis.builder.MapperBuilderAssistant(
+                new org.apache.ibatis.session.Configuration(), "");
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(assistant, Order.class);
+    }
 
     @BeforeEach
     void setUp() {
         service = new StoreOrderService(orderRepository, orderLineRepository, paymentRepository,
-                refundRepository, checkoutConfigRepository, orderCancelService, stripeClient);
+                refundRepository, checkoutConfigRepository, orderCancelService, stripeClient,
+                orderEventRecorder, new TradingImmediateTxRunner(), storeCartService);
         CheckoutConfig config = new CheckoutConfig();
         config.setCustomRefundGraceHours(24);
         config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
@@ -179,5 +197,149 @@ class StoreOrderServiceTest {
         assertThatThrownBy(() -> service.cancelOrder(CUSTOMER, ORDER_ID))
                 .isInstanceOfSatisfying(TradingException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+    }
+
+    // ==================== order-flow-complete B/I ====================
+
+    @Test
+    @DisplayName("confirm-delivery：SHIPPED→COMPLETED 同写 delivered_at + completed_at；order_event(STATUS_CHANGED, CUSTOMER, 可见)")
+    void confirmDeliveryFromShipped() {
+        Order shipped = order(OrderStatus.SHIPPED, null);
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(shipped);
+        when(orderRepository.casUpdateStatus(eq(ORDER_ID), eq(OrderStatus.SHIPPED), eq(OrderStatus.COMPLETED), any()))
+                .thenAnswer(inv -> {
+                    com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Order> uw =
+                            new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+                    java.util.function.Consumer<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Order>> c =
+                            inv.getArgument(3);
+                    c.accept(uw);
+                    assertThat(uw.getSqlSet()).contains("completedAt").contains("deliveredAt");
+                    return 1;
+                });
+        Order completed = order(OrderStatus.COMPLETED, null);
+        when(orderRepository.findById(ORDER_ID)).thenReturn(completed);
+        stubDetailDeps();
+
+        var detail = service.confirmDelivery(CUSTOMER, ORDER_ID);
+
+        assertThat(detail.status()).isEqualTo(OrderStatus.COMPLETED.getKey());
+        verify(orderEventRecorder).statusChanged(eq(ORDER_ID), eq(OrderStatus.SHIPPED), eq(OrderStatus.COMPLETED),
+                eq(com.dreamy.enums.OrderActorType.CUSTOMER), eq(CUSTOMER), any(), eq(true));
+    }
+
+    @Test
+    @DisplayName("confirm-delivery：DELIVERED→COMPLETED 不再覆盖 delivered_at；PAID/COMPLETED → 409602；CAS 竞态 affected=0 → 409602")
+    void confirmDeliveryGuards() {
+        Order delivered = order(OrderStatus.DELIVERED, null);
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(delivered);
+        when(orderRepository.casUpdateStatus(eq(ORDER_ID), eq(OrderStatus.DELIVERED), eq(OrderStatus.COMPLETED), any()))
+                .thenAnswer(inv -> {
+                    com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Order> uw =
+                            new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+                    java.util.function.Consumer<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Order>> c =
+                            inv.getArgument(3);
+                    c.accept(uw);
+                    assertThat(uw.getSqlSet()).contains("completedAt").doesNotContain("deliveredAt");
+                    return 1;
+                });
+        when(orderRepository.findById(ORDER_ID)).thenReturn(order(OrderStatus.COMPLETED, null));
+        stubDetailDeps();
+        service.confirmDelivery(CUSTOMER, ORDER_ID);
+
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(order(OrderStatus.PAID, null));
+        assertThatThrownBy(() -> service.confirmDelivery(CUSTOMER, ORDER_ID))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(order(OrderStatus.COMPLETED, null));
+        assertThatThrownBy(() -> service.confirmDelivery(CUSTOMER, ORDER_ID))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+
+        // STATE-5 竞态：自动完成先成功 → CAS affected=0 → 409602
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(order(OrderStatus.SHIPPED, null));
+        when(orderRepository.casUpdateStatus(eq(ORDER_ID), eq(OrderStatus.SHIPPED), eq(OrderStatus.COMPLETED), any()))
+                .thenReturn(0);
+        assertThatThrownBy(() -> service.confirmDelivery(CUSTOMER, ORDER_ID))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
+    }
+
+    @Test
+    @DisplayName("reorder：逐行 addItem；缺货 409601 / 下架 404501 跳过并返回 skipped[reason_code]；added_count 统计")
+    void reorderSkipsUnavailable() {
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(order(OrderStatus.COMPLETED, null));
+        OrderLine ok = line(1L, 11L, 21L, 1);
+        OrderLine oos = line(2L, 12L, 22L, 2);
+        OrderLine gone = line(3L, 13L, null, 1);
+        gone.setCustomSizeData(Map.of("bust", new BigDecimal("90"), "waist", new BigDecimal("70"),
+                "hips", new BigDecimal("95"), "hollow_to_floor", new BigDecimal("150")));
+        when(orderLineRepository.listByOrderId(ORDER_ID)).thenReturn(List.of(ok, oos, gone));
+        when(storeCartService.addItem(eq(CUSTOMER), argThat(r -> r != null && r.skuId() != null && r.skuId() == 21L), eq("en")))
+                .thenReturn(null);
+        when(storeCartService.addItem(eq(CUSTOMER), argThat(r -> r != null && r.skuId() != null && r.skuId() == 22L), eq("en")))
+                .thenThrow(new TradingException(TradingErrorCode.STOCK_INSUFFICIENT, Map.of("sku_id", 22L)));
+        when(storeCartService.addItem(eq(CUSTOMER), argThat(r -> r != null && r.skuId() == null), eq("en")))
+                .thenThrow(new com.dreamy.error.CatalogException(com.dreamy.error.CatalogErrorCode.PRODUCT_NOT_FOUND));
+
+        var result = service.reorder(CUSTOMER, ORDER_ID, "en");
+
+        assertThat(result.addedCount()).isEqualTo(1);
+        assertThat(result.skipped()).extracting(s -> s.orderLineId()).containsExactly(2L, 3L);
+        assertThat(result.skipped()).extracting(s -> s.reasonCode())
+                .containsExactly(TradingErrorCode.STOCK_INSUFFICIENT.getCode(),
+                        com.dreamy.error.CatalogErrorCode.PRODUCT_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("详情装配：新增 production_stage/delivered_at/tax_amount/refunded_amount/amount_version/events(customer_visible)/shipments 空；refund_eligible 考虑剩余可退额")
+    void detailAssemblyNewFields() {
+        Order order = order(OrderStatus.PAID, null);
+        order.setProductionStage(com.dreamy.enums.ProductionStage.IN_PRODUCTION);
+        order.setAmountVersion(2);
+        order.setTaxAmount(new BigDecimal("12.00"));
+        order.setTaxBreakdown(List.of(Map.of("type", 1, "label", "VAT", "rate_scaled", 2000,
+                "base", "60.00", "amount", 12.0)));
+        order.setRefundedAmount(new BigDecimal("222.00"));
+        order.setPaidAt(LocalDateTime.now());
+        when(orderRepository.findByIdAndCustomerId(ORDER_ID, CUSTOMER)).thenReturn(order);
+        stubDetailDeps();
+        com.dreamy.dto.TradingDtos.OrderEventDto ev = new com.dreamy.dto.TradingDtos.OrderEventDto(1L, 4, 1, null,
+                null, "Payment received", null, null, true, LocalDateTime.now());
+        when(orderEventRecorder.listCustomerVisible(ORDER_ID)).thenReturn(List.of(ev));
+
+        var detail = service.getOrderDetail(CUSTOMER, ORDER_ID);
+
+        assertThat(detail.productionStage()).isEqualTo(2);
+        assertThat(detail.amountVersion()).isEqualTo(2);
+        assertThat(detail.taxAmount()).isEqualByComparingTo("12.00");
+        assertThat(detail.taxBreakdown()).hasSize(1);
+        assertThat(detail.taxBreakdown().get(0).label()).isEqualTo("VAT");
+        assertThat(detail.taxBreakdown().get(0).base()).isEqualByComparingTo("60.00");
+        assertThat(detail.taxBreakdown().get(0).amount()).isEqualByComparingTo("12.0");
+        assertThat(detail.refundedAmount()).isEqualByComparingTo("222.00");
+        // 剩余可退额 0 → refund_eligible=false（状态 PAID 本可退）
+        assertThat(detail.refundEligible()).isFalse();
+        assertThat(detail.events()).hasSize(1);
+        assertThat(detail.shipments()).isEmpty();
+        verify(orderEventRecorder, never()).listAdmin(anyLong());
+    }
+
+    private void stubDetailDeps() {
+        lenient().when(orderLineRepository.listByOrderId(ORDER_ID)).thenReturn(List.of());
+        lenient().when(paymentRepository.findByOrderId(ORDER_ID)).thenReturn(null);
+        lenient().when(refundRepository.listByOrderId(ORDER_ID)).thenReturn(List.of());
+        lenient().when(orderEventRecorder.listCustomerVisible(ORDER_ID)).thenReturn(List.of());
+    }
+
+    private static OrderLine line(long id, long productId, Long skuId, int qty) {
+        OrderLine line = new OrderLine();
+        line.setId(id);
+        line.setOrderId(ORDER_ID);
+        line.setProductId(productId);
+        line.setSkuId(skuId);
+        line.setQty(qty);
+        line.setProductName("P" + productId);
+        line.setUnitPrice(new BigDecimal("100.00"));
+        return line;
     }
 }

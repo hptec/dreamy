@@ -95,8 +95,10 @@ public final class TradingDtos {
                                CustomSizeData customSizeData, Boolean refundable) {
     }
 
+    /** order-flow-complete：追加 refunded_amount（每次批准仅退 delta 的累计） */
     public record PaymentSummaryDto(String provider, String paymentIntentId, BigDecimal amount, String currency,
-                                    Integer status, String cardSummary, LocalDateTime paidAt) {
+                                    Integer status, String cardSummary, LocalDateTime paidAt,
+                                    BigDecimal refundedAmount) {
     }
 
     public record StoreOrderListItem(Long id, String orderNo, Integer status, String currency,
@@ -106,7 +108,11 @@ public final class TradingDtos {
                                      String paymentMethod, String carrier, String trackingNo,
                                      LocalDateTime expiresAt, LocalDateTime paidAt, LocalDateTime shippedAt,
                                      LocalDateTime completedAt, LocalDateTime createdAt,
-                                     Integer lineCount, String firstLineImg) {
+                                     Integer lineCount, String firstLineImg,
+                                     Integer productionStage, LocalDateTime deliveredAt, BigDecimal taxAmount,
+                                     Integer incoterm, BigDecimal refundedAmount, Integer amountVersion,
+                                     LocalDate estimatedDeliveryFrom, LocalDate estimatedDeliveryTo,
+                                     Integer shippingServiceLevel) {
     }
 
     public record StoreOrderDetail(Long id, String orderNo, Integer status, String currency,
@@ -118,19 +124,27 @@ public final class TradingDtos {
                                    LocalDateTime completedAt, LocalDateTime createdAt,
                                    List<OrderLineDto> lines, Map<String, Object> addressSnapshot,
                                    PaymentSummaryDto payment, Boolean refundEligible,
-                                   Integer refundBlockReasonCode, List<StoreRefundDto> refunds) {
+                                   Integer refundBlockReasonCode, List<StoreRefundDto> refunds,
+                                   Integer productionStage, LocalDateTime deliveredAt, BigDecimal taxAmount,
+                                   List<TaxBreakdownDto> taxBreakdown, Integer incoterm, BigDecimal refundedAmount,
+                                   Integer amountVersion, LocalDate estimatedDeliveryFrom,
+                                   LocalDate estimatedDeliveryTo, Integer shippingServiceLevel,
+                                   List<OrderEventDto> events, List<ShipmentDto> shipments) {
     }
 
     // ==================== 退款（MAP-TRD-007/008） ====================
 
+    /** order-flow-complete：追加 reject_reason / from_status（还原目标快照）/ resolved_at */
     public record StoreRefundDto(Long id, String refundNo, Long orderId, BigDecimal amount, String currency,
-                                 String reason, Integer status, LocalDateTime appliedAt) {
+                                 String reason, Integer status, LocalDateTime appliedAt,
+                                 String rejectReason, Integer fromStatus, LocalDateTime updatedAt) {
     }
 
     public record AdminRefundDto(Long id, String refundNo, Long orderId, BigDecimal amount, String currency,
                                  String reason, String rejectReason, Integer status, LocalDateTime appliedAt,
                                  String orderNo, Long customerId, String customerName, String customerEmail,
-                                 String stripeRefundId, String returnTrackingNo) {
+                                 String stripeRefundId, String returnTrackingNo,
+                                 Integer fromStatus, Integer fromStage, LocalDateTime updatedAt) {
     }
 
     public record StoreRefundApply(String reason) {
@@ -159,7 +173,10 @@ public final class TradingDtos {
                                      LocalDateTime expiresAt, LocalDateTime paidAt, LocalDateTime shippedAt,
                                      LocalDateTime completedAt, LocalDateTime createdAt,
                                      Long customerId, String customerName, String customerEmail,
-                                     String country, Integer itemCount) {
+                                     String country, Integer itemCount,
+                                     Integer productionStage, Long weddingDaysLeft, LocalDateTime deliveredAt,
+                                     BigDecimal taxAmount, BigDecimal refundedAmount, Integer amountVersion,
+                                     Integer shippingServiceLevel) {
     }
 
     public record AdminOrderDetail(Long id, String orderNo, Integer status, String currency,
@@ -172,7 +189,13 @@ public final class TradingDtos {
                                    Long customerId, String customerName, String customerEmail,
                                    String customerPhone, List<OrderLineDto> lines,
                                    Map<String, Object> addressSnapshot, PaymentSummaryDto payment,
-                                   List<AdminRefundDto> refunds) {
+                                   List<AdminRefundDto> refunds,
+                                   Integer productionStage, LocalDateTime deliveredAt, BigDecimal taxAmount,
+                                   List<TaxBreakdownDto> taxBreakdown, Integer incoterm, BigDecimal refundedAmount,
+                                   Integer amountVersion, LocalDate estimatedDeliveryFrom,
+                                   LocalDate estimatedDeliveryTo, Integer shippingServiceLevel,
+                                   Long weddingDaysLeft, String localeSnapshot,
+                                   List<OrderEventDto> events, List<ShipmentDto> shipments) {
     }
 
     public record AdminOrderShipRequest(String carrier, String trackingNo) {
@@ -221,7 +244,11 @@ public final class TradingDtos {
     public record ExchangeRateListResponse<T>(List<T> items) {
     }
 
-    public record CheckoutConfigDto(BigDecimal giftWrapFeeUsd, Integer customRefundGraceHours) {
+    /** order-flow-complete §2.3：追加 5 个新字段（范围校验见 CheckoutConfigService） */
+    public record CheckoutConfigDto(BigDecimal giftWrapFeeUsd, Integer customRefundGraceHours,
+                                    Integer autoCompleteDays, Integer autoDeliverDays,
+                                    Integer pendingTimeoutMinutes, Integer exchangeRateSpreadScaled,
+                                    Integer productionDaysDefault) {
     }
 
     // ==================== 订单时间线 / 制作阶段（order-flow-complete §2.2/§3） ====================

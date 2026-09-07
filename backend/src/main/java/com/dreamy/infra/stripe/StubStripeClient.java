@@ -11,7 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Stripe stub 实现（dev 缺省，dreamy.stripe.mode=stub，沿用 identity oidc/smtp stub 风格 DG-002）。
- * 不出网络；create 结果入内存表，retrieve 回读为 succeeded（便于 dev 流程推进）。
+ * 不出网络；create 结果入内存表（status=requires_confirmation，order-flow-complete §4.1：前端据
+ * client_secret 后缀 _secret_stub 识别 stub 并调用 POST /orders/{id}/payment/confirm）；
+ * markSucceeded 由 StubPaymentConfirmService 在确认后调用；retrieve 回读内存表状态（未知 id 回 succeeded）。
  * client_secret 为 stub 占位（即取即用，不落库）；日志不输出任何密钥。
  */
 @Component
@@ -27,7 +29,7 @@ public class StubStripeClient implements StripeClient {
                                                    Map<String, String> metadata) {
         String id = "pi_stub_" + UUID.randomUUID().toString().replace("-", "");
         StripePaymentIntent intent = new StripePaymentIntent(
-                id, id + "_secret_stub", "requires_payment_method", amountMinor, currency);
+                id, id + "_secret_stub", "requires_confirmation", amountMinor, currency);
         intents.put(id, intent);
         log.info("[STRIPE-STUB] createPaymentIntent id={} amount_minor={} currency={} order_no={}",
                 id, amountMinor, currency, orderNo);
@@ -39,10 +41,16 @@ public class StubStripeClient implements StripeClient {
         StripePaymentIntent created = intents.get(paymentIntentId);
         StripePaymentIntent result = created == null
                 ? new StripePaymentIntent(paymentIntentId, null, "succeeded", 0L, "usd")
-                : new StripePaymentIntent(created.id(), created.clientSecret(), "succeeded",
-                created.amountMinor(), created.currency());
+                : created;
         log.info("[STRIPE-STUB] retrievePaymentIntent id={} status={}", paymentIntentId, result.status());
         return result;
+    }
+
+    /** stub 支付确认：内存表 PI 置 succeeded（order-flow-complete §4.1 第 5 步） */
+    public void markSucceeded(String paymentIntentId) {
+        intents.computeIfPresent(paymentIntentId, (id, pi) ->
+                new StripePaymentIntent(pi.id(), pi.clientSecret(), "succeeded", pi.amountMinor(), pi.currency()));
+        log.info("[STRIPE-STUB] markSucceeded id={}", paymentIntentId);
     }
 
     @Override

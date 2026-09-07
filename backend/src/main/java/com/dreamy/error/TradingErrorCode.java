@@ -3,7 +3,7 @@ package com.dreamy.error;
 import lombok.Getter;
 
 /**
- * trading 域错误码枚举（19 码，域段 6）。权威来源 error-strategy.md trading 段 + trading-api.openapi.yml info 码表。
+ * trading 域错误码枚举（19 码 + order-flow-complete 6 码，域段 6/9）。权威来源 error-strategy.md trading 段 + trading-api.openapi.yml info 码表。
  * 6 位码：HTTP(3) + 域段(1=6) + 序号(2)；identity 复用码（40100/40300/50000/50001）仍走 identity ErrorCode；
  * 跨域透传：404501（catalog）/ 422701~422703（marketing）由 TradingExceptionHandler 委托各域处理器口径输出。
  */
@@ -23,6 +23,12 @@ public enum TradingErrorCode {
     DUPLICATE_SUBMISSION(409603, 409, "error.409603"),
     REFUND_STATE_INVALID(409604, 409, "error.409604"),
     REFUND_ALREADY_EXISTS(409605, 409, "error.409605"),
+    /** order-flow-complete：发货锁冲突（trading:order-ship:{orderId} 获取失败） */
+    SHIP_LOCK_CONFLICT(409906, 409, "error.409906"),
+    /** order-flow-complete：已有挂起退款工单 / 状态不允许申请（CAS →REFUNDING affected=0） */
+    REFUND_PENDING_EXISTS(409907, 409, "error.409907"),
+    /** order-flow-complete：重复物流单号（uk order_id+carrier_code+tracking_no） */
+    SHIPMENT_TRACKING_DUPLICATE(409908, 409, "error.409908"),
 
     // ===== 410 =====
     ORDER_EXPIRED(410601, 410, "error.410601"),
@@ -33,6 +39,12 @@ public enum TradingErrorCode {
     REFUND_AMOUNT_EXCEEDED(422603, 422, "error.422603"),
     SKU_REQUIRED(422604, 422, "error.422604"),
     CURRENCY_NOT_SUPPORTED(422605, 422, "error.422605"),
+    /** order-flow-complete：超量发货（∑分配 > order_line.qty） */
+    SHIPMENT_QTY_EXCEEDED(422906, 422, "error.422906"),
+    /** order-flow-complete：税率生效窗口重叠 */
+    TAX_RULE_OVERLAP(422907, 422, "error.422907"),
+    /** order-flow-complete：退款累计超额（refunded_amount + amount > total_amount） */
+    REFUND_TOTAL_EXCEEDED(422908, 422, "error.422908"),
 
     // ===== 401（webhook 安全第 1 条） =====
     WEBHOOK_SIGNATURE_INVALID(401601, 401, "error.401601"),

@@ -9,6 +9,9 @@ import com.dreamy.dto.TradingDtos.AdminOrderShipRequest;
 import com.dreamy.dto.TradingDtos.AdminOrderStatusPatch;
 import com.dreamy.dto.TradingDtos.AdminRefundCreate;
 import com.dreamy.dto.TradingDtos.AdminRefundDto;
+import com.dreamy.dto.TradingDtos.OrderEventDto;
+import com.dreamy.dto.TradingDtos.OrderNoteCreate;
+import com.dreamy.dto.TradingDtos.ProductionStagePatch;
 import huihao.page.Paginated;
 import huihao.web.R;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -55,8 +58,12 @@ public class AdminOrderController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String currency,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
-        return ResponseEntity.ok(R.ok(adminOrderService.list(page, pageSize, status, search, currency, from, to)));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(name = "production_stage", required = false) Integer productionStage,
+            @RequestParam(name = "wedding_before", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weddingBefore) {
+        return ResponseEntity.ok(R.ok(adminOrderService.list(page, pageSize, status, search, currency, from, to,
+                productionStage, weddingBefore)));
     }
 
     /** E-getAdminOrder */
@@ -106,6 +113,25 @@ public class AdminOrderController {
                                                            @RequestBody AdminOrderStatusPatch request) {
         return ResponseEntity.ok(R.ok(adminOrderService.patchStatus(id,
                 request == null ? null : request.status())));
+    }
+
+    /** E-patchProductionStage（order-flow-complete §3.2：仅 PAID；1→2→3→4 递进/回退一档；进入 2 发 order.production） */
+    @RequirePermission(PERMISSION)
+    @PatchMapping("/api/admin/orders/{id}/production-stage")
+    public ResponseEntity<R<AdminOrderDetail>> patchProductionStage(@PathVariable Long id,
+                                                                    @RequestBody ProductionStagePatch request) {
+        return ResponseEntity.ok(R.ok(adminOrderService.patchProductionStage(id,
+                request == null ? null : request.stage())));
+    }
+
+    /** E-addOrderNote（order-flow-complete §3.2：{content, customer_visible} → order_event NOTE；201） */
+    @RequirePermission(PERMISSION)
+    @PostMapping("/api/admin/orders/{id}/notes")
+    public ResponseEntity<R<OrderEventDto>> addNote(@PathVariable Long id,
+                                                    @RequestBody OrderNoteCreate request) {
+        return ResponseEntity.status(201).body(R.ok(adminOrderService.addNote(id,
+                request == null ? null : request.content(),
+                request == null ? null : request.customerVisible())));
     }
 
     /** E-createAdminRefund（ALIGN-006「发起退款」；201；TX-TRD-009b） */

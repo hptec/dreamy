@@ -21,6 +21,8 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -54,13 +56,15 @@ class MailEventConsumerTest {
     CustomerEmailPort customerEmailPort;
     @Mock
     MailSender mailSender;
+    @Mock
+    com.dreamy.domain.order.service.OrderEventRecorder orderEventRecorder;
 
     MailEventConsumer consumer;
 
     @BeforeEach
     void setUp() {
         consumer = new MailEventConsumer(idempotencyGuard, mailRecordRepository, customerEmailPort,
-                mailSender, new MqProperties(), new ObjectMapper());
+                mailSender, new MqProperties(), new ObjectMapper(), orderEventRecorder);
         lenient().when(idempotencyGuard.tryAcquire(any(), any())).thenReturn(true);
         lenient().when(customerEmailPort.getEmail(CUSTOMER)).thenReturn(EMAIL);
     }
@@ -130,7 +134,12 @@ class MailEventConsumerTest {
         assertThat(MailType.fromEventType("showroom.invite")).isEqualTo(MailType.SHOWROOM_INVITE);
         // showroom-data-detail 161 定稿：showroom.remind → MailRecord.type=showroom_assign
         assertThat(MailType.fromEventType("showroom.remind")).isEqualTo(MailType.SHOWROOM_ASSIGN);
-        assertThat(MailType.fromEventType("order.cancelled")).isNull();
+        // order-flow-complete C：四类新增交易邮件
+        assertThat(MailType.fromEventType("order.cancelled")).isEqualTo(MailType.ORDER_CANCELLED);
+        assertThat(MailType.fromEventType("order.delivered")).isEqualTo(MailType.ORDER_DELIVERED);
+        assertThat(MailType.fromEventType("order.production")).isEqualTo(MailType.ORDER_PRODUCTION);
+        assertThat(MailType.fromEventType("refund.requested")).isEqualTo(MailType.REFUND_REQUESTED);
+        assertThat(MailType.fromEventType("order.unknown")).isNull();
     }
 
     @Test
@@ -151,11 +160,40 @@ class MailEventConsumerTest {
     }
 
     @Test
-    @DisplayName("无邮件语义事件（order.cancelled，绑定面 order.* 内）→ ack 跳过不落表不发送")
+    @DisplayName("无邮件语义事件（order.unknown，绑定面 order.* 内）→ ack 跳过不落表不发送")
     void nonMailEventSkipped() {
-        consumer.onEvent(event("order.cancelled",
-                Map.of("order_no", "DR-1", "customer_id", CUSTOMER, "cancel_reason", "timeout")));
-        verifyNoInteractions(mailRecordRepository, mailSender);
+        consumer.onEvent(event("order.unknown",
+                Map.of("order_no", "DR-1", "customer_id", CUSTOMER)));
+        verifyNoInteractions(mailRecordRepository, mailSender, orderEventRecorder);
+    }
+
+    @Test
+    @DisplayName("order-flow-complete §4.5：order.cancelled 邮件发送成功 → order_event(EMAIL, SYSTEM, 不可见)")
+    void orderCancelledMailWritesEmailEvent() {
+        when(mailRecordRepository.findByEventId("evt-1")).thenReturn(null);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("order_no", "DR-1");
+        payload.put("order_id", 100L);
+        payload.put("customer_id", CUSTOMER);
+        payload.put("cancel_reason", "timeout");
+        consumer.onEvent(event("order.cancelled", payload));
+        verify(mailSender).send(eq(EMAIL), eq("order_cancelled"), any(), any());
+        verify(orderEventRecorder).record(eq(100L), eq(com.dreamy.enums.OrderEventType.EMAIL),
+                eq(com.dreamy.enums.OrderActorType.SYSTEM), isNull(), any(), any(), any(), eq(false));
+    }
+
+    @Test
+    @DisplayName("order-flow-complete：order_event(EMAIL) 落表失败不影响邮件主链（已 markSent 不上抛）")
+    void emailEventFailureDoesNotBreakMail() {
+        when(mailRecordRepository.findByEventId("evt-1")).thenReturn(null);
+        when(orderEventRecorder.record(any(), any(), any(), any(), any(), any(), any(), anyBoolean()))
+                .thenThrow(new RuntimeException("db down"));
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("order_no", "DR-1");
+        payload.put("order_id", 100L);
+        payload.put("customer_id", CUSTOMER);
+        consumer.onEvent(event("order.delivered", payload));
+        verify(mailRecordRepository).markSent(any(), any());
     }
 
     @Test
@@ -243,9 +281,9 @@ class MailEventConsumerTest {
     // ==================== 拓扑声明 ====================
 
     @Test
-    @DisplayName("队列与绑定声明：q.mail ← order.* / showroom.* / refund.resolved（拓扑登记一致）")
+    @DisplayName("队列与绑定声明：q.mail ← order.* / showroom.* / refund.*（拓扑登记一致；refund.requested 纳入）")
     void queueTopology() {
         assertThat(consumer.queue()).isEqualTo("q.mail");
-        assertThat(consumer.bindingKeys()).containsExactly("order.*", "showroom.*", "refund.resolved");
+        assertThat(consumer.bindingKeys()).containsExactly("order.*", "showroom.*", "refund.*");
     }
 }

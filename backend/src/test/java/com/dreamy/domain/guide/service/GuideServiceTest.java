@@ -27,6 +27,8 @@ class GuideServiceTest {
     MarketingAuditRecorder audit;
     @Mock
     com.dreamy.domain.cache.service.CacheInvalidationTaskService cacheTasks;
+    @Mock
+    GuideTaskService guideTasks;
     @InjectMocks
     GuideService service;
 

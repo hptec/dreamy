@@ -59,8 +59,6 @@ public class AdminCheckoutSettingsController {
     @RequirePermission(PERMISSION)
     @PutMapping("/api/admin/checkout-config")
     public ResponseEntity<R<CheckoutConfigDto>> updateConfig(@RequestBody CheckoutConfigDto request) {
-        return ResponseEntity.ok(R.ok(checkoutConfigService.update(
-                request == null ? null : request.giftWrapFeeUsd(),
-                request == null ? null : request.customRefundGraceHours())));
+        return ResponseEntity.ok(R.ok(checkoutConfigService.update(request)));
     }
 }

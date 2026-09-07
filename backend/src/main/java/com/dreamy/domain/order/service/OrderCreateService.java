@@ -6,6 +6,8 @@ import com.dreamy.infra.stripe.StripePaymentIntent;
 import com.dreamy.domain.coupon.service.CouponDomainService;
 import com.dreamy.domain.address.entity.Address;
 import com.dreamy.domain.cart.repository.CartItemRepository;
+import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
+import com.dreamy.enums.OrderActorType;
 import com.dreamy.enums.OrderStatus;
 import com.dreamy.enums.PaymentStatus;
 import com.dreamy.domain.order.entity.Order;
@@ -29,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -48,7 +51,10 @@ public class OrderCreateService {
     private static final Logger log = LoggerFactory.getLogger(OrderCreateService.class);
     private static final int CAS_MAX_ATTEMPTS = 3;
     private static final int ORDER_NO_MAX_ATTEMPTS = 3;
-    private static final int EXPIRES_MINUTES = 30;
+    /** checkout_config.pending_timeout_minutes 缺省（种子 30） */
+    static final int DEFAULT_EXPIRES_MINUTES = 30;
+    /** order-flow-complete TAX-LEGACY：新订单固定 amount_version=2（含税恒等式；税费真实值由 P1-B 接入） */
+    public static final int AMOUNT_VERSION_CURRENT = 2;
 
     private final OrderRepository orderRepository;
     private final OrderLineRepository orderLineRepository;
@@ -61,13 +67,17 @@ public class OrderCreateService {
     private final StripeClient stripeClient;
     private final TradingTxRunner txRunner;
     private final StoreOrderService storeOrderService;
+    private final CheckoutConfigRepository checkoutConfigRepository;
+    private final OrderEventRecorder orderEventRecorder;
 
     public OrderCreateService(OrderRepository orderRepository, OrderLineRepository orderLineRepository,
                               PaymentRepository paymentRepository, CartItemRepository cartItemRepository,
                               CheckoutQuoteService checkoutQuoteService, OrderNoGenerator orderNoGenerator,
                               SkuStockAdapter skuStockAdapter, CouponDomainService couponDomainService,
                               StripeClient stripeClient, TradingTxRunner txRunner,
-                              StoreOrderService storeOrderService) {
+                              StoreOrderService storeOrderService,
+                              CheckoutConfigRepository checkoutConfigRepository,
+                              OrderEventRecorder orderEventRecorder) {
         this.orderRepository = orderRepository;
         this.orderLineRepository = orderLineRepository;
         this.paymentRepository = paymentRepository;
@@ -79,6 +89,8 @@ public class OrderCreateService {
         this.stripeClient = stripeClient;
         this.txRunner = txRunner;
         this.storeOrderService = storeOrderService;
+        this.checkoutConfigRepository = checkoutConfigRepository;
+        this.orderEventRecorder = orderEventRecorder;
     }
 
     /** E-createOrder（V-TRD-021~027 + STEP-TRD-01~07） */
@@ -165,6 +177,10 @@ public class OrderCreateService {
 
         // ⑤ 清车
         cartItemRepository.deleteAllByCustomerId(customerId);
+
+        // ⑥ §4.5：创建 PENDING → order_event(STATUS_CHANGED, CUSTOMER, 可见)
+        orderEventRecorder.statusChanged(order.getId(), null, OrderStatus.PENDING, OrderActorType.CUSTOMER,
+                customerId, "order placed", true);
         return order;
     }
 
@@ -191,8 +207,24 @@ public class OrderCreateService {
         order.setAddressSnapshot(addressSnapshot(quote.address()));
         order.setCarrier(quote.selectedCarrier() != null ? quote.selectedCarrier() : request.carrier());
         order.setIdempotencyKey(idemKey);
-        order.setExpiresAt(LocalDateTime.now().plusMinutes(EXPIRES_MINUTES));
+        order.setExpiresAt(LocalDateTime.now().plusMinutes(pendingTimeoutMinutes()));
+        // order-flow-complete §2.1 写规则：新订单固定 amount_version=2 / tax_amount=0 / refunded_amount=0
+        // （税费/预计送达/服务等级真实值由 P1-B 在本方法内接入）
+        order.setAmountVersion(AMOUNT_VERSION_CURRENT);
+        order.setTaxAmount(BigDecimal.ZERO.setScale(2));
+        order.setRefundedAmount(BigDecimal.ZERO.setScale(2));
         return order;
+    }
+
+    /** 待支付超时分钟（checkout_config.pending_timeout_minutes；缺省 30） */
+    private int pendingTimeoutMinutes() {
+        try {
+            Integer minutes = checkoutConfigRepository.getSingleton().getPendingTimeoutMinutes();
+            return minutes == null || minutes < 1 ? DEFAULT_EXPIRES_MINUTES : minutes;
+        } catch (RuntimeException ex) {
+            log.warn("[ORDER-CREATE] checkout_config read failed, fallback pending timeout {}m", DEFAULT_EXPIRES_MINUTES);
+            return DEFAULT_EXPIRES_MINUTES;
+        }
     }
 
     /** ① 唯一冲突分流：幂等键命中 → 409603；订单号撞号 → 重取 ×3（uk_order_no 兜底，TC-TRD-012/083） */
