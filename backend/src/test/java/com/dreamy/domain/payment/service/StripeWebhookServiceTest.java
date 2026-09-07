@@ -167,7 +167,7 @@ class StripeWebhookServiceTest {
                 eq(List.of(PaymentStatus.CREATED, PaymentStatus.PROCESSING)), eq(PaymentStatus.SUCCEEDED),
                 any(), isNull());
         verify(eventsPublisher).publishOrderPaid(any(Order.class), anyList(), eq("fr"));
-        verify(stripeClient, never()).createRefund(anyString(), any(), anyString());
+        verify(stripeClient, never()).createRefund(anyString(), any(), anyString(), anyString());
     }
 
     @Test
@@ -283,7 +283,7 @@ class StripeWebhookServiceTest {
         service.handle(succeededEvent(22200L, "usd"), SIG);
         verify(orderRepository, never()).casUpdateStatus(anyLong(), any(), any(), any());
         // TX-TRD-010：全额退款补偿（amount=null 全额）；不生成 Refund 工单、不发 order.paid
-        verify(stripeClient).createRefund(eq("pi_1"), isNull(), anyString());
+        verify(stripeClient).createRefund(eq("pi_1"), isNull(), anyString(), anyString());
         verify(eventsPublisher, never()).publishOrderPaid(any(), anyList(), anyString());
     }
 
@@ -309,7 +309,7 @@ class StripeWebhookServiceTest {
         service.handle("{\"id\":\"evt_3\",\"type\":\"charge.refunded\",\"data\":{\"object\":"
                 + "{\"id\":\"ch_1\",\"payment_intent\":\"pi_1\"}}}", SIG);
         verify(paymentRepository, never()).casUpdateStatus(anyLong(), anyList(), any(), any(), any());
-        verify(stripeClient, never()).createRefund(anyString(), any(), anyString());
+        verify(stripeClient, never()).createRefund(anyString(), any(), anyString(), anyString());
     }
 
     @Test

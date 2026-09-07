@@ -261,6 +261,7 @@ export interface UiMessages {
     failed: string
     stubUnavailable: string
     alreadyPaid: string
+    misconfigured: string
   }
   orderSuccess: {
     confirmingTitle: string
@@ -883,7 +884,8 @@ const en: UiMessages = {
     pay: 'Pay {amount}',
     failed: 'Payment failed. Please try again.',
     stubUnavailable: 'Test-mode payment is not available on this server. Please pay with your card instead.',
-    alreadyPaid: 'This order has already been paid.'
+    alreadyPaid: 'This order has already been paid.',
+    misconfigured: 'Payment is temporarily unavailable: the card form is not configured. Please contact support.'
   },
   orderSuccess: {
     confirmingTitle: 'Confirming your payment…',
@@ -1511,7 +1513,8 @@ const es: DeepPartial<UiMessages> = {
     pay: 'Pagar {amount}',
     failed: 'El pago fallo. Intentelo de nuevo.',
     stubUnavailable: 'El pago en modo de prueba no esta disponible en este servidor. Pague con su tarjeta.',
-    alreadyPaid: 'Este pedido ya esta pagado.'
+    alreadyPaid: 'Este pedido ya esta pagado.',
+    misconfigured: 'El pago no esta disponible temporalmente: el formulario de tarjeta no esta configurado. Contacte con soporte.'
   },
   orderSuccess: {
     confirmingTitle: 'Confirmando su pago…',
@@ -2137,7 +2140,8 @@ const fr: DeepPartial<UiMessages> = {
     pay: 'Payer {amount}',
     failed: 'Le paiement a echoue. Veuillez reessayer.',
     stubUnavailable: 'Le paiement en mode test n est pas disponible sur ce serveur. Veuillez payer par carte.',
-    alreadyPaid: 'Cette commande est deja payee.'
+    alreadyPaid: 'Cette commande est deja payee.',
+    misconfigured: 'Le paiement est temporairement indisponible : le formulaire de carte n\'est pas configure. Veuillez contacter le support.'
   },
   orderSuccess: {
     confirmingTitle: 'Confirmation de votre paiement…',

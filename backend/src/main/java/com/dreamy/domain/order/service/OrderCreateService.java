@@ -148,7 +148,7 @@ public class OrderCreateService {
 
         // STEP-TRD-07 出参（client_secret 即取即用不落库）
         return new OrderCreateResponse(storeOrderService.getOrderDetail(customerId, order.getId()),
-                new PaymentCredential(intent.id(), intent.clientSecret()));
+                new PaymentCredential(intent.id(), intent.clientSecret(), stripeClient.mode()));
     }
 
     /** TX-TRD-001 事务体（READ_COMMITTED；任一步失败整体回滚） */

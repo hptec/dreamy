@@ -164,6 +164,9 @@ dreamy:
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
     timeout-ms: 10000
     webhook-tolerance-seconds: 300
+  # 前置可信代理（Nginx/CDN）覆写 X-Forwarded-For 时置 true，游客查单频控才按该头取真实 IP；否则用 remote_addr
+  web:
+    trust-forwarded-for: ${TRUST_FORWARDED_FOR:false}
   # 轨迹供应商（order-flow-complete §3.3；stub 缺省无操作 | track17=17TRACK v2.2；api key 仅后端配置不落日志）
   tracking:
     mode: ${TRACKING_MODE:stub}

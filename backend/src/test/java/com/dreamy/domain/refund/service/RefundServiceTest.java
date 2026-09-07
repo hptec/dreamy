@@ -291,7 +291,7 @@ class RefundServiceTest {
         when(paymentRepository.findByOrderId(ORDER_ID)).thenReturn(succeededPayment());
         when(refundRepository.casApprove(REFUND_ID, "SF123")).thenReturn(1);
         when(orderRepository.addRefundedAmount(ORDER_ID, new BigDecimal("237.00"))).thenReturn(1);
-        when(stripeClient.createRefund(eq("pi_1"), eq(23700L), anyString()))
+        when(stripeClient.createRefund(eq("pi_1"), eq(23700L), anyString(), anyString()))
                 .thenReturn(new StripeRefund("re_1", "succeeded", 23700L, "usd"));
         when(paymentRepository.applyRefund(5L, new BigDecimal("237.00"))).thenReturn(1);
         when(orderRepository.casResolveRefunding(ORDER_ID, OrderStatus.PAID, null)).thenReturn(1);
@@ -328,7 +328,7 @@ class RefundServiceTest {
         when(paymentRepository.findByOrderId(ORDER_ID)).thenReturn(succeededPayment());
         when(refundRepository.casApprove(REFUND_ID, null)).thenReturn(1);
         when(orderRepository.addRefundedAmount(ORDER_ID, new BigDecimal("37.00"))).thenReturn(1);
-        when(stripeClient.createRefund(eq("pi_1"), eq(3700L), anyString()))
+        when(stripeClient.createRefund(eq("pi_1"), eq(3700L), anyString(), anyString()))
                 .thenReturn(new StripeRefund("re_2", "succeeded", 3700L, "usd"));
         when(paymentRepository.applyRefund(5L, new BigDecimal("37.00"))).thenReturn(1);
         when(orderRepository.casResolveRefunding(ORDER_ID, OrderStatus.PAID, ProductionStage.QUALITY_CHECK))
@@ -336,7 +336,7 @@ class RefundServiceTest {
 
         service.approve(REFUND_ID, null);
 
-        verify(stripeClient).createRefund(eq("pi_1"), eq(3700L), anyString());
+        verify(stripeClient).createRefund(eq("pi_1"), eq(3700L), anyString(), anyString());
         verify(orderRepository).casResolveRefunding(ORDER_ID, OrderStatus.PAID, ProductionStage.QUALITY_CHECK);
         verify(skuStockAdapter, never()).restock(anyLong(), anyInt());
         verify(orderEventRecorder).record(eq(ORDER_ID), eq(OrderEventType.REFUND), eq(OrderActorType.ADMIN),
@@ -361,7 +361,7 @@ class RefundServiceTest {
         when(paymentRepository.findByOrderId(ORDER_ID)).thenReturn(payment);
         when(refundRepository.casApprove(REFUND_ID, null)).thenReturn(1);
         when(orderRepository.addRefundedAmount(ORDER_ID, new BigDecimal("200.00"))).thenReturn(1);
-        when(stripeClient.createRefund(eq("pi_1"), eq(20000L), anyString()))
+        when(stripeClient.createRefund(eq("pi_1"), eq(20000L), anyString(), anyString()))
                 .thenReturn(new StripeRefund("re_3", "succeeded", 20000L, "usd"));
         when(paymentRepository.applyRefund(5L, new BigDecimal("200.00"))).thenReturn(1);
         when(orderRepository.casResolveRefunding(ORDER_ID, OrderStatus.SHIPPED, null)).thenReturn(1);
@@ -391,7 +391,7 @@ class RefundServiceTest {
                     assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.REFUND_TOTAL_EXCEEDED);
                     assertThat(ex.getDetails()).containsEntry("max_refundable", new BigDecimal("37.00"));
                 });
-        verify(stripeClient, never()).createRefund(anyString(), any(), anyString());
+        verify(stripeClient, never()).createRefund(anyString(), any(), anyString(), anyString());
         verify(orderRepository, never()).casResolveRefunding(anyLong(), any(), any());
     }
 
@@ -405,7 +405,7 @@ class RefundServiceTest {
         assertThatThrownBy(() -> service.approve(REFUND_ID, null))
                 .isInstanceOfSatisfying(TradingException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.REFUND_STATE_INVALID));
-        verify(stripeClient, never()).createRefund(anyString(), anyLong(), anyString());
+        verify(stripeClient, never()).createRefund(anyString(), anyLong(), anyString(), anyString());
         verify(orderRepository, never()).addRefundedAmount(anyLong(), any());
     }
 
@@ -418,7 +418,7 @@ class RefundServiceTest {
         when(paymentRepository.findByOrderId(ORDER_ID)).thenReturn(succeededPayment());
         when(refundRepository.casApprove(REFUND_ID, null)).thenReturn(1);
         when(orderRepository.addRefundedAmount(eq(ORDER_ID), any())).thenReturn(1);
-        when(stripeClient.createRefund(anyString(), anyLong(), anyString()))
+        when(stripeClient.createRefund(anyString(), anyLong(), anyString(), anyString()))
                 .thenThrow(new StripeUnavailableException("down", null));
         assertThatThrownBy(() -> service.approve(REFUND_ID, null))
                 .isInstanceOf(StripeUnavailableException.class);
@@ -483,7 +483,7 @@ class RefundServiceTest {
                 isNull())).thenReturn(1);
         when(refundRepository.casApprove(any(), isNull())).thenReturn(1);
         when(orderRepository.addRefundedAmount(ORDER_ID, new BigDecimal("200.00"))).thenReturn(1);
-        when(stripeClient.createRefund(eq("pi_1"), eq(20000L), anyString()))
+        when(stripeClient.createRefund(eq("pi_1"), eq(20000L), anyString(), anyString()))
                 .thenReturn(new StripeRefund("re_c", "succeeded", 20000L, "usd"));
         when(paymentRepository.applyRefund(eq(5L), any())).thenReturn(1);
         when(orderRepository.casUpdateStatus(eq(ORDER_ID), eq(OrderStatus.REFUNDING), eq(OrderStatus.CANCELLED),
@@ -518,7 +518,7 @@ class RefundServiceTest {
                 .isInstanceOfSatisfying(TradingException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.ORDER_STATE_INVALID));
         verify(refundRepository, never()).insert(any());
-        verify(stripeClient, never()).createRefund(anyString(), any(), anyString());
+        verify(stripeClient, never()).createRefund(anyString(), any(), anyString(), anyString());
     }
 
     @Test

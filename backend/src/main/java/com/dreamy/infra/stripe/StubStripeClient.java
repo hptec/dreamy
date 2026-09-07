@@ -25,6 +25,11 @@ public class StubStripeClient implements StripeClient {
     private final Map<String, StripePaymentIntent> intents = new ConcurrentHashMap<>();
 
     @Override
+    public String mode() {
+        return "stub";
+    }
+
+    @Override
     public StripePaymentIntent createPaymentIntent(long amountMinor, String currency, String orderNo,
                                                    Map<String, String> metadata) {
         String id = "pi_stub_" + UUID.randomUUID().toString().replace("-", "");

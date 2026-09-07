@@ -119,7 +119,8 @@ public final class TradingDtos {
         }
     }
 
-    public record PaymentCredential(String paymentIntentId, String clientSecret) {
+    /** mode=stub|real：前端据此显式选择模拟支付面板或 Stripe Elements（不再靠 client_secret 形状猜测） */
+    public record PaymentCredential(String paymentIntentId, String clientSecret, String mode) {
     }
 
     public record OrderCreateResponse(StoreOrderDetail order, PaymentCredential payment) {

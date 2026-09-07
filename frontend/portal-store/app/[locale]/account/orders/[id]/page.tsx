@@ -61,6 +61,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [paySecret, setPaySecret] = useState<string | null>(null)
+  const [payMode, setPayMode] = useState<'stub' | 'real' | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [refundOpen, setRefundOpen] = useState(false)
   const [confirmDeliver, setConfirmDeliver] = useState(false)
@@ -116,6 +117,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     try {
       const cred = await retryOrderPayment(order.id)
       setPaySecret(cred.clientSecret)
+      setPayMode(cred.mode ?? null)
     } catch (err) {
       if (err instanceof ApiError && err.code === 410601) {
         setExpired(true)
@@ -271,7 +273,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {paySecret && (
         <div className="mt-6 max-w-lg">
-          <PaymentElementPanel clientSecret={paySecret} orderId={order.id} amountLabel={formatAmount(order.totalAmount, order.currency)} />
+          <PaymentElementPanel clientSecret={paySecret} mode={payMode} orderId={order.id} amountLabel={formatAmount(order.totalAmount, order.currency)} />
         </div>
       )}
 

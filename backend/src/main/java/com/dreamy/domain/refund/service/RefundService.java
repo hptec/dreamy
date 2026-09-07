@@ -282,9 +282,10 @@ public class RefundService {
             throw new TradingException(TradingErrorCode.REFUND_TOTAL_EXCEEDED, Map.of("max_refundable",
                     RefundEligibility.remainingRefundable(order.getTotalAmount(), order.getRefundedAmount())));
         }
+        // Idempotency-Key = 工单号：远端已退而本地回滚/超时重试时 Stripe 返回同一 refund，不二次扣款
         StripeRefund stripeRefund = stripeClient.createRefund(
                 payment == null ? null : payment.getPaymentIntentId(),
-                Money.toMinor(refund.getAmount()), "requested_by_customer");
+                Money.toMinor(refund.getAmount()), "requested_by_customer", "refund:" + refund.getRefundNo());
         refundRepository.updateStripeRefundId(refund.getId(), stripeRefund.id());
         if (payment != null && paymentRepository.applyRefund(payment.getId(), refund.getAmount()) == 0) {
             log.warn("[REFUND][ALERT] payment refund accumulate skipped (status={}) refund_no={}",

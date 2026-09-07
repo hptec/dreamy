@@ -159,7 +159,7 @@ public class StoreOrderService {
                 String piStatus = intent.status();
                 if ("requires_payment_method".equals(piStatus) || "requires_confirmation".equals(piStatus)
                         || "requires_action".equals(piStatus)) {
-                    return new PaymentCredential(intent.id(), intent.clientSecret());
+                    return new PaymentCredential(intent.id(), intent.clientSecret(), stripeClient.mode());
                 }
             } catch (com.dreamy.infra.stripe.StripeException ex) {
                 // 检索失败 → 走重建路径（STEP-TRD-04 口径）
@@ -181,7 +181,7 @@ public class StoreOrderService {
         } else {
             paymentRepository.rebindPaymentIntent(payment.getId(), rebuilt.id());
         }
-        return new PaymentCredential(rebuilt.id(), rebuilt.clientSecret());
+        return new PaymentCredential(rebuilt.id(), rebuilt.clientSecret(), stripeClient.mode());
     }
 
     /**

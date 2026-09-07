@@ -10,6 +10,11 @@ import java.util.Map;
  */
 public interface StripeClient {
 
+    /** 实现模式标识（stub|real），随 PaymentCredential 下发前端做显式面板选择 */
+    default String mode() {
+        return "real";
+    }
+
     /**
      * 创建 PaymentIntent（FLOW-P06 下单 / payment-intent 重试入口）。
      *
@@ -35,4 +40,12 @@ public interface StripeClient {
      * @param reason          Stripe reason（可空：requested_by_customer 等）
      */
     StripeRefund createRefund(String paymentIntentId, Long amountMinor, String reason);
+
+    /**
+     * 带幂等键的 Refund（Stripe Idempotency-Key：远端已成功而本地事务回滚/响应丢失时，重试不会二次退款）。
+     * 缺省实现忽略键（stub）；real 实现必须透传为请求头。
+     */
+    default StripeRefund createRefund(String paymentIntentId, Long amountMinor, String reason, String idempotencyKey) {
+        return createRefund(paymentIntentId, amountMinor, reason);
+    }
 }

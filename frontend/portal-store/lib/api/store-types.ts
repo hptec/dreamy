@@ -400,6 +400,8 @@ export interface OrderCreateRequest {
 export interface PaymentCredential {
   paymentIntentId: string
   clientSecret: string
+  /** 后端显式模式：stub=模拟支付面板；real=Stripe Elements（缺省按 clientSecret 形状回退判定） */
+  mode?: 'stub' | 'real' | null
 }
 
 export interface OrderLine {

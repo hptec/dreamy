@@ -149,7 +149,8 @@ public class TradingEventsPublisher {
 
     /**
      * 事务内落 outbox → afterCommit 即时投递。无活动事务时直接落表 + 投递。
-     * 落表失败（如表缺失）不阻断业务：降级为直接投递 + 告警。
+     * 落表失败向上抛：事务性发件箱是投递保证的前提，宁可让业务事务回滚（webhook 由 Stripe 重投、
+     * 后台操作报错重试）也不接受"事件静默丢失"。
      */
     void publish(String routingKey, Map<String, Object> payload) {
         EventOutbox row = new EventOutbox();
@@ -162,9 +163,8 @@ public class TradingEventsPublisher {
         try {
             outboxRepository.insert(row);
         } catch (Exception ex) {
-            log.error("[EVT-TRD][ALERT] outbox insert failed key={} —— 降级直投", routingKey, ex);
-            afterCommit.run(() -> deliverDirect(routingKey, payload));
-            return;
+            log.error("[EVT-TRD][ALERT] outbox insert failed key={} —— 业务事务回滚", routingKey, ex);
+            throw new IllegalStateException("event outbox insert failed: " + routingKey, ex);
         }
         afterCommit.run(() -> deliver(row, payload));
     }
@@ -213,13 +213,6 @@ public class TradingEventsPublisher {
         return Duration.ofMinutes(BACKOFF_MINUTES[idx]);
     }
 
-    private void deliverDirect(String routingKey, Map<String, Object> payload) {
-        try {
-            eventPublisher.publish(routingKey, payload);
-        } catch (Exception ex) {
-            log.error("[EVT-TRD][ALERT] direct publish failed key={} payload_keys={}", routingKey, payload.keySet(), ex);
-        }
-    }
 
     private Map<String, Object> basePayload(Order order, String locale) {
         Map<String, Object> payload = new LinkedHashMap<>();

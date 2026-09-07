@@ -546,6 +546,7 @@ export default function CheckoutPage() {
               {payment ? (
                 <PaymentElementPanel
                   clientSecret={payment.clientSecret}
+                  mode={payment.mode}
                   orderId={payment.orderId}
                   amountLabel={quote ? formatAmount(quote.totalAmount, cur) : ''}
                 />

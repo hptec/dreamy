@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -161,11 +162,13 @@ class TradingEventsPublisherTest {
     }
 
     @Test
-    @DisplayName("outbox 落表失败（表缺失等）→ 降级直投 + 不阻断业务")
-    void outboxInsertFailureFallsBackToDirect() {
+    @DisplayName("outbox 落表失败 → 向上抛（业务事务回滚），绝不静默直投")
+    void outboxInsertFailurePropagates() {
         doThrow(new RuntimeException("table missing")).when(outboxRepository).insert(any(EventOutbox.class));
-        publisher.publishOrderShipped(order(), null);
-        verify(domainEventPublisher).publish(eq("order.shipped"), any());
+        assertThatThrownBy(() -> publisher.publishOrderShipped(order(), null))
+                .isInstanceOf(IllegalStateException.class);
+        verify(domainEventPublisher, never()).publish(anyString(), any());
+        verify(domainEventPublisher, never()).publishOrThrow(anyString(), any());
         verify(outboxRepository, never()).markSent(anyLong(), anyInt(), any());
     }
 

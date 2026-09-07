@@ -35,16 +35,28 @@ function isStubSecret(clientSecret: string): boolean {
 export function PaymentElementPanel({
   clientSecret,
   orderId,
-  amountLabel
+  amountLabel,
+  mode
 }: {
   clientSecret: string
   orderId: number
   amountLabel: string
+  mode?: 'stub' | 'real' | null
 }) {
-  const stub = useMemo(() => isStubSecret(clientSecret), [clientSecret])
+  // 后端显式 mode 优先；缺失时才按 clientSecret 形状回退判定
+  const stub = useMemo(() => (mode ? mode === 'stub' : isStubSecret(clientSecret)), [mode, clientSecret])
+  const { t } = useI18n()
 
   if (stub) {
     return <StubPaymentForm orderId={orderId} amountLabel={amountLabel} />
+  }
+  if (!PUBLISHABLE_KEY) {
+    // real 模式但前端未配置 publishable key：显式暴露配置错误，而不是退化成模拟面板
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+        {t.paymentPanel.misconfigured}
+      </div>
+    )
   }
 
   return (

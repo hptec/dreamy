@@ -5,6 +5,7 @@ import com.dreamy.dto.TradingDtos.OrderTrackRequest;
 import com.dreamy.dto.TradingDtos.OrderTrackView;
 import huihao.web.R;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,8 +20,13 @@ public class StoreOrderTrackController {
 
     private final GuestOrderTrackService trackService;
 
-    public StoreOrderTrackController(GuestOrderTrackService trackService) {
+    /** 仅当前置可信代理（Nginx/CDN）会覆写 X-Forwarded-For 时才信任该头，否则可被伪造绕过频控 */
+    private final boolean trustForwardedFor;
+
+    public StoreOrderTrackController(GuestOrderTrackService trackService,
+                                     @Value("${dreamy.web.trust-forwarded-for:false}") boolean trustForwardedFor) {
         this.trackService = trackService;
+        this.trustForwardedFor = trustForwardedFor;
     }
 
     @PostMapping("/api/store/orders/track")
@@ -29,8 +35,8 @@ public class StoreOrderTrackController {
                 .body(R.ok(trackService.track(request, clientIp(http))));
     }
 
-    private static String clientIp(HttpServletRequest http) {
-        String forwarded = http.getHeader("X-Forwarded-For");
+    private String clientIp(HttpServletRequest http) {
+        String forwarded = trustForwardedFor ? http.getHeader("X-Forwarded-For") : null;
         if (forwarded != null && !forwarded.isBlank()) {
             String first = forwarded.split(",")[0].trim();
             if (!first.isEmpty()) {

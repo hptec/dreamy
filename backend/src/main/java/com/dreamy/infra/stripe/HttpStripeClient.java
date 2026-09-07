@@ -71,6 +71,11 @@ public class HttpStripeClient implements StripeClient {
 
     @Override
     public StripeRefund createRefund(String paymentIntentId, Long amountMinor, String reason) {
+        return createRefund(paymentIntentId, amountMinor, reason, null);
+    }
+
+    @Override
+    public StripeRefund createRefund(String paymentIntentId, Long amountMinor, String reason, String idempotencyKey) {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("payment_intent", paymentIntentId);
         if (amountMinor != null) {
@@ -79,7 +84,7 @@ public class HttpStripeClient implements StripeClient {
         if (reason != null) {
             form.put("reason", reason);
         }
-        JsonNode node = post("/v1/refunds", form);
+        JsonNode node = post("/v1/refunds", form, idempotencyKey);
         return new StripeRefund(node.path("id").asText(), node.path("status").asText(),
                 node.path("amount").asLong(), node.path("currency").asText());
     }
@@ -94,8 +99,16 @@ public class HttpStripeClient implements StripeClient {
     }
 
     private JsonNode post(String path, Map<String, String> form) {
-        HttpRequest request = baseRequest(path)
-                .header("Content-Type", "application/x-www-form-urlencoded")
+        return post(path, form, null);
+    }
+
+    private JsonNode post(String path, Map<String, String> form, String idempotencyKey) {
+        HttpRequest.Builder builder = baseRequest(path)
+                .header("Content-Type", "application/x-www-form-urlencoded");
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            builder.header("Idempotency-Key", idempotencyKey);
+        }
+        HttpRequest request = builder
                 .POST(HttpRequest.BodyPublishers.ofString(encodeForm(form)))
                 .build();
         return execute(request, path);

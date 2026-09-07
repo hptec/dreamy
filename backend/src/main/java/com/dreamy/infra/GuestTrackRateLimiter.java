@@ -7,7 +7,7 @@ import java.time.Duration;
 
 /**
  * 游客查单频控（order-flow-complete §4.6：Redis 计数 key trading:track:{ip}，10 次/小时；沿用 OtpRateLimiter 模式）。
- * Redis 不可用时放行（查单为只读脱敏视图，可用性优先）。
+ * Redis 不可用时 fail-closed（拒绝）：查单为非关键只读功能，宁可短暂不可用也不允许无限枚举订单号。
  */
 @Component
 public class GuestTrackRateLimiter {
@@ -31,7 +31,7 @@ public class GuestTrackRateLimiter {
             }
             return count == null || count <= LIMIT_PER_HOUR;
         } catch (Exception ex) {
-            return true;
+            return false;
         }
     }
 }

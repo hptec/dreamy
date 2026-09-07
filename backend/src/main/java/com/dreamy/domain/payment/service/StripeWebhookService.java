@@ -233,7 +233,8 @@ public class StripeWebhookService {
                 "Late payment on cancelled order", "auto refund", eventPayload, false);
         afterCommit.run(() -> {
             try {
-                stripeClient.createRefund(payment.getPaymentIntentId(), null, "order_cancelled_late_payment");
+                stripeClient.createRefund(payment.getPaymentIntentId(), null, "order_cancelled_late_payment",
+                        "late-payment:" + payment.getPaymentIntentId());
             } catch (Exception ex) {
                 log.error("[WEBHOOK][ALERT] late payment auto-refund failed order_no={} —— 人工介入",
                         order.getOrderNo(), ex);
