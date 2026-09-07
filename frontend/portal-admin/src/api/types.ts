@@ -489,11 +489,115 @@ export const OrderStatus = {
   CANCELLED: 5,
   REFUNDING: 6,
   REFUNDED: 7,
+  DELIVERED: 8,
 } as const
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus]
 
-export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5 } as const
+export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5, PARTIALLY_REFUNDED: 6 } as const
 export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus]
+
+// ===== order-flow-complete §2.4 新枚举（IntEnum 整数契约） =====
+
+/** 制作阶段（仅 status=PAID 时非空；1→2→3→4 递进，后台可回退一档） */
+export const ProductionStage = { PENDING_REVIEW: 1, IN_PRODUCTION: 2, QUALITY_CHECK: 3, READY_TO_SHIP: 4 } as const
+export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage]
+
+export const ShipmentStatus = { PENDING: 1, IN_TRANSIT: 2, OUT_FOR_DELIVERY: 3, DELIVERED: 4, EXCEPTION: 5, CANCELLED: 6 } as const
+export type ShipmentStatus = typeof ShipmentStatus[keyof typeof ShipmentStatus]
+
+export const ShipmentEventSource = { MANUAL: 1, PROVIDER: 2, SYSTEM: 3 } as const
+export type ShipmentEventSource = typeof ShipmentEventSource[keyof typeof ShipmentEventSource]
+
+export const OrderEventType = { STATUS_CHANGED: 1, NOTE: 2, SHIPMENT: 3, PAYMENT: 4, REFUND: 5, EMAIL: 6, PRODUCTION: 7 } as const
+export type OrderEventType = typeof OrderEventType[keyof typeof OrderEventType]
+
+export const OrderActorType = { SYSTEM: 1, CUSTOMER: 2, ADMIN: 3 } as const
+export type OrderActorType = typeof OrderActorType[keyof typeof OrderActorType]
+
+export const TaxType = { VAT: 1, GST: 2, SALES_TAX: 3, DUTY: 4 } as const
+export type TaxType = typeof TaxType[keyof typeof TaxType]
+
+export const Incoterm = { DDP: 1, DDU: 2 } as const
+export type Incoterm = typeof Incoterm[keyof typeof Incoterm]
+
+export const ShippingServiceLevel = { STANDARD: 1, EXPRESS: 2 } as const
+export type ShippingServiceLevel = typeof ShippingServiceLevel[keyof typeof ShippingServiceLevel]
+
+export const ExchangeRateSource = { MANUAL: 1, PROVIDER: 2 } as const
+export type ExchangeRateSource = typeof ExchangeRateSource[keyof typeof ExchangeRateSource]
+
+/** 8 区 zone 取值（shipping_option.zone / CountryDto.zone） */
+export const SHIPPING_ZONES = ['NORTH_AMERICA', 'EUROPE', 'UK', 'OCEANIA', 'ASIA', 'LATAM', 'MEA', 'REST'] as const
+export type ShippingZone = typeof SHIPPING_ZONES[number]
+
+export interface TaxBreakdownItem {
+  type: TaxType
+  label?: string | null
+  rateScaled: number
+  base: number
+  amount: number
+}
+
+export interface OrderEvent {
+  id: number
+  type: OrderEventType
+  actorType: OrderActorType
+  actorId?: number | null
+  actorName?: string | null
+  title: string
+  detail?: string | null
+  payload?: Record<string, unknown> | null
+  customerVisible: boolean
+  createdAt: string
+}
+
+export interface ShipmentLine {
+  orderLineId: number
+  productName?: string | null
+  skuCode?: string | null
+  color?: string | null
+  size?: string | null
+  qty: number
+}
+
+export interface ShipmentEvent {
+  id: number
+  occurredAt: string
+  status: ShipmentStatus
+  location?: string | null
+  description?: string | null
+  source: ShipmentEventSource
+}
+
+export interface Shipment {
+  id: number
+  shipmentNo: string
+  carrierCode: string
+  carrierName?: string | null
+  trackingNo: string
+  trackingUrl?: string | null
+  status: ShipmentStatus
+  shippedAt?: string | null
+  deliveredAt?: string | null
+  lastEventAt?: string | null
+  lastEventDesc?: string | null
+  lines: ShipmentLine[]
+  events: ShipmentEvent[]
+}
+
+export interface ShipmentCreateRequest {
+  carrierCode: string
+  trackingNo: string
+  /** 省略 = 全部未发行 */
+  lines?: { orderLineId: number; qty: number }[]
+}
+
+export interface ShipmentEventCreateRequest {
+  status: ShipmentStatus
+  occurredAt?: string | null
+  location?: string | null
+  description: string
+}
 
 export interface CustomSizeData {
   bust?: number | null
@@ -556,6 +660,14 @@ export interface AdminOrderListItem {
   // API-TRD-01（ALIGN-013）：DTO 末尾追加 地区/商品数（snake: country / item_count，非 breaking）
   country?: string | null
   itemCount?: number | null
+  // order-flow-complete §3.2：列表尾部追加
+  productionStage?: ProductionStage | null
+  weddingDaysLeft?: number | null
+  deliveredAt?: string | null
+  taxAmount?: number | null
+  refundedAmount?: number | null
+  amountVersion?: number | null
+  shippingServiceLevel?: ShippingServiceLevel | null
 }
 
 export const RefundStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
@@ -577,6 +689,9 @@ export interface AdminRefund {
   customerEmail?: string | null
   stripeRefundId?: string | null
   returnTrackingNo?: string | null
+  fromStatus?: OrderStatus | null
+  fromStage?: ProductionStage | null
+  updatedAt?: string | null
 }
 
 export interface AdminOrderDetail extends AdminOrderListItem {
@@ -585,6 +700,14 @@ export interface AdminOrderDetail extends AdminOrderListItem {
   addressSnapshot?: Record<string, unknown> | null
   payment?: PaymentSummary | null
   refunds?: AdminRefund[] | null
+  // order-flow-complete §3.2 详情扩展
+  taxBreakdown?: TaxBreakdownItem[] | null
+  incoterm?: Incoterm | null
+  estimatedDeliveryFrom?: string | null
+  estimatedDeliveryTo?: string | null
+  localeSnapshot?: string | null
+  events?: OrderEvent[] | null
+  shipments?: Shipment[] | null
 }
 
 export interface ExchangeRate {
@@ -593,11 +716,155 @@ export interface ExchangeRate {
   rate: number
   updatedBy?: number | null
   updatedAt?: string | null
+  // order-flow-complete G
+  source?: ExchangeRateSource | null
+  syncedAt?: string | null
+  manualOverride?: boolean | null
+  effectiveRate?: number | null
+  spreadScaled?: number | null
+}
+
+export interface ExchangeRateHistoryItem {
+  currency: string
+  rate: number
+  source: ExchangeRateSource
+  quoteDate: string
+  recordedAt: string
+}
+
+export interface ExchangeRateRefreshResult {
+  updatedCount: number
+  skippedCurrencies?: string[] | null
+  syncedAt?: string | null
 }
 
 export interface CheckoutConfig {
   giftWrapFeeUsd: number | string
   customRefundGraceHours: number
+  // order-flow-complete §2.3 新增 5 项
+  autoCompleteDays: number
+  autoDeliverDays: number
+  pendingTimeoutMinutes: number
+  exchangeRateSpreadScaled: number
+  productionDaysDefault: number
+}
+
+// ===== 税费（order-flow-complete F：tax_rule / tax_destination_policy） =====
+
+export interface TaxRule {
+  id: number
+  countryCode: string
+  /** '' = 国家级 */
+  region: string
+  taxType: TaxType
+  /** 10000 = 100% */
+  rateScaled: number
+  appliesToShipping: boolean
+  thresholdUsd?: number | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  enabled: boolean
+  label?: string | null
+  updatedAt?: string | null
+}
+
+export interface TaxRuleUpsert {
+  countryCode: string
+  region: string
+  taxType: TaxType
+  rateScaled: number
+  appliesToShipping: boolean
+  thresholdUsd?: number | string | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  enabled: boolean
+  label?: string | null
+}
+
+export interface TaxDestinationPolicy {
+  countryCode: string
+  incoterm: Incoterm
+  dutiesNotice: boolean
+  noticeText?: string | null
+  updatedAt?: string | null
+}
+
+export interface TaxDestinationPolicyUpsert {
+  incoterm: Incoterm
+  dutiesNotice: boolean
+  noticeText?: string | null
+}
+
+// ===== 国家 / 分区 / 运费选项（order-flow-complete D） =====
+
+export interface CountryRegion {
+  code: string
+  name: string
+}
+
+export interface Country {
+  code: string
+  name: string
+  zone: string
+  supported: boolean
+  regions?: CountryRegion[] | null
+}
+
+export interface ShippingOption {
+  id: number
+  zone: string
+  carrierCode: string
+  carrierName?: string | null
+  serviceLevel: ShippingServiceLevel
+  feeUnder?: number | null
+  feeOver?: number | null
+  threshold?: number | null
+  transitDaysMin?: number | null
+  transitDaysMax?: number | null
+  enabled: boolean
+  updatedAt?: string | null
+}
+
+export interface ShippingOptionUpsert {
+  zone: string
+  carrierCode: string
+  serviceLevel: ShippingServiceLevel
+  feeUnder?: number | string | null
+  feeOver?: number | string | null
+  threshold?: number | string | null
+  transitDaysMin?: number | null
+  transitDaysMax?: number | null
+  enabled: boolean
+}
+
+export interface ShippingQuotePreviewRequest {
+  countryCode: string
+  regionCode?: string | null
+  subtotalUsd: number | string
+  serviceLevel?: ShippingServiceLevel | null
+}
+
+export interface ShippingQuotePreviewOption {
+  carrier?: string | null
+  fee: number
+  leadTime?: string | null
+  selected?: boolean | null
+  carrierCode?: string | null
+  carrierName?: string | null
+  serviceLevel?: ShippingServiceLevel | null
+  transitDaysMin?: number | null
+  transitDaysMax?: number | null
+  estimatedDeliveryFrom?: string | null
+  estimatedDeliveryTo?: string | null
+}
+
+export interface ShippingQuotePreviewResponse {
+  zone: string
+  options: ShippingQuotePreviewOption[]
+  taxAmountUsd: number
+  taxBreakdown: TaxBreakdownItem[]
+  incoterm?: Incoterm | null
+  dutiesNotice?: boolean | null
 }
 
 // ===== marketing（PAGE-MKT-A01~A05 / STORE-MKT-A01~A06） =====
@@ -954,6 +1221,9 @@ export interface Carrier {
   zones?: string | null
   leadTime?: string | null
   status: CarrierStatus
+  // order-flow-complete C：承运商编码（大写字母数字）+ 跟踪链接模板（{tracking_no} 占位）
+  code?: string | null
+  trackingUrlTemplate?: string | null
 }
 
 export interface CarrierUpsert {
@@ -961,6 +1231,8 @@ export interface CarrierUpsert {
   zones?: string | null
   leadTime?: string | null
   status: CarrierStatus
+  code?: string | null
+  trackingUrlTemplate?: string | null
 }
 
 export interface ShippingRate {

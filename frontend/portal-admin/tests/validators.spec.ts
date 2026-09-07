@@ -182,3 +182,47 @@ describe('分页/筛选参数纯函数', () => {
     expect(dateToEndOfDay('2026-06-10')).toBe('2026-06-10T23:59:59')
   })
 })
+
+// ===== order-flow-complete J：新增校验（运费选项 / 税率规则 / 包裹分配 / 结算配置新字段） =====
+import { validateShippingOptionForm, validateTaxRuleForm, validateShipmentForm } from '@/utils/validators'
+
+describe('order-flow-complete 表单校验', () => {
+  it('validateShippingOptionForm：分区/承运商/等级必填，运输天数区间', () => {
+    expect(validateShippingOptionForm({ zone: '', carrierCode: 'FEDEX', serviceLevel: 1, feeUnder: '10' }).zone).toBeTruthy()
+    expect(validateShippingOptionForm({ zone: 'EUROPE', carrierCode: '', serviceLevel: 1, feeUnder: '10' }).carrierCode).toBeTruthy()
+    expect(validateShippingOptionForm({ zone: 'EUROPE', carrierCode: 'FEDEX', serviceLevel: 3, feeUnder: '10' }).serviceLevel).toBeTruthy()
+    expect(validateShippingOptionForm({ zone: 'EUROPE', carrierCode: 'FEDEX', serviceLevel: 1, feeUnder: '' }).feeUnder).toBeTruthy()
+    expect(validateShippingOptionForm({ zone: 'EUROPE', carrierCode: 'FEDEX', serviceLevel: 1, feeUnder: '10', transitDaysMin: '8', transitDaysMax: '5' }).transitDaysMax).toBeTruthy()
+    expect(validateShippingOptionForm({ zone: 'EUROPE', carrierCode: 'FEDEX', serviceLevel: 2, feeUnder: '10', feeOver: '0', threshold: '300', transitDaysMin: '2', transitDaysMax: '4' })).toEqual({})
+  })
+
+  it('validateTaxRuleForm：国家 ISO2、税率 0~100 两位小数、生效窗口顺序', () => {
+    expect(validateTaxRuleForm({ countryCode: '', taxType: 1, ratePercent: '20' }).countryCode).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'usa', taxType: 1, ratePercent: '20' }).countryCode).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'DE', taxType: 9, ratePercent: '20' }).taxType).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'DE', taxType: 1, ratePercent: '120' }).ratePercent).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'DE', taxType: 1, ratePercent: '19.125' }).ratePercent).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'DE', taxType: 1, ratePercent: '19', effectiveFrom: '2026-02-01', effectiveTo: '2026-01-01' }).effectiveTo).toBeTruthy()
+    expect(validateTaxRuleForm({ countryCode: 'DE', region: '', taxType: 1, ratePercent: '19', thresholdUsd: '' })).toEqual({})
+  })
+
+  it('validateShipmentForm：承运商/单号必填、行数量不超剩余、至少 1 件', () => {
+    const lines = [{ orderLineId: 1, qty: 1, remaining: 2 }, { orderLineId: 2, qty: 0, remaining: 1 }]
+    expect(validateShipmentForm({ carrierCode: '', trackingNo: 'T1', lines }).carrierCode).toBeTruthy()
+    expect(validateShipmentForm({ carrierCode: 'FEDEX', trackingNo: 'T1', lines }, false).carrierCode).toBeTruthy()
+    expect(validateShipmentForm({ carrierCode: 'FEDEX', trackingNo: '', lines }).trackingNo).toBeTruthy()
+    expect(validateShipmentForm({ carrierCode: 'FEDEX', trackingNo: 'T1', lines: [{ orderLineId: 1, qty: 3, remaining: 2 }] }).line_1).toBeTruthy()
+    expect(validateShipmentForm({ carrierCode: 'FEDEX', trackingNo: 'T1', lines: [{ orderLineId: 1, qty: 0, remaining: 2 }] }).lines).toBeTruthy()
+    expect(validateShipmentForm({ carrierCode: 'FEDEX', trackingNo: 'T1', lines })).toEqual({})
+  })
+
+  it('validateCheckoutConfig：新增 5 字段范围（与 CheckoutConfigService 一致），未提供时跳过', () => {
+    const base = { giftWrapFeeUsd: 15, customRefundGraceHours: 24 }
+    expect(validateCheckoutConfig({ ...base, autoCompleteDays: 61 }).autoCompleteDays).toBeTruthy()
+    expect(validateCheckoutConfig({ ...base, autoDeliverDays: 0 }).autoDeliverDays).toBeTruthy()
+    expect(validateCheckoutConfig({ ...base, pendingTimeoutMinutes: 4 }).pendingTimeoutMinutes).toBeTruthy()
+    expect(validateCheckoutConfig({ ...base, exchangeRateSpreadScaled: 2001 }).exchangeRateSpreadScaled).toBeTruthy()
+    expect(validateCheckoutConfig({ ...base, productionDaysDefault: 181 }).productionDaysDefault).toBeTruthy()
+    expect(validateCheckoutConfig({ ...base, autoCompleteDays: 7, autoDeliverDays: 30, pendingTimeoutMinutes: 30, exchangeRateSpreadScaled: 0, productionDaysDefault: 21 })).toEqual({})
+  })
+})

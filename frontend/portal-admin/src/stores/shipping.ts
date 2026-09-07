@@ -1,30 +1,57 @@
-// STORE-SHP-01 useShippingStore：承运方 + 邮费规则（fetchAll 并行；Toggle 乐观更新；enabledCount 预判）
+// STORE-SHP-01 useShippingStore：承运方 + 运费选项（fetchAll 并行；Toggle 乐观更新；enabledCount 预判）
+// order-flow-complete D：rates → options（旧 /shipping/rates 只读已废弃）；国家列表懒加载供试算 / 税费页复用
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { shippingApi } from '@/api'
 import { CarrierStatus } from '@/api/types'
-import type { Carrier, CarrierUpsert, ShippingRate, ShippingRateUpsert } from '@/api/types'
+import type { Carrier, CarrierUpsert, Country, ShippingOption, ShippingOptionUpsert } from '@/api/types'
 
 export const useShippingStore = defineStore('shipping', () => {
   const carriers = ref<Carrier[]>([])
-  const rates = ref<ShippingRate[]>([])
+  const options = ref<ShippingOption[]>([])
+  const countries = ref<Country[]>([])
   const loadingCarriers = ref(false)
-  const loadingRates = ref(false)
+  const loadingOptions = ref(false)
+  const loadingCountries = ref(false)
   const saving = ref(false)
 
   /** 前端预判：仅剩 1 个 enabled 时 Toggle/删除置灰（后端 409902 兜底） */
   const enabledCount = computed(() => carriers.value.filter((c) => c.status === CarrierStatus.ENABLED).length)
 
-  async function fetchAll() {
+  /** 已配置 code 的启用承运商（创建包裹 / 运费选项下拉来源） */
+  const codedCarriers = computed(() => carriers.value.filter((c) => !!c.code))
+
+  async function fetchCarriers() {
     loadingCarriers.value = true
-    loadingRates.value = true
     try {
-      const [carriersRes, ratesRes] = await Promise.all([shippingApi.listCarriers(), shippingApi.listRates()])
-      carriers.value = carriersRes.items
-      rates.value = ratesRes.items
+      carriers.value = (await shippingApi.listCarriers()).items
     } finally {
       loadingCarriers.value = false
-      loadingRates.value = false
+    }
+  }
+
+  async function fetchOptions() {
+    loadingOptions.value = true
+    try {
+      options.value = (await shippingApi.listShippingOptions()).items
+    } finally {
+      loadingOptions.value = false
+    }
+  }
+
+  async function fetchAll() {
+    await Promise.all([fetchCarriers(), fetchOptions()])
+  }
+
+  /** 国家列表（公开接口、250 国；带缓存，多页复用） */
+  async function ensureCountries() {
+    if (countries.value.length) return countries.value
+    loadingCountries.value = true
+    try {
+      countries.value = (await shippingApi.listCountries()).items
+      return countries.value
+    } finally {
+      loadingCountries.value = false
     }
   }
 
@@ -60,36 +87,59 @@ export const useShippingStore = defineStore('shipping', () => {
     carriers.value = carriers.value.filter((c) => c.id !== id)
   }
 
-  async function saveRate(body: ShippingRateUpsert, id?: number) {
+  async function saveOption(body: ShippingOptionUpsert, id?: number) {
     saving.value = true
     try {
-      const saved = id == null ? await shippingApi.createRate(body) : await shippingApi.updateRate(id, body)
-      const idx = rates.value.findIndex((r) => r.id === saved.id)
-      if (idx >= 0) rates.value[idx] = saved
-      else rates.value.push(saved)
+      const saved = id == null
+        ? await shippingApi.createShippingOption(body)
+        : await shippingApi.updateShippingOption(id, body)
+      const idx = options.value.findIndex((r) => r.id === saved.id)
+      if (idx >= 0) options.value[idx] = saved
+      else options.value.push(saved)
       return saved
     } finally {
       saving.value = false
     }
   }
 
-  async function removeRate(id: number) {
-    await shippingApi.deleteRate(id)
-    rates.value = rates.value.filter((r) => r.id !== id)
+  /** 乐观更新启用开关；失败回滚 */
+  async function toggleOption(row: ShippingOption, enabled: boolean) {
+    const prev = row.enabled
+    if (prev === enabled) return
+    row.enabled = enabled
+    try {
+      const updated = await shippingApi.setShippingOptionEnabled(row.id, enabled)
+      Object.assign(row, updated)
+    } catch (e) {
+      row.enabled = prev
+      throw e
+    }
+  }
+
+  async function removeOption(id: number) {
+    await shippingApi.deleteShippingOption(id)
+    options.value = options.value.filter((r) => r.id !== id)
   }
 
   return {
     carriers,
-    rates,
+    options,
+    countries,
     loadingCarriers,
-    loadingRates,
+    loadingOptions,
+    loadingCountries,
     saving,
     enabledCount,
+    codedCarriers,
+    fetchCarriers,
+    fetchOptions,
     fetchAll,
+    ensureCountries,
     toggleCarrier,
     saveCarrier,
     removeCarrier,
-    saveRate,
-    removeRate,
+    saveOption,
+    toggleOption,
+    removeOption,
   }
 })

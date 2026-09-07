@@ -215,6 +215,11 @@ export function validateExchangeRate(rate: number | string | null | undefined): 
 export function validateCheckoutConfig(form: {
   giftWrapFeeUsd?: number | string | null
   customRefundGraceHours?: number | null
+  autoCompleteDays?: number | string | null
+  autoDeliverDays?: number | string | null
+  pendingTimeoutMinutes?: number | string | null
+  exchangeRateSpreadScaled?: number | string | null
+  productionDaysDefault?: number | string | null
 }): FieldErrors {
   const errors: FieldErrors = {}
   const fee = Number(form.giftWrapFeeUsd)
@@ -225,16 +230,35 @@ export function validateCheckoutConfig(form: {
   if (!Number.isInteger(grace) || grace < 1 || grace > 168) {
     errors.customRefundGraceHours = '宽限期需为 1~168 小时'
   }
+  // order-flow-complete §2.3 新字段（与 CheckoutConfigService checkRange 一致；未提供时跳过，兼容旧表单）
+  const ranges: [keyof typeof form, number, number, string][] = [
+    ['autoCompleteDays', 1, 60, '自动完成天数需为 1~60'],
+    ['autoDeliverDays', 1, 120, '自动签收天数需为 1~120'],
+    ['pendingTimeoutMinutes', 5, 1440, '待付款超时需为 5~1440 分钟'],
+    ['exchangeRateSpreadScaled', 0, 2000, '汇率加价需为 0~2000（万分比）'],
+    ['productionDaysDefault', 1, 180, '默认制作周期需为 1~180 天'],
+  ]
+  for (const [key, min, max, msg] of ranges) {
+    const raw = form[key]
+    if (raw === undefined) continue
+    const n = Number(raw)
+    if (raw === null || raw === '' || !Number.isInteger(n) || n < min || n > max) errors[key] = msg
+  }
   return errors
 }
 
 // ===== shipping（FORM-SHP-01/02 镜像 V-SHP-003~010） =====
+
+/** order-flow-complete C：承运商编码大写字母数字（2~32） */
+export const CARRIER_CODE_PATTERN = /^[A-Z0-9]{2,32}$/
 
 export function validateCarrierForm(form: {
   name?: string | null
   zones?: string | null
   leadTime?: string | null
   status?: number | null
+  code?: string | null
+  trackingUrlTemplate?: string | null
 }): FieldErrors {
   const errors: FieldErrors = {}
   const name = (form.name || '').trim()
@@ -243,6 +267,14 @@ export function validateCarrierForm(form: {
   if ((form.zones || '').length > 255) errors.zones = '不超过 255 字符'
   if ((form.leadTime || '').length > 64) errors.leadTime = '不超过 64 字符'
   if (form.status !== CarrierStatus.ENABLED && form.status !== CarrierStatus.DISABLED) errors.status = '请选择状态'
+  const code = (form.code || '').trim()
+  if (code && !CARRIER_CODE_PATTERN.test(code)) errors.code = '编码仅支持大写字母与数字（2~32 位）'
+  const tpl = (form.trackingUrlTemplate || '').trim()
+  if (tpl) {
+    if (tpl.length > 255) errors.trackingUrlTemplate = '不超过 255 字符'
+    else if (!/^https?:\/\//i.test(tpl)) errors.trackingUrlTemplate = '需为 http(s):// 开头的链接'
+    else if (!tpl.includes('{tracking_no}')) errors.trackingUrlTemplate = '需包含 {tracking_no} 占位符'
+  }
   return errors
 }
 
@@ -266,6 +298,94 @@ export function validateRateForm(form: {
   if (!validFee(form.feeUnder)) errors.feeUnder = '金额需 ≥ 0 且最多两位小数'
   if (!validFee(form.feeOver)) errors.feeOver = '金额需 ≥ 0 且最多两位小数'
   if (!validFee(form.threshold)) errors.threshold = '金额需 ≥ 0 且最多两位小数'
+  return errors
+}
+
+/** order-flow-complete D：运费选项（zone × carrier_code × service_level；两档费用/门槛/运输天数） */
+export function validateShippingOptionForm(form: {
+  zone?: string | null
+  carrierCode?: string | null
+  serviceLevel?: number | null
+  feeUnder?: number | string | null
+  feeOver?: number | string | null
+  threshold?: number | string | null
+  transitDaysMin?: number | string | null
+  transitDaysMax?: number | string | null
+}): FieldErrors {
+  const errors: FieldErrors = {}
+  if (!(form.zone || '').trim()) errors.zone = '请选择分区'
+  if (!(form.carrierCode || '').trim()) errors.carrierCode = '请选择承运商'
+  if (form.serviceLevel !== 1 && form.serviceLevel !== 2) errors.serviceLevel = '请选择服务等级'
+  if (form.feeUnder == null || form.feeUnder === '') errors.feeUnder = '基础运费必填'
+  else if (!validFee(form.feeUnder)) errors.feeUnder = '金额需 ≥ 0 且最多两位小数'
+  if (!validFee(form.feeOver)) errors.feeOver = '金额需 ≥ 0 且最多两位小数'
+  if (!validFee(form.threshold)) errors.threshold = '金额需 ≥ 0 且最多两位小数'
+  const min = form.transitDaysMin == null || form.transitDaysMin === '' ? null : Number(form.transitDaysMin)
+  const max = form.transitDaysMax == null || form.transitDaysMax === '' ? null : Number(form.transitDaysMax)
+  if (min != null && (!Number.isInteger(min) || min < 0 || min > 365)) errors.transitDaysMin = '需为 0~365 的整数'
+  if (max != null && (!Number.isInteger(max) || max < 0 || max > 365)) errors.transitDaysMax = '需为 0~365 的整数'
+  if (min != null && max != null && !errors.transitDaysMin && !errors.transitDaysMax && max < min) {
+    errors.transitDaysMax = '最长天数需 ≥ 最短天数'
+  }
+  return errors
+}
+
+// ===== tax（order-flow-complete F） =====
+
+export function validateTaxRuleForm(form: {
+  countryCode?: string | null
+  region?: string | null
+  taxType?: number | null
+  ratePercent?: number | string | null
+  thresholdUsd?: number | string | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  label?: string | null
+}): FieldErrors {
+  const errors: FieldErrors = {}
+  const cc = (form.countryCode || '').trim()
+  if (!cc) errors.countryCode = '请选择国家'
+  else if (!/^[A-Z]{2}$/.test(cc)) errors.countryCode = '国家码需为 ISO2 大写'
+  if ((form.region || '').trim().length > 8) errors.region = '地区码不超过 8 字符'
+  if (form.taxType == null || ![1, 2, 3, 4].includes(Number(form.taxType))) errors.taxType = '请选择税种'
+  const pct = Number(form.ratePercent)
+  if (form.ratePercent == null || form.ratePercent === '' || Number.isNaN(pct) || pct < 0 || pct > 100) {
+    errors.ratePercent = '税率需为 0~100 的百分比'
+  } else if (!/^\d+(\.\d{1,2})?$/.test(String(form.ratePercent))) {
+    errors.ratePercent = '最多两位小数'
+  }
+  if (!validFee(form.thresholdUsd)) errors.thresholdUsd = '起征额需 ≥ 0 且最多两位小数'
+  if (form.effectiveFrom && form.effectiveTo && form.effectiveTo < form.effectiveFrom) {
+    errors.effectiveTo = '结束日期需不早于开始日期'
+  }
+  if ((form.label || '').length > 64) errors.label = '不超过 64 字符'
+  return errors
+}
+
+// ===== shipment（order-flow-complete D：创建包裹按行分配） =====
+
+export function validateShipmentForm(
+  form: { carrierCode?: string | null; trackingNo?: string | null; lines: { orderLineId: number; qty: number | string; remaining: number }[] },
+  hasCarriers = true,
+): FieldErrors {
+  const errors: FieldErrors = {}
+  if (!hasCarriers) errors.carrierCode = '请先在物流配置为承运商设置编码并启用'
+  else if (!form.carrierCode) errors.carrierCode = '请选择承运商'
+  const trackingNo = (form.trackingNo || '').trim()
+  if (!trackingNo) errors.trackingNo = '运单号必填'
+  else if (trackingNo.length > 64) errors.trackingNo = '运单号不超过 64 字符'
+  let totalQty = 0
+  for (const l of form.lines) {
+    const q = Number(l.qty)
+    if (l.qty === '' || !Number.isInteger(q) || q < 0) {
+      errors[`line_${l.orderLineId}`] = '数量需为 ≥ 0 的整数'
+    } else if (q > l.remaining) {
+      errors[`line_${l.orderLineId}`] = `不可超过剩余 ${l.remaining} 件`
+    } else {
+      totalQty += q
+    }
+  }
+  if (!Object.keys(errors).some((k) => k.startsWith('line_')) && totalQty === 0) errors.lines = '至少分配 1 件商品'
   return errors
 }
 

@@ -93,7 +93,7 @@ export const menuGroups: MenuGroup[] = [
     icon: RocketLaunchIcon,
     items: [
       { title: '物流配置', to: '/shipping', permission: '/shipping' },
-      { title: '汇率与结算配置', to: '/settings', permission: '/settings' },
+      { title: '汇率、税费与结算配置', to: '/settings', permission: '/settings' },
     ],
   },
   {

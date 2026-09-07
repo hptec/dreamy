@@ -65,8 +65,10 @@ const routes: RouteRecordRaw[] = [
   // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）
   { path: '/system/gateways', name: 'system-gateways', component: () => import('@/views/system/GatewayConfigList.vue'), meta: { title: '外部网关配置', group: '系统管理', permission: '/system/gateways' } },
 
-  // PAGE-TRD-A04：汇率与结算配置（权限点 /settings，trading 域种子）
-  { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '汇率与结算配置', group: '发布与系统', permission: '/settings' } },
+  // PAGE-TRD-A04：汇率、税费与结算配置（权限点 /settings，trading 域种子）
+  // order-flow-complete F：税费规则作为 Settings 第三 tab（?tab=tax），/settings/tax 作深链兼容重定向，权限沿用 /settings
+  { path: '/settings', name: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '汇率、税费与结算配置', group: '发布与系统', permission: '/settings' } },
+  { path: '/settings/tax', redirect: { path: '/settings', query: { tab: 'tax' } } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
