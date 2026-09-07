@@ -89,7 +89,7 @@ class AdminReviewServiceTest {
     @DisplayName("TC-REV-024 [P0]: pending→approved 审核成功，发 review.moderated 并创建缓存任务")
     void moderateApprove() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.PENDING, false));
-        when(reviewRepository.casModerate(1L, ReviewStatus.APPROVED)).thenReturn(1);
+        when(reviewRepository.casModerate(1L, ReviewStatus.PENDING, ReviewStatus.APPROVED)).thenReturn(1);
         service.moderate(1L, 2);
         verify(audit).record(eq(ReviewAuditRecorder.ACTION_MODERATE), eq("review#1"), anyString());
         verify(events).publishModerated(PRODUCT, 1L, 2);
@@ -97,13 +97,34 @@ class AdminReviewServiceTest {
     }
 
     @Test
-    @DisplayName("TC-REV-011 单测面 [P0]: 非 pending（CAS affected=0，bs-591 并发双审同型）→ 409802")
-    void moderateNonPendingRejected() {
+    @DisplayName("TC-REV-024 单测面 [P0]: rejected→approved 恢复成功（与批量 approve 转换集一致），发 review.moderated")
+    void moderateRestoreRejected() {
         when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.REJECTED, false));
-        when(reviewRepository.casModerate(1L, ReviewStatus.APPROVED)).thenReturn(0);
+        when(reviewRepository.casModerate(1L, ReviewStatus.REJECTED, ReviewStatus.APPROVED)).thenReturn(1);
+        service.moderate(1L, 2);
+        verify(audit).record(eq(ReviewAuditRecorder.ACTION_MODERATE), eq("review#1"), anyString());
+        verify(events).publishModerated(PRODUCT, 1L, 2);
+        verifyCacheTask();
+    }
+
+    @Test
+    @DisplayName("TC-REV-011 单测面 [P0]: 并发状态漂移（CAS affected=0，bs-591 同型）→ 409802")
+    void moderateConcurrentDriftRejected() {
+        when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.REJECTED, false));
+        when(reviewRepository.casModerate(1L, ReviewStatus.REJECTED, ReviewStatus.APPROVED)).thenReturn(0);
         assertThatThrownBy(() -> service.moderate(1L, 2))
                 .isInstanceOfSatisfying(ReviewException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ReviewErrorCode.REVIEW_STATE_INVALID));
+        verify(events, never()).publishModerated(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    @DisplayName("目标状态=当前状态 → 幂等短路（不写审计不发事件不开事务）")
+    void moderateIdempotentSameStatus() {
+        when(reviewRepository.findById(1L)).thenReturn(review(1L, ReviewStatus.APPROVED, false));
+        service.moderate(1L, 2);
+        verify(reviewRepository, never()).casModerate(anyLong(), any(), any());
+        verify(audit, never()).record(anyString(), anyString(), anyString());
         verify(events, never()).publishModerated(anyLong(), anyLong(), anyInt());
     }
 
@@ -230,6 +251,62 @@ class AdminReviewServiceTest {
         verify(cacheTasks, atLeastOnce()).enqueue(anyString(), anyString(), anyString(),
                 nullable(Object.class), nullable(String.class), anyList(), nullable(LocalDateTime.class),
                 anyMap(), nullable(String.class));
+    }
+
+    // ==================== E-REV-06 列表搜索扩展（商品名 → product_id IN） ====================
+
+    @Test
+    @DisplayName("search 关键词经 port 命中商品 id 集合 → 并入 pageByAdminFilter；DTO 装配 product_name")
+    void listSearchMergesProductIds() {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Review> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(List.of(review(1L, ReviewStatus.APPROVED, false)));
+        page.setTotal(1);
+        java.util.Set<Long> hits = java.util.Set.of(1L, 2L);
+        when(catalogPort.searchProductIdsByKeyword("A-Line")).thenReturn(hits);
+        when(reviewRepository.pageByAdminFilter(isNull(), isNull(), isNull(), isNull(),
+                eq("A-Line"), eq(hits), eq(1), eq(20))).thenReturn(page);
+        when(reviewRepository.countPending()).thenReturn(0L);
+
+        com.dreamy.dto.AdminReviewListDTO dto = service.listAdminReviews(1, 20, null, null, null, null, "A-Line");
+
+        assertThat(dto.getData()).hasSize(1);
+        assertThat(dto.getData().get(0).productName()).isEqualTo("Aurelia Gown");
+        verify(catalogPort).searchProductIdsByKeyword("A-Line");
+    }
+
+    @Test
+    @DisplayName("search 无商品命中 → 空集合并入（customer_name/content 仍可命中，不退化为无条件）")
+    void listSearchNoProductHitPassesEmptySet() {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Review> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(List.of());
+        page.setTotal(0);
+        when(catalogPort.searchProductIdsByKeyword("zzz")).thenReturn(java.util.Set.of());
+        when(reviewRepository.pageByAdminFilter(isNull(), isNull(), isNull(), isNull(),
+                eq("zzz"), eq(java.util.Set.of()), eq(1), eq(20))).thenReturn(page);
+        when(reviewRepository.countPending()).thenReturn(0L);
+
+        service.listAdminReviews(1, 20, null, null, null, null, "zzz");
+
+        verify(reviewRepository).pageByAdminFilter(isNull(), isNull(), isNull(), isNull(),
+                eq("zzz"), eq(java.util.Set.of()), eq(1), eq(20));
+    }
+
+    @Test
+    @DisplayName("search 为空 → 不调用商品关键词端口（保持原双 LIKE 行为）")
+    void listNoSearchSkipsPort() {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Review> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(List.of());
+        page.setTotal(0);
+        when(reviewRepository.pageByAdminFilter(isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(1), eq(20))).thenReturn(page);
+        when(reviewRepository.countPending()).thenReturn(0L);
+
+        service.listAdminReviews(1, 20, null, null, null, null, "  ");
+
+        verify(catalogPort, never()).searchProductIdsByKeyword(anyString());
     }
 
     @Test

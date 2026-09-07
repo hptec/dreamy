@@ -95,9 +95,11 @@ public class AdminReviewService {
         String parsedSearch = ReviewParams.parseSearch(search, errors);
         errors.throwIfAny();
 
-        // STEP-REV-01 组装条件分页
+        // STEP-REV-01 组装条件分页（search 命中商品名时按 product_id IN 并入——UI 语义"搜索商品 / 买家"）
+        Set<Long> searchProductIds = parsedSearch == null ? null
+                : catalogPort.searchProductIdsByKeyword(parsedSearch);
         Page<Review> reviewPage = reviewRepository.pageByAdminFilter(statusFilter, rating, featured, pid,
-                parsedSearch, parsedPage, parsedSize);
+                parsedSearch, searchProductIds, parsedPage, parsedSize);
         // STEP-REV-02 批查图片（全量含 rejected）+ product_name 批量派生（NP-REV-001）
         List<Long> reviewIds = reviewPage.getRecords().stream().map(Review::getId).toList();
         Map<Long, List<ReviewImageDto>> imagesByReview = groupImages(
@@ -130,15 +132,21 @@ public class AdminReviewService {
         if (status == null || to == null || to == ReviewStatus.PENDING) {
             throw ReviewException.fieldValidation("status", "invalid_enum");
         }
+        // 幂等：目标值=当前值 → 直接返回当前行（不写审计不发事件，不开事务——与 setFeatured 同范式）
+        ReviewStatus from = review.getStatus();
+        if (from == to) {
+            return readAdminDto(id);
+        }
         tx.inTx(() -> {
-            // STEP-REV-02 CAS guard（并发双审防护 bs-591；reject 强制 featured=0——CV-REV-007）
-            int affected = reviewRepository.casModerate(id, to);
+            // STEP-REV-02 CAS guard（并发双审防护 bs-591；from→to 与批量 approve/reject 转换集一致：
+            // rejected→approved 可恢复、approved→rejected 可下架；reject 强制 featured=0——CV-REV-007）
+            int affected = reviewRepository.casModerate(id, from, to);
             if (affected == 0) {
                 throw new ReviewException(ReviewErrorCode.REVIEW_STATE_INVALID);
             }
             // STEP-REV-03 审计（事务内）
             Map<String, Object> changes = new LinkedHashMap<>();
-            changes.put("from", ReviewStatus.PENDING.getKey());
+            changes.put("from", from.getKey());
             changes.put("to", to.getKey());
             if (to == ReviewStatus.REJECTED && Boolean.TRUE.equals(review.getFeatured())) {
                 changes.put("featured_forced", false);

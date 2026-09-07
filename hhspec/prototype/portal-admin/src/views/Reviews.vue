@@ -9,10 +9,11 @@ import { reviews as reviewsSeed, productQuestions as questionsSeed, products } f
 import { StarIcon as StarSolid } from '@heroicons/vue/24/solid'
 import {
   StarIcon, MagnifyingGlassIcon, XMarkIcon, CheckIcon, NoSymbolIcon, SparklesIcon,
-  PhotoIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, TrashIcon, ArrowUturnLeftIcon
+  PhotoIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, TrashIcon, ArrowUturnLeftIcon, EyeIcon
 } from '@heroicons/vue/24/outline'
 
 const productById = Object.fromEntries(products.map((p) => [p.id, p]))
+const STORE_BASE = (import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
 
 // 本地副本：原型内操作不污染共享 mock
 const reviewList = ref(reviewsSeed.map((r) => ({
@@ -129,6 +130,14 @@ function openReview(r) {
   replyDraft.value = r.reply?.content || ''
   replyEditing.value = false
   showReviewDrawer.value = true
+}
+function previewReview(r) {
+  const product = productById[r.productId]
+  if (!product?.slug) {
+    showToast('该商品缺少 slug，暂无法预览')
+    return
+  }
+  window.open(`${STORE_BASE}/product/${product.slug}#reviews`, '_blank', 'noopener,noreferrer')
 }
 function saveReply() {
   if (!replyDraft.value.trim()) return
@@ -266,7 +275,7 @@ function saveAnswer() {
               <th style="width:64px">图片</th>
               <th style="width:90px">状态</th>
               <th style="width:130px">提交时间</th>
-              <th class="text-right" style="width:170px">操作</th>
+              <th class="text-right" style="width:220px">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -298,6 +307,7 @@ function saveAnswer() {
               <td class="text-[12px] text-ink-faint whitespace-nowrap">{{ r.date }}</td>
               <td @click.stop>
                 <div class="flex items-center justify-end gap-1">
+                  <button class="btn-ghost" title="在前台商品详情中预览评价" @click="previewReview(r)"><EyeIcon class="h-4 w-4" />预览</button>
                   <template v-if="r.status === 'pending'">
                     <button class="btn-ghost text-ok" @click="approveReview(r)"><CheckIcon class="h-4 w-4" />通过</button>
                     <button class="btn-danger-ghost" @click="rejectReview(r)"><NoSymbolIcon class="h-4 w-4" />拒绝</button>
@@ -410,6 +420,7 @@ function saveAnswer() {
               <button v-if="!detailReview.featured" class="btn-outline w-full justify-center" @click="setFeatured(detailReview, true)"><SparklesIcon class="h-4 w-4" />设为精选 · 前台置顶展示</button>
               <button v-else class="btn-ghost w-full justify-center" @click="setFeatured(detailReview, false)"><SparklesIcon class="h-4 w-4" />取消精选</button>
             </div>
+            <button class="btn-outline mt-2 w-full justify-center" @click="previewReview(detailReview)"><EyeIcon class="h-4 w-4" />前台预览评价</button>
 
             <!-- 完整评价内容 -->
             <div class="mt-6">

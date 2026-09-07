@@ -105,11 +105,13 @@ export const useReviewsStore = defineStore('reviews', () => {
     return updated
   }
 
-  /** FORM-REV-A05：图片驳回/恢复（成功后局部更新 images） */
+  /** FORM-REV-A05：图片驳回/恢复（契约返回 ReviewImage 单图；就地更新行内 images 对应项） */
   async function toggleImage(id: number, imageId: number, rejected: boolean) {
-    const updated = await reviewsApi.patchReviewImage(id, imageId, rejected)
-    replaceRow(updated)
-    return updated
+    const image = await reviewsApi.patchReviewImage(id, imageId, rejected)
+    const row = list.value.find((r) => r.id === id)
+    const target = row?.images.find((i) => i.id === imageId)
+    if (target) target.rejected = image.rejected
+    return image
   }
 
   return {

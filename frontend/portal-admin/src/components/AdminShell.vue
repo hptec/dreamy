@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
 import type { MenuGroup } from '@/config/menu'
 import {
-  Bars3Icon, MagnifyingGlassIcon, BellIcon, RocketLaunchIcon, ChevronDownIcon,
+  Bars3Icon, BellIcon, RocketLaunchIcon, ChevronDownIcon,
   ShieldCheckIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline'
 
@@ -144,11 +144,6 @@ function groupActive(group: MenuGroup) {
         </nav>
 
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-          <!-- 搜索 -->
-          <div class="relative hidden md:block">
-            <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-            <input class="field w-56 pl-9" placeholder="搜索商品 / 订单 / 用户…" />
-          </div>
           <!-- 缓存管理按钮 -->
           <RouterLink to="/system/cache" class="btn-gold hidden sm:inline-flex">
             <RocketLaunchIcon class="h-4 w-4" /> 缓存

@@ -92,9 +92,13 @@ public class ReviewRepository {
         return id == null ? null : reviewMapper.selectById(id);
     }
 
-    /** RM-REV-006 pageByAdminFilter —— search 双 LIKE（customer_name/content）；ORDER BY submitted_at DESC（E-REV-06） */
+    /**
+     * RM-REV-006 pageByAdminFilter —— search 三路 OR（customer_name/content LIKE + product_id IN
+     * 商品名命中集）；ORDER BY submitted_at DESC（E-REV-06）。
+     */
     public Page<Review> pageByAdminFilter(ReviewStatus status, Integer rating, Boolean featured,
-                                          Long productId, String search, int page, int pageSize) {
+                                          Long productId, String search, Collection<Long> searchProductIds,
+                                          int page, int pageSize) {
         LambdaQueryWrapper<Review> qw = new LambdaQueryWrapper<>();
         if (status != null) {
             qw.eq(Review::getStatus, status);
@@ -110,7 +114,13 @@ public class ReviewRepository {
         }
         if (search != null && !search.isBlank()) {
             String s = search.trim();
-            qw.and(w -> w.like(Review::getCustomerName, s).or().like(Review::getContent, s));
+            boolean hasProductIds = searchProductIds != null && !searchProductIds.isEmpty();
+            qw.and(w -> {
+                w.like(Review::getCustomerName, s).or().like(Review::getContent, s);
+                if (hasProductIds) {
+                    w.or().in(Review::getProductId, searchProductIds);
+                }
+            });
         }
         qw.orderByDesc(Review::getSubmittedAt);
         return reviewMapper.selectPage(new Page<>(page, pageSize), qw);
@@ -123,13 +133,15 @@ public class ReviewRepository {
     }
 
     /**
-     * RM-REV-008 casModerate —— CAS 状态机 guard（E-REV-07；affected=0 → 409802；
-     * reject 强制 featured=0，state-machine guard / CV-REV-007）。
+     * RM-REV-008 casModerate —— CAS 状态机 guard（E-REV-07；affected=0 → 409802）。
+     * 与批量 casBatchTransit 同型：from 任意状态可转 approved|rejected（rejected→approved 恢复 /
+     * approved→rejected 下架，L0 状态机 batch_approve/batch_reject 转换集）；
+     * reject 强制 featured=0，state-machine guard / CV-REV-007。
      */
-    public int casModerate(Long id, ReviewStatus toStatus) {
+    public int casModerate(Long id, ReviewStatus fromStatus, ReviewStatus toStatus) {
         LambdaUpdateWrapper<Review> uw = new LambdaUpdateWrapper<Review>()
                 .eq(Review::getId, id)
-                .eq(Review::getStatus, ReviewStatus.PENDING)
+                .eq(Review::getStatus, fromStatus)
                 .set(Review::getStatus, toStatus);
         if (toStatus == ReviewStatus.REJECTED) {
             uw.set(Review::getFeatured, false);

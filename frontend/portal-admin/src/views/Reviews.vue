@@ -14,11 +14,13 @@ import { useReviewsStore } from '@/stores/reviews'
 import { useQuestionsStore } from '@/stores/questions'
 import { useToastStore } from '@/stores/toast'
 import { BizError } from '@/api/client'
+import { catalogApi } from '@/api'
 import { formatDateTime } from '@/utils/format'
 import { StarIcon as StarSolid } from '@heroicons/vue/24/solid'
 import {
   StarIcon, MagnifyingGlassIcon, XMarkIcon, CheckIcon, NoSymbolIcon, SparklesIcon,
   PhotoIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, TrashIcon, ArrowUturnLeftIcon,
+  EyeIcon,
 } from '@heroicons/vue/24/outline'
 import { QuestionVisible, ReviewModerationStatus } from '@/api/types'
 import type { AdminQuestion, AdminReview } from '@/api/types'
@@ -26,6 +28,8 @@ import type { AdminQuestion, AdminReview } from '@/api/types'
 const reviews = useReviewsStore()
 const questions = useQuestionsStore()
 const toast = useToastStore()
+const openingProductId = ref<number | null>(null)
+const STORE_BASE = (import.meta.env.VITE_STORE_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
 
 const activeTab = ref<'reviews' | 'qa'>('reviews')
 const mainTabs = [
@@ -118,7 +122,7 @@ async function rejectReview(r: AdminReview) {
 }
 function handleModerateError(e: unknown) {
   if (e instanceof BizError && e.code === 409802) {
-    toast.error('仅待审核评价可审核')
+    toast.error('评价状态已被他人变更，请刷新后重试')
     reviews.fetch().catch(() => undefined)
   } else if (e instanceof BizError && (e.code === 404801 || e.code === 404802 || e.code === 404803)) {
     toast.error('数据已变更')
@@ -153,6 +157,42 @@ function openReview(r: AdminReview) {
   replyDraft.value = r.replyContent || ''
   replyEditing.value = false
   showReviewDrawer.value = true
+}
+
+/** 打开该评价所属商品的前台 Reviews 锚点。 */
+async function openStoreReviews(r: AdminReview) {
+  if (r.status !== ReviewModerationStatus.APPROVED) {
+    toast.error('评价通过审核后才可查看前台')
+    return
+  }
+  if (openingProductId.value === r.productId) return
+  // 先在用户点击的同步调用栈中开标签，避免异步读取 slug 后被浏览器拦截弹窗。
+  const previewWindow = window.open('about:blank', '_blank')
+  if (!previewWindow) {
+    toast.error('前台窗口被浏览器拦截，请允许本站打开新窗口')
+    return
+  }
+  try {
+    previewWindow.opener = null
+  } catch {
+    // 部分浏览器对 about:blank 的 opener 属性只读，不影响后续导航。
+  }
+  openingProductId.value = r.productId
+  try {
+    const product = await catalogApi.getProduct(r.productId)
+    if (!product.slug) {
+      toast.error('该商品缺少 slug，暂无法打开前台')
+      previewWindow.close()
+      return
+    }
+    previewWindow.location.replace(`${STORE_BASE}/product/${product.slug}#reviews`)
+  } catch (e) {
+    previewWindow.close()
+    if (e instanceof BizError && (e.code === 404501 || e.code === 404502)) toast.error('商品不存在，无法打开前台')
+    else toast.error(bizMsg(e, '生成前台链接失败'))
+  } finally {
+    openingProductId.value = null
+  }
 }
 
 /** 行内写操作后同步抽屉对象引用 */
@@ -204,12 +244,13 @@ const lightboxImage = computed(() => (lightbox.value ? lightbox.value.review.ima
 
 async function toggleLightboxImage(rejected: boolean) {
   if (!lightbox.value || !lightboxImage.value) return
-  const { review, index } = lightbox.value
+  const review = lightbox.value.review
+  const imageId = lightboxImage.value.id
   try {
-    const updated = await reviews.toggleImage(review.id, lightboxImage.value.id, rejected)
-    lightbox.value = { review: updated, index }
-    syncDetail(review.id)
-    if (detailReview.value?.id === review.id) detailReview.value = updated
+    await reviews.toggleImage(review.id, imageId, rejected)
+    // 契约返回 ReviewImage 单图：就地更新引用对象（与 detailReview 同源），列表行由 store 同步
+    const target = review.images.find((i) => i.id === imageId)
+    if (target) target.rejected = rejected
     toast.success(rejected ? '已驳回该图片，前台将不再展示' : '已恢复展示该图片')
   } catch (e) {
     toast.error(bizMsg(e, '操作失败'))
@@ -229,17 +270,39 @@ function selectQaChip(key: string) {
   questions.applyFilters().catch((e) => toast.error(bizMsg(e, '加载失败')))
 }
 
-/** 显式偏离②：提问人/内容搜索为当前页内存过滤（契约无 search 参数） */
-const filteredQa = computed(() => {
-  const q = questions.search.trim().toLowerCase()
-  if (!q) return questions.list
-  return questions.list.filter(
-    (item) =>
-      (item.productName || '').toLowerCase().includes(q) ||
-      (item.asker || '').toLowerCase().includes(q) ||
-      item.question.toLowerCase().includes(q),
-  )
-})
+let qaSearchTimer: ReturnType<typeof setTimeout> | null = null
+function onQaSearch() {
+  if (qaSearchTimer) clearTimeout(qaSearchTimer)
+  qaSearchTimer = setTimeout(() => {
+    questions.applyFilters().catch((e) => toast.error(bizMsg(e, '加载失败')))
+  }, 300)
+}
+
+// Q&A 勾选与批量（对齐评价批量范式：skipped 语义 toast 汇总）
+const qaAllChecked = computed(
+  () => questions.list.length > 0 && questions.list.every((q) => questions.selectedIds.includes(q.id)),
+)
+function toggleQaAll() {
+  if (qaAllChecked.value) questions.selectedIds = []
+  else questions.selectedIds = questions.list.map((q) => q.id)
+}
+function toggleQaSelect(id: number) {
+  const idx = questions.selectedIds.indexOf(id)
+  if (idx >= 0) questions.selectedIds.splice(idx, 1)
+  else questions.selectedIds.push(id)
+}
+
+async function batchQa(action: 'hide' | 'show') {
+  try {
+    const result = await questions.batch(action)
+    const verb = action === 'hide' ? '隐藏' : '上线'
+    let msg = `已批量${verb} ${result.updatedIds.length} 条问答`
+    if (result.skippedIds.length) msg += `，${result.skippedIds.length} 条跳过`
+    toast.success(msg)
+  } catch (e) {
+    toast.error(bizMsg(e, '批量操作失败'))
+  }
+}
 
 async function toggleQaVisible(q: AdminQuestion, val: boolean) {
   try {
@@ -271,7 +334,67 @@ async function saveAnswer() {
     answerEditing.value = false
     toast.success('官方回答已保存，已记入操作日志')
   } catch (e) {
+    if (e instanceof BizError && e.code === 409805) {
+      toast.error('回答已被他人修改，请刷新后重试')
+      questions.fetch().catch(() => undefined)
+    } else {
+      toast.error(bizMsg(e, '操作失败'))
+    }
+  }
+}
+
+/** 撤回回答二次确认（对齐删除回复 CP-071 模式） */
+const confirmDeleteAnswer = ref(false)
+const answerBusy = ref(false)
+async function deleteAnswer() {
+  if (!detailQa.value) return
+  answerBusy.value = true
+  try {
+    await questions.removeAnswer(detailQa.value.id)
+    detailQa.value = questions.list.find((x) => x.id === detailQa.value?.id) || detailQa.value
+    answerDraft.value = ''
+    answerEditing.value = false
+    confirmDeleteAnswer.value = false
+    toast.success('官方回答已撤回，前台将不再展示')
+  } catch (e) {
     toast.error(bizMsg(e, '操作失败'))
+  } finally {
+    answerBusy.value = false
+  }
+}
+
+/** 打开该问答所属商品的前台 Q&A 锚点（#qa hash 自动切 tab）。 */
+async function openStoreQa(q: AdminQuestion) {
+  if (!q.answer || q.visible !== QuestionVisible.VISIBLE) {
+    toast.error('回答并设为可见后才可查看前台')
+    return
+  }
+  if (openingProductId.value === q.productId) return
+  const previewWindow = window.open('about:blank', '_blank')
+  if (!previewWindow) {
+    toast.error('前台窗口被浏览器拦截，请允许本站打开新窗口')
+    return
+  }
+  try {
+    previewWindow.opener = null
+  } catch {
+    // 部分浏览器对 about:blank 的 opener 属性只读，不影响后续导航。
+  }
+  openingProductId.value = q.productId
+  try {
+    const product = await catalogApi.getProduct(q.productId)
+    if (!product.slug) {
+      toast.error('该商品缺少 slug，暂无法打开前台')
+      previewWindow.close()
+      return
+    }
+    previewWindow.location.replace(`${STORE_BASE}/product/${product.slug}#qa`)
+  } catch (e) {
+    previewWindow.close()
+    if (e instanceof BizError && (e.code === 404501 || e.code === 404502)) toast.error('商品不存在，无法打开前台')
+    else toast.error(bizMsg(e, '生成前台链接失败'))
+  } finally {
+    openingProductId.value = null
   }
 }
 
@@ -286,7 +409,6 @@ watch(activeTab, (t) => {
 
 onMounted(() => {
   reviews.fetch().catch((e) => toast.error(bizMsg(e, '加载评价失败')))
-  questions.fetchUnansweredCount()
 })
 </script>
 
@@ -362,7 +484,7 @@ onMounted(() => {
               <th style="width:64px">图片</th>
               <th style="width:90px">状态</th>
               <th style="width:130px">提交时间</th>
-              <th class="text-right" style="width:170px">操作</th>
+              <th class="text-right" style="width:220px">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -394,6 +516,13 @@ onMounted(() => {
               <td class="whitespace-nowrap text-[12px] text-ink-faint">{{ formatDateTime(r.submittedAt) }}</td>
               <td @click.stop>
                 <div class="flex items-center justify-end gap-1">
+                  <button
+                    class="btn-ghost"
+                    :disabled="openingProductId === r.productId"
+                    v-if="r.status === ReviewModerationStatus.APPROVED"
+                    title="查看前台商品评价区"
+                    @click="openStoreReviews(r)"
+                  ><EyeIcon class="h-4 w-4" />{{ openingProductId === r.productId ? '打开中…' : '查看前台' }}</button>
                   <template v-if="r.status === ReviewModerationStatus.PENDING">
                     <button class="btn-ghost text-ok" @click="approveReview(r)"><CheckIcon class="h-4 w-4" />通过</button>
                     <button class="btn-danger-ghost" @click="rejectReview(r)"><NoSymbolIcon class="h-4 w-4" />拒绝</button>
@@ -401,8 +530,11 @@ onMounted(() => {
                   <template v-else-if="r.status === ReviewModerationStatus.APPROVED">
                     <button v-if="!r.featured" class="btn-ghost text-gold-deep" @click="setFeatured(r, true)"><SparklesIcon class="h-4 w-4" />设为精选</button>
                     <button v-else class="btn-ghost" @click="setFeatured(r, false)"><SparklesIcon class="h-4 w-4" />取消精选</button>
+                    <button class="btn-danger-ghost" @click="rejectReview(r)"><NoSymbolIcon class="h-4 w-4" />拒绝</button>
                   </template>
-                  <span v-else class="text-[12px] text-ink-faint">已处理</span>
+                  <template v-else>
+                    <button class="btn-ghost text-ok" @click="approveReview(r)"><ArrowUturnLeftIcon class="h-4 w-4" />恢复通过</button>
+                  </template>
                 </div>
               </td>
             </tr>
@@ -425,17 +557,28 @@ onMounted(() => {
             @click="selectQaChip(c.key)"
           >{{ c.label }}<template v-if="c.count != null"> · {{ c.count }}</template></button>
         </div>
-        <div class="relative" title="当前页过滤（提问搜索为本页内存过滤）">
+        <div class="relative">
           <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-          <input v-model="questions.search" class="field w-56 pl-9" placeholder="搜索商品 / 提问人 / 内容…（当前页）" />
+          <input v-model="questions.search" class="field w-56 pl-9" placeholder="搜索商品 / 提问人 / 内容…" @input="onQaSearch" />
         </div>
         <span class="ml-auto text-[12px] text-ink-faint">共 {{ questions.totalElements }} 条</span>
+      </div>
+
+      <!-- 批量操作条（对齐评价批量范式） -->
+      <div v-if="questions.selectedIds.length" class="mb-3 flex items-center gap-3 rounded-luxe border border-gold/40 bg-gold/8 px-4 py-2.5">
+        <span class="text-[13px] text-ink">已选 {{ questions.selectedIds.length }} 条问答</span>
+        <button class="btn-danger-ghost" @click="batchQa('hide')"><NoSymbolIcon class="h-4 w-4" />批量隐藏</button>
+        <button class="btn-ghost text-ok" @click="batchQa('show')"><CheckIcon class="h-4 w-4" />批量上线</button>
+        <button class="ml-auto text-[12px] text-ink-faint hover:text-ink" @click="questions.selectedIds = []">取消选择</button>
       </div>
 
       <div class="panel overflow-hidden">
         <table class="data-table">
           <thead>
             <tr>
+              <th style="width:36px">
+                <input type="checkbox" class="h-3.5 w-3.5 rounded accent-gold" :checked="qaAllChecked" @change="toggleQaAll" />
+              </th>
               <th>商品</th>
               <th>提问内容</th>
               <th style="width:120px">提问人</th>
@@ -446,8 +589,11 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="questions.loading"><td colspan="7" class="py-12 text-center text-ink-faint">加载中…</td></tr>
-            <tr v-for="q in filteredQa" v-else :key="q.id" class="cursor-pointer hover:bg-canvas-warm" @click="openQa(q)">
+            <tr v-if="questions.loading"><td colspan="8" class="py-12 text-center text-ink-faint">加载中…</td></tr>
+            <tr v-for="q in questions.list" v-else :key="q.id" class="cursor-pointer hover:bg-canvas-warm" @click="openQa(q)">
+              <td @click.stop>
+                <input type="checkbox" class="h-3.5 w-3.5 rounded accent-gold" :checked="questions.selectedIds.includes(q.id)" @change="toggleQaSelect(q.id)" />
+              </td>
               <td><span class="max-w-[180px] truncate text-ink">{{ q.productName || `#${q.productId}` }}</span></td>
               <td class="max-w-[280px] truncate text-ink-soft">{{ q.question }}</td>
               <td class="whitespace-nowrap text-ink-soft">{{ q.asker || '—' }}</td>
@@ -464,7 +610,7 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
-        <EmptyState v-if="!questions.loading && filteredQa.length === 0" title="暂无匹配的提问" hint="尝试调整回答状态或搜索条件" />
+        <EmptyState v-if="!questions.loading && questions.list.length === 0" title="暂无匹配的提问" hint="尝试调整回答状态或搜索条件" />
         <Pagination v-else :total="questions.totalElements" :page="questions.page" :per-page="questions.pageSize" @change="(p) => questions.setPage(p)" />
       </div>
     </template>
@@ -501,7 +647,17 @@ onMounted(() => {
             <div v-else-if="detailReview.status === ReviewModerationStatus.APPROVED" class="mt-4">
               <button v-if="!detailReview.featured" class="btn-outline w-full justify-center" @click="setFeatured(detailReview, true)"><SparklesIcon class="h-4 w-4" />设为精选 · 前台置顶展示</button>
               <button v-else class="btn-ghost w-full justify-center" @click="setFeatured(detailReview, false)"><SparklesIcon class="h-4 w-4" />取消精选</button>
+              <button class="btn-danger-ghost mt-2 w-full justify-center" @click="rejectReview(detailReview)"><NoSymbolIcon class="h-4 w-4" />拒绝下架 · 前台不再展示</button>
             </div>
+            <div v-else class="mt-4">
+              <button class="btn-primary w-full justify-center" @click="approveReview(detailReview)"><ArrowUturnLeftIcon class="h-4 w-4" />恢复通过 · 重新前台展示</button>
+            </div>
+            <button
+              v-if="detailReview.status === ReviewModerationStatus.APPROVED"
+              class="btn-outline mt-2 w-full justify-center"
+              :disabled="openingProductId === detailReview.productId"
+              @click="openStoreReviews(detailReview)"
+            ><EyeIcon class="h-4 w-4" />{{ openingProductId === detailReview.productId ? '打开中…' : '查看前台评价区' }}</button>
 
             <!-- 完整评价内容 -->
             <div class="mt-6">
@@ -636,6 +792,7 @@ onMounted(() => {
                   <p class="mt-2.5 text-[13px] leading-relaxed text-ink-soft">{{ detailQa.answer }}</p>
                   <div class="mt-3 border-t border-gold/20 pt-3">
                     <button class="btn-ghost" @click="answerEditing = true; answerDraft = detailQa.answer || ''"><PencilSquareIcon class="h-4 w-4" />编辑回答</button>
+                    <button class="btn-danger-ghost" @click="confirmDeleteAnswer = true"><TrashIcon class="h-4 w-4" />撤回回答</button>
                   </div>
                 </div>
               </template>
@@ -655,6 +812,13 @@ onMounted(() => {
                 </div>
               </template>
             </div>
+
+            <button
+              v-if="detailQa.answer && detailQa.visible === QuestionVisible.VISIBLE"
+              class="btn-outline mt-4 w-full justify-center"
+              :disabled="openingProductId === detailQa.productId"
+              @click="openStoreQa(detailQa)"
+            ><EyeIcon class="h-4 w-4" />{{ openingProductId === detailQa.productId ? '打开中…' : '查看前台问答区' }}</button>
           </div>
         </div>
       </div>
@@ -669,6 +833,17 @@ onMounted(() => {
       :busy="confirmBusy"
       @confirm="deleteReply"
       @cancel="confirmDeleteReply = false"
+    />
+
+    <ConfirmDialog
+      :open="confirmDeleteAnswer"
+      title="撤回官方回答"
+      message="确认撤回该官方回答？前台 Q&A 区将不再展示此问答。"
+      confirm-text="撤回"
+      danger
+      :busy="answerBusy"
+      @confirm="deleteAnswer"
+      @cancel="confirmDeleteAnswer = false"
     />
   </div>
 </template>

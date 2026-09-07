@@ -10,14 +10,15 @@
  * - 写评价入口三态（FORM-REV-S01）：未登录跳登录 / 403801 提示文案替换入口 / 409801 toast。
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import type { Paginated, ReviewImage, StoreQuestion, StoreReview, StoreReviewListResponse, ReviewSort } from '@/lib/api/store-types'
 import { fetchStoreReviews, fetchStoreQuestions } from '@/lib/api/review-api'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { Stars } from '@/components/ui/primitives'
+import { Select } from '@/components/ui/select'
 import { cn, formatDateTimeLong } from '@/lib/utils'
 import { WriteReviewModal } from './write-review-modal'
 import { AskQuestionModal } from './ask-question-modal'
@@ -44,6 +45,11 @@ export function ProductReviews({
   const { te } = useI18n()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [tab, setTab] = useState<'reviews' | 'qa'>('reviews')
+  // 后台"查看前台问答区"直达：#qa 锚点自动切 Q&A tab。
+  // 必须在 useEffect 里做（客户端 only）：参与首次渲染会因 SSR/客户端 hash 分支不同导致 hydration mismatch。
+  useEffect(() => {
+    if (window.location.hash === '#qa') setTab('qa')
+  }, [])
 
   // 评价区客户端态（STORE-REV-S01 useReviewSection：首屏 props 初始化）
   const [reviews, setReviews] = useState<StoreReview[]>(initialReviews?.data ?? [])
@@ -179,14 +185,16 @@ export function ProductReviews({
             <div className="space-y-6 lg:col-span-2">
               <div className="flex items-center justify-end">
                 <label htmlFor="review-sort" className="sr-only">Sort reviews</label>
-                <select
+                <Select
                   id="review-sort"
+                  ariaLabel="Sort reviews"
                   value={sort}
-                  onChange={(e) => void applySort(e.target.value as ReviewSort)}
-                  className="cursor-pointer appearance-none rounded-sm border border-line bg-surface px-4 py-2 text-xs uppercase tracking-luxe outline-none focus:border-gold"
-                >
-                  {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                  options={SORT_OPTIONS}
+                  onChange={(v) => void applySort(v)}
+                  align="right"
+                  triggerClassName="w-auto px-4 py-2 text-xs uppercase tracking-luxe"
+                  optionClassName="text-xs uppercase tracking-luxe"
+                />
               </div>
               {reviews.length === 0 ? (
                 <div className="rounded-sm border border-dashed border-line py-14 text-center">
@@ -195,7 +203,15 @@ export function ProductReviews({
                 </div>
               ) : (
                 reviews.map((r) => (
-                  <div key={r.id} className="border-b border-line/60 pb-6">
+                  <div
+                    key={r.id}
+                    className={cn(
+                      'border-b pb-6',
+                      r.featured
+                        ? 'border-gold/60 bg-gold/5 px-4 py-4 -mx-4 border-l-2'
+                        : 'border-line/60'
+                    )}
+                  >
                     <div className="flex items-center justify-between">
                       <Stars rating={r.rating} />
                       <span className="text-xs text-ink-faint">{formatDateTimeLong(r.submittedAt)}</span>
@@ -203,7 +219,12 @@ export function ProductReviews({
                     {r.content && <p className="mt-2 text-sm text-ink-soft">{r.content}</p>}
                     <div className="mt-2 flex items-center gap-3 text-xs text-ink-faint">
                       <span className="font-medium text-ink">{r.customerName ?? 'Dreamy Customer'}</span>
-                      {r.featured && <span className="rounded-full bg-gold/15 px-2 py-0.5 text-gold-deep">Featured</span>}
+                      {r.featured && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-2.5 py-1 font-medium text-gold-deep">
+                          <Sparkles className="h-3 w-3" aria-hidden="true" />
+                          Featured review
+                        </span>
+                      )}
                     </div>
                     <ReviewImageStrip images={r.images ?? []} onOpen={setLightbox} />
                     {r.replyContent && (

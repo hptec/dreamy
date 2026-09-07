@@ -17,7 +17,9 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * review 域跨域端口装配（决策 3：进程内直调防腐层，禁止跨域直查表语义在端口实现内收口）。
@@ -62,6 +64,19 @@ public class ReviewPortConfig {
                     result.put(product.getId(), toBrief(product));
                 }
                 return result;
+            }
+
+            @Override
+            public Set<Long> searchProductIdsByKeyword(String keyword) {
+                if (keyword == null || keyword.isBlank()) {
+                    return Set.of();
+                }
+                Set<Long> ids = new LinkedHashSet<>();
+                for (Product product : productMapper.selectList(new LambdaQueryWrapper<Product>()
+                        .select(Product::getId).like(Product::getName, keyword.trim()).last("LIMIT 200"))) {
+                    ids.add(product.getId());
+                }
+                return ids;
             }
 
             private ProductBrief toBrief(Product product) {

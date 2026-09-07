@@ -2,6 +2,7 @@ package com.dreamy.port;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * catalog 领域商品快照查询端口（进程内直调，决策 3；review-data-detail §8.3）。
@@ -17,6 +18,12 @@ public interface ReviewCatalogSnapshotPort {
 
     /** 批量装配（一个 ids 集合一次调用，禁止逐 id 循环——NP-REV-001）；缺失商品不入结果 */
     Map<Long, ProductBrief> getProductBriefs(Collection<Long> productIds);
+
+    /**
+     * 按关键词模糊匹配商品名，返回商品 id 集合（admin 评价搜索扩展用；
+     * 上限保护由实现负责，空关键词返回空集）。
+     */
+    Set<Long> searchProductIdsByKeyword(String keyword);
 
     /** 商品简况 {id, slug, name, published}（review-api-detail §0 端口契约） */
     record ProductBrief(Long id, String slug, String name, boolean published) {

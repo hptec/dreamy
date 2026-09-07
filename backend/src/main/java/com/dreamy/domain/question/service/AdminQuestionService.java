@@ -1,25 +1,28 @@
 package com.dreamy.domain.question.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.dreamy.enums.QuestionBatchAction;
 import com.dreamy.enums.QuestionVisibility;
 import com.dreamy.domain.question.entity.ProductQuestion;
 import com.dreamy.domain.question.repository.ProductQuestionRepository;
 import com.dreamy.domain.cache.service.CacheInvalidationPlans;
 import com.dreamy.domain.cache.service.CacheInvalidationTaskService;
+import com.dreamy.dto.AdminQuestionListDTO;
 import com.dreamy.dto.ReviewDtos.AdminQuestionDto;
+import com.dreamy.dto.ReviewDtos.BatchResult;
 import com.dreamy.error.ReviewErrorCode;
 import com.dreamy.error.ReviewException;
 import com.dreamy.infra.ReviewAuditRecorder;
 import com.dreamy.infra.ReviewTxRunner;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
 import com.dreamy.support.ReviewFieldErrors;
-import com.dreamy.support.PaginatedFactory;
 import com.dreamy.support.ReviewParams;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import huihao.page.Paginated;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,8 +57,8 @@ public class AdminQuestionService {
 
     // ==================== E-REV-13 listAdminQuestions ====================
 
-    public Paginated<AdminQuestionDto> listAdminQuestions(Integer page, Integer pageSize, Long productId,
-                                                          String answered) {
+    public AdminQuestionListDTO listAdminQuestions(Integer page, Integer pageSize, Long productId,
+                                                   String answered, String search) {
         // V-REV-031~033
         ReviewFieldErrors errors = new ReviewFieldErrors();
         int parsedPage = ReviewParams.parsePage(page, errors);
@@ -71,20 +74,32 @@ public class AdminQuestionService {
                 errors.reject("answered", "invalid_enum");
             }
         }
+        String parsedSearch = ReviewParams.parseSearch(search, errors);
         errors.throwIfAny();
 
-        // STEP-REV-01 条件分页（含未回答与 hidden——后台全量视角）
+        // STEP-REV-01 条件分页（含未回答与 hidden——后台全量视角；search 命中商品名时按 product_id IN 并入
+        // ——与评价搜索同端口同语义）
+        Set<Long> searchProductIds = parsedSearch == null ? null
+                : catalogPort.searchProductIdsByKeyword(parsedSearch);
         Page<ProductQuestion> questionPage = questionRepository.pageByAdminFilter(pid, answeredFilter,
-                parsedPage, parsedSize);
+                parsedSearch, searchProductIds, parsedPage, parsedSize);
         // STEP-REV-02 product_name 批量派生（NP-REV-001）
         Set<Long> productIds = new LinkedHashSet<>();
         questionPage.getRecords().forEach(q -> productIds.add(q.getProductId()));
         Map<Long, ReviewCatalogSnapshotPort.ProductBrief> briefs = catalogPort.getProductBriefs(productIds);
-        // STEP-REV-03 标准 Paginated
+        // STEP-REV-03 标准 Paginated + unanswered_count 平铺（对齐评价 pending_count 模式）
         List<AdminQuestionDto> items = questionPage.getRecords().stream()
                 .map(q -> toAdminDto(q, briefs))
                 .toList();
-        return PaginatedFactory.of(items, questionPage.getTotal(), parsedPage, parsedSize);
+        AdminQuestionListDTO dto = new AdminQuestionListDTO();
+        dto.setData(items);
+        dto.setTotalElements(questionPage.getTotal());
+        dto.setPageNumber(parsedPage);
+        dto.setPageSize(parsedSize);
+        dto.setNumberOfElements(questionPage.getRecords().size());
+        dto.setTotalPages(parsedSize > 0 ? (int) Math.ceil((double) questionPage.getTotal() / parsedSize) : 0);
+        dto.setUnansweredCount(questionRepository.countUnanswered());
+        return dto;
     }
 
     // ==================== E-REV-14 putAdminQuestionAnswer（question_answer_flow, TX-REV-008） ====================
@@ -99,13 +114,17 @@ public class AdminQuestionService {
         if (trimmed.length() > 2000) {
             throw ReviewException.fieldValidation("answer", "too_long");
         }
-        // STEP-REV-02 状态机分支：首次回答 save_answer 自动置 visible；edit_answer 保持现值（手动隐藏不被覆盖）
-        boolean firstAnswer = question.getAnswer() == null;
+        // STEP-REV-02 状态机分支：首答（answer=NULL）CAS 原子置 visible；编辑保持 visible 现值（手动隐藏不被覆盖）。
+        // expectAnswer 快照参与 CAS——他人先写 → affected=0 → 409805（对齐评价 bs-591 并发防护）
+        String expectAnswer = question.getAnswer();
         tx.inTx(() -> {
-            questionRepository.saveAnswer(id, trimmed, LocalDateTime.now(), firstAnswer);
+            int affected = questionRepository.saveAnswer(id, trimmed, LocalDateTime.now(), expectAnswer);
+            if (affected == 0) {
+                throw new ReviewException(ReviewErrorCode.ANSWER_CONFLICT);
+            }
             // STEP-REV-03 审计 action=回答提问
             Map<String, Object> changes = new LinkedHashMap<>();
-            changes.put("first_answer", firstAnswer);
+            changes.put("first_answer", expectAnswer == null);
             changes.put("answer_before", question.getAnswer());
             changes.put("answer_after", trimmed);
             audit.record(ReviewAuditRecorder.ACTION_ANSWER, "question#" + id, toJson(changes));
@@ -114,6 +133,21 @@ public class AdminQuestionService {
             enqueueQuestion("question.answer", id, productId);
         });
         return readAdminDto(id);
+    }
+
+    /** 撤回回答（对齐评价 deleteReply：清空 answer/answer_time；幂等 204；visible 保持现值——前台双条件过滤兜底） */
+    public void deleteAnswer(Long id) {
+        ProductQuestion question = requireQuestion(id);
+        // 幂等：未回答 → 直接返回（不写审计不发任务，不开事务）
+        if (question.getAnswer() == null) {
+            return;
+        }
+        tx.inTx(() -> {
+            questionRepository.clearAnswer(id);
+            audit.record(ReviewAuditRecorder.ACTION_ANSWER, "question#" + id,
+                    toJson(Map.of("answer_cleared", true)));
+            enqueueQuestion("question.answer.clear", id, question.getProductId());
+        });
     }
 
     // ==================== E-REV-15 patchAdminQuestionVisibility（TX-REV-009） ====================
@@ -142,6 +176,77 @@ public class AdminQuestionService {
             enqueueQuestion("question.visibility", id, productId);
         });
         return readAdminDto(id);
+    }
+
+    // ==================== 批量可见性（对齐评价 batchSet：skipped 语义 + ≤200 上限） ====================
+
+    public BatchResult batchVisibility(List<Long> ids, String action) {
+        // ids 非空、元素正整数、去重、≤200（防滥用——对齐 V-REV-024）
+        ReviewFieldErrors errors = new ReviewFieldErrors();
+        Set<Long> deduped = new LinkedHashSet<>();
+        if (ids == null || ids.isEmpty()) {
+            errors.reject("ids", "required");
+        } else {
+            for (Long id : ids) {
+                if (id == null || id <= 0) {
+                    errors.reject("ids", "invalid");
+                    break;
+                }
+                deduped.add(id);
+            }
+            if (deduped.size() > 200) {
+                errors.reject("ids", "too_many");
+            }
+        }
+        QuestionBatchAction batchAction = QuestionBatchAction.of(action);
+        if (batchAction == null) {
+            errors.reject("action", "invalid_enum");
+        }
+        errors.throwIfAny();
+
+        QuestionVisibility target = batchAction == QuestionBatchAction.HIDE
+                ? QuestionVisibility.HIDDEN : QuestionVisibility.VISIBLE;
+        List<Long> updatedIds = new ArrayList<>();
+        List<Long> skippedIds = new ArrayList<>();
+        Set<Long> touchedProducts = new LinkedHashSet<>();
+        Map<Long, Long> productQuestionSample = new LinkedHashMap<>();
+
+        tx.inTx(() -> {
+            // 批量读取分拣（不存在 id 归入 skipped，批量语义不 404）
+            Map<Long, ProductQuestion> byId = new HashMap<>();
+            for (ProductQuestion q : questionRepository.listByIds(deduped)) {
+                byId.put(q.getId(), q);
+            }
+            for (Long id : deduped) {
+                ProductQuestion q = byId.get(id);
+                if (q == null) {
+                    skippedIds.add(id);
+                    continue;
+                }
+                // 已是目标态 → skipped；并发漂移 CAS affected=0 → skipped
+                boolean updated = q.getVisible() == target
+                        ? false
+                        : questionRepository.casBatchVisible(id, q.getVisible(), target) > 0;
+                if (updated) {
+                    updatedIds.add(id);
+                    if (touchedProducts.add(q.getProductId())) {
+                        productQuestionSample.put(q.getProductId(), id);
+                    }
+                } else {
+                    skippedIds.add(id);
+                }
+            }
+            // 审计（action=批量）
+            audit.record(ReviewAuditRecorder.ACTION_BATCH, "questions/batch", toJson(Map.of(
+                    "action", batchAction.getKey(),
+                    "updated_ids", updatedIds,
+                    "skipped_ids", skippedIds)));
+            // touched 非空时按 product_id 去重创建缓存任务
+            for (Long pid : touchedProducts) {
+                enqueueQuestion("question.batch." + batchAction.getKey(), productQuestionSample.get(pid), pid);
+            }
+        });
+        return new BatchResult(updatedIds, skippedIds);
     }
 
     // ==================== 装配/工具 ====================

@@ -2,11 +2,12 @@
 import { get, post, put, patch, del } from './client'
 import type {
   AdminQuestion,
+  AdminQuestionPage,
   AdminReview,
   AdminReviewPage,
   BatchResult,
-  PageResult,
   QuestionVisible,
+  ReviewImage,
   ReviewModerationStatus,
 } from './types'
 
@@ -42,8 +43,8 @@ export function deleteReviewReply(id: number): Promise<AdminReview> {
   return del<AdminReview>(`/api/admin/reviews/${id}/reply`)
 }
 
-export function patchReviewImage(id: number, imageId: number, rejected: boolean): Promise<AdminReview> {
-  return patch<AdminReview>(`/api/admin/reviews/${id}/images/${imageId}`, { rejected })
+export function patchReviewImage(id: number, imageId: number, rejected: boolean): Promise<ReviewImage> {
+  return patch<ReviewImage>(`/api/admin/reviews/${id}/images/${imageId}`, { rejected })
 }
 
 export function listQuestions(params: {
@@ -51,14 +52,23 @@ export function listQuestions(params: {
   pageSize?: number
   productId?: number
   answered?: string
-}): Promise<PageResult<AdminQuestion>> {
-  return get<PageResult<AdminQuestion>>('/api/admin/questions', { params })
+  search?: string
+}): Promise<AdminQuestionPage> {
+  return get<AdminQuestionPage>('/api/admin/questions', { params })
 }
 
 export function putQuestionAnswer(id: number, answer: string): Promise<AdminQuestion> {
   return put<AdminQuestion>(`/api/admin/questions/${id}/answer`, { answer })
 }
 
+export function deleteQuestionAnswer(id: number): Promise<void> {
+  return del<void>(`/api/admin/questions/${id}/answer`)
+}
+
 export function patchQuestionVisibility(id: number, visible: QuestionVisible): Promise<AdminQuestion> {
   return patch<AdminQuestion>(`/api/admin/questions/${id}/visibility`, { visible })
+}
+
+export function batchQuestions(ids: number[], action: 'hide' | 'show'): Promise<BatchResult> {
+  return post<BatchResult>('/api/admin/questions/batch', { ids, action })
 }

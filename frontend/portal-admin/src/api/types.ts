@@ -937,6 +937,11 @@ export interface AdminQuestion {
   visible: QuestionVisible
 }
 
+/** 对齐 AdminReviewPage：Paginated + unanswered_count 平铺同层 */
+export interface AdminQuestionPage extends PageResult<AdminQuestion> {
+  unansweredCount: number
+}
+
 // ===== shipping（PAGE-SHP-01 / STORE-SHP-01） =====
 
 export const CarrierStatus = { ENABLED: 1, DISABLED: 2 } as const
