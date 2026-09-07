@@ -10,4 +10,5 @@ public interface PaymentDBConst extends TradingCommonDBConst {
     String PROVIDER = "provider";
     String PAYMENT_INTENT_ID = "payment_intent_id";
     String CARD_SUMMARY = "card_summary";
+    String REFUNDED_AMOUNT = "refunded_amount";
 }

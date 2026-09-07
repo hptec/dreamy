@@ -25,6 +25,12 @@ public class Carrier extends LongAuditableEntity {
     @Column(name = CarrierDBConst.NAME, definition = "varchar(64) NOT NULL COMMENT '承运方名称（Order.carrier 快照取值源）'")
     private String name;
 
+    @Column(name = CarrierDBConst.CODE, definition = "varchar(32) NULL COMMENT '承运商编码（FEDEX/UPS/DHL/USPS；shipment.carrier_code 引用）'")
+    private String code;
+
+    @Column(name = CarrierDBConst.TRACKING_URL_TEMPLATE, definition = "varchar(255) NULL COMMENT '跟踪链接模板，{tracking_no} 占位'")
+    private String trackingUrlTemplate;
+
     @Column(name = CarrierDBConst.ZONES, definition = "varchar(255) NULL COMMENT '覆盖区域描述（纯展示）'")
     private String zones;
 

@@ -8,6 +8,8 @@ public interface CarrierDBConst extends ShippingCommonDBConst {
     String TABLE = "carrier";
 
     String NAME = "name";
+    String CODE = "code";
+    String TRACKING_URL_TEMPLATE = "tracking_url_template";
     String ZONES = "zones";
     String LEAD_TIME = "lead_time";
     // STATUS 继承自 ShippingCommonDBConst

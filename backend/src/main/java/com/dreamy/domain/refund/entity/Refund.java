@@ -1,6 +1,8 @@
 package com.dreamy.domain.refund.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.dreamy.enums.OrderStatus;
+import com.dreamy.enums.ProductionStage;
 import com.dreamy.enums.RefundStatus;
 import com.dreamy.domain.refund.consts.RefundDBConst;
 import huihao.mysql.annotation.Column;
@@ -61,4 +63,12 @@ public class Refund extends LongAuditableEntity {
 
     @Column(name = RefundDBConst.APPLIED_AT, definition = "datetime(3) NOT NULL")
     private LocalDateTime appliedAt;
+
+    /** 申请时订单主状态快照（驳回/部分批准还原目标） */
+    @Column(name = RefundDBConst.FROM_STATUS, definition = "tinyint NULL COMMENT '申请时订单状态快照（还原目标）'")
+    private OrderStatus fromStatus;
+
+    /** 申请时制作阶段快照（还原 PAID 时回写） */
+    @Column(name = RefundDBConst.FROM_STAGE, definition = "tinyint NULL COMMENT '申请时制作阶段快照'")
+    private ProductionStage fromStage;
 }

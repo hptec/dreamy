@@ -3,7 +3,10 @@ package com.dreamy.domain.order.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.dreamy.enums.Incoterm;
 import com.dreamy.enums.OrderStatus;
+import com.dreamy.enums.ProductionStage;
+import com.dreamy.enums.ShippingServiceLevel;
 import com.dreamy.domain.order.consts.OrderDBConst;
 import huihao.mysql.annotation.Column;
 import huihao.mysql.annotation.Index;
@@ -15,12 +18,14 @@ import lombok.EqualsAndHashCode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 /**
  * 表 orders（订单主单，表名规避 MySQL 保留字 ORDER）。
  * 幂等：uk_order_idem(idempotency_key)（IDX-TRD-001 强制，409603）；订单号 Redis 预生成 + uk_order_no 兜底。
- * 金额恒等式（CV-TRD-003）：total_amount = subtotal + shipping_fee + gift_wrap_fee - discount_amount。
+ * 金额恒等式（CV-TRD-003，amount_version=2）：total_amount = subtotal + shipping_fee + gift_wrap_fee + tax_amount - discount_amount；
+ * 存量 amount_version=1 行 tax_amount=0，两版恒等式等价。
  * 状态机推进一律条件更新 CAS（RM-TRD-026，guard 失败 affected=0 → 409602）。
  * L2 TRACE: trading-data-detail §9 DDL-4 / IDX-TRD-001~005 / TASK-017/038。
  */
@@ -42,7 +47,7 @@ public class Order extends LongAuditableEntity {
     @Column(name = OrderDBConst.CUSTOMER_ID, definition = "bigint NOT NULL")
     private Long customerId;
 
-    @Column(name = OrderDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT 'order_lifecycle 七态：1=待支付 2=已支付 3=已发货 4=已完成 5=已取消 6=退款中 7=已退款'")
+    @Column(name = OrderDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT 'order_lifecycle：1=待支付 2=已支付 3=已发货 4=已完成 5=已取消 6=退款中 7=已退款 8=已送达'")
     private OrderStatus status;
 
     @Column(name = OrderDBConst.CURRENCY, definition = "char(3) NOT NULL COMMENT 'USD/EUR/CAD/AUD/GBP（决策14）'")
@@ -73,7 +78,7 @@ public class Order extends LongAuditableEntity {
     @Column(name = OrderDBConst.DISCOUNT_AMOUNT, definition = "decimal(12,2) NOT NULL DEFAULT 0 COMMENT '券减免（订单币种）'")
     private BigDecimal discountAmount;
 
-    @Column(name = OrderDBConst.TOTAL_AMOUNT, definition = "decimal(12,2) NOT NULL COMMENT '= subtotal+shipping_fee+gift_wrap_fee-discount_amount'")
+    @Column(name = OrderDBConst.TOTAL_AMOUNT, definition = "decimal(12,2) NOT NULL COMMENT '= subtotal+shipping_fee+gift_wrap_fee+tax_amount-discount_amount'")
     private BigDecimal totalAmount;
 
     @Column(name = OrderDBConst.COUPON_ID, definition = "bigint NULL COMMENT '逻辑外键 coupon.id（marketing）'")
@@ -106,4 +111,37 @@ public class Order extends LongAuditableEntity {
 
     @Column(name = OrderDBConst.COMPLETED_AT, definition = "datetime(3) NULL")
     private LocalDateTime completedAt;
+
+    @Column(name = OrderDBConst.DELIVERED_AT, definition = "datetime(3) NULL COMMENT '全部包裹签收/用户确认/自动签收时间'")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = OrderDBConst.TAX_AMOUNT, definition = "decimal(12,2) NOT NULL DEFAULT 0 COMMENT '订单币种税费（DDP 计入 total；DDU 为 0）'")
+    private BigDecimal taxAmount;
+
+    /** 税费明细快照 [{type,label,rate_scaled,base,amount}] */
+    @Column(name = OrderDBConst.TAX_BREAKDOWN, definition = "json NULL COMMENT '税费明细快照'")
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<Map<String, Object>> taxBreakdown;
+
+    @Column(name = OrderDBConst.INCOTERM, definition = "tinyint NULL COMMENT '1=DDP 2=DDU（目的国政策快照）'")
+    private Incoterm incoterm;
+
+    @Column(name = OrderDBConst.REFUNDED_AMOUNT, definition = "decimal(12,2) NOT NULL DEFAULT 0 COMMENT '已退款累计（订单币种）；>= total_amount 才进入 REFUNDED'")
+    private BigDecimal refundedAmount;
+
+    @Column(name = OrderDBConst.PRODUCTION_STAGE, definition = "tinyint NULL COMMENT '制作阶段（仅 PAID 态非空）：1=待审核 2=制作中 3=质检中 4=待发货'")
+    private ProductionStage productionStage;
+
+    @Column(name = OrderDBConst.SHIPPING_SERVICE_LEVEL, definition = "tinyint NULL COMMENT '1=STANDARD 2=EXPRESS'")
+    private ShippingServiceLevel shippingServiceLevel;
+
+    @Column(name = OrderDBConst.ESTIMATED_DELIVERY_FROM, definition = "date NULL COMMENT '下单时预计送达区间起'")
+    private LocalDate estimatedDeliveryFrom;
+
+    @Column(name = OrderDBConst.ESTIMATED_DELIVERY_TO, definition = "date NULL COMMENT '下单时预计送达区间止'")
+    private LocalDate estimatedDeliveryTo;
+
+    /** 金额算法版本：1=存量（无税）2=含税恒等式；新订单固定写 2，v1 永不重算 */
+    @Column(name = OrderDBConst.AMOUNT_VERSION, definition = "tinyint NOT NULL DEFAULT 1 COMMENT '金额算法版本 1=存量无税 2=含税'")
+    private Integer amountVersion;
 }

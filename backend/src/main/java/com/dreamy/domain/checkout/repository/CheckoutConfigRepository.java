@@ -25,6 +25,11 @@ public class CheckoutConfigRepository {
             config.setId(CheckoutConfig.SINGLETON_ID);
             config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
             config.setCustomRefundGraceHours(24);
+            config.setAutoCompleteDays(7);
+            config.setAutoDeliverDays(30);
+            config.setPendingTimeoutMinutes(30);
+            config.setExchangeRateSpreadScaled(0);
+            config.setProductionDaysDefault(21);
         }
         return config;
     }

@@ -224,6 +224,133 @@ public final class TradingDtos {
     public record CheckoutConfigDto(BigDecimal giftWrapFeeUsd, Integer customRefundGraceHours) {
     }
 
+    // ==================== 订单时间线 / 制作阶段（order-flow-complete §2.2/§3） ====================
+
+    public record OrderEventDto(Long id, Integer type, Integer actorType, Long actorId, String actorName,
+                                String title, String detail, Map<String, Object> payload,
+                                Boolean customerVisible, LocalDateTime createdAt) {
+    }
+
+    public record OrderNoteCreate(String content, Boolean customerVisible) {
+    }
+
+    public record ProductionStagePatch(Integer stage) {
+    }
+
+    public record ReorderSkipped(Long orderLineId, Integer reasonCode) {
+    }
+
+    public record ReorderResponse(Integer addedCount, List<ReorderSkipped> skipped) {
+    }
+
+    // ==================== 包裹 / 轨迹（order-flow-complete §2.2 shipment） ====================
+
+    public record ShipmentLineCreate(Long orderLineId, Integer qty) {
+    }
+
+    public record ShipmentLineDto(Long orderLineId, String productName, String skuCode, String color, String size,
+                                  Integer qty) {
+    }
+
+    public record ShipmentEventDto(Long id, LocalDateTime occurredAt, Integer status, String location,
+                                   String description, Integer source) {
+    }
+
+    public record ShipmentDto(Long id, String shipmentNo, String carrierCode, String carrierName, String trackingNo,
+                              String trackingUrl, Integer status, LocalDateTime shippedAt, LocalDateTime deliveredAt,
+                              LocalDateTime lastEventAt, String lastEventDesc, List<ShipmentLineDto> lines,
+                              List<ShipmentEventDto> events) {
+    }
+
+    public record ShipmentCreateRequest(String carrierCode, String trackingNo, List<ShipmentLineCreate> lines) {
+    }
+
+    public record ShipmentPatch(String carrierCode, String trackingNo) {
+    }
+
+    public record ShipmentEventCreate(Integer status, LocalDateTime occurredAt, String location, String description) {
+    }
+
+    /** 游客查单（订单号 + 邮箱；脱敏视图） */
+    public record OrderTrackRequest(String orderNo, String email) {
+    }
+
+    public record OrderTrackView(String orderNo, Integer status, Integer productionStage, String currency,
+                                 BigDecimal totalAmount, LocalDateTime createdAt, LocalDateTime paidAt,
+                                 LocalDateTime shippedAt, LocalDateTime deliveredAt, LocalDateTime completedAt,
+                                 LocalDate estimatedDeliveryFrom, LocalDate estimatedDeliveryTo,
+                                 String receiverMasked, String countryCode, List<ShipmentDto> shipments,
+                                 List<OrderEventDto> events) {
+    }
+
+    // ==================== 税费（order-flow-complete §2.2 tax_rule / tax_destination_policy） ====================
+
+    public record TaxBreakdownDto(Integer type, String label, Integer rateScaled, BigDecimal base, BigDecimal amount)
+            implements Serializable {
+    }
+
+    public record TaxRuleDto(Long id, String countryCode, String region, Integer taxType, Integer rateScaled,
+                             Boolean appliesToShipping, BigDecimal thresholdUsd, LocalDate effectiveFrom,
+                             LocalDate effectiveTo, Boolean enabled, String label, LocalDateTime updatedAt) {
+    }
+
+    public record TaxRuleUpsert(String countryCode, String region, Integer taxType, Integer rateScaled,
+                                Boolean appliesToShipping, BigDecimal thresholdUsd, LocalDate effectiveFrom,
+                                LocalDate effectiveTo, Boolean enabled, String label) {
+    }
+
+    public record TaxRuleEnabledPatch(Boolean enabled) {
+    }
+
+    public record TaxDestinationPolicyDto(String countryCode, Integer incoterm, Boolean dutiesNotice,
+                                          String noticeText, LocalDateTime updatedAt) {
+    }
+
+    public record TaxDestinationPolicyUpsert(Integer incoterm, Boolean dutiesNotice, String noticeText) {
+    }
+
+    // ==================== 国家 / 分区 / 运费选项（order-flow-complete §2.3 shipping_option） ====================
+
+    public record RegionDto(String code, String name) implements Serializable {
+    }
+
+    public record CountryDto(String code, String name, String zone, Boolean supported, List<RegionDto> regions)
+            implements Serializable {
+    }
+
+    public record CountryListResponse(List<CountryDto> items) implements Serializable {
+    }
+
+    public record ShippingOptionAdminDto(Long id, String zone, String carrierCode, String carrierName,
+                                         Integer serviceLevel, BigDecimal feeUnder, BigDecimal feeOver,
+                                         BigDecimal threshold, Integer transitDaysMin, Integer transitDaysMax,
+                                         Boolean enabled, LocalDateTime updatedAt) {
+    }
+
+    public record ShippingOptionUpsert(String zone, String carrierCode, Integer serviceLevel, BigDecimal feeUnder,
+                                       BigDecimal feeOver, BigDecimal threshold, Integer transitDaysMin,
+                                       Integer transitDaysMax, Boolean enabled) {
+    }
+
+    public record ShippingQuotePreviewRequest(String countryCode, String regionCode, BigDecimal subtotalUsd,
+                                              Integer serviceLevel) {
+    }
+
+    public record ShippingQuotePreviewResponse(String zone, List<ShippingOptionDto> options, BigDecimal taxAmountUsd,
+                                               List<TaxBreakdownDto> taxBreakdown, Integer incoterm,
+                                               Boolean dutiesNotice) {
+    }
+
+    // ==================== 汇率历史 / 刷新（order-flow-complete §2.2 exchange_rate_history） ====================
+
+    public record ExchangeRateHistoryDto(String currency, BigDecimal rate, Integer source, LocalDate quoteDate,
+                                         LocalDateTime recordedAt) {
+    }
+
+    public record ExchangeRateRefreshResponse(Integer updatedCount, List<String> skippedCurrencies,
+                                              LocalDateTime syncedAt) {
+    }
+
     // ==================== webhook ====================
 
     public record WebhookReceived(Boolean received) {

@@ -13,4 +13,6 @@ public interface RefundDBConst extends TradingCommonDBConst {
     String STRIPE_REFUND_ID = "stripe_refund_id";
     String RETURN_TRACKING_NO = "return_tracking_no";
     String APPLIED_AT = "applied_at";
+    String FROM_STATUS = "from_status";
+    String FROM_STAGE = "from_stage";
 }

@@ -46,6 +46,12 @@ public class Address extends LongAuditableEntity {
     @Column(name = AddressDBConst.COUNTRY, definition = "varchar(64) NOT NULL COMMENT '运费分区映射输入'")
     private String country;
 
+    @Column(name = AddressDBConst.COUNTRY_CODE, definition = "char(2) NULL COMMENT 'ISO-3166-1 alpha-2（税费/分区匹配输入；存量启动回填）'")
+    private String countryCode;
+
+    @Column(name = AddressDBConst.REGION_CODE, definition = "varchar(8) NULL COMMENT 'ISO-3166-2 后缀（仅 US/CA/AU 规范化，如 CA/NY/ON/NSW）'")
+    private String regionCode;
+
     @Column(name = AddressDBConst.IS_DEFAULT, definition = "tinyint(1) NOT NULL DEFAULT 0 COMMENT '恒至多一个默认（TX-TRD-008）'")
     private Boolean isDefault;
 }

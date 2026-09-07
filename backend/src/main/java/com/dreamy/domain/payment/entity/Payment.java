@@ -43,7 +43,7 @@ public class Payment extends LongAuditableEntity {
     @Column(name = PaymentDBConst.CURRENCY, definition = "char(3) NOT NULL")
     private String currency;
 
-    @Column(name = PaymentDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT 'payment_lifecycle 五态：1=已创建 2=处理中 3=支付成功 4=支付失败 5=已退款'")
+    @Column(name = PaymentDBConst.STATUS, definition = "tinyint NOT NULL DEFAULT 1 COMMENT 'payment_lifecycle：1=已创建 2=处理中 3=支付成功 4=支付失败 5=已退款 6=部分退款'")
     private PaymentStatus status;
 
     @Column(name = PaymentDBConst.CARD_SUMMARY, definition = "varchar(64) NULL COMMENT '如 Stripe · Visa ···4242'")
@@ -51,4 +51,7 @@ public class Payment extends LongAuditableEntity {
 
     @Column(name = PaymentDBConst.PAID_AT, definition = "datetime(3) NULL")
     private LocalDateTime paidAt;
+
+    @Column(name = PaymentDBConst.REFUNDED_AMOUNT, definition = "decimal(12,2) NOT NULL DEFAULT 0 COMMENT '已退款累计（每次批准仅退 delta）'")
+    private BigDecimal refundedAmount;
 }

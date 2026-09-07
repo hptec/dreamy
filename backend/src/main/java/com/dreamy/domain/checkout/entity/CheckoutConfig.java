@@ -31,4 +31,24 @@ public class CheckoutConfig extends LongAuditableEntity {
     @Column(name = CheckoutConfigDBConst.CUSTOM_REFUND_GRACE_HOURS,
             definition = "int NOT NULL DEFAULT 24 COMMENT '定制款退款宽限期小时 1..168（决策24）'")
     private Integer customRefundGraceHours;
+
+    @Column(name = CheckoutConfigDBConst.AUTO_COMPLETE_DAYS,
+            definition = "int NOT NULL DEFAULT 7 COMMENT '签收后自动完成天数 1..60'")
+    private Integer autoCompleteDays;
+
+    @Column(name = CheckoutConfigDBConst.AUTO_DELIVER_DAYS,
+            definition = "int NOT NULL DEFAULT 30 COMMENT '发货后无签收自动视为送达天数 1..120'")
+    private Integer autoDeliverDays;
+
+    @Column(name = CheckoutConfigDBConst.PENDING_TIMEOUT_MINUTES,
+            definition = "int NOT NULL DEFAULT 30 COMMENT '待支付超时分钟 5..1440'")
+    private Integer pendingTimeoutMinutes;
+
+    @Column(name = CheckoutConfigDBConst.EXCHANGE_RATE_SPREAD_SCALED,
+            definition = "int NOT NULL DEFAULT 0 COMMENT '汇率加价率 ×10000（100=1%）0..2000'")
+    private Integer exchangeRateSpreadScaled;
+
+    @Column(name = CheckoutConfigDBConst.PRODUCTION_DAYS_DEFAULT,
+            definition = "int NOT NULL DEFAULT 21 COMMENT '默认制作周期天数（商品未配置时）1..180'")
+    private Integer productionDaysDefault;
 }

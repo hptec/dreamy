@@ -27,4 +27,14 @@ public interface OrderDBConst extends TradingCommonDBConst {
     String EXPIRES_AT = "expires_at";
     String SHIPPED_AT = "shipped_at";
     String COMPLETED_AT = "completed_at";
+    String DELIVERED_AT = "delivered_at";
+    String TAX_AMOUNT = "tax_amount";
+    String TAX_BREAKDOWN = "tax_breakdown";
+    String INCOTERM = "incoterm";
+    String REFUNDED_AMOUNT = "refunded_amount";
+    String PRODUCTION_STAGE = "production_stage";
+    String SHIPPING_SERVICE_LEVEL = "shipping_service_level";
+    String ESTIMATED_DELIVERY_FROM = "estimated_delivery_from";
+    String ESTIMATED_DELIVERY_TO = "estimated_delivery_to";
+    String AMOUNT_VERSION = "amount_version";
 }

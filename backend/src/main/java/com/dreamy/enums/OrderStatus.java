@@ -9,11 +9,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 订单状态（order_lifecycle 七态，state-machine.yml）。
- * 9 合法转换 + 其余拒绝（TASK-038；guard 终防线为条件更新 CAS RM-TRD-026，本枚举为前置 js_guard）：
- * pending→paid/cancelled；paid→shipped/refunding；shipped→completed/refunding；
- * refunding→refunded/paid/shipped。
- * L2 TRACE: MAP-TRD-012 / CV-TRD-001 / TC-TRD-006。
+ * 订单状态（order_lifecycle 八态；order-flow-complete §2.4）。
+ * 合法转换（guard 终防线为条件更新 CAS RM-TRD-026，本枚举为前置 js_guard）：
+ * pending→paid/cancelled；paid→shipped/refunding/cancelled(后台+全额退款)；shipped→delivered/completed/refunding；
+ * delivered→completed/refunding；refunding→refunded/paid/shipped/delivered（还原 from_status）。
  */
 @Enumable
 public enum OrderStatus implements IntEnum, Describable {
@@ -23,7 +22,8 @@ public enum OrderStatus implements IntEnum, Describable {
     COMPLETED(4, "已完成"),
     CANCELLED(5, "已取消"),
     REFUNDING(6, "退款中"),
-    REFUNDED(7, "已退款");
+    REFUNDED(7, "已退款"),
+    DELIVERED(8, "已送达");
 
     @Getter
     private final Integer key;
@@ -36,16 +36,27 @@ public enum OrderStatus implements IntEnum, Describable {
         this.desc = desc;
     }
 
-    /** order_lifecycle 9 转换矩阵（TASK-038） */
+    /** order_lifecycle 转换矩阵 */
     private static final Map<OrderStatus, Set<OrderStatus>> TRANSITIONS = Map.of(
             PENDING, Set.of(PAID, CANCELLED),
-            PAID, Set.of(SHIPPED, REFUNDING),
-            SHIPPED, Set.of(COMPLETED, REFUNDING),
-            REFUNDING, Set.of(REFUNDED, PAID, SHIPPED),
+            PAID, Set.of(SHIPPED, REFUNDING, CANCELLED),
+            SHIPPED, Set.of(DELIVERED, COMPLETED, REFUNDING),
+            DELIVERED, Set.of(COMPLETED, REFUNDING),
+            REFUNDING, Set.of(REFUNDED, PAID, SHIPPED, DELIVERED),
             COMPLETED, Set.of(),
             CANCELLED, Set.of(),
             REFUNDED, Set.of()
     );
+
+    /** 终态 */
+    public boolean isTerminal() {
+        return this == COMPLETED || this == CANCELLED || this == REFUNDED;
+    }
+
+    /** 已支付且尚未进入售后/终态（可申请退款、可发货推进） */
+    public boolean isPostPaymentActive() {
+        return this == PAID || this == SHIPPED || this == DELIVERED;
+    }
 
     /** 状态机 guard（非法转换 → 调用方映射 409602） */
     public boolean canTransitionTo(OrderStatus target) {

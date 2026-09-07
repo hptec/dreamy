@@ -9,4 +9,7 @@ public interface ExchangeRateDBConst extends TradingCommonDBConst {
 
     String RATE = "rate";
     String UPDATED_BY = "updated_by";
+    String SOURCE = "source";
+    String SYNCED_AT = "synced_at";
+    String MANUAL_OVERRIDE = "manual_override";
 }

@@ -9,8 +9,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 支付单状态（payment_lifecycle 五态，TASK-039）。
- * created→processing/succeeded/failed；processing→succeeded/failed；succeeded→refunded；
+ * 支付单状态（payment_lifecycle 六态）。
+ * created→processing/succeeded/failed；processing→succeeded/failed；succeeded→refunded/partially_refunded；
+ * partially_refunded→refunded/partially_refunded（每次批准仅退 delta，累计达 total 才 refunded）；
  * failed→created（retryOrderPayment 重建 PI 凭据，RM-TRD-044）。
  * L2 TRACE: MAP-TRD-012 / CV-TRD-001 / TC-TRD-007。
  */
@@ -20,7 +21,8 @@ public enum PaymentStatus implements IntEnum, Describable {
     PROCESSING(2, "处理中"),
     SUCCEEDED(3, "支付成功"),
     FAILED(4, "支付失败"),
-    REFUNDED(5, "已退款");
+    REFUNDED(5, "已退款"),
+    PARTIALLY_REFUNDED(6, "部分退款");
 
     @Getter
     private final Integer key;
@@ -36,7 +38,8 @@ public enum PaymentStatus implements IntEnum, Describable {
     private static final Map<PaymentStatus, Set<PaymentStatus>> TRANSITIONS = Map.of(
             CREATED, Set.of(PROCESSING, SUCCEEDED, FAILED),
             PROCESSING, Set.of(SUCCEEDED, FAILED),
-            SUCCEEDED, Set.of(REFUNDED),
+            SUCCEEDED, Set.of(REFUNDED, PARTIALLY_REFUNDED),
+            PARTIALLY_REFUNDED, Set.of(REFUNDED, PARTIALLY_REFUNDED),
             FAILED, Set.of(CREATED),
             REFUNDED, Set.of()
     );

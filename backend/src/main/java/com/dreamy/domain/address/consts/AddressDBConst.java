@@ -14,5 +14,7 @@ public interface AddressDBConst extends TradingCommonDBConst {
     String STATE = "state";
     String ZIP = "zip";
     String COUNTRY = "country";
+    String COUNTRY_CODE = "country_code";
+    String REGION_CODE = "region_code";
     String IS_DEFAULT = "is_default";
 }
