@@ -44,14 +44,51 @@ public class CarrierRepository {
         carrierMapper.insert(carrier);
     }
 
-    /** RM-SHP-005 updateAll —— E-SHP-03 整单覆盖（name/zones/lead_time/status 全列 SET，null 即清空） */
+    /** RM-SHP-005 updateAll —— E-SHP-03 整单覆盖（name/code/tracking_url_template/zones/lead_time/status 全列 SET，null 即清空） */
     public void updateAll(Carrier carrier) {
         carrierMapper.update(null, new LambdaUpdateWrapper<Carrier>()
                 .set(Carrier::getName, carrier.getName())
+                .set(Carrier::getCode, carrier.getCode())
+                .set(Carrier::getTrackingUrlTemplate, carrier.getTrackingUrlTemplate())
                 .set(Carrier::getZones, carrier.getZones())
                 .set(Carrier::getLeadTime, carrier.getLeadTime())
                 .set(Carrier::getStatus, carrier.getStatus())
                 .eq(Carrier::getId, carrier.getId()));
+    }
+
+    /** order-flow-complete C：按 code 点查（uk_carrier_code；大小写不敏感由排序规则承载） */
+    public Carrier findByCode(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        return carrierMapper.selectOne(new LambdaQueryWrapper<Carrier>().eq(Carrier::getCode, code));
+    }
+
+    /** order-flow-complete C：按 name 精确点查（兼容旧 Order.carrier 名称入参） */
+    public Carrier findByName(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        return carrierMapper.selectOne(new LambdaQueryWrapper<Carrier>().eq(Carrier::getName, name).last("LIMIT 1"));
+    }
+
+    /** order-flow-complete C：code 唯一判定（排除自身） */
+    public boolean existsByCode(String code, Long excludeId) {
+        LambdaQueryWrapper<Carrier> qw = new LambdaQueryWrapper<Carrier>().eq(Carrier::getCode, code);
+        if (excludeId != null) {
+            qw.ne(Carrier::getId, excludeId);
+        }
+        Long count = carrierMapper.selectCount(qw);
+        return count != null && count > 0;
+    }
+
+    /** order-flow-complete C：种子回填 code / tracking_url_template（仅当 code 为空） */
+    public int backfillCode(Long id, String code, String trackingUrlTemplate) {
+        return carrierMapper.update(null, new LambdaUpdateWrapper<Carrier>()
+                .set(Carrier::getCode, code)
+                .set(Carrier::getTrackingUrlTemplate, trackingUrlTemplate)
+                .eq(Carrier::getId, id)
+                .isNull(Carrier::getCode));
     }
 
     /** RM-SHP-006 updateStatus —— E-SHP-05 */

@@ -61,9 +61,10 @@ public class AdminOrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(name = "production_stage", required = false) Integer productionStage,
             @RequestParam(name = "wedding_before", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weddingBefore) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weddingBefore,
+            @RequestParam(name = "has_shipment", required = false) Boolean hasShipment) {
         return ResponseEntity.ok(R.ok(adminOrderService.list(page, pageSize, status, search, currency, from, to,
-                productionStage, weddingBefore)));
+                productionStage, weddingBefore, hasShipment)));
     }
 
     /** E-getAdminOrder */

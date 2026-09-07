@@ -1,6 +1,7 @@
 package com.dreamy.error;
 
 import com.dreamy.controller.AdminCarrierController;
+import com.dreamy.controller.AdminShippingOptionController;
 import com.dreamy.controller.AdminShippingRateController;
 
 import huihao.web.R;
@@ -22,7 +23,8 @@ import java.util.Map;
  * identity 复用码（40100/40300/50000/50001 BizException）与锁等待超时等未预期异常（→50000）
  * 仍由 identity GlobalExceptionHandler 兜底处理（EC-SHP-001 锁超时走通用码语义）。
  */
-@RestControllerAdvice(assignableTypes = {AdminCarrierController.class, AdminShippingRateController.class})
+@RestControllerAdvice(assignableTypes = {AdminCarrierController.class, AdminShippingRateController.class,
+        AdminShippingOptionController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ShippingExceptionHandler {
 

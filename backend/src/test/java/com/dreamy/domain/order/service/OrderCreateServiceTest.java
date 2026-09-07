@@ -104,7 +104,7 @@ class OrderCreateServiceTest {
         lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
         lenient().when(orderNoGenerator.nextOrderNo()).thenReturn("DRM-20260610-0001");
         lenient().when(checkoutQuoteService.compute(anyLong(), anyLong(), isNull(), anyString(), anyString(),
-                any(), anyBoolean(), any(), anyString(), eq(true))).thenReturn(computation(null));
+                any(), anyBoolean(), any(), anyString(), eq(true), any())).thenReturn(computation(null));
         lenient().when(skuStockAdapter.deduct(eq(SKU), anyInt(), anyLong())).thenReturn(1);
         lenient().when(stripeClient.createPaymentIntent(anyLong(), anyString(), anyString(), anyMap()))
                 .thenReturn(new StripePaymentIntent("pi_1", "pi_1_secret", "requires_payment_method",
@@ -276,7 +276,7 @@ class OrderCreateServiceTest {
     void couponRedeemedInTx() {
         CouponQuote quote = new CouponQuote(true, 5L, new BigDecimal("20.00"), false, null, null);
         when(checkoutQuoteService.compute(anyLong(), anyLong(), isNull(), anyString(), anyString(), any(),
-                anyBoolean(), any(), anyString(), eq(true))).thenReturn(computation(quote));
+                anyBoolean(), any(), anyString(), eq(true), any())).thenReturn(computation(quote));
         when(couponDomainService.redeem(eq("BRIDE10"), any())).thenReturn(5L);
         service.createOrder(CUSTOMER, request("BRIDE10"));
         verify(couponDomainService).redeem("BRIDE10", new BigDecimal("200.00"));
@@ -296,8 +296,11 @@ class OrderCreateServiceTest {
     }
 
     @Test
-    @DisplayName("V-TRD-024/025: carrier/payment_method 枚举校验 → 422601 字段级")
+    @DisplayName("V-TRD-024/025: carrier/payment_method 枚举校验 → 422601 字段级（carrier 存在性改由 carrier 表报价结果校验）")
     void enumValidation() {
+        when(checkoutQuoteService.compute(anyLong(), anyLong(), isNull(), anyString(), eq("FedEx"), any(),
+                anyBoolean(), any(), anyString(), eq(true), any()))
+                .thenThrow(TradingException.fieldValidation("carrier", "invalid_enum"));
         assertThatThrownBy(() -> service.createOrder(CUSTOMER, new OrderCreateRequest("k", 31L, "USD",
                 "FedEx", null, false, null, "Stripe", "en")))
                 .isInstanceOfSatisfying(TradingException.class,

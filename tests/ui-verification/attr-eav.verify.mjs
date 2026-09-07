@@ -9,7 +9,7 @@ const { chromium } = req('playwright')
 
 const ADMIN = 'http://localhost:5174'
 const STORE = 'http://localhost:5173'
-const API = 'http://localhost:8080'
+const API = 'http://localhost:18081'
 const CREDS = { email: 'admin@dreamy.com', password: 'Admin@123456' }
 const SHOTS = '/Volumes/MAC/workspace/dreamy/tests/ui-verification/attr-eav-shots'
 

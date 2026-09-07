@@ -17,7 +17,8 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Table(name = CarrierDBConst.TABLE, comment = "物流承运方（ALIGN-015）", indexes = {
-        @Index(name = "idx_carrier_status", columns = {CarrierDBConst.STATUS})
+        @Index(name = "idx_carrier_status", columns = {CarrierDBConst.STATUS}),
+        @Index(name = "uk_carrier_code", columns = {CarrierDBConst.CODE}, unique = true, local = false)
 })
 @TableName(value = CarrierDBConst.TABLE, autoResultMap = true)
 public class Carrier extends LongAuditableEntity {

@@ -101,8 +101,11 @@ public class OrderCreateService {
         if (request.addressId() == null) {
             errors.reject("address_id", "required");
         }
-        if (!TradingParams.isSupportedCarrier(request.carrier())) {
-            errors.reject("carrier", request.carrier() == null ? "required" : "invalid_enum");
+        // V-TRD-024（order-flow-complete C）：carrier_code 或 carrier（name）至少其一；存在性改由 carrier 表报价结果校验（compute strict）
+        String carrierInput = TradingParams.trimToNull(request.carrierCode()) != null
+                ? request.carrierCode().trim() : TradingParams.trimToNull(request.carrier());
+        if (carrierInput == null) {
+            errors.reject("carrier", "required");
         }
         // V-TRD-025 payment_method（PayPal 置灰不产生数据，决策 25）
         if (request.paymentMethod() == null || !TradingParams.PAYMENT_METHODS.contains(request.paymentMethod())) {
@@ -121,8 +124,9 @@ public class OrderCreateService {
 
         // STEP-TRD-02/03 锁汇 + 全量服务端重算（不信任前端金额；V-TRD-022/026 在 compute 严格模式内）
         CheckoutQuoteService.Computation quote = checkoutQuoteService.compute(customerId,
-                request.addressId(), null, request.currency(), request.carrier(), request.couponCode(),
-                Boolean.TRUE.equals(request.giftWrap()), request.weddingDate(), locale, true);
+                request.addressId(), null, request.currency(), carrierInput, request.couponCode(),
+                Boolean.TRUE.equals(request.giftWrap()), request.weddingDate(), locale, true,
+                request.serviceLevel());
 
         // STEP-TRD-05 原子事务（TX-TRD-001；订单号 STEP-TRD-04 预生成 + uk_order_no 冲突重取 ×3）
         Order order = txRunner.inTx(() -> createOrderTx(customerId, idemKey, request, quote));
@@ -211,9 +215,33 @@ public class OrderCreateService {
         // order-flow-complete §2.1 写规则：新订单固定 amount_version=2 / tax_amount=0 / refunded_amount=0
         // （税费/预计送达/服务等级真实值由 P1-B 在本方法内接入）
         order.setAmountVersion(AMOUNT_VERSION_CURRENT);
-        order.setTaxAmount(BigDecimal.ZERO.setScale(2));
         order.setRefundedAmount(BigDecimal.ZERO.setScale(2));
+        // order-flow-complete P1-B：税费 / incoterm / 服务等级 / 预计送达快照（quote.total_amount 已含 tax）
+        order.setTaxAmount(quote.taxAmount() == null ? BigDecimal.ZERO.setScale(2) : quote.taxAmount());
+        order.setTaxBreakdown(taxBreakdownSnapshot(quote.taxBreakdown()));
+        order.setIncoterm(quote.incoterm());
+        order.setShippingServiceLevel(quote.serviceLevel());
+        order.setEstimatedDeliveryFrom(quote.estimatedDeliveryFrom());
+        order.setEstimatedDeliveryTo(quote.estimatedDeliveryTo());
         return order;
+    }
+
+    /** tax_breakdown JSON 形状 [{type,label,rate_scaled,base,amount}]（StoreOrderService.toTaxBreakdown 反向读取） */
+    static List<Map<String, Object>> taxBreakdownSnapshot(List<com.dreamy.dto.TradingDtos.TaxBreakdownDto> breakdown) {
+        if (breakdown == null || breakdown.isEmpty()) {
+            return null;
+        }
+        List<Map<String, Object>> result = new ArrayList<>(breakdown.size());
+        for (com.dreamy.dto.TradingDtos.TaxBreakdownDto item : breakdown) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("type", item.type());
+            row.put("label", item.label());
+            row.put("rate_scaled", item.rateScaled());
+            row.put("base", item.base());
+            row.put("amount", item.amount());
+            result.add(row);
+        }
+        return result;
     }
 
     /** 待支付超时分钟（checkout_config.pending_timeout_minutes；缺省 30） */
@@ -297,6 +325,15 @@ public class OrderCreateService {
         }
         snapshot.put("zip", address.getZip());
         snapshot.put("country", address.getCountry());
+        // order-flow-complete §2.3：追加规范码（税费匹配只读快照中的规范码；缺失时按 country 文本解析）
+        String countryCode = address.getCountryCode() != null ? address.getCountryCode()
+                : com.dreamy.support.CountryCatalog.resolveCode(address.getCountry());
+        if (countryCode != null) {
+            snapshot.put("country_code", countryCode);
+        }
+        if (address.getRegionCode() != null) {
+            snapshot.put("region_code", address.getRegionCode());
+        }
         return snapshot;
     }
 }

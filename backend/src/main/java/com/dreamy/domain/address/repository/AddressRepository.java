@@ -60,6 +60,27 @@ public class AddressRepository {
                 .eq(Address::getCustomerId, customerId));
     }
 
+    /** order-flow-complete G：country_code 为空的存量行（启动回填，keyset 分批） */
+    public List<Address> listMissingCountryCodeAfterId(Long lastId, int limit) {
+        return mapper.selectList(new LambdaQueryWrapper<Address>()
+                .isNull(Address::getCountryCode)
+                .gt(Address::getId, lastId)
+                .orderByAsc(Address::getId)
+                .last("LIMIT " + limit));
+    }
+
+    /** order-flow-complete G：回填 country_code / region_code（仅 country_code 仍为空的行） */
+    public int backfillCodes(Long id, String countryCode, String regionCode) {
+        LambdaUpdateWrapper<Address> uw = new LambdaUpdateWrapper<Address>()
+                .eq(Address::getId, id)
+                .isNull(Address::getCountryCode)
+                .set(Address::getCountryCode, countryCode);
+        if (regionCode != null) {
+            uw.set(Address::getRegionCode, regionCode);
+        }
+        return mapper.update(null, uw);
+    }
+
     /** RM-TRD-016 countByCustomerId（首条地址强制默认判定） */
     public long countByCustomerId(Long customerId) {
         return mapper.selectCount(new LambdaQueryWrapper<Address>().eq(Address::getCustomerId, customerId));

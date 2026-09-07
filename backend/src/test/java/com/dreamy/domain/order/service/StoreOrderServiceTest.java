@@ -71,6 +71,8 @@ class StoreOrderServiceTest {
     OrderEventRecorder orderEventRecorder;
     @Mock
     com.dreamy.domain.cart.service.StoreCartService storeCartService;
+    @Mock
+    com.dreamy.domain.shipment.service.ShipmentQueryService shipmentQueryService;
 
     StoreOrderService service;
 
@@ -86,7 +88,8 @@ class StoreOrderServiceTest {
     void setUp() {
         service = new StoreOrderService(orderRepository, orderLineRepository, paymentRepository,
                 refundRepository, checkoutConfigRepository, orderCancelService, stripeClient,
-                orderEventRecorder, new TradingImmediateTxRunner(), storeCartService);
+                orderEventRecorder, new TradingImmediateTxRunner(), storeCartService, shipmentQueryService);
+        lenient().when(shipmentQueryService.listByOrder(org.mockito.ArgumentMatchers.anyLong())).thenReturn(List.of());
         CheckoutConfig config = new CheckoutConfig();
         config.setCustomRefundGraceHours(24);
         config.setGiftWrapFeeUsd(new BigDecimal("15.00"));

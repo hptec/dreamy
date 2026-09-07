@@ -30,6 +30,10 @@ public class ShippingCacheService {
     public static final String KEY_CARRIERS = "carriers";
     /** CACHE-SHP-002 */
     public static final String KEY_RATES = "rates";
+    /** order-flow-complete E：shipping:options（启用运费选项全量） */
+    public static final String KEY_OPTIONS = "options";
+    /** order-flow-complete D：shipping:countries（ISO 国家列表 + supported 派生） */
+    public static final String KEY_COUNTRIES = "countries";
 
     private static final Duration TTL = Duration.ofSeconds(600);
 
@@ -66,12 +70,29 @@ public class ShippingCacheService {
         return getOrLoad(KEY_RATES, loader);
     }
 
+    /** 读取 shipping:options */
+    @SuppressWarnings("unchecked")
+    public <T> List<T> getOptions(Supplier<List<T>> loader) {
+        return getOrLoad(KEY_OPTIONS, loader);
+    }
+
+    /** 读取 shipping:countries */
+    @SuppressWarnings("unchecked")
+    public <T> List<T> getCountries(Supplier<List<T>> loader) {
+        return getOrLoad(KEY_COUNTRIES, loader);
+    }
+
     public String invalidateCarriersStrict() {
-        return invalidateStrict(KEY_CARRIERS);
+        return invalidateStrict(KEY_CARRIERS) + "," + invalidateStrict(KEY_COUNTRIES);
     }
 
     public String invalidateRatesStrict() {
         return invalidateStrict(KEY_RATES);
+    }
+
+    /** 运费选项失效（同时失效 countries：supported 派生依赖选项覆盖） */
+    public String invalidateOptionsStrict() {
+        return invalidateStrict(KEY_OPTIONS) + "," + invalidateStrict(KEY_COUNTRIES);
     }
 
     @SuppressWarnings("unchecked")

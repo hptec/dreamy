@@ -12,11 +12,13 @@ public final class ShippingDtos {
     }
 
     /** MAP-SHP-001 Carrier → CarrierDto（契约 Carrier Schema） */
-    public record CarrierDto(Long id, String name, String zones, String leadTime, Integer status) {
+    public record CarrierDto(Long id, String name, String zones, String leadTime, Integer status,
+                             String code, String trackingUrlTemplate) {
     }
 
-    /** 契约 CarrierUpsert（E-SHP-02/03 请求体；status 字符串入参由 V-SHP-004 校验枚举） */
-    public record CarrierUpsert(String name, String zones, String leadTime, Integer status) {
+    /** 契约 CarrierUpsert（E-SHP-02/03 请求体；order-flow-complete C 尾部追加 code / tracking_url_template） */
+    public record CarrierUpsert(String name, String zones, String leadTime, Integer status,
+                                String code, String trackingUrlTemplate) {
     }
 
     /** MAP-SHP-002 ShippingRate → ShippingRateDto（契约 ShippingRate Schema） */

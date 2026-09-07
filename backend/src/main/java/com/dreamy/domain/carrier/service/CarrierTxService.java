@@ -51,10 +51,20 @@ public class CarrierTxService {
         // STEP-SHP-01 INSERT（RM-SHP-004）
         Carrier carrier = new Carrier();
         carrier.setName(valid.name());
+        carrier.setCode(valid.code());
+        carrier.setTrackingUrlTemplate(valid.trackingUrlTemplate());
         carrier.setZones(valid.zones());
         carrier.setLeadTime(valid.leadTime());
         carrier.setStatus(valid.status());
-        carrierRepository.insert(carrier);
+        // order-flow-complete C：code 唯一（uk_carrier_code 兜底并发）→ 409903
+        if (valid.code() != null && carrierRepository.existsByCode(valid.code(), null)) {
+            throw new ShippingException(ShippingErrorCode.CARRIER_CODE_EXISTS, Map.of("code", valid.code()));
+        }
+        try {
+            carrierRepository.insert(carrier);
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            throw new ShippingException(ShippingErrorCode.CARRIER_CODE_EXISTS, Map.of("code", String.valueOf(valid.code())));
+        }
         CarrierDto after = toDto(carrier);
         // STEP-SHP-02 审计（action=创建承运方，changes.after=载荷）
         audit.record("创建承运方", carrier.getName(), changesJson(null, after));
@@ -77,11 +87,23 @@ public class CarrierTxService {
             CarrierStatusMachine.assertNotLastEnabled(carrierRepository.countEnabled());
         }
         // STEP-SHP-03 整单覆盖（RM-SHP-005）；name 变更不联动规则行（DEC-SHP-2，孤行回退兜底）
+        // order-flow-complete C：code 唯一（排除自身）→ 409903；未提交 code 时保留既有编码（存量兼容）
+        String code = valid.code() != null ? valid.code() : existing.getCode();
+        if (code != null && carrierRepository.existsByCode(code, id)) {
+            throw new ShippingException(ShippingErrorCode.CARRIER_CODE_EXISTS, Map.of("code", code));
+        }
         existing.setName(valid.name());
+        existing.setCode(code);
+        existing.setTrackingUrlTemplate(valid.trackingUrlTemplate() != null
+                ? valid.trackingUrlTemplate() : existing.getTrackingUrlTemplate());
         existing.setZones(valid.zones());
         existing.setLeadTime(valid.leadTime());
         existing.setStatus(valid.status());
-        carrierRepository.updateAll(existing);
+        try {
+            carrierRepository.updateAll(existing);
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            throw new ShippingException(ShippingErrorCode.CARRIER_CODE_EXISTS, Map.of("code", String.valueOf(code)));
+        }
         CarrierDto after = toDto(existing);
         // STEP-SHP-04 审计（action=编辑承运方，changes before/after）
         audit.record("编辑承运方", existing.getName(), changesJson(before, after));
@@ -141,7 +163,8 @@ public class CarrierTxService {
     /** MAP-SHP-001 */
     static CarrierDto toDto(Carrier carrier) {
         return new CarrierDto(carrier.getId(), carrier.getName(), carrier.getZones(),
-                carrier.getLeadTime(), carrier.getStatus() == null ? null : carrier.getStatus().getKey());
+                carrier.getLeadTime(), carrier.getStatus() == null ? null : carrier.getStatus().getKey(),
+                carrier.getCode(), carrier.getTrackingUrlTemplate());
     }
 
     private void enqueue(String triggerPoint, Carrier carrier) {

@@ -25,5 +25,7 @@ public enum CacheInvalidationTarget {
     REVIEW_QUESTIONS,
     SHIPPING_CARRIERS,
     SHIPPING_RATES,
+    SHIPPING_OPTIONS,
+    TAX_RULES,
     TRADING_EXCHANGE_RATES
 }

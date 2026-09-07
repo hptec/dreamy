@@ -17,6 +17,7 @@ import com.dreamy.domain.payment.repository.PaymentRepository;
 import com.dreamy.domain.refund.entity.Refund;
 import com.dreamy.domain.refund.repository.RefundRepository;
 import com.dreamy.domain.refund.service.RefundEligibility;
+import com.dreamy.domain.shipment.service.ShipmentQueryService;
 import com.dreamy.dto.TradingDtos.CartItemCreate;
 import com.dreamy.dto.TradingDtos.OrderLineDto;
 import com.dreamy.dto.TradingDtos.PaymentCredential;
@@ -63,13 +64,14 @@ public class StoreOrderService {
     private final OrderEventRecorder orderEventRecorder;
     private final TradingTxRunner txRunner;
     private final StoreCartService storeCartService;
+    private final ShipmentQueryService shipmentQueryService;
 
     public StoreOrderService(OrderRepository orderRepository, OrderLineRepository orderLineRepository,
                              PaymentRepository paymentRepository, RefundRepository refundRepository,
                              CheckoutConfigRepository checkoutConfigRepository,
                              OrderCancelService orderCancelService, StripeClient stripeClient,
                              OrderEventRecorder orderEventRecorder, TradingTxRunner txRunner,
-                             StoreCartService storeCartService) {
+                             StoreCartService storeCartService, ShipmentQueryService shipmentQueryService) {
         this.orderRepository = orderRepository;
         this.orderLineRepository = orderLineRepository;
         this.paymentRepository = paymentRepository;
@@ -80,6 +82,7 @@ public class StoreOrderService {
         this.orderEventRecorder = orderEventRecorder;
         this.txRunner = txRunner;
         this.storeCartService = storeCartService;
+        this.shipmentQueryService = shipmentQueryService;
     }
 
     /** E-listStoreOrders（V-TRD-030/031 + STEP-TRD-01/02；Paginated 六字段） */
@@ -285,8 +288,7 @@ public class StoreOrderService {
                 order.getAmountVersion(), order.getEstimatedDeliveryFrom(), order.getEstimatedDeliveryTo(),
                 keyOf(order.getShippingServiceLevel()),
                 orderEventRecorder.listCustomerVisible(order.getId()),
-                // shipments[] 由 P1-B ShipmentService 接入（本阶段空列表）
-                List.of());
+                shipmentQueryService.listByOrder(order.getId()));
     }
 
     /** IntEnum → 契约整数码（null 透传） */

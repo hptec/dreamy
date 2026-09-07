@@ -16,6 +16,10 @@ public enum TradingErrorCode {
     CART_ITEM_NOT_FOUND(404603, 404, "error.404603"),
     WISHLIST_ITEM_NOT_FOUND(404604, 404, "error.404604"),
     REFUND_NOT_FOUND(404605, 404, "error.404605"),
+    /** order-flow-complete：税率规则不存在 */
+    TAX_RULE_NOT_FOUND(404906, 404, "error.404906"),
+    /** order-flow-complete：包裹不存在 */
+    SHIPMENT_NOT_FOUND(404907, 404, "error.404907"),
 
     // ===== 409 =====
     STOCK_INSUFFICIENT(409601, 409, "error.409601"),
@@ -29,6 +33,10 @@ public enum TradingErrorCode {
     REFUND_PENDING_EXISTS(409907, 409, "error.409907"),
     /** order-flow-complete：重复物流单号（uk order_id+carrier_code+tracking_no） */
     SHIPMENT_TRACKING_DUPLICATE(409908, 409, "error.409908"),
+    /** order-flow-complete：汇率供应商刷新在 manual 模式不可用 */
+    EXCHANGE_RATE_REFRESH_UNAVAILABLE(409905, 409, "error.409905"),
+    /** order-flow-complete：包裹状态不允许该操作（已签收/已作废/存在供应商事件） */
+    SHIPMENT_STATE_INVALID(409909, 409, "error.409909"),
 
     // ===== 410 =====
     ORDER_EXPIRED(410601, 410, "error.410601"),
@@ -46,11 +54,17 @@ public enum TradingErrorCode {
     /** order-flow-complete：退款累计超额（refunded_amount + amount > total_amount） */
     REFUND_TOTAL_EXCEEDED(422908, 422, "error.422908"),
 
+    // ===== 429 =====
+    /** order-flow-complete：游客查单频控（IP 10 次/小时） */
+    TRACK_RATE_LIMITED(429601, 429, "error.429601"),
+
     // ===== 401（webhook 安全第 1 条） =====
     WEBHOOK_SIGNATURE_INVALID(401601, 401, "error.401601"),
 
     // ===== 502/504（BE-DIM-5 降级矩阵） =====
     STRIPE_UNAVAILABLE(502601, 502, "error.502601"),
+    /** order-flow-complete：汇率供应商不可用/超时（保留现值） */
+    EXCHANGE_RATE_PROVIDER_UNAVAILABLE(502602, 502, "error.502602"),
     STRIPE_TIMEOUT(504601, 504, "error.504601");
 
     /** 数字业务码（契约稳定锚点） */

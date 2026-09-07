@@ -140,6 +140,9 @@ dreamy:
       # Stripe 签名过滤器接管验签——webhook 安全第 5 条）
       - /api/store/exchange-rates
       - POST:/api/store/payments/stripe/webhook
+      # order-flow-complete P1-B：ISO 国家列表（公开缓存）+ 游客查单（IP 频控 10 次/小时）
+      - /api/store/shipping/countries
+      - POST:/api/store/orders/track
       # showroom 域登记 1 条（showroom-api-detail 0.1；其余 showrooms 路径含 GET 列表仍强制鉴权）
       - POST:/api/store/showrooms/guest-session
     # guest 操作白名单（showroom-api-detail 0.2-b，三条；条目形式与公开白名单完全一致）
@@ -161,6 +164,18 @@ dreamy:
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
     timeout-ms: 10000
     webhook-tolerance-seconds: 300
+  # 轨迹供应商（order-flow-complete §3.3；stub 缺省无操作 | track17=17TRACK v2.2；api key 仅后端配置不落日志）
+  tracking:
+    mode: ${TRACKING_MODE:stub}
+    track17-api-key: ${TRACK17_API_KEY:}
+    sync-cron: "0 */30 * * * *"
+    provider-timeout-ms: 5000
+    sync-interval-minutes: 30
+  # 汇率行情供应商（order-flow-complete §3.3；manual 缺省手工维护 | frankfurter=ECB 日频；超时 5s 失败保留现值）
+  exchange-rate:
+    mode: ${EXCHANGE_RATE_MODE:manual}
+    refresh-cron: "0 5 3 * * *"
+    provider-timeout-ms: 5000
   # RabbitMQ 事件拓扑（data-flow「MQ 事件拓扑」BE-DIM-4；dev 缺省 stub 同步直调，不连 broker）
   mq:
     mode: ${MQ_MODE:stub}

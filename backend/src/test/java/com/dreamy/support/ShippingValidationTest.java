@@ -34,29 +34,29 @@ class ShippingValidationTest {
     @DisplayName("V-SHP-003/004 name/status 必填；name>64 拒绝（bs-259/262）")
     void carrierRequiredFields() {
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert(null, null, null, 1)), "name");
+                new CarrierUpsert(null, null, null, 1, null, null)), "name");
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("  ", null, null, 1)), "name");
+                new CarrierUpsert("  ", null, null, 1, null, null)), "name");
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("x".repeat(65), null, null, 1)), "name");
+                new CarrierUpsert("x".repeat(65), null, null, 1, null, null)), "name");
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("FedEx", null, null, null)), "status");
+                new CarrierUpsert("FedEx", null, null, null, null, null)), "status");
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("FedEx", null, null, 99)), "status");
+                new CarrierUpsert("FedEx", null, null, 99, null, null)), "status");
     }
 
     @Test
     @DisplayName("V-SHP-005/006 zones/lead_time 可空容忍（bs-260/261）；超长拒绝")
     void carrierOptionalFields() {
-        var valid = ShippingValidation.validateCarrier(new CarrierUpsert(" FedEx ", null, null, 2));
+        var valid = ShippingValidation.validateCarrier(new CarrierUpsert(" FedEx ", null, null, 2, null, null));
         assertThat(valid.name()).isEqualTo("FedEx");
         assertThat(valid.zones()).isNull();
         assertThat(valid.leadTime()).isNull();
         assertThat(valid.status()).isEqualTo(CarrierStatus.DISABLED);
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("FedEx", "z".repeat(256), null, 1)), "zones");
+                new CarrierUpsert("FedEx", "z".repeat(256), null, 1, null, null)), "zones");
         assertThatField(() -> ShippingValidation.validateCarrier(
-                new CarrierUpsert("FedEx", null, "t".repeat(65), 1)), "lead_time");
+                new CarrierUpsert("FedEx", null, "t".repeat(65), 1, null, null)), "lead_time");
     }
 
     @Test

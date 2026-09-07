@@ -3,10 +3,12 @@ package com.dreamy.domain.exchangerate.repository;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.dreamy.domain.exchangerate.entity.ExchangeRate;
+import com.dreamy.enums.ExchangeRateSource;
 import com.dreamy.support.TradingParams;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -44,6 +46,26 @@ public class ExchangeRateRepository {
                 .eq(ExchangeRate::getCurrency, currency)
                 .set(ExchangeRate::getRate, rate)
                 .set(ExchangeRate::getUpdatedBy, updatedBy));
+    }
+
+    /** order-flow-complete G：手工修改（source=MANUAL + manual_override 标记） */
+    public int updateManual(String currency, BigDecimal rate, boolean manualOverride, Long updatedBy) {
+        return mapper.update(null, new LambdaUpdateWrapper<ExchangeRate>()
+                .eq(ExchangeRate::getCurrency, currency)
+                .set(ExchangeRate::getRate, rate)
+                .set(ExchangeRate::getUpdatedBy, updatedBy)
+                .set(ExchangeRate::getSource, ExchangeRateSource.MANUAL)
+                .set(ExchangeRate::getManualOverride, manualOverride));
+    }
+
+    /** order-flow-complete G：供应商刷新（仅 manual_override=0 行；source=PROVIDER + synced_at） */
+    public int updateFromProvider(String currency, BigDecimal rate, LocalDateTime syncedAt) {
+        return mapper.update(null, new LambdaUpdateWrapper<ExchangeRate>()
+                .eq(ExchangeRate::getCurrency, currency)
+                .eq(ExchangeRate::getManualOverride, false)
+                .set(ExchangeRate::getRate, rate)
+                .set(ExchangeRate::getSource, ExchangeRateSource.PROVIDER)
+                .set(ExchangeRate::getSyncedAt, syncedAt));
     }
 
     /** 种子插入（决策 21，TradingSeedInitializer） */

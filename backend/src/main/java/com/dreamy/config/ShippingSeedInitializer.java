@@ -94,10 +94,10 @@ public class ShippingSeedInitializer {
         if (count != null && count > 0) {
             return;
         }
-        insertCarrier("FedEx International Priority", "全球", "3-5 天", CarrierStatus.ENABLED);
-        insertCarrier("UPS Worldwide Express", "北美 / 欧洲", "4-6 天", CarrierStatus.ENABLED);
-        insertCarrier("DHL Express", "全球", "3-6 天", CarrierStatus.ENABLED);
-        insertCarrier("USPS Priority", "美国境内", "2-4 天", CarrierStatus.DISABLED);
+        insertCarrier("FedEx International Priority", "FEDEX", "全球", "3-5 天", CarrierStatus.ENABLED);
+        insertCarrier("UPS Worldwide Express", "UPS", "北美 / 欧洲", "4-6 天", CarrierStatus.ENABLED);
+        insertCarrier("DHL Express", "DHL", "全球", "3-6 天", CarrierStatus.ENABLED);
+        insertCarrier("USPS Priority", "USPS", "美国境内", "2-4 天", CarrierStatus.DISABLED);
         log.info("[ShippingSeed] 承运方种子 4 行已灌入");
     }
 
@@ -129,9 +129,13 @@ public class ShippingSeedInitializer {
         log.info("[ShippingSeed] 运费规则种子 10 行已灌入（含 Rest of World 兜底行）");
     }
 
-    private void insertCarrier(String name, String zones, String leadTime, CarrierStatus status) {
+    private void insertCarrier(String name, String code, String zones, String leadTime, CarrierStatus status) {
         Carrier carrier = new Carrier();
         carrier.setName(name);
+        // order-flow-complete C：code + 跟踪链接模板（与 LogisticsMigrationInitializer 回填表同源）
+        carrier.setCode(code);
+        String[] known = LogisticsMigrationInitializer.KNOWN_CARRIERS.get(code);
+        carrier.setTrackingUrlTemplate(known == null ? null : known[1]);
         carrier.setZones(zones);
         carrier.setLeadTime(leadTime);
         carrier.setStatus(status);

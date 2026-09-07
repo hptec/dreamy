@@ -34,8 +34,16 @@ public final class ShippingValidation {
     }
 
     /** 校验后的承运方载荷（trim 落库值；空白可选字段归 null——bs-260/261 容忍） */
-    public record ValidCarrier(String name, String zones, String leadTime, CarrierStatus status) {
+    public record ValidCarrier(String name, String zones, String leadTime, CarrierStatus status,
+                               String code, String trackingUrlTemplate) {
+        /** 兼容旧四参构造（单测/内部调用） */
+        public ValidCarrier(String name, String zones, String leadTime, CarrierStatus status) {
+            this(name, zones, leadTime, status, null, null);
+        }
     }
+
+    /** order-flow-complete C：承运商编码模式（大写字母/数字/下划线，2~32） */
+    private static final java.util.regex.Pattern CARRIER_CODE = java.util.regex.Pattern.compile("^[A-Z0-9_]{2,32}$");
 
     /** V-SHP-003~006（E-SHP-02）/ V-SHP-007（E-SHP-03 整单覆盖全字段重校验） */
     public static ValidCarrier validateCarrier(CarrierUpsert req) {
@@ -62,7 +70,20 @@ public final class ShippingValidation {
         if (leadTime != null && leadTime.length() > 64) {
             throw ShippingException.fieldValidation("lead_time");
         }
-        return new ValidCarrier(name, zones, leadTime, status);
+        // order-flow-complete C：code 可空（存量兼容）；提供时大写化后须匹配 ^[A-Z0-9_]{2,32}$（唯一性由服务层 409903）
+        String code = trimToNull(req.code());
+        if (code != null) {
+            code = code.toUpperCase(java.util.Locale.ROOT);
+            if (!CARRIER_CODE.matcher(code).matches() || "ANY".equals(code)) {
+                throw ShippingException.fieldValidation("code");
+            }
+        }
+        // tracking_url_template 可空；提供时 <=255 且须含 {tracking_no} 占位
+        String template = trimToNull(req.trackingUrlTemplate());
+        if (template != null && (template.length() > 255 || !template.contains("{tracking_no}"))) {
+            throw ShippingException.fieldValidation("tracking_url_template");
+        }
+        return new ValidCarrier(name, zones, leadTime, status, code, template);
     }
 
     /** V-SHP-008 status 必填 ∈ {enabled, disabled}（E-SHP-05） */

@@ -27,4 +27,12 @@ public final class ZoneNormalizer {
         }
         return na.equalsIgnoreCase(nb);
     }
+
+    /**
+     * order-flow-complete：shipping_option.zone 规范化——接受新 8 区 zone 码（大小写不敏感）与旧 zone 名
+     * （"North America" 等，经 GeoZoneResolver 兼容映射）；无法识别 → null（调用方 422901 zone）。
+     */
+    public static String normalizeZoneCode(String zone) {
+        return GeoZoneResolver.canonicalZone(zone);
+    }
 }

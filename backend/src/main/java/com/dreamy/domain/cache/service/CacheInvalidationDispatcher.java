@@ -5,6 +5,7 @@ import com.dreamy.infra.ExchangeRateCacheService;
 import com.dreamy.infra.MarketingCacheService;
 import com.dreamy.infra.ReviewCacheService;
 import com.dreamy.infra.ShippingCacheService;
+import com.dreamy.infra.TaxCacheService;
 import com.dreamy.domain.site_builder.service.SiteBuilderCacheService;
 import org.springframework.stereotype.Component;
 
@@ -18,16 +19,19 @@ public class CacheInvalidationDispatcher {
     private final ShippingCacheService shipping;
     private final ExchangeRateCacheService exchangeRates;
     private final SiteBuilderCacheService siteBuilder;
+    private final TaxCacheService tax;
 
     public CacheInvalidationDispatcher(CatalogCacheService catalog, MarketingCacheService marketing,
                                        ReviewCacheService review, ShippingCacheService shipping,
-                                       ExchangeRateCacheService exchangeRates, SiteBuilderCacheService siteBuilder) {
+                                       ExchangeRateCacheService exchangeRates, SiteBuilderCacheService siteBuilder,
+                                       TaxCacheService tax) {
         this.catalog = catalog;
         this.marketing = marketing;
         this.review = review;
         this.shipping = shipping;
         this.exchangeRates = exchangeRates;
         this.siteBuilder = siteBuilder;
+        this.tax = tax;
     }
 
     public String execute(CacheInvalidationTarget target) {
@@ -55,6 +59,8 @@ public class CacheInvalidationDispatcher {
             case REVIEW_QUESTIONS -> generation(review.invalidateFamilyStrict(ReviewCacheService.Family.QUESTIONS));
             case SHIPPING_CARRIERS -> shipping.invalidateCarriersStrict();
             case SHIPPING_RATES -> shipping.invalidateRatesStrict();
+            case SHIPPING_OPTIONS -> shipping.invalidateOptionsStrict();
+            case TAX_RULES -> tax.invalidateStrict();
             case TRADING_EXCHANGE_RATES -> exchangeRates.invalidateStrict();
         };
     }

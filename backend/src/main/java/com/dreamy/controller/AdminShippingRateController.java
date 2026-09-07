@@ -19,6 +19,8 @@ import java.util.Map;
 
 /**
  * 后台运费规则控制器（E-SHP-06~09；V-SHP-001 鉴权前置：AdminJwtFilter(40100) + RBAC `/shipping`(40300)；不缓存）。
+ * order-flow-complete E：shipping_rate 已被 shipping_option 取代（报价改读 /api/admin/shipping/options）。
+ * 本控制器保留 GET 只读兼容（旧表数据，供回滚/对照）；写端点统一返回 410901 引导迁移。
  */
 @RestController
 public class AdminShippingRateController {
@@ -38,25 +40,24 @@ public class AdminShippingRateController {
         return ResponseEntity.ok(R.ok(Map.of("items", rateAdminService.list())));
     }
 
-    /** E-SHP-07 createAdminShippingRate（TX-SHP-005，审计 action=创建运费规则） */
+    /** E-SHP-07（已废弃）→ 410901 */
     @RequirePermission(PERMISSION)
     @PostMapping("/api/admin/shipping/rates")
     public ResponseEntity<R<ShippingRateDto>> create(@RequestBody ShippingRateUpsert req) {
-        return ResponseEntity.status(201).body(R.ok(rateAdminService.create(req)));
+        throw new com.dreamy.error.ShippingException(com.dreamy.error.ShippingErrorCode.SHIPPING_RATE_DEPRECATED);
     }
 
-    /** E-SHP-08 updateAdminShippingRate（TX-SHP-006，审计 action=编辑运费规则） */
+    /** E-SHP-08（已废弃）→ 410901 */
     @RequirePermission(PERMISSION)
     @PutMapping("/api/admin/shipping/rates/{id}")
     public ResponseEntity<R<ShippingRateDto>> update(@PathVariable String id, @RequestBody ShippingRateUpsert req) {
-        return ResponseEntity.ok(R.ok(rateAdminService.update(id, req)));
+        throw new com.dreamy.error.ShippingException(com.dreamy.error.ShippingErrorCode.SHIPPING_RATE_DEPRECATED);
     }
 
-    /** E-SHP-09 deleteAdminShippingRate（TX-SHP-007，审计 action=删除运费规则）→ 204 */
+    /** E-SHP-09（已废弃）→ 410901 */
     @RequirePermission(PERMISSION)
     @DeleteMapping("/api/admin/shipping/rates/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
-        rateAdminService.delete(id);
-        return ResponseEntity.noContent().build();
+        throw new com.dreamy.error.ShippingException(com.dreamy.error.ShippingErrorCode.SHIPPING_RATE_DEPRECATED);
     }
 }

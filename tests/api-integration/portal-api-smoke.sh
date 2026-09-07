@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
 # portal-api-integration L3 E2E API smoke (七域，真实环境零 Mock)
-# 前置：后端 bootRun（dev stub 模式）已监听 :8080，pd-mysql/pd-redis 运行中。
+# 前置：后端 bootRun（dev stub 模式）已监听 :18081，pd-mysql/pd-redis 运行中。
 # 用法：bash tests/api-integration/portal-api-smoke.sh [BASE_URL]
 # 可重复执行：动态 RUN_ID 命名、幂等端点、临时数据用后清理（标签/维度/Showroom/承运商状态还原/汇率还原）。
 # 依赖：curl、jq
 # =============================================================================
 set -u
-BASE="${1:-http://localhost:8080}"
+BASE="${1:-http://localhost:18081}"
 LOG_FILE="${OTP_LOG:-$(cd "$(dirname "$0")/../.." && pwd)/logs/identity.log}"
 RUN_ID="$(date +%s)"
 PASS=0; FAIL=0; FAILED_CASES=()

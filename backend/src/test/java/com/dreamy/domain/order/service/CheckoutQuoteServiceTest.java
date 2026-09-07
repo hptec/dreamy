@@ -41,7 +41,9 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -73,14 +75,20 @@ class CheckoutQuoteServiceTest {
     CouponDomainService couponDomainService;
     @Mock
     TradingDyeLotPort dyeLotPort;
+    @Mock
+    com.dreamy.domain.tax.service.TaxCalculator taxCalculator;
 
     CheckoutQuoteService service;
 
     @BeforeEach
     void setUp() {
         service = new CheckoutQuoteService(cartItemRepository, addressRepository, exchangeRateRepository,
-                checkoutConfigRepository, catalogSnapshotPort, shippingQuotePort, couponDomainService, dyeLotPort);
+                checkoutConfigRepository, catalogSnapshotPort, shippingQuotePort, couponDomainService, dyeLotPort,
+                taxCalculator);
         lenient().when(dyeLotPort.hintProductIds(anyLong(), anyList())).thenReturn(List.of());
+        lenient().when(taxCalculator.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(com.dreamy.domain.tax.service.TaxCalculator.TaxQuote.none(
+                        com.dreamy.enums.Incoterm.DDU, true, null, false));
         Address address = new Address();
         address.setId(ADDRESS);
         address.setCustomerId(CUSTOMER);
@@ -104,6 +112,8 @@ class CheckoutQuoteServiceTest {
         CheckoutConfig config = new CheckoutConfig();
         config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
         config.setCustomRefundGraceHours(24);
+        config.setProductionDaysDefault(21);
+        config.setExchangeRateSpreadScaled(0);
         lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
     }
 
@@ -236,5 +246,91 @@ class CheckoutQuoteServiceTest {
         assertThatThrownBy(() -> service.quote(CUSTOMER, request("USD", null, null, false, null), "en"))
                 .isInstanceOfSatisfying(TradingException.class, ex ->
                         assertThat(ex.getDetails()).containsEntry("reason", "cart_empty"));
+    }
+
+    // ==================== order-flow-complete P1-B：税费 / 运费选项 / ETA / 锁汇 spread ====================
+
+    @Test
+    @DisplayName("P1-B 含税：DDP 税费计入 total；tax_breakdown/incoterm/duties_notice 透出；address country_code/region_code 传给 TaxCalculator")
+    void taxIncludedInTotal() {
+        Address gb = new Address();
+        gb.setId(ADDRESS);
+        gb.setCustomerId(CUSTOMER);
+        gb.setCountry("United Kingdom");
+        gb.setCountryCode("GB");
+        when(addressRepository.findByIdAndCustomerId(ADDRESS, CUSTOMER)).thenReturn(gb);
+        when(taxCalculator.compute(eq("GB"), isNull(), any(), any(), any(), eq("USD"), any())).thenReturn(
+                new com.dreamy.domain.tax.service.TaxCalculator.TaxQuote(new BigDecimal("44.40"),
+                        List.of(new com.dreamy.dto.TradingDtos.TaxBreakdownDto(1, "VAT 20%", 2000,
+                                new BigDecimal("222.00"), new BigDecimal("44.40"))),
+                        com.dreamy.enums.Incoterm.DDP, false, null, true));
+        CheckoutQuoteResponse resp = service.quote(CUSTOMER, request("USD", null, null, false, null), "en");
+        assertThat(resp.taxAmount()).isEqualByComparingTo("44.40");
+        assertThat(resp.totalAmount()).isEqualByComparingTo("266.40");
+        assertThat(resp.incoterm()).isEqualTo(1);
+        assertThat(resp.dutiesNotice()).isFalse();
+        assertThat(resp.taxBreakdown()).hasSize(1);
+        assertThat(resp.countryCode()).isEqualTo("GB");
+        assertThat(resp.exchangeRateLockedNote()).isFalse();
+        // 运费 USD 22.00 传入税费计算（applies_to_shipping 由计算器决定）
+        verify(taxCalculator).compute(eq("GB"), isNull(), eq(new BigDecimal("200.00")), eq(new BigDecimal("0.00")),
+                eq(new BigDecimal("22.00")), eq("USD"), any());
+    }
+
+    @Test
+    @DisplayName("P1-B 运费选项：service_level=2 → 选中 EXPRESS 最便宜；carrier_code 请求命中；ETA = today + production_days + transit")
+    void serviceLevelAndEta() {
+        when(shippingQuotePort.quoteOptions(anyString(), any())).thenReturn(List.of(
+                new ShippingOptionQuote("FedEx International Priority", new BigDecimal("25.00"), null, "FEDEX", 1, 3, 6),
+                new ShippingOptionQuote("FedEx International Priority", new BigDecimal("40.00"), null, "FEDEX", 2, 1, 3),
+                new ShippingOptionQuote("UPS Worldwide Express", new BigDecimal("22.00"), null, "UPS", 1, 4, 7),
+                new ShippingOptionQuote("UPS Worldwide Express", new BigDecimal("35.00"), null, "UPS", 2, 2, 4)));
+        // 缺省：STANDARD 最便宜 UPS 22
+        CheckoutQuoteResponse std = service.quote(CUSTOMER, request("USD", null, null, false, null), "en");
+        assertThat(std.shippingFee()).isEqualByComparingTo("22.00");
+        assertThat(std.serviceLevel()).isEqualTo(1);
+        assertThat(std.carrierCode()).isEqualTo("UPS");
+        assertThat(std.shippingOptions()).hasSize(4);
+        // production_days = max(lead 30, default 21) = 30；ETA = today+30+4 .. today+30+7
+        assertThat(std.productionDays()).isEqualTo(30);
+        assertThat(std.estimatedDeliveryFrom()).isEqualTo(LocalDate.now().plusDays(34));
+        assertThat(std.estimatedDeliveryTo()).isEqualTo(LocalDate.now().plusDays(37));
+        ShippingOptionDto selected = std.shippingOptions().stream().filter(o -> Boolean.TRUE.equals(o.selected())).findFirst().orElseThrow();
+        assertThat(selected.estimatedDeliveryFrom()).isEqualTo(LocalDate.now().plusDays(34));
+        // service_level=2：EXPRESS 最便宜 UPS 35
+        CheckoutQuoteResponse express = service.quote(CUSTOMER, new CheckoutQuoteRequest(ADDRESS, null, "USD", null,
+                null, false, null, 2), "en");
+        assertThat(express.shippingFee()).isEqualByComparingTo("35.00");
+        assertThat(express.serviceLevel()).isEqualTo(2);
+        // carrier_code=FEDEX + level 2 → 40
+        CheckoutQuoteResponse fedex = service.quote(CUSTOMER, new CheckoutQuoteRequest(ADDRESS, null, "USD", "FEDEX",
+                null, false, null, 2), "en");
+        assertThat(fedex.shippingFee()).isEqualByComparingTo("40.00");
+        assertThat(fedex.carrierCode()).isEqualTo("FEDEX");
+        // strict：请求承运商未命中 → 422601 carrier
+        assertThatThrownBy(() -> service.compute(CUSTOMER, ADDRESS, null, "USD", "NOPE", null, false, null, "en", true, null))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
+    }
+
+    @Test
+    @DisplayName("P1-B 锁汇 spread：EUR 0.92 × (1+150/10000) = 0.933800；exchange_rate_locked_note=true；USD 不加价")
+    void exchangeRateSpread() {
+        CheckoutConfig config = new CheckoutConfig();
+        config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
+        config.setExchangeRateSpreadScaled(150);
+        config.setProductionDaysDefault(21);
+        when(checkoutConfigRepository.getSingleton()).thenReturn(config);
+        ExchangeRate eur = new ExchangeRate();
+        eur.setCurrency("EUR");
+        eur.setRate(new BigDecimal("0.920000"));
+        when(exchangeRateRepository.findByCurrency("EUR")).thenReturn(eur);
+        CheckoutQuoteResponse resp = service.quote(CUSTOMER, request("EUR", null, null, false, null), "en");
+        assertThat(resp.exchangeRate()).isEqualByComparingTo("0.933800");
+        assertThat(resp.exchangeRateLockedNote()).isTrue();
+        // 运费 22 × 0.9338 = 20.5436 → 20.54
+        assertThat(resp.shippingFee()).isEqualByComparingTo("20.54");
+        CheckoutQuoteResponse usd = service.quote(CUSTOMER, request("USD", null, null, false, null), "en");
+        assertThat(usd.exchangeRate()).isEqualByComparingTo("1");
     }
 }

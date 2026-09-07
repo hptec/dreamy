@@ -15,11 +15,15 @@ import com.dreamy.domain.refund.entity.Refund;
 import com.dreamy.domain.refund.repository.RefundRepository;
 import com.dreamy.domain.refund.service.RefundService;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
+import com.dreamy.domain.shipment.repository.ShipmentRepository;
+import com.dreamy.domain.shipment.service.ShipmentQueryService;
+import com.dreamy.domain.shipment.service.ShipmentService;
 import com.dreamy.dto.TradingDtos.AdminOrderDetail;
 import com.dreamy.dto.TradingDtos.AdminOrderListItem;
 import com.dreamy.dto.TradingDtos.AdminRefundDto;
 import com.dreamy.dto.TradingDtos.OrderEventDto;
 import com.dreamy.dto.TradingDtos.OrderLineDto;
+import com.dreamy.dto.TradingDtos.ShipmentCreateRequest;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
 import com.dreamy.infra.TradingAfterCommitRunner;
@@ -62,6 +66,9 @@ public class AdminOrderService {
     private final TradingAuditRecorder audit;
     private final TradingEventsPublisher eventsPublisher;
     private final OrderEventRecorder orderEventRecorder;
+    private final ShipmentService shipmentService;
+    private final ShipmentQueryService shipmentQueryService;
+    private final ShipmentRepository shipmentRepository;
 
     public AdminOrderService(OrderRepository orderRepository, OrderLineRepository orderLineRepository,
                              PaymentRepository paymentRepository, RefundRepository refundRepository,
@@ -69,7 +76,8 @@ public class AdminOrderService {
                              OrderCancelService orderCancelService, RefundService refundService,
                              TradingTxRunner txRunner, TradingAfterCommitRunner afterCommit,
                              TradingAuditRecorder audit, TradingEventsPublisher eventsPublisher,
-                             OrderEventRecorder orderEventRecorder) {
+                             OrderEventRecorder orderEventRecorder, ShipmentService shipmentService,
+                             ShipmentQueryService shipmentQueryService, ShipmentRepository shipmentRepository) {
         this.orderRepository = orderRepository;
         this.orderLineRepository = orderLineRepository;
         this.paymentRepository = paymentRepository;
@@ -82,6 +90,9 @@ public class AdminOrderService {
         this.audit = audit;
         this.eventsPublisher = eventsPublisher;
         this.orderEventRecorder = orderEventRecorder;
+        this.shipmentService = shipmentService;
+        this.shipmentQueryService = shipmentQueryService;
+        this.shipmentRepository = shipmentRepository;
     }
 
     /** E-listAdminOrders（V-TRD-043~047 + STEP-TRD-01/02；API-TRD-03 搜索范围含客户名——ALIGN-015） */
@@ -94,6 +105,16 @@ public class AdminOrderService {
     public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, Integer status, String search,
                                               String currency, LocalDateTime from, LocalDateTime to,
                                               Integer productionStage, LocalDate weddingBefore) {
+        return list(page, pageSize, status, search, currency, from, to, productionStage, weddingBefore, null);
+    }
+
+    /** has_shipment 筛选辅助集合上限（有效包裹订单 id IN；超出上限按最近 N 单） */
+    static final int HAS_SHIPMENT_ID_LIMIT = 5000;
+
+    /** E-listAdminOrders（order-flow-complete §3.2 P1-B：追加 has_shipment 筛选——存在非 CANCELLED 包裹） */
+    public Paginated<AdminOrderListItem> list(Integer page, Integer pageSize, Integer status, String search,
+                                              String currency, LocalDateTime from, LocalDateTime to,
+                                              Integer productionStage, LocalDate weddingBefore, Boolean hasShipment) {
         TradingFieldErrors errors = new TradingFieldErrors();
         int parsedPage = TradingParams.parsePage(page, errors);
         int parsedSize = TradingParams.parsePageSize(pageSize, errors);
@@ -109,6 +130,15 @@ public class AdminOrderService {
         Page<Order> result = orderRepository.pageByAdminFilter(filter.status(), filter.currency(),
                 filter.from(), filter.to(), filter.keyword(), customerIds, stageFilter, weddingBefore,
                 parsedPage, parsedSize);
+        if (hasShipment != null) {
+            // has_shipment：页内过滤（存量分页 SQL 不动；有效包裹订单 id 集合一次批查）
+            List<Long> withShipment = shipmentRepository.listOrderIdsWithActiveShipment(
+                    result.getRecords().stream().map(Order::getId).toList());
+            java.util.Set<Long> ids = new java.util.HashSet<>(withShipment);
+            List<Order> filtered = result.getRecords().stream()
+                    .filter(o -> hasShipment == ids.contains(o.getId())).toList();
+            result.setRecords(filtered);
+        }
         // STEP-TRD-02 customer_name/customer_email 批量联取（防 N+1）
         Map<Long, User> users = refundService.loadUsers(
                 result.getRecords().stream().map(Order::getCustomerId).distinct().toList());
@@ -277,56 +307,29 @@ public class AdminOrderService {
         return assembleDetail(order);
     }
 
-    /** E-shipAdminOrder（V-TRD-049/050 + STEP-TRD-01~03；TX-TRD-004a） */
+    /**
+     * E-shipAdminOrder（兼容别名，order-flow-complete §3.2）：委托 ShipmentService.create（lines 省略 = 全部未发行行），
+     * 等价于创建一个包含全部未发行的 shipment；carrier 可传 code 或 name。全部行发出 → PAID→SHIPPED。
+     */
     public AdminOrderDetail ship(Long orderId, String carrier, String trackingNo) {
         TradingFieldErrors errors = new TradingFieldErrors();
-        if (!TradingParams.isSupportedCarrier(carrier)) {
-            errors.reject("carrier", carrier == null ? "required" : "invalid_enum");
-        }
+        String carrierInput = TradingParams.requireText(carrier, 64, "carrier", errors);
         String parsedTrackingNo = TradingParams.requireText(trackingNo, 64, "tracking_no", errors);
         errors.throwIfAny();
         Order order = orderRepository.findById(orderId);
         if (order == null) {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
-        LocalDateTime now = LocalDateTime.now();
-        Long operatorId = audit.currentOperatorId();
-        ProductionStage fromStage = order.getProductionStage();
-        txRunner.inTx(() -> {
-            // 状态机 guard：paid→shipped（affected=0 → 409602，无变更无需回滚动作）；STATE-2：production_stage 置 NULL
-            int affected = orderRepository.casUpdateStatus(orderId, OrderStatus.PAID, OrderStatus.SHIPPED,
-                    uw -> {
-                        uw.set(Order::getCarrier, carrier)
-                                .set(Order::getTrackingNo, parsedTrackingNo)
-                                .set(Order::getShippedAt, now);
-                        OrderRepository.setProductionStage(uw, null);
-                    });
-            if (affected == 0) {
-                throw TradingException.orderStateInvalid();
+        try {
+            shipmentService.create(orderId, new ShipmentCreateRequest(carrierInput, parsedTrackingNo, null), null);
+        } catch (TradingException ex) {
+            // 旧契约字段名映射：carrier_code → carrier（422601 fields）
+            if (ex.getErrorCode() == TradingErrorCode.FIELD_VALIDATION_FAILED && ex.getDetails() != null
+                    && ex.getDetails().get("fields") instanceof Map<?, ?> fields && fields.containsKey("carrier_code")) {
+                throw TradingException.fieldValidation("carrier", String.valueOf(fields.get("carrier_code")));
             }
-            // §4.5：PAID→SHIPPED → order_event(STATUS_CHANGED, 可见)；制作阶段历史保留在 PRODUCTION 事件
-            if (fromStage != null) {
-                orderEventRecorder.productionStageChanged(orderId, fromStage, null, OrderActorType.ADMIN,
-                        operatorId, "shipped");
-            }
-            Map<String, Object> shipmentPayload = new java.util.LinkedHashMap<>();
-            shipmentPayload.put("carrier", carrier);
-            shipmentPayload.put("tracking_no", parsedTrackingNo);
-            orderEventRecorder.record(orderId, OrderEventType.SHIPMENT, OrderActorType.ADMIN, operatorId,
-                    "Shipped via " + carrier, parsedTrackingNo, shipmentPayload, true);
-            orderEventRecorder.statusChanged(orderId, OrderStatus.PAID, OrderStatus.SHIPPED, OrderActorType.SYSTEM,
-                    null, "all lines shipped", true);
-            // 同事务审计（action=订单发货）
-            audit.record(TradingAuditRecorder.ACTION_ORDER_SHIP, order.getOrderNo(),
-                    "{\"carrier\":\"" + carrier + "\",\"tracking_no\":\"" + parsedTrackingNo + "\"}");
-            // MQ order.shipped（EVT-TRD-002 → 发货邮件 FLOW-P11；outbox 事务内落表，提交后投递）
-            order.setStatus(OrderStatus.SHIPPED);
-            order.setCarrier(carrier);
-            order.setTrackingNo(parsedTrackingNo);
-            order.setShippedAt(now);
-            // FUNC-020：发货邮件语言取下单语言快照（消费侧再按 user.locale_pref 优先覆盖）
-            eventsPublisher.publishOrderShipped(order, localeOf(order));
-        });
+            throw ex;
+        }
         return assembleDetail(orderRepository.findById(orderId));
     }
 
@@ -510,7 +513,6 @@ public class AdminOrderService {
                 order.getEstimatedDeliveryTo(), StoreOrderService.keyOf(order.getShippingServiceLevel()),
                 weddingDaysLeft(order.getWeddingDate()), order.getLocaleSnapshot(),
                 orderEventRecorder.listAdmin(order.getId()),
-                // shipments[] 由 P1-B ShipmentService 接入（本阶段空列表）
-                List.of());
+                shipmentQueryService.listByOrder(order.getId()));
     }
 }

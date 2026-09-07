@@ -50,12 +50,20 @@ public final class TradingDtos {
 
     // ==================== 地址（MAP-TRD-002） ====================
 
+    /** order-flow-complete G：尾部追加 country_code / region_code（country_code 必须在 CountryCatalog 内） */
     public record AddressUpsert(String receiver, String phone, String line, String city,
-                                String state, String zip, String country, Boolean isDefault) {
+                                String state, String zip, String country, Boolean isDefault,
+                                String countryCode, String regionCode) {
+        /** 兼容旧八参构造 */
+        public AddressUpsert(String receiver, String phone, String line, String city, String state, String zip,
+                             String country, Boolean isDefault) {
+            this(receiver, phone, line, city, state, zip, country, isDefault, null, null);
+        }
     }
 
     public record AddressDto(Long id, String receiver, String phone, String line, String city,
-                             String state, String zip, String country, Boolean isDefault) {
+                             String state, String zip, String country, Boolean isDefault,
+                             String countryCode, String regionCode) {
     }
 
     public record AddressListResponse(List<AddressDto> items) {
@@ -63,23 +71,52 @@ public final class TradingDtos {
 
     // ==================== 结算（FLOW-P05/P06） ====================
 
+    /** order-flow-complete H：尾部追加 service_level（1=STANDARD 2=EXPRESS；缺省 STANDARD 最便宜）；carrier 可传 code 或 name */
     public record CheckoutQuoteRequest(Long addressId, String country, String currency, String carrier,
-                                       String couponCode, Boolean giftWrap, LocalDate weddingDate) {
+                                       String couponCode, Boolean giftWrap, LocalDate weddingDate,
+                                       Integer serviceLevel) {
+        /** 兼容旧七参构造 */
+        public CheckoutQuoteRequest(Long addressId, String country, String currency, String carrier,
+                                    String couponCode, Boolean giftWrap, LocalDate weddingDate) {
+            this(addressId, country, currency, carrier, couponCode, giftWrap, weddingDate, null);
+        }
     }
 
-    public record ShippingOptionDto(String carrier, BigDecimal fee, String leadTime, Boolean selected) {
+    /** order-flow-complete E：尾部追加 carrier_code/carrier_name/service_level/transit_days/estimated_delivery */
+    public record ShippingOptionDto(String carrier, BigDecimal fee, String leadTime, Boolean selected,
+                                    String carrierCode, String carrierName, Integer serviceLevel,
+                                    Integer transitDaysMin, Integer transitDaysMax,
+                                    LocalDate estimatedDeliveryFrom, LocalDate estimatedDeliveryTo) {
     }
 
+    /**
+     * order-flow-complete §3.1：尾部追加 tax_amount / tax_breakdown / incoterm / duties_notice / duties_notice_text /
+     * exchange_rate_locked_note / service_level（选中） / carrier_code（选中） / estimated_delivery_from/to / production_days /
+     * country_code / region_code。
+     */
     public record CheckoutQuoteResponse(String currency, BigDecimal exchangeRate, BigDecimal subtotal,
                                         List<ShippingOptionDto> shippingOptions, BigDecimal shippingFee,
                                         BigDecimal giftWrapFee, BigDecimal discountAmount, BigDecimal totalAmount,
                                         Boolean couponValid, Integer couponReasonCode, Boolean leadTimeWarning,
-                                        Integer maxLeadTimeDays, List<Long> dyeLotProductIds) {
+                                        Integer maxLeadTimeDays, List<Long> dyeLotProductIds,
+                                        BigDecimal taxAmount, List<TaxBreakdownDto> taxBreakdown, Integer incoterm,
+                                        Boolean dutiesNotice, String dutiesNoticeText, Boolean exchangeRateLockedNote,
+                                        Integer serviceLevel, String carrierCode, LocalDate estimatedDeliveryFrom,
+                                        LocalDate estimatedDeliveryTo, Integer productionDays, String countryCode,
+                                        String regionCode) {
     }
 
+    /** order-flow-complete H：尾部追加 service_level / carrier_code（carrier 名保留兼容；二者至少其一） */
     public record OrderCreateRequest(String idempotencyKey, Long addressId, String currency, String carrier,
                                      String couponCode, Boolean giftWrap, LocalDate weddingDate,
-                                     String paymentMethod, String locale) {
+                                     String paymentMethod, String locale, Integer serviceLevel, String carrierCode) {
+        /** 兼容旧九参构造 */
+        public OrderCreateRequest(String idempotencyKey, Long addressId, String currency, String carrier,
+                                  String couponCode, Boolean giftWrap, LocalDate weddingDate,
+                                  String paymentMethod, String locale) {
+            this(idempotencyKey, addressId, currency, carrier, couponCode, giftWrap, weddingDate, paymentMethod,
+                    locale, null, null);
+        }
     }
 
     public record PaymentCredential(String paymentIntentId, String clientSecret) {
@@ -234,11 +271,14 @@ public final class TradingDtos {
             implements Serializable {
     }
 
+    /** order-flow-complete G：尾部追加 source/synced_at/manual_override/effective_rate(含 spread)/spread_scaled */
     public record AdminExchangeRateDto(Long id, String currency, BigDecimal rate, Long updatedBy,
-                                       LocalDateTime updatedAt) {
+                                       LocalDateTime updatedAt, Integer source, LocalDateTime syncedAt,
+                                       Boolean manualOverride, BigDecimal effectiveRate, Integer spreadScaled) {
     }
 
-    public record ExchangeRateUpdateRequest(BigDecimal rate) {
+    /** order-flow-complete G：尾部追加 manual_override（null=保持现值） */
+    public record ExchangeRateUpdateRequest(BigDecimal rate, Boolean manualOverride) {
     }
 
     public record ExchangeRateListResponse<T>(List<T> items) {

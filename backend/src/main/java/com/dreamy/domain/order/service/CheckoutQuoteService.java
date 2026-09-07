@@ -11,15 +11,21 @@ import com.dreamy.domain.checkout.entity.CheckoutConfig;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
 import com.dreamy.domain.exchangerate.entity.ExchangeRate;
 import com.dreamy.domain.exchangerate.repository.ExchangeRateRepository;
+import com.dreamy.domain.exchangerate.service.ExchangeRateService;
+import com.dreamy.domain.tax.service.TaxCalculator;
 import com.dreamy.dto.TradingDtos.CheckoutQuoteRequest;
 import com.dreamy.dto.TradingDtos.CheckoutQuoteResponse;
 import com.dreamy.dto.TradingDtos.ShippingOptionDto;
+import com.dreamy.dto.TradingDtos.TaxBreakdownDto;
+import com.dreamy.enums.Incoterm;
+import com.dreamy.enums.ShippingServiceLevel;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
 import com.dreamy.port.TradingCatalogSnapshotPort;
 import com.dreamy.port.TradingCatalogSnapshotPort.ProductBrief;
 import com.dreamy.port.TradingCatalogSnapshotPort.SkuBrief;
 import com.dreamy.port.TradingDyeLotPort;
+import com.dreamy.support.CountryCatalog;
 import com.dreamy.support.TradingFieldErrors;
 import com.dreamy.support.Money;
 import com.dreamy.support.TradingParams;
@@ -50,12 +56,14 @@ public class CheckoutQuoteService {
     private final ShippingQuotePort shippingQuotePort;
     private final CouponDomainService couponDomainService;
     private final TradingDyeLotPort dyeLotPort;
+    private final TaxCalculator taxCalculator;
 
     public CheckoutQuoteService(CartItemRepository cartItemRepository, AddressRepository addressRepository,
                                 ExchangeRateRepository exchangeRateRepository,
                                 CheckoutConfigRepository checkoutConfigRepository,
                                 TradingCatalogSnapshotPort catalogSnapshotPort, ShippingQuotePort shippingQuotePort,
-                                CouponDomainService couponDomainService, TradingDyeLotPort dyeLotPort) {
+                                CouponDomainService couponDomainService, TradingDyeLotPort dyeLotPort,
+                                TaxCalculator taxCalculator) {
         this.cartItemRepository = cartItemRepository;
         this.addressRepository = addressRepository;
         this.exchangeRateRepository = exchangeRateRepository;
@@ -64,6 +72,7 @@ public class CheckoutQuoteService {
         this.shippingQuotePort = shippingQuotePort;
         this.couponDomainService = couponDomainService;
         this.dyeLotPort = dyeLotPort;
+        this.taxCalculator = taxCalculator;
     }
 
     /** 行价快照（lines 装配载体） */
@@ -75,13 +84,36 @@ public class CheckoutQuoteService {
         }
     }
 
-    /** 报价计算结果（quote 出参装配 + createOrder 快照源） */
+    /**
+     * 报价计算结果（quote 出参装配 + createOrder 快照源）。
+     * order-flow-complete §4.3：尾部追加 tax（订单币种）/ incoterm / duties / 锁汇说明 / 运费选项快照 / 预计送达 / 规范码。
+     */
     public record Computation(String currency, BigDecimal rate, List<PricedLine> lines, BigDecimal subtotal,
                               BigDecimal subtotalUsd, List<ShippingOptionDto> shippingOptions, String selectedCarrier,
                               BigDecimal shippingFee, boolean giftWrap, BigDecimal giftWrapFee,
                               CouponDomainService.CouponQuote couponQuote, BigDecimal discountAmount,
                               BigDecimal totalAmount, Integer maxLeadTimeDays, boolean leadTimeWarning,
-                              List<Long> dyeLotProductIds, Address address, String country) {
+                              List<Long> dyeLotProductIds, Address address, String country,
+                              BigDecimal taxAmount, List<TaxBreakdownDto> taxBreakdown, Incoterm incoterm,
+                              boolean dutiesNotice, String dutiesNoticeText, boolean exchangeRateLockedNote,
+                              ShippingServiceLevel serviceLevel, String selectedCarrierCode,
+                              LocalDate estimatedDeliveryFrom, LocalDate estimatedDeliveryTo, Integer productionDays,
+                              String countryCode, String regionCode) {
+
+        /** 兼容旧 18 参构造（存量单测夹具：无税、DDU 提示、STANDARD） */
+        public Computation(String currency, BigDecimal rate, List<PricedLine> lines, BigDecimal subtotal,
+                           BigDecimal subtotalUsd, List<ShippingOptionDto> shippingOptions, String selectedCarrier,
+                           BigDecimal shippingFee, boolean giftWrap, BigDecimal giftWrapFee,
+                           CouponDomainService.CouponQuote couponQuote, BigDecimal discountAmount,
+                           BigDecimal totalAmount, Integer maxLeadTimeDays, boolean leadTimeWarning,
+                           List<Long> dyeLotProductIds, Address address, String country) {
+            this(currency, rate, lines, subtotal, subtotalUsd, shippingOptions, selectedCarrier, shippingFee, giftWrap,
+                    giftWrapFee, couponQuote, discountAmount, totalAmount, maxLeadTimeDays, leadTimeWarning,
+                    dyeLotProductIds, address, country, Money.zero(), List.of(), Incoterm.DDU, true, null, false,
+                    ShippingServiceLevel.STANDARD, null, null, null, null,
+                    address == null ? CountryCatalog.resolveCode(country) : address.getCountryCode(),
+                    address == null ? null : address.getRegionCode());
+        }
     }
 
     /** E-quoteCheckout 入口（V-TRD-015~020 + STEP-TRD-01~10） */
@@ -89,7 +121,7 @@ public class CheckoutQuoteService {
         Computation c = compute(customerId,
                 request.addressId(), request.country(), request.currency(), request.carrier(),
                 request.couponCode(), Boolean.TRUE.equals(request.giftWrap()), request.weddingDate(),
-                locale, false);
+                locale, false, request.serviceLevel());
         CouponDomainService.CouponQuote couponQuote = c.couponQuote();
         return new CheckoutQuoteResponse(
                 c.currency(), c.rate(), c.subtotal(), c.shippingOptions(), c.shippingFee(), c.giftWrapFee(),
@@ -97,7 +129,12 @@ public class CheckoutQuoteService {
                 couponQuote == null ? null : couponQuote.valid(),
                 couponQuote == null ? null : couponQuote.reasonCode(),
                 c.leadTimeWarning() ? Boolean.TRUE : Boolean.FALSE,
-                c.maxLeadTimeDays(), c.dyeLotProductIds());
+                c.maxLeadTimeDays(), c.dyeLotProductIds(),
+                c.taxAmount(), c.taxBreakdown(), c.incoterm() == null ? null : c.incoterm().getKey(),
+                c.dutiesNotice(), c.dutiesNoticeText(), c.exchangeRateLockedNote(),
+                c.serviceLevel() == null ? null : c.serviceLevel().getKey(), c.selectedCarrierCode(),
+                c.estimatedDeliveryFrom(), c.estimatedDeliveryTo(), c.productionDays(), c.countryCode(),
+                c.regionCode());
     }
 
     /**
@@ -107,14 +144,30 @@ public class CheckoutQuoteService {
     public Computation compute(Long customerId, Long addressId, String country, String currency, String carrier,
                                String couponCode, boolean giftWrap, LocalDate weddingDate,
                                String locale, boolean strict) {
+        return compute(customerId, addressId, country, currency, carrier, couponCode, giftWrap, weddingDate, locale,
+                strict, null);
+    }
+
+    /**
+     * order-flow-complete §4.3 报价链：锁汇(含 spread) → 行价 → 运费选项(zone × carrier × level) → 礼品包装 → 券
+     * → 税费(country_code[+region_code]) → total(amount_version=2) → 预计送达。
+     *
+     * @param carrier      承运商 code 或 name（兼容旧 name；strict 口径下未命中报价 → 422601 carrier invalid_enum）
+     * @param serviceLevel 1=STANDARD 2=EXPRESS（缺省 STANDARD 最便宜）
+     */
+    public Computation compute(Long customerId, Long addressId, String country, String currency, String carrier,
+                               String couponCode, boolean giftWrap, LocalDate weddingDate,
+                               String locale, boolean strict, Integer serviceLevel) {
         TradingFieldErrors errors = new TradingFieldErrors();
         // V-TRD-015/023 币种（422605）
         if (!TradingParams.isSupportedCurrency(currency)) {
             throw new TradingException(TradingErrorCode.CURRENCY_NOT_SUPPORTED);
         }
-        // V-TRD-017/024 carrier 枚举
-        if (carrier != null && !TradingParams.isSupportedCarrier(carrier)) {
-            errors.reject("carrier", "invalid_enum");
+        // V-TRD-017/024 carrier：改由 carrier 表（报价结果）校验（order-flow-complete C）；此处仅长度
+        String requestedCarrier = TradingParams.checkMaxLength(carrier, 64, "carrier", errors);
+        ShippingServiceLevel requestedLevel = serviceLevel == null ? null : ShippingServiceLevel.of(serviceLevel);
+        if (serviceLevel != null && requestedLevel == null) {
+            errors.reject("service_level", "invalid_enum");
         }
         // V-TRD-018 coupon_code ≤32
         String coupon = TradingParams.checkMaxLength(couponCode, 32, "coupon_code", errors);
@@ -134,6 +187,10 @@ public class CheckoutQuoteService {
         }
         errors.throwIfAny();
         String resolvedCountry = address != null ? address.getCountry() : country.trim();
+        // 规范码：地址 country_code 优先；文本兜底解析（税费匹配只读规范码）
+        String countryCode = address != null && address.getCountryCode() != null
+                ? address.getCountryCode() : CountryCatalog.resolveCode(resolvedCountry);
+        String regionCode = address != null ? address.getRegionCode() : null;
 
         // STEP-TRD-01 读 cart + 快照
         List<CartItem> cartItems = cartItemRepository.listByCustomerId(customerId);
@@ -164,8 +221,11 @@ public class CheckoutQuoteService {
             throw new TradingException(TradingErrorCode.FIELD_VALIDATION_FAILED, Map.of("reason", "cart_empty"));
         }
 
-        // STEP-TRD-07 试算汇率（USD 恒 1；下单时本值即锁汇快照）
-        BigDecimal rate = resolveRate(currency);
+        // STEP-TRD-07 试算汇率（USD 恒 1；下单时本值即锁汇快照；order-flow-complete E：× (1 + spread) HALF_UP 6 位）
+        CheckoutConfig config = checkoutConfigRepository.getSingleton();
+        int spread = config == null || config.getExchangeRateSpreadScaled() == null ? 0 : config.getExchangeRateSpreadScaled();
+        BigDecimal rate = "USD".equals(currency) ? BigDecimal.ONE : ExchangeRateService.applySpread(resolveRate(currency), spread);
+        boolean exchangeRateLockedNote = !"USD".equals(currency);
 
         // STEP-TRD-02 行价与小计（覆盖价优先，HALF_UP 2 位）
         List<PricedLine> lines = new ArrayList<>();
@@ -188,33 +248,50 @@ public class CheckoutQuoteService {
         subtotal = subtotal.setScale(2, java.math.RoundingMode.HALF_UP);
         subtotalUsd = subtotalUsd.setScale(2, java.math.RoundingMode.HALF_UP);
 
-        // STEP-TRD-03/04 多承运商报价组装（F-036；fee 换算订单币种；selected 规则 TC-TRD-010）
+        // STEP-TRD-03/04 多承运商报价组装（F-036 + order-flow-complete E：zone × carrier × level；fee 换算订单币种）
         List<ShippingOptionQuote> quotes = shippingQuotePort.quoteOptions(resolvedCountry, subtotalUsd);
         List<ShippingOptionDto> shippingOptions = new ArrayList<>();
         String selectedCarrier = null;
+        String selectedCarrierCode = null;
+        ShippingServiceLevel selectedLevel = null;
         BigDecimal shippingFee = Money.zero();
+        BigDecimal shippingFeeUsd = Money.zero();
+        Integer transitMin = null;
+        Integer transitMax = null;
+        int productionDays = productionDays(lines, config);
+        LocalDate today = LocalDate.now();
         if (quotes != null && !quotes.isEmpty()) {
-            String requested = carrier != null && quotes.stream().anyMatch(q -> q.carrier().equals(carrier))
-                    ? carrier : null;
-            ShippingOptionQuote cheapest = quotes.stream()
-                    .min(Comparator.comparing(ShippingOptionQuote::feeUsd))
-                    .orElse(quotes.get(0));
-            String effectiveSelected = requested != null ? requested : cheapest.carrier();
+            ShippingOptionQuote selected = selectQuote(quotes, requestedCarrier, requestedLevel);
+            if (selected == null && strict && requestedCarrier != null) {
+                throw TradingException.fieldValidation("carrier", "invalid_enum");
+            }
+            if (selected == null) {
+                selected = com.dreamy.domain.shippingrate.service.ShippingQuotePreviewService.pickSelected(quotes, requestedLevel);
+            }
             for (ShippingOptionQuote q : quotes) {
-                boolean selected = q.carrier().equals(effectiveSelected);
+                boolean isSelected = q == selected;
                 BigDecimal fee = Money.toCurrency(q.feeUsd(), rate);
-                shippingOptions.add(new ShippingOptionDto(q.carrier(), fee, q.leadTime(), selected));
-                if (selected) {
+                LocalDate etaFrom = q.transitDaysMin() == null ? null : today.plusDays(productionDays + q.transitDaysMin());
+                LocalDate etaTo = q.transitDaysMax() == null ? null : today.plusDays(productionDays + q.transitDaysMax());
+                shippingOptions.add(new ShippingOptionDto(q.carrier(), fee, q.leadTime(), isSelected, q.carrierCode(),
+                        q.carrier(), q.serviceLevel(), q.transitDaysMin(), q.transitDaysMax(), etaFrom, etaTo));
+                if (isSelected) {
                     selectedCarrier = q.carrier();
+                    selectedCarrierCode = q.carrierCode();
+                    selectedLevel = q.serviceLevel() == null ? ShippingServiceLevel.STANDARD : ShippingServiceLevel.of(q.serviceLevel());
                     shippingFee = fee;
+                    shippingFeeUsd = q.feeUsd();
+                    transitMin = q.transitDaysMin();
+                    transitMax = q.transitDaysMax();
                 }
             }
+        } else if (strict && requestedCarrier != null) {
+            throw TradingException.fieldValidation("carrier", "invalid_enum");
         }
 
         // STEP-TRD-05 礼品包装费（决策 28：CheckoutConfig 固定 USD 价 × rate）
         BigDecimal giftWrapFee = Money.zero();
         if (giftWrap) {
-            CheckoutConfig config = checkoutConfigRepository.getSingleton();
             giftWrapFee = Money.toCurrency(config.getGiftWrapFeeUsd(), rate);
         }
 
@@ -240,8 +317,16 @@ public class CheckoutQuoteService {
             discountAmount = payable;
         }
 
-        // STEP-TRD-08 金额恒等式（CV-TRD-003）
-        BigDecimal totalAmount = Money.total(subtotal, shippingFee, giftWrapFee, discountAmount);
+        // order-flow-complete F 税费：country_code[+region_code]（USD 基准比较起征额；金额按订单币种 HALF_UP）
+        BigDecimal discountUsd = rate.signum() > 0
+                ? discountAmount.divide(rate, 2, java.math.RoundingMode.HALF_UP) : Money.zero();
+        TaxCalculator.TaxQuote tax = taxCalculator.compute(countryCode, regionCode, subtotalUsd, discountUsd,
+                shippingFeeUsd, currency, rate);
+        BigDecimal taxAmount = tax.taxAmount();
+
+        // STEP-TRD-08 金额恒等式（CV-TRD-003；amount_version=2：+ tax_amount）
+        BigDecimal totalAmount = Money.total(subtotal, shippingFee, giftWrapFee, discountAmount).add(taxAmount)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
 
         // STEP-TRD-09 交期复核（决策 20.6）
         Integer maxLeadTimeDays = lines.stream()
@@ -256,9 +341,45 @@ public class CheckoutQuoteService {
         List<Long> dyeLotProductIds = dyeLotPort.hintProductIds(customerId,
                 lines.stream().map(l -> l.product().id()).distinct().toList());
 
+        // order-flow-complete §4.3 预计送达 = today + production_days + transit_days_min..max
+        LocalDate etaFrom = transitMin == null ? null : today.plusDays(productionDays + transitMin);
+        LocalDate etaTo = transitMax == null ? null : today.plusDays(productionDays + transitMax);
+
         return new Computation(currency, rate, lines, subtotal, subtotalUsd, shippingOptions, selectedCarrier,
                 shippingFee, giftWrap, giftWrapFee, couponQuote, discountAmount, totalAmount,
-                maxLeadTimeDays, leadTimeWarning, dyeLotProductIds, address, resolvedCountry);
+                maxLeadTimeDays, leadTimeWarning, dyeLotProductIds, address, resolvedCountry,
+                taxAmount, tax.breakdown(), tax.incoterm(), tax.dutiesNotice(), tax.noticeText(),
+                exchangeRateLockedNote, selectedLevel, selectedCarrierCode, etaFrom, etaTo, productionDays,
+                countryCode, regionCode);
+    }
+
+    /** 制作周期 = max(商品 lead_time_days 最大值（若有）, checkout_config.production_days_default) */
+    static int productionDays(List<PricedLine> lines, CheckoutConfig config) {
+        int configured = config == null || config.getProductionDaysDefault() == null ? 21 : config.getProductionDaysDefault();
+        int lead = lines.stream().map(l -> l.product().leadTimeDays()).filter(java.util.Objects::nonNull)
+                .max(Integer::compareTo).orElse(0);
+        return Math.max(lead, configured);
+    }
+
+    /**
+     * 选中规则：请求 carrier（code 或 name，大小写不敏感）命中 → 该承运商内按请求等级（缺省 STANDARD）取项，
+     * 无该等级则取该承运商最便宜；未命中 → null（quote 口径回退缺省；strict 口径 422601）。
+     */
+    static ShippingOptionQuote selectQuote(List<ShippingOptionQuote> quotes, String requestedCarrier,
+                                           ShippingServiceLevel requestedLevel) {
+        if (requestedCarrier == null) {
+            return null;
+        }
+        List<ShippingOptionQuote> hits = quotes.stream()
+                .filter(q -> requestedCarrier.equalsIgnoreCase(q.carrier())
+                        || (q.carrierCode() != null && requestedCarrier.equalsIgnoreCase(q.carrierCode())))
+                .toList();
+        if (hits.isEmpty()) {
+            return null;
+        }
+        ShippingServiceLevel level = requestedLevel == null ? ShippingServiceLevel.STANDARD : requestedLevel;
+        return hits.stream().filter(q -> level.getKey().equals(q.serviceLevel())).findFirst()
+                .orElseGet(() -> hits.stream().min(Comparator.comparing(ShippingOptionQuote::feeUsd)).orElse(hits.get(0)));
     }
 
     /** 汇率解析（USD 恒 1；汇率行缺失 → 422605 防御口径） */

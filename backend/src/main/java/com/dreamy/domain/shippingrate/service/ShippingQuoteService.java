@@ -1,12 +1,14 @@
 package com.dreamy.domain.shippingrate.service;
 
-import com.dreamy.port.ShippingOptionQuote;
-import com.dreamy.port.ShippingQuotePort;
 import com.dreamy.domain.carrier.entity.Carrier;
 import com.dreamy.domain.carrier.repository.CarrierRepository;
-import com.dreamy.domain.shippingrate.entity.ShippingRate;
-import com.dreamy.domain.shippingrate.repository.ShippingRateRepository;
+import com.dreamy.domain.shippingrate.consts.ShippingOptionDBConst;
+import com.dreamy.domain.shippingrate.entity.ShippingOption;
+import com.dreamy.domain.shippingrate.repository.ShippingOptionRepository;
+import com.dreamy.enums.ShippingServiceLevel;
 import com.dreamy.infra.ShippingCacheService;
+import com.dreamy.port.ShippingOptionQuote;
+import com.dreamy.port.ShippingQuotePort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -18,82 +20,99 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * SVC-SHP-01 多承运商报价领域服务（ShippingQuotePort 提供侧权威实现，shipping-api-detail §10）。
- * FLOW-P05：trading 进程内同步直调；只读、无事务；两级缓存命中时零 DB 访问（CACHE-SHP-001/002）。
+ * SVC-SHP-01 多承运商报价领域服务（ShippingQuotePort 提供侧权威实现；order-flow-complete E 改读 shipping_option）。
+ * FLOW-P05：trading 进程内同步直调；只读、无事务；两级缓存命中时零 DB 访问（shipping:carriers / shipping:options）。
+ * 匹配优先级（每个 enabled 承运商 × 服务等级）：
+ * ① (zone, carrier.code, level) → ② (zone, ANY, level) → ③ zone≠REST 时 (REST, carrier.code, level) → ④ (REST, ANY, level)
+ * → ⑤ 仍无 → 该承运商该等级跳过（不抛错）。
  * 失败传播：DB 异常 → 50001 由 trading 报价端点统一透出；本服务不吞错、不降级（运费是结算强依赖）。
- * 空结果由消费侧处理（trading shipping_options >=1 依赖 Rest of World 兜底行——CV-SHP-006 + 种子保证）。
  */
 @Service
 public class ShippingQuoteService implements ShippingQuotePort {
 
     private final CarrierRepository carrierRepository;
-    private final ShippingRateRepository rateRepository;
+    private final ShippingOptionRepository optionRepository;
     private final ShippingCacheService cache;
 
-    public ShippingQuoteService(CarrierRepository carrierRepository, ShippingRateRepository rateRepository,
+    public ShippingQuoteService(CarrierRepository carrierRepository, ShippingOptionRepository optionRepository,
                                 ShippingCacheService cache) {
         this.carrierRepository = carrierRepository;
-        this.rateRepository = rateRepository;
+        this.optionRepository = optionRepository;
         this.cache = cache;
     }
 
     @Override
     public List<ShippingOptionQuote> quoteOptions(String country, BigDecimal subtotalUsd) {
-        // 1. 收货国家 → 地理区域（§10.2）
-        String region = GeoZoneResolver.resolve(country);
-        // 2/3. 缓存读（未命中回源 + 回填 TTL 600s）
+        String zone = GeoZoneResolver.resolve(country);
+        return quoteByZone(zone, subtotalUsd);
+    }
+
+    /** zone 码直接报价（后台试算 / 已解析 country_code 的调用方） */
+    public List<ShippingOptionQuote> quoteByZone(String zone, BigDecimal subtotalUsd) {
         List<Carrier> carriers = cache.getCarriers(carrierRepository::listEnabled);
-        List<ShippingRate> rates = cache.getRates(rateRepository::listAll);
-        // 规范化 zone（忽略大小写）内存索引
-        Map<String, ShippingRate> ratesIdx = new HashMap<>();
-        for (ShippingRate rate : rates) {
-            String key = indexKey(rate.getZone());
-            if (key != null) {
-                ratesIdx.putIfAbsent(key, rate);
+        List<ShippingOption> options = cache.getOptions(optionRepository::listEnabled);
+        Map<String, ShippingOption> index = new HashMap<>();
+        for (ShippingOption option : options) {
+            if (!Boolean.FALSE.equals(option.getEnabled())) {
+                index.putIfAbsent(key(option.getZone(), option.getCarrierCode(), option.getServiceLevel()), option);
             }
         }
-        // 4. 仅 enabled 承运商（契约规则 3/4），顺序 = enabled 承运商 id ASC（稳定可测）
-        List<ShippingOptionQuote> options = new ArrayList<>();
         BigDecimal subtotal = subtotalUsd == null ? BigDecimal.ZERO : subtotalUsd;
+        List<ShippingOptionQuote> quotes = new ArrayList<>();
+        // 顺序：承运商 id ASC × 等级 STANDARD→EXPRESS（稳定可测）
         for (Carrier carrier : carriers) {
-            ShippingRate line = matchLine(ratesIdx, region, carrier.getName());
-            if (line == null) {
-                // DEC-SHP-5 ④ 该承运商无报价项，跳过（不抛错）
+            for (ShippingServiceLevel level : ShippingServiceLevel.values()) {
+                ShippingOption option = match(index, zone, carrier.getCode(), level);
+                if (option == null) {
+                    continue;
+                }
+                BigDecimal fee = computeFee(option, subtotal);
+                quotes.add(new ShippingOptionQuote(carrier.getName(), fee, carrier.getLeadTime(),
+                        carrier.getCode(), level.getKey(), option.getTransitDaysMin(), option.getTransitDaysMax()));
+            }
+        }
+        return quotes;
+    }
+
+    /** 是否存在覆盖该 zone 的启用选项（含 REST 兜底）——countries.supported 派生 */
+    public boolean zoneSupported(String zone) {
+        List<ShippingOption> options = cache.getOptions(optionRepository::listEnabled);
+        for (ShippingOption option : options) {
+            if (Boolean.FALSE.equals(option.getEnabled())) {
                 continue;
             }
-            BigDecimal fee = computeFee(line, subtotal);
-            options.add(new ShippingOptionQuote(carrier.getName(), fee, carrier.getLeadTime()));
-        }
-        return options;
-    }
-
-    /**
-     * DEC-SHP-5 报价匹配优先级：
-     * ① 「{region} / {carrier}」精确行 → ② 「{region}」无后缀兜底行
-     * → ③ region != Rest of World 时回退「Rest of World / {carrier}」→「Rest of World」
-     * → ④ 仍无 → null（跳过）。
-     */
-    private ShippingRate matchLine(Map<String, ShippingRate> ratesIdx, String region, String carrierName) {
-        ShippingRate line = ratesIdx.get(indexKey(region + " / " + carrierName));
-        if (line == null) {
-            line = ratesIdx.get(indexKey(region));
-        }
-        if (line == null && !GeoZoneResolver.REST_OF_WORLD.equalsIgnoreCase(region)) {
-            line = ratesIdx.get(indexKey(GeoZoneResolver.REST_OF_WORLD + " / " + carrierName));
-            if (line == null) {
-                line = ratesIdx.get(indexKey(GeoZoneResolver.REST_OF_WORLD));
+            if (zone.equalsIgnoreCase(option.getZone()) || GeoZoneResolver.REST.equalsIgnoreCase(option.getZone())) {
+                return true;
             }
         }
-        return line;
+        return false;
+    }
+
+    private ShippingOption match(Map<String, ShippingOption> index, String zone, String carrierCode,
+                                 ShippingServiceLevel level) {
+        ShippingOption option = null;
+        if (carrierCode != null) {
+            option = index.get(key(zone, carrierCode, level));
+        }
+        if (option == null) {
+            option = index.get(key(zone, ShippingOptionDBConst.CARRIER_ANY, level));
+        }
+        if (option == null && !GeoZoneResolver.REST.equalsIgnoreCase(zone)) {
+            if (carrierCode != null) {
+                option = index.get(key(GeoZoneResolver.REST, carrierCode, level));
+            }
+            if (option == null) {
+                option = index.get(key(GeoZoneResolver.REST, ShippingOptionDBConst.CARRIER_ANY, level));
+            }
+        }
+        return option;
     }
 
     /**
-     * 单行计费（§10.3 步骤 4 + DEC-SHP-3 NULL 语义）：
-     * threshold NULL 或 subtotal < threshold → fee_under（NULL 计 0.00）；
-     * subtotal >= threshold（边界等于取满额）→ fee_over（NULL 计 0.00；0.00 即满额包邮）。
-     * 出参 scale=2 HALF_UP（MAP-SHP-003）。
+     * 单行计费（DEC-SHP-3 NULL 语义）：threshold NULL 或 subtotal < threshold → fee_under（NULL 计 0.00）；
+     * subtotal >= threshold → fee_over（NULL 计 0.00）。出参 scale=2 HALF_UP。
      */
-    private BigDecimal computeFee(ShippingRate line, BigDecimal subtotal) {
+    static BigDecimal computeFee(ShippingOption line, BigDecimal subtotal) {
         BigDecimal fee;
         if (line.getThreshold() == null || subtotal.compareTo(line.getThreshold()) < 0) {
             fee = nvl(line.getFeeUnder());
@@ -103,13 +122,13 @@ public class ShippingQuoteService implements ShippingQuotePort {
         return fee.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal nvl(BigDecimal value) {
+    private static BigDecimal nvl(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    /** DEC-SHP-1：规范化 + 小写化索引 key（忽略大小写匹配） */
-    private String indexKey(String zone) {
-        String normalized = ZoneNormalizer.normalize(zone);
-        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    private static String key(String zone, String carrierCode, ShippingServiceLevel level) {
+        return (zone == null ? "" : zone.toUpperCase(Locale.ROOT)) + "|"
+                + (carrierCode == null ? "" : carrierCode.toUpperCase(Locale.ROOT)) + "|"
+                + (level == null ? 1 : level.getKey());
     }
 }

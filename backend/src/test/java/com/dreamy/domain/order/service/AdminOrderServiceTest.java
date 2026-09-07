@@ -78,6 +78,12 @@ class AdminOrderServiceTest {
     TradingEventsPublisher eventsPublisher;
     @Mock
     OrderEventRecorder orderEventRecorder;
+    @Mock
+    com.dreamy.domain.shipment.service.ShipmentService shipmentService;
+    @Mock
+    com.dreamy.domain.shipment.service.ShipmentQueryService shipmentQueryService;
+    @Mock
+    com.dreamy.domain.shipment.repository.ShipmentRepository shipmentRepository;
 
     AdminOrderService service;
 
@@ -86,8 +92,9 @@ class AdminOrderServiceTest {
         service = new AdminOrderService(orderRepository, orderLineRepository, paymentRepository, refundRepository,
                 checkoutConfigRepository, orderCancelService, refundService,
                 new TradingImmediateTxRunner(), new TradingAfterCommitRunner(), audit, eventsPublisher,
-                orderEventRecorder);
+                orderEventRecorder, shipmentService, shipmentQueryService, shipmentRepository);
         lenient().when(refundService.loadUsers(any())).thenReturn(Map.of());
+        lenient().when(shipmentQueryService.listByOrder(anyLong())).thenReturn(List.of());
         lenient().when(orderLineRepository.sumQtyByOrderIds(any())).thenReturn(Map.of());
     }
 
@@ -465,26 +472,30 @@ class AdminOrderServiceTest {
     }
 
     @Test
-    @DisplayName("ship：PAID→SHIPPED 置 production_stage=NULL；写 PRODUCTION(收尾)/SHIPMENT/STATUS_CHANGED 事件；order.shipped 事务内发布")
-    void shipWritesEventsAndClearsStage() {
+    @DisplayName("ship（兼容别名）：委托 ShipmentService.create(lines=null 全部未发行；carrier 可为 name)，返回最新详情")
+    void shipDelegatesToShipmentService() {
         Order paid = withStatus(order(1L, "US"), OrderStatus.PAID);
-        paid.setProductionStage(ProductionStage.READY_TO_SHIP);
         Order shipped = withStatus(order(1L, "US"), OrderStatus.SHIPPED);
         stubDetailDeps(shipped);
         when(orderRepository.findById(1L)).thenReturn(paid, shipped);
-        when(orderRepository.casUpdateStatus(eq(1L), eq(OrderStatus.PAID), eq(OrderStatus.SHIPPED), any()))
-                .thenReturn(1);
 
-        service.ship(1L, "DHL Express", "DHL123");
+        var detail = service.ship(1L, "DHL Express", "DHL123");
 
-        verify(orderEventRecorder).productionStageChanged(eq(1L), eq(ProductionStage.READY_TO_SHIP), isNull(),
-                eq(OrderActorType.ADMIN), any(), eq("shipped"));
-        verify(orderEventRecorder).record(eq(1L), eq(OrderEventType.SHIPMENT), eq(OrderActorType.ADMIN), any(),
-                eq("Shipped via DHL Express"), eq("DHL123"), any(), eq(true));
-        verify(orderEventRecorder).statusChanged(eq(1L), eq(OrderStatus.PAID), eq(OrderStatus.SHIPPED),
-                eq(OrderActorType.SYSTEM), isNull(), any(), eq(true));
-        verify(eventsPublisher).publishOrderShipped(argThat(o -> "DHL123".equals(o.getTrackingNo())
-                && o.getStatus() == OrderStatus.SHIPPED), eq("en"));
+        verify(shipmentService).create(eq(1L), argThat(req -> "DHL Express".equals(req.carrierCode())
+                && "DHL123".equals(req.trackingNo()) && req.lines() == null), isNull());
+        assertThat(detail.status()).isEqualTo(3);
+        // 旧契约字段名映射：carrier_code 校验失败 → 422601 fields.carrier
+        when(shipmentService.create(anyLong(), any(), isNull()))
+                .thenThrow(TradingException.fieldValidation("carrier_code", "invalid_enum"));
+        assertThatThrownBy(() -> service.ship(1L, "Nope", "X1"))
+                .isInstanceOfSatisfying(TradingException.class, ex -> {
+                    assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED);
+                    assertThat(((Map<?, ?>) ex.getDetails().get("fields")).containsKey("carrier")).isTrue();
+                });
+        // tracking_no 必填
+        assertThatThrownBy(() -> service.ship(1L, "DHL Express", " "))
+                .isInstanceOfSatisfying(TradingException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
     }
 
     @Test
