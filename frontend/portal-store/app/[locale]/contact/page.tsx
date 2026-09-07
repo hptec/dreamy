@@ -12,7 +12,10 @@ import { submitContactMessage } from '@/lib/api/marketing-api'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { Eyebrow } from '@/components/ui/primitives'
+import { Select, type SelectOption } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+
+const SUBJECT_OPTIONS: SelectOption[] = ['Sizing & Fit', 'Custom Order', 'Order Status', 'Wholesale', 'Other'].map((s) => ({ value: s, label: s }))
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -24,7 +27,7 @@ export default function ContactPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.value }))
 
   const submit = async (e: React.FormEvent) => {
@@ -97,9 +100,14 @@ export default function ContactPage() {
               </div>
               <div>
                 <label htmlFor="subject" className="eyebrow mb-1.5 block">Subject</label>
-                <select id="subject" value={form.subject} onChange={set('subject')} className="w-full rounded-sm border border-line bg-canvas px-4 py-3 text-sm outline-none focus:border-gold">
-                  <option>Sizing & Fit</option><option>Custom Order</option><option>Order Status</option><option>Wholesale</option><option>Other</option>
-                </select>
+                <Select
+                  id="subject"
+                  ariaLabel="Subject"
+                  value={form.subject}
+                  options={SUBJECT_OPTIONS}
+                  onChange={(v) => setForm((p) => ({ ...p, subject: v }))}
+                  triggerClassName="bg-canvas px-4 py-3 text-sm"
+                />
               </div>
               <div>
                 <label htmlFor="message" className="eyebrow mb-1.5 block">Message</label>

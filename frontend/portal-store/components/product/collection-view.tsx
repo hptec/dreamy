@@ -14,6 +14,7 @@ import { SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react'
 import type { Paginated, StoreFilterDim, StoreProductCard } from '@/lib/api/store-types'
 import { ProductCard } from '@/components/product/product-card'
 import { QuickViewModal } from '@/components/product/quick-view-modal'
+import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 const SORTS = [
@@ -177,18 +178,16 @@ export function CollectionView({
                 <button onClick={() => setMobileFilter(true)} className="flex cursor-pointer items-center gap-2 rounded-sm border border-line px-4 py-2 text-xs uppercase tracking-luxe lg:hidden">
                   <SlidersHorizontal className="h-3.5 w-3.5" /> Filter {activeCount > 0 && `(${activeCount})`}
                 </button>
-                <div className="relative">
-                  <label htmlFor="sort" className="sr-only">Sort by</label>
-                  <select
-                    id="sort"
-                    value={sort}
-                    onChange={(e) => navigate({ sort: e.target.value === 'recommended' ? null : e.target.value })}
-                    className="cursor-pointer appearance-none rounded-sm border border-line bg-surface py-2 pl-4 pr-9 text-xs uppercase tracking-luxe outline-none focus:border-gold"
-                  >
-                    {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
-                </div>
+                <Select
+                  id="sort"
+                  ariaLabel="Sort by"
+                  value={sort}
+                  options={SORTS}
+                  onChange={(v) => navigate({ sort: v === 'recommended' ? null : v })}
+                  align="right"
+                  triggerClassName="w-auto px-4 py-2 text-xs uppercase tracking-luxe"
+                  optionClassName="text-xs uppercase tracking-luxe"
+                />
               </div>
             </div>
 

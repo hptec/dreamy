@@ -26,6 +26,7 @@ import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { cn, daysUntil, formatDateLong, formatPrice, formatDateTimeLong } from '@/lib/utils'
 import { useStore } from '@/components/store-provider'
+import { Select } from '@/components/ui/select'
 
 export function ShowroomDetailView({ id }: { id: number }) {
   const router = useRouter()
@@ -601,19 +602,21 @@ function MembersTable({
                   <td className="px-4 py-3.5 font-medium">{m.nickname}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <label className="sr-only" htmlFor={`assign-${m.id}`}>Assign style to {m.nickname}</label>
-                      <select
+                      <Select
                         id={`assign-${m.id}`}
-                        value={m.assignedItemId ?? ''}
+                        ariaLabel={`Assign style to ${m.nickname}`}
+                        value={m.assignedItemId != null ? String(m.assignedItemId) : ''}
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...room.items.map((it) => ({
+                            value: String(it.id),
+                            label: `${it.product.name}${it.color ? ` — ${it.color}` : ''}`
+                          }))
+                        ]}
                         disabled={m.assignStatus === AssignStatus.ORDERED}
-                        onChange={(e) => void handleAssign(m, e.target.value)}
-                        className="w-full max-w-[15rem] cursor-pointer rounded-sm border border-line bg-canvas px-3 py-2 text-sm outline-none focus:border-gold disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <option value="">Unassigned</option>
-                        {room.items.map((it) => (
-                          <option key={it.id} value={it.id}>{it.product.name}{it.color ? ` — ${it.color}` : ''}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => void handleAssign(m, v)}
+                        triggerClassName="max-w-[15rem] bg-canvas px-3 py-2 text-sm"
+                      />
                       <label className="sr-only" htmlFor={`email-${m.id}`}>Email for {m.nickname}</label>
                       <input
                         id={`email-${m.id}`}

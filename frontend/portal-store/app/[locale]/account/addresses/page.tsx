@@ -13,6 +13,9 @@ import * as tradingApi from '@/lib/api/trading-api'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { cn } from '@/lib/utils'
+import { Select, type SelectOption } from '@/components/ui/select'
+
+const COUNTRY_OPTIONS: SelectOption[] = ['United States', 'Canada', 'Australia', 'United Kingdom', 'France', 'Spain', 'Germany'].map((c) => ({ value: c, label: c }))
 
 export default function AddressesPage() {
   const { te } = useI18n()
@@ -124,7 +127,7 @@ function AddressFormModal({ initial, onClose, onSaved }: { initial: Address | nu
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.value }))
 
   const save = async () => {
@@ -174,9 +177,14 @@ function AddressFormModal({ initial, onClose, onSaved }: { initial: Address | nu
           </div>
           <div>
             <label className="eyebrow mb-1.5 block" htmlFor="addr-country">Country</label>
-            <select id="addr-country" value={form.country} onChange={set('country')} className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold">
-              <option>United States</option><option>Canada</option><option>Australia</option><option>United Kingdom</option><option>France</option><option>Spain</option><option>Germany</option>
-            </select>
+            <Select
+              id="addr-country"
+              ariaLabel="Country"
+              value={form.country}
+              options={COUNTRY_OPTIONS}
+              onChange={(v) => setForm((p) => ({ ...p, country: v }))}
+              triggerClassName="px-4 py-3 text-sm"
+            />
           </div>
           <label className="flex items-center gap-2 text-sm text-ink-soft">
             <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((p) => ({ ...p, isDefault: e.target.checked }))} className="accent-gold" />

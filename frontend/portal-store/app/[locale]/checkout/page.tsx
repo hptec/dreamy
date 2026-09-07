@@ -30,8 +30,11 @@ import { trackBeginCheckout } from '@/lib/analytics/gtag'
 import type { Address, CheckoutQuoteResponse, CouponValidateResponse, CurrencyCode, PaymentCredential, PaymentMethod } from '@/lib/api/store-types'
 import { PaymentElementPanel } from '@/components/cart/payment-element-panel'
 import { formatAmount, cn } from '@/lib/utils'
+import { Select, type SelectOption } from '@/components/ui/select'
 
 const steps = ['Address', 'Shipping', 'Payment', 'Review'] as const
+
+const COUNTRY_OPTIONS: SelectOption[] = ['United States', 'Canada', 'Australia', 'United Kingdom', 'France', 'Spain', 'Germany'].map((c) => ({ value: c, label: c }))
 
 const payments: { id: string; name: string; desc: string; method: PaymentMethod | null }[] = [
   { id: 'card', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, Amex', method: 'Stripe' },
@@ -540,7 +543,7 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.value }))
 
   const save = async () => {
@@ -583,9 +586,14 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
       </div>
       <div>
         <label className="eyebrow mb-1.5 block" htmlFor="addr-country">Country</label>
-        <select id="addr-country" value={form.country} onChange={set('country')} className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold">
-          <option>United States</option><option>Canada</option><option>Australia</option><option>United Kingdom</option><option>France</option><option>Spain</option><option>Germany</option>
-        </select>
+        <Select
+          id="addr-country"
+          ariaLabel="Country"
+          value={form.country}
+          options={COUNTRY_OPTIONS}
+          onChange={(v) => setForm((p) => ({ ...p, country: v }))}
+          triggerClassName="px-4 py-3 text-sm"
+        />
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-soft">
         <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((p) => ({ ...p, isDefault: e.target.checked }))} className="accent-gold" />
