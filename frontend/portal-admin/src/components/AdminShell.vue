@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
 import type { MenuGroup } from '@/config/menu'
 import {
-  Bars3Icon, BellIcon, RocketLaunchIcon, ChevronDownIcon,
+  Bars3Icon, BellIcon, ChevronDownIcon,
   ShieldCheckIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline'
 
@@ -115,13 +115,6 @@ function groupActive(group: MenuGroup) {
         </div>
       </nav>
 
-      <!-- 缓存管理快捷 -->
-      <div class="border-t border-white/8 p-3">
-        <RouterLink to="/system/cache" class="flex items-center gap-2 rounded-luxe bg-gold/15 px-3 py-2.5 text-[12.5px] font-medium text-gold-soft transition-colors hover:bg-gold/25">
-          <RocketLaunchIcon class="h-5 w-5 shrink-0" />
-          <span v-if="!collapsed || mobileOpen">缓存管理</span>
-        </RouterLink>
-      </div>
     </aside>
 
     <!-- 右侧主区 -->
@@ -144,10 +137,6 @@ function groupActive(group: MenuGroup) {
         </nav>
 
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-          <!-- 缓存管理按钮 -->
-          <RouterLink to="/system/cache" class="btn-gold hidden sm:inline-flex">
-            <RocketLaunchIcon class="h-4 w-4" /> 缓存
-          </RouterLink>
           <!-- 通知 -->
           <button class="relative rounded-luxe p-2 text-ink-soft hover:bg-canvas-warm">
             <BellIcon class="h-5 w-5" />
