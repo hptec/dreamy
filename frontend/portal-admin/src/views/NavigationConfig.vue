@@ -58,6 +58,7 @@ const PAGE_KEY_OPTIONS = [
   { value: 'account-login', label: '登录（/account/login）' },
   { value: 'account-orders', label: '我的订单（/account/orders）' },
   { value: 'account-wishlist', label: '心愿单（/account/wishlist）' },
+  { value: 'track-order', label: '订单查询（/track-order）' },
 ]
 
 // 引用型选项按导航项 uid 隔离：两个导航项可能同为「商品」类型，

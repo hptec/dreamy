@@ -69,6 +69,12 @@ REFUNDING(6) → REFUNDED(7) | 还原 from_status
 - 本版本仅 expand：新表 `order_event`/`event_outbox`/`shipment`/`shipment_line`/`shipment_event`/`shipping_option`/`tax_rule`/`tax_destination_policy`/`exchange_rate_history`；存量表只增可空/带默认值列（`shipping_rate` 原样保留）。
 - 启动期初始化器（幂等）：`LogisticsMigrationInitializer`（carrier.code 回填、shipping_rate → shipping_option）、`TaxSeedInitializer`、`AddressCountryCodeBackfillInitializer`、`MailTemplateSeedInitializer`。
 - 回滚：部署上一版本 jar 即可，新表/新列对旧代码不可见；回滚窗口内新建的包裹/税费数据在再次升级后仍有效。
+- **回滚前置步骤（演练已证实）**：旧版本 `OrderStatus` 无 DELIVERED(8)，反序列化为 null 后 `getStatus().getKey()` NPE——任何列表页含一张 DELIVERED 订单即整页 500（消费端「我的订单」、后台订单列表）。回滚前必须执行：
+  ```sql
+  UPDATE orders SET status = 4, completed_at = COALESCE(completed_at, delivered_at) WHERE status = 8;
+  ```
+  或在后台把全部 DELIVERED 订单「标记完成」。回滚后不要触发退款/发货写路径（旧状态机不认 8、不认 PARTIALLY_REFUNDED(6)）。
+- 演练记录（2026-09-07）：mysqldump 副本 → 旧版 659d108 jar 启动 0 ERROR、只读接口 200、含 status=8 列表 500（如上）；新版 jar 二次启动四个初始化器幂等（shipping_option 26 / tax_rule 30 / tax_destination_policy 32 / email_template 34 行数不变）。
 - contract（删 `shipping_rate`、删 `orders.carrier/tracking_no` 冗余）留待下一版本。
 
 ## 7. 本地开发

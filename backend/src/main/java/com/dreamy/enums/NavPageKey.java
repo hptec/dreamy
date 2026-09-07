@@ -26,7 +26,8 @@ public enum NavPageKey {
     CART("cart", "/cart"),
     ACCOUNT_LOGIN("account-login", "/account/login"),
     ACCOUNT_ORDERS("account-orders", "/account/orders"),
-    ACCOUNT_WISHLIST("account-wishlist", "/account/wishlist");
+    ACCOUNT_WISHLIST("account-wishlist", "/account/wishlist"),
+    TRACK_ORDER("track-order", "/track-order");
 
     private final String key;
     private final String path;

@@ -25,6 +25,7 @@ const PAGES = [
   ['account-login', '/account/login'],
   ['account-orders', '/account/orders'],
   ['account-wishlist', '/account/wishlist'],
+  ['track-order', '/track-order'],
 ]
 
 const results = []
