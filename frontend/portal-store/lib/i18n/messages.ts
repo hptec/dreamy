@@ -179,6 +179,34 @@ export interface UiMessages {
     pageOf: string
     notFound: string
   }
+  guide: {
+    eyebrow: string
+    title: string
+    description: string
+    empty: string
+    startWithDress: string
+    checklist: string
+    complete: string
+    savedOnDevice: string
+    saveAcrossDevices: string
+  }
+  inspiration: {
+    metaTitle: string
+    metaDescription: string
+    heroEyebrow: string
+    heroTitle: string
+    editsEyebrow: string
+    editsTitle: string
+    empty: string
+    paletteEyebrow: string
+    paletteTitle: string
+    paletteDescription: string
+    paletteCta: string
+    weddingsEyebrow: string
+    weddingsTitle: string
+    shopEdit: string
+    noStyles: string
+  }
   error: {
     generic: string
     notFoundTitle: string
@@ -447,6 +475,34 @@ const en: UiMessages = {
     next: 'Next',
     pageOf: 'Page {page} of {total}',
     notFound: 'Post Not Found'
+  },
+  guide: {
+    eyebrow: 'Plan with us',
+    title: 'Your Wedding Wardrobe Timeline',
+    description: "From the first daydream to the final fitting — here's exactly when to tackle each part of your outdoor wedding look.",
+    empty: 'Planning guides are on the way — check back soon.',
+    startWithDress: 'Start with the Dress',
+    checklist: 'Checklist',
+    complete: 'complete',
+    savedOnDevice: 'Saved on this device',
+    saveAcrossDevices: 'Sign in to save across devices'
+  },
+  inspiration: {
+    metaTitle: 'Wedding Inspiration & Lookbook',
+    metaDescription: 'Outdoor wedding inspiration, lookbooks, and color palettes to bring your vision to life.',
+    heroEyebrow: 'Lookbook',
+    heroTitle: 'Wedding Inspiration',
+    editsEyebrow: 'Curated edits',
+    editsTitle: 'Explore by mood',
+    empty: 'Lookbooks are being curated — check back soon.',
+    paletteEyebrow: 'Free tool',
+    paletteTitle: 'Build your moodboard',
+    paletteDescription: 'Order fabric swatches to see your wedding colors in person — on us.',
+    paletteCta: 'Shop Bridesmaid Colors',
+    weddingsEyebrow: 'Real love stories',
+    weddingsTitle: 'Real Dreamy Weddings',
+    shopEdit: 'Shop the {title} edit',
+    noStyles: 'No styles linked to this lookbook yet.'
   },
   error: {
     generic: 'Something went wrong. Please try again.',
@@ -722,6 +778,32 @@ const es: DeepPartial<UiMessages> = {
     pageOf: 'Pagina {page} de {total}',
     notFound: 'Articulo no encontrado'
   },
+  guide: {
+    eyebrow: 'Planifique con nosotros',
+    title: 'Su cronograma de vestuario nupcial',
+    description: 'Desde el primer sueño hasta la prueba final: esto es cuándo abordar cada parte de su look de boda al aire libre.',
+    empty: 'Las guias de planificacion estaran disponibles pronto. Vuelva a visitarnos.',
+    startWithDress: 'Empiece por el vestido',
+    checklist: 'Lista de tareas',
+    complete: 'completadas'
+  },
+  inspiration: {
+    metaTitle: 'Inspiracion y lookbooks de boda',
+    metaDescription: 'Inspiracion para bodas al aire libre, lookbooks y paletas de color para hacer realidad tu vision.',
+    heroEyebrow: 'Lookbook',
+    heroTitle: 'Inspiracion para tu boda',
+    editsEyebrow: 'Ediciones seleccionadas',
+    editsTitle: 'Explora por estilo',
+    empty: 'Estamos preparando nuevos lookbooks. Vuelve pronto.',
+    paletteEyebrow: 'Herramienta gratuita',
+    paletteTitle: 'Crea tu moodboard',
+    paletteDescription: 'Pide muestras de tela para ver tus colores de boda en persona. Nosotros invitamos.',
+    paletteCta: 'Ver colores para damas de honor',
+    weddingsEyebrow: 'Historias de amor reales',
+    weddingsTitle: 'Bodas Dreamy reales',
+    shopEdit: 'Comprar la seleccion {title}',
+    noStyles: 'Aun no hay estilos vinculados a este lookbook.'
+  },
   error: {
     generic: 'Algo salio mal. Intentelo de nuevo.',
     notFoundTitle: 'Esta pagina se perdio',
@@ -996,6 +1078,32 @@ const fr: DeepPartial<UiMessages> = {
     pageOf: 'Page {page} sur {total}',
     notFound: 'Article introuvable'
   },
+  guide: {
+    eyebrow: 'Planifiez avec nous',
+    title: 'Votre calendrier de tenue de mariage',
+    description: 'Du premier reve a la derniere retouche : voici quand preparer chaque element de votre tenue de mariage en plein air.',
+    empty: 'Les guides de planification arrivent bientot. Revenez nous voir.',
+    startWithDress: 'Commencer par la robe',
+    checklist: 'Liste de taches',
+    complete: 'terminees'
+  },
+  inspiration: {
+    metaTitle: 'Inspiration mariage et lookbooks',
+    metaDescription: 'Inspiration de mariage en plein air, lookbooks et palettes de couleurs pour donner vie a votre vision.',
+    heroEyebrow: 'Lookbook',
+    heroTitle: 'Inspiration mariage',
+    editsEyebrow: 'Selections inspirees',
+    editsTitle: 'Explorez par ambiance',
+    empty: 'Nous preparons de nouveaux lookbooks. Revenez bientot.',
+    paletteEyebrow: 'Outil gratuit',
+    paletteTitle: 'Composez votre moodboard',
+    paletteDescription: 'Commandez des echantillons de tissu pour voir vos couleurs de mariage en personne. C est offert.',
+    paletteCta: 'Voir les couleurs pour demoiselles d honneur',
+    weddingsEyebrow: 'Histoires d amour reelles',
+    weddingsTitle: 'Vraies mariages Dreamy',
+    shopEdit: 'Acheter la selection {title}',
+    noStyles: 'Aucun style n est encore lie a ce lookbook.'
+  },
   error: {
     generic: 'Une erreur est survenue. Veuillez reessayer.',
     notFoundTitle: 'Cette page a disparu',
@@ -1134,6 +1242,3 @@ const dictionaries: Record<Locale, UiMessages> = {
 export function getMessages(locale: Locale): UiMessages {
   return dictionaries[locale] ?? dictionaries.en
 }
-
-
-

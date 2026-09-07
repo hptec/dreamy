@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Package, MapPin, Heart, ShieldCheck, Settings, LogOut, PartyPopper, Star } from 'lucide-react'
+import { LayoutDashboard, Package, MapPin, Heart, ShieldCheck, Settings, LogOut, PartyPopper, Star, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
@@ -13,6 +13,7 @@ const links = [
   { href: '/account/addresses', label: 'Addresses', icon: MapPin },
   { href: '/account/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/account/reviews', label: 'My Reviews', icon: Star },
+  { href: '/account/wedding-plans', label: 'Wedding Plans', icon: ListChecks },
   { href: '/showroom', label: 'Showrooms', icon: PartyPopper },
   { href: '/account/security', label: 'Login & Security', icon: ShieldCheck },
   { href: '/account/settings', label: 'Settings', icon: Settings }

@@ -7,6 +7,7 @@
 
 import type { UserProfile } from '@/lib/api/types'
 import { useI18n } from '@/lib/i18n/i18n-context'
+import { LocalizedLink } from '@/components/localized-link'
 
 function initials(name: string | null, email: string | null): string {
   const source = (name ?? email ?? '?').trim()
@@ -51,6 +52,12 @@ export function ProfileView({ user }: { user: UserProfile }) {
         <Detail term={t.account.tier} value={user.tier} />
         {joined && <Detail term={t.account.memberSince} value={joined} />}
       </dl>
+      <div className="mt-6 border-t border-line/60 pt-5">
+        <LocalizedLink href="/account/wedding-plans" className="inline-flex items-center text-sm font-medium text-gold-deep underline-offset-2 hover:underline">
+          Wedding Plans
+        </LocalizedLink>
+        <p className="mt-1 text-xs text-ink-soft">View your saved Wedding Guides progress</p>
+      </div>
     </div>
   )
 }

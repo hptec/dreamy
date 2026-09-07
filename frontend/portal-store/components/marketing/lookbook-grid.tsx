@@ -11,10 +11,11 @@ import type { StoreLookbook } from '@/lib/api/store-types'
 import { getStoreLookbook } from '@/lib/api/marketing-api'
 import { ProductCard, productRefToCard } from '@/components/product/product-card'
 import { cn } from '@/lib/utils'
-import { useLocale } from '@/lib/i18n/i18n-context'
+import { useI18n, useLocale } from '@/lib/i18n/i18n-context'
 
 export function LookbookGrid({ lookbooks, initialId }: { lookbooks: StoreLookbook[]; initialId?: number }) {
   const locale = useLocale()
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState<number | null>(initialId ?? null)
   const [details, setDetails] = useState<Record<number, StoreLookbook>>({})
   const [loadingId, setLoadingId] = useState<number | null>(null)
@@ -82,13 +83,13 @@ export function LookbookGrid({ lookbooks, initialId }: { lookbooks: StoreLookboo
             </div>
           ) : active && (active.products ?? []).length > 0 ? (
             <>
-              <p className="eyebrow mb-6">Shop the {active.title} edit</p>
+              <p className="eyebrow mb-6">{t.inspiration.shopEdit.replace('{title}', active.title)}</p>
               <div className="grid grid-cols-2 gap-x-5 gap-y-10 lg:grid-cols-4">
                 {(active.products ?? []).map((p) => <ProductCard key={p.id} product={productRefToCard(p)} />)}
               </div>
             </>
           ) : (
-            <p className="py-8 text-center text-sm text-ink-soft">No styles linked to this lookbook yet.</p>
+            <p className="py-8 text-center text-sm text-ink-soft">{t.inspiration.noStyles}</p>
           )}
         </div>
       )}
