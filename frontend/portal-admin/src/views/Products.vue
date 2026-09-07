@@ -4,7 +4,7 @@
 // 商品类型与标签非列表契约字段，经详情接口按页懒加载缓存（ISS-L4U-001 修复，UI-PRD-04）
 // admin-prototype-alignment ALIGN-007：勾选列+批量操作栏（COMP-CAT-P01/P02，FORM-CAT-P01）、
 // 导出按钮（COMP-CAT-P03，FORM-CAT-P02）、销量列（sales_total）；ALIGN-008 EXEMPT：排序列保留（决策 9）
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -225,6 +225,10 @@ function onSearchInput() {
     store.applyFilters().catch((e) => toast.error(bizMsg(e, '加载失败')))
   }, 300)
 }
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function applyFilters() {
   selected.value = [] // 筛选变更 → 勾选清空（COMP-CAT-P01）

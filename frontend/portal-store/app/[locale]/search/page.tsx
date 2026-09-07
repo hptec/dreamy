@@ -19,7 +19,7 @@ import { useI18n } from '@/lib/i18n/i18n-context'
 function SearchInner() {
   const params = useSearchParams()
   const router = useRouter()
-  const { te } = useI18n()
+  const { t, te } = useI18n()
   const initial = params.get('q') ?? ''
   const [q, setQ] = useState(initial)
   const [result, setResult] = useState<Paginated<StoreProductCard> | null>(null)
@@ -76,21 +76,21 @@ function SearchInner() {
 
   return (
     <div className="container-luxe py-12 lg:py-16">
-      <Eyebrow className="mb-3">Search</Eyebrow>
+      <Eyebrow className="mb-3">{t.common.search}</Eyebrow>
       <div className="flex items-center gap-3 border-b-2 border-ink/20 pb-4">
         <Search className="h-6 w-6 text-ink-soft" />
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search gowns, colors, occasions..."
+          placeholder={t.searchPage.placeholder}
           className="flex-1 bg-transparent font-display text-3xl outline-none placeholder:text-ink-faint lg:text-4xl"
         />
       </div>
 
       {q.trim().length < 1 ? (
         <div className="py-10">
-          <p className="eyebrow mb-3">Try searching for</p>
+          <p className="eyebrow mb-3">{t.searchPage.trySearching}</p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((s) => (
               <button key={s} onClick={() => setQ(s)} className="cursor-pointer rounded-full border border-line px-4 py-2 text-sm transition-colors hover:border-gold hover:text-gold-deep">{s}</button>
@@ -99,9 +99,9 @@ function SearchInner() {
         </div>
       ) : error ? (
         <div className="flex flex-col items-center gap-4 py-24 text-center">
-          <p className="font-display text-3xl">Something went wrong</p>
+          <p className="font-display text-3xl">{t.searchPage.somethingWrong}</p>
           <p className="text-ink-soft">{error}</p>
-          <button onClick={() => runSearch(q.trim())} className="btn-primary">Try Again</button>
+          <button onClick={() => runSearch(q.trim())} className="btn-primary">{t.common.retry}</button>
         </div>
       ) : loading && items.length === 0 ? (
         <div className="grid grid-cols-2 gap-x-5 gap-y-10 py-10 sm:gap-x-6 lg:grid-cols-4" aria-hidden="true">
@@ -109,13 +109,13 @@ function SearchInner() {
         </div>
       ) : result !== null && items.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-24 text-center">
-          <p className="font-display text-3xl">No results for “{q}”</p>
-          <p className="text-ink-soft">Try a color, silhouette, or occasion — or browse our collections.</p>
-          <Link href="/wedding-dresses" className="btn-primary">Browse Dresses</Link>
+          <p className="font-display text-3xl">{t.searchPage.noResultsTitle.replace('{q}', q)}</p>
+          <p className="text-ink-soft">{t.searchPage.noResultsBody}</p>
+          <Link href="/wedding-dresses" className="btn-primary">{t.searchPage.browseDresses}</Link>
         </div>
       ) : result !== null ? (
         <div className="py-10">
-          <p className="mb-8 text-sm text-ink-soft">{total} {total === 1 ? 'result' : 'results'} for “{q}”</p>
+          <p className="mb-8 text-sm text-ink-soft">{(total === 1 ? t.searchPage.resultFor : t.searchPage.resultsFor).replace('{count}', String(total)).replace('{q}', q)}</p>
           <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">
             {items.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
@@ -126,7 +126,7 @@ function SearchInner() {
                 disabled={loading}
                 className="btn-outline disabled:opacity-60"
               >
-                {loading ? 'Loading…' : 'Load more'}
+                {loading ? t.common.loading : t.collection.loadMore}
               </button>
             </div>
           )}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { siteBaseUrl } from '@/lib/i18n/seo'
 
 /**
  * 根布局（App Router 要求顶层 app/layout 渲染 html/body）。
@@ -8,7 +9,7 @@ import './globals.css'
  */
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5173'),
+  metadataBase: new URL(siteBaseUrl()),
   title: {
     default: 'Dreamy — Outdoor Wedding Atelier',
     template: '%s · Dreamy'

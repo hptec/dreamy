@@ -72,12 +72,7 @@ public class AdminGuideController {
         return ResponseEntity.ok(R.ok(guideService.patchStatus(parseId(id), req.status())));
     }
 
-    @RequirePermission(PERMISSION)
-    @PatchMapping("/api/admin/content/guides/order")
-    public ResponseEntity<R<Map<String, List<GuideDto>>>> reorder(@RequestBody Map<String, List<Long>> req) {
-        return ResponseEntity.ok(R.ok(Map.of("items", guideService.reorder(req.get("ids")))));
-    }
-
+    /** E-MKT-46b reorderAdminGuides（上下移排序） */
     @RequirePermission(PERMISSION)
     @PostMapping("/api/admin/content/guides/reorder")
     public ResponseEntity<R<Map<String, List<GuideDto>>>> reorderPost(@RequestBody Map<String, List<Long>> req) {

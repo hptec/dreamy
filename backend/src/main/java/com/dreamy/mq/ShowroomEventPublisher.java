@@ -40,10 +40,34 @@ public class ShowroomEventPublisher {
 
     public ShowroomEventPublisher(DomainEventPublisher eventPublisher,
                                   @Value("${dreamy.showroom.store-base-url:http://localhost:5173}")
-                                  String storeBaseUrl) {
+                                  String storeBaseUrl,
+                                  @Value("${identity.mail.mode:stub}")
+                                  String mailMode) {
         this.eventPublisher = eventPublisher;
         this.storeBaseUrl = storeBaseUrl.endsWith("/")
                 ? storeBaseUrl.substring(0, storeBaseUrl.length() - 1) : storeBaseUrl;
+        // 启动 fail-fast：真实发信（smtp）时邀请链接禁止回环地址，否则邀请邮件把用户带到打不开的地址
+        if ("smtp".equalsIgnoreCase(mailMode) && isLoopbackBaseUrl(this.storeBaseUrl)) {
+            throw new IllegalStateException(
+                    "dreamy.showroom.store-base-url resolves to " + this.storeBaseUrl
+                            + " while identity.mail.mode=smtp: set SITE_BASE_URL to the public store URL");
+        }
+    }
+
+    /** 回环/本机基址判定：URI 解析 host 后小写比较，覆盖 localhost/127.0.0.1/::1/0.0.0.0 与大小写、协议变体；不可解析同样视作回环拒绝 */
+    static boolean isLoopbackBaseUrl(String url) {
+        String host;
+        try {
+            host = java.net.URI.create(url).getHost();
+        } catch (Exception ex) {
+            return true;
+        }
+        if (host == null || host.isBlank()) {
+            return true;
+        }
+        String h = host.toLowerCase(java.util.Locale.ROOT);
+        return "localhost".equals(h) || "127.0.0.1".equals(h) || "0.0.0.0".equals(h)
+                || "::1".equals(h) || "[::1]".equals(h);
     }
 
     /** EVT-SHR-001 邀请/指派通知（E-SHR-12 STEP-SHR-04 触发条件由调用方裁决） */

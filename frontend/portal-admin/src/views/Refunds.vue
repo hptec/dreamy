@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // PAGE-TRD-A03 / FORM-TRD-R01 / COMP-TRD-R01：退款工单（行内同意/拒绝审批——决策 7；已处理行展示退款/退货单号——ALIGN-025；登记退货单号弹窗保留——决策 31）
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -41,6 +41,10 @@ function onSearchInput() {
     store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
   }, 300)
 }
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function gotoPage(p: number) {
   store.setPage(p).catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))

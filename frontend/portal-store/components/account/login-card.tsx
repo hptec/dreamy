@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { LocalizedLink as Link } from '@/components/localized-link'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthConfigStore } from '@/lib/stores/auth-config-store'
@@ -180,8 +180,8 @@ export function LoginCard() {
           )}
           <p className="mt-8 text-center text-[11px] leading-relaxed text-ink-faint">
             {t.login.agreePrefix}{' '}
-            <Link href="/faq" className="underline">{t.login.terms}</Link> {t.login.agreeAnd}{' '}
-            <Link href="/faq" className="underline">{t.login.privacy}</Link>.
+            <Link href="/terms" className="underline">{t.login.terms}</Link> {t.login.agreeAnd}{' '}
+            <Link href="/privacy" className="underline">{t.login.privacy}</Link>.
           </p>
         </div>
       </div>

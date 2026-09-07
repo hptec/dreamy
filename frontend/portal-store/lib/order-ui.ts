@@ -1,6 +1,7 @@
 /**
  * 订单/支付/退款状态展示映射（COMP-TRD-S05/S06 共用；token 复用既有 badge 风格）。
- * 状态为后端 IntEnum 整数契约，展示文案在此集中映射。
+ * 状态为后端 IntEnum 整数契约，展示文案在此集中映射；label 函数接受可选本地化标签
+ * （messages.ts orders.status / paymentStatus / refundStatus），缺省回退 EN。
  */
 import { OrderStatus, PaymentStatus, RefundStatus } from '@/lib/api/store-types'
 
@@ -32,8 +33,8 @@ const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.REFUNDED]: 'Refunded'
 }
 
-export function orderStatusLabel(status: OrderStatus): string {
-  return ORDER_STATUS_LABEL[status] ?? 'Unknown'
+export function orderStatusLabel(status: OrderStatus, labels?: Record<OrderStatus, string>): string {
+  return labels?.[status] ?? ORDER_STATUS_LABEL[status] ?? 'Unknown'
 }
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -44,8 +45,8 @@ const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   [PaymentStatus.REFUNDED]: 'Refunded'
 }
 
-export function paymentStatusLabel(status: PaymentStatus): string {
-  return PAYMENT_STATUS_LABEL[status] ?? 'Unknown'
+export function paymentStatusLabel(status: PaymentStatus, labels?: Record<PaymentStatus, string>): string {
+  return labels?.[status] ?? PAYMENT_STATUS_LABEL[status] ?? 'Unknown'
 }
 
 const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
@@ -54,6 +55,6 @@ const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
   [RefundStatus.REJECTED]: 'Rejected'
 }
 
-export function refundStatusLabel(status: RefundStatus): string {
-  return REFUND_STATUS_LABEL[status] ?? 'Unknown'
+export function refundStatusLabel(status: RefundStatus, labels?: Record<RefundStatus, string>): string {
+  return labels?.[status] ?? REFUND_STATUS_LABEL[status] ?? 'Unknown'
 }

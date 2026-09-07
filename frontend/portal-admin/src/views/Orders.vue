@@ -2,7 +2,7 @@
 // PAGE-TRD-A01 / COMP-TRD-O01：订单列表（mock → listAdminOrders；tabs 补 cancelled/refunded；
 // 搜索防抖 300ms 服务端；币种/时间范围筛选为超集保留（决策 9）；服务端分页）
 // admin-prototype-alignment：ALIGN-012 导出订单 / ALIGN-013 地区+商品数列 / ALIGN-015 搜索回对客户名
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -58,6 +58,10 @@ function onSearchInput() {
     store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
   }, 300)
 }
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function applyFilters() {
   store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))

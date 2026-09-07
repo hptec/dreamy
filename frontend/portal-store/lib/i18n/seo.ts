@@ -9,7 +9,15 @@ import type { Locale } from '../api/types'
 export const SUPPORTED_LOCALES: Locale[] = ['en', 'es', 'fr']
 
 export function siteBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:5173').replace(/\/$/, '')
+  const raw = process.env.NEXT_PUBLIC_SITE_URL
+  if (!raw) {
+    // 生产构建禁止 localhost 回退：canonical/hreflang/sitemap 指向错误域名比缺配置更糟，显式失败
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_SITE_URL 未设置：生产构建必须显式配置站点域名（canonical/sitemap/hreflang）')
+    }
+    return 'http://localhost:5173'
+  }
+  return raw.replace(/\/$/, '')
 }
 
 /** 去掉路径上的 locale 前缀，返回无前缀路径（始终以 / 开头）。 */

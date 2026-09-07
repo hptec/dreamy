@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import draggable from 'vuedraggable'
 import PageHeader from '@/components/PageHeader.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
@@ -234,6 +234,11 @@ function parseMegaMenuColumns(megaMenu) {
 
 function touch() { dirty.value = true }
 
+onUnmounted(() => {
+  for (const t of searchTimers.values()) clearTimeout(t)
+  searchTimers.clear()
+})
+
 // 多语言编辑：EN 写基准字段（label/title/content），ES/FR 写 i18n[locale][field]
 // ES/FR 清空时删除该字段，消费端回退 EN（空串否则会遮蔽兜底）
 function ensureI18n(obj, locale) {
@@ -382,13 +387,18 @@ function collectErrors() {
   return errors
 }
 
+const saving = ref(false)
 async function saveAll() {
+  if (saving.value) return
   const errors = collectErrors()
   if (errors.length > 0) {
     tab.value = errors[0].tab
     toast.error(errors.length > 1 ? `${errors[0].msg}（共 ${errors.length} 处待修正）` : errors[0].msg)
     return
   }
+  saving.value = true
+  // 三段串行保存：失败时按 segment 明确告知已保存到哪一段，"部分保存"不再不透明
+  let segment = '导航'
   try {
     // 1. 保存导航（整体替换）
     const navUpserts = main.value.map((b, idx) => ({
@@ -407,6 +417,7 @@ async function saveAll() {
     await navStore.save(navUpserts)
 
     // 2. 保存页脚（整体替换）
+    segment = '页脚'
     const footerUpserts = footer.value.map((c, idx) => ({
       id: c.id,
       title: c.title,
@@ -425,6 +436,7 @@ async function saveAll() {
     await footerStore.save(footerUpserts)
 
     // 3. 保存公告（逐条 delete/create/update，跳过未改动项）
+    segment = '公告'
     for (const id of removedAnnouncementIds.value) {
       await announcementStore.remove(id)
     }
@@ -450,12 +462,19 @@ async function saveAll() {
   } catch (e) {
     // 乐观锁冲突：本地 version 已陈旧，不重新拉取的话之后每次重试都会撞同一个错
     if (VERSION_CONFLICT_CODES.includes(e?.code)) {
-      await Promise.all([navStore.fetch(), footerStore.fetch(), announcementStore.fetch()])
-      syncFromStores()
-      toast.error('数据已被其他人更新，已载入最新内容；本次未保存的改动请重新填写后再提交')
+      try {
+        await Promise.all([navStore.fetch(), footerStore.fetch(), announcementStore.fetch()])
+        syncFromStores()
+        toast.error('数据已被其他人更新，已载入最新内容；本次未保存的改动请重新填写后再提交')
+      } catch (refreshError) {
+        toast.error(refreshError?.message ?? '载入最新内容失败，请刷新页面后重试')
+      }
       return
     }
-    toast.error(e.message ?? '保存失败')
+    const doneBefore = { 页脚: '，主导航已保存成功', 公告: '，主导航与页脚已保存成功' }[segment] ?? ''
+    toast.error(`「${segment}」保存失败：${e.message ?? '请稍后重试'}${doneBefore}`)
+  } finally {
+    saving.value = false
   }
 }
 </script>
@@ -465,7 +484,7 @@ async function saveAll() {
     <PageHeader eyebrow="Site Builder" title="导航、页脚与公告" subtitle="配置全站主导航、Mega Menu、页脚栏目与顶部公告条">
       <template #actions>
         <span v-if="dirty" class="badge bg-warn/14 text-warn"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>未发布改动</span>
-        <button class="btn-gold" @click="saveAll" :disabled="!dirty"><RocketLaunchIcon class="h-4 w-4" />保存</button>
+        <button class="btn-gold" @click="saveAll" :disabled="!dirty || saving"><RocketLaunchIcon class="h-4 w-4" />{{ saving ? '保存中…' : '保存' }}</button>
       </template>
     </PageHeader>
 

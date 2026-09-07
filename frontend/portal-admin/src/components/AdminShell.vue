@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
 import type { MenuGroup } from '@/config/menu'
 import {
-  Bars3Icon, BellIcon, ChevronDownIcon,
+  Bars3Icon, ChevronDownIcon,
   ShieldCheckIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline'
 
@@ -137,11 +137,6 @@ function groupActive(group: MenuGroup) {
         </nav>
 
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-          <!-- 通知 -->
-          <button class="relative rounded-luxe p-2 text-ink-soft hover:bg-canvas-warm">
-            <BellIcon class="h-5 w-5" />
-            <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger"></span>
-          </button>
           <!-- 用户 -->
           <Menu as="div" class="relative">
             <MenuButton class="flex items-center gap-2 rounded-luxe py-1 pl-1 pr-2 hover:bg-canvas-warm">

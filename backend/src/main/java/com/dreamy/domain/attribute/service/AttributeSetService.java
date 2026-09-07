@@ -63,9 +63,10 @@ public class AttributeSetService {
                     .add(new AttributeSetItemDto(item.getAttributeId(),
                             item.getVisibility() == null ? null : item.getVisibility().getKey()));
         }
+        Map<Long, Long> categoryCounts = categoryRepository.countByAttributeSetIds(setIds);
         List<AttributeSetDto> result = new ArrayList<>();
         for (AttributeSet set : sets) {
-            int categoryCount = (int) categoryRepository.countByAttributeSetId(set.getId());
+            int categoryCount = categoryCounts.getOrDefault(set.getId(), 0L).intValue();
             result.add(new AttributeSetDto(set.getId(), set.getLabel(),
                     itemsBySet.getOrDefault(set.getId(), List.of()), categoryCount));
         }

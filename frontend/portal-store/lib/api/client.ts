@@ -17,8 +17,10 @@ import {
 } from './token-store'
 import { getActiveLocale } from '../i18n/i18n-context'
 
+// 默认空 = 相对路径(同源 /api 由 next.config rewrites 反代到后端);
+// 显式设置 NEXT_PUBLIC_API_BASE_URL 时直连该地址(如本地 dev 指向 18081)。
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:18081'
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? ''
 
 export class ApiError extends Error {
   readonly code: number

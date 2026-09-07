@@ -11,8 +11,9 @@ import org.springframework.web.filter.CorsFilter;
 import java.util.List;
 
 /**
- * Admin CORS（origin http://localhost:5174）+ Filter 注册。
+ * Admin CORS + Filter 注册。
  * 约束: shared-contracts cors（portal-admin 5174，credentials=true）。
+ * origin 由 ADMIN_CORS_ORIGIN 注入（逗号分隔多值），dev 默认 http://localhost:5174。
  */
 @Configuration
 public class AdminConfig {
@@ -20,7 +21,7 @@ public class AdminConfig {
     @Bean
     public CorsFilter adminCorsFilter() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of("http://localhost:5174"));
+        cfg.setAllowedOrigins(StoreConfig.splitOrigins(System.getenv("ADMIN_CORS_ORIGIN"), "http://localhost:5174"));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept-Language"));
         cfg.setAllowCredentials(true);

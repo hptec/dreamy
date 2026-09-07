@@ -2,7 +2,7 @@
 // PAGE-REV-A01 / COMP-REV-A01~A06：评价与 Q&A（按原型 583 行版 copy-adapt 新建；mock → E-REV-06~15）
 // 显式偏离 ×2（设计 §C）：①chips 计数仅「待审核」带角标（契约仅 pending_count）；
 // ②Q&A 提问人/内容搜索为当前页内存过滤（契约无 search 参数，tooltip 标注）
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -79,6 +79,7 @@ function reviewBadge(r: AdminReview) {
 const allChecked = computed(
   () => reviews.list.length > 0 && reviews.list.every((r) => reviews.selectedIds.includes(r.id)),
 )
+const batchBusy = ref<'approve' | 'reject' | null>(null)
 function toggleAll() {
   if (allChecked.value) reviews.selectedIds = []
   else reviews.selectedIds = reviews.list.map((r) => r.id)
@@ -90,6 +91,8 @@ function toggleSelect(id: number) {
 }
 
 async function batchSet(action: 'approve' | 'reject') {
+  if (batchBusy.value) return
+  batchBusy.value = action
   try {
     const result = await reviews.batch(action)
     const verb = action === 'approve' ? '通过' : '拒绝'
@@ -98,6 +101,8 @@ async function batchSet(action: 'approve' | 'reject') {
     toast.success(msg)
   } catch (e) {
     toast.error(bizMsg(e, '批量操作失败'))
+  } finally {
+    batchBusy.value = null
   }
 }
 
@@ -149,6 +154,7 @@ const showReviewDrawer = ref(false)
 const detailReview = ref<AdminReview | null>(null)
 const replyDraft = ref('')
 const replyEditing = ref(false)
+const replySaving = ref(false)
 const confirmDeleteReply = ref(false)
 const confirmBusy = ref(false)
 
@@ -204,7 +210,8 @@ function syncDetail(id: number) {
 }
 
 async function saveReply() {
-  if (!detailReview.value || !replyDraft.value.trim()) return
+  if (!detailReview.value || !replyDraft.value.trim() || replySaving.value) return
+  replySaving.value = true
   try {
     const updated = await reviews.saveReply(detailReview.value.id, replyDraft.value.trim())
     detailReview.value = updated
@@ -214,6 +221,8 @@ async function saveReply() {
     if (e instanceof BizError && e.code === 409804) toast.error('仅已通过评价可回复')
     else if (e instanceof BizError && e.code === 422801) toast.error(e.message)
     else toast.error(bizMsg(e, '操作失败'))
+  } finally {
+    replySaving.value = false
   }
 }
 
@@ -292,7 +301,10 @@ function toggleQaSelect(id: number) {
   else questions.selectedIds.push(id)
 }
 
+const qaBatchBusy = ref<'hide' | 'show' | null>(null)
 async function batchQa(action: 'hide' | 'show') {
+  if (qaBatchBusy.value) return
+  qaBatchBusy.value = action
   try {
     const result = await questions.batch(action)
     const verb = action === 'hide' ? '隐藏' : '上线'
@@ -301,6 +313,8 @@ async function batchQa(action: 'hide' | 'show') {
     toast.success(msg)
   } catch (e) {
     toast.error(bizMsg(e, '批量操作失败'))
+  } finally {
+    qaBatchBusy.value = null
   }
 }
 
@@ -318,6 +332,7 @@ const showQaDrawer = ref(false)
 const detailQa = ref<AdminQuestion | null>(null)
 const answerDraft = ref('')
 const answerEditing = ref(false)
+const answerSaving = ref(false)
 
 function openQa(q: AdminQuestion) {
   detailQa.value = q
@@ -327,7 +342,8 @@ function openQa(q: AdminQuestion) {
 }
 
 async function saveAnswer() {
-  if (!detailQa.value || !answerDraft.value.trim()) return
+  if (!detailQa.value || !answerDraft.value.trim() || answerSaving.value) return
+  answerSaving.value = true
   try {
     const updated = await questions.saveAnswer(detailQa.value.id, answerDraft.value.trim())
     detailQa.value = updated // 首答自动可见（响应回写 visible）
@@ -340,6 +356,8 @@ async function saveAnswer() {
     } else {
       toast.error(bizMsg(e, '操作失败'))
     }
+  } finally {
+    answerSaving.value = false
   }
 }
 
@@ -410,6 +428,11 @@ watch(activeTab, (t) => {
 onMounted(() => {
   reviews.fetch().catch((e) => toast.error(bizMsg(e, '加载评价失败')))
 })
+
+onUnmounted(() => {
+  if (reviewSearchTimer) clearTimeout(reviewSearchTimer)
+  if (qaSearchTimer) clearTimeout(qaSearchTimer)
+})
 </script>
 
 <template>
@@ -467,8 +490,8 @@ onMounted(() => {
       <!-- 批量操作条 -->
       <div v-if="reviews.selectedIds.length" class="mb-3 flex items-center gap-3 rounded-luxe border border-gold/40 bg-gold/8 px-4 py-2.5">
         <span class="text-[13px] text-ink">已选 {{ reviews.selectedIds.length }} 条评价</span>
-        <button class="btn-ghost text-ok" @click="batchSet('approve')"><CheckIcon class="h-4 w-4" />批量通过</button>
-        <button class="btn-danger-ghost" @click="batchSet('reject')"><NoSymbolIcon class="h-4 w-4" />批量拒绝</button>
+        <button class="btn-ghost text-ok" :disabled="batchBusy !== null" @click="batchSet('approve')"><CheckIcon class="h-4 w-4" />{{ batchBusy === 'approve' ? '处理中…' : '批量通过' }}</button>
+        <button class="btn-danger-ghost" :disabled="batchBusy !== null" @click="batchSet('reject')"><NoSymbolIcon class="h-4 w-4" />{{ batchBusy === 'reject' ? '处理中…' : '批量拒绝' }}</button>
         <button class="ml-auto text-[12px] text-ink-faint hover:text-ink" @click="reviews.selectedIds = []">取消选择</button>
       </div>
 
@@ -567,8 +590,8 @@ onMounted(() => {
       <!-- 批量操作条（对齐评价批量范式） -->
       <div v-if="questions.selectedIds.length" class="mb-3 flex items-center gap-3 rounded-luxe border border-gold/40 bg-gold/8 px-4 py-2.5">
         <span class="text-[13px] text-ink">已选 {{ questions.selectedIds.length }} 条问答</span>
-        <button class="btn-danger-ghost" @click="batchQa('hide')"><NoSymbolIcon class="h-4 w-4" />批量隐藏</button>
-        <button class="btn-ghost text-ok" @click="batchQa('show')"><CheckIcon class="h-4 w-4" />批量上线</button>
+        <button class="btn-danger-ghost" :disabled="qaBatchBusy !== null" @click="batchQa('hide')"><NoSymbolIcon class="h-4 w-4" />{{ qaBatchBusy === 'hide' ? '处理中…' : '批量隐藏' }}</button>
+        <button class="btn-ghost text-ok" :disabled="qaBatchBusy !== null" @click="batchQa('show')"><CheckIcon class="h-4 w-4" />{{ qaBatchBusy === 'show' ? '处理中…' : '批量上线' }}</button>
         <button class="ml-auto text-[12px] text-ink-faint hover:text-ink" @click="questions.selectedIds = []">取消选择</button>
       </div>
 
@@ -714,7 +737,7 @@ onMounted(() => {
                   <span class="text-[11px] text-ink-faint">回复将以 "Dreamy Team" 署名公开展示</span>
                   <div class="flex gap-2">
                     <button v-if="replyEditing" class="btn-ghost" @click="replyEditing = false; replyDraft = detailReview.replyContent || ''">取消</button>
-                    <button class="btn-primary" :disabled="!replyDraft.trim()" @click="saveReply"><ChatBubbleLeftRightIcon class="h-4 w-4" />{{ replyEditing ? '保存修改' : '发布回复' }}</button>
+                    <button class="btn-primary" :disabled="!replyDraft.trim() || replySaving" @click="saveReply"><ChatBubbleLeftRightIcon class="h-4 w-4" />{{ replySaving ? '保存中…' : replyEditing ? '保存修改' : '发布回复' }}</button>
                   </div>
                 </div>
               </template>
@@ -807,7 +830,7 @@ onMounted(() => {
                   <span class="text-[11px] text-ink-faint">回答将以 "Dreamy Team" 署名公开展示；首次回答自动上线可见</span>
                   <div class="flex gap-2">
                     <button v-if="answerEditing" class="btn-ghost" @click="answerEditing = false; answerDraft = detailQa.answer || ''">取消</button>
-                    <button class="btn-primary" :disabled="!answerDraft.trim()" @click="saveAnswer"><ChatBubbleLeftRightIcon class="h-4 w-4" />{{ answerEditing ? '保存修改' : '发布回答' }}</button>
+                    <button class="btn-primary" :disabled="!answerDraft.trim() || answerSaving" @click="saveAnswer"><ChatBubbleLeftRightIcon class="h-4 w-4" />{{ answerSaving ? '保存中…' : answerEditing ? '保存修改' : '发布回答' }}</button>
                   </div>
                 </div>
               </template>

@@ -23,12 +23,7 @@ import { cn, formatDateTimeLong } from '@/lib/utils'
 import { WriteReviewModal } from './write-review-modal'
 import { AskQuestionModal } from './ask-question-modal'
 
-const SORT_OPTIONS: { value: ReviewSort; label: string }[] = [
-  { value: 'featured_first', label: 'Featured' },
-  { value: 'newest', label: 'Newest' },
-  { value: 'rating_desc', label: 'Highest rated' },
-  { value: 'rating_asc', label: 'Lowest rated' }
-]
+const SORT_VALUES: ReviewSort[] = ['featured_first', 'newest', 'rating_desc', 'rating_asc']
 
 export function ProductReviews({
   productId,
@@ -42,9 +37,11 @@ export function ProductReviews({
   initialQuestions: Paginated<StoreQuestion> | null
 }) {
   const router = useRouter()
-  const { te } = useI18n()
+  const { t, te } = useI18n()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [tab, setTab] = useState<'reviews' | 'qa'>('reviews')
+  // 排序/加载更多失败提示（M13：不再静默保留现场，给一行可消失的错误反馈）
+  const [loadError, setLoadError] = useState<string | null>(null)
   // 后台"查看前台问答区"直达：#qa 锚点自动切 Q&A tab。
   // 必须在 useEffect 里做（客户端 only）：参与首次渲染会因 SSR/客户端 hash 分支不同导致 hydration mismatch。
   useEffect(() => {
@@ -89,6 +86,7 @@ export function ProductReviews({
   const applySort = async (next: ReviewSort) => {
     setSort(next)
     setLoadingMore(true)
+    setLoadError(null)
     try {
       const res = await fetchStoreReviews(productId, { sort: next, page: 1 })
       setReviews(res.data)
@@ -100,7 +98,7 @@ export function ProductReviews({
         ratingBreakdown: res.ratingBreakdown ?? {}
       })
     } catch {
-      /* 保留现场 */
+      setLoadError(t.error.generic)
     } finally {
       setLoadingMore(false)
     }
@@ -108,12 +106,13 @@ export function ProductReviews({
 
   const loadMoreReviews = async () => {
     setLoadingMore(true)
+    setLoadError(null)
     try {
       const res = await fetchStoreReviews(productId, { sort, page: reviewMeta.page + 1 })
       setReviews((prev) => [...prev, ...res.data])
       setReviewMeta((m) => ({ ...m, page: res.pageNumber, totalElements: res.totalElements }))
     } catch {
-      /* 保留现场 */
+      setLoadError(t.error.generic)
     } finally {
       setLoadingMore(false)
     }
@@ -121,12 +120,13 @@ export function ProductReviews({
 
   const loadMoreQuestions = async () => {
     setQaLoading(true)
+    setLoadError(null)
     try {
       const res = await fetchStoreQuestions(productId, { page: qaMeta.page + 1 })
       setQuestions((prev) => [...prev, ...res.data])
       setQaMeta({ totalElements: res.totalElements, page: res.pageNumber })
     } catch {
-      /* 保留现场 */
+      setLoadError(t.error.generic)
     } finally {
       setQaLoading(false)
     }
@@ -156,16 +156,19 @@ export function ProductReviews({
           <p className="mb-6 rounded-sm bg-sage/10 px-4 py-3 text-sm text-sage-deep" role="status">{confirmation}</p>
         )}
         <div className="mb-8 flex gap-6 border-b border-line">
-          <button onClick={() => setTab('reviews')} className={cn('cursor-pointer border-b-2 pb-3 font-display text-2xl', tab === 'reviews' ? 'border-gold text-ink' : 'border-transparent text-ink-faint')}>Reviews ({reviewMeta.ratingCount})</button>
-          <button onClick={() => setTab('qa')} className={cn('cursor-pointer border-b-2 pb-3 font-display text-2xl', tab === 'qa' ? 'border-gold text-ink' : 'border-transparent text-ink-faint')}>Q&A ({qaMeta.totalElements})</button>
+          <button onClick={() => setTab('reviews')} className={cn('cursor-pointer border-b-2 pb-3 font-display text-2xl', tab === 'reviews' ? 'border-gold text-ink' : 'border-transparent text-ink-faint')}>{t.product.reviews} ({reviewMeta.ratingCount})</button>
+          <button onClick={() => setTab('qa')} className={cn('cursor-pointer border-b-2 pb-3 font-display text-2xl', tab === 'qa' ? 'border-gold text-ink' : 'border-transparent text-ink-faint')}>{t.product.qa} ({qaMeta.totalElements})</button>
         </div>
+        {loadError && (
+          <p className="mb-6 rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush" role="alert">{loadError}</p>
+        )}
 
         {tab === 'reviews' ? (
           <div className="grid gap-10 lg:grid-cols-3">
             <div>
               <div className="flex items-end gap-3">
                 <span className="font-display text-5xl font-medium">{reviewMeta.ratingAvg ? reviewMeta.ratingAvg.toFixed(1) : '—'}</span>
-                <div className="pb-1"><Stars rating={reviewMeta.ratingAvg} /><p className="mt-1 text-xs text-ink-soft">{reviewMeta.ratingCount} reviews</p></div>
+                <div className="pb-1"><Stars rating={reviewMeta.ratingAvg} /><p className="mt-1 text-xs text-ink-soft">{t.product.reviewCount.replace('{count}', String(reviewMeta.ratingCount))}</p></div>
               </div>
               <div className="mt-5 space-y-1.5">
                 {dist.map((pct, i) => (
@@ -179,17 +182,23 @@ export function ProductReviews({
               {reviewBlocked ? (
                 <p className="mt-6 rounded-sm bg-muted px-4 py-3 text-xs text-ink-soft">{te(403801)}</p>
               ) : (
-                <button onClick={openWrite} className="btn-outline mt-6 w-full">Write a Review</button>
+                <button onClick={openWrite} className="btn-outline mt-6 w-full">{t.product.writeReview}</button>
               )}
             </div>
             <div className="space-y-6 lg:col-span-2">
               <div className="flex items-center justify-end">
-                <label htmlFor="review-sort" className="sr-only">Sort reviews</label>
+                <label htmlFor="review-sort" className="sr-only">{t.product.sortReviewsAria}</label>
                 <Select
                   id="review-sort"
-                  ariaLabel="Sort reviews"
+                  ariaLabel={t.product.sortReviewsAria}
                   value={sort}
-                  options={SORT_OPTIONS}
+                  options={SORT_VALUES.map((v) => ({
+                    value: v,
+                    label: v === 'featured_first' ? t.product.reviewSort.featured
+                      : v === 'newest' ? t.product.reviewSort.newest
+                        : v === 'rating_desc' ? t.product.reviewSort.highest
+                          : t.product.reviewSort.lowest
+                  }))}
                   onChange={(v) => void applySort(v)}
                   align="right"
                   triggerClassName="w-auto px-4 py-2 text-xs uppercase tracking-luxe"
@@ -198,8 +207,8 @@ export function ProductReviews({
               </div>
               {reviews.length === 0 ? (
                 <div className="rounded-sm border border-dashed border-line py-14 text-center">
-                  <p className="font-display text-xl">Be the first to review</p>
-                  <p className="mt-1 text-sm text-ink-soft">Share your experience with other brides.</p>
+                  <p className="font-display text-xl">{t.product.beFirstToReview}</p>
+                  <p className="mt-1 text-sm text-ink-soft">{t.product.shareExperience}</p>
                 </div>
               ) : (
                 reviews.map((r) => (
@@ -218,11 +227,11 @@ export function ProductReviews({
                     </div>
                     {r.content && <p className="mt-2 text-sm text-ink-soft">{r.content}</p>}
                     <div className="mt-2 flex items-center gap-3 text-xs text-ink-faint">
-                      <span className="font-medium text-ink">{r.customerName ?? 'Dreamy Customer'}</span>
+                      <span className="font-medium text-ink">{r.customerName ?? t.product.defaultCustomer}</span>
                       {r.featured && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-2.5 py-1 font-medium text-gold-deep">
                           <Sparkles className="h-3 w-3" aria-hidden="true" />
-                          Featured review
+                          {t.product.featuredReview}
                         </span>
                       )}
                     </div>
@@ -239,7 +248,7 @@ export function ProductReviews({
               )}
               {reviews.length < reviewMeta.totalElements && (
                 <button onClick={loadMoreReviews} disabled={loadingMore} className="btn-outline w-full disabled:opacity-60">
-                  {loadingMore ? 'Loading…' : 'Load more reviews'}
+                  {loadingMore ? t.common.loading : t.product.loadMoreReviews}
                 </button>
               )}
             </div>
@@ -248,8 +257,8 @@ export function ProductReviews({
           <div className="max-w-3xl space-y-6">
             {questions.length === 0 ? (
               <div className="rounded-sm border border-dashed border-line py-14 text-center">
-                <p className="font-display text-xl">No questions yet</p>
-                <p className="mt-1 text-sm text-ink-soft">Ask us anything about fit, fabric, or delivery.</p>
+                <p className="font-display text-xl">{t.product.noQuestionsYet}</p>
+                <p className="mt-1 text-sm text-ink-soft">{t.product.askAnything}</p>
               </div>
             ) : (
               questions.map((item) => (
@@ -258,16 +267,16 @@ export function ProductReviews({
                   {item.answer && (
                     <p className="mt-2 text-sm text-ink-soft"><span className="font-medium text-gold-deep">A:</span> {item.answer}</p>
                   )}
-                  <p className="mt-1 text-xs text-ink-faint">{item.asker ? `Asked by ${item.asker}` : 'Asked'}{item.askedAt ? ` · ${formatDateTimeLong(item.askedAt)}` : ''}</p>
+                  <p className="mt-1 text-xs text-ink-faint">{item.asker ? t.product.askedBy.replace('{name}', item.asker) : t.product.asked}{item.askedAt ? ` · ${formatDateTimeLong(item.askedAt)}` : ''}</p>
                 </div>
               ))
             )}
             {questions.length < qaMeta.totalElements && (
               <button onClick={loadMoreQuestions} disabled={qaLoading} className="btn-outline w-full disabled:opacity-60">
-                {qaLoading ? 'Loading…' : 'Load more questions'}
+                {qaLoading ? t.common.loading : t.product.loadMoreQuestions}
               </button>
             )}
-            <button onClick={openAsk} className="btn-outline">Ask a Question</button>
+            <button onClick={openAsk} className="btn-outline">{t.product.askQuestion}</button>
           </div>
         )}
       </div>
@@ -283,7 +292,7 @@ export function ProductReviews({
           }}
           onSubmitted={() => {
             setWriteOpen(false)
-            setConfirmation('Your review has been submitted and will appear after moderation.')
+            setConfirmation(t.product.reviewSubmitted)
           }}
         />
       )}
@@ -293,7 +302,7 @@ export function ProductReviews({
           onClose={() => setAskOpen(false)}
           onSubmitted={() => {
             setAskOpen(false)
-            setConfirmation('Your question has been submitted — the answer will appear here once published.')
+            setConfirmation(t.product.questionSubmitted)
           }}
         />
       )}
@@ -303,9 +312,9 @@ export function ProductReviews({
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={() => setLightbox(null)} />
           <div className="relative max-h-[85vh] max-w-2xl animate-fadeup">
-            <button onClick={() => setLightbox(null)} className="absolute -right-3 -top-3 z-10 cursor-pointer rounded-full bg-canvas p-1.5 shadow-lift" aria-label="Close"><X className="h-4 w-4" /></button>
+            <button onClick={() => setLightbox(null)} className="absolute -right-3 -top-3 z-10 cursor-pointer rounded-full bg-canvas p-1.5 shadow-lift" aria-label={t.common.close}><X className="h-4 w-4" /></button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lightbox} alt="Customer photo" className="max-h-[85vh] w-auto rounded-sm object-contain" />
+            <img src={lightbox} alt={t.product.customerPhoto} className="max-h-[85vh] w-auto rounded-sm object-contain" />
           </div>
         </div>
       )}
@@ -315,13 +324,14 @@ export function ProductReviews({
 
 /** ReviewImageStrip（COMP-REV-S02）：评价行缩略图（≤9，后端已过滤 rejected）+ 点击放大 */
 function ReviewImageStrip({ images, onOpen }: { images: ReviewImage[]; onOpen: (url: string) => void }) {
+  const { t } = useI18n()
   if (images.length === 0) return null
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {images.map((img) => (
-        <button key={img.id} onClick={() => onOpen(img.url)} className="cursor-pointer overflow-hidden rounded-sm border border-line" aria-label="View customer photo">
+        <button key={img.id} onClick={() => onOpen(img.url)} className="cursor-pointer overflow-hidden rounded-sm border border-line" aria-label={t.product.customerPhoto}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img.url} alt="Customer photo" className="h-16 w-16 object-cover transition-transform duration-300 hover:scale-105" />
+          <img src={img.url} alt={t.product.customerPhoto} className="h-16 w-16 object-cover transition-transform duration-300 hover:scale-105" />
         </button>
       ))}
     </div>

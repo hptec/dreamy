@@ -75,16 +75,20 @@ async function toggleGuide(g: Guide) {
   }
 }
 
+const reorderBusy = ref(false)
 async function moveGuide(index: number, delta: number) {
   const target = index + delta
-  if (target < 0 || target >= store.guides.length) return
+  if (reorderBusy.value || target < 0 || target >= store.guides.length) return
   const ids = store.guides.map((item) => item.id)
   ;[ids[index], ids[target]] = [ids[target], ids[index]]
+  reorderBusy.value = true
   try {
     await store.reorderGuides(ids)
     toast.success('指南顺序已保存')
   } catch (e) {
     toast.error(e instanceof BizError ? e.message : '调整顺序失败')
+  } finally {
+    reorderBusy.value = false
   }
 }
 
@@ -179,8 +183,8 @@ onMounted(load)
         </div>
         <StatusBadge :tone="g.status === PublishStatus.PUBLISHED ? 'ok' : 'neutral'" :label="g.status === PublishStatus.PUBLISHED ? '已发布' : '草稿'" />
         <div class="flex gap-1">
-          <button class="btn-ghost disabled:opacity-40" :disabled="i === 0" title="上移" @click="moveGuide(i, -1)"><ArrowUpIcon class="h-4 w-4" /></button>
-          <button class="btn-ghost disabled:opacity-40" :disabled="i === store.guides.length - 1" title="下移" @click="moveGuide(i, 1)"><ArrowDownIcon class="h-4 w-4" /></button>
+          <button class="btn-ghost disabled:opacity-40" :disabled="reorderBusy || i === 0" title="上移" @click="moveGuide(i, -1)"><ArrowUpIcon class="h-4 w-4" /></button>
+          <button class="btn-ghost disabled:opacity-40" :disabled="reorderBusy || i === store.guides.length - 1" title="下移" @click="moveGuide(i, 1)"><ArrowDownIcon class="h-4 w-4" /></button>
           <button class="btn-ghost" :title="g.status === PublishStatus.PUBLISHED ? '下线' : '发布'" @click="toggleGuide(g)">
             <component :is="g.status === PublishStatus.PUBLISHED ? ArchiveBoxArrowDownIcon : RocketLaunchIcon" class="h-4 w-4" />
           </button>

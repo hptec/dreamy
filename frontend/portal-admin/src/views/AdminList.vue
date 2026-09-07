@@ -168,9 +168,15 @@ function openResetPassword(a: Admin) {
   showResetPassword.value = true
 }
 async function doResetPassword() {
-  if (!editingAdmin.value) return
-  if (!newPassword.value || newPassword.value.length < 6) return
-  if (newPassword.value !== newPasswordConfirm.value) return
+  if (!editingAdmin.value || submitting.value) return
+  if (!newPassword.value || newPassword.value.length < 6) {
+    toast.error('密码长度至少 6 位')
+    return
+  }
+  if (newPassword.value !== newPasswordConfirm.value) {
+    toast.error('两次输入的密码不一致')
+    return
+  }
   submitting.value = true
   try {
     await store.resetPassword(editingAdmin.value.id, newPassword.value)

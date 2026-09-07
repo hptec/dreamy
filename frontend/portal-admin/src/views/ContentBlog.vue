@@ -2,7 +2,7 @@
 // PAGE-MKT-A03 / COMP-MKT-A06：Blog 文章（卡片网格保持；filter tabs 改服务端参数 + 补『已归档』tab；
 // 发布预判 slug 空 422704；published 行「下线」/archived 行「重新发布」；预览新窗口）
 // 2026-08-28: 卡片右上角加 ES/FR 翻译状态国旗(LocaleFlag),运营一眼看到哪些文章译文未填
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -55,6 +55,10 @@ function onSearchInput() {
     store.applyFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
   }, 300)
 }
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 async function openEdit(p?: BlogPost) {
   if (!p) {

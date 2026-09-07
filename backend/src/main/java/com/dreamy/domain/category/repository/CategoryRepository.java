@@ -1,12 +1,15 @@
 package com.dreamy.domain.category.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dreamy.domain.category.entity.Category;
 import com.dreamy.domain.category.entity.CategoryTranslation;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 分类仓储（RM-CAT-001~012）。
@@ -60,6 +63,25 @@ public class CategoryRepository {
     public long countByAttributeSetId(Long attributeSetId) {
         return categoryMapper.selectCount(new LambdaQueryWrapper<Category>()
                 .eq(Category::getAttributeSetId, attributeSetId));
+    }
+
+    /** RM-CAT-009 countByAttributeSetIds —— 单条 GROUP BY IN 批查（E-CAT-19 列表 category_count 防 N+1） */
+    public Map<Long, Long> countByAttributeSetIds(Collection<Long> setIds) {
+        if (setIds == null || setIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> counts = new HashMap<>();
+        for (Map<String, Object> row : categoryMapper.selectMaps(new QueryWrapper<Category>()
+                .select("attribute_set_id", "COUNT(*) AS cnt")
+                .in("attribute_set_id", setIds)
+                .groupBy("attribute_set_id"))) {
+            Object setId = row.get("attribute_set_id");
+            Object cnt = row.get("cnt");
+            if (setId instanceof Number s && cnt instanceof Number c) {
+                counts.put(s.longValue(), c.longValue());
+            }
+        }
+        return counts;
     }
 
     /** RM-CAT-008 maxSortOfSiblings —— 新增分类缺省排序（同层 MAX(sort)） */

@@ -35,6 +35,15 @@ function parseAcceptLanguage(header: string | null): Locale | null {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
+  // 0.5 API 同源代理:浏览器 fetch('/api/...') 运行时转发到后端。
+  //     不用 next.config rewrites(build 时固化进 manifest 无法运行时改址);
+  //     BACKEND_ORIGIN 由部署层注入(docker-compose),dev 默认本地后端。
+  if (pathname.startsWith('/api/')) {
+    const backend = process.env.BACKEND_ORIGIN || 'http://localhost:18081'
+    const target = new URL(pathname + search, backend)
+    return NextResponse.rewrite(target)
+  }
+
   // 0. public 静态资源（带扩展名，如 /competitor-refs/x.jpg）直接放行：
   //    否则会被分支 4 rewrite 成 /en/...jpg，被当页面路由 404。
   if (PUBLIC_FILE.test(pathname)) {
@@ -88,8 +97,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // 排除 api / _next 静态资源 / 带扩展名的文件 / sitemap / robots
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|icon.svg).*)']
+  // 两类入口:API 同源代理(原 locale matcher 排除了 api,需单列) + 页面 locale 路由
+  matcher: [
+    '/api/:path*',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|icon.svg).*)'
+  ]
 }
 
 export { SUPPORTED, DEFAULT_LOCALE, isLocale, PUBLIC_FILE }

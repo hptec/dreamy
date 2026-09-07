@@ -17,20 +17,23 @@ import { ApiError } from '@/lib/api/client'
 import { statusBadgeClass, orderStatusLabel } from '@/lib/order-ui'
 import { formatAmount, formatDateTimeLong, cn } from '@/lib/utils'
 
-/** 状态筛选 chips（value=undefined 表示「全部」——请求不传 status 参数；其余为 IntEnum 数值） */
-const filters: { label: string; value: OrderStatus | undefined }[] = [
-  { label: 'All', value: undefined },
-  { label: 'Pending', value: OrderStatus.PENDING },
-  { label: 'Paid', value: OrderStatus.PAID },
-  { label: 'Shipped', value: OrderStatus.SHIPPED },
-  { label: 'Completed', value: OrderStatus.COMPLETED },
-  { label: 'Cancelled', value: OrderStatus.CANCELLED },
-  { label: 'Refunding', value: OrderStatus.REFUNDING },
-  { label: 'Refunded', value: OrderStatus.REFUNDED }
-]
-
 export default function OrdersPage() {
-  const { te } = useI18n()
+  const { t, te } = useI18n()
+  /** 状态筛选 chips（value=undefined 表示「全部」——请求不传 status 参数；其余为 IntEnum 数值） */
+  const filters: { label: string; value: OrderStatus | undefined }[] = [
+    { label: t.orders.all, value: undefined },
+    { label: t.orders.status.pending, value: OrderStatus.PENDING },
+    { label: t.orders.status.paid, value: OrderStatus.PAID },
+    { label: t.orders.status.shipped, value: OrderStatus.SHIPPED },
+    { label: t.orders.status.completed, value: OrderStatus.COMPLETED },
+    { label: t.orders.status.cancelled, value: OrderStatus.CANCELLED },
+    { label: t.orders.status.refunding, value: OrderStatus.REFUNDING },
+    { label: t.orders.status.refunded, value: OrderStatus.REFUNDED }
+  ]
+  /** order-ui 标签本地化映射（key=IntEnum 数值） */
+  const statusLabels = Object.fromEntries(
+    (Object.keys(t.orders.status) as (keyof typeof t.orders.status)[]).map((k) => [OrderStatus[k.toUpperCase() as keyof typeof OrderStatus], t.orders.status[k]])
+  ) as Record<OrderStatus, string>
   const [filter, setFilter] = useState<OrderStatus | undefined>(undefined)
   const [orders, setOrders] = useState<StoreOrderListItem[]>([])
   const [total, setTotal] = useState(0)
@@ -59,7 +62,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-medium">My Orders</h1>
+      <h1 className="font-display text-3xl font-medium">{t.orders.title}</h1>
       <div className="mt-6 flex flex-wrap gap-2">
         {filters.map((f) => (
           <button key={f.label} onClick={() => setFilter(f.value)} className={cn('cursor-pointer rounded-full px-4 py-1.5 text-xs uppercase tracking-luxe transition-colors', filter === f.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}>{f.label}</button>
@@ -70,7 +73,7 @@ export default function OrdersPage() {
         {error && (
           <div className="py-10 text-center">
             <p className="text-sm text-blush">{error}</p>
-            <button onClick={() => void load(filter, 1, false)} className="btn-outline mt-4">Try Again</button>
+            <button onClick={() => void load(filter, 1, false)} className="btn-outline mt-4">{t.common.retry}</button>
           </div>
         )}
         {!error && loading && orders.length === 0 && (
@@ -79,16 +82,16 @@ export default function OrdersPage() {
           </div>
         )}
         {!error && !loading && orders.length === 0 ? (
-          <p className="py-16 text-center text-ink-soft">No {filter === undefined ? '' : `${orderStatusLabel(filter).toLowerCase()} `}orders.</p>
+          <p className="py-16 text-center text-ink-soft">{filter === undefined ? t.orders.none : t.orders.noneFiltered.replace('{status}', orderStatusLabel(filter, statusLabels))}</p>
         ) : (
           orders.map((o) => (
             <div key={o.id} className="rounded-sm border border-line bg-surface p-5">
               <div className="flex items-center justify-between border-b border-line/60 pb-3">
                 <div>
-                  <p className="text-sm font-medium">Order {o.orderNo}</p>
-                  <p className="text-xs text-ink-soft">Placed {formatDateTimeLong(o.createdAt)}</p>
+                  <p className="text-sm font-medium">{t.orders.orderNo.replace('{no}', o.orderNo)}</p>
+                  <p className="text-xs text-ink-soft">{t.orders.placed.replace('{date}', formatDateTimeLong(o.createdAt))}</p>
                 </div>
-                <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{orderStatusLabel(o.status)}</span>
+                <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{orderStatusLabel(o.status, statusLabels)}</span>
               </div>
               <div className="mt-3 flex items-center gap-4">
                 <div className="flex -space-x-3">
@@ -99,9 +102,9 @@ export default function OrdersPage() {
                     <div className="h-16 w-12 rounded-sm border-2 border-surface bg-muted" />
                   )}
                 </div>
-                <div className="flex-1 text-sm text-ink-soft">{o.lineCount ?? 1} item(s)</div>
+                <div className="flex-1 text-sm text-ink-soft">{t.orders.itemsCount.replace('{count}', String(o.lineCount ?? 1))}</div>
                 <span className="font-medium">{formatAmount(o.totalAmount, o.currency)}</span>
-                <Link href={`/account/orders/${o.id}`} className="flex items-center gap-1 text-sm text-gold-deep underline">Details <ChevronRight className="h-3.5 w-3.5" /></Link>
+                <Link href={`/account/orders/${o.id}`} className="flex items-center gap-1 text-sm text-gold-deep underline">{t.orders.details} <ChevronRight className="h-3.5 w-3.5" /></Link>
               </div>
             </div>
           ))
@@ -109,7 +112,7 @@ export default function OrdersPage() {
         {!error && orders.length < total && (
           <div className="pt-2 text-center">
             <button onClick={() => void load(filter, page + 1, true)} disabled={loading} className="btn-outline disabled:opacity-60">
-              {loading ? 'Loading…' : 'Load more'}
+              {loading ? t.common.loading : t.collection.loadMore}
             </button>
           </div>
         )}

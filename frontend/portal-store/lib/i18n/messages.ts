@@ -75,10 +75,29 @@ export interface UiMessages {
     sortPriceAsc: string
     sortPriceDesc: string
     sortRecommended: string
+    sortFeatured: string
     empty: string
     loadMore: string
     results: string
     clearFilters: string
+    eyebrow: string
+    styleOne: string
+    stylesMany: string
+    clearAll: string
+    all: string
+    loadFailedTitle: string
+    loadFailedBody: string
+    noMatchTitle: string
+    noMatchBody: string
+    previous: string
+    next: string
+    pageOf: string
+    showResults: string
+    price: string
+    priceUnder200: string
+    price200to500: string
+    price500to1000: string
+    priceOver1000: string
   }
   product: {
     addToCart: string
@@ -99,6 +118,29 @@ export interface UiMessages {
     breadcrumbHome: string
     completeTheLook: string
     youMayAlsoLike: string
+    qa: string
+    reviewCount: string
+    writeReview: string
+    beFirstToReview: string
+    shareExperience: string
+    featuredReview: string
+    loadMoreReviews: string
+    loadMoreQuestions: string
+    noQuestionsYet: string
+    askAnything: string
+    askedBy: string
+    asked: string
+    reviewSubmitted: string
+    questionSubmitted: string
+    sortReviewsAria: string
+    customerPhoto: string
+    defaultCustomer: string
+    reviewSort: {
+      featured: string
+      newest: string
+      highest: string
+      lowest: string
+    }
   }
   cart: {
     drawer: {
@@ -113,6 +155,30 @@ export interface UiMessages {
       increase: string
       customSize: string
     }
+    page: {
+      title: string
+      emptyTitle: string
+      emptyBody: string
+      shopDresses: string
+      bestSellers: string
+      mergedNotice: string
+      dyeLotNotice: string
+      sizeLabel: string
+      bust: string
+      waist: string
+      hips: string
+      hollowToFloor: string
+      unavailable: string
+      saveForLater: string
+      subtotal: string
+      shipping: string
+      calculatedAtCheckout: string
+      estimatedTotal: string
+      promoNote: string
+      checkoutCta: string
+      freeShipping: string
+      secureCheckout: string
+    }
   }
   checkout: {
     title: string
@@ -120,6 +186,56 @@ export interface UiMessages {
     payment: string
     placeOrder: string
     orderSummary: string
+    stepAddress: string
+    stepReview: string
+    shippingAddress: string
+    loadingAddresses: string
+    defaultBadge: string
+    addNewAddress: string
+    selectAddressError: string
+    continueToShipping: string
+    shippingMethod: string
+    free: string
+    giftWrapping: string
+    weddingDate: string
+    leadTimeWarning: string
+    promoCode: string
+    couponApplied: string
+    removeCoupon: string
+    continueToPayment: string
+    cardName: string
+    cardDesc: string
+    comingSoon: string
+    payAppleDesc: string
+    payGoogleDesc: string
+    payIn4: string
+    stripeNote: string
+    payIn4Note: string
+    reviewOrder: string
+    reviewTitle: string
+    custom: string
+    qty: string
+    shipTo: string
+    dduNote: string
+    adjustQuantities: string
+    placingOrder: string
+    summary: string
+    subtotal: string
+    giftWrappingLabel: string
+    discount: string
+    total: string
+    calculatedAtShipping: string
+    fillRequired: string
+    fullName: string
+    phoneOptional: string
+    addressLine: string
+    city: string
+    state: string
+    zip: string
+    country: string
+    setDefault: string
+    saving: string
+    saveAddress: string
   }
   fabric: {
     headingFabricCare: string
@@ -247,6 +363,22 @@ export interface UiMessages {
     tier: string
     memberSince: string
     notProvided: string
+    nav: {
+      dashboard: string
+      orders: string
+      addresses: string
+      wishlist: string
+      myReviews: string
+      weddingPlans: string
+      showrooms: string
+      security: string
+      settings: string
+    }
+    weddingPlans: {
+      title: string
+      subtitle: string
+      empty: string
+    }
   }
   settings: {
     title: string
@@ -305,6 +437,88 @@ export interface UiMessages {
     errorTitle: string
     errorBody: string
     retry: string
+  }
+  orders: {
+    title: string
+    all: string
+    orderNo: string
+    placed: string
+    itemsCount: string
+    details: string
+    none: string
+    noneFiltered: string
+    status: {
+      pending: string
+      paid: string
+      shipped: string
+      completed: string
+      cancelled: string
+      refunding: string
+      refunded: string
+    }
+    paymentStatus: {
+      created: string
+      processing: string
+      succeeded: string
+      failed: string
+      refunded: string
+    }
+    refundStatus: {
+      pending: string
+      approved: string
+      rejected: string
+    }
+    detail: {
+      somethingWrong: string
+      notFound: string
+      backToOrders: string
+      payNow: string
+      cancelOrder: string
+      cancelConfirm: string
+      cancelling: string
+      yesCancel: string
+      keepOrder: string
+      requestRefund: string
+      refundNo: string
+      items: string
+      statusLabel: string
+      paidAt: string
+      timelinePlaced: string
+      timelinePaid: string
+      timelineShipped: string
+      timelineCompleted: string
+      refundTitle: string
+      refundBody: string
+      refundReason: string
+      refundReasonError: string
+      refundWindowEnded: string
+      refundSubmitting: string
+      refundSubmit: string
+    }
+  }
+  wishlist: {
+    title: string
+    emptyBody: string
+    startBrowsing: string
+    moveToBag: string
+    recentlyViewed: string
+    madeToMeasure: string
+    openProduct: string
+    moving: string
+  }
+  searchPage: {
+    placeholder: string
+    trySearching: string
+    somethingWrong: string
+    noResultsTitle: string
+    noResultsBody: string
+    browseDresses: string
+    resultFor: string
+    resultsFor: string
+  }
+  flashSale: {
+    eyebrow: string
+    endsIn: string
   }
 }
 
@@ -372,10 +586,29 @@ const en: UiMessages = {
     sortPriceAsc: 'Price: Low to High',
     sortPriceDesc: 'Price: High to Low',
     sortRecommended: 'Recommended',
+    sortFeatured: 'Featured',
     empty: 'No products found.',
     loadMore: 'Load more',
     results: 'results',
-    clearFilters: 'Clear filters'
+    clearFilters: 'Clear filters',
+    eyebrow: 'Dreamy Collection',
+    styleOne: 'style',
+    stylesMany: 'styles',
+    clearAll: 'Clear all',
+    all: 'All',
+    loadFailedTitle: "We couldn't load this collection",
+    loadFailedBody: 'Please check your connection and try again.',
+    noMatchTitle: 'No styles match your filters',
+    noMatchBody: 'Try removing a filter or exploring another color.',
+    previous: 'Previous',
+    next: 'Next',
+    pageOf: 'Page {page} of {total}',
+    showResults: 'Show {count}',
+    price: 'Price',
+    priceUnder200: 'Under $200',
+    price200to500: '$200 – $500',
+    price500to1000: '$500 – $1,000',
+    priceOver1000: '$1,000 & up'
   },
   product: {
     addToCart: 'Add to Cart',
@@ -395,7 +628,30 @@ const en: UiMessages = {
     customSize: 'Custom size',
     breadcrumbHome: 'Home',
     completeTheLook: 'Complete the Look',
-    youMayAlsoLike: 'You may also like'
+    youMayAlsoLike: 'You may also like',
+    qa: 'Q&A',
+    reviewCount: '{count} reviews',
+    writeReview: 'Write a Review',
+    beFirstToReview: 'Be the first to review',
+    shareExperience: 'Share your experience with other brides.',
+    featuredReview: 'Featured review',
+    loadMoreReviews: 'Load more reviews',
+    loadMoreQuestions: 'Load more questions',
+    noQuestionsYet: 'No questions yet',
+    askAnything: 'Ask us anything about fit, fabric, or delivery.',
+    askedBy: 'Asked by {name}',
+    asked: 'Asked',
+    reviewSubmitted: 'Your review has been submitted and will appear after moderation.',
+    questionSubmitted: 'Your question has been submitted — the answer will appear here once published.',
+    sortReviewsAria: 'Sort reviews',
+    customerPhoto: 'Customer photo',
+    defaultCustomer: 'Dreamy Customer',
+    reviewSort: {
+      featured: 'Featured',
+      newest: 'Newest',
+      highest: 'Highest rated',
+      lowest: 'Lowest rated'
+    }
   },
   cart: {
     drawer: {
@@ -409,6 +665,30 @@ const en: UiMessages = {
       decrease: 'Decrease',
       increase: 'Increase',
       customSize: 'Custom size'
+    },
+    page: {
+      title: 'Your Bag',
+      emptyTitle: 'Your bag is empty',
+      emptyBody: "Looks like you haven't added anything yet. Let's find the one.",
+      shopDresses: 'Shop Wedding Dresses',
+      bestSellers: 'Best Sellers',
+      mergedNotice: 'Some quantities were adjusted to match available stock when we merged your bag.',
+      dyeLotNotice: 'Order within 24h of your bridal party to guarantee the same dye lot for this style.',
+      sizeLabel: 'Size {size}',
+      bust: 'Bust',
+      waist: 'Waist',
+      hips: 'Hips',
+      hollowToFloor: 'Hollow-to-floor',
+      unavailable: 'No longer available',
+      saveForLater: 'Save for later',
+      subtotal: 'Subtotal',
+      shipping: 'Shipping',
+      calculatedAtCheckout: 'Calculated at checkout',
+      estimatedTotal: 'Estimated Total',
+      promoNote: 'Promo codes can be applied at checkout.',
+      checkoutCta: 'Proceed to Checkout',
+      freeShipping: 'Free shipping over $200',
+      secureCheckout: 'Secure checkout'
     }
   },
   checkout: {
@@ -416,7 +696,57 @@ const en: UiMessages = {
     shipping: 'Shipping',
     payment: 'Payment',
     placeOrder: 'Place Order',
-    orderSummary: 'Order Summary'
+    orderSummary: 'Order Summary',
+    stepAddress: 'Address',
+    stepReview: 'Review',
+    shippingAddress: 'Shipping Address',
+    loadingAddresses: 'Loading addresses…',
+    defaultBadge: 'Default',
+    addNewAddress: 'Add new address',
+    selectAddressError: 'Please select or add a shipping address.',
+    continueToShipping: 'Continue to Shipping',
+    shippingMethod: 'Shipping Method',
+    free: 'Free',
+    giftWrapping: 'Add gift wrapping',
+    weddingDate: 'Wedding date (optional)',
+    leadTimeWarning: 'Heads up — production for this order may take up to {days} days, which is close to your wedding date. Consider rush options or contact a stylist.',
+    promoCode: 'Promo code',
+    couponApplied: '{code} applied',
+    removeCoupon: 'Remove',
+    continueToPayment: 'Continue to Payment',
+    cardName: 'Credit / Debit Card',
+    cardDesc: 'Visa, Mastercard, Amex',
+    comingSoon: 'Coming soon',
+    payAppleDesc: 'Fast checkout with Face ID',
+    payGoogleDesc: 'Pay with Google',
+    payIn4: 'Pay in 4 interest-free',
+    stripeNote: "You'll enter your payment details securely on the next step — powered by Stripe.",
+    payIn4Note: '4 interest-free payments of {amount}. You\'ll be redirected to {provider} to complete.',
+    reviewOrder: 'Review Order',
+    reviewTitle: 'Review Your Order',
+    custom: 'Custom',
+    qty: 'Qty {count}',
+    shipTo: 'Ship to',
+    dduNote: 'International orders are shipped DDU (Delivered Duty Unpaid) — import duties and taxes, where applicable, are collected by the carrier on delivery.',
+    adjustQuantities: 'Adjust quantities',
+    placingOrder: 'Placing order…',
+    summary: 'Summary',
+    subtotal: 'Subtotal',
+    giftWrappingLabel: 'Gift Wrapping',
+    discount: 'Discount',
+    total: 'Total',
+    calculatedAtShipping: 'Calculated at shipping step',
+    fillRequired: 'Please fill in all required fields.',
+    fullName: 'Full name',
+    phoneOptional: 'Phone (optional)',
+    addressLine: 'Address',
+    city: 'City',
+    state: 'State',
+    zip: 'ZIP',
+    country: 'Country',
+    setDefault: 'Set as default address',
+    saving: 'Saving…',
+    saveAddress: 'Save Address'
   },
   fabric: {
     headingFabricCare: 'Fabric & Care',
@@ -543,7 +873,23 @@ const en: UiMessages = {
     phone: 'Phone',
     tier: 'Membership',
     memberSince: 'Member since',
-    notProvided: 'Not provided'
+    notProvided: 'Not provided',
+    nav: {
+      dashboard: 'Dashboard',
+      orders: 'Orders',
+      addresses: 'Addresses',
+      wishlist: 'Wishlist',
+      myReviews: 'My Reviews',
+      weddingPlans: 'Wedding Plans',
+      showrooms: 'Showrooms',
+      security: 'Login & Security',
+      settings: 'Settings'
+    },
+    weddingPlans: {
+      title: 'Wedding Plans',
+      subtitle: 'Your saved wedding guide progress.',
+      empty: 'No guide plans yet — start with a timeline.'
+    }
   },
   settings: {
     title: 'Settings',
@@ -606,6 +952,88 @@ const en: UiMessages = {
     errorTitle: 'Something went wrong',
     errorBody: 'We could not process your request right now. Please try again.',
     retry: 'Try again'
+  },
+  orders: {
+    title: 'My Orders',
+    all: 'All',
+    orderNo: 'Order {no}',
+    placed: 'Placed {date}',
+    itemsCount: '{count} items',
+    details: 'Details',
+    none: 'No orders yet.',
+    noneFiltered: 'No {status} orders.',
+    status: {
+      pending: 'Pending',
+      paid: 'Paid',
+      shipped: 'Shipped',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      refunding: 'Refunding',
+      refunded: 'Refunded'
+    },
+    paymentStatus: {
+      created: 'Created',
+      processing: 'Processing',
+      succeeded: 'Succeeded',
+      failed: 'Failed',
+      refunded: 'Refunded'
+    },
+    refundStatus: {
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected'
+    },
+    detail: {
+      somethingWrong: 'Something went wrong',
+      notFound: 'Order not found',
+      backToOrders: 'Back to orders',
+      payNow: 'Pay now',
+      cancelOrder: 'Cancel order',
+      cancelConfirm: 'Cancel this order?',
+      cancelling: 'Cancelling…',
+      yesCancel: 'Yes, cancel',
+      keepOrder: 'Keep order',
+      requestRefund: 'Request refund',
+      refundNo: 'Refund {no}',
+      items: 'Items',
+      statusLabel: 'Status:',
+      paidAt: 'Paid {date}',
+      timelinePlaced: 'Placed',
+      timelinePaid: 'Paid',
+      timelineShipped: 'Shipped',
+      timelineCompleted: 'Completed',
+      refundTitle: 'Request a Refund',
+      refundBody: "Tell us why you'd like a refund and our team will review your request.",
+      refundReason: 'Reason',
+      refundReasonError: 'Please tell us briefly why you want a refund (max 255 characters).',
+      refundWindowEnded: 'Refund window ended {date}.',
+      refundSubmitting: 'Submitting…',
+      refundSubmit: 'Submit Request'
+    }
+  },
+  wishlist: {
+    title: 'My Wishlist',
+    emptyBody: 'Your wishlist is empty. Tap the heart on any style to save it here.',
+    startBrowsing: 'Start Browsing',
+    moveToBag: 'Move to bag',
+    recentlyViewed: 'Recently Viewed',
+    madeToMeasure: 'This style is made-to-measure — add your measurements on the product page.',
+    openProduct: 'Open Product Page',
+    moving: 'Moving…'
+  },
+  searchPage: {
+    placeholder: 'Search gowns, colors, occasions...',
+    trySearching: 'Try searching for',
+    somethingWrong: 'Something went wrong',
+    noResultsTitle: 'No results for “{q}”',
+    noResultsBody: 'Try a color, silhouette, or occasion — or browse our collections.',
+    browseDresses: 'Browse Dresses',
+    resultFor: '{count} result for “{q}”',
+    resultsFor: '{count} results for “{q}”'
+  },
+  flashSale: {
+    eyebrow: 'Flash Sale',
+    endsIn: 'Ends in {time}'
   }
 }
 
@@ -674,10 +1102,29 @@ const es: DeepPartial<UiMessages> = {
     sortPriceAsc: 'Precio: de menor a mayor',
     sortPriceDesc: 'Precio: de mayor a menor',
     sortRecommended: 'Recomendados',
+    sortFeatured: 'Destacados',
     empty: 'No se encontraron productos.',
     loadMore: 'Cargar mas',
     results: 'resultados',
-    clearFilters: 'Limpiar filtros'
+    clearFilters: 'Limpiar filtros',
+    eyebrow: 'Coleccion Dreamy',
+    styleOne: 'estilo',
+    stylesMany: 'estilos',
+    clearAll: 'Limpiar todo',
+    all: 'Todo',
+    loadFailedTitle: 'No pudimos cargar esta coleccion',
+    loadFailedBody: 'Compruebe su conexion e intentelo de nuevo.',
+    noMatchTitle: 'Ningun estilo coincide con sus filtros',
+    noMatchBody: 'Pruebe a quitar un filtro o explorar otro color.',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    pageOf: 'Pagina {page} de {total}',
+    showResults: 'Ver {count}',
+    price: 'Precio',
+    priceUnder200: 'Menos de $200',
+    price200to500: '$200 – $500',
+    price500to1000: '$500 – $1,000',
+    priceOver1000: 'Mas de $1,000'
   },
   product: {
     addToCart: 'Anadir al carrito',
@@ -697,7 +1144,30 @@ const es: DeepPartial<UiMessages> = {
     customSize: 'Talla personalizada',
     breadcrumbHome: 'Inicio',
     completeTheLook: 'Completa el look',
-    youMayAlsoLike: 'Tambien te puede gustar'
+    youMayAlsoLike: 'Tambien te puede gustar',
+    qa: 'Preguntas y respuestas',
+    reviewCount: '{count} resenas',
+    writeReview: 'Escribir una resena',
+    beFirstToReview: 'Sea la primera en opinar',
+    shareExperience: 'Comparta su experiencia con otras novias.',
+    featuredReview: 'Resena destacada',
+    loadMoreReviews: 'Cargar mas resenas',
+    loadMoreQuestions: 'Cargar mas preguntas',
+    noQuestionsYet: 'Aun no hay preguntas',
+    askAnything: 'Pregunte lo que quiera sobre ajuste, tela o entrega.',
+    askedBy: 'Pregunto {name}',
+    asked: 'Pregunta realizada',
+    reviewSubmitted: 'Su resena ha sido enviada y aparecera tras la moderacion.',
+    questionSubmitted: 'Su pregunta ha sido enviada; la respuesta aparecera aqui cuando se publique.',
+    sortReviewsAria: 'Ordenar resenas',
+    customerPhoto: 'Foto del cliente',
+    defaultCustomer: 'Cliente Dreamy',
+    reviewSort: {
+      featured: 'Destacadas',
+      newest: 'Mas recientes',
+      highest: 'Mejor valoradas',
+      lowest: 'Menos valoradas'
+    }
   },
   cart: {
     drawer: {
@@ -711,6 +1181,30 @@ const es: DeepPartial<UiMessages> = {
       decrease: 'Disminuir',
       increase: 'Aumentar',
       customSize: 'Talla personalizada'
+    },
+    page: {
+      title: 'Su bolsa',
+      emptyTitle: 'Su bolsa esta vacia',
+      emptyBody: 'Parece que aun no ha anadido nada. Vamos a encontrar el indicado.',
+      shopDresses: 'Ver vestidos de novia',
+      bestSellers: 'Mas vendidos',
+      mergedNotice: 'Al fusionar su bolsa, algunas cantidades se ajustaron al stock disponible.',
+      dyeLotNotice: 'Pida dentro de las 24h junto a su grupo nupcial para garantizar el mismo lote de tinte en este estilo.',
+      sizeLabel: 'Talla {size}',
+      bust: 'Busto',
+      waist: 'Cintura',
+      hips: 'Caderas',
+      hollowToFloor: 'De hueco a suelo',
+      unavailable: 'Ya no disponible',
+      saveForLater: 'Guardar para despues',
+      subtotal: 'Subtotal',
+      shipping: 'Envio',
+      calculatedAtCheckout: 'Se calcula al pagar',
+      estimatedTotal: 'Total estimado',
+      promoNote: 'Los codigos promocionales se pueden aplicar al pagar.',
+      checkoutCta: 'Ir a pagar',
+      freeShipping: 'Envio gratis desde $200',
+      secureCheckout: 'Pago seguro'
     }
   },
   checkout: {
@@ -718,7 +1212,57 @@ const es: DeepPartial<UiMessages> = {
     shipping: 'Envio',
     payment: 'Pago',
     placeOrder: 'Realizar pedido',
-    orderSummary: 'Resumen del pedido'
+    orderSummary: 'Resumen del pedido',
+    stepAddress: 'Direccion',
+    stepReview: 'Revision',
+    shippingAddress: 'Direccion de envio',
+    loadingAddresses: 'Cargando direcciones…',
+    defaultBadge: 'Predeterminada',
+    addNewAddress: 'Anadir nueva direccion',
+    selectAddressError: 'Seleccione o anada una direccion de envio.',
+    continueToShipping: 'Continuar al envio',
+    shippingMethod: 'Metodo de envio',
+    free: 'Gratis',
+    giftWrapping: 'Anadir envoltorio de regalo',
+    weddingDate: 'Fecha de la boda (opcional)',
+    leadTimeWarning: 'Atencion: la produccion de este pedido puede tardar hasta {days} dias, cerca de su fecha de boda. Considere opciones urgentes o contacte a un asesor.',
+    promoCode: 'Codigo promocional',
+    couponApplied: '{code} aplicado',
+    removeCoupon: 'Quitar',
+    continueToPayment: 'Continuar al pago',
+    cardName: 'Tarjeta de credito / debito',
+    cardDesc: 'Visa, Mastercard, Amex',
+    comingSoon: 'Proximamente',
+    payAppleDesc: 'Pago rapido con Face ID',
+    payGoogleDesc: 'Pague con Google',
+    payIn4: 'Pague en 4 sin intereses',
+    stripeNote: 'Introducira sus datos de pago de forma segura en el siguiente paso, con Stripe.',
+    payIn4Note: '4 pagos sin intereses de {amount}. Sera redirigido a {provider} para completar.',
+    reviewOrder: 'Revisar pedido',
+    reviewTitle: 'Revise su pedido',
+    custom: 'Personalizado',
+    qty: 'Cant. {count}',
+    shipTo: 'Enviar a',
+    dduNote: 'Los pedidos internacionales se envian DDU (entrega con derechos no pagados): los aranceles e impuestos, cuando apliquen, los cobra el transportista en la entrega.',
+    adjustQuantities: 'Ajustar cantidades',
+    placingOrder: 'Realizando pedido…',
+    summary: 'Resumen',
+    subtotal: 'Subtotal',
+    giftWrappingLabel: 'Envoltorio de regalo',
+    discount: 'Descuento',
+    total: 'Total',
+    calculatedAtShipping: 'Se calcula en el paso de envio',
+    fillRequired: 'Complete todos los campos obligatorios.',
+    fullName: 'Nombre completo',
+    phoneOptional: 'Telefono (opcional)',
+    addressLine: 'Direccion',
+    city: 'Ciudad',
+    state: 'Estado / Provincia',
+    zip: 'Codigo postal',
+    country: 'Pais',
+    setDefault: 'Establecer como direccion predeterminada',
+    saving: 'Guardando…',
+    saveAddress: 'Guardar direccion'
   },
   fabric: {
     headingFabricCare: 'Tejido y cuidado',
@@ -843,7 +1387,23 @@ const es: DeepPartial<UiMessages> = {
     phone: 'Telefono',
     tier: 'Membresia',
     memberSince: 'Miembro desde',
-    notProvided: 'No proporcionado'
+    notProvided: 'No proporcionado',
+    nav: {
+      dashboard: 'Panel',
+      orders: 'Pedidos',
+      addresses: 'Direcciones',
+      wishlist: 'Favoritos',
+      myReviews: 'Mis resenas',
+      weddingPlans: 'Planes de boda',
+      showrooms: 'Showrooms',
+      security: 'Inicio de sesion y seguridad',
+      settings: 'Configuracion'
+    },
+    weddingPlans: {
+      title: 'Planes de boda',
+      subtitle: 'Su progreso guardado en las guias de planificacion.',
+      empty: 'Aun no hay guias: empiece con un cronograma.'
+    }
   },
   settings: {
     title: 'Configuracion',
@@ -906,6 +1466,88 @@ const es: DeepPartial<UiMessages> = {
     errorTitle: 'Algo salio mal',
     errorBody: 'No pudimos procesar su solicitud en este momento. Intentelo de nuevo.',
     retry: 'Intentar de nuevo'
+  },
+  orders: {
+    title: 'Mis pedidos',
+    all: 'Todo',
+    orderNo: 'Pedido {no}',
+    placed: 'Realizado {date}',
+    itemsCount: '{count} articulos',
+    details: 'Detalles',
+    none: 'Aun no hay pedidos.',
+    noneFiltered: 'No hay pedidos {status}.',
+    status: {
+      pending: 'Pendiente',
+      paid: 'Pagado',
+      shipped: 'Enviado',
+      completed: 'Completado',
+      cancelled: 'Cancelado',
+      refunding: 'En reembolso',
+      refunded: 'Reembolsado'
+    },
+    paymentStatus: {
+      created: 'Creado',
+      processing: 'Procesando',
+      succeeded: 'Completado',
+      failed: 'Fallido',
+      refunded: 'Reembolsado'
+    },
+    refundStatus: {
+      pending: 'Pendiente',
+      approved: 'Aprobado',
+      rejected: 'Rechazado'
+    },
+    detail: {
+      somethingWrong: 'Algo salio mal',
+      notFound: 'Pedido no encontrado',
+      backToOrders: 'Volver a pedidos',
+      payNow: 'Pagar ahora',
+      cancelOrder: 'Cancelar pedido',
+      cancelConfirm: 'Cancelar este pedido?',
+      cancelling: 'Cancelando…',
+      yesCancel: 'Si, cancelar',
+      keepOrder: 'Mantener pedido',
+      requestRefund: 'Solicitar reembolso',
+      refundNo: 'Reembolso {no}',
+      items: 'Articulos',
+      statusLabel: 'Estado:',
+      paidAt: 'Pagado {date}',
+      timelinePlaced: 'Realizado',
+      timelinePaid: 'Pagado',
+      timelineShipped: 'Enviado',
+      timelineCompleted: 'Completado',
+      refundTitle: 'Solicitar un reembolso',
+      refundBody: 'Cuente por que desea un reembolso y nuestro equipo revisara su solicitud.',
+      refundReason: 'Motivo',
+      refundReasonError: 'Cuente brevemente por que desea un reembolso (max. 255 caracteres).',
+      refundWindowEnded: 'El plazo de reembolso termino el {date}.',
+      refundSubmitting: 'Enviando…',
+      refundSubmit: 'Enviar solicitud'
+    }
+  },
+  wishlist: {
+    title: 'Mis favoritos',
+    emptyBody: 'Su lista de favoritos esta vacia. Toque el corazon en cualquier estilo para guardarlo aqui.',
+    startBrowsing: 'Empezar a explorar',
+    moveToBag: 'Mover a la bolsa',
+    recentlyViewed: 'Vistos recientemente',
+    madeToMeasure: 'Este estilo se confecciona a medida: anada sus medidas en la pagina del producto.',
+    openProduct: 'Abrir pagina del producto',
+    moving: 'Moviendo…'
+  },
+  searchPage: {
+    placeholder: 'Buscar vestidos, colores, ocasiones...',
+    trySearching: 'Pruebe a buscar',
+    somethingWrong: 'Algo salio mal',
+    noResultsTitle: 'Sin resultados para "{q}"',
+    noResultsBody: 'Pruebe un color, silueta u ocasion, o explore nuestras colecciones.',
+    browseDresses: 'Ver vestidos',
+    resultFor: '{count} resultado para "{q}"',
+    resultsFor: '{count} resultados para "{q}"'
+  },
+  flashSale: {
+    eyebrow: 'Venta flash',
+    endsIn: 'Termina en {time}'
   }
 }
 
@@ -974,10 +1616,29 @@ const fr: DeepPartial<UiMessages> = {
     sortPriceAsc: 'Prix : croissant',
     sortPriceDesc: 'Prix : decroissant',
     sortRecommended: 'Recommandes',
+    sortFeatured: 'En vedette',
     empty: 'Aucun produit trouve.',
     loadMore: 'Charger plus',
     results: 'resultats',
-    clearFilters: 'Effacer les filtres'
+    clearFilters: 'Effacer les filtres',
+    eyebrow: 'Collection Dreamy',
+    styleOne: 'style',
+    stylesMany: 'styles',
+    clearAll: 'Tout effacer',
+    all: 'Tout',
+    loadFailedTitle: 'Impossible de charger cette collection',
+    loadFailedBody: 'Verifiez votre connexion et reessayez.',
+    noMatchTitle: 'Aucun style ne correspond a vos filtres',
+    noMatchBody: 'Essayez de retirer un filtre ou d explorer une autre couleur.',
+    previous: 'Precedent',
+    next: 'Suivant',
+    pageOf: 'Page {page} sur {total}',
+    showResults: 'Voir {count}',
+    price: 'Prix',
+    priceUnder200: 'Moins de $200',
+    price200to500: '$200 – $500',
+    price500to1000: '$500 – $1,000',
+    priceOver1000: 'Plus de $1,000'
   },
   product: {
     addToCart: 'Ajouter au panier',
@@ -997,7 +1658,30 @@ const fr: DeepPartial<UiMessages> = {
     customSize: 'Taille sur mesure',
     breadcrumbHome: 'Accueil',
     completeTheLook: 'Completez le look',
-    youMayAlsoLike: 'Vous aimerez aussi'
+    youMayAlsoLike: 'Vous aimerez aussi',
+    qa: 'Questions et reponses',
+    reviewCount: '{count} avis',
+    writeReview: 'Ecrire un avis',
+    beFirstToReview: 'Soyez la premiere a donner votre avis',
+    shareExperience: 'Partagez votre experience avec les autres Mariees.',
+    featuredReview: 'Avis en vedette',
+    loadMoreReviews: 'Charger plus d avis',
+    loadMoreQuestions: 'Charger plus de questions',
+    noQuestionsYet: 'Pas encore de questions',
+    askAnything: 'Posez toutes vos questions sur la coupe, le tissu ou la livraison.',
+    askedBy: 'Posee par {name}',
+    asked: 'Question posee',
+    reviewSubmitted: 'Votre avis a ete envoye et apparaitra apres moderation.',
+    questionSubmitted: 'Votre question a ete envoyee — la reponse apparaitra ici des sa publication.',
+    sortReviewsAria: 'Trier les avis',
+    customerPhoto: 'Photo client',
+    defaultCustomer: 'Cliente Dreamy',
+    reviewSort: {
+      featured: 'En vedette',
+      newest: 'Plus recents',
+      highest: 'Mieux notes',
+      lowest: 'Moins bien notes'
+    }
   },
   cart: {
     drawer: {
@@ -1011,6 +1695,30 @@ const fr: DeepPartial<UiMessages> = {
       decrease: 'Diminuer',
       increase: 'Augmenter',
       customSize: 'Taille sur mesure'
+    },
+    page: {
+      title: 'Votre sac',
+      emptyTitle: 'Votre sac est vide',
+      emptyBody: 'On dirait que vous n avez rien ajoute encore. Trouvons la robe parfaite.',
+      shopDresses: 'Voir les robes de Mariee',
+      bestSellers: 'Meilleures ventes',
+      mergedNotice: 'Lors de la fusion de votre sac, certaines quantites ont ete ajustees au stock disponible.',
+      dyeLotNotice: 'Commandez sous 24h avec votre cortege pour garantir le meme lot de teinture pour ce style.',
+      sizeLabel: 'Taille {size}',
+      bust: 'Buste',
+      waist: 'Taille',
+      hips: 'Hanches',
+      hollowToFloor: 'Du creux au sol',
+      unavailable: 'Plus disponible',
+      saveForLater: 'Garder pour plus tard',
+      subtotal: 'Sous-total',
+      shipping: 'Livraison',
+      calculatedAtCheckout: 'Calcule au paiement',
+      estimatedTotal: 'Total estime',
+      promoNote: 'Les codes promo peuvent etre appliques au paiement.',
+      checkoutCta: 'Passer au paiement',
+      freeShipping: 'Livraison offerte des $200',
+      secureCheckout: 'Paiement securise'
     }
   },
   checkout: {
@@ -1018,7 +1726,57 @@ const fr: DeepPartial<UiMessages> = {
     shipping: 'Livraison',
     payment: 'Paiement',
     placeOrder: 'Passer la commande',
-    orderSummary: 'Recapitulatif de la commande'
+    orderSummary: 'Recapitulatif de la commande',
+    stepAddress: 'Adresse',
+    stepReview: 'Verification',
+    shippingAddress: 'Adresse de livraison',
+    loadingAddresses: 'Chargement des adresses…',
+    defaultBadge: 'Par defaut',
+    addNewAddress: 'Ajouter une adresse',
+    selectAddressError: 'Selectionnez ou ajoutez une adresse de livraison.',
+    continueToShipping: 'Continuer vers la livraison',
+    shippingMethod: 'Mode de livraison',
+    free: 'Offerte',
+    giftWrapping: 'Ajouter l emballage cadeau',
+    weddingDate: 'Date du mariage (facultatif)',
+    leadTimeWarning: 'Attention — la production de cette commande peut prendre jusqu a {days} jours, ce qui est proche de votre date de mariage. Envisagez les options express ou contactez un conseiller.',
+    promoCode: 'Code promo',
+    couponApplied: '{code} applique',
+    removeCoupon: 'Retirer',
+    continueToPayment: 'Continuer vers le paiement',
+    cardName: 'Carte de credit / debit',
+    cardDesc: 'Visa, Mastercard, Amex',
+    comingSoon: 'Bientot disponible',
+    payAppleDesc: 'Paiement rapide avec Face ID',
+    payGoogleDesc: 'Payez avec Google',
+    payIn4: 'Payez en 4 fois sans frais',
+    stripeNote: 'Vous saisirez vos informations de paiement en toute securite a l etape suivante, via Stripe.',
+    payIn4Note: '4 paiements sans frais de {amount}. Vous serez redirige vers {provider} pour finaliser.',
+    reviewOrder: 'Verifier la commande',
+    reviewTitle: 'Verifiez votre commande',
+    custom: 'Personnalise',
+    qty: 'Qte {count}',
+    shipTo: 'Livrer a',
+    dduNote: 'Les commandes internationales sont expediees DDU (droits non payes) — les droits et taxes, le cas echeant, sont percus par le transporteur a la livraison.',
+    adjustQuantities: 'Ajuster les quantites',
+    placingOrder: 'Commande en cours…',
+    summary: 'Recapitulatif',
+    subtotal: 'Sous-total',
+    giftWrappingLabel: 'Emballage cadeau',
+    discount: 'Remise',
+    total: 'Total',
+    calculatedAtShipping: 'Calcule a l etape livraison',
+    fillRequired: 'Remplissez tous les champs obligatoires.',
+    fullName: 'Nom complet',
+    phoneOptional: 'Telephone (facultatif)',
+    addressLine: 'Adresse',
+    city: 'Ville',
+    state: 'Etat / Province',
+    zip: 'Code postal',
+    country: 'Pays',
+    setDefault: 'Definir comme adresse par defaut',
+    saving: 'Enregistrement…',
+    saveAddress: 'Enregistrer l adresse'
   },
   fabric: {
     headingFabricCare: 'Tissu et entretien',
@@ -1143,7 +1901,23 @@ const fr: DeepPartial<UiMessages> = {
     phone: 'Telephone',
     tier: 'Adhesion',
     memberSince: 'Membre depuis',
-    notProvided: 'Non renseigne'
+    notProvided: 'Non renseigne',
+    nav: {
+      dashboard: 'Tableau de bord',
+      orders: 'Commandes',
+      addresses: 'Adresses',
+      wishlist: 'Favoris',
+      myReviews: 'Mes avis',
+      weddingPlans: 'Preparatifs du mariage',
+      showrooms: 'Showrooms',
+      security: 'Connexion et securite',
+      settings: 'Parametres'
+    },
+    weddingPlans: {
+      title: 'Preparatifs du mariage',
+      subtitle: 'Votre progression enregistree dans les guides de planification.',
+      empty: 'Aucun guide pour le moment — commencez par un calendrier.'
+    }
   },
   settings: {
     title: 'Parametres',
@@ -1206,6 +1980,88 @@ const fr: DeepPartial<UiMessages> = {
     errorTitle: 'Une erreur est survenue',
     errorBody: 'Nous n avons pas pu traiter votre demande. Veuillez reessayer.',
     retry: 'Reessayer'
+  },
+  orders: {
+    title: 'Mes commandes',
+    all: 'Tout',
+    orderNo: 'Commande {no}',
+    placed: 'Passe le {date}',
+    itemsCount: '{count} articles',
+    details: 'Details',
+    none: 'Aucune commande pour le moment.',
+    noneFiltered: 'Aucune commande {status}.',
+    status: {
+      pending: 'En attente',
+      paid: 'Payee',
+      shipped: 'Expediee',
+      completed: 'Terminee',
+      cancelled: 'Annulee',
+      refunding: 'Remboursement en cours',
+      refunded: 'Remboursee'
+    },
+    paymentStatus: {
+      created: 'Cree',
+      processing: 'En cours',
+      succeeded: 'Reussi',
+      failed: 'Echoue',
+      refunded: 'Rembourse'
+    },
+    refundStatus: {
+      pending: 'En attente',
+      approved: 'Approuve',
+      rejected: 'Rejete'
+    },
+    detail: {
+      somethingWrong: 'Une erreur est survenue',
+      notFound: 'Commande introuvable',
+      backToOrders: 'Retour aux commandes',
+      payNow: 'Payer maintenant',
+      cancelOrder: 'Annuler la commande',
+      cancelConfirm: 'Annuler cette commande ?',
+      cancelling: 'Annulation…',
+      yesCancel: 'Oui, annuler',
+      keepOrder: 'Garder la commande',
+      requestRefund: 'Demander un remboursement',
+      refundNo: 'Remboursement {no}',
+      items: 'Articles',
+      statusLabel: 'Statut :',
+      paidAt: 'Paye le {date}',
+      timelinePlaced: 'Passee',
+      timelinePaid: 'Payee',
+      timelineShipped: 'Expediee',
+      timelineCompleted: 'Terminee',
+      refundTitle: 'Demander un remboursement',
+      refundBody: 'Dites-nous pourquoi vous souhaitez un remboursement et notre equipe etudiera votre demande.',
+      refundReason: 'Motif',
+      refundReasonError: 'Indiquez brievement pourquoi vous souhaitez un remboursement (255 caracteres max).',
+      refundWindowEnded: 'La fenetre de remboursement s est terminee le {date}.',
+      refundSubmitting: 'Envoi…',
+      refundSubmit: 'Envoyer la demande'
+    }
+  },
+  wishlist: {
+    title: 'Mes favoris',
+    emptyBody: 'Votre liste de favoris est vide. Touchez le coeur d un style pour l enregistrer ici.',
+    startBrowsing: 'Commencer a explorer',
+    moveToBag: 'Deplacer vers le sac',
+    recentlyViewed: 'Vus recemment',
+    madeToMeasure: 'Ce style est realise sur mesure — ajoutez vos mesures sur la page du produit.',
+    openProduct: 'Ouvrir la page produit',
+    moving: 'Deplacement…'
+  },
+  searchPage: {
+    placeholder: 'Rechercher robes, couleurs, occasions...',
+    trySearching: 'Essayez de rechercher',
+    somethingWrong: 'Une erreur est survenue',
+    noResultsTitle: 'Aucun resultat pour "{q}"',
+    noResultsBody: 'Essayez une couleur, une silhouette ou une occasion — ou parcourrez nos collections.',
+    browseDresses: 'Voir les robes',
+    resultFor: '{count} resultat pour "{q}"',
+    resultsFor: '{count} resultats pour "{q}"'
+  },
+  flashSale: {
+    eyebrow: 'Vente flash',
+    endsIn: 'Se termine dans {time}'
   }
 }
 

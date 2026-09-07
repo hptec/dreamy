@@ -11,6 +11,7 @@ import { Timer } from 'lucide-react'
 import type { StoreFlashSale } from '@/lib/api/store-types'
 import { ProductCard, productRefToCard } from '@/components/product/product-card'
 import { SectionHeading } from '@/components/ui/primitives'
+import { useI18n } from '@/lib/i18n/i18n-context'
 
 function useCountdown(endAt: string): string | null {
   const [label, setLabel] = useState<string | null>('')
@@ -34,6 +35,7 @@ function useCountdown(endAt: string): string | null {
 }
 
 function FlashSaleSection({ sale }: { sale: StoreFlashSale }) {
+  const { t } = useI18n()
   const countdown = useCountdown(sale.endAt)
   // 到期本地隐藏区块（STORE-MKT-S05 前端补偿）
   if (countdown === null) return null
@@ -42,9 +44,9 @@ function FlashSaleSection({ sale }: { sale: StoreFlashSale }) {
   return (
     <section className="container-luxe py-16 lg:py-24">
       <div className="flex items-end justify-between">
-        <SectionHeading align="left" eyebrow={`Flash Sale · ${sale.discount}`} title={sale.name} />
+        <SectionHeading align="left" eyebrow={`${t.flashSale.eyebrow} · ${sale.discount}`} title={sale.name} />
         <span className="hidden items-center gap-2 rounded-sm bg-ink px-4 py-2 text-sm font-medium tracking-wide text-canvas sm:flex">
-          <Timer className="h-4 w-4 text-gold-light" /> Ends in {countdown}
+          <Timer className="h-4 w-4 text-gold-light" /> {t.flashSale.endsIn.replace('{time}', countdown)}
         </span>
       </div>
       <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-4">

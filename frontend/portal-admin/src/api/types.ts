@@ -875,7 +875,8 @@ export interface GuideUpsert {
   timeframe?: string | null
   title: string
   tasksCount?: number | null
-  tasks?: { taskId: number; label: string }[] | null
+  // taskId 可空:对齐后端 GuideTask(Long taskId, ...),新加任务不带 id 由后端重建
+  tasks?: { taskId?: number; label: string }[] | null
   status: PublishStatus
   sortOrder?: number | null
   body?: string | null
@@ -1080,10 +1081,6 @@ export const CareCategory = {
 } as const
 export type CareCategory = typeof CareCategory[keyof typeof CareCategory]
 
-/** CareInstructionStatus IntEnum 枚举 */
-export const CareInstructionStatus = { active: 1, disabled: 2 } as const
-export type CareInstructionStatus = typeof CareInstructionStatus[keyof typeof CareInstructionStatus]
-
 /** 面料成分（product_fabric_composition） */
 export interface FabricComposition {
   layer: Layer  // 1=Shell 2=Lining 3=Overlay 4=Trim
@@ -1095,23 +1092,6 @@ export interface FabricComposition {
 export interface CareItem {
   symbol: string  // 行业通用护理 Unicode 符号
   label: string   // 展示文本
-}
-
-/** 护理标签定义（care_instruction_def，已废弃专用表） */
-export interface CareInstruction {
-  id: number
-  code: string
-  symbolUnicode: string
-  labelEn: string
-  labelZh: string
-  category: CareCategory
-  sortOrder: number
-  status: CareInstructionStatus
-}
-
-/** 护理标签列表响应 */
-export interface CareInstructionListResponse {
-  items: CareInstruction[]
 }
 
 // ===== i18n-complete-with-ai-assist：网关配置 / AI 翻译 / 术语表 =====

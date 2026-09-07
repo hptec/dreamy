@@ -276,6 +276,9 @@ function defaultI18n(type: string) {
   return { en: {}, es: {}, fr: {} }
 }
 
+// 与 NavigationConfig 同源：site_builder 段 409 系列乐观锁冲突码
+const VERSION_CONFLICT_CODES = [409801, 409803, 409805, 409806]
+
 async function saveAll(showSuccess = true) {
   if (!dirty.value) return true
   saving.value = true
@@ -293,6 +296,17 @@ async function saveAll(showSuccess = true) {
     if (showSuccess) toast.success('首页已保存并生效')
     return true
   } catch (error: any) {
+    // 乐观锁冲突：本地 version 已陈旧，不重新拉取的话之后每次重试都会撞同一个错
+    if (VERSION_CONFLICT_CODES.includes(error?.code)) {
+      try {
+        await store.fetch()
+        syncFromStore()
+        toast.error('首页已被其他人更新，已载入最新内容；本次未保存的改动请重新填写后再提交')
+      } catch (refreshError: any) {
+        toast.error(refreshError?.message ?? '载入最新内容失败，请刷新页面后重试')
+      }
+      return false
+    }
     toast.error(error.message ?? '首页保存失败')
     return false
   } finally {

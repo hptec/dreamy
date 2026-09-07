@@ -16,6 +16,8 @@ interface WishlistState {
   items: WishlistItem[]
   loading: boolean
   fetched: boolean
+  /** 最近一次 fetch 失败（页面据此渲染错误态 + 重试；toggle 乐观回滚不改此标记） */
+  error: boolean
   fetch: () => Promise<void>
   /** 乐观 toggle；返回 false 表示未登录（调用方引导登录） */
   toggle: (productId: number) => Promise<boolean>
@@ -28,13 +30,16 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
   items: [],
   loading: false,
   fetched: false,
+  error: false,
 
   fetch: async () => {
     if (!useAuthStore.getState().isAuthenticated) return
-    set({ loading: true })
+    set({ loading: true, error: false })
     try {
       const items = await tradingApi.listWishlist()
       set({ items, ids: items.map((i) => i.productId), fetched: true })
+    } catch {
+      set({ error: true })
     } finally {
       set({ loading: false })
     }
@@ -69,5 +74,5 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     })
   },
 
-  reset: () => set({ ids: [], items: [], fetched: false })
+  reset: () => set({ ids: [], items: [], fetched: false, error: false })
 }))

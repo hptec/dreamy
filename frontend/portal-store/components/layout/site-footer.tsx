@@ -8,7 +8,6 @@
 import { useState } from 'react'
 import { LocalizedLink as Link } from '@/components/localized-link'
 import { footerNav } from '@/data/navigation'
-import { Instagram, Facebook, Twitter } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
 import { NewsletterSource } from '@/lib/api/store-types'
 import { ApiError } from '@/lib/api/client'
@@ -124,11 +123,6 @@ export function SiteFooter({ columns: serverColumns }: { columns?: StoreFooterCo
                 <span key={p} className="rounded border border-white/20 px-2 py-1 text-[10px] tracking-wide">{p}</span>
               ))}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <a href="#" aria-label="Instagram" className="transition-colors hover:text-canvas"><Instagram className="h-4 w-4" /></a>
-            <a href="#" aria-label="Facebook" className="transition-colors hover:text-canvas"><Facebook className="h-4 w-4" /></a>
-            <a href="#" aria-label="Twitter" className="transition-colors hover:text-canvas"><Twitter className="h-4 w-4" /></a>
           </div>
         </div>
       </div>

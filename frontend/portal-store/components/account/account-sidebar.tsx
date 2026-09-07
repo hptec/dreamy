@@ -8,16 +8,16 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
 
 const links = [
-  { href: '/account', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/account/orders', label: 'Orders', icon: Package },
-  { href: '/account/addresses', label: 'Addresses', icon: MapPin },
-  { href: '/account/wishlist', label: 'Wishlist', icon: Heart },
-  { href: '/account/reviews', label: 'My Reviews', icon: Star },
-  { href: '/account/wedding-plans', label: 'Wedding Plans', icon: ListChecks },
-  { href: '/showroom', label: 'Showrooms', icon: PartyPopper },
-  { href: '/account/security', label: 'Login & Security', icon: ShieldCheck },
-  { href: '/account/settings', label: 'Settings', icon: Settings }
-]
+  { href: '/account', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/account/orders', labelKey: 'orders', icon: Package },
+  { href: '/account/addresses', labelKey: 'addresses', icon: MapPin },
+  { href: '/account/wishlist', labelKey: 'wishlist', icon: Heart },
+  { href: '/account/reviews', labelKey: 'myReviews', icon: Star },
+  { href: '/account/wedding-plans', labelKey: 'weddingPlans', icon: ListChecks },
+  { href: '/showroom', labelKey: 'showrooms', icon: PartyPopper },
+  { href: '/account/security', labelKey: 'security', icon: ShieldCheck },
+  { href: '/account/settings', labelKey: 'settings', icon: Settings }
+] as const
 
 export function AccountSidebar() {
   const pathname = usePathname()
@@ -51,7 +51,7 @@ export function AccountSidebar() {
                 active ? 'bg-ink text-canvas' : 'text-ink-soft hover:bg-muted'
               )}
             >
-              <l.icon className="h-4 w-4" /> {l.label}
+              <l.icon className="h-4 w-4" /> {t.account.nav[l.labelKey]}
             </Link>
           )
         })}

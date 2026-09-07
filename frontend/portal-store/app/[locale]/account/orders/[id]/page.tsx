@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { Check, Truck, Clock, X } from 'lucide-react'
 import type { StoreOrderDetail } from '@/lib/api/store-types'
-import { OrderStatus, RefundStatus } from '@/lib/api/store-types'
+import { OrderStatus, PaymentStatus, RefundStatus } from '@/lib/api/store-types'
 import { getStoreOrder, cancelStoreOrder, retryOrderPayment, applyStoreRefund } from '@/lib/api/trading-api'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
@@ -24,7 +24,16 @@ import { statusBadgeClass, orderStatusLabel, paymentStatusLabel, refundStatusLab
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const orderId = Number(id)
-  const { te } = useI18n()
+  const { t, te } = useI18n()
+  const statusLabels = Object.fromEntries(
+    (Object.keys(t.orders.status) as (keyof typeof t.orders.status)[]).map((k) => [OrderStatus[k.toUpperCase() as keyof typeof OrderStatus], t.orders.status[k]])
+  ) as Record<OrderStatus, string>
+  const paymentLabels = Object.fromEntries(
+    (Object.keys(t.orders.paymentStatus) as (keyof typeof t.orders.paymentStatus)[]).map((k) => [PaymentStatus[k.toUpperCase() as keyof typeof PaymentStatus], t.orders.paymentStatus[k]])
+  ) as Record<PaymentStatus, string>
+  const refundLabels = Object.fromEntries(
+    (Object.keys(t.orders.refundStatus) as (keyof typeof t.orders.refundStatus)[]).map((k) => [RefundStatus[k.toUpperCase() as keyof typeof RefundStatus], t.orders.refundStatus[k]])
+  ) as Record<RefundStatus, string>
 
   const [order, setOrder] = useState<StoreOrderDetail | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading')
@@ -59,21 +68,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     // 404 防探测：通用「不存在或无权访问」（error-strategy store 约定）
     return (
       <div className="py-16 text-center">
-        <h1 className="font-display text-3xl font-medium">{state === 'error' ? 'Something went wrong' : 'Order not found'}</h1>
+        <h1 className="font-display text-3xl font-medium">{state === 'error' ? t.orders.detail.somethingWrong : t.orders.detail.notFound}</h1>
         <p className="mt-2 text-sm text-ink-soft">{state === 'error' ? te(50000) : te(404601)}</p>
         <div className="mt-6 flex justify-center gap-3">
-          {state === 'error' && <button onClick={() => { setState('loading'); void load() }} className="btn-primary">Try Again</button>}
-          <Link href="/account/orders" className="btn-outline">Back to orders</Link>
+          {state === 'error' && <button onClick={() => { setState('loading'); void load() }} className="btn-primary">{t.common.retry}</button>}
+          <Link href="/account/orders" className="btn-outline">{t.orders.detail.backToOrders}</Link>
         </div>
       </div>
     )
   }
 
   const timeline = [
-    { label: 'Placed', date: order.createdAt },
-    { label: 'Paid', date: order.paidAt },
-    { label: 'Shipped', date: order.shippedAt },
-    { label: 'Completed', date: order.completedAt }
+    { label: t.orders.detail.timelinePlaced, date: order.createdAt },
+    { label: t.orders.detail.timelinePaid, date: order.paidAt },
+    { label: t.orders.detail.timelineShipped, date: order.shippedAt },
+    { label: t.orders.detail.timelineCompleted, date: order.completedAt }
   ]
   const doneCount = timeline.filter((s) => !!s.date).length
 
@@ -116,13 +125,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div>
-      <Link href="/account/orders" className="text-sm text-gold-deep underline">← Back to orders</Link>
+      <Link href="/account/orders" className="text-sm text-gold-deep underline">← {t.orders.detail.backToOrders}</Link>
       <div className="mt-4 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-medium">Order {order.orderNo}</h1>
-          <p className="text-sm text-ink-soft">Placed {formatDateTimeLong(order.createdAt)}</p>
+          <h1 className="font-display text-3xl font-medium">{t.orders.orderNo.replace('{no}', order.orderNo)}</h1>
+          <p className="text-sm text-ink-soft">{t.orders.placed.replace('{date}', formatDateTimeLong(order.createdAt))}</p>
         </div>
-        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))}>{orderStatusLabel(order.status)}</span>
+        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))}>{orderStatusLabel(order.status, statusLabels)}</span>
       </div>
 
       {expired && (
@@ -161,24 +170,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       <div className="mt-6 flex flex-wrap items-center gap-3">
         {order.status === OrderStatus.PENDING && !paySecret && (
           <>
-            <button onClick={() => void payNow()} disabled={payLoading} className="btn-primary disabled:opacity-60">{payLoading ? 'Loading…' : 'Pay now'}</button>
+            <button onClick={() => void payNow()} disabled={payLoading} className="btn-primary disabled:opacity-60">{payLoading ? t.common.loading : t.orders.detail.payNow}</button>
             {confirmCancel ? (
               <span className="flex items-center gap-2 text-sm">
-                <span className="text-ink-soft">Cancel this order?</span>
-                <button onClick={() => void cancelOrder()} disabled={cancelling} className="cursor-pointer font-medium text-blush underline">{cancelling ? 'Cancelling…' : 'Yes, cancel'}</button>
-                <button onClick={() => setConfirmCancel(false)} className="cursor-pointer text-ink-soft underline">Keep order</button>
+                <span className="text-ink-soft">{t.orders.detail.cancelConfirm}</span>
+                <button onClick={() => void cancelOrder()} disabled={cancelling} className="cursor-pointer font-medium text-blush underline">{cancelling ? t.orders.detail.cancelling : t.orders.detail.yesCancel}</button>
+                <button onClick={() => setConfirmCancel(false)} className="cursor-pointer text-ink-soft underline">{t.orders.detail.keepOrder}</button>
               </span>
             ) : (
-              <button onClick={() => setConfirmCancel(true)} className="btn-outline"><X className="h-4 w-4" /> Cancel order</button>
+              <button onClick={() => setConfirmCancel(true)} className="btn-outline"><X className="h-4 w-4" /> {t.orders.detail.cancelOrder}</button>
             )}
           </>
         )}
         {(order.status === OrderStatus.PAID || order.status === OrderStatus.SHIPPED || order.status === OrderStatus.COMPLETED) && (
           order.refundEligible ? (
-            <button onClick={() => setRefundOpen(true)} className="btn-outline">Request refund</button>
+            <button onClick={() => setRefundOpen(true)} className="btn-outline">{t.orders.detail.requestRefund}</button>
           ) : (
             <span className="flex items-center gap-2">
-              <button disabled className="btn-outline cursor-not-allowed opacity-40">Request refund</button>
+              <button disabled className="btn-outline cursor-not-allowed opacity-40">{t.orders.detail.requestRefund}</button>
               {order.refundBlockReasonCode && <span className="text-xs text-ink-soft">{te(order.refundBlockReasonCode)}</span>}
             </span>
           )
@@ -196,10 +205,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="mt-6 space-y-2">
           {(order.refunds ?? []).map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-sm border border-line bg-surface px-4 py-3 text-sm">
-              <span className="text-ink-soft">Refund {r.refundNo} · {formatDateTimeLong(r.appliedAt)}</span>
+              <span className="text-ink-soft">{t.orders.detail.refundNo.replace('{no}', r.refundNo)} · {formatDateTimeLong(r.appliedAt)}</span>
               <span className="flex items-center gap-3">
                 <span className="font-medium">{formatAmount(r.amount, r.currency)}</span>
-                <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === RefundStatus.APPROVED ? 'bg-sage/15 text-sage-deep' : r.status === RefundStatus.REJECTED ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{refundStatusLabel(r.status)}</span>
+                <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === RefundStatus.APPROVED ? 'bg-sage/15 text-sage-deep' : r.status === RefundStatus.REJECTED ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{refundStatusLabel(r.status, refundLabels)}</span>
               </span>
             </div>
           ))}
@@ -209,7 +218,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {/* Items + Summary */}
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <h2 className="mb-4 font-display text-xl font-medium">Items</h2>
+          <h2 className="mb-4 font-display text-xl font-medium">{t.orders.detail.items}</h2>
           <div className="rounded-sm border border-line">
             {order.lines.map((it) => (
               <div key={it.id} className="flex items-center gap-4 border-b border-line/60 p-4 last:border-0">
@@ -220,11 +229,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="h-20 w-14 rounded-sm bg-muted" />
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{it.productName} {it.customSizeData && <span className="ml-1 rounded-full bg-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-luxe text-gold-deep">Custom</span>}</p>
-                  <p className="text-xs text-ink-soft">{[it.color, it.customSizeData ? undefined : it.size, `Qty ${it.qty}`].filter(Boolean).join(' · ')}</p>
+                  <p className="text-sm font-medium">{it.productName} {it.customSizeData && <span className="ml-1 rounded-full bg-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-luxe text-gold-deep">{t.checkout.custom}</span>}</p>
+                  <p className="text-xs text-ink-soft">{[it.color, it.customSizeData ? undefined : it.size, t.checkout.qty.replace('{count}', String(it.qty))].filter(Boolean).join(' · ')}</p>
                   {it.customSizeData && (
                     <p className="mt-0.5 text-xs text-ink-faint">
-                      Bust {it.customSizeData.bust}″ · Waist {it.customSizeData.waist}″ · Hips {it.customSizeData.hips}″ · Hollow-to-floor {it.customSizeData.hollowToFloor}″
+                      {t.cart.page.bust} {it.customSizeData.bust}″ · {t.cart.page.waist} {it.customSizeData.waist}″ · {t.cart.page.hips} {it.customSizeData.hips}″ · {t.cart.page.hollowToFloor} {it.customSizeData.hollowToFloor}″
                     </p>
                   )}
                 </div>
@@ -235,16 +244,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div>
-          <h2 className="mb-4 font-display text-xl font-medium">Summary</h2>
+          <h2 className="mb-4 font-display text-xl font-medium">{t.checkout.summary}</h2>
           <dl className="space-y-2 rounded-sm border border-line bg-surface p-5 text-sm">
-            <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{formatAmount(order.subtotal, order.currency)}</dd></div>
-            <div className="flex justify-between"><dt className="text-ink-soft">Shipping</dt><dd>{(order.shippingFee ?? 0) === 0 ? 'Free' : formatAmount(order.shippingFee ?? 0, order.currency)}</dd></div>
-            {order.giftWrap && <div className="flex justify-between"><dt className="text-ink-soft">Gift Wrapping</dt><dd>{formatAmount(order.giftWrapFee ?? 0, order.currency)}</dd></div>}
-            {(order.discountAmount ?? 0) > 0 && <div className="flex justify-between text-sage-deep"><dt>Discount</dt><dd>-{formatAmount(order.discountAmount ?? 0, order.currency)}</dd></div>}
-            <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>Total</dt><dd className="font-display text-lg">{formatAmount(order.totalAmount, order.currency)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.subtotal}</dt><dd>{formatAmount(order.subtotal, order.currency)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.shipping}</dt><dd>{(order.shippingFee ?? 0) === 0 ? t.checkout.free : formatAmount(order.shippingFee ?? 0, order.currency)}</dd></div>
+            {order.giftWrap && <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.giftWrappingLabel}</dt><dd>{formatAmount(order.giftWrapFee ?? 0, order.currency)}</dd></div>}
+            {(order.discountAmount ?? 0) > 0 && <div className="flex justify-between text-sage-deep"><dt>{t.checkout.discount}</dt><dd>-{formatAmount(order.discountAmount ?? 0, order.currency)}</dd></div>}
+            <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>{t.checkout.total}</dt><dd className="font-display text-lg">{formatAmount(order.totalAmount, order.currency)}</dd></div>
           </dl>
 
-          <h2 className="mb-4 mt-8 font-display text-xl font-medium">Shipping Address</h2>
+          <h2 className="mb-4 mt-8 font-display text-xl font-medium">{t.checkout.shippingAddress}</h2>
           <div className="rounded-sm border border-line bg-surface p-5 text-sm text-ink-soft">
             <p className="font-medium text-ink">{order.addressSnapshot.receiver}</p>
             <p className="mt-1">{order.addressSnapshot.line}<br />{order.addressSnapshot.city}{order.addressSnapshot.state ? `, ${order.addressSnapshot.state}` : ''} {order.addressSnapshot.zip}<br />{order.addressSnapshot.country}</p>
@@ -253,11 +262,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
           {order.payment && (
             <>
-              <h2 className="mb-4 mt-8 font-display text-xl font-medium">Payment</h2>
+              <h2 className="mb-4 mt-8 font-display text-xl font-medium">{t.checkout.payment}</h2>
               <div className="rounded-sm border border-line bg-surface p-5 text-sm text-ink-soft">
                 <p>{order.payment.cardSummary ?? order.paymentMethod ?? 'Stripe'}</p>
-                <p className="mt-1 capitalize">Status: {paymentStatusLabel(order.payment.status)}</p>
-                {order.payment.paidAt && <p className="mt-1">Paid {formatDateTimeLong(order.payment.paidAt)}</p>}
+                <p className="mt-1 capitalize">{t.orders.detail.statusLabel} {paymentStatusLabel(order.payment.status, paymentLabels)}</p>
+                {order.payment.paidAt && <p className="mt-1">{t.orders.detail.paidAt.replace('{date}', formatDateTimeLong(order.payment.paidAt))}</p>}
               </div>
             </>
           )}
@@ -280,7 +289,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
 /** 申请退款弹窗（FORM-TRD-S05：reason 必填 ≤255；422602 政策说明；409605 已有工单） */
 function RefundModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: string) => Promise<void> }) {
-  const { te } = useI18n()
+  const { t, te } = useI18n()
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [graceDeadline, setGraceDeadline] = useState<string | null>(null)
@@ -288,7 +297,7 @@ function RefundModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (re
 
   const submit = async () => {
     const trimmed = reason.trim()
-    if (!trimmed || trimmed.length > 255) { setError('Please tell us briefly why you want a refund (max 255 characters).'); return }
+    if (!trimmed || trimmed.length > 255) { setError(t.orders.detail.refundReasonError); return }
     setBusy(true)
     setError(null)
     try {
@@ -310,11 +319,11 @@ function RefundModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (re
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-md animate-fadeup rounded-sm bg-canvas p-7 shadow-lift">
-        <button onClick={onClose} className="absolute right-4 top-4 cursor-pointer p-1" aria-label="Close"><X className="h-5 w-5" /></button>
-        <h2 className="font-display text-2xl font-medium">Request a Refund</h2>
-        <p className="mt-2 text-sm text-ink-soft">Tell us why you&apos;d like a refund and our team will review your request.</p>
+        <button onClick={onClose} className="absolute right-4 top-4 cursor-pointer p-1" aria-label={t.common.close}><X className="h-5 w-5" /></button>
+        <h2 className="font-display text-2xl font-medium">{t.orders.detail.refundTitle}</h2>
+        <p className="mt-2 text-sm text-ink-soft">{t.orders.detail.refundBody}</p>
         <div className="mt-4">
-          <label htmlFor="refund-reason" className="eyebrow mb-1.5 block">Reason</label>
+          <label htmlFor="refund-reason" className="eyebrow mb-1.5 block">{t.orders.detail.refundReason}</label>
           <textarea
             id="refund-reason"
             rows={4}
@@ -328,10 +337,10 @@ function RefundModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (re
         {error && (
           <div className="mt-2 rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">
             <p>{error}</p>
-            {graceDeadline && <p className="mt-1 text-xs">Refund window ended {formatDateTimeLong(graceDeadline)}.</p>}
+            {graceDeadline && <p className="mt-1 text-xs">{t.orders.detail.refundWindowEnded.replace('{date}', formatDateTimeLong(graceDeadline))}</p>}
           </div>
         )}
-        <button onClick={() => void submit()} disabled={busy} className="btn-primary mt-4 w-full disabled:opacity-60">{busy ? 'Submitting…' : 'Submit Request'}</button>
+        <button onClick={() => void submit()} disabled={busy} className="btn-primary mt-4 w-full disabled:opacity-60">{busy ? t.orders.detail.refundSubmitting : t.orders.detail.refundSubmit}</button>
       </div>
     </div>
   )

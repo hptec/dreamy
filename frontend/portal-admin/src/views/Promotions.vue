@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // PAGE-MKT-A01 / COMP-MKT-A01：优惠券与促销（双 tab 布局保持；mock → E-MKT-13~20）
 // 删除预判：券仅 draft/expired 可删，闪购仅 draft 可删（409703 兜底 toast）
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -48,6 +48,10 @@ function onSearchInput() {
     store.applyCouponFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))
   }, 300)
 }
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
 
 function applyCouponFilters() {
   store.applyCouponFilters().catch((e) => toast.error(e instanceof BizError ? e.message : '加载失败'))

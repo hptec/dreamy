@@ -32,18 +32,27 @@ import { PaymentElementPanel } from '@/components/cart/payment-element-panel'
 import { formatAmount, cn } from '@/lib/utils'
 import { Select, type SelectOption } from '@/components/ui/select'
 
-const steps = ['Address', 'Shipping', 'Payment', 'Review'] as const
-
 const COUNTRY_OPTIONS: SelectOption[] = ['United States', 'Canada', 'Australia', 'United Kingdom', 'France', 'Spain', 'Germany'].map((c) => ({ value: c, label: c }))
 
-const payments: { id: string; name: string; desc: string; method: PaymentMethod | null }[] = [
-  { id: 'card', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, Amex', method: 'Stripe' },
-  { id: 'paypal', name: 'PayPal', desc: 'Coming soon', method: null },
-  { id: 'apple', name: 'Apple Pay', desc: 'Fast checkout with Face ID', method: 'Apple Pay' },
-  { id: 'google', name: 'Google Pay', desc: 'Pay with Google', method: 'Google Pay' },
-  { id: 'klarna', name: 'Klarna', desc: 'Pay in 4 interest-free', method: 'Klarna' },
-  { id: 'afterpay', name: 'Afterpay', desc: 'Pay in 4 interest-free', method: 'Afterpay' }
+/** 支付方式 id → 后端 PaymentMethod（名称/描述文案走 t.checkout，品牌名不翻译） */
+const PAY_METHODS: { id: string; name: string; method: PaymentMethod | null }[] = [
+  { id: 'card', name: 'Credit / Debit Card', method: 'Stripe' },
+  { id: 'paypal', name: 'PayPal', method: null },
+  { id: 'apple', name: 'Apple Pay', method: 'Apple Pay' },
+  { id: 'google', name: 'Google Pay', method: 'Google Pay' },
+  { id: 'klarna', name: 'Klarna', method: 'Klarna' },
+  { id: 'afterpay', name: 'Afterpay', method: 'Afterpay' }
 ]
+
+/** 渲染用的展示文案（descKey 对应 t.checkout 键） */
+const PAY_METHOD_DESC: Record<string, string> = {
+  card: 'cardDesc',
+  paypal: 'comingSoon',
+  apple: 'payAppleDesc',
+  google: 'payGoogleDesc',
+  klarna: 'payIn4',
+  afterpay: 'payIn4'
+}
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -51,7 +60,9 @@ export default function CheckoutPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const hydrated = useAuthStore((s) => s.hydrated)
   const hydrate = useAuthStore((s) => s.hydrate)
-  const { locale, te } = useI18n()
+  const { locale, t, te } = useI18n()
+
+  const steps = [t.checkout.stepAddress, t.checkout.shipping, t.checkout.payment, t.checkout.stepReview]
 
   const [step, setStep] = useState(0)
 
@@ -217,7 +228,7 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!addressId || !carrier) return
-    const method = payments.find((p) => p.id === payMethod)?.method ?? 'Stripe'
+    const method = PAY_METHODS.find((p) => p.id === payMethod)?.method ?? 'Stripe'
     setPlacing(true)
     setPlaceError(null)
     try {
@@ -259,14 +270,14 @@ export default function CheckoutPage() {
   }
 
   if (!hydrated || !isAuthenticated) {
-    return <div className="container-luxe py-24 text-center text-ink-soft">Loading…</div>
+    return <div className="container-luxe py-24 text-center text-ink-soft">{t.common.loading}</div>
   }
 
   if (cart.length === 0 && !payment) {
     return (
       <div className="container-luxe py-24 text-center">
-        <h1 className="font-display text-3xl">Your bag is empty</h1>
-        <Link href="/wedding-dresses" className="btn-primary mt-6 inline-flex">Continue Shopping</Link>
+        <h1 className="font-display text-3xl">{t.cart.page.emptyTitle}</h1>
+        <Link href="/wedding-dresses" className="btn-primary mt-6 inline-flex">{t.common.continueShopping}</Link>
       </div>
     )
   }
@@ -295,9 +306,9 @@ export default function CheckoutPage() {
         <div className="lg:col-span-2">
           {step === 0 && (
             <div className="space-y-4">
-              <h2 className="font-display text-2xl font-medium">Shipping Address</h2>
+              <h2 className="font-display text-2xl font-medium">{t.checkout.shippingAddress}</h2>
               {addresses === null ? (
-                <p className="text-sm text-ink-soft">Loading addresses…</p>
+                <p className="text-sm text-ink-soft">{t.checkout.loadingAddresses}</p>
               ) : (
                 <>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -306,7 +317,7 @@ export default function CheckoutPage() {
                         <input type="radio" name="address" checked={addressId === a.id} onChange={() => setAddressId(a.id)} className="mt-1 accent-gold" />
                         <span className="text-sm">
                           <span className="font-medium">{a.receiver}</span>
-                          {a.isDefault && <span className="ml-2 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] text-gold-deep">Default</span>}
+                          {a.isDefault && <span className="ml-2 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] text-gold-deep">{t.checkout.defaultBadge}</span>}
                           <span className="mt-1 block text-ink-soft">{a.line}<br />{a.city}{a.state ? `, ${a.state}` : ''} {a.zip}<br />{a.country}{a.phone ? ` · ${a.phone}` : ''}</span>
                         </span>
                       </label>
@@ -323,19 +334,19 @@ export default function CheckoutPage() {
                     />
                   ) : (
                     <button onClick={() => setAddingAddress(true)} className="flex cursor-pointer items-center gap-2 rounded-sm border border-dashed border-gold/50 px-4 py-3 text-[12px] font-medium uppercase tracking-luxe text-gold-deep transition-colors hover:border-gold hover:bg-gold/5">
-                      <Plus className="h-4 w-4" /> Add new address
+                      <Plus className="h-4 w-4" /> {t.checkout.addNewAddress}
                     </button>
                   )}
                   {addressError && <p className="text-xs text-blush">{addressError}</p>}
                   <button
                     onClick={() => {
-                      if (!addressId) { setAddressError('Please select or add a shipping address.'); return }
+                      if (!addressId) { setAddressError(t.checkout.selectAddressError); return }
                       setAddressError(null)
                       setStep(1)
                     }}
                     className="btn-primary mt-4 w-full sm:w-auto"
                   >
-                    Continue to Shipping
+                    {t.checkout.continueToShipping}
                   </button>
                 </>
               )}
@@ -344,7 +355,7 @@ export default function CheckoutPage() {
 
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="flex items-center gap-2 font-display text-2xl font-medium"><Truck className="h-6 w-6 text-gold" /> Shipping Method</h2>
+              <h2 className="flex items-center gap-2 font-display text-2xl font-medium"><Truck className="h-6 w-6 text-gold" /> {t.checkout.shippingMethod}</h2>
               {quoteError && <p className="rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">{quoteError}</p>}
               {quote === null && !quoteError ? (
                 <div className="space-y-3" aria-hidden="true">
@@ -357,48 +368,48 @@ export default function CheckoutPage() {
                       <input type="radio" name="ship" checked={carrier === o.carrier} onChange={() => setCarrier(o.carrier)} className="accent-gold" />
                       <div><p className="text-sm font-medium">{o.carrier}</p>{o.leadTime && <p className="text-xs text-ink-soft">{o.leadTime}</p>}</div>
                     </div>
-                    <span className="text-sm font-medium">{o.fee === 0 ? 'Free' : formatAmount(o.fee, cur)}</span>
+                    <span className="text-sm font-medium">{o.fee === 0 ? t.checkout.free : formatAmount(o.fee, cur)}</span>
                   </label>
                 ))
               )}
 
               <label className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
                 <input type="checkbox" checked={giftWrap} onChange={(e) => setGiftWrap(e.target.checked)} className="accent-gold" />
-                Add gift wrapping{quote && giftWrap && quote.giftWrapFee > 0 ? ` (+${formatAmount(quote.giftWrapFee, cur)})` : ''}
+                {t.checkout.giftWrapping}{quote && giftWrap && quote.giftWrapFee > 0 ? ` (+${formatAmount(quote.giftWrapFee, cur)})` : ''}
               </label>
 
               {/* wedding date 选填（决策 20.6） */}
               <div className="max-w-xs">
-                <label htmlFor="wedding-date" className="eyebrow mb-1.5 block">Wedding date (optional)</label>
+                <label htmlFor="wedding-date" className="eyebrow mb-1.5 block">{t.checkout.weddingDate}</label>
                 <input id="wedding-date" type="date" value={weddingDate} onChange={(e) => setWeddingDate(e.target.value)} className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold" />
               </div>
               {quote?.leadTimeWarning && (
                 <p className="flex items-start gap-2 rounded-sm bg-gold/10 px-4 py-3 text-sm text-gold-deep">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  Heads up — production for this order may take up to {quote.maxLeadTimeDays ?? '—'} days, which is close to your wedding date. Consider rush options or contact a stylist.
+                  {t.checkout.leadTimeWarning.replace('{days}', String(quote.maxLeadTimeDays ?? '—'))}
                 </p>
               )}
 
               {/* 券码（COMP-MKT-S11 / FORM-MKT-S03） */}
               <div>
-                <p className="eyebrow mb-1.5">Promo code</p>
+                <p className="eyebrow mb-1.5">{t.checkout.promoCode}</p>
                 <div className="flex max-w-sm gap-2">
                   <input
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => { if (e.key === 'Enter') void applyCoupon() }}
-                    placeholder="Promo code"
+                    placeholder={t.checkout.promoCode}
                     className="flex-1 rounded-sm border border-line bg-surface px-3 py-2.5 text-sm uppercase outline-none focus:border-gold"
-                    aria-label="Promo code"
+                    aria-label={t.checkout.promoCode}
                   />
                   <button onClick={() => void applyCoupon()} disabled={couponApplying} className="cursor-pointer rounded-sm border border-ink px-4 py-2.5 text-xs uppercase tracking-luxe transition-colors hover:bg-ink hover:text-canvas disabled:opacity-60">
-                    {couponApplying ? '…' : 'Apply'}
+                    {couponApplying ? '…' : t.common.apply}
                   </button>
                 </div>
                 {couponCode && couponResult?.valid && (
                   <p className="mt-2 flex items-center gap-2 text-sm text-sage-deep">
-                    <Check className="h-4 w-4" /> {couponCode} applied{couponResult.coupon?.name ? ` — ${couponResult.coupon.name}` : ''}
-                    <button onClick={removeCoupon} className="cursor-pointer text-xs text-ink-soft underline">Remove</button>
+                    <Check className="h-4 w-4" /> {t.checkout.couponApplied.replace('{code}', couponCode)}{couponResult.coupon?.name ? ` — ${couponResult.coupon.name}` : ''}
+                    <button onClick={removeCoupon} className="cursor-pointer text-xs text-ink-soft underline">{t.checkout.removeCoupon}</button>
                   </p>
                 )}
                 {couponMessage && <p className="mt-2 text-sm text-blush">{couponMessage}</p>}
@@ -408,17 +419,17 @@ export default function CheckoutPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setStep(0)} className="btn-outline">Back</button>
-                <button onClick={() => setStep(2)} disabled={!carrier} className="btn-primary disabled:opacity-60">Continue to Payment</button>
+                <button onClick={() => setStep(0)} className="btn-outline">{t.common.back}</button>
+                <button onClick={() => setStep(2)} disabled={!carrier} className="btn-primary disabled:opacity-60">{t.checkout.continueToPayment}</button>
               </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="flex items-center gap-2 font-display text-2xl font-medium"><CreditCard className="h-6 w-6 text-gold" /> Payment</h2>
+              <h2 className="flex items-center gap-2 font-display text-2xl font-medium"><CreditCard className="h-6 w-6 text-gold" /> {t.checkout.payment}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
-                {payments.map((p) => (
+                {PAY_METHODS.map((p) => (
                   <label
                     key={p.id}
                     className={cn(
@@ -429,28 +440,28 @@ export default function CheckoutPage() {
                   >
                     <input type="radio" name="pay" disabled={p.method === null} checked={payMethod === p.id} onChange={() => setPayMethod(p.id)} className="accent-gold" />
                     <div>
-                      <p className="text-sm font-medium">{p.name}{p.method === null && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-luxe text-ink-faint">Coming soon</span>}</p>
-                      <p className="text-xs text-ink-soft">{p.desc}</p>
+                      <p className="text-sm font-medium">{p.id === 'card' ? t.checkout.cardName : p.name}{p.method === null && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-luxe text-ink-faint">{t.checkout.comingSoon}</span>}</p>
+                      <p className="text-xs text-ink-soft">{t.checkout[PAY_METHOD_DESC[p.id] as 'cardDesc']}</p>
                     </div>
                   </label>
                 ))}
               </div>
               <p className="rounded-sm bg-muted p-4 text-sm text-ink-soft">
-                You&apos;ll enter your payment details securely on the next step — powered by Stripe.
+                {t.checkout.stripeNote}
               </p>
               {(payMethod === 'klarna' || payMethod === 'afterpay') && quote && (
-                <p className="rounded-sm bg-sage/10 p-4 text-sm text-sage-deep">4 interest-free payments of {formatAmount(quote.totalAmount / 4, cur)}. You&apos;ll be redirected to {payMethod === 'klarna' ? 'Klarna' : 'Afterpay'} to complete.</p>
+                <p className="rounded-sm bg-sage/10 p-4 text-sm text-sage-deep">{t.checkout.payIn4Note.replace('{amount}', formatAmount(quote.totalAmount / 4, cur)).replace('{provider}', payMethod === 'klarna' ? 'Klarna' : 'Afterpay')}</p>
               )}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setStep(1)} className="btn-outline">Back</button>
-                <button onClick={() => setStep(3)} className="btn-primary">Review Order</button>
+                <button onClick={() => setStep(1)} className="btn-outline">{t.common.back}</button>
+                <button onClick={() => setStep(3)} className="btn-primary">{t.checkout.reviewOrder}</button>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-5">
-              <h2 className="font-display text-2xl font-medium">Review Your Order</h2>
+              <h2 className="font-display text-2xl font-medium">{t.checkout.reviewTitle}</h2>
               <div className="rounded-sm border border-line">
                 {cart.map((line) => (
                   <div key={line.key} className="flex items-center gap-4 border-b border-line/60 p-4 last:border-0">
@@ -460,26 +471,26 @@ export default function CheckoutPage() {
                     ) : (
                       <div className="h-20 w-14 rounded-sm bg-muted" />
                     )}
-                    <div className="flex-1"><p className="text-sm font-medium">{line.name}</p><p className="text-xs text-ink-soft">{[line.color, line.customSizeData ? 'Custom' : line.size, `Qty ${line.qty}`].filter(Boolean).join(' · ')}</p></div>
+                    <div className="flex-1"><p className="text-sm font-medium">{line.name}</p><p className="text-xs text-ink-soft">{[line.color, line.customSizeData ? t.checkout.custom : line.size, t.checkout.qty.replace('{count}', String(line.qty))].filter(Boolean).join(' · ')}</p></div>
                   </div>
                 ))}
               </div>
               <div className="grid gap-4 text-sm sm:grid-cols-3">
                 <div className="rounded-sm bg-muted p-4">
-                  <p className="eyebrow mb-1">Ship to</p>
+                  <p className="eyebrow mb-1">{t.checkout.shipTo}</p>
                   <p className="text-ink-soft">{selectedAddress ? <>{selectedAddress.receiver}<br />{selectedAddress.line}<br />{selectedAddress.city}{selectedAddress.state ? `, ${selectedAddress.state}` : ''}</> : '—'}</p>
                 </div>
-                <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">Shipping</p><p className="text-ink-soft">{carrier ?? '—'}</p></div>
-                <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">Payment</p><p className="text-ink-soft">{payments.find((p) => p.id === payMethod)?.name}</p></div>
+                <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">{t.checkout.shipping}</p><p className="text-ink-soft">{carrier ?? '—'}</p></div>
+                <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">{t.checkout.payment}</p><p className="text-ink-soft">{PAY_METHODS.find((p) => p.id === payMethod)?.name}</p></div>
               </div>
               {/* DDU 关税说明（决策 15，静态 i18n 文案） */}
               <p className="rounded-sm bg-muted px-4 py-3 text-xs text-ink-soft">
-                International orders are shipped DDU (Delivered Duty Unpaid) — import duties and taxes, where applicable, are collected by the carrier on delivery.
+                {t.checkout.dduNote}
               </p>
               {placeError && (
                 <p className="rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">
                   {placeError}
-                  {placeError.startsWith(te(409601)) && <Link href="/cart" className="ml-1 underline">Adjust quantities</Link>}
+                  {placeError.startsWith(te(409601)) && <Link href="/cart" className="ml-1 underline">{t.checkout.adjustQuantities}</Link>}
                 </p>
               )}
               {payment ? (
@@ -490,9 +501,9 @@ export default function CheckoutPage() {
                 />
               ) : (
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(2)} className="btn-outline">Back</button>
+                  <button onClick={() => setStep(2)} className="btn-outline">{t.common.back}</button>
                   <button onClick={() => void placeOrder()} disabled={placing || !quote} className="btn-primary flex-1 disabled:opacity-60">
-                    <Lock className="h-4 w-4" /> {placing ? 'Placing order…' : `Place Order${quote ? ` · ${formatAmount(quote.totalAmount, cur)}` : ''}`}
+                    <Lock className="h-4 w-4" /> {placing ? t.checkout.placingOrder : `${t.checkout.placeOrder}${quote ? ` · ${formatAmount(quote.totalAmount, cur)}` : ''}`}
                   </button>
                 </div>
               )}
@@ -503,7 +514,7 @@ export default function CheckoutPage() {
         {/* Order summary（金额拆分以 quote 为准，决策 28） */}
         <div>
           <div className="rounded-sm border border-line bg-surface p-6 lg:sticky lg:top-28">
-            <h3 className="font-display text-xl font-medium">Summary</h3>
+            <h3 className="font-display text-xl font-medium">{t.checkout.summary}</h3>
             <div className="mt-4 max-h-48 space-y-3 overflow-y-auto">
               {cart.map((line) => (
                 <div key={line.key} className="flex items-center gap-3">
@@ -513,21 +524,21 @@ export default function CheckoutPage() {
                   ) : (
                     <div className="h-14 w-10 rounded-sm bg-muted" />
                   )}
-                  <div className="flex-1 text-xs"><p className="font-medium">{line.name}</p><p className="text-ink-soft">{line.customSizeData ? 'Custom' : line.size} · Qty {line.qty}</p></div>
+                  <div className="flex-1 text-xs"><p className="font-medium">{line.name}</p><p className="text-ink-soft">{line.customSizeData ? t.checkout.custom : line.size} · {t.checkout.qty.replace('{count}', String(line.qty))}</p></div>
                 </div>
               ))}
             </div>
             <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
               {quote ? (
                 <>
-                  <div className="flex justify-between"><dt className="text-ink-soft">Subtotal</dt><dd>{formatAmount(quote.subtotal, cur)}</dd></div>
-                  <div className="flex justify-between"><dt className="text-ink-soft">Shipping</dt><dd>{quote.shippingFee === 0 ? 'Free' : formatAmount(quote.shippingFee, cur)}</dd></div>
-                  {quote.giftWrapFee > 0 && <div className="flex justify-between"><dt className="text-ink-soft">Gift Wrapping</dt><dd>{formatAmount(quote.giftWrapFee, cur)}</dd></div>}
-                  {quote.discountAmount > 0 && <div className="flex justify-between text-sage-deep"><dt>Discount</dt><dd>-{formatAmount(quote.discountAmount, cur)}</dd></div>}
-                  <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>Total</dt><dd className="font-display text-lg">{formatAmount(quote.totalAmount, cur)}{quoting && <span className="ml-1 text-xs text-ink-faint">…</span>}</dd></div>
+                  <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.subtotal}</dt><dd>{formatAmount(quote.subtotal, cur)}</dd></div>
+                  <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.shipping}</dt><dd>{quote.shippingFee === 0 ? t.checkout.free : formatAmount(quote.shippingFee, cur)}</dd></div>
+                  {quote.giftWrapFee > 0 && <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.giftWrappingLabel}</dt><dd>{formatAmount(quote.giftWrapFee, cur)}</dd></div>}
+                  {quote.discountAmount > 0 && <div className="flex justify-between text-sage-deep"><dt>{t.checkout.discount}</dt><dd>-{formatAmount(quote.discountAmount, cur)}</dd></div>}
+                  <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>{t.checkout.total}</dt><dd className="font-display text-lg">{formatAmount(quote.totalAmount, cur)}{quoting && <span className="ml-1 text-xs text-ink-faint">…</span>}</dd></div>
                 </>
               ) : (
-                <div className="flex justify-between"><dt className="text-ink-soft">Total</dt><dd className="text-ink-soft">Calculated at shipping step</dd></div>
+                <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.total}</dt><dd className="text-ink-soft">{t.checkout.calculatedAtShipping}</dd></div>
               )}
             </dl>
           </div>
@@ -538,7 +549,7 @@ export default function CheckoutPage() {
 }
 
 function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onCancel?: () => void }) {
-  const { te } = useI18n()
+  const { t, te } = useI18n()
   const [form, setForm] = useState({ receiver: '', phone: '', line: '', city: '', state: '', zip: '', country: 'United States', isDefault: false })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -548,7 +559,7 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
 
   const save = async () => {
     if (!form.receiver.trim() || !form.line.trim() || !form.city.trim() || !form.zip.trim() || !form.country.trim()) {
-      setError('Please fill in all required fields.')
+      setError(t.checkout.fillRequired)
       return
     }
     setSaving(true)
@@ -575,20 +586,20 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
   return (
     <div className="space-y-4 rounded-sm bg-muted p-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Full name" value={form.receiver} onChange={set('receiver')} placeholder="Jane Doe" />
-        <Field label="Phone (optional)" value={form.phone} onChange={set('phone')} placeholder="+1 555 0100" />
+        <Field label={t.checkout.fullName} value={form.receiver} onChange={set('receiver')} placeholder="Jane Doe" />
+        <Field label={t.checkout.phoneOptional} value={form.phone} onChange={set('phone')} placeholder="+1 555 0100" />
       </div>
-      <Field label="Address" value={form.line} onChange={set('line')} placeholder="123 Coastal Ave" />
+      <Field label={t.checkout.addressLine} value={form.line} onChange={set('line')} placeholder="123 Coastal Ave" />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="City" value={form.city} onChange={set('city')} placeholder="Santa Barbara" />
-        <Field label="State" value={form.state} onChange={set('state')} placeholder="CA" />
-        <Field label="ZIP" value={form.zip} onChange={set('zip')} placeholder="93101" />
+        <Field label={t.checkout.city} value={form.city} onChange={set('city')} placeholder="Santa Barbara" />
+        <Field label={t.checkout.state} value={form.state} onChange={set('state')} placeholder="CA" />
+        <Field label={t.checkout.zip} value={form.zip} onChange={set('zip')} placeholder="93101" />
       </div>
       <div>
-        <label className="eyebrow mb-1.5 block" htmlFor="addr-country">Country</label>
+        <label className="eyebrow mb-1.5 block" htmlFor="addr-country">{t.checkout.country}</label>
         <Select
           id="addr-country"
-          ariaLabel="Country"
+          ariaLabel={t.checkout.country}
           value={form.country}
           options={COUNTRY_OPTIONS}
           onChange={(v) => setForm((p) => ({ ...p, country: v }))}
@@ -597,12 +608,12 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-soft">
         <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((p) => ({ ...p, isDefault: e.target.checked }))} className="accent-gold" />
-        Set as default address
+        {t.checkout.setDefault}
       </label>
       {error && <p className="text-xs text-blush">{error}</p>}
       <div className="flex gap-2">
-        <button onClick={() => void save()} disabled={saving} className="btn-primary px-5 py-2.5 text-xs disabled:opacity-60">{saving ? 'Saving…' : 'Save Address'}</button>
-        {onCancel && <button onClick={onCancel} className="btn-outline px-5 py-2.5 text-xs">Cancel</button>}
+        <button onClick={() => void save()} disabled={saving} className="btn-primary px-5 py-2.5 text-xs disabled:opacity-60">{saving ? t.checkout.saving : t.checkout.saveAddress}</button>
+        {onCancel && <button onClick={onCancel} className="btn-outline px-5 py-2.5 text-xs">{t.common.cancel}</button>}
       </div>
     </div>
   )
