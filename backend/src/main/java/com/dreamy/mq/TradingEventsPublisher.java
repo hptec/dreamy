@@ -182,7 +182,7 @@ public class TradingEventsPublisher {
         int attempts = (row.getAttempts() == null ? 0 : row.getAttempts()) + 1;
         try {
             Map<String, Object> payload = inMemoryPayload != null ? inMemoryPayload : fromJson(row.getPayload());
-            eventPublisher.publish(row.getRoutingKey(), payload);
+            eventPublisher.publishOrThrow(row.getRoutingKey(), payload);
             outboxRepository.markSent(row.getId(), attempts, LocalDateTime.now());
             row.setAttempts(attempts);
             row.setStatus(OutboxStatus.SENT);

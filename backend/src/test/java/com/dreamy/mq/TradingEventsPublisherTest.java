@@ -82,7 +82,7 @@ class TradingEventsPublisherTest {
     @Test
     @DisplayName("publishOrderPaid → outbox PENDING 落表 → 即时投递成功 → markSent(attempts=1)")
     void publishSuccessMarksSent() {
-        when(domainEventPublisher.publish(anyString(), any())).thenReturn("evt-1");
+        when(domainEventPublisher.publishOrThrow(anyString(), any())).thenReturn("evt-1");
         publisher.publishOrderPaid(order(), List.of(), "fr");
         ArgumentCaptor<EventOutbox> captor = ArgumentCaptor.forClass(EventOutbox.class);
         verify(outboxRepository).insert(captor.capture());
@@ -90,7 +90,7 @@ class TradingEventsPublisherTest {
         assertThat(row.getStatus()).isEqualTo(OutboxStatus.SENT);
         assertThat(row.getRoutingKey()).isEqualTo("order.paid");
         assertThat(row.getPayload()).contains("\"order_no\":\"DRM-1\"").contains("\"locale\":\"fr\"");
-        verify(domainEventPublisher).publish(eq("order.paid"), any());
+        verify(domainEventPublisher).publishOrThrow(eq("order.paid"), any());
         verify(outboxRepository).markSent(eq(1L), eq(1), any());
         verify(outboxRepository, never()).markRetry(anyLong(), anyInt(), any(), anyString());
     }
@@ -98,7 +98,7 @@ class TradingEventsPublisherTest {
     @Test
     @DisplayName("即时投递抛异常 → 保留 PENDING：markRetry(attempts=1, next=+1m, last_error) 不 markSent")
     void publishFailureKeepsPending() {
-        doThrow(new IllegalStateException("broker down")).when(domainEventPublisher).publish(anyString(), any());
+        doThrow(new IllegalStateException("broker down")).when(domainEventPublisher).publishOrThrow(anyString(), any());
         publisher.publishOrderCancelled(order(), "timeout");
         ArgumentCaptor<LocalDateTime> next = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(outboxRepository).markRetry(eq(1L), eq(1), next.capture(), eq("IllegalStateException: broker down"));
@@ -116,13 +116,13 @@ class TradingEventsPublisherTest {
         row.setPayload("{\"refund_no\":\"RFD-1\",\"amount\":37.50,\"customer_id\":7}");
         row.setAttempts(2);
         row.setStatus(OutboxStatus.PENDING);
-        when(domainEventPublisher.publish(anyString(), any())).thenReturn("evt-x");
+        when(domainEventPublisher.publishOrThrow(anyString(), any())).thenReturn("evt-x");
 
         assertThat(publisher.deliver(row)).isTrue();
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
-        verify(domainEventPublisher).publish(eq("refund.resolved"), payload.capture());
+        verify(domainEventPublisher).publishOrThrow(eq("refund.resolved"), payload.capture());
         assertThat(payload.getValue().get("amount")).isInstanceOf(BigDecimal.class)
                 .isEqualTo(new BigDecimal("37.50"));
         verify(outboxRepository).markSent(eq(9L), eq(3), any());
@@ -138,7 +138,7 @@ class TradingEventsPublisherTest {
         row.setPayload("{\"order_no\":\"DRM-1\"}");
         row.setAttempts(TradingEventsPublisher.MAX_ATTEMPTS - 1);
         row.setStatus(OutboxStatus.PENDING);
-        doThrow(new RuntimeException("still down")).when(domainEventPublisher).publish(anyString(), any());
+        doThrow(new RuntimeException("still down")).when(domainEventPublisher).publishOrThrow(anyString(), any());
 
         assertThat(publisher.deliver(row)).isFalse();
 
@@ -172,7 +172,7 @@ class TradingEventsPublisherTest {
     @Test
     @DisplayName("新增事件 payload：order.delivered / order.production / refund.requested 形状（order_id 供邮件消费者写 EMAIL 事件）")
     void newEventPayloads() {
-        when(domainEventPublisher.publish(anyString(), any())).thenReturn("evt");
+        when(domainEventPublisher.publishOrThrow(anyString(), any())).thenReturn("evt");
         publisher.publishOrderDelivered(order(), null);
         publisher.publishOrderProduction(order(), ProductionStage.IN_PRODUCTION, "en");
         Refund refund = new Refund();
@@ -185,12 +185,12 @@ class TradingEventsPublisherTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
-        verify(domainEventPublisher).publish(eq("order.delivered"), payload.capture());
+        verify(domainEventPublisher).publishOrThrow(eq("order.delivered"), payload.capture());
         assertThat(payload.getValue()).containsEntry("order_id", 100L).containsEntry("locale", "es")
                 .containsEntry("delivered_at", "2026-09-07T10:00");
-        verify(domainEventPublisher).publish(eq("order.production"), payload.capture());
+        verify(domainEventPublisher).publishOrThrow(eq("order.production"), payload.capture());
         assertThat(payload.getValue()).containsEntry("production_stage", 2).containsEntry("stage_name", "in_production");
-        verify(domainEventPublisher).publish(eq("refund.requested"), payload.capture());
+        verify(domainEventPublisher).publishOrThrow(eq("refund.requested"), payload.capture());
         assertThat(payload.getValue()).containsEntry("refund_no", "RFD-1").containsEntry("order_id", 100L)
                 .containsEntry("amount", new BigDecimal("37.00"));
     }

@@ -44,22 +44,38 @@ public class RabbitDomainEventPublisher implements DomainEventPublisher {
     public String publish(String routingKey, Object payload) {
         String eventId = UUID.randomUUID().toString();
         try {
-            DomainEvent event = new DomainEvent(eventId, routingKey,
-                    OffsetDateTime.now(ZoneOffset.UTC).toString(), toMap(payload));
-            byte[] body = objectMapper.writeValueAsBytes(event);
-            MessageProperties mp = new MessageProperties();
-            mp.setMessageId(eventId);
-            mp.setContentType(MessageProperties.CONTENT_TYPE_JSON);
-            mp.setContentEncoding(StandardCharsets.UTF_8.name());
-            mp.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-            rabbitTemplate.send(props.getExchange(), routingKey, new Message(body, mp));
-            log.info("[MQ] publish key={} event_id={}", routingKey, eventId);
+            send(eventId, routingKey, payload);
         } catch (Exception ex) {
             // 告警日志补偿，本地事务不回滚（缓存新鲜度退化为 TTL 级，功能不损）
             log.error("[MQ] publish failed key={} event_id={} (local tx NOT rolled back)",
                     routingKey, eventId, ex);
         }
         return eventId;
+    }
+
+    /** outbox 投递入口：失败抛出，由 TradingEventsPublisher 标记 retry/DEAD 后重投 */
+    @Override
+    public String publishOrThrow(String routingKey, Object payload) {
+        String eventId = UUID.randomUUID().toString();
+        try {
+            send(eventId, routingKey, payload);
+        } catch (Exception ex) {
+            throw new IllegalStateException("rabbit publish failed key=" + routingKey, ex);
+        }
+        return eventId;
+    }
+
+    private void send(String eventId, String routingKey, Object payload) throws Exception {
+        DomainEvent event = new DomainEvent(eventId, routingKey,
+                OffsetDateTime.now(ZoneOffset.UTC).toString(), toMap(payload));
+        byte[] body = objectMapper.writeValueAsBytes(event);
+        MessageProperties mp = new MessageProperties();
+        mp.setMessageId(eventId);
+        mp.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        mp.setContentEncoding(StandardCharsets.UTF_8.name());
+        mp.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+        rabbitTemplate.send(props.getExchange(), routingKey, new Message(body, mp));
+        log.info("[MQ] publish key={} event_id={}", routingKey, eventId);
     }
 
     private Map<String, Object> toMap(Object payload) {

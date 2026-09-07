@@ -16,4 +16,12 @@ public interface DomainEventPublisher {
      * @return 发布器生成的 event_id（UUID，消费幂等键）
      */
     String publish(String routingKey, Object payload);
+
+    /**
+     * 发布领域事件，失败时抛出（供事务性发件箱重投判定：outbox relay 依赖异常来标记 retry/DEAD）。
+     * 缺省实现等价于 {@link #publish}（stub 模式进程内直调，消费异常已在内部吞掉）。
+     */
+    default String publishOrThrow(String routingKey, Object payload) {
+        return publish(routingKey, payload);
+    }
 }
