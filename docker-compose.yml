@@ -1,0 +1,101 @@
+# ============================================================
+# Dreamy 全家桶编排(本地验证与香港服务器共用)
+#
+# 变量来源:docker compose --env-file .env.deploy(模板见 .env.deploy.example)
+# 本文件只有 ${VAR:-默认值} 引用与容器编排,无任何硬编码地址/密钥。
+#
+# 服务器日常部署:bash scripts/deploy.sh
+# 本地验证:    docker compose --env-file .env.deploy up -d
+# ============================================================
+name: dreamy
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env.deploy 配置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: identity
+      TZ: ${TZ:-Asia/Hong_Kong}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    # 仅绑本机回环:外部管理走 SSH 隧道,不对公网暴露
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    image: ${ACR_REGISTRY:?请在 .env.deploy 配置}/${ACR_NAMESPACE:?请在 .env.deploy 配置}/dreamy-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # 整份 .env.deploy(secrets/模式开关等)注入后端容器
+    env_file: .env.deploy
+    environment:
+      TZ: ${TZ:-Asia/Hong_Kong}
+      # 服务间地址:默认 compose 内网互通;外置 MySQL/Redis 时在 .env.deploy 覆盖
+      DB_URL: "${DB_URL:-jdbc:mysql://mysql:3306/identity?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}"
+      DB_USERNAME: ${DB_USERNAME:-root}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      LOGGING_FILE_NAME: /app/logs/identity.log
+    volumes:
+      - ./data/logs/backend:/app/logs
+    ports:
+      - "${BACKEND_PORT:-18081}:18081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  portal-store:
+    image: ${ACR_REGISTRY:?}/${ACR_NAMESPACE:?}/dreamy-store:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Hong_Kong}
+      # standalone server.js 绑定 0.0.0.0(默认 localhost 在容器内不可达)
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      # 同源 API 反代(rewrites)与 RSC 服务端取数共用后端内网地址
+      BACKEND_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+      API_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+      ADMIN_ORIGIN: ${PUBLIC_ADMIN_URL:-http://localhost:5174}
+    ports:
+      - "${STORE_PORT:-5173}:3000"
+    depends_on:
+      - backend
+
+  portal-admin:
+    image: ${ACR_REGISTRY:?}/${ACR_NAMESPACE:?}/dreamy-admin:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Hong_Kong}
+      # nginx envsubst 模板渲染 /api 反代地址
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+    ports:
+      - "${ADMIN_PORT:-5174}:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:
+  redis-data:

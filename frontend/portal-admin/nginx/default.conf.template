@@ -1,0 +1,34 @@
+# nginx 官方镜像 envsubst 模板:容器启动时由 /etc/nginx/templates/ 渲染到 /etc/nginx/conf.d/。
+# 仅 ${BACKEND_INTERNAL_URL} 是环境变量占位(nginx:alpine entrypoint 只替换已定义的环境变量,
+# 其余 nginx 内置变量 $uri/$host 等名与容器环境变量不冲突,保持原样)。
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # vue-router history 模式:SPA 回退
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API 反代:地址运行时注入(无尾斜杠,保留 /api 前缀原样转发)
+    location /api/ {
+        proxy_pass ${BACKEND_INTERNAL_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+        client_max_body_size 20m;
+    }
+
+    # Vite 哈希指纹静态资产:长缓存
+    location /assets/ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+}

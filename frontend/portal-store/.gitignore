@@ -33,3 +33,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# 手工改名备份的构建缓存（定期清理，勿提交）
+.next.stale-*

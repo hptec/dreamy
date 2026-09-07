@@ -1,0 +1,8 @@
+node_modules
+.next*
+.env*
+tests
+coverage
+*.md
+Dockerfile
+.dockerignore

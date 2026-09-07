@@ -34,3 +34,7 @@ tests/ui-verification/nav-pages-shots/
 
 # 运行时日志目录
 logs/
+
+# 部署配置(含密钥)与容器运行数据(日志/卷 bind mount)
+.env.deploy
+/data/
