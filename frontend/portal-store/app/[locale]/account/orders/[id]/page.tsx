@@ -2,38 +2,57 @@
 
 /**
  * 订单详情（PAGE-TRD-S05 / COMP-TRD-S06，原列表 Details 链接指向页，按订单卡片同 token 风格构建）：
- * - 状态徽章 + 时间线（createdAt→paidAt→shippedAt→completedAt）、行列表（定制行展示 customSizeData）、
- *   地址快照、支付摘要、金额拆分（决策 28）。
- * - 动作区按状态渲染：pending →「Pay now」（retryPaymentIntent → PaymentElementPanel）+「Cancel order」二次确认；
- *   paid/shipped →「Request refund」（refundEligible=false 置灰 + refundBlockReasonCode 三语政策说明，决策 24）。
+ * - 状态徽章 + 6 步时间线（Placed → Paid → In production → Shipped → Delivered → Completed，order-flow-complete D）；
+ *   PAID 态显示制作阶段 4 小步；Cancelled/Refunding/Refunded 分支沿用（时间线隐藏或按已到达步渲染）。
+ * - 行列表（定制行展示 customSizeData）、地址快照、支付摘要、金额拆分（决策 28；amount_version=2 才显示 Tax；
+ *   refunded_amount>0 显示 Refunded）。
+ * - 「Shipments」包裹卡（承运商/单号/tracking_url/状态/行明细/轨迹倒序）+「Order activity」customer_visible 事件。
+ * - 动作区按状态渲染：pending →「Pay now」（retryPaymentIntent → PaymentElementPanel）+「Cancel order」二次确认
+ *   + expires_at 倒计时（mm:ss，到期显示已过期）；shipped/delivered →「Confirm delivery」二次确认；
+ *   paid/shipped/delivered/completed →「Buy again」（reorder → toast added_count/skipped）；
+ *   paid/shipped/delivered/completed →「Request refund」（refundEligible=false 置灰 + refundBlockReasonCode 说明，决策 24）。
  * - refunds[] 工单状态条；410601 → Order expired 提示态（FORM-TRD-S04/S05）。
  */
 
 import { useCallback, useEffect, useState, use } from 'react'
 import Link from 'next/link'
-import { Check, Truck, Clock, X } from 'lucide-react'
+import { Clock, X, PackageCheck, RefreshCw, ChevronDown } from 'lucide-react'
 import type { StoreOrderDetail } from '@/lib/api/store-types'
 import { OrderStatus, PaymentStatus, RefundStatus } from '@/lib/api/store-types'
-import { getStoreOrder, cancelStoreOrder, retryOrderPayment, applyStoreRefund } from '@/lib/api/trading-api'
+import { getStoreOrder, cancelStoreOrder, retryOrderPayment, applyStoreRefund, confirmDelivery, reorderStoreOrder } from '@/lib/api/trading-api'
 import { ApiError } from '@/lib/api/client'
 import { useI18n } from '@/lib/i18n/i18n-context'
+import { useCartStore } from '@/lib/stores/cart-store'
 import { PaymentElementPanel } from '@/components/cart/payment-element-panel'
-import { formatAmount, formatDateTimeLong, cn } from '@/lib/utils'
-import { statusBadgeClass, orderStatusLabel, paymentStatusLabel, refundStatusLabel } from '@/lib/order-ui'
+import { OrderTimeline, ProductionStages, ShipmentCard, OrderActivity } from '@/components/orders/order-progress'
+import { formatAmount, formatDateTimeLong, formatDateLong, cn } from '@/lib/utils'
+import { statusBadgeClass, orderStatusLabel, paymentStatusLabel, refundStatusLabel, enumLabels } from '@/lib/order-ui'
+
+/** expires_at 倒计时（mm:ss；到期 expired=true） */
+function useCountdown(expiresAt?: string | null, active = true): { label: string; expired: boolean } | null {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active || !expiresAt) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [active, expiresAt])
+  if (!active || !expiresAt) return null
+  const end = new Date(expiresAt).getTime()
+  if (Number.isNaN(end)) return null
+  const remain = Math.max(0, Math.floor((end - now) / 1000))
+  const mm = String(Math.floor(remain / 60)).padStart(2, '0')
+  const ss = String(remain % 60).padStart(2, '0')
+  return { label: `${mm}:${ss}`, expired: remain <= 0 }
+}
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const orderId = Number(id)
   const { t, te } = useI18n()
-  const statusLabels = Object.fromEntries(
-    (Object.keys(t.orders.status) as (keyof typeof t.orders.status)[]).map((k) => [OrderStatus[k.toUpperCase() as keyof typeof OrderStatus], t.orders.status[k]])
-  ) as Record<OrderStatus, string>
-  const paymentLabels = Object.fromEntries(
-    (Object.keys(t.orders.paymentStatus) as (keyof typeof t.orders.paymentStatus)[]).map((k) => [PaymentStatus[k.toUpperCase() as keyof typeof PaymentStatus], t.orders.paymentStatus[k]])
-  ) as Record<PaymentStatus, string>
-  const refundLabels = Object.fromEntries(
-    (Object.keys(t.orders.refundStatus) as (keyof typeof t.orders.refundStatus)[]).map((k) => [RefundStatus[k.toUpperCase() as keyof typeof RefundStatus], t.orders.refundStatus[k]])
-  ) as Record<RefundStatus, string>
+  const refreshCart = useCartStore((s) => s.refresh)
+  const statusLabels = enumLabels(OrderStatus, t.orders.status)
+  const paymentLabels = enumLabels(PaymentStatus, t.orders.paymentStatus)
+  const refundLabels = enumLabels(RefundStatus, t.orders.refundStatus)
 
   const [order, setOrder] = useState<StoreOrderDetail | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading')
@@ -44,6 +63,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [paySecret, setPaySecret] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [refundOpen, setRefundOpen] = useState(false)
+  const [confirmDeliver, setConfirmDeliver] = useState(false)
+  const [delivering, setDelivering] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const [toast, setToast] = useState<{ text: string; cartLink?: boolean } | null>(null)
+  const [taxOpen, setTaxOpen] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -59,6 +83,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 5000)
+    return () => clearTimeout(id)
+  }, [toast])
+
+  const countdown = useCountdown(order?.expiresAt, order?.status === OrderStatus.PENDING)
 
   if (state === 'loading') {
     return <div className="space-y-4" aria-hidden="true"><div className="h-10 w-64 animate-pulse rounded-sm bg-muted" /><div className="h-48 animate-pulse rounded-sm bg-muted" /></div>
@@ -77,14 +109,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     )
   }
-
-  const timeline = [
-    { label: t.orders.detail.timelinePlaced, date: order.createdAt },
-    { label: t.orders.detail.timelinePaid, date: order.paidAt },
-    { label: t.orders.detail.timelineShipped, date: order.shippedAt },
-    { label: t.orders.detail.timelineCompleted, date: order.completedAt }
-  ]
-  const doneCount = timeline.filter((s) => !!s.date).length
 
   const payNow = async () => {
     setPayLoading(true)
@@ -123,15 +147,61 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const doConfirmDelivery = async () => {
+    setDelivering(true)
+    setActionError(null)
+    try {
+      const updated = await confirmDelivery(order.id)
+      setOrder(updated)
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 409602) {
+        setActionError(te(409602))
+        void load()
+      } else {
+        setActionError(err instanceof ApiError ? te(err.code) : te(50000))
+      }
+    } finally {
+      setDelivering(false)
+      setConfirmDeliver(false)
+    }
+  }
+
+  const buyAgain = async () => {
+    setReordering(true)
+    setActionError(null)
+    try {
+      const res = await reorderStoreOrder(order.id)
+      void refreshCart().catch(() => undefined)
+      const parts = [t.orders.detail.buyAgainAdded.replace('{count}', String(res.addedCount))]
+      if (res.skipped.length > 0) parts.push(t.orders.detail.buyAgainSkipped.replace('{count}', String(res.skipped.length)))
+      setToast({ text: parts.join(' '), cartLink: res.addedCount > 0 })
+    } catch (err) {
+      setActionError(err instanceof ApiError ? te(err.code) : te(50000))
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const isPending = order.status === OrderStatus.PENDING
+  const canConfirmDelivery = order.status === OrderStatus.SHIPPED || order.status === OrderStatus.DELIVERED
+  const canBuyAgain = ([OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.COMPLETED] as OrderStatus[]).includes(order.status)
+  const canRefund = canBuyAgain
+  const showTimeline = order.status !== OrderStatus.CANCELLED
+  const showTax = (order.amountVersion ?? 1) >= 2 && (order.taxAmount ?? 0) > 0
+  const carrierLine = order.carrier ? `${order.carrier}${order.trackingNo ? ` · ${order.trackingNo}` : ''}` : null
+
   return (
     <div>
       <Link href="/account/orders" className="text-sm text-gold-deep underline">← {t.orders.detail.backToOrders}</Link>
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-medium">{t.orders.orderNo.replace('{no}', order.orderNo)}</h1>
           <p className="text-sm text-ink-soft">{t.orders.placed.replace('{date}', formatDateTimeLong(order.createdAt))}</p>
+          {order.estimatedDeliveryFrom && order.estimatedDeliveryTo && (order.status === OrderStatus.PAID || order.status === OrderStatus.SHIPPED) && (
+            <p className="mt-1 text-xs text-ink-faint" data-testid="order-eta">{t.orders.detail.eta.replace('{from}', formatDateLong(order.estimatedDeliveryFrom)).replace('{to}', formatDateLong(order.estimatedDeliveryTo))}</p>
+          )}
         </div>
-        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))}>{orderStatusLabel(order.status, statusLabels)}</span>
+        <span className={cn('rounded-full px-4 py-1.5 text-sm capitalize', statusBadgeClass(order.status))} data-testid="order-status-badge" data-status={order.status}>{orderStatusLabel(order.status, statusLabels)}</span>
       </div>
 
       {expired && (
@@ -141,36 +211,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       )}
       {actionError && <p className="mt-4 rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">{actionError}</p>}
 
-      {/* 状态时间线 */}
-      {order.status !== OrderStatus.CANCELLED && (
-        <div className="mt-8 rounded-sm border border-line bg-surface p-6">
-          {order.carrier && (
-            <div className="mb-5 flex items-center gap-2">
-              <Truck className="h-5 w-5 text-gold" />
-              <p className="text-sm font-medium">{order.carrier}{order.trackingNo ? ` · ${order.trackingNo}` : ''}</p>
-            </div>
-          )}
-          <div className="relative flex justify-between">
-            <div className="absolute left-0 right-0 top-3 h-0.5 bg-line" />
-            <div className="absolute left-0 top-3 h-0.5 bg-gold" style={{ width: `${Math.max(0, doneCount - 1) / (timeline.length - 1) * 100}%` }} />
-            {timeline.map((s) => (
-              <div key={s.label} className="relative z-10 flex flex-1 flex-col items-center text-center">
-                <div className={cn('flex h-6 w-6 items-center justify-center rounded-full border-2 bg-surface', s.date ? 'border-gold' : 'border-line')}>
-                  {s.date && <Check className="h-3 w-3 text-gold" />}
-                </div>
-                <p className={cn('mt-2 text-[11px]', s.date ? 'font-medium text-ink' : 'text-ink-faint')}>{s.label}</p>
-                {s.date && <p className="text-[10px] text-ink-faint">{formatDateTimeLong(s.date)}</p>}
-              </div>
-            ))}
-          </div>
+      {/* 支付倒计时（PENDING 态） */}
+      {isPending && countdown && (
+        <p className={cn('mt-4 flex items-center gap-2 rounded-sm px-4 py-3 text-sm', countdown.expired ? 'bg-muted text-ink-soft' : 'bg-gold/10 text-gold-deep')} data-testid="payment-countdown" data-expired={countdown.expired}>
+          <Clock className="h-4 w-4" />
+          {countdown.expired ? t.orders.detail.countdownExpired : t.orders.detail.countdown.replace('{time}', countdown.label)}
+        </p>
+      )}
+
+      {/* 状态时间线 + 制作阶段 */}
+      {showTimeline && (
+        <div className="mt-8 space-y-4">
+          <OrderTimeline order={order} carrierLine={carrierLine} />
+          {order.status === OrderStatus.PAID && order.productionStage && <ProductionStages stage={order.productionStage} />}
         </div>
       )}
 
       {/* 动作区（按状态渲染） */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        {order.status === OrderStatus.PENDING && !paySecret && (
+        {isPending && !paySecret && (
           <>
-            <button onClick={() => void payNow()} disabled={payLoading} className="btn-primary disabled:opacity-60">{payLoading ? t.common.loading : t.orders.detail.payNow}</button>
+            <button onClick={() => void payNow()} disabled={payLoading || countdown?.expired} className="btn-primary disabled:opacity-60">{payLoading ? t.common.loading : t.orders.detail.payNow}</button>
             {confirmCancel ? (
               <span className="flex items-center gap-2 text-sm">
                 <span className="text-ink-soft">{t.orders.detail.cancelConfirm}</span>
@@ -182,7 +243,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </>
         )}
-        {(order.status === OrderStatus.PAID || order.status === OrderStatus.SHIPPED || order.status === OrderStatus.COMPLETED) && (
+        {canConfirmDelivery && (
+          confirmDeliver ? (
+            <span className="flex items-center gap-2 text-sm" data-testid="confirm-delivery-prompt">
+              <span className="text-ink-soft">{t.orders.detail.confirmDeliveryQuestion}</span>
+              <button onClick={() => void doConfirmDelivery()} disabled={delivering} className="cursor-pointer font-medium text-sage-deep underline">{delivering ? t.orders.detail.confirmingDelivery : t.orders.detail.confirmDeliveryYes}</button>
+              <button onClick={() => setConfirmDeliver(false)} className="cursor-pointer text-ink-soft underline">{t.orders.detail.confirmDeliveryNo}</button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirmDeliver(true)} className="btn-primary" data-testid="confirm-delivery"><PackageCheck className="h-4 w-4" /> {t.orders.detail.confirmDelivery}</button>
+          )
+        )}
+        {canBuyAgain && (
+          <button onClick={() => void buyAgain()} disabled={reordering} className="btn-outline disabled:opacity-60" data-testid="buy-again"><RefreshCw className={cn('h-4 w-4', reordering && 'animate-spin')} /> {reordering ? t.orders.detail.buyAgainBusy : t.orders.detail.buyAgain}</button>
+        )}
+        {canRefund && (
           order.refundEligible ? (
             <button onClick={() => setRefundOpen(true)} className="btn-outline">{t.orders.detail.requestRefund}</button>
           ) : (
@@ -204,14 +279,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {(order.refunds ?? []).length > 0 && (
         <div className="mt-6 space-y-2">
           {(order.refunds ?? []).map((r) => (
-            <div key={r.id} className="flex items-center justify-between rounded-sm border border-line bg-surface px-4 py-3 text-sm">
-              <span className="text-ink-soft">{t.orders.detail.refundNo.replace('{no}', r.refundNo)} · {formatDateTimeLong(r.appliedAt)}</span>
-              <span className="flex items-center gap-3">
-                <span className="font-medium">{formatAmount(r.amount, r.currency)}</span>
-                <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === RefundStatus.APPROVED ? 'bg-sage/15 text-sage-deep' : r.status === RefundStatus.REJECTED ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{refundStatusLabel(r.status, refundLabels)}</span>
-              </span>
+            <div key={r.id} className="rounded-sm border border-line bg-surface px-4 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-ink-soft">{t.orders.detail.refundNo.replace('{no}', r.refundNo)} · {formatDateTimeLong(r.appliedAt)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="font-medium">{formatAmount(r.amount, r.currency)}</span>
+                  <span className={cn('rounded-full px-3 py-0.5 text-xs capitalize', r.status === RefundStatus.APPROVED ? 'bg-sage/15 text-sage-deep' : r.status === RefundStatus.REJECTED ? 'bg-blush/15 text-blush' : 'bg-gold/15 text-gold-deep')}>{refundStatusLabel(r.status, refundLabels)}</span>
+                </span>
+              </div>
+              {r.status === RefundStatus.REJECTED && r.rejectReason && <p className="mt-1 text-xs text-ink-soft">{r.rejectReason}</p>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 包裹（order-flow-complete D） */}
+      {(order.shipments ?? []).length > 0 && (
+        <div className="mt-8" data-testid="shipments-section">
+          <h2 className="mb-4 font-display text-xl font-medium">{t.orders.detail.shipments}</h2>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {(order.shipments ?? []).map((s) => <ShipmentCard key={s.id} shipment={s} />)}
+          </div>
         </div>
       )}
 
@@ -241,6 +329,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             ))}
           </div>
+
+          {(order.events ?? []).length > 0 && (
+            <div className="mt-8">
+              <OrderActivity events={order.events ?? []} />
+            </div>
+          )}
         </div>
 
         <div>
@@ -249,8 +343,32 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.subtotal}</dt><dd>{formatAmount(order.subtotal, order.currency)}</dd></div>
             <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.shipping}</dt><dd>{(order.shippingFee ?? 0) === 0 ? t.checkout.free : formatAmount(order.shippingFee ?? 0, order.currency)}</dd></div>
             {order.giftWrap && <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.giftWrappingLabel}</dt><dd>{formatAmount(order.giftWrapFee ?? 0, order.currency)}</dd></div>}
+            {showTax && (
+              <div data-testid="order-tax-row">
+                <div className="flex justify-between">
+                  <dt className="text-ink-soft">
+                    {(order.taxBreakdown ?? []).length > 0 ? (
+                      <button type="button" onClick={() => setTaxOpen((v) => !v)} className="inline-flex cursor-pointer items-center gap-1 underline decoration-dotted underline-offset-2" aria-expanded={taxOpen} aria-label={t.checkout.taxDetails}>
+                        {t.orders.detail.tax} <ChevronDown className={cn('h-3 w-3 transition-transform', taxOpen && 'rotate-180')} />
+                      </button>
+                    ) : t.orders.detail.tax}
+                  </dt>
+                  <dd>{formatAmount(order.taxAmount ?? 0, order.currency)}</dd>
+                </div>
+                {taxOpen && (order.taxBreakdown ?? []).length > 0 && (
+                  <ul className="mt-1 space-y-0.5 pl-3 text-xs text-ink-faint">
+                    {(order.taxBreakdown ?? []).map((tb, i) => (
+                      <li key={`${tb.type}-${i}`} className="flex justify-between"><span>{tb.label ?? `${(tb.rateScaled / 100).toFixed(1)}%`}</span><span>{formatAmount(tb.amount, order.currency)}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             {(order.discountAmount ?? 0) > 0 && <div className="flex justify-between text-sage-deep"><dt>{t.checkout.discount}</dt><dd>-{formatAmount(order.discountAmount ?? 0, order.currency)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>{t.checkout.total}</dt><dd className="font-display text-lg">{formatAmount(order.totalAmount, order.currency)}</dd></div>
+            {(order.refundedAmount ?? 0) > 0 && (
+              <div className="flex justify-between text-blush" data-testid="order-refunded-row"><dt>{t.orders.detail.refunded}</dt><dd>-{formatAmount(order.refundedAmount ?? 0, order.currency)}</dd></div>
+            )}
           </dl>
 
           <h2 className="mb-4 mt-8 font-display text-xl font-medium">{t.checkout.shippingAddress}</h2>
@@ -283,11 +401,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           }}
         />
       )}
+
+      {toast && (
+        <div role="status" className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 animate-fadeup rounded-sm bg-ink px-5 py-3 text-sm text-canvas shadow-lift" data-testid="reorder-toast">
+          <span>{toast.text}</span>
+          {toast.cartLink && <Link href="/cart" className="font-medium text-gold-light underline">{t.orders.detail.viewCart}</Link>}
+        </div>
+      )}
     </div>
   )
 }
 
-/** 申请退款弹窗（FORM-TRD-S05：reason 必填 ≤255；422602 政策说明；409605 已有工单） */
+/** 申请退款弹窗（FORM-TRD-S05：reason 必填 ≤255；422602 政策说明；409605/409907 已有工单） */
 function RefundModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: string) => Promise<void> }) {
   const { t, te } = useI18n()
   const [reason, setReason] = useState('')

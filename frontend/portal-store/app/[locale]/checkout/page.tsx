@@ -3,12 +3,15 @@
 /**
  * 结算页（PAGE-TRD-S02 / COMP-TRD-S02，四步结构保持 Address/Shipping/Payment/Review）：
  * - 登录守卫：未登录 → /account/login?returnTo=/checkout。
- * - Address 步：地址簿卡片单选 + Add new address 内联表单（createAddress）。
- * - Shipping 步：radio 改 quote.shippingOptions 渲染（carrier 文案以 API 为准，F-036）；
+ * - Address 步：地址簿卡片单选 + Add new address 内联表单（createAddress）；国家为 GET /shipping/countries ISO 下拉
+ *   （country_code），有州省字典的国家（US/CA/AU）显示 region 下拉并传 region_code，其余 state 文本（order-flow-complete G）。
+ * - Shipping 步：radio 改 quote.shippingOptions 渲染（carrier 文案以 API 为准，F-036）；选项按 carrier_code × service_level
+ *   识别，展示 Standard/Express 徽章 + 运输天数 + 预计送达区间；选中后 quote/下单提交 carrier_code + service_level（D/E）。
  *   gift wrapping 费用 = quote.giftWrapFee 动态金额；wedding date 选填（决策 20.6，Showroom 婚期自动带入）
  *   + leadTimeWarning 交期复核提示条；coupon code Apply（E-MKT-10，valid=false reason_code 行内不阻断）。
  * - Payment 步：六卡片视觉保留，PayPal 置灰 Coming soon（决策 25）；Place Order 时才 createOrder 取 clientSecret。
- * - Review 步：金额拆分以 quote 为准（Subtotal/Shipping/Gift Wrapping/Discount/Total，决策 28）+ DDU 关税说明（决策 15）。
+ * - Review 步：金额拆分以 quote 为准（Subtotal/Shipping/Gift Wrapping/Tax/Discount/Total，决策 28）；税费行可展开
+ *   tax_breakdown；duties_notice 时显示服务端 duties_notice_text（F）；币种≠USD 且 exchange_rate_locked_note 显示锁汇说明（E）。
  * - 下单（FORM-TRD-S03）：idempotencyKey 进入结算生成一次，失败重试沿用；409603 → 静默跳既有订单；
  *   409601 → 回购物车提示；502601/504601 → 可重试。
  * - 报价（FORM-TRD-S02）：地址/承运商/币种/礼品包装/券码/婚期变化 → 防抖 400ms requestQuote；
@@ -18,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Check, Lock, CreditCard, Truck, Plus, AlertTriangle } from 'lucide-react'
+import { Check, Lock, CreditCard, Truck, Plus, AlertTriangle, ChevronDown, Info } from 'lucide-react'
 import { useStore } from '@/components/store-provider'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useI18n } from '@/lib/i18n/i18n-context'
@@ -27,12 +30,16 @@ import * as tradingApi from '@/lib/api/trading-api'
 import { validateCoupon } from '@/lib/api/marketing-api'
 import { getDefaultWeddingDate } from '@/lib/stores/showroom-store'
 import { trackBeginCheckout } from '@/lib/analytics/gtag'
-import type { Address, CheckoutQuoteResponse, CouponValidateResponse, CurrencyCode, PaymentCredential, PaymentMethod } from '@/lib/api/store-types'
+import type { Address, CheckoutQuoteResponse, CouponValidateResponse, CurrencyCode, PaymentCredential, PaymentMethod, ShippingCountry, ShippingOption, ShippingServiceLevel } from '@/lib/api/store-types'
+import { ShippingServiceLevel as ServiceLevel } from '@/lib/api/store-types'
 import { PaymentElementPanel } from '@/components/cart/payment-element-panel'
-import { formatAmount, cn } from '@/lib/utils'
+import { formatAmount, formatDateLong, cn } from '@/lib/utils'
 import { Select, type SelectOption } from '@/components/ui/select'
 
-const COUNTRY_OPTIONS: SelectOption[] = ['United States', 'Canada', 'Australia', 'United Kingdom', 'France', 'Spain', 'Germany'].map((c) => ({ value: c, label: c }))
+/** 运费选项唯一键（carrier_code × service_level；旧数据无 code 时退回 carrier 名） */
+function optionKey(o: Pick<ShippingOption, 'carrier' | 'carrierCode' | 'serviceLevel'>): string {
+  return `${o.carrierCode ?? o.carrier}:${o.serviceLevel ?? ServiceLevel.STANDARD}`
+}
 
 /** 支付方式 id → 后端 PaymentMethod（名称/描述文案走 t.checkout，品牌名不翻译） */
 const PAY_METHODS: { id: string; name: string; method: PaymentMethod | null }[] = [
@@ -72,8 +79,9 @@ export default function CheckoutPage() {
   const [addingAddress, setAddingAddress] = useState(false)
   const [addressError, setAddressError] = useState<string | null>(null)
 
-  // Shipping 步
-  const [carrier, setCarrier] = useState<string | null>(null)
+  // Shipping 步（选中运费选项：carrier_code + service_level）
+  const [shipSel, setShipSel] = useState<{ carrierCode: string; carrier: string; serviceLevel: ShippingServiceLevel } | null>(null)
+  const [taxOpen, setTaxOpen] = useState(false)
   const [giftWrap, setGiftWrap] = useState(false)
   const [weddingDate, setWeddingDate] = useState('')
   const [couponInput, setCouponInput] = useState('')
@@ -159,7 +167,8 @@ export default function CheckoutPage() {
     tradingApi.quoteCheckout({
       addressId: addressId ?? undefined,
       currency: quoteCurrency,
-      carrier: carrier ?? undefined,
+      carrier: shipSel?.carrierCode ?? undefined,
+      serviceLevel: shipSel?.serviceLevel,
       couponCode,
       giftWrap,
       weddingDate: weddingDate || undefined
@@ -167,9 +176,11 @@ export default function CheckoutPage() {
       .then((res) => {
         if (seq !== quoteSeq.current) return
         setQuote(res)
-        if (!carrier) {
+        // 未选或所选选项在新地址下不存在 → 跟随服务端缺省选中项
+        const stillValid = shipSel && res.shippingOptions.some((o) => optionKey(o) === optionKey(shipSel))
+        if (!stillValid) {
           const selected = res.shippingOptions.find((o) => o.selected) ?? res.shippingOptions[0]
-          if (selected) setCarrier(selected.carrier)
+          if (selected) setShipSel({ carrierCode: selected.carrierCode ?? selected.carrier, carrier: selected.carrier, serviceLevel: selected.serviceLevel ?? ServiceLevel.STANDARD })
         }
       })
       .catch((err: unknown) => {
@@ -185,7 +196,7 @@ export default function CheckoutPage() {
       .finally(() => {
         if (seq === quoteSeq.current) setQuoting(false)
       })
-  }, [isAuthenticated, cart.length, addressId, quoteCurrency, carrier, couponCode, giftWrap, weddingDate, te])
+  }, [isAuthenticated, cart.length, addressId, quoteCurrency, shipSel, couponCode, giftWrap, weddingDate, te])
 
   useEffect(() => {
     if (step < 1) return
@@ -227,7 +238,7 @@ export default function CheckoutPage() {
   }
 
   const placeOrder = async () => {
-    if (!addressId || !carrier) return
+    if (!addressId || !shipSel) return
     const method = PAY_METHODS.find((p) => p.id === payMethod)?.method ?? 'Stripe'
     setPlacing(true)
     setPlaceError(null)
@@ -236,7 +247,9 @@ export default function CheckoutPage() {
         idempotencyKey: idempotencyKey.current,
         addressId,
         currency: quoteCurrency,
-        carrier,
+        carrier: shipSel.carrier,
+        carrierCode: shipSel.carrierCode,
+        serviceLevel: shipSel.serviceLevel,
         couponCode,
         giftWrap,
         weddingDate: weddingDate || undefined,
@@ -318,7 +331,7 @@ export default function CheckoutPage() {
                         <span className="text-sm">
                           <span className="font-medium">{a.receiver}</span>
                           {a.isDefault && <span className="ml-2 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] text-gold-deep">{t.checkout.defaultBadge}</span>}
-                          <span className="mt-1 block text-ink-soft">{a.line}<br />{a.city}{a.state ? `, ${a.state}` : ''} {a.zip}<br />{a.country}{a.phone ? ` · ${a.phone}` : ''}</span>
+                          <span className="mt-1 block text-ink-soft">{a.line}<br />{a.city}{a.state ? `, ${a.state}` : ''} {a.zip}<br />{a.country}{a.countryCode ? ` (${a.countryCode})` : ''}{a.phone ? ` · ${a.phone}` : ''}</span>
                         </span>
                       </label>
                     ))}
@@ -362,15 +375,34 @@ export default function CheckoutPage() {
                   {[0, 1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-sm bg-muted" />)}
                 </div>
               ) : (
-                (quote?.shippingOptions ?? []).map((o) => (
-                  <label key={o.carrier} className={cn('flex cursor-pointer items-center justify-between rounded-sm border p-4 transition-colors', carrier === o.carrier ? 'border-gold bg-gold/5' : 'border-line hover:border-ink')}>
-                    <div className="flex items-center gap-3">
-                      <input type="radio" name="ship" checked={carrier === o.carrier} onChange={() => setCarrier(o.carrier)} className="accent-gold" />
-                      <div><p className="text-sm font-medium">{o.carrier}</p>{o.leadTime && <p className="text-xs text-ink-soft">{o.leadTime}</p>}</div>
-                    </div>
-                    <span className="text-sm font-medium">{o.fee === 0 ? t.checkout.free : formatAmount(o.fee, cur)}</span>
-                  </label>
-                ))
+                (quote?.shippingOptions ?? []).map((o) => {
+                  const key = optionKey(o)
+                  const active = !!shipSel && optionKey(shipSel) === key
+                  const express = o.serviceLevel === ServiceLevel.EXPRESS
+                  return (
+                    <label key={key} data-testid="shipping-option" data-service-level={o.serviceLevel ?? 1} className={cn('flex cursor-pointer items-center justify-between gap-4 rounded-sm border p-4 transition-colors', active ? 'border-gold bg-gold/5' : 'border-line hover:border-ink')}>
+                      <div className="flex items-start gap-3">
+                        <input type="radio" name="ship" checked={active} onChange={() => setShipSel({ carrierCode: o.carrierCode ?? o.carrier, carrier: o.carrier, serviceLevel: o.serviceLevel ?? ServiceLevel.STANDARD })} className="mt-1 accent-gold" />
+                        <div>
+                          <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                            {o.carrierName ?? o.carrier}
+                            <span className={cn('rounded-full px-2 py-0.5 text-[10px] uppercase tracking-luxe', express ? 'bg-gold/15 text-gold-deep' : 'bg-muted text-ink-soft')}>{express ? t.checkout.express : t.checkout.standard}</span>
+                          </p>
+                          {o.transitDaysMin != null && o.transitDaysMax != null && (
+                            <p className="text-xs text-ink-soft">{t.checkout.transitDays.replace('{min}', String(o.transitDaysMin)).replace('{max}', String(o.transitDaysMax))}</p>
+                          )}
+                          {o.estimatedDeliveryFrom && o.estimatedDeliveryTo && (
+                            <p className="text-xs text-ink-faint">{t.checkout.etaShort.replace('{from}', formatDateLong(o.estimatedDeliveryFrom)).replace('{to}', formatDateLong(o.estimatedDeliveryTo))}</p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium">{o.fee === 0 ? t.checkout.free : formatAmount(o.fee, cur)}</span>
+                    </label>
+                  )
+                })
+              )}
+              {quote?.productionDays != null && quote.productionDays > 0 && (
+                <p className="flex items-center gap-2 text-xs text-ink-soft"><Info className="h-3.5 w-3.5 shrink-0 text-gold" /> {t.checkout.productionDays.replace('{days}', String(quote.productionDays))}</p>
               )}
 
               <label className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
@@ -420,7 +452,7 @@ export default function CheckoutPage() {
 
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setStep(0)} className="btn-outline">{t.common.back}</button>
-                <button onClick={() => setStep(2)} disabled={!carrier} className="btn-primary disabled:opacity-60">{t.checkout.continueToPayment}</button>
+                <button onClick={() => setStep(2)} disabled={!shipSel} className="btn-primary disabled:opacity-60">{t.checkout.continueToPayment}</button>
               </div>
             </div>
           )}
@@ -480,13 +512,31 @@ export default function CheckoutPage() {
                   <p className="eyebrow mb-1">{t.checkout.shipTo}</p>
                   <p className="text-ink-soft">{selectedAddress ? <>{selectedAddress.receiver}<br />{selectedAddress.line}<br />{selectedAddress.city}{selectedAddress.state ? `, ${selectedAddress.state}` : ''}</> : '—'}</p>
                 </div>
-                <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">{t.checkout.shipping}</p><p className="text-ink-soft">{carrier ?? '—'}</p></div>
+                <div className="rounded-sm bg-muted p-4">
+                  <p className="eyebrow mb-1">{t.checkout.shipping}</p>
+                  <p className="text-ink-soft">{shipSel ? `${shipSel.carrier} · ${shipSel.serviceLevel === ServiceLevel.EXPRESS ? t.checkout.express : t.checkout.standard}` : '—'}</p>
+                  {quote?.estimatedDeliveryFrom && quote.estimatedDeliveryTo && (
+                    <p className="mt-1 text-xs text-ink-faint" data-testid="review-eta">{t.checkout.etaShort.replace('{from}', formatDateLong(quote.estimatedDeliveryFrom)).replace('{to}', formatDateLong(quote.estimatedDeliveryTo))}</p>
+                  )}
+                </div>
                 <div className="rounded-sm bg-muted p-4"><p className="eyebrow mb-1">{t.checkout.payment}</p><p className="text-ink-soft">{PAY_METHODS.find((p) => p.id === payMethod)?.name}</p></div>
               </div>
-              {/* DDU 关税说明（决策 15，静态 i18n 文案） */}
-              <p className="rounded-sm bg-muted px-4 py-3 text-xs text-ink-soft">
-                {t.checkout.dduNote}
-              </p>
+              {/* 关税说明（决策 15 → order-flow-complete F：DDU 目的国由服务端 duties_notice 驱动；DDP 显示已含税提示） */}
+              {quote?.dutiesNotice ? (
+                <p className="flex items-start gap-2 rounded-sm bg-gold/10 px-4 py-3 text-xs text-gold-deep" data-testid="duties-notice">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{quote.dutiesNoticeText || t.checkout.dutiesNotice}</span>
+                </p>
+              ) : quote && (quote.taxAmount ?? 0) > 0 ? (
+                <p className="rounded-sm bg-muted px-4 py-3 text-xs text-ink-soft">{t.checkout.taxIncluded}</p>
+              ) : null}
+              {/* 锁汇说明（order-flow-complete E）：非 USD 且服务端标记 */}
+              {quote?.exchangeRateLockedNote && cur !== 'USD' && (
+                <p className="flex items-center gap-2 text-xs text-ink-soft" data-testid="rate-locked-note">
+                  <Info className="h-3.5 w-3.5 shrink-0 text-gold" />
+                  {t.checkout.rateLocked.replace('{rate}', String(quote.exchangeRate)).replace('{currency}', cur)}
+                </p>
+              )}
               {placeError && (
                 <p className="rounded-sm bg-blush/10 px-4 py-3 text-sm text-blush">
                   {placeError}
@@ -534,6 +584,27 @@ export default function CheckoutPage() {
                   <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.subtotal}</dt><dd>{formatAmount(quote.subtotal, cur)}</dd></div>
                   <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.shipping}</dt><dd>{quote.shippingFee === 0 ? t.checkout.free : formatAmount(quote.shippingFee, cur)}</dd></div>
                   {quote.giftWrapFee > 0 && <div className="flex justify-between"><dt className="text-ink-soft">{t.checkout.giftWrappingLabel}</dt><dd>{formatAmount(quote.giftWrapFee, cur)}</dd></div>}
+                  {(quote.taxAmount ?? 0) > 0 && (
+                    <div data-testid="tax-row">
+                      <div className="flex justify-between">
+                        <dt className="text-ink-soft">
+                          {(quote.taxBreakdown ?? []).length > 0 ? (
+                            <button type="button" onClick={() => setTaxOpen((v) => !v)} className="inline-flex cursor-pointer items-center gap-1 underline decoration-dotted underline-offset-2" aria-expanded={taxOpen} aria-label={t.checkout.taxDetails}>
+                              {t.checkout.tax} <ChevronDown className={cn('h-3 w-3 transition-transform', taxOpen && 'rotate-180')} />
+                            </button>
+                          ) : t.checkout.tax}
+                        </dt>
+                        <dd>{formatAmount(quote.taxAmount ?? 0, cur)}</dd>
+                      </div>
+                      {taxOpen && (quote.taxBreakdown ?? []).length > 0 && (
+                        <ul className="mt-1 space-y-0.5 pl-3 text-xs text-ink-faint">
+                          {(quote.taxBreakdown ?? []).map((tb, i) => (
+                            <li key={`${tb.type}-${i}`} className="flex justify-between"><span>{tb.label ?? `${(tb.rateScaled / 100).toFixed(1)}%`}</span><span>{formatAmount(tb.amount, cur)}</span></li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                   {quote.discountAmount > 0 && <div className="flex justify-between text-sage-deep"><dt>{t.checkout.discount}</dt><dd>-{formatAmount(quote.discountAmount, cur)}</dd></div>}
                   <div className="flex justify-between border-t border-line pt-2 font-medium"><dt>{t.checkout.total}</dt><dd className="font-display text-lg">{formatAmount(quote.totalAmount, cur)}{quoting && <span className="ml-1 text-xs text-ink-faint">…</span>}</dd></div>
                 </>
@@ -550,29 +621,56 @@ export default function CheckoutPage() {
 
 function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onCancel?: () => void }) {
   const { t, te } = useI18n()
-  const [form, setForm] = useState({ receiver: '', phone: '', line: '', city: '', state: '', zip: '', country: 'United States', isDefault: false })
+  const [countries, setCountries] = useState<ShippingCountry[] | null>(null)
+  const [form, setForm] = useState({ receiver: '', phone: '', line: '', city: '', state: '', zip: '', countryCode: 'US', regionCode: '', isDefault: false })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    tradingApi.listShippingCountries()
+      .then((items) => { if (!cancelled) setCountries(items) })
+      .catch(() => { if (!cancelled) setCountries([]) })
+    return () => { cancelled = true }
+  }, [])
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [key]: e.target.value }))
 
+  // 可配送国家优先、按名称排序；不可配送国家置底并标注
+  const countryOptions = useMemo<SelectOption[]>(() => {
+    if (!countries) return []
+    const sorted = [...countries].sort((a, b) => Number(b.supported) - Number(a.supported) || a.name.localeCompare(b.name))
+    return sorted.map((c) => ({ value: c.code, label: c.supported ? c.name : `${c.name} — ${t.checkout.countryNotSupported}` }))
+  }, [countries, t.checkout.countryNotSupported])
+  const selectedCountry = countries?.find((c) => c.code === form.countryCode)
+  const regions = selectedCountry?.regions ?? []
+  const regionOptions = useMemo<SelectOption[]>(() => regions.map((r) => ({ value: r.code, label: r.name })), [regions])
+
   const save = async () => {
-    if (!form.receiver.trim() || !form.line.trim() || !form.city.trim() || !form.zip.trim() || !form.country.trim()) {
+    const needRegion = regions.length > 0
+    if (!form.receiver.trim() || !form.line.trim() || !form.city.trim() || !form.zip.trim() || !form.countryCode || (needRegion && !form.regionCode)) {
       setError(t.checkout.fillRequired)
+      return
+    }
+    if (selectedCountry && !selectedCountry.supported) {
+      setError(t.checkout.countryNotSupported)
       return
     }
     setSaving(true)
     setError(null)
     try {
+      const regionName = regions.find((r) => r.code === form.regionCode)?.name
       const created = await tradingApi.createAddress({
         receiver: form.receiver.trim(),
         phone: form.phone.trim() || undefined,
         line: form.line.trim(),
         city: form.city.trim(),
-        state: form.state.trim() || undefined,
+        state: needRegion ? regionName : (form.state.trim() || undefined),
         zip: form.zip.trim(),
-        country: form.country.trim(),
+        country: selectedCountry?.name ?? form.countryCode,
+        countryCode: form.countryCode,
+        regionCode: needRegion ? form.regionCode : undefined,
         isDefault: form.isDefault
       })
       onSaved(created)
@@ -584,27 +682,45 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
   }
 
   return (
-    <div className="space-y-4 rounded-sm bg-muted p-5">
+    <div className="space-y-4 rounded-sm bg-muted p-5" data-testid="address-form">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.checkout.fullName} value={form.receiver} onChange={set('receiver')} placeholder="Jane Doe" />
         <Field label={t.checkout.phoneOptional} value={form.phone} onChange={set('phone')} placeholder="+1 555 0100" />
       </div>
       <Field label={t.checkout.addressLine} value={form.line} onChange={set('line')} placeholder="123 Coastal Ave" />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label={t.checkout.city} value={form.city} onChange={set('city')} placeholder="Santa Barbara" />
-        <Field label={t.checkout.state} value={form.state} onChange={set('state')} placeholder="CA" />
-        <Field label={t.checkout.zip} value={form.zip} onChange={set('zip')} placeholder="93101" />
-      </div>
       <div>
         <label className="eyebrow mb-1.5 block" htmlFor="addr-country">{t.checkout.country}</label>
-        <Select
-          id="addr-country"
-          ariaLabel={t.checkout.country}
-          value={form.country}
-          options={COUNTRY_OPTIONS}
-          onChange={(v) => setForm((p) => ({ ...p, country: v }))}
-          triggerClassName="px-4 py-3 text-sm"
-        />
+        {countries === null ? (
+          <p className="text-xs text-ink-soft">{t.checkout.loadingCountries}</p>
+        ) : (
+          <Select
+            id="addr-country"
+            ariaLabel={t.checkout.country}
+            value={form.countryCode}
+            options={countryOptions}
+            onChange={(v) => setForm((p) => ({ ...p, countryCode: v, regionCode: '', state: '' }))}
+            triggerClassName="px-4 py-3 text-sm"
+          />
+        )}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label={t.checkout.city} value={form.city} onChange={set('city')} placeholder="Santa Barbara" />
+        {regions.length > 0 ? (
+          <div>
+            <label htmlFor="addr-region" className="eyebrow mb-1.5 block">{t.checkout.region}</label>
+            <Select
+              id="addr-region"
+              ariaLabel={t.checkout.region}
+              value={form.regionCode}
+              options={regionOptions}
+              onChange={(v) => setForm((p) => ({ ...p, regionCode: v }))}
+              triggerClassName="px-4 py-3 text-sm"
+            />
+          </div>
+        ) : (
+          <Field label={t.checkout.state} value={form.state} onChange={set('state')} placeholder="" />
+        )}
+        <Field label={t.checkout.zip} value={form.zip} onChange={set('zip')} placeholder="93101" />
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-soft">
         <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((p) => ({ ...p, isDefault: e.target.checked }))} className="accent-gold" />
@@ -612,7 +728,7 @@ function AddressForm({ onSaved, onCancel }: { onSaved: (a: Address) => void; onC
       </label>
       {error && <p className="text-xs text-blush">{error}</p>}
       <div className="flex gap-2">
-        <button onClick={() => void save()} disabled={saving} className="btn-primary px-5 py-2.5 text-xs disabled:opacity-60">{saving ? t.checkout.saving : t.checkout.saveAddress}</button>
+        <button onClick={() => void save()} disabled={saving || countries === null} className="btn-primary px-5 py-2.5 text-xs disabled:opacity-60" data-testid="save-address">{saving ? t.checkout.saving : t.checkout.saveAddress}</button>
         {onCancel && <button onClick={onCancel} className="btn-outline px-5 py-2.5 text-xs">{t.common.cancel}</button>}
       </div>
     </div>

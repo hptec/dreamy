@@ -112,6 +112,7 @@ export const footerNav: MegaColumn[] = [
     links: [
       { label: 'Size Guide', href: '/faq#size' },
       { label: 'Shipping & Delivery', href: '/faq#shipping' },
+      { label: 'Track Order', href: '/track-order' },
       { label: 'FAQ', href: '/faq' },
       { label: 'Contact Us', href: '/contact' }
     ]
@@ -130,8 +131,7 @@ export const footerNav: MegaColumn[] = [
     links: [
       { label: 'Sign In', href: '/account/login' },
       { label: 'My Orders', href: '/account/orders' },
-      { label: 'Wishlist', href: '/account/wishlist' },
-      { label: 'Track Order', href: '/account/orders' }
+      { label: 'Wishlist', href: '/account/wishlist' }
     ]
   }
 ]

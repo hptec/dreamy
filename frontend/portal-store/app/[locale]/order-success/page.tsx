@@ -1,9 +1,10 @@
 'use client'
 
 /**
- * order-success（COMP-TRD-S04，data-swap）：按 ?order_id= getOrder 轮询（2s ×15）等待 webhook 落账。
- * status=paid → 成功态（订单号/金额/邮件提示）；超时仍 pending → 「Payment is being confirmed」中间态
- * （BNPL 异步确认场景）+ 查看订单链接。
+ * order-success（COMP-TRD-S04，data-swap）：按 ?order_id= getOrder 轮询（2s ×15）等待落账。
+ * - order-flow-complete A：stub 确认端点同步返回 paid → 首帧 status≥PAID 立即显示成功态（不等待轮询）。
+ * - 超时仍 pending → 「Payment is being confirmed」中间态（BNPL 异步确认场景）+「重新支付」入口（跳订单详情 Pay now）。
+ * - 文案全部走 t.orderSuccess（i18n）。
  */
 
 import { useEffect, useRef, useState, Suspense } from 'react'
@@ -14,13 +15,15 @@ import type { StoreOrderDetail } from '@/lib/api/store-types'
 import { OrderStatus } from '@/lib/api/store-types'
 import { getStoreOrder } from '@/lib/api/trading-api'
 import { useCartStore } from '@/lib/stores/cart-store'
+import { useI18n } from '@/lib/i18n/i18n-context'
 import { trackPurchase } from '@/lib/analytics/gtag'
-import { formatAmount } from '@/lib/utils'
+import { formatAmount, formatDateLong } from '@/lib/utils'
 
 const POLL_INTERVAL = 2000
 const POLL_MAX = 15
 
 function OrderSuccessInner() {
+  const { t } = useI18n()
   const params = useSearchParams()
   const orderId = Number(params.get('order_id') ?? '0')
   const [order, setOrder] = useState<StoreOrderDetail | null>(null)
@@ -88,15 +91,15 @@ function OrderSuccessInner() {
   }, [state, order])
 
   return (
-    <div className="container-luxe py-16">
+    <div className="container-luxe py-16" data-state={state}>
       <div className="mx-auto max-w-lg text-center">
         {state === 'polling' && (
           <>
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold/15">
               <Clock className="h-8 w-8 animate-pulse text-gold-deep" />
             </div>
-            <h1 className="mt-6 font-display text-4xl font-medium">Confirming your payment…</h1>
-            <p className="mt-3 text-ink-soft">This usually takes just a few seconds. Please don&apos;t close this page.</p>
+            <h1 className="mt-6 font-display text-4xl font-medium">{t.orderSuccess.confirmingTitle}</h1>
+            <p className="mt-3 text-ink-soft">{t.orderSuccess.confirmingBody}</p>
           </>
         )}
 
@@ -105,8 +108,8 @@ function OrderSuccessInner() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage/15">
               <Check className="h-8 w-8 text-sage-deep" />
             </div>
-            <h1 className="mt-6 font-display text-4xl font-medium">Thank you!</h1>
-            <p className="mt-3 text-ink-soft">Your order is confirmed. We&apos;ve sent a confirmation to your email with all the details.</p>
+            <h1 className="mt-6 font-display text-4xl font-medium">{t.orderSuccess.paidTitle}</h1>
+            <p className="mt-3 text-ink-soft">{t.orderSuccess.paidBody}</p>
           </>
         )}
 
@@ -115,34 +118,46 @@ function OrderSuccessInner() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold/15">
               <Clock className="h-8 w-8 text-gold-deep" />
             </div>
-            <h1 className="mt-6 font-display text-4xl font-medium">Payment is being confirmed</h1>
-            <p className="mt-3 text-ink-soft">Your payment is still processing — this can take a little longer with Klarna or Afterpay. We&apos;ll email you as soon as it&apos;s confirmed.</p>
+            <h1 className="mt-6 font-display text-4xl font-medium">{t.orderSuccess.pendingTitle}</h1>
+            <p className="mt-3 text-ink-soft">{t.orderSuccess.pendingBody}</p>
           </>
         )}
 
         {state === 'error' && (
           <>
-            <h1 className="mt-6 font-display text-4xl font-medium">Order not found</h1>
-            <p className="mt-3 text-ink-soft">We couldn&apos;t locate this order. Check your order history for the latest status.</p>
+            <h1 className="mt-6 font-display text-4xl font-medium">{t.orderSuccess.notFoundTitle}</h1>
+            <p className="mt-3 text-ink-soft">{t.orderSuccess.notFoundBody}</p>
           </>
         )}
 
         {order && (
           <div className="mt-8 rounded-sm border border-line bg-surface p-6 text-left">
             <div className="flex items-center justify-between">
-              <div><p className="eyebrow">Order Number</p><p className="font-display text-xl">{order.orderNo}</p></div>
+              <div><p className="eyebrow">{t.orderSuccess.orderNumber}</p><p className="font-display text-xl">{order.orderNo}</p></div>
               <Package className="h-8 w-8 text-gold" strokeWidth={1.5} />
             </div>
             <div className="mt-4 border-t border-line pt-4 text-sm text-ink-soft">
-              <p>Total: <span className="font-medium text-ink">{formatAmount(order.totalAmount, order.currency)}</span></p>
-              <p className="mt-1">A tracking number will be emailed once your order ships.</p>
+              <p>{t.orderSuccess.total} <span className="font-medium text-ink">{formatAmount(order.totalAmount, order.currency)}</span></p>
+              {order.estimatedDeliveryFrom && order.estimatedDeliveryTo && (
+                <p className="mt-1">{t.orderSuccess.etaNote.replace('{from}', formatDateLong(order.estimatedDeliveryFrom)).replace('{to}', formatDateLong(order.estimatedDeliveryTo))}</p>
+              )}
+              <p className="mt-1">{t.orderSuccess.trackingNote}</p>
             </div>
           </div>
         )}
 
-        <div className="mt-6 flex justify-center gap-3">
-          <Link href={order ? `/account/orders/${order.id}` : '/account/orders'} className="btn-primary">{state === 'pending-timeout' ? 'View My Order' : 'Track My Order'}</Link>
-          <Link href="/wedding-dresses" className="btn-outline">Continue Shopping</Link>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {state === 'pending-timeout' && order ? (
+            <>
+              <Link href={`/account/orders/${order.id}`} className="btn-primary">{t.orderSuccess.retryPayment}</Link>
+              <Link href="/account/orders" className="btn-outline">{t.orderSuccess.viewOrder}</Link>
+            </>
+          ) : (
+            <>
+              <Link href={order ? `/account/orders/${order.id}` : '/account/orders'} className="btn-primary">{t.orderSuccess.trackOrder}</Link>
+              <Link href="/wedding-dresses" className="btn-outline">{t.common.continueShopping}</Link>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -151,7 +166,7 @@ function OrderSuccessInner() {
 
 export default function OrderSuccessPage() {
   return (
-    <Suspense fallback={<div className="container-luxe py-24 text-center text-ink-soft">Loading…</div>}>
+    <Suspense fallback={<div className="container-luxe py-24 text-center text-ink-soft">…</div>}>
       <OrderSuccessInner />
     </Suspense>
   )

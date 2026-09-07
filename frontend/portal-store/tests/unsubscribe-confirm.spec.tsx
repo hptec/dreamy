@@ -115,7 +115,7 @@ describe('UnsubscribeConfirm', () => {
 
   it('422704（无效/过期/代际落后）：进入 invalid 终态，无重试按钮', async () => {
     globalThis.__TEST_TOKEN__ = 'stale-token'
-    unsubscribeMock.mockRejectedValue(new ApiError(422704, 'invalid'))
+    unsubscribeMock.mockRejectedValue(new ApiError(422704, 'invalid', 422))
     const el = await render()
     const button = el.querySelector('button')!
     await act(async () => button.click())

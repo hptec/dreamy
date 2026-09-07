@@ -9,11 +9,40 @@
 export const ProductStatus = { DRAFT: 1, PUBLISHED: 2 } as const
 export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus]
 
-export const OrderStatus = { PENDING: 1, PAID: 2, SHIPPED: 3, COMPLETED: 4, CANCELLED: 5, REFUNDING: 6, REFUNDED: 7 } as const
+/** order-flow-complete：新增 DELIVERED=8（SHIPPED → DELIVERED → COMPLETED） */
+export const OrderStatus = { PENDING: 1, PAID: 2, SHIPPED: 3, COMPLETED: 4, CANCELLED: 5, REFUNDING: 6, REFUNDED: 7, DELIVERED: 8 } as const
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus]
 
-export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5 } as const
+/** order-flow-complete：新增 PARTIALLY_REFUNDED=6 */
+export const PaymentStatus = { CREATED: 1, PROCESSING: 2, SUCCEEDED: 3, FAILED: 4, REFUNDED: 5, PARTIALLY_REFUNDED: 6 } as const
 export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus]
+
+// ===== order-flow-complete 新增枚举（§2.4） =====
+
+/** 制作阶段（仅 status=PAID 时非空） */
+export const ProductionStage = { PENDING_REVIEW: 1, IN_PRODUCTION: 2, QUALITY_CHECK: 3, READY_TO_SHIP: 4 } as const
+export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage]
+
+export const ShipmentStatus = { PENDING: 1, IN_TRANSIT: 2, OUT_FOR_DELIVERY: 3, DELIVERED: 4, EXCEPTION: 5, CANCELLED: 6 } as const
+export type ShipmentStatus = typeof ShipmentStatus[keyof typeof ShipmentStatus]
+
+export const ShipmentEventSource = { MANUAL: 1, PROVIDER: 2, SYSTEM: 3 } as const
+export type ShipmentEventSource = typeof ShipmentEventSource[keyof typeof ShipmentEventSource]
+
+export const OrderEventType = { STATUS_CHANGED: 1, NOTE: 2, SHIPMENT: 3, PAYMENT: 4, REFUND: 5, EMAIL: 6, PRODUCTION: 7 } as const
+export type OrderEventType = typeof OrderEventType[keyof typeof OrderEventType]
+
+export const OrderActorType = { SYSTEM: 1, CUSTOMER: 2, ADMIN: 3 } as const
+export type OrderActorType = typeof OrderActorType[keyof typeof OrderActorType]
+
+export const TaxType = { VAT: 1, GST: 2, SALES_TAX: 3, DUTY: 4 } as const
+export type TaxType = typeof TaxType[keyof typeof TaxType]
+
+export const Incoterm = { DDP: 1, DDU: 2 } as const
+export type Incoterm = typeof Incoterm[keyof typeof Incoterm]
+
+export const ShippingServiceLevel = { STANDARD: 1, EXPRESS: 2 } as const
+export type ShippingServiceLevel = typeof ShippingServiceLevel[keyof typeof ShippingServiceLevel]
 
 export const RefundStatus = { PENDING: 1, APPROVED: 2, REJECTED: 3 } as const
 export type RefundStatus = typeof RefundStatus[keyof typeof RefundStatus]
@@ -263,20 +292,40 @@ export interface AddressUpsert {
   zip: string
   country: string
   isDefault?: boolean
+  /** order-flow-complete G：ISO2 国家码（创建必传）；US/CA/AU 建议传 ISO-3166-2 后缀 */
+  countryCode?: string
+  regionCode?: string
 }
 
 export interface Address extends AddressUpsert {
   id: number
 }
 
+/** GET /api/store/shipping/countries（公开） */
+export interface ShippingRegion {
+  code: string
+  name: string
+}
+
+export interface ShippingCountry {
+  code: string
+  name: string
+  zone: string
+  supported: boolean
+  regions: ShippingRegion[]
+}
+
 export interface CheckoutQuoteRequest {
   addressId?: number
   country?: string
   currency: CurrencyCode
+  /** 承运商 code 或 name（后端二者兼容） */
   carrier?: string
   couponCode?: string
   giftWrap?: boolean
   weddingDate?: string
+  /** order-flow-complete：服务等级（缺省 STANDARD 最便宜） */
+  serviceLevel?: ShippingServiceLevel
 }
 
 export interface ShippingOption {
@@ -284,6 +333,21 @@ export interface ShippingOption {
   fee: number
   leadTime?: string
   selected: boolean
+  carrierCode?: string
+  carrierName?: string
+  serviceLevel?: ShippingServiceLevel
+  transitDaysMin?: number
+  transitDaysMax?: number
+  estimatedDeliveryFrom?: string
+  estimatedDeliveryTo?: string
+}
+
+export interface TaxBreakdown {
+  type: TaxType
+  label?: string
+  rateScaled: number
+  base: number
+  amount: number
 }
 
 export interface CheckoutQuoteResponse {
@@ -300,6 +364,20 @@ export interface CheckoutQuoteResponse {
   leadTimeWarning?: boolean
   maxLeadTimeDays?: number
   dyeLotProductIds?: number[]
+  // order-flow-complete §3.1 扩展
+  taxAmount?: number
+  taxBreakdown?: TaxBreakdown[]
+  incoterm?: Incoterm
+  dutiesNotice?: boolean
+  dutiesNoticeText?: string | null
+  exchangeRateLockedNote?: boolean
+  serviceLevel?: ShippingServiceLevel
+  carrierCode?: string
+  estimatedDeliveryFrom?: string
+  estimatedDeliveryTo?: string
+  productionDays?: number
+  countryCode?: string
+  regionCode?: string | null
 }
 
 export type PaymentMethod = 'Stripe' | 'Apple Pay' | 'Google Pay' | 'Klarna' | 'Afterpay'
@@ -308,7 +386,10 @@ export interface OrderCreateRequest {
   idempotencyKey: string
   addressId: number
   currency: CurrencyCode
-  carrier: string
+  /** 旧承运商名（兼容）；与 carrierCode 至少其一 */
+  carrier?: string
+  carrierCode?: string
+  serviceLevel?: ShippingServiceLevel
   couponCode?: string
   giftWrap?: boolean
   weddingDate?: string
@@ -344,6 +425,7 @@ export interface PaymentSummary {
   status: PaymentStatus
   cardSummary?: string
   paidAt?: string
+  refundedAmount?: number
 }
 
 export interface OrderBase {
@@ -368,6 +450,17 @@ export interface OrderBase {
   shippedAt?: string
   completedAt?: string
   createdAt: string
+  // order-flow-complete 扩展
+  productionStage?: ProductionStage | null
+  deliveredAt?: string | null
+  taxAmount?: number
+  incoterm?: Incoterm | null
+  refundedAmount?: number
+  /** 1=存量无税 2=含税（仅 2 显示税费行） */
+  amountVersion?: number
+  estimatedDeliveryFrom?: string | null
+  estimatedDeliveryTo?: string | null
+  shippingServiceLevel?: ShippingServiceLevel | null
 }
 
 export interface StoreOrderListItem extends OrderBase {
@@ -384,6 +477,57 @@ export interface StoreRefund {
   reason?: string
   status: RefundStatus
   appliedAt: string
+  rejectReason?: string | null
+  fromStatus?: OrderStatus | null
+  updatedAt?: string
+}
+
+/** 订单事件（customer_visible 子集） */
+export interface OrderEvent {
+  id: number
+  type: OrderEventType
+  actorType: OrderActorType
+  actorId?: number | null
+  actorName?: string | null
+  title: string
+  detail?: string | null
+  payload?: Record<string, unknown> | null
+  customerVisible: boolean
+  createdAt: string
+}
+
+export interface ShipmentLine {
+  orderLineId: number
+  productName: string
+  skuCode?: string
+  color?: string
+  size?: string
+  qty: number
+}
+
+export interface ShipmentEvent {
+  id: number
+  occurredAt: string
+  status: ShipmentStatus
+  location?: string | null
+  description?: string | null
+  source: ShipmentEventSource
+}
+
+export interface Shipment {
+  id: number
+  shipmentNo: string
+  carrierCode: string
+  carrierName: string
+  trackingNo: string
+  trackingUrl?: string | null
+  status: ShipmentStatus
+  shippedAt?: string | null
+  deliveredAt?: string | null
+  lastEventAt?: string | null
+  lastEventDesc?: string | null
+  lines: ShipmentLine[]
+  events: ShipmentEvent[]
 }
 
 export interface StoreOrderDetail extends OrderBase {
@@ -393,11 +537,40 @@ export interface StoreOrderDetail extends OrderBase {
   refundEligible?: boolean
   refundBlockReasonCode?: number
   refunds?: StoreRefund[]
+  taxBreakdown?: TaxBreakdown[] | null
+  events?: OrderEvent[]
+  shipments?: Shipment[]
 }
 
 export interface OrderCreateResponse {
   order: StoreOrderDetail
   payment: PaymentCredential
+}
+
+/** POST /orders/{id}/reorder */
+export interface ReorderResponse {
+  addedCount: number
+  skipped: { orderLineId: number; reasonCode: number }[]
+}
+
+/** POST /orders/track 游客查单脱敏视图 */
+export interface OrderTrackView {
+  orderNo: string
+  status: OrderStatus
+  productionStage?: ProductionStage | null
+  currency: CurrencyCode
+  totalAmount: number
+  createdAt: string
+  paidAt?: string | null
+  shippedAt?: string | null
+  deliveredAt?: string | null
+  completedAt?: string | null
+  estimatedDeliveryFrom?: string | null
+  estimatedDeliveryTo?: string | null
+  receiverMasked?: string
+  countryCode?: string
+  shipments: Shipment[]
+  events: OrderEvent[]
 }
 
 export interface WishlistItem {

@@ -4,18 +4,19 @@
  * 我的订单列表（COMP-TRD-S05，layout-keep + data-swap）：
  * filter chips 改绑 API status 枚举全集（原型四 chip 语义映射扩全）；
  * 卡片结构不变（首图=firstLineImg+lineCount、金额、状态徽章、Details 链接）；服务端分页加载更多。
+ * order-flow-complete C：chips 增 Delivered；卡片 PAID 态显示制作阶段徽章、预计送达区间、已发货显示承运商/单号。
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Truck, Scissors, CalendarClock } from 'lucide-react'
 import type { StoreOrderListItem } from '@/lib/api/store-types'
-import { OrderStatus } from '@/lib/api/store-types'
+import { OrderStatus, ProductionStage } from '@/lib/api/store-types'
 import { listStoreOrders } from '@/lib/api/trading-api'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { ApiError } from '@/lib/api/client'
-import { statusBadgeClass, orderStatusLabel } from '@/lib/order-ui'
-import { formatAmount, formatDateTimeLong, cn } from '@/lib/utils'
+import { statusBadgeClass, orderStatusLabel, productionStageLabel, enumLabels } from '@/lib/order-ui'
+import { formatAmount, formatDateTimeLong, formatDateLong, cn } from '@/lib/utils'
 
 export default function OrdersPage() {
   const { t, te } = useI18n()
@@ -25,15 +26,15 @@ export default function OrdersPage() {
     { label: t.orders.status.pending, value: OrderStatus.PENDING },
     { label: t.orders.status.paid, value: OrderStatus.PAID },
     { label: t.orders.status.shipped, value: OrderStatus.SHIPPED },
+    { label: t.orders.status.delivered, value: OrderStatus.DELIVERED },
     { label: t.orders.status.completed, value: OrderStatus.COMPLETED },
     { label: t.orders.status.cancelled, value: OrderStatus.CANCELLED },
     { label: t.orders.status.refunding, value: OrderStatus.REFUNDING },
     { label: t.orders.status.refunded, value: OrderStatus.REFUNDED }
   ]
   /** order-ui 标签本地化映射（key=IntEnum 数值） */
-  const statusLabels = Object.fromEntries(
-    (Object.keys(t.orders.status) as (keyof typeof t.orders.status)[]).map((k) => [OrderStatus[k.toUpperCase() as keyof typeof OrderStatus], t.orders.status[k]])
-  ) as Record<OrderStatus, string>
+  const statusLabels = enumLabels(OrderStatus, t.orders.status)
+  const stageLabels = enumLabels(ProductionStage, t.orders.productionStage)
   const [filter, setFilter] = useState<OrderStatus | undefined>(undefined)
   const [orders, setOrders] = useState<StoreOrderListItem[]>([])
   const [total, setTotal] = useState(0)
@@ -91,7 +92,14 @@ export default function OrdersPage() {
                   <p className="text-sm font-medium">{t.orders.orderNo.replace('{no}', o.orderNo)}</p>
                   <p className="text-xs text-ink-soft">{t.orders.placed.replace('{date}', formatDateTimeLong(o.createdAt))}</p>
                 </div>
-                <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{orderStatusLabel(o.status, statusLabels)}</span>
+                <span className="flex items-center gap-2">
+                  {o.status === OrderStatus.PAID && o.productionStage && (
+                    <span className="hidden items-center gap-1 rounded-full border border-gold/40 px-3 py-1 text-xs text-gold-deep sm:inline-flex" data-testid="production-badge">
+                      <Scissors className="h-3 w-3" /> {productionStageLabel(o.productionStage, stageLabels)}
+                    </span>
+                  )}
+                  <span className={cn('rounded-full px-3 py-1 text-xs capitalize', statusBadgeClass(o.status))}>{orderStatusLabel(o.status, statusLabels)}</span>
+                </span>
               </div>
               <div className="mt-3 flex items-center gap-4">
                 <div className="flex -space-x-3">
@@ -102,7 +110,15 @@ export default function OrdersPage() {
                     <div className="h-16 w-12 rounded-sm border-2 border-surface bg-muted" />
                   )}
                 </div>
-                <div className="flex-1 text-sm text-ink-soft">{t.orders.itemsCount.replace('{count}', String(o.lineCount ?? 1))}</div>
+                <div className="flex-1 text-sm text-ink-soft">
+                  <p>{t.orders.itemsCount.replace('{count}', String(o.lineCount ?? 1))}</p>
+                  {(o.status === OrderStatus.PAID || o.status === OrderStatus.SHIPPED) && o.estimatedDeliveryFrom && o.estimatedDeliveryTo && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-faint"><CalendarClock className="h-3 w-3" /> {t.orders.card.eta.replace('{from}', formatDateLong(o.estimatedDeliveryFrom)).replace('{to}', formatDateLong(o.estimatedDeliveryTo))}</p>
+                  )}
+                  {(o.status === OrderStatus.SHIPPED || o.status === OrderStatus.DELIVERED) && o.trackingNo && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-faint"><Truck className="h-3 w-3" /> {o.carrier ? `${o.carrier} · ` : ''}{t.orders.card.tracking.replace('{no}', o.trackingNo)}</p>
+                  )}
+                </div>
                 <span className="font-medium">{formatAmount(o.totalAmount, o.currency)}</span>
                 <Link href={`/account/orders/${o.id}`} className="flex items-center gap-1 text-sm text-gold-deep underline">{t.orders.details} <ChevronRight className="h-3.5 w-3.5" /></Link>
               </div>

@@ -17,8 +17,11 @@ import type {
   OrderCreateRequest,
   OrderCreateResponse,
   OrderStatus,
+  OrderTrackView,
   Paginated,
   PaymentCredential,
+  ReorderResponse,
+  ShippingCountry,
   StoreOrderDetail,
   StoreOrderListItem,
   StoreRefund,
@@ -102,6 +105,38 @@ export function retryOrderPayment(id: number): Promise<PaymentCredential> {
 
 export function applyStoreRefund(id: number, reason: string): Promise<StoreRefund> {
   return request<StoreRefund>(`/api/store/orders/${id}/refunds`, { method: 'POST', auth: true, body: { reason } })
+}
+
+// ===== order-flow-complete（§3.1 Store 新端点） =====
+
+/**
+ * stub 支付确认（§4.1）：仅 STRIPE_MODE=stub 时端点存在；real 模式 404（前端提示改走真实 Stripe）。
+ * 无请求体；返回最新订单详情（status=PAID）；已支付/非 PENDING → 409602。
+ */
+export function confirmStubPayment(id: number): Promise<StoreOrderDetail> {
+  return request<StoreOrderDetail>(`/api/store/orders/${id}/payment/confirm`, { method: 'POST', auth: true })
+}
+
+/** 用户确认收货：SHIPPED/DELIVERED → COMPLETED（非法态 409602） */
+export function confirmDelivery(id: number): Promise<StoreOrderDetail> {
+  return request<StoreOrderDetail>(`/api/store/orders/${id}/confirm-delivery`, { method: 'POST', auth: true })
+}
+
+/** 再次购买：行商品回购物车；缺货/下架行跳过并返回 skipped[reason_code] */
+export function reorderStoreOrder(id: number): Promise<ReorderResponse> {
+  return request<ReorderResponse>(`/api/store/orders/${id}/reorder`, { method: 'POST', auth: true })
+}
+
+/** 游客查单（公开）：订单号 + 邮箱；不匹配 404601；IP 频控 429601 */
+export function trackOrder(orderNo: string, email: string): Promise<OrderTrackView> {
+  return request<OrderTrackView>('/api/store/orders/track', { method: 'POST', body: { orderNo, email } })
+}
+
+// ===== shipping（公开国家字典，order-flow-complete G） =====
+
+export async function listShippingCountries(): Promise<ShippingCountry[]> {
+  const res = await request<{ items: ShippingCountry[] }>('/api/store/shipping/countries')
+  return res.items
 }
 
 // ===== wishlist（PAGE-TRD-S06，决策 18） =====

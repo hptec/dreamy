@@ -236,6 +236,49 @@ export interface UiMessages {
     setDefault: string
     saving: string
     saveAddress: string
+    // order-flow-complete：国家/州省下拉、服务等级、运输天数、ETA、税费、关税、锁汇
+    region: string
+    loadingCountries: string
+    countryNotSupported: string
+    standard: string
+    express: string
+    transitDays: string
+    eta: string
+    etaShort: string
+    productionDays: string
+    tax: string
+    taxDetails: string
+    taxIncluded: string
+    dutiesNotice: string
+    rateLocked: string
+  }
+  paymentPanel: {
+    testModeTitle: string
+    testModeBody: string
+    continueLabel: string
+    processing: string
+    pay: string
+    failed: string
+    stubUnavailable: string
+    alreadyPaid: string
+  }
+  orderSuccess: {
+    confirmingTitle: string
+    confirmingBody: string
+    paidTitle: string
+    paidBody: string
+    pendingTitle: string
+    pendingBody: string
+    notFoundTitle: string
+    notFoundBody: string
+    orderNumber: string
+    total: string
+    trackingNote: string
+    etaNote: string
+    trackOrder: string
+    viewOrder: string
+    retryPayment: string
+    loading: string
   }
   fabric: {
     headingFabricCare: string
@@ -455,6 +498,7 @@ export interface UiMessages {
       cancelled: string
       refunding: string
       refunded: string
+      delivered: string
     }
     paymentStatus: {
       created: string
@@ -462,11 +506,31 @@ export interface UiMessages {
       succeeded: string
       failed: string
       refunded: string
+      partiallyRefunded: string
     }
     refundStatus: {
       pending: string
       approved: string
       rejected: string
+    }
+    productionStage: {
+      pendingReview: string
+      inProduction: string
+      qualityCheck: string
+      readyToShip: string
+    }
+    shipmentStatus: {
+      pending: string
+      inTransit: string
+      outForDelivery: string
+      delivered: string
+      exception: string
+      cancelled: string
+    }
+    card: {
+      eta: string
+      packages: string
+      tracking: string
     }
     detail: {
       somethingWrong: string
@@ -487,6 +551,32 @@ export interface UiMessages {
       timelinePaid: string
       timelineShipped: string
       timelineCompleted: string
+      timelineProduction: string
+      timelineDelivered: string
+      productionTitle: string
+      productionBody: string
+      eta: string
+      tax: string
+      refunded: string
+      shipments: string
+      shipmentNo: string
+      trackPackage: string
+      contents: string
+      trackingHistory: string
+      noTrackingEvents: string
+      activity: string
+      confirmDelivery: string
+      confirmDeliveryQuestion: string
+      confirmDeliveryYes: string
+      confirmDeliveryNo: string
+      confirmingDelivery: string
+      buyAgain: string
+      buyAgainBusy: string
+      buyAgainAdded: string
+      buyAgainSkipped: string
+      viewCart: string
+      countdown: string
+      countdownExpired: string
       refundTitle: string
       refundBody: string
       refundReason: string
@@ -495,6 +585,29 @@ export interface UiMessages {
       refundSubmitting: string
       refundSubmit: string
     }
+  }
+  trackOrder: {
+    eyebrow: string
+    title: string
+    body: string
+    orderNo: string
+    orderNoPlaceholder: string
+    email: string
+    emailPlaceholder: string
+    submit: string
+    searching: string
+    invalid: string
+    notFound: string
+    rateLimited: string
+    orderLabel: string
+    placed: string
+    shipTo: string
+    eta: string
+    packages: string
+    activity: string
+    searchAgain: string
+    signInHint: string
+    signIn: string
   }
   wishlist: {
     title: string
@@ -746,7 +859,49 @@ const en: UiMessages = {
     country: 'Country',
     setDefault: 'Set as default address',
     saving: 'Saving…',
-    saveAddress: 'Save Address'
+    saveAddress: 'Save Address',
+    region: 'State / Province',
+    loadingCountries: 'Loading countries…',
+    countryNotSupported: 'We do not ship to this destination yet.',
+    standard: 'Standard',
+    express: 'Express',
+    transitDays: '{min}–{max} business days in transit',
+    eta: 'Estimated delivery {from} – {to}',
+    etaShort: 'Est. delivery {from} – {to}',
+    productionDays: 'Made to order in about {days} days',
+    tax: 'Tax',
+    taxDetails: 'Tax details',
+    taxIncluded: 'Duties & taxes included — no extra charges on delivery.',
+    dutiesNotice: 'International orders are shipped DDU (Delivered Duty Unpaid) — import duties and taxes, where applicable, are collected by the carrier on delivery.',
+    rateLocked: 'Rate locked at checkout: 1 USD = {rate} {currency}'
+  },
+  paymentPanel: {
+    testModeTitle: 'Payment (test mode)',
+    testModeBody: 'The payment service is running in test mode — no real card is required. Click Continue to confirm your order.',
+    continueLabel: 'Continue',
+    processing: 'Processing…',
+    pay: 'Pay {amount}',
+    failed: 'Payment failed. Please try again.',
+    stubUnavailable: 'Test-mode payment is not available on this server. Please pay with your card instead.',
+    alreadyPaid: 'This order has already been paid.'
+  },
+  orderSuccess: {
+    confirmingTitle: 'Confirming your payment…',
+    confirmingBody: "This usually takes just a few seconds. Please don't close this page.",
+    paidTitle: 'Thank you!',
+    paidBody: "Your order is confirmed. We've sent a confirmation to your email with all the details.",
+    pendingTitle: 'Payment is being confirmed',
+    pendingBody: "Your payment is still processing — this can take a little longer with Klarna or Afterpay. We'll email you as soon as it's confirmed. If you closed the payment window, you can retry from your order.",
+    notFoundTitle: 'Order not found',
+    notFoundBody: "We couldn't locate this order. Check your order history for the latest status.",
+    orderNumber: 'Order Number',
+    total: 'Total:',
+    trackingNote: 'A tracking number will be emailed once your order ships.',
+    etaNote: 'Estimated delivery {from} – {to}.',
+    trackOrder: 'Track My Order',
+    viewOrder: 'View My Order',
+    retryPayment: 'Retry payment',
+    loading: 'Loading…'
   },
   fabric: {
     headingFabricCare: 'Fabric & Care',
@@ -969,19 +1124,40 @@ const en: UiMessages = {
       completed: 'Completed',
       cancelled: 'Cancelled',
       refunding: 'Refunding',
-      refunded: 'Refunded'
+      refunded: 'Refunded',
+      delivered: 'Delivered'
     },
     paymentStatus: {
       created: 'Created',
       processing: 'Processing',
       succeeded: 'Succeeded',
       failed: 'Failed',
-      refunded: 'Refunded'
+      refunded: 'Refunded',
+      partiallyRefunded: 'Partially refunded'
     },
     refundStatus: {
       pending: 'Pending',
       approved: 'Approved',
       rejected: 'Rejected'
+    },
+    productionStage: {
+      pendingReview: 'Pending review',
+      inProduction: 'In production',
+      qualityCheck: 'Quality check',
+      readyToShip: 'Ready to ship'
+    },
+    shipmentStatus: {
+      pending: 'Awaiting pickup',
+      inTransit: 'In transit',
+      outForDelivery: 'Out for delivery',
+      delivered: 'Delivered',
+      exception: 'Exception',
+      cancelled: 'Cancelled'
+    },
+    card: {
+      eta: 'Est. delivery {from} – {to}',
+      packages: '{count} packages',
+      tracking: 'Tracking {no}'
     },
     detail: {
       somethingWrong: 'Something went wrong',
@@ -1002,6 +1178,32 @@ const en: UiMessages = {
       timelinePaid: 'Paid',
       timelineShipped: 'Shipped',
       timelineCompleted: 'Completed',
+      timelineProduction: 'In production',
+      timelineDelivered: 'Delivered',
+      productionTitle: 'Production progress',
+      productionBody: 'Your gown is being made to order. We will update this as it moves through our atelier.',
+      eta: 'Estimated delivery {from} – {to}',
+      tax: 'Tax',
+      refunded: 'Refunded',
+      shipments: 'Shipments',
+      shipmentNo: 'Package {no}',
+      trackPackage: 'Track package',
+      contents: 'Contents',
+      trackingHistory: 'Tracking history',
+      noTrackingEvents: 'No tracking updates yet.',
+      activity: 'Order activity',
+      confirmDelivery: 'Confirm delivery',
+      confirmDeliveryQuestion: 'Have you received all items in this order?',
+      confirmDeliveryYes: 'Yes, received',
+      confirmDeliveryNo: 'Not yet',
+      confirmingDelivery: 'Confirming…',
+      buyAgain: 'Buy again',
+      buyAgainBusy: 'Adding…',
+      buyAgainAdded: '{count} items added to your cart.',
+      buyAgainSkipped: '{count} items could not be added (out of stock or unavailable).',
+      viewCart: 'View cart',
+      countdown: 'Complete payment within {time}',
+      countdownExpired: 'The payment window has expired.',
       refundTitle: 'Request a Refund',
       refundBody: "Tell us why you'd like a refund and our team will review your request.",
       refundReason: 'Reason',
@@ -1010,6 +1212,29 @@ const en: UiMessages = {
       refundSubmitting: 'Submitting…',
       refundSubmit: 'Submit Request'
     }
+  },
+  trackOrder: {
+    eyebrow: 'Order Status',
+    title: 'Track Your Order',
+    body: 'Enter your order number and the email used at checkout to see the latest status, production progress and tracking.',
+    orderNo: 'Order number',
+    orderNoPlaceholder: 'DRM-20260101-0001',
+    email: 'Email',
+    emailPlaceholder: 'you@example.com',
+    submit: 'Track order',
+    searching: 'Searching…',
+    invalid: 'Please enter your order number and a valid email address.',
+    notFound: "We couldn't find an order matching that number and email.",
+    rateLimited: 'Too many lookups. Please wait a while and try again.',
+    orderLabel: 'Order {no}',
+    placed: 'Placed {date}',
+    shipTo: 'Ship to',
+    eta: 'Estimated delivery {from} – {to}',
+    packages: 'Packages',
+    activity: 'Order activity',
+    searchAgain: 'Track another order',
+    signInHint: 'Have an account?',
+    signIn: 'Sign in to see full order details'
   },
   wishlist: {
     title: 'My Wishlist',
@@ -1262,7 +1487,49 @@ const es: DeepPartial<UiMessages> = {
     country: 'Pais',
     setDefault: 'Establecer como direccion predeterminada',
     saving: 'Guardando…',
-    saveAddress: 'Guardar direccion'
+    saveAddress: 'Guardar direccion',
+    region: 'Estado / Provincia',
+    loadingCountries: 'Cargando paises…',
+    countryNotSupported: 'Aun no enviamos a este destino.',
+    standard: 'Estandar',
+    express: 'Express',
+    transitDays: '{min}–{max} dias habiles en transito',
+    eta: 'Entrega estimada {from} – {to}',
+    etaShort: 'Entrega est. {from} – {to}',
+    productionDays: 'Hecho a medida en unos {days} dias',
+    tax: 'Impuestos',
+    taxDetails: 'Detalle de impuestos',
+    taxIncluded: 'Aranceles e impuestos incluidos: sin cargos adicionales en la entrega.',
+    dutiesNotice: 'Los pedidos internacionales se envian DDU (entrega con derechos no pagados): los aranceles e impuestos, cuando apliquen, los cobra el transportista en la entrega.',
+    rateLocked: 'Tipo de cambio fijado al pagar: 1 USD = {rate} {currency}'
+  },
+  paymentPanel: {
+    testModeTitle: 'Pago (modo de prueba)',
+    testModeBody: 'El servicio de pago esta en modo de prueba: no se necesita una tarjeta real. Pulse Continuar para confirmar su pedido.',
+    continueLabel: 'Continuar',
+    processing: 'Procesando…',
+    pay: 'Pagar {amount}',
+    failed: 'El pago fallo. Intentelo de nuevo.',
+    stubUnavailable: 'El pago en modo de prueba no esta disponible en este servidor. Pague con su tarjeta.',
+    alreadyPaid: 'Este pedido ya esta pagado.'
+  },
+  orderSuccess: {
+    confirmingTitle: 'Confirmando su pago…',
+    confirmingBody: 'Suele tardar solo unos segundos. No cierre esta pagina.',
+    paidTitle: 'Gracias!',
+    paidBody: 'Su pedido esta confirmado. Le hemos enviado un correo con todos los detalles.',
+    pendingTitle: 'El pago se esta confirmando',
+    pendingBody: 'Su pago sigue en proceso; con Klarna o Afterpay puede tardar un poco mas. Le avisaremos por correo en cuanto se confirme. Si cerro la ventana de pago, puede reintentar desde su pedido.',
+    notFoundTitle: 'Pedido no encontrado',
+    notFoundBody: 'No pudimos localizar este pedido. Consulte su historial de pedidos.',
+    orderNumber: 'Numero de pedido',
+    total: 'Total:',
+    trackingNote: 'Le enviaremos el numero de seguimiento por correo cuando se envie su pedido.',
+    etaNote: 'Entrega estimada {from} – {to}.',
+    trackOrder: 'Seguir mi pedido',
+    viewOrder: 'Ver mi pedido',
+    retryPayment: 'Reintentar pago',
+    loading: 'Cargando…'
   },
   fabric: {
     headingFabricCare: 'Tejido y cuidado',
@@ -1483,19 +1750,40 @@ const es: DeepPartial<UiMessages> = {
       completed: 'Completado',
       cancelled: 'Cancelado',
       refunding: 'En reembolso',
-      refunded: 'Reembolsado'
+      refunded: 'Reembolsado',
+      delivered: 'Entregado'
     },
     paymentStatus: {
       created: 'Creado',
       processing: 'Procesando',
       succeeded: 'Completado',
       failed: 'Fallido',
-      refunded: 'Reembolsado'
+      refunded: 'Reembolsado',
+      partiallyRefunded: 'Reembolsado parcialmente'
     },
     refundStatus: {
       pending: 'Pendiente',
       approved: 'Aprobado',
       rejected: 'Rechazado'
+    },
+    productionStage: {
+      pendingReview: 'Pendiente de revision',
+      inProduction: 'En produccion',
+      qualityCheck: 'Control de calidad',
+      readyToShip: 'Listo para enviar'
+    },
+    shipmentStatus: {
+      pending: 'Pendiente de recogida',
+      inTransit: 'En transito',
+      outForDelivery: 'En reparto',
+      delivered: 'Entregado',
+      exception: 'Incidencia',
+      cancelled: 'Anulado'
+    },
+    card: {
+      eta: 'Entrega est. {from} – {to}',
+      packages: '{count} paquetes',
+      tracking: 'Seguimiento {no}'
     },
     detail: {
       somethingWrong: 'Algo salio mal',
@@ -1516,6 +1804,32 @@ const es: DeepPartial<UiMessages> = {
       timelinePaid: 'Pagado',
       timelineShipped: 'Enviado',
       timelineCompleted: 'Completado',
+      timelineProduction: 'En produccion',
+      timelineDelivered: 'Entregado',
+      productionTitle: 'Progreso de produccion',
+      productionBody: 'Su vestido se esta confeccionando a medida. Actualizaremos esta seccion a medida que avance en nuestro taller.',
+      eta: 'Entrega estimada {from} – {to}',
+      tax: 'Impuestos',
+      refunded: 'Reembolsado',
+      shipments: 'Envios',
+      shipmentNo: 'Paquete {no}',
+      trackPackage: 'Seguir paquete',
+      contents: 'Contenido',
+      trackingHistory: 'Historial de seguimiento',
+      noTrackingEvents: 'Aun no hay actualizaciones de seguimiento.',
+      activity: 'Actividad del pedido',
+      confirmDelivery: 'Confirmar recepcion',
+      confirmDeliveryQuestion: 'Ha recibido todos los articulos de este pedido?',
+      confirmDeliveryYes: 'Si, recibido',
+      confirmDeliveryNo: 'Todavia no',
+      confirmingDelivery: 'Confirmando…',
+      buyAgain: 'Comprar de nuevo',
+      buyAgainBusy: 'Anadiendo…',
+      buyAgainAdded: '{count} articulos anadidos a su carrito.',
+      buyAgainSkipped: '{count} articulos no se pudieron anadir (sin stock o no disponibles).',
+      viewCart: 'Ver carrito',
+      countdown: 'Complete el pago en {time}',
+      countdownExpired: 'El plazo de pago ha expirado.',
       refundTitle: 'Solicitar un reembolso',
       refundBody: 'Cuente por que desea un reembolso y nuestro equipo revisara su solicitud.',
       refundReason: 'Motivo',
@@ -1524,6 +1838,29 @@ const es: DeepPartial<UiMessages> = {
       refundSubmitting: 'Enviando…',
       refundSubmit: 'Enviar solicitud'
     }
+  },
+  trackOrder: {
+    eyebrow: 'Estado del pedido',
+    title: 'Seguir su pedido',
+    body: 'Introduzca su numero de pedido y el correo usado al comprar para ver el estado, el progreso de produccion y el seguimiento.',
+    orderNo: 'Numero de pedido',
+    orderNoPlaceholder: 'DRM-20260101-0001',
+    email: 'Correo electronico',
+    emailPlaceholder: 'usted@ejemplo.com',
+    submit: 'Seguir pedido',
+    searching: 'Buscando…',
+    invalid: 'Introduzca su numero de pedido y un correo valido.',
+    notFound: 'No encontramos ningun pedido con ese numero y correo.',
+    rateLimited: 'Demasiadas consultas. Espere un momento e intentelo de nuevo.',
+    orderLabel: 'Pedido {no}',
+    placed: 'Realizado {date}',
+    shipTo: 'Enviar a',
+    eta: 'Entrega estimada {from} – {to}',
+    packages: 'Paquetes',
+    activity: 'Actividad del pedido',
+    searchAgain: 'Seguir otro pedido',
+    signInHint: 'Tiene una cuenta?',
+    signIn: 'Inicie sesion para ver todos los detalles'
   },
   wishlist: {
     title: 'Mis favoritos',
@@ -1776,7 +2113,49 @@ const fr: DeepPartial<UiMessages> = {
     country: 'Pays',
     setDefault: 'Definir comme adresse par defaut',
     saving: 'Enregistrement…',
-    saveAddress: 'Enregistrer l adresse'
+    saveAddress: 'Enregistrer l adresse',
+    region: 'Etat / Province',
+    loadingCountries: 'Chargement des pays…',
+    countryNotSupported: 'Nous ne livrons pas encore cette destination.',
+    standard: 'Standard',
+    express: 'Express',
+    transitDays: '{min}–{max} jours ouvres de transit',
+    eta: 'Livraison estimee {from} – {to}',
+    etaShort: 'Livraison est. {from} – {to}',
+    productionDays: 'Confectionne sur commande en environ {days} jours',
+    tax: 'Taxes',
+    taxDetails: 'Detail des taxes',
+    taxIncluded: 'Droits et taxes inclus — aucun frais supplementaire a la livraison.',
+    dutiesNotice: 'Les commandes internationales sont expediees DDU (droits non payes) — les droits et taxes, le cas echeant, sont percus par le transporteur a la livraison.',
+    rateLocked: 'Taux fige au paiement : 1 USD = {rate} {currency}'
+  },
+  paymentPanel: {
+    testModeTitle: 'Paiement (mode test)',
+    testModeBody: 'Le service de paiement est en mode test — aucune carte reelle n est requise. Cliquez sur Continuer pour confirmer votre commande.',
+    continueLabel: 'Continuer',
+    processing: 'Traitement…',
+    pay: 'Payer {amount}',
+    failed: 'Le paiement a echoue. Veuillez reessayer.',
+    stubUnavailable: 'Le paiement en mode test n est pas disponible sur ce serveur. Veuillez payer par carte.',
+    alreadyPaid: 'Cette commande est deja payee.'
+  },
+  orderSuccess: {
+    confirmingTitle: 'Confirmation de votre paiement…',
+    confirmingBody: 'Cela ne prend generalement que quelques secondes. Ne fermez pas cette page.',
+    paidTitle: 'Merci !',
+    paidBody: 'Votre commande est confirmee. Nous vous avons envoye un e-mail avec tous les details.',
+    pendingTitle: 'Paiement en cours de confirmation',
+    pendingBody: 'Votre paiement est toujours en cours — cela peut prendre un peu plus de temps avec Klarna ou Afterpay. Nous vous enverrons un e-mail des confirmation. Si vous avez ferme la fenetre de paiement, vous pouvez reessayer depuis votre commande.',
+    notFoundTitle: 'Commande introuvable',
+    notFoundBody: 'Nous n avons pas pu localiser cette commande. Consultez l historique de vos commandes.',
+    orderNumber: 'Numero de commande',
+    total: 'Total :',
+    trackingNote: 'Un numero de suivi vous sera envoye par e-mail des l expedition.',
+    etaNote: 'Livraison estimee {from} – {to}.',
+    trackOrder: 'Suivre ma commande',
+    viewOrder: 'Voir ma commande',
+    retryPayment: 'Reessayer le paiement',
+    loading: 'Chargement…'
   },
   fabric: {
     headingFabricCare: 'Tissu et entretien',
@@ -1997,19 +2376,40 @@ const fr: DeepPartial<UiMessages> = {
       completed: 'Terminee',
       cancelled: 'Annulee',
       refunding: 'Remboursement en cours',
-      refunded: 'Remboursee'
+      refunded: 'Remboursee',
+      delivered: 'Livree'
     },
     paymentStatus: {
       created: 'Cree',
       processing: 'En cours',
       succeeded: 'Reussi',
       failed: 'Echoue',
-      refunded: 'Rembourse'
+      refunded: 'Rembourse',
+      partiallyRefunded: 'Partiellement rembourse'
     },
     refundStatus: {
       pending: 'En attente',
       approved: 'Approuve',
       rejected: 'Rejete'
+    },
+    productionStage: {
+      pendingReview: 'En attente de verification',
+      inProduction: 'En production',
+      qualityCheck: 'Controle qualite',
+      readyToShip: 'Pret a expedier'
+    },
+    shipmentStatus: {
+      pending: 'En attente d enlevement',
+      inTransit: 'En transit',
+      outForDelivery: 'En cours de livraison',
+      delivered: 'Livre',
+      exception: 'Incident',
+      cancelled: 'Annule'
+    },
+    card: {
+      eta: 'Livraison est. {from} – {to}',
+      packages: '{count} colis',
+      tracking: 'Suivi {no}'
     },
     detail: {
       somethingWrong: 'Une erreur est survenue',
@@ -2030,6 +2430,32 @@ const fr: DeepPartial<UiMessages> = {
       timelinePaid: 'Payee',
       timelineShipped: 'Expediee',
       timelineCompleted: 'Terminee',
+      timelineProduction: 'En production',
+      timelineDelivered: 'Livree',
+      productionTitle: 'Avancement de la production',
+      productionBody: 'Votre robe est confectionnee sur commande. Nous mettrons cette section a jour au fil de son passage dans notre atelier.',
+      eta: 'Livraison estimee {from} – {to}',
+      tax: 'Taxes',
+      refunded: 'Rembourse',
+      shipments: 'Expeditions',
+      shipmentNo: 'Colis {no}',
+      trackPackage: 'Suivre le colis',
+      contents: 'Contenu',
+      trackingHistory: 'Historique de suivi',
+      noTrackingEvents: 'Aucune mise a jour de suivi pour le moment.',
+      activity: 'Activite de la commande',
+      confirmDelivery: 'Confirmer la reception',
+      confirmDeliveryQuestion: 'Avez-vous recu tous les articles de cette commande ?',
+      confirmDeliveryYes: 'Oui, recu',
+      confirmDeliveryNo: 'Pas encore',
+      confirmingDelivery: 'Confirmation…',
+      buyAgain: 'Racheter',
+      buyAgainBusy: 'Ajout…',
+      buyAgainAdded: '{count} articles ajoutes a votre panier.',
+      buyAgainSkipped: '{count} articles n ont pas pu etre ajoutes (rupture de stock ou indisponibles).',
+      viewCart: 'Voir le panier',
+      countdown: 'Finalisez le paiement sous {time}',
+      countdownExpired: 'Le delai de paiement est expire.',
       refundTitle: 'Demander un remboursement',
       refundBody: 'Dites-nous pourquoi vous souhaitez un remboursement et notre equipe etudiera votre demande.',
       refundReason: 'Motif',
@@ -2038,6 +2464,29 @@ const fr: DeepPartial<UiMessages> = {
       refundSubmitting: 'Envoi…',
       refundSubmit: 'Envoyer la demande'
     }
+  },
+  trackOrder: {
+    eyebrow: 'Statut de commande',
+    title: 'Suivre votre commande',
+    body: 'Saisissez votre numero de commande et l e-mail utilise lors de l achat pour voir le statut, l avancement de la production et le suivi.',
+    orderNo: 'Numero de commande',
+    orderNoPlaceholder: 'DRM-20260101-0001',
+    email: 'E-mail',
+    emailPlaceholder: 'vous@exemple.com',
+    submit: 'Suivre la commande',
+    searching: 'Recherche…',
+    invalid: 'Saisissez votre numero de commande et une adresse e-mail valide.',
+    notFound: 'Aucune commande ne correspond a ce numero et cet e-mail.',
+    rateLimited: 'Trop de recherches. Patientez un instant puis reessayez.',
+    orderLabel: 'Commande {no}',
+    placed: 'Passee le {date}',
+    shipTo: 'Livrer a',
+    eta: 'Livraison estimee {from} – {to}',
+    packages: 'Colis',
+    activity: 'Activite de la commande',
+    searchAgain: 'Suivre une autre commande',
+    signInHint: 'Vous avez un compte ?',
+    signIn: 'Connectez-vous pour voir tous les details'
   },
   wishlist: {
     title: 'Mes favoris',

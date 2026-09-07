@@ -27,6 +27,7 @@ const STATIC_PATHS = [
   '/about',
   '/contact',
   '/faq',
+  '/track-order',
   '/showroom'
 ]
 
