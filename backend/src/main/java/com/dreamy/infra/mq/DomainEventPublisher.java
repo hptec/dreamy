@@ -22,6 +22,13 @@ public interface DomainEventPublisher {
      * 缺省实现等价于 {@link #publish}（stub 模式进程内直调，消费异常已在内部吞掉）。
      */
     default String publishOrThrow(String routingKey, Object payload) {
+        return publishOrThrow(routingKey, payload, null);
+    }
+
+    /**
+     * 以指定 event_id 发布（事务性发件箱重投复用同一 id，消费端按 event_id 幂等）；eventId 为 null 时自动生成。
+     */
+    default String publishOrThrow(String routingKey, Object payload, String eventId) {
         return publish(routingKey, payload);
     }
 }

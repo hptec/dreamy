@@ -55,8 +55,8 @@ public class RabbitDomainEventPublisher implements DomainEventPublisher {
 
     /** outbox 投递入口：失败抛出，由 TradingEventsPublisher 标记 retry/DEAD 后重投 */
     @Override
-    public String publishOrThrow(String routingKey, Object payload) {
-        String eventId = UUID.randomUUID().toString();
+    public String publishOrThrow(String routingKey, Object payload, String presetEventId) {
+        String eventId = presetEventId == null || presetEventId.isBlank() ? UUID.randomUUID().toString() : presetEventId;
         try {
             send(eventId, routingKey, payload);
         } catch (Exception ex) {

@@ -36,7 +36,12 @@ public class StubDomainEventPublisher implements DomainEventPublisher {
 
     @Override
     public String publish(String routingKey, Object payload) {
-        String eventId = UUID.randomUUID().toString();
+        return publishOrThrow(routingKey, payload, null);
+    }
+
+    @Override
+    public String publishOrThrow(String routingKey, Object payload, String presetEventId) {
+        String eventId = presetEventId == null || presetEventId.isBlank() ? UUID.randomUUID().toString() : presetEventId;
         DomainEvent event = new DomainEvent(eventId, routingKey,
                 OffsetDateTime.now(ZoneOffset.UTC).toString(), toMap(payload));
         log.info("[MQ-STUB] publish key={} event_id={}", routingKey, eventId);

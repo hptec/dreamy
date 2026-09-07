@@ -8,6 +8,7 @@ public interface EventOutboxDBConst extends TradingCommonDBConst {
     String TABLE = "event_outbox";
 
     String EVENT_TYPE = "event_type";
+    String EVENT_ID = "event_id";
     String ROUTING_KEY = "routing_key";
     String PAYLOAD = "payload";
     String ATTEMPTS = "attempts";

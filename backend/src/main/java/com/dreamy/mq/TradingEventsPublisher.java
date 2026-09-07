@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * trading 域领域事件发布器（EVT-TRD-001~004 + order-flow-complete 新增 order.delivered / order.production /
@@ -154,6 +155,7 @@ public class TradingEventsPublisher {
      */
     void publish(String routingKey, Map<String, Object> payload) {
         EventOutbox row = new EventOutbox();
+        row.setEventId(UUID.randomUUID().toString());
         row.setEventType(routingKey);
         row.setRoutingKey(routingKey);
         row.setPayload(toJson(payload));
@@ -182,7 +184,7 @@ public class TradingEventsPublisher {
         int attempts = (row.getAttempts() == null ? 0 : row.getAttempts()) + 1;
         try {
             Map<String, Object> payload = inMemoryPayload != null ? inMemoryPayload : fromJson(row.getPayload());
-            eventPublisher.publishOrThrow(row.getRoutingKey(), payload);
+            eventPublisher.publishOrThrow(row.getRoutingKey(), payload, row.getEventId());
             outboxRepository.markSent(row.getId(), attempts, LocalDateTime.now());
             row.setAttempts(attempts);
             row.setStatus(OutboxStatus.SENT);

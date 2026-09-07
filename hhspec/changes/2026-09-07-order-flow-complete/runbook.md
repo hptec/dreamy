@@ -62,7 +62,8 @@ REFUNDING(6) → REFUNDED(7) | 还原 from_status
 | 订单 SHIPPED 但长期无签收 | 供应商同步失败计数；`shipment.last_event_at` | 后台手工「标记签收」或等 `auto_deliver_days` 自动送达 |
 | 汇率异常 | `exchange_rate.source/synced_at`；`exchange_rate_history` | 后台手工改值并勾选「手工锁定」；供应商恢复后取消锁定 |
 | 税费为 0 但应收税 | `tax_destination_policy`（DDU 不计入）与 `tax_rule.enabled/生效窗口`；地址 `country_code/region_code` 是否为空 | 后台补政策/规则；存量地址由启动回填器补码，无法解析的需顾客重选 |
-| 游客查单 429 | `trading:track:{ip}` Redis 计数 | 10 次/小时；确需放行删 key |
+| 游客查单 429 | `trading:track:{ip}` Redis 计数 | 10 次/小时；确需放行删 key；Redis 故障期间该端点 fail-closed（一律 429） |
+| 已取消订单收到迟到支付 | 日志 `[WEBHOOK][ALERT] late succeeded on cancelled order`；Stripe Dashboard 该 PI 是否已有 refund（幂等键 `late-payment:{pi}`） | 补偿退款在事务提交后同步调用 Stripe，若进程当时崩溃或 Stripe 失败不会自动重试（已知残留）：人工在 Stripe 后台按同一幂等键重发退款，并核对 payment 表状态 |
 
 ## 6. 迁移与回滚
 
