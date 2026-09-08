@@ -201,7 +201,7 @@ Customer 为 identity 域既有实体（user 表），本域仅以 `customer_id`
 - CV-TRD-009 exchange_rate.rate > 0；USD 行 rate 恒 1（更新入口禁改，种子断言）
 - CV-TRD-010 checkout_config：gift_wrap_fee_usd ≥0；custom_refund_grace_hours ∈ [1,168]
 - CV-TRD-011 引用完整性（逻辑外键，CP-010）：cart_item/wishlist_item/browse_history 写前经 CatalogSnapshotPort 校验 product/sku 存在；order_line 仅存快照不校验后续存在性；refund.order_id 写前校验订单存在且归属
-- CV-TRD-012 expires_at = created_at + 30min（下单时落定，BE-DIM-4）；wedding_date ≥ 下单日（选填）
+- CV-TRD-012 expires_at = created_at + 30min（下单时落定，BE-DIM-4）；wedding_date 选填，仅要求 ISO 合法日期（2026-09-08 放开：不限过去日期，兼容补拍/纪念日购买场景，与 V-SHR-002 口径对齐）
 
 ---
 

@@ -150,7 +150,7 @@
 - V-TRD-015 currency 必填 ∈ {USD,EUR,CAD,AUD,GBP} → 否则 422 `422605 CURRENCY_NOT_SUPPORTED`
 - V-TRD-016 address_id 与 country 至少其一；address_id 提供时校验归属当前用户 → 无 404 `404602`；二者均缺 → 422 `422601`（details.field=address_id）
 - V-TRD-017 carrier 选填 ∈ 三承运商枚举 → 非法 422 `422601`
-- V-TRD-018 coupon_code ≤32；V-TRD-019 wedding_date 为 ISO date 且 ≥ 今天 → 否则 422 `422601`
+- V-TRD-018 coupon_code ≤32；V-TRD-019 wedding_date 为合法 ISO date（2026-09-08 放开：不再限制 ≥ 今天，过去日期放行——补拍/纪念日场景；仅非法格式拒绝 422 `422601`）
 - V-TRD-020 当前用户购物车非空 → 空车 422 `422601`（details.reason="cart_empty"）
 
 **业务逻辑（只读试算，不落库不缓存）**:

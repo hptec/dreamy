@@ -201,7 +201,7 @@ class CheckoutQuoteServiceTest {
     }
 
     @Test
-    @DisplayName("TC-TRD-011 [P2]: today+max_lead_time > wedding_date → lead_time_warning=true；无婚期不告警")
+    @DisplayName("TC-TRD-011 [P2]: today+max_lead_time > wedding_date → lead_time_warning=true；无婚期不告警；过去婚期放行不告警（V-TRD-019 放开）")
     void leadTimeWarning() {
         CheckoutQuoteResponse warn = service.quote(CUSTOMER,
                 request("USD", null, null, false, LocalDate.now().plusDays(10)), "en");
@@ -212,6 +212,11 @@ class CheckoutQuoteServiceTest {
         assertThat(ok.leadTimeWarning()).isFalse();
         CheckoutQuoteResponse none = service.quote(CUSTOMER, request("USD", null, null, false, null), "en");
         assertThat(none.leadTimeWarning()).isFalse();
+        // 过去婚期（补拍/纪念日场景）不拒绝且不触发交期告警
+        CheckoutQuoteResponse past = service.quote(CUSTOMER,
+                request("USD", null, null, false, LocalDate.now().minusDays(365)), "en");
+        assertThat(past.leadTimeWarning()).isFalse();
+        assertThat(past.totalAmount()).isEqualByComparingTo("222.00");
     }
 
     @Test

@@ -198,7 +198,6 @@ export interface UiMessages {
     free: string
     giftWrapping: string
     weddingDate: string
-    weddingDateInvalid: string
     leadTimeWarning: string
     promoCode: string
     couponApplied: string
@@ -824,7 +823,6 @@ const en: UiMessages = {
     free: 'Free',
     giftWrapping: 'Add gift wrapping',
     weddingDate: 'Wedding date (optional)',
-    weddingDateInvalid: 'Wedding date must be today or later.',
     leadTimeWarning: 'Heads up — production for this order may take up to {days} days, which is close to your wedding date. Consider rush options or contact a stylist.',
     promoCode: 'Promo code',
     couponApplied: '{code} applied',
@@ -1454,7 +1452,6 @@ const es: DeepPartial<UiMessages> = {
     free: 'Gratis',
     giftWrapping: 'Anadir envoltorio de regalo',
     weddingDate: 'Fecha de la boda (opcional)',
-    weddingDateInvalid: 'La fecha de la boda debe ser hoy o posterior.',
     leadTimeWarning: 'Atencion: la produccion de este pedido puede tardar hasta {days} dias, cerca de su fecha de boda. Considere opciones urgentes o contacte a un asesor.',
     promoCode: 'Codigo promocional',
     couponApplied: '{code} aplicado',
@@ -2082,7 +2079,6 @@ const fr: DeepPartial<UiMessages> = {
     free: 'Offerte',
     giftWrapping: 'Ajouter l emballage cadeau',
     weddingDate: 'Date du mariage (facultatif)',
-    weddingDateInvalid: 'La date du mariage doit etre aujourd hui ou ulterieure.',
     leadTimeWarning: 'Attention — la production de cette commande peut prendre jusqu a {days} jours, ce qui est proche de votre date de mariage. Envisagez les options express ou contactez un conseiller.',
     promoCode: 'Code promo',
     couponApplied: '{code} applique',

@@ -171,10 +171,7 @@ public class CheckoutQuoteService {
         }
         // V-TRD-018 coupon_code ≤32
         String coupon = TradingParams.checkMaxLength(couponCode, 32, "coupon_code", errors);
-        // V-TRD-019 wedding_date ≥ 今天（CV-TRD-012）
-        if (weddingDate != null && weddingDate.isBefore(LocalDate.now())) {
-            errors.reject("wedding_date", "range_invalid");
-        }
+        // V-TRD-019（2026-09-08 放开）：wedding_date 仅要求 ISO 合法日期，不限制过去日期（补拍/纪念日场景，与 V-SHR-002 口径对齐）
         // V-TRD-016 address_id 与 country 至少其一
         Address address = null;
         if (addressId != null) {
@@ -328,14 +325,14 @@ public class CheckoutQuoteService {
         BigDecimal totalAmount = Money.total(subtotal, shippingFee, giftWrapFee, discountAmount).add(taxAmount)
                 .setScale(2, java.math.RoundingMode.HALF_UP);
 
-        // STEP-TRD-09 交期复核（决策 20.6）
+        // STEP-TRD-09 交期复核（决策 20.6；仅对 ≥今天的婚期评估——过去婚期为补拍/纪念日场景，不告警）
         Integer maxLeadTimeDays = lines.stream()
                 .map(l -> l.product().leadTimeDays())
                 .filter(java.util.Objects::nonNull)
                 .max(Integer::compareTo)
                 .orElse(null);
         boolean leadTimeWarning = weddingDate != null && maxLeadTimeDays != null
-                && LocalDate.now().plusDays(maxLeadTimeDays).isAfter(weddingDate);
+                && !weddingDate.isBefore(today) && today.plusDays(maxLeadTimeDays).isAfter(weddingDate);
 
         // STEP-TRD-10 dye lot 提示（决策 20.4；showroom 未就绪 stub 空数组）
         List<Long> dyeLotProductIds = dyeLotPort.hintProductIds(customerId,

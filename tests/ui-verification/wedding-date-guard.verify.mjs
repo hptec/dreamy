@@ -1,19 +1,14 @@
-// 验证：结算页 wedding date 交互修复
-// 修复回归：日期框 min=今天（选择器不可选过去日期）；手动键入过去日期 → 字段就近展示
-// "Wedding date must be today or later."、报价请求剔除非法日期（不再触发 422601 通用横幅）、
-// 下单按钮前置拦截非法日期。
+// 验证：结算页 wedding date 完全放行（V-TRD-019 2026-09-08 放开）
+// 口径：过去日期（补拍/纪念日购买场景）可自由填写，随报价与下单请求原样提交，
+// 无 min 限制、无字段报错、无 UI 前置拦截、后端不再 422601 拒绝。
 // 用法：node wedding-date-guard.verify.mjs（默认 dev 环境 :5173/:18081）
 import { chromium } from 'playwright'
 import { api, loginStore, injectSession, collectConsoleErrors, STORE } from './helpers/store-api.mjs'
 
 const EMAIL = process.env.STORE_EMAIL ?? 'fe-verify-store@dreamy.com'
+const PAST_DATE = '2020-01-01'
 const failures = []
 const check = (ok, msg) => { console.log(ok ? `  ✓ ${msg}` : `  ✗ ${msg}`); if (!ok) failures.push(msg) }
-
-const todayIso = (() => {
-  const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
-})()
 
 console.log('[0] API 准备：OTP 登录 / 清地址簿 / 清购物车 / 加购 1 件')
 const { tokens } = await loginStore(EMAIL)
@@ -30,9 +25,15 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 const page = await context.newPage()
 const consoleErrors = collectConsoleErrors(page)
 const quoteBodies = []
+let orderStatus = null
 page.on('request', (req) => {
   if (req.method() === 'POST' && req.url().includes('/api/store/checkout/quote')) {
     try { quoteBodies.push(req.postDataJSON()) } catch { /* ignore */ }
+  }
+})
+page.on('response', async (res) => {
+  if (res.request().method() === 'POST' && res.url().includes('/api/store/checkout/orders')) {
+    orderStatus = res.status()
   }
 })
 await injectSession(page, tokens)
@@ -54,44 +55,33 @@ await page.waitForSelector('input[name="address"]', { timeout: 15000 })
 await page.locator('button', { hasText: /continue to shipping/i }).click()
 await page.waitForSelector('#wedding-date', { timeout: 15000 })
 
-console.log('\n[2] wedding date 守卫断言')
+console.log('\n[2] wedding date 完全放行断言')
 const minAttr = await page.getAttribute('#wedding-date', 'min')
-check(minAttr === todayIso, `日期框 min=今天（期望 ${todayIso}，实际 ${minAttr}）`)
+check(minAttr === null, `日期框无 min 限制（实际: ${minAttr}）`)
 
-// 手动键入过去日期（fill 绕过选择器限制，模拟手输）
-await page.fill('#wedding-date', '2020-01-01')
-await page.waitForTimeout(800)
-const errText = (await page.locator('#wedding-date + p').innerText().catch(() => '')).trim()
-check(/today or later/i.test(errText), `就近展示字段错误（实际: "${errText}"）`)
+// 填过去日期 → 无字段报错、无 aria-invalid、无通用横幅
+await page.fill('#wedding-date', PAST_DATE)
+await page.waitForTimeout(1800)
+check((await page.locator('#wedding-date + p').count()) === 0, '无就近字段错误提示')
 const ariaInvalid = await page.getAttribute('#wedding-date', 'aria-invalid')
-check(ariaInvalid === 'true', `aria-invalid=true（实际: ${ariaInvalid}）`)
-
-// 报价不被 422601 阻断：等待报价横幅（应不出现）+ 订单摘要可见
-await page.waitForTimeout(1500)
+check(ariaInvalid === null, `无 aria-invalid（实际: ${ariaInvalid}）`)
 const banner = await page.locator('p', { hasText: /check the highlighted fields/i }).count()
 check(banner === 0, '无 "check the highlighted fields" 通用横幅')
+
+// 报价请求原样携带过去日期（不再剔除）且报价成功（订单摘要可见）
 const lastQuote = quoteBodies[quoteBodies.length - 1]
-check(lastQuote && !('wedding_date' in lastQuote) && lastQuote.wedding_date === undefined, '报价请求剔除非法 wedding_date')
+check(lastQuote?.wedding_date === PAST_DATE, `报价请求原样携带过去日期（实际: ${lastQuote?.wedding_date}）`)
+const summaryVisible = await page.locator('h3', { hasText: /^summary$/i }).first().isVisible().catch(() => false)
+check(summaryVisible, '订单摘要可见（报价未被 422601 阻断）')
 
-// 修正为合法日期 → 错误消失
-const future = (() => {
-  const n = new Date(); n.setFullYear(n.getFullYear() + 1)
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
-})()
-await page.fill('#wedding-date', future)
-await page.waitForTimeout(800)
-check((await page.locator('#wedding-date + p').count()) === 0, '改回合法日期 → 字段错误消失')
-
-console.log('\n[3] 非法日期 + 下单拦截')
-await page.fill('#wedding-date', '2020-01-01')
-await page.waitForTimeout(500)
+console.log('\n[3] 过去日期 · 下单不被拦截')
 await page.locator('button', { hasText: /continue to payment/i }).click()
 await page.locator('button', { hasText: /review order/i }).click()
 await page.locator('button', { hasText: /place order/i }).click()
-await page.waitForTimeout(1000)
-const placeErr = await page.locator('p', { hasText: /today or later/i }).last().innerText().catch(() => '')
-check(/today or later/i.test(placeErr), `Place Order 被拦截并提示（实际: "${placeErr}"）`)
-check(!page.url().includes('/account/orders/'), '未跳转订单页（下单未发出）')
+await page.waitForTimeout(2500)
+const placeErr = await page.locator('p', { hasText: /today or later/i }).count()
+check(placeErr === 0, '无 "today or later" 拦截提示')
+check(orderStatus === 201 || orderStatus === 200, `createOrder 请求发出且成功（status: ${orderStatus}）`)
 
 const errs = consoleErrors.filter((e) => !e.includes('[server-fetch] API_ORIGIN'))
 check(errs.length === 0, `console 干净（${errs.length} 条）`)
