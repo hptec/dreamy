@@ -229,7 +229,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
             <button
               key={s.size}
               disabled={!s.inStock}
-              onClick={() => { setSize(s.size); setError(null) }}
+              onClick={() => { setSize(s.size); setError(null); setCustomError(false) }}
               className={cn('min-w-[3.25rem] cursor-pointer rounded-sm border px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:line-through',
                 size === s.size ? 'border-ink bg-ink text-canvas' : 'border-line hover:border-ink',
                 s.size === 'Custom' && size !== 'Custom' && 'border-gold/50 text-gold-deep')}
@@ -238,7 +238,6 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
             </button>
           ))}
         </div>
-        {error && <p className="mt-2 text-xs text-blush">{error}</p>}
         {customSelected && (
           <div className="mt-3 rounded-sm bg-sage/10 p-4">
             <p className="text-xs text-sage-deep">Made-to-measure at no extra cost. Enter your measurements below. Allow {product.leadTimeDays} days production.</p>
@@ -264,7 +263,6 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
                 </div>
               ))}
             </div>
-            {customError && <p className="mt-2 text-xs text-blush">{te(422604)}</p>}
           </div>
         )}
       </div>
@@ -283,7 +281,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
           <span className="w-10 text-center text-sm">{qty}</span>
           <button onClick={() => setQty(qty + 1)} className="cursor-pointer p-3" aria-label="Increase quantity"><Plus className="h-3.5 w-3.5" /></button>
         </div>
-        <button onClick={add} disabled={adding} className="btn-primary flex-1 disabled:opacity-60">{adding ? 'Adding…' : 'Add to Bag'}</button>
+        <button onClick={add} disabled={!size || adding} className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60">{!size ? 'Select a Size' : adding ? 'Adding…' : 'Add to Bag'}</button>
         <button onClick={onWish} className="cursor-pointer rounded-sm border border-line p-3.5 transition-colors hover:border-ink" aria-label="Add to wishlist">
           <Heart className={cn('h-5 w-5', wished ? 'fill-blush text-blush' : 'text-ink')} />
         </button>
@@ -291,6 +289,9 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
           <PartyPopper className="h-5 w-5" />
         </button>
       </div>
+      {/* 校验/API 错误就近反馈在 CTA 旁（422604 规格缺失 / 409601 库存不足 / 定制四围未填） */}
+      {error && <p className="mt-2 text-xs text-blush">{error}</p>}
+      {customError && <p className="mt-2 text-xs text-blush">{te(422604)}</p>}
 
       <div className="mt-3 flex gap-3">
         <button className="flex-1 cursor-pointer rounded-sm border border-line py-3 text-[12px] font-medium uppercase tracking-luxe transition-colors hover:border-gold hover:text-gold-deep">Order a Swatch</button>
@@ -387,7 +388,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         productId={product.id}
         sizes={sizes}
         customAvailable={!!product.customSizeAvailable}
-        onSelect={(s) => { setSize(s); setError(null) }}
+        onSelect={(s) => { setSize(s); setError(null); setCustomError(false) }}
       />
       {showroomOpen && (
         <AddToShowroomModal

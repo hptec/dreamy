@@ -84,6 +84,10 @@ export default function CheckoutPage() {
   const [taxOpen, setTaxOpen] = useState(false)
   const [giftWrap, setGiftWrap] = useState(false)
   const [weddingDate, setWeddingDate] = useState('')
+  // V-TRD-019：wedding_date ≥ 今天；手动键入过去日期时就近报错并从请求中剔除（选填字段）
+  const now = new Date()
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const weddingDateInvalid = weddingDate !== '' && weddingDate < todayIso
   const [couponInput, setCouponInput] = useState('')
   const [couponCode, setCouponCode] = useState<string | undefined>(undefined)
   const [couponResult, setCouponResult] = useState<CouponValidateResponse | null>(null)
@@ -171,7 +175,7 @@ export default function CheckoutPage() {
       serviceLevel: shipSel?.serviceLevel,
       couponCode,
       giftWrap,
-      weddingDate: weddingDate || undefined
+      weddingDate: weddingDate && !weddingDateInvalid ? weddingDate : undefined
     })
       .then((res) => {
         if (seq !== quoteSeq.current) return
@@ -196,7 +200,7 @@ export default function CheckoutPage() {
       .finally(() => {
         if (seq === quoteSeq.current) setQuoting(false)
       })
-  }, [isAuthenticated, cart.length, addressId, quoteCurrency, shipSel, couponCode, giftWrap, weddingDate, te])
+  }, [isAuthenticated, cart.length, addressId, quoteCurrency, shipSel, couponCode, giftWrap, weddingDate, weddingDateInvalid, te])
 
   useEffect(() => {
     if (step < 1) return
@@ -239,6 +243,10 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!addressId || !shipSel) return
+    if (weddingDateInvalid) {
+      setPlaceError(t.checkout.weddingDateInvalid)
+      return
+    }
     const method = PAY_METHODS.find((p) => p.id === payMethod)?.method ?? 'Stripe'
     setPlacing(true)
     setPlaceError(null)
@@ -413,7 +421,16 @@ export default function CheckoutPage() {
               {/* wedding date 选填（决策 20.6） */}
               <div className="max-w-xs">
                 <label htmlFor="wedding-date" className="eyebrow mb-1.5 block">{t.checkout.weddingDate}</label>
-                <input id="wedding-date" type="date" value={weddingDate} onChange={(e) => setWeddingDate(e.target.value)} className="w-full rounded-sm border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-gold" />
+                <input
+                  id="wedding-date"
+                  type="date"
+                  min={todayIso}
+                  value={weddingDate}
+                  onChange={(e) => setWeddingDate(e.target.value)}
+                  aria-invalid={weddingDateInvalid || undefined}
+                  className={`w-full rounded-sm border bg-surface px-4 py-3 text-sm outline-none focus:border-gold ${weddingDateInvalid ? 'border-blush' : 'border-line'}`}
+                />
+                {weddingDateInvalid && <p className="mt-1.5 text-xs text-blush">{t.checkout.weddingDateInvalid}</p>}
               </div>
               {quote?.leadTimeWarning && (
                 <p className="flex items-start gap-2 rounded-sm bg-gold/10 px-4 py-3 text-sm text-gold-deep">
