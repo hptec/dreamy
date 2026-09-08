@@ -44,6 +44,34 @@ services:
       timeout: 5s
       retries: 12
 
+  # ── 边缘网关:唯一对外入口 ─────────────────────────────
+  # 三个端口语义与直暴模式完全一致(5173 store / 5174 admin / 18081 backend),
+  # 内部服务不再直接暴露;上域名+HTTPS 时仅需改 nginx/gateway.conf.template
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Hong_Kong}
+      STORE_UPSTREAM: ${STORE_UPSTREAM:-http://portal-store:3000}
+      ADMIN_UPSTREAM: ${ADMIN_UPSTREAM:-http://portal-admin:80}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:18081}
+    volumes:
+      - ./nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "${STORE_PORT:-5173}:5173"
+      - "${ADMIN_PORT:-5174}:5174"
+      - "${BACKEND_PORT:-18081}:18081"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5173/"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    depends_on:
+      - backend
+      - portal-store
+      - portal-admin
+
   backend:
     image: ${ACR_REGISTRY:?请在 .env.deploy 配置}/${ACR_NAMESPACE:?请在 .env.deploy 配置}/dreamy-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -57,10 +85,12 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       LOGGING_FILE_NAME: /app/logs/identity.log
+      # 派生地址:默认取公网入口变量,避免同一 URL 重复填写(如需偏离再显式覆盖)
+      SITE_BASE_URL: ${SITE_BASE_URL:-${PUBLIC_STORE_URL:-http://localhost:5173}}
+      STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
+      ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_ADMIN_URL:-http://localhost:5174}}
     volumes:
       - ./data/logs/backend:/app/logs
-    ports:
-      - "${BACKEND_PORT:-18081}:18081"
     depends_on:
       mysql:
         condition: service_healthy
@@ -75,12 +105,10 @@ services:
       # standalone server.js 绑定 0.0.0.0(默认 localhost 在容器内不可达)
       HOSTNAME: 0.0.0.0
       PORT: 3000
-      # 同源 API 反代(rewrites)与 RSC 服务端取数共用后端内网地址
+      # 同源 API 反代(middleware)与 RSC 服务端取数共用后端内网地址
       BACKEND_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
       API_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
       ADMIN_ORIGIN: ${PUBLIC_ADMIN_URL:-http://localhost:5174}
-    ports:
-      - "${STORE_PORT:-5173}:3000"
     depends_on:
       - backend
 
@@ -91,8 +119,6 @@ services:
       TZ: ${TZ:-Asia/Hong_Kong}
       # nginx envsubst 模板渲染 /api 反代地址
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:18081}
-    ports:
-      - "${ADMIN_PORT:-5174}:80"
     depends_on:
       - backend
 

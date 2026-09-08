@@ -13,8 +13,9 @@ buildx 构建 store ─┘   三镜像双 tag  ──────────→
 
 - **编译全部在本地**完成,服务器只拉镜像运行(需装 `docker` + `git`,无需 JDK/Node)。
 - 后端 JAR / admin 静态产物本身跨架构,本地原生编译;store 镜像在 buildx 的 `linux/amd64` 环境内构建(standalone 含平台 SWC 二进制)。
-- **全部配置外置** `.env.deploy`:镜像内零地址零密钥;compose 内只有 `${VAR:-默认值}` 引用。
-- 服务间请求全程同源:store 浏览器 `/api` 由 Next rewrites 反代、admin 浏览器 `/api` 由 nginx 反代、store RSC 取数直连 `BACKEND_INTERNAL_URL`。
+- **全部配置外置** `.env.deploy`:镜像内零地址零密钥;compose 内只有 `${VAR:-默认值}` 引用。公网地址只填 `PUBLIC_STORE_URL`/`PUBLIC_ADMIN_URL` 两行,其余(CORS/SITE_BASE_URL/NEXT_PUBLIC_*/VITE_*)自动派生。
+- 服务间请求全程同源:store 浏览器 `/api` 由 Next middleware 反代、admin 浏览器 `/api` 由其容器内 nginx 反代、store RSC 取数直连 `BACKEND_INTERNAL_URL`。
+- **边缘网关**:`gateway` 容器(nginx)是唯一对外入口,5173/5174/18081 三端口转发到内网 store/admin/backend,内部服务不再直接暴露;上域名 + HTTPS 时只改 `nginx/gateway.conf.template` 一处。
 
 ## 一、一次性准备
 
@@ -112,18 +113,18 @@ bash scripts/deploy.sh
 
 ## 七、端口与安全
 
-| 服务 | 端口 | 暴露 |
+| 对外端口(gateway) | 转发到 | 说明 |
 |---|---|---|
-| portal-store | 5173 | 公网 |
-| portal-admin | 5174 | 公网 |
-| backend | 18081 | 公网(webhook/OIDC 回调预留;同源反代模式下浏览器不直连) |
-| MySQL | 3306 | 仅 127.0.0.1 |
-| Redis | 6379 | 仅 compose 内网 |
+| 5173 | portal-store:3000 | 消费端门户 |
+| 5174 | portal-admin:80 | 管理后台 |
+| 18081 | backend:18081 | 后端 API(webhook/直连调试) |
 
-建议服务器防火墙/安全组仅放行 5173、5174、18081 与 SSH。
+- store/admin/backend 容器**不再直接暴露宿主端口**,全部经 gateway;MySQL 仅绑 127.0.0.1:3306(SSH 隧道管理),Redis 仅 compose 内网。
+- 建议服务器防火墙/安全组仅放行 5173、5174、18081 与 SSH。
 
 ## 八、已知限制(当前 IP:端口直连模式)
 
 - Stripe 支付(`STRIPE_MODE=stub`)、Stripe webhook、Google/Apple OIDC 回调、Cloudflare R2 图片存储(`STORAGE_MODE=stub`)均需公网域名 + HTTPS 后切换 `*_MODE=real` 并补配密钥。
 - RabbitMQ 事件(`MQ_MODE=stub`)、GA4(`GA4_MODE=stub`)、邮件(`MAIL_MODE=stub`)当前为内置模拟。
 - 消费端 OIDC 登录在无域名环境下不可用(回调地址限制);管理端登录不受影响。
+- **部署后首页短暂空白**:backend 刚就绪时若 store 的 RSC 请求先于 demo seed 完成打到 home 接口,空结果会进 JetCache(5 分钟 TTL)。等 5 分钟自动恢复,或 `docker compose --env-file .env.deploy restart backend` 立即清除;根治需应用层对空 home 结果不缓存。

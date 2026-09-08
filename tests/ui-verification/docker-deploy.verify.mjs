@@ -3,8 +3,10 @@
 // - admin:登录(bootstrap 管理员)、/api nginx 反代、进入工作台
 import { chromium } from 'playwright'
 
-const STORE = process.env.VERIFY_STORE_URL || 'http://127.0.0.1:5175'
-const ADMIN = process.env.VERIFY_ADMIN_URL || 'http://127.0.0.1:5176'
+// 注意:访问地址必须与 .env.deploy 的 PUBLIC_STORE_URL/PUBLIC_ADMIN_URL 完全一致
+// (同源 POST 带 Origin 头,127.0.0.1 与 localhost 是不同源)
+const STORE = process.env.VERIFY_STORE_URL || 'http://localhost:5175'
+const ADMIN = process.env.VERIFY_ADMIN_URL || 'http://localhost:5176'
 const ADMIN_EMAIL = process.env.VERIFY_ADMIN_EMAIL || 'verify@dreamy.local'
 const ADMIN_PASSWORD = process.env.VERIFY_ADMIN_PASSWORD || 'Verify-Admin-2026'
 
@@ -56,7 +58,23 @@ console.log('[2] store 商品详情页:中间件代理 + 页面交互正常')
   await page.handle.close()
 }
 
-console.log('[3] admin 登录(nginx /api 反代)+ 工作台加载')
+console.log('[3] store 同源 POST(OTP 发送):CORS 链路验证')
+{
+  const page = await newPageWithConsoleWatch()
+  await page.handle.goto(`${STORE}/`, { waitUntil: 'domcontentloaded', timeout: 45000 })
+  const otpStatus = await page.handle.evaluate(async () => {
+    const res = await fetch('/api/store/auth/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'deploy-verify@dreamy.local' })
+    })
+    return res.status
+  })
+  check(otpStatus === 200 || otpStatus === 400, `OTP POST 返回业务响应(${otpStatus},403=CORS 拒绝)`)
+  await page.handle.close()
+}
+
+console.log('[4] admin 登录(nginx /api 反代)+ 工作台加载')
 {
   const page = await newPageWithConsoleWatch()
   await page.handle.goto(`${ADMIN}/`, { waitUntil: 'networkidle', timeout: 45000 })

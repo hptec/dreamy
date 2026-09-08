@@ -29,6 +29,10 @@ set -a
 source "${ENV_FILE}"
 set +a
 
+# ── 公网地址派生:只在 PUBLIC_STORE_URL/PUBLIC_ADMIN_URL 填一次,构建期内联变量默认取同值 ──
+NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-${PUBLIC_STORE_URL:-}}"
+VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-${PUBLIC_STORE_URL:-}}"
+
 # ── 前置校验 ─────────────────────────────────────────────
 missing=()
 for v in ACR_REGISTRY ACR_NAMESPACE; do
