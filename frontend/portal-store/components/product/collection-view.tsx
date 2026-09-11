@@ -8,7 +8,7 @@
  * URL 形态 a_<key>=v1|v2，同 key 多值 OR、跨 key AND）。
  */
 
-import { useState, type ReactNode } from 'react'
+import { useState, useTransition, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react'
 import type { Paginated, StoreFilterDim, StoreProductCard } from '@/lib/api/store-types'
@@ -87,6 +87,8 @@ export function CollectionView({
     }
   }
 
+  // 筛选导航包 transition:旧 UI 保持显示直到新 RSC 数据就绪(消除 URL 跳转的整页闪烁抖动)
+  const [isFilterPending, startFilterTransition] = useTransition()
   const navigate = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString())
     for (const [k, v] of Object.entries(patch)) {
@@ -96,7 +98,9 @@ export function CollectionView({
     // 任何筛选变化重置页码
     if (!('page' in patch)) next.delete('page')
     const qs = next.toString()
-    router.push(qs ? `${basePath}?${qs}` : basePath)
+    startFilterTransition(() => {
+      router.push(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+    })
   }
 
   const toggleAttr = (key: string, value: string) => {
@@ -222,7 +226,8 @@ export function CollectionView({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:gap-x-6 lg:grid-cols-3">
+                {/* 筛选 transition 期间旧结果保持渲染(不闪不抖),仅降透明度提示更新中 */}
+                <div className={cn('grid grid-cols-2 gap-x-5 gap-y-10 transition-opacity duration-200 sm:gap-x-6 lg:grid-cols-3', isFilterPending && 'pointer-events-none opacity-50')}>
                   {items.map((p) => <ProductCard key={p.id} product={p} onQuickView={setQuickView} />)}
                 </div>
                 {totalPages > 1 && (
