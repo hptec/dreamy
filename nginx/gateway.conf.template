@@ -9,6 +9,8 @@
 server {
     listen 5173;
     server_name _;
+    # 重定向用相对 Location(默认会拼 listen 端口 5173,把 60080 入口用户引到未放行端口)
+    absolute_redirect off;
 
     # store 默认路由(Next.js 全站)
     location / {
