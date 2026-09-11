@@ -64,12 +64,12 @@ export const categories = [
   ] },
   { name: 'Occasion & Party', attributeSetLabel: 'Occasion Set', sort: 3, children: [
     { name: 'Prom & Evening', sort: 1 },
-    { name: 'Homecoming', sort: 2 },
-    { name: 'Wedding Guest', sort: 3 }
+    { name: 'Homecoming', sort: 2 }
   ] },
   { name: 'Accessories', attributeSetLabel: 'Accessory Set', sort: 4, children: [
-    { name: 'Veils & Headpieces', sort: 1 },
-    { name: 'Wraps & Cover-Ups', sort: 2 }
+    { name: 'Jewelry & Headpieces', sort: 1 },
+    { name: 'Wraps & Cover-Ups', sort: 2 },
+    { name: 'Flower Girl', sort: 3 }
   ] }
 ]
 

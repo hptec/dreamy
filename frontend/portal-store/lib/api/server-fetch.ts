@@ -8,14 +8,17 @@
 import { deepCamelize } from './case'
 
 // RSC 服务端取数基址:API_ORIGIN(运行时注入,容器内指向后端服务,如 http://backend:18081)
+// > BACKEND_ORIGIN(与 middleware 同源代理共用同一注入变量,docker-compose 两键都下发)
 // > NEXT_PUBLIC_API_BASE_URL(dev 直连)。
 // 生产禁用 localhost 兜底：缺配置时宁可取数失败回退空数据，也不把请求静默打到错误地址。
 function resolveApiBase(): string {
-  const origin = process.env.API_ORIGIN || process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '')
+  const origin = process.env.API_ORIGIN
+    || process.env.BACKEND_ORIGIN
+    || process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '')
   if (origin) return origin
   if (process.env.NODE_ENV === 'production') {
     if (process.env.NEXT_PHASE !== 'phase-production-build') {
-      console.error('[server-fetch] API_ORIGIN / NEXT_PUBLIC_API_BASE_URL 均未设置：服务端取数将全部回退空数据')
+      console.error('[server-fetch] API_ORIGIN / BACKEND_ORIGIN / NEXT_PUBLIC_API_BASE_URL 均未设置：服务端取数将全部回退空数据')
     }
     return ''
   }

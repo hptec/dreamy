@@ -2,8 +2,9 @@
 
 /**
  * CookieConsent（决策 19 连带约束——既有 CookieNotice 升级为 Consent Mode v2 版本，单 banner）：
- * - 无持久化选择 → 1.5s 后弹出（沿用原 CookieNotice 节奏与视觉 token）；
- *   Accept/Decline 真分流并持久化 localStorage（dreamy_cookie_consent）。
+ * - 无持久化选择 → 1.5s 后弹出（右下角小卡片样式，不再横贯首屏）；
+ *   Accept/Decline 真分流并持久化 localStorage（dreamy_cookie_consent），
+ *   选择完成派发 CONSENT_CHOSEN_EVENT 供 NewsletterModal 解除互斥。
  * - granted：初始化 gtag 命令队列（consent default denied → update granted → config）
  *   → next/script lazyOnload 注入 gtag.js → usePathname 监听上报 page_view（首屏 + 客户端导航）。
  * - denied/未选择：脚本本体不加载、事件全 no-op → 前端不发任何分析 Cookie（s-1042）。
@@ -22,6 +23,13 @@ import {
   trackPageView,
   type ConsentChoice
 } from '@/lib/analytics/gtag'
+
+/**
+ * consent 选择完成事件（window CustomEvent）：
+ * NewsletterModal 监听它实现与 cookie 条互斥——banner 展示期间不弹订阅弹窗，
+ * 用户做出选择（banner 关闭）后才装订 15s/滚动 40% 触发器。
+ */
+export const CONSENT_CHOSEN_EVENT = 'dreamy:consent-chosen'
 
 export function CookieConsent() {
   const { t } = useI18n()
@@ -58,6 +66,8 @@ export function CookieConsent() {
     storeConsent(choice)
     setConsent(choice)
     setShow(false)
+    // 通知 NewsletterModal：banner 已关闭，可以装订订阅弹窗触发器（互斥解除）
+    window.dispatchEvent(new Event(CONSENT_CHOSEN_EVENT))
   }
 
   return (
@@ -71,20 +81,20 @@ export function CookieConsent() {
       )}
 
       {show && (
-        <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-2xl animate-fadeup rounded-sm border border-line bg-surface p-5 shadow-lift sm:flex sm:items-center sm:gap-6">
+        <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm animate-fadeup rounded-sm border border-line bg-surface p-5 shadow-lift">
           <p className="text-sm text-ink-soft">
             {t.cookieConsent.body}
           </p>
-          <div className="mt-3 flex shrink-0 gap-2 sm:mt-0">
+          <div className="mt-4 flex gap-2">
             <button
               onClick={() => choose('granted')}
-              className="cursor-pointer rounded-sm bg-ink px-5 py-2 text-xs font-medium uppercase tracking-luxe text-canvas transition-colors hover:bg-gold-deep"
+              className="flex-1 cursor-pointer rounded-sm bg-ink px-5 py-2 text-xs font-medium uppercase tracking-luxe text-canvas transition-colors hover:bg-gold-deep"
             >
               {t.cookieConsent.accept}
             </button>
             <button
               onClick={() => choose('denied')}
-              className="cursor-pointer rounded-sm border border-line px-5 py-2 text-xs font-medium uppercase tracking-luxe transition-colors hover:border-ink"
+              className="flex-1 cursor-pointer rounded-sm border border-line px-5 py-2 text-xs font-medium uppercase tracking-luxe transition-colors hover:border-ink"
             >
               {t.cookieConsent.decline}
             </button>

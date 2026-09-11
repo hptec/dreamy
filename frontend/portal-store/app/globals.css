@@ -42,9 +42,9 @@
     @apply mx-auto w-full max-w-8xl px-5 sm:px-8 lg:px-12;
   }
 
-  /* 小标签：拉开字距的全大写小字 */
+  /* 小标签：拉开字距的全大写小字（0.2em+ 保证 luxe 气质） */
   .eyebrow {
-    @apply text-[11px] font-medium uppercase tracking-luxe text-gold;
+    @apply text-[11px] font-medium uppercase tracking-[0.2em] text-gold;
   }
 
   .heading-display {

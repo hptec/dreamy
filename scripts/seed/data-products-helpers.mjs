@@ -13,11 +13,18 @@ export const STD_SIZE_CHART = [
   { us: '14', uk: '18', au: '18', bust: 39.5, waist: 31.5, hips: 42.5, hollowToFloor: 59.5 }
 ]
 
+// 固定伪随机(可重现)
+let _seed = 20260912
+const _rnd = () => { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280 }
+
 // 全码 SKU 工厂:单主色 × US0-14(与 PDP 仅选尺码的交互一致;色维度由款式商品承担)
-export const fullSizeSkus = (prefix, color, stock = 8) =>
-  ['0', '2', '4', '6', '8', '10', '12', '14'].map((size) => ({
-    skuCode: `${prefix}-US${size}`, color, size: `US ${size}`, stock
+// 库存随机 3-15,每款随机 1 个尺码 sold out(裁判整改:恒定 stock=8 一眼假)
+export const fullSizeSkus = (prefix, color) => {
+  const soldOutIdx = Math.floor(_rnd() * 8)
+  return ['0', '2', '4', '6', '8', '10', '12', '14'].map((size, i) => ({
+    skuCode: `${prefix}-US${size}`, color, size: `US ${size}`, stock: i === soldOutIdx ? 0 : 3 + Math.floor(_rnd() * 13)
   }))
+}
 
 // 商品工厂:公共默认 + 个性覆盖
 export const dress = (o) => ({

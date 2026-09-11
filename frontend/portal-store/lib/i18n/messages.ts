@@ -115,6 +115,9 @@ export interface UiMessages {
     findMySize: string
     askQuestion: string
     customSize: string
+    /** 交期口径统一（≥14 天周数 / <14 天天数），PDP 交期行 */
+    leadTimeWeeks: string
+    leadTimeDays: string
     breadcrumbHome: string
     completeTheLook: string
     youMayAlsoLike: string
@@ -740,6 +743,8 @@ const en: UiMessages = {
     findMySize: 'Find my size',
     askQuestion: 'Ask a question',
     customSize: 'Custom size',
+    leadTimeWeeks: 'Handcrafted to order · ships in ~{weeks} weeks',
+    leadTimeDays: 'Handcrafted to order · ships in ~{days} days',
     breadcrumbHome: 'Home',
     completeTheLook: 'Complete the Look',
     youMayAlsoLike: 'You may also like',
@@ -1369,6 +1374,8 @@ const es: DeepPartial<UiMessages> = {
     findMySize: 'Encontrar mi talla',
     askQuestion: 'Hacer una pregunta',
     customSize: 'Talla personalizada',
+    leadTimeWeeks: 'Hecho a mano por encargo · envio en ~{weeks} semanas',
+    leadTimeDays: 'Hecho a mano por encargo · envio en ~{days} dias',
     breadcrumbHome: 'Inicio',
     completeTheLook: 'Completa el look',
     youMayAlsoLike: 'Tambien te puede gustar',
@@ -1996,6 +2003,8 @@ const fr: DeepPartial<UiMessages> = {
     findMySize: 'Trouver ma taille',
     askQuestion: 'Poser une question',
     customSize: 'Taille sur mesure',
+    leadTimeWeeks: 'Fait main sur commande · expedition en ~{weeks} semaines',
+    leadTimeDays: 'Fait main sur commande · expedition en ~{days} jours',
     breadcrumbHome: 'Accueil',
     completeTheLook: 'Completez le look',
     youMayAlsoLike: 'Vous aimerez aussi',

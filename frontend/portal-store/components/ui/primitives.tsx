@@ -41,10 +41,11 @@ export function TextLink({ href, children, className }: { href: string; children
 }
 
 export function Badge({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'sale' | 'new' }) {
+  // badge 配色统一收敛到 ink/gold 语义色板（弃用 blush/sage 高饱和粉绿）
   const styles = {
     default: 'bg-ink/85 text-canvas',
-    sale: 'bg-blush text-white',
-    new: 'bg-sage text-white'
+    sale: 'bg-ink text-gold-light',
+    new: 'bg-gold text-ink'
   }
   return (
     <span className={cn('inline-flex items-center rounded-sm px-2.5 py-1 text-[10px] font-medium uppercase tracking-luxe', styles[variant])}>

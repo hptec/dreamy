@@ -51,6 +51,22 @@ const FABRIC_LAYER_KEYS: Record<number, 'shell' | 'lining' | 'overlay' | 'trim'>
   4: 'trim'
 }
 
+/**
+ * 交期口径统一（决策 20.6 修订）：
+ * ≥14 天用周数表达（~Math.ceil(days/7) weeks），<14 天保留天数；
+ * 主文案走 i18n（en/es/fr），英文短语（production 说明）复用同一换算。
+ */
+function leadTimeSentence(days: number, t: { leadTimeWeeks: string; leadTimeDays: string }): string {
+  return days < 14
+    ? t.leadTimeDays.replace('{days}', String(days))
+    : t.leadTimeWeeks.replace('{weeks}', String(Math.ceil(days / 7)))
+}
+
+/** 英文生产周期短语：'~9 weeks' / '12 days'（<14 天保留天数） */
+function productionSpan(days: number): string {
+  return days < 14 ? `${days} days` : `~${Math.ceil(days / 7)} weeks`
+}
+
 export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
   const router = useRouter()
   const { currency, addToCart, toggleWishlist, isWished, trackView } = useStore()
@@ -240,7 +256,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         </div>
         {customSelected && (
           <div className="mt-3 rounded-sm bg-sage/10 p-4">
-            <p className="text-xs text-sage-deep">Made-to-measure at no extra cost. Enter your measurements below. Allow {product.leadTimeDays} days production.</p>
+            <p className="text-xs text-sage-deep">Made-to-measure at no extra cost. Enter your measurements below. Allow {productionSpan(product.leadTimeDays)} for production.</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {([
                 ['bust', 'Bust (in)'],
@@ -267,10 +283,10 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         )}
       </div>
 
-      {/* 交期（决策 20.6） */}
+      {/* 交期（决策 20.6）：周数口径统一（≥14 天 ~N weeks，<14 天保留天数） */}
       <p className="mt-4 flex items-center gap-2 text-xs text-ink-soft">
         <Truck className="h-4 w-4 text-gold" />
-        Ships in {product.leadTimeDays} {product.leadTimeDays === 1 ? 'day' : 'days'}
+        {leadTimeSentence(product.leadTimeDays, t.product)}
         {product.rushAvailable && <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-luxe text-gold-deep">Rush available</span>}
       </p>
 
@@ -295,7 +311,8 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
 
       <div className="mt-3 flex gap-3">
         <button className="flex-1 cursor-pointer rounded-sm border border-line py-3 text-[12px] font-medium uppercase tracking-luxe transition-colors hover:border-gold hover:text-gold-deep">Order a Swatch</button>
-        <button className="flex-1 cursor-pointer rounded-sm border border-line py-3 text-[12px] font-medium uppercase tracking-luxe text-ink-faint" title="Coming soon" disabled>Try in AR · Soon</button>
+        {/* TODO: AR 试穿上线后移除 hidden 恢复入口（保留实现不删代码） */}
+        <button className="hidden flex-1 cursor-pointer rounded-sm border border-line py-3 text-[12px] font-medium uppercase tracking-luxe text-ink-faint" title="Coming soon" disabled>Try in AR · Soon</button>
       </div>
 
       {/* 卖点展示（动态渲染 selling_points，回退默认卖点） */}
@@ -374,7 +391,7 @@ export function ProductBuyBox({ product }: { product: StoreProductDetail }) {
         )}
         <Accordion title="Shipping & Delivery">
           <p>
-            Standard production {product.leadTimeDays} days.
+            Standard production {productionSpan(product.leadTimeDays)}.
             {product.customSizeAvailable && ' Custom & made-to-measure available.'}
             {' '}Free worldwide shipping on orders over $200 via FedEx, UPS, or DHL Express.
           </p>

@@ -2,9 +2,11 @@
 
 /**
  * NewsletterModal（COMP-MKT-S08，data-swap + copy-change）：
- * - 提交接 E-MKT-11（source=modal / exit_intent）。
+ * - 提交接 E-MKT-11（source=modal）。
  * - 折扣码话术（Take 10% off / Reveal My Code）移除 → 纯订阅确认文案（决策 26 显式功能降级）。
- * - 新增 exit-intent 触发（document mouseleave 顶缘；sessionStorage 同 key 防重弹）。
+ * - 触发（首访双遮罩修复）：与 cookie 条互斥——banner 展示期间（consent 未选择）不装订触发器，
+ *   选择完成后（CONSENT_CHOSEN_EVENT / 回访已有 consent）延迟 15s 或滚动 40% 再弹；
+ *   sessionStorage（dreamy_newsletter_seen）记忆已关闭，同会话不重弹。
  * - FORM-MKT-S01：email 前端格式预校验；提交防重；成功 sessionStorage 标记不再弹。
  */
 
@@ -14,10 +16,15 @@ import { X } from 'lucide-react'
 import { subscribeNewsletter } from '@/lib/api/marketing-api'
 import { NewsletterSource } from '@/lib/api/store-types'
 import { ApiError } from '@/lib/api/client'
+import { getStoredConsent } from '@/lib/analytics/gtag'
+import { CONSENT_CHOSEN_EVENT } from './cookie-consent'
 import { useI18n } from '@/lib/i18n/i18n-context'
 
 const SEEN_KEY = 'dreamy_newsletter_seen'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** 延迟触发（ms）与滚动深度阈值（可滚动高度的百分比） */
+const SHOW_DELAY_MS = 15_000
+const SCROLL_RATIO = 0.4
 
 export function NewsletterModal() {
   const { locale, te } = useI18n()
@@ -25,34 +32,48 @@ export function NewsletterModal() {
   // 退订落地页不弹订阅弹窗（用户正在退订，上下文冲突）
   const suppressed = pathname.endsWith('/unsubscribe')
   const [open, setOpen] = useState(false)
+  /** cookie 条互斥解除（consent 已选择）后才允许装订触发器 */
+  const [armed, setArmed] = useState(false)
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const sourceRef = useRef<NewsletterSource>(NewsletterSource.MODAL)
 
+  // 互斥：cookie 条展示期间（无持久化 consent）不弹；已有 consent（回访）直接装订
   useEffect(() => {
     if (suppressed) return
     if (sessionStorage.getItem(SEEN_KEY)) return
-    const t = setTimeout(() => {
-      if (!sessionStorage.getItem(SEEN_KEY)) {
-        sourceRef.current = NewsletterSource.MODAL
-        setOpen(true)
-      }
-    }, 4000)
-    // exit-intent：鼠标驶出视口顶缘（同 key 防重弹）
-    const onLeave = (e: MouseEvent) => {
-      if (e.clientY > 8) return
-      if (sessionStorage.getItem(SEEN_KEY)) return
-      sourceRef.current = NewsletterSource.EXIT_INTENT
+    if (getStoredConsent() !== null) {
+      setArmed(true)
+      return
+    }
+    const onConsentChosen = () => setArmed(true)
+    window.addEventListener(CONSENT_CHOSEN_EVENT, onConsentChosen)
+    return () => window.removeEventListener(CONSENT_CHOSEN_EVENT, onConsentChosen)
+  }, [suppressed])
+
+  // 触发器：15s 延迟 或 滚动超过 40%（先到先得；已关闭不重弹）
+  useEffect(() => {
+    if (suppressed || !armed) return
+    if (sessionStorage.getItem(SEEN_KEY)) return
+    let fired = false
+    const openModal = () => {
+      if (fired || sessionStorage.getItem(SEEN_KEY)) return
+      fired = true
       setOpen(true)
     }
-    document.addEventListener('mouseleave', onLeave)
+    const t = setTimeout(openModal, SHOW_DELAY_MS)
+    const onScroll = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight
+      if (scrollable > 0 && window.scrollY / scrollable >= SCROLL_RATIO) openModal()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       clearTimeout(t)
-      document.removeEventListener('mouseleave', onLeave)
+      window.removeEventListener('scroll', onScroll)
     }
-  }, [suppressed])
+  }, [suppressed, armed])
 
   const close = () => {
     setOpen(false)

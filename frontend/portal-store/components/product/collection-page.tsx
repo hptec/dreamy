@@ -93,6 +93,8 @@ export async function CollectionPage({
   // 颜色 facet：色板集合分组（E-CAT-07）；空回退静态色板名（冷启动安全）
   const colorGroup = collectionGroups.find((g) => /color/i.test(g.name)) ?? collectionGroups[0]
   const colorOptions = colorGroup?.collections.map((c) => c.name) ?? []
+  // 色板名 → 集合 id(色系筛选按集合挂载过滤,与后端 SKU 单色精确匹配解耦)
+  const colorCollectionMap = Object.fromEntries((colorGroup?.collections ?? []).map((c) => [c.name, c.id]))
 
   const subTabs = (category?.children ?? []).map((c) => ({ label: c.name, value: c.name }))
 
@@ -103,6 +105,7 @@ export async function CollectionPage({
       heroImage={heroImage}
       data={data}
       colorOptions={colorOptions.length > 0 ? colorOptions : FALLBACK_COLORS}
+      colorCollectionMap={colorCollectionMap}
       filterDims={filterDims}
       subTabs={subTabs.length > 0 ? subTabs : undefined}
       basePath={basePath}

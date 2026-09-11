@@ -23,7 +23,7 @@ export const bridesmaidDresses = [
   dress({
     name: 'Mia Bridesmaid Dress in Espresso', slug: 'mia-bridesmaid-dress-espresso',
     categoryPath: ['Bridesmaids', 'Long Bridesmaid Dresses'],
-    price: 139, compareAt: 165,
+    price: 139,
     color: 'Espresso', fabricMain: 'Crepe',
     description: 'A deep espresso brown that flatters every skin tone, in the same beloved crepe as our Alex dress. Cowl neckline in front, criss-cross straps in back.',
     designerNote: 'Espresso replaced black at three of our photoshoot weddings this year — it photographs warmer and pairs with greenery like a dream.',
@@ -103,7 +103,7 @@ export const bridesmaidDresses = [
   dress({
     name: 'Steel Blue Bridesmaid Dress', slug: 'steel-blue-bridesmaid-dress',
     categoryPath: ['Bridesmaids', 'Long Bridesmaid Dresses'],
-    price: 139, compareAt: 165,
+    price: 139,
     color: 'Steel Blue', fabricMain: 'Chiffon',
     description: 'Cool steel blue with a strappy open back — the color for coastal and winter palettes alike. Chiffon keeps it light even in the deeper shade.',
     designerNote: 'Designed for a seaside wedding in Maine; re-requested for a mountain wedding in Colorado. That versatile.',
@@ -119,7 +119,7 @@ export const bridesmaidDresses = [
   dress({
     name: 'Coral Bridesmaid Dress', slug: 'coral-bridesmaid-dress',
     categoryPath: ['Bridesmaids', 'Long Bridesmaid Dresses'],
-    price: 139, compareAt: 169, isNew: true,
+    price: 139, isNew: true,
     color: 'Coral', fabricMain: 'Chiffon',
     description: 'Sun-warmed coral, made for beach ceremonies and golden light. Sweetheart neckline with a softly gathered waist that forgives everything.',
     designerNote: 'Coral is treacherous — one shade wrong and it fights the bride\'s ivory. Ours is softened with a drop of pink precisely to sit beside white.',
@@ -135,7 +135,7 @@ export const bridesmaidDresses = [
   dress({
     name: 'Dusty Blue Bridesmaid Dress with Bow', slug: 'dusty-blue-bridesmaid-dress-bow',
     categoryPath: ['Bridesmaids', 'Long Bridesmaid Dresses'],
-    price: 139, compareAt: 165,
+    price: 139,
     color: 'Dusty Blue', fabricMain: 'Chiffon',
     description: 'Dusty blue chiffon with an unexpected back bow — the detail that turns a simple silhouette into the one your photographer keeps framing.',
     designerNote: 'The bow is sewn flat at the base so it stays architectural, not fussy. It ships pre-tied.',
@@ -266,7 +266,7 @@ export const occasionDresses = [
   dress({
     name: 'Lavender One-Shoulder Prom Dress', slug: 'lavender-one-shoulder-prom-dress',
     categoryPath: ['Occasion & Party', 'Prom & Evening'],
-    price: 179, compareAt: 215,
+    price: 179,
     color: 'Lavender', fabricMain: 'Satin',
     description: 'Soft lavender satin with a one-shoulder drape and a slit — pastel done with a spine. The drape is sewn to fall in the same three folds every time.',
     designerNote: 'The shoulder drape is interfaced feather-light, so it holds its shape without ever standing away from the body.',
@@ -284,7 +284,7 @@ export const occasionDresses = [
 export const accessories = [
   dress({
     name: 'Bridal Jewelry Set — Pearl & Leaf', slug: 'bridal-jewelry-set-pearl-leaf',
-    categoryPath: ['Accessories', 'Veils & Headpieces'],
+    categoryPath: ['Accessories', 'Jewelry & Headpieces'],
     price: 89, compareAt: 109, isNew: true,
     color: 'Pearl White', fabricMain: 'Alloy',
     description: 'Freshwater-look pearls and hand-set leaf charms on gold-plated brass — earrings and a necklace that finish a neckline without competing with it. Hypoallergenic posts.',
@@ -302,7 +302,7 @@ export const accessories = [
   dress({
     name: 'Getting Ready Silk-Touch Pajama Set', slug: 'getting-ready-silktouch-pajama-set',
     categoryPath: ['Accessories', 'Wraps & Cover-Ups'],
-    price: 69, compareAt: 85, recommend: true,
+    price: 69, recommend: true,
     color: 'Ivory', fabricMain: 'Satin',
     description: 'The morning-of uniform: a piped ivory satin set with button top and shorts, monogram-ready. Photo-ready from hair-and-makeup to the first look.',
     designerNote: 'Cut generously so it slips over done hair without a fight. Add embroidery locally for a personal touch.',
@@ -330,7 +330,7 @@ export const accessories = [
   }),
   dress({
     name: 'Petal Flower Girl Dress', slug: 'petal-flower-girl-dress',
-    categoryPath: ['Accessories', 'Wraps & Cover-Ups'],
+    categoryPath: ['Accessories', 'Flower Girl'],
     price: 79, compareAt: 95,
     color: 'Ivory', fabricMain: 'Tulle',
     description: 'A pint-sized tulle party: ivory bodice with a satin waist sash and a skirt with actual twirl. Sizes 2T–10, because the smallest member of the party deserves the biggest spin.',

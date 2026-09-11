@@ -109,7 +109,11 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
           }`}
         />
       ))}
-      <div className="absolute inset-0 bg-ink/45" aria-hidden="true" />
+      {/* 蒙层：全图轻压暗 + 左下深色渐变（rgba(0,0,0,.45)→transparent，只压文字侧保主标题可读） */}
+      <div
+        className="absolute inset-0 bg-ink/15 bg-[linear-gradient(to_top_right,rgba(0,0,0,0.45),rgba(0,0,0,0)_62%)]"
+        aria-hidden="true"
+      />
 
       <div className="container-luxe relative flex h-full items-end pb-16 pt-24 sm:pb-20 lg:pb-24">
         <div className="max-w-2xl" aria-live={isAutoPlaying ? 'off' : 'polite'}>
@@ -132,7 +136,7 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
                 {activeSlide.ctaLink && activeSlide.ctaText && (
                   <Link
                     href={activeSlide.ctaLink}
-                    className="inline-flex items-center justify-center border border-canvas bg-canvas px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-ink transition-colors duration-300 hover:bg-canvas/90"
+                    className="inline-flex items-center justify-center border border-canvas bg-transparent px-7 py-3.5 text-[13px] font-medium uppercase tracking-[0.25em] text-canvas transition-colors duration-300 hover:bg-canvas hover:text-ink"
                   >
                     {activeSlide.ctaText}
                   </Link>

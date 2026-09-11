@@ -27,12 +27,17 @@ const PRICE_RANGES = [
   { key: 'priceOver1000', min: 1000, max: undefined }
 ] as const
 
+/** 站点装修/外链遗留的旧 sort 别名（?sort=new/best）→ 目录 API 枚举（与 collection-page 同口径），
+ *  防止别名 URL 让排序下拉 value 匹配不到 option 而显示空触发器 */
+const SORT_ALIASES: Record<string, string> = { new: 'newest', best: 'recommended' }
+
 export function CollectionView({
   title,
   description,
   data,
   heroImage,
   colorOptions = [],
+  colorCollectionMap = {},
   filterDims = [],
   subTabs,
   basePath
@@ -43,6 +48,8 @@ export function CollectionView({
   heroImage?: string
   /** Shop by Color 色板标签名（E-CAT-07 派生；空则不渲染颜色组） */
   colorOptions?: string[]
+  /** 色板名 → 集合 id:色系筛选走集合维度(后端 color 参数为 SKU 单色精确匹配,色组名必然落空) */
+  colorCollectionMap?: Record<string, number>
   /** 动态属性筛选维度（E-CAT-27；空则不渲染属性组） */
   filterDims?: StoreFilterDim[]
   /** 子分类 tab（value=category id 字符串，cat searchParam 驱动） */
@@ -63,9 +70,12 @@ export function CollectionView({
   ]
 
   const color = params.get('color') ?? ''
+  const collectionActive = params.get('collection') ?? ''
   const size = params.get('size') ?? ''
   const price = params.get('price') ?? ''
-  const sort = params.get('sort') ?? 'recommended'
+  // sort 归一：旧别名（new/best）与非法值都映射到合法 option，保证下拉触发器始终有标签
+  const rawSort = params.get('sort') ?? 'recommended'
+  const sort = SORT_ALIASES[rawSort] ?? (sorts.some((s) => s.value === rawSort) ? rawSort : 'recommended')
   const cat = params.get('cat') ?? ''
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
@@ -96,9 +106,9 @@ export function CollectionView({
   }
 
   const attrActiveCount = Object.keys(attrSelections).length
-  const activeCount = [color, size, price].filter(Boolean).length + attrActiveCount
+  const activeCount = [color, collectionActive, size, price].filter(Boolean).length + attrActiveCount
   const clearAll = () => {
-    const patch: Record<string, string | null> = { color: null, size: null, price: null }
+    const patch: Record<string, string | null> = { color: null, collection: null, size: null, price: null }
     for (const key of Object.keys(attrSelections)) patch['a_' + key] = null
     navigate(patch)
   }
@@ -112,10 +122,15 @@ export function CollectionView({
       colorOptions={colorOptions}
       filterDims={filterDims}
       attrSelections={attrSelections}
-      color={color}
+      color={color || (collectionActive && Object.entries(colorCollectionMap).find(([, id]) => String(id) === collectionActive)?.[0]) || ''}
       size={size}
       price={price}
-      onColor={(v) => navigate({ color: v === color ? null : v })}
+      onColor={(v) => {
+        // 色板筛选:命中色板集合则走 collection 维度,否则按 SKU color
+        const cid = colorCollectionMap[v]
+        if (cid != null) navigate({ collection: String(cid) === collectionActive ? null : String(cid), color: null })
+        else navigate({ color: v === color ? null : v, collection: null })
+      }}
       onSize={(v) => navigate({ size: v === size ? null : v })}
       onPrice={(v) => navigate({ price: v === price ? null : v })}
       onAttr={toggleAttr}
@@ -124,19 +139,19 @@ export function CollectionView({
 
   return (
     <div>
-      {/* Hero / 标题区 */}
-      <div className="relative overflow-hidden bg-muted">
+      {/* Hero / 标题区：70vh 大片 + 深色渐变蒙层（原 42vh 矮版升级） */}
+      <div className="relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-ink text-canvas">
         {heroImage && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={heroImage} alt={title} className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-b from-canvas/30 via-canvas/40 to-canvas/85" />
+            <div className="absolute inset-0 bg-gradient-to-b from-ink/35 via-ink/45 to-ink/70" />
           </>
         )}
-        <div className="container-luxe relative py-16 text-center lg:py-24">
-          <p className="eyebrow mb-3">{t.collection.eyebrow}</p>
-          <h1 className="heading-display text-4xl sm:text-5xl lg:text-6xl">{title}</h1>
-          {description && <p className="mx-auto mt-4 max-w-xl text-ink-soft">{description}</p>}
+        <div className="container-luxe relative py-24 text-center">
+          <p className="eyebrow mb-3 text-gold-light">{t.collection.eyebrow}</p>
+          <h1 className="heading-display text-4xl text-canvas sm:text-5xl lg:text-6xl">{title}</h1>
+          {description && <p className="mx-auto mt-4 max-w-xl text-canvas/85">{description}</p>}
         </div>
       </div>
 

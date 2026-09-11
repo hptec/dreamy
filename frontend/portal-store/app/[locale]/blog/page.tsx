@@ -51,42 +51,24 @@ export default async function BlogPage({
     )
   }
 
-  const [featured, ...rest] = posts
-
+  // 3 列大图卡片流（4:5 画幅 + Cormorant 标题 + 分类 eyebrow + hover 轻缩放；数据结构不变）
   return (
     <div className="container-luxe py-12">
       <SectionHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
 
-      <Link href={`/blog/${featured.slug}`} className="group mt-12 grid items-center gap-8 lg:grid-cols-2">
-        <div className="aspect-[4/3] overflow-hidden rounded-sm bg-muted">
-          {featured.cover && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={featured.cover} alt={featured.title} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
-          )}
-        </div>
-        <div>
-          <p className="eyebrow">{featured.category}</p>
-          <h2 className="mt-2 font-display text-4xl font-medium leading-tight">{featured.title}</h2>
-          {featured.excerpt && <p className="mt-3 text-ink-soft">{featured.excerpt}</p>}
-          <p className="mt-4 text-xs text-ink-faint">{[featured.author, formatDateTimeLong(featured.publishedAt)].filter(Boolean).join(' · ')}</p>
-        </div>
-      </Link>
-
-      <div className="mt-16 grid gap-8 lg:grid-cols-2">
-        {rest.map((post) => (
-          <Link key={post.id} href={`/blog/${post.slug}`} className="group grid grid-cols-[140px_1fr] gap-5">
-            <div className="aspect-square overflow-hidden rounded-sm bg-muted">
+      <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        {posts.map((post) => (
+          <Link key={post.id} href={`/blog/${post.slug}`} className="group min-w-0">
+            <div className="aspect-[4/5] overflow-hidden rounded-sm bg-muted">
               {post.cover && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={post.cover} alt={post.title} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
               )}
             </div>
-            <div>
-              <p className="eyebrow">{post.category}</p>
-              <h3 className="mt-1 font-display text-xl font-medium leading-snug">{post.title}</h3>
-              {post.excerpt && <p className="mt-2 text-sm text-ink-soft line-clamp-2">{post.excerpt}</p>}
-              <p className="mt-2 text-xs text-ink-faint">{formatDateTimeLong(post.publishedAt)}</p>
-            </div>
+            {post.category && <p className="eyebrow mt-4">{post.category}</p>}
+            <h3 className="mt-1.5 break-words font-display text-2xl font-medium leading-snug">{post.title}</h3>
+            {post.excerpt && <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{post.excerpt}</p>}
+            <p className="mt-2.5 text-xs text-ink-faint">{[post.author, formatDateTimeLong(post.publishedAt)].filter(Boolean).join(' · ')}</p>
           </Link>
         ))}
       </div>

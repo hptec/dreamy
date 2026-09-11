@@ -27,7 +27,8 @@ const CAT_I18N = {
   'Homecoming': ['Homecoming', 'Homecoming'],
   'Wedding Guest': ['Invitada de Boda', 'Invitée de Mariage'],
   'Accessories': ['Accesorios', 'Accessoires'],
-  'Veils & Headpieces': ['Velos y Tocados', 'Voiles & Ornements'],
+  'Jewelry & Headpieces': ['Joyería y Tocados', 'Bijoux & Ornements'],
+  'Flower Girl': ['Niña de las Flores', 'Demoiselle d'Honneur Fille'],
   'Wraps & Cover-Ups': ['Chales y Abrigos', 'Châles & Couvertures']
 }
 const COLL_I18N = {
@@ -97,7 +98,10 @@ function toProductPayload(p, catIdByPath, colIdByName, sort) {
 
 // ── 评价 SQL(直插 review + user,并同步 product 冗余评分列) ──
 const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "''")
-const iso = (d) => d.toISOString().slice(0, 19).replace('T', ' ')
+const iso = (d) => {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
 function buildReviewSql(rows, productIdBySlug, summary) {
   const lines = ['SET FOREIGN_KEY_CHECKS=0;']
   const emails = new Map()
@@ -115,7 +119,9 @@ function buildReviewSql(rows, productIdBySlug, summary) {
     const email = emails.get(r.name)
     const featured = r.rating === 5 && !featuredSeen.has(r.slug) ? 1 : 0
     if (featured) featuredSeen.add(r.slug)
-    const replyCols = r.reply ? `, 'Dreamy Team', '${esc(r.reply)}', NOW() - INTERVAL 2 DAY` : ', NULL, NULL, NULL'
+    const replyCols = r.reply
+      ? `, 'Dreamy Team', '${esc(r.reply)}', '${iso(r.replyAt)}'`
+      : ', NULL, NULL, NULL'
     lines.push(`INSERT INTO review (product_id, user_id, customer_name, rating, content, status, featured, submitted_at, reply_author, reply_content, reply_time) SELECT ${pid}, id, '${esc(r.name)}', ${r.rating}, '${esc(r.content)}', 2, ${featured}, '${iso(r.submittedAt)}'${replyCols} FROM user WHERE email='${esc(email)}';`)
   }
   for (const [slug, s] of Object.entries(summary)) {
@@ -296,8 +302,8 @@ async function main() {
     version: 0,
     columns: [
       { title: 'Shop', sort_order: 1, enabled: true, links: [
-        { label: 'All Wedding Dresses', url: '/products?category=wedding-dresses', sort_order: 1, target: 'self' },
-        { label: 'Bridesmaids', url: '/products?category=bridesmaids', sort_order: 2, target: 'self' },
+        { label: 'All Wedding Dresses', url: '/products?cat=Wedding%20Dresses', sort_order: 1, target: 'self' },
+        { label: 'Bridesmaids', url: '/products?cat=Bridesmaids', sort_order: 2, target: 'self' },
         { label: 'New Arrivals', url: '/products?sort=new', sort_order: 3, target: 'self' },
         { label: 'Best Sellers', url: '/products?sort=best', sort_order: 4, target: 'self' }
       ] },
@@ -342,7 +348,7 @@ async function main() {
   const sql = buildReviewSql(rows, productIdBySlug, summary)
   log(`评价 ${rows.length} 条(SQL 经 SSH 直插)...`)
   execFileSync('ssh', ['-o', 'ConnectTimeout=15', DEPLOY_SSH,
-    `PW=$(grep "^MYSQL_ROOT_PASSWORD=" /opt/dreamy/.env.deploy | cut -d= -f2); docker exec -i dreamy-mysql-1 mysql -uroot -p"$PW" identity`],
+    `PW=$(grep "^MYSQL_ROOT_PASSWORD=" /opt/dreamy/.env.deploy | cut -d= -f2); docker exec -i dreamy-mysql-1 mysql --default-character-set=utf8mb4 -uroot -p"$PW" identity`],
     { input: sql, stdio: ['pipe', 'inherit', 'inherit'] })
   log(`评价插入完成(评分覆盖 ${Object.keys(summary).length} 款)`)
 
