@@ -44,9 +44,9 @@ services:
       timeout: 5s
       retries: 12
 
-  # ── 边缘网关:唯一对外入口 ─────────────────────────────
-  # 三个端口语义与直暴模式完全一致(5173 store / 5174 admin / 18081 backend),
-  # 内部服务不再直接暴露;上域名+HTTPS 时仅需改 nginx/gateway.conf.template
+  # ── 边缘网关:唯一对外入口(单端口路径分流)──────────────
+  # / → store、/admin/ → admin、/api/ 与 /actuator/ → backend;
+  # admin/backend 不映射宿主端口;上域名+HTTPS 时仅需改 nginx/gateway.conf.template
   gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -59,8 +59,6 @@ services:
       - ./nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "${STORE_PORT:-5173}:5173"
-      - "${ADMIN_PORT:-5174}:5174"
-      - "${BACKEND_PORT:-18081}:18081"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5173/"]
       interval: 15s
@@ -88,9 +86,13 @@ services:
       # 派生地址:默认取公网入口变量,避免同一 URL 重复填写(如需偏离再显式覆盖)
       SITE_BASE_URL: ${SITE_BASE_URL:-${PUBLIC_STORE_URL:-http://localhost:5173}}
       STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
-      ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_ADMIN_URL:-http://localhost:5174}}
+      # 单端口同源部署:admin 与 store 共用网关入口,Origin 一致(PUBLIC_ADMIN_URL 含 /admin 路径不可作 Origin)
+      ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
     volumes:
       - ./data/logs/backend:/app/logs
+    # 仅绑本机回环:deploy.sh 健康检查/调试用,不对公网暴露(webhook 走网关 /api)
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-18081}:18081"
     depends_on:
       mysql:
         condition: service_healthy
@@ -108,7 +110,8 @@ services:
       # 同源 API 反代(middleware)与 RSC 服务端取数共用后端内网地址
       BACKEND_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
       API_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
-      ADMIN_ORIGIN: ${PUBLIC_ADMIN_URL:-http://localhost:5174}
+      # CSP frame-ancestors 的管理端来源(headers() 在 build 时固化):同源部署与 store 入口一致
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
     depends_on:
       - backend
 

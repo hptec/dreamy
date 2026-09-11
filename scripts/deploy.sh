@@ -5,7 +5,7 @@
 #           同步编排文件 → 拉取 ACR 镜像 → 替换容器 → 健康检查 → 清理旧镜像
 # 使用方式: bash scripts/deploy.sh
 # 前置条件: 服务器已装 docker + git、已 clone 仓库、.env.deploy 已填写、已 docker login ACR
-# 回滚方式: .env.deploy 改 IMAGE_TAG=git-<旧短SHA> 后重跑本脚本
+# 回滚方式: .env.deploy 改 IMAGE_TAG=<旧时间戳-短SHA>(见 release.sh 输出历史 tag) 后重跑本脚本
 # =============================================================
 set -euo pipefail
 
@@ -61,16 +61,17 @@ wait_http() {
   return 1
 }
 
-# 后端含 JVM 启动 + DdlAuto 自动建表,给足时间
+# 后端含 JVM 启动 + DdlAuto 自动建表,给足时间(回环端口,不对外)
 wait_http "backend" "http://127.0.0.1:${BACKEND_PORT:-18081}/actuator/health" 180
 wait_http "portal-store" "http://127.0.0.1:${STORE_PORT:-5173}/" 60
-wait_http "portal-admin" "http://127.0.0.1:${ADMIN_PORT:-5174}/" 60
+# admin 经网关 /admin/ 路径(单端口分流,不映射独立宿主端口)
+wait_http "portal-admin" "http://127.0.0.1:${STORE_PORT:-5173}/admin/" 60
 
 echo "[deploy] 清理旧镜像层..."
 docker image prune -f
 
 echo "[deploy] 部署完成 (IMAGE_TAG=${IMAGE_TAG:-latest}):"
 echo "  消费端门户: ${PUBLIC_STORE_URL:-http://<服务器IP>:${STORE_PORT:-5173}}"
-echo "  管理后台:   ${PUBLIC_ADMIN_URL:-http://<服务器IP>:${ADMIN_PORT:-5174}}"
-echo "  后端 API:   http://127.0.0.1:${BACKEND_PORT:-18081}"
+echo "  管理后台:   ${PUBLIC_ADMIN_URL:-http://<服务器IP>:${STORE_PORT:-5173}/admin}"
+echo "  后端 API:   http://127.0.0.1:${BACKEND_PORT:-18081} (回环,公网经网关 /api)"
 echo "  后端日志:   tail -f data/logs/backend/identity.log"

@@ -1,5 +1,8 @@
-# 边缘网关:唯一对外入口,三个端口分别转发到内网服务(宿主端口语义与直暴模式完全一致,
-# 对外地址/CORS/CSP 均不变;上域名+HTTPS 时仅需改本网关配置)。
+# 边缘网关:唯一对外入口,单端口按路径分流(上域名+HTTPS 时仅需改本网关配置):
+#   /           → portal-store(默认路由)
+#   /admin/     → portal-admin(网关剥离 /admin 前缀,admin 容器按根路径服务,其 nginx 零感知)
+#   /api/       → backend(浏览器同源 API:admin SPA / store OIDC 回调 / newsletter 退订 / webhook)
+#   /actuator/  → backend(健康检查与调试)
 # 上游地址由环境变量注入(默认 compose 服务名,与 DB_URL 的 mysql:3306 同为编排层契约)。
 # 注意 Host 用 $http_host 原样透传(含端口):$host 丢端口会让后端把同源 POST 误判为跨域。
 
@@ -7,6 +10,7 @@ server {
     listen 5173;
     server_name _;
 
+    # store 默认路由(Next.js 全站)
     location / {
         proxy_pass ${STORE_UPSTREAM};
         proxy_set_header Host $http_host;
@@ -20,15 +24,11 @@ server {
         proxy_read_timeout 60s;
         client_max_body_size 20m;
     }
-}
 
-server {
-    listen 5174;
-    server_name _;
-
-    # 整体转发到 admin 应用容器(其自带 nginx 承担静态托管与 /api 反代)
-    location / {
-        proxy_pass ${ADMIN_UPSTREAM};
+    # admin 后台:无斜杠访问补斜杠;proxy_pass 尾斜杠触发 /admin/ 前缀剥离
+    location = /admin { return 301 /admin/; }
+    location /admin/ {
+        proxy_pass ${ADMIN_UPSTREAM}/;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -36,14 +36,9 @@ server {
         proxy_read_timeout 60s;
         client_max_body_size 20m;
     }
-}
 
-server {
-    listen 18081;
-    server_name _;
-
-    # 后端 API 直通(webhook/OIDC 回调/直连调试)
-    location / {
+    # backend API 直通(路径原样转发)
+    location /api/ {
         proxy_pass ${BACKEND_UPSTREAM};
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -51,5 +46,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
         client_max_body_size 20m;
+    }
+
+    location /actuator/ {
+        proxy_pass ${BACKEND_UPSTREAM};
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
     }
 }

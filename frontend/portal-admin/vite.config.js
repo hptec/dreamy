@@ -11,6 +11,8 @@ const securityHeaders = {
 };
 export default defineConfig({
     plugins: [vue()],
+    // 单端口网关部署:/admin/ 子路径托管(生产构建经 release.sh 注入 ADMIN_BASE=/admin/;dev 不设走根路径)
+    base: process.env.ADMIN_BASE ?? '/',
     resolve: {
         alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
     },

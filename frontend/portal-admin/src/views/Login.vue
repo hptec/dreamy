@@ -9,6 +9,8 @@ import { BizError } from '@/api/client'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+// public 静态资源 base(/admin/ 子路径部署时由 vite 注入)
+const publicBase = import.meta.env.BASE_URL
 
 const email = ref('admin@dreamy.com')
 const password = ref('')
@@ -50,7 +52,8 @@ async function submit() {
   <div class="grid min-h-screen lg:grid-cols-2">
     <!-- 品牌侧 -->
     <div class="relative hidden overflow-hidden lg:block">
-      <img src="/competitor-refs/kissprom/wedding-aline-tulle-01.jpg" alt="" class="absolute inset-0 h-full w-full object-cover object-top" />
+      <!-- BASE_URL 前缀:/admin/ 子路径部署时 public 资源随 base 走 -->
+      <img :src="`${publicBase}competitor-refs/kissprom/wedding-aline-tulle-01.jpg`" alt="" class="absolute inset-0 h-full w-full object-cover object-top" />
       <div class="absolute inset-0 bg-gradient-to-tr from-sidebar/85 via-sidebar/40 to-transparent"></div>
       <div class="absolute bottom-0 left-0 p-12 text-canvas">
         <p class="eyebrow text-gold-soft">Dreamy Admin Console</p>

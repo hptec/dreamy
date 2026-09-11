@@ -5,7 +5,7 @@
 #           backend: 本地 Gradle 编译 JAR(JVM 字节码跨架构)→ 单阶段打包
 #           admin:   本地 Vite 构建静态产物(跨架构)→ nginx 单阶段打包
 #           store:   buildx 容器内全量构建(standalone 含平台 SWC 二进制,必须目标平台构建)
-# 使用方式: bash scripts/release.sh          # 构建并推送 ACR(双 tag: latest + git-<sha>)
+# 使用方式: bash scripts/release.sh          # 构建并推送 ACR(双 tag: latest + <时间戳>-<短SHA>)
 #           bash scripts/release.sh --load   # 仅构建并导入本地(不推送,平台跟随本机,用于本地验证)
 # 依赖环境: Docker Desktop(buildx)、GraalVM JDK25、pnpm、已 docker login ACR
 # 配置来源: 仓库根目录 .env.deploy(见 .env.deploy.example)
@@ -54,6 +54,7 @@ fi
 
 # ── 平台与 tag ───────────────────────────────────────────
 SHORT_SHA="$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD)"
+RELEASE_TAG="$(date +%Y%m%d%H%M)-${SHORT_SHA}"
 PUSH_FLAG="--push"
 PLATFORM="${PLATFORM:-linux/amd64}"
 if [ "${LOAD_ONLY}" = "1" ]; then
@@ -81,25 +82,25 @@ if [ ! -f "${PROJECT_ROOT}/backend/build/libs/identity-app.jar" ]; then
   exit 1
 fi
 
-# ── ② admin:本地构建静态产物(同源模式,VITE_API_BASE_URL 置空)──
+# ── ② admin:本地构建静态产物(同源模式,VITE_API_BASE_URL 置空;/admin/ 子路径部署)──
 echo "[release] 构建 portal-admin 静态产物 ..."
 export npm_config_registry="https://registry.npmmirror.com"
 (
   cd "${PROJECT_ROOT}/frontend/portal-admin"
   if [ ! -d node_modules ]; then pnpm install --frozen-lockfile; fi
-  VITE_API_BASE_URL="" VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-}" pnpm build
+  VITE_API_BASE_URL="" VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-}" ADMIN_BASE="/admin/" pnpm build
 )
 
 # ── ③ 三镜像 buildx 构建(双 tag:latest + git-<sha>)──────
 build_image() {
   local name="$1" dir="$2"; shift 2
   local repo="${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-${name}"
-  echo "[release] 构建镜像 ${repo} (platform: ${PLATFORM}, tags: latest / git-${SHORT_SHA}) ..."
+  echo "[release] 构建镜像 ${repo} (platform: ${PLATFORM}, tags: latest / ${RELEASE_TAG}) ..."
   # shellcheck disable=SC2086
   docker buildx build \
     --platform "${PLATFORM}" \
     -t "${repo}:latest" \
-    -t "${repo}:git-${SHORT_SHA}" \
+    -t "${repo}:${RELEASE_TAG}" \
     "$@" \
     ${PUSH_FLAG} \
     "${dir}"
@@ -111,11 +112,11 @@ build_image store "${PROJECT_ROOT}/frontend/portal-store" \
   --build-arg NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-}" \
   --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}" \
   --build-arg NEXT_PUBLIC_GA4_ID="${NEXT_PUBLIC_GA4_ID:-}" \
-  --build-arg ADMIN_ORIGIN="${PUBLIC_ADMIN_URL:-}"
+  --build-arg ADMIN_ORIGIN="${ADMIN_ORIGIN:-${PUBLIC_STORE_URL:-}}"
 
 echo "[release] 完成。"
 if [ "${LOAD_ONLY}" = "0" ]; then
-  echo "[release] 已推送 ${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-{backend,store,admin}:{latest,git-${SHORT_SHA}}"
+  echo "[release] 已推送 ${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-{backend,store,admin}:{latest,${RELEASE_TAG}}"
   echo "[release] 服务器执行: bash scripts/deploy.sh"
 else
   echo "[release] 本地验证: docker compose --env-file .env.deploy up -d"
