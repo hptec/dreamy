@@ -17,7 +17,7 @@ export default async function SpecialOccasionPage({ searchParams }: { searchPara
       categoryNames={['Special Occasion']}
       title="Special Occasion"
       description="Bridesmaid, guest, and evening dresses your whole party will love — and actually re-wear."
-      heroImage="/competitor-refs/birdygrey/bridesmaid-pink-bryten-02.jpg"
+      heroImage="/photography/lookbook-coastal.jpg"
       basePath="/special-occasion"
       searchParams={sp}
     />

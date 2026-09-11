@@ -154,7 +154,7 @@ export const occasionDresses = [
   dress({
     name: 'Cassia One-Shoulder Prom Dress', slug: 'cassia-one-shoulder-prom-dress',
     categoryPath: ['Occasion & Party', 'Prom & Evening'],
-    price: 189, compareAt: 229, isBest: true,
+    price: 189, compareAt: 229, isBest: true, recommend: true,
     color: 'Sage', fabricMain: 'Crepe',
     description: 'A one-shoulder crepe gown with a leg slit for prom season — or any night that deserves a train. The asymmetric neckline frames the collarbone; the stretch crepe forgives the dessert.',
     designerNote: 'Named after the first customer who wore it to prom and then again, twice, to two weddings. It\'s that dress.',

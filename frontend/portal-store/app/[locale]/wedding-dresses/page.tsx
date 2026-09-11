@@ -17,7 +17,7 @@ export default async function WeddingDressesPage({ searchParams }: { searchParam
       categoryNames={['Wedding Dresses', 'Bridal']}
       title="Wedding Dresses"
       description="Airy, light-catching gowns made to move with you — from beachfront vows to garden celebrations."
-      heroImage="/competitor-refs/davidsbridal/wedding-dress-04.jpg"
+      heroImage="/photography/lookbook-golden.jpg"
       basePath="/wedding-dresses"
       searchParams={sp}
     />

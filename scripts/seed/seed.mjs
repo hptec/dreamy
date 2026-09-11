@@ -185,7 +185,8 @@ async function main() {
   log(`集合 ${Object.keys(colIdByName).length} 个`)
 
   // ⑤ 商品(32 款)
-  const allProducts = [...weddingDresses, ...bridesmaidDresses, ...occasionDresses, ...accessories]
+  // 创建顺序 = created_at 序:婚纱最后创建,New Arrivals(created_at DESC)呈现婚纱新款
+  const allProducts = [...accessories, ...occasionDresses, ...bridesmaidDresses, ...weddingDresses]
   const productIdBySlug = {}
   let sort = 0
   for (const p of allProducts) {

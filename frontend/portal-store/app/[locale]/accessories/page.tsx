@@ -17,7 +17,7 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
       categoryNames={['Accessories']}
       title="Accessories"
       description="The finishing touches — veils, heels, jewelry, and headpieces to complete every look."
-      heroImage="/competitor-refs/birdygrey/accessory-jewelry-01.jpg"
+      heroImage="/photography/featured-atelier.jpg"
       basePath="/accessories"
       searchParams={sp}
     />

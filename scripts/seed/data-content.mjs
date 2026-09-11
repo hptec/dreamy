@@ -160,7 +160,7 @@ export const lookbooks = [
 export const banners = [
   { name: 'Hero — Coastal Season', imageUrl: '/photography/hero-01.jpg', position: 'HERO', status: 1, sort: 1,
     title: 'Dresses Made for the Outdoors', subtitle: 'Engineered for tide lines, gardens, and golden hour — not ballrooms.', ctaText: 'Shop Wedding Dresses', ctaLink: '/wedding-dresses' },
-  { name: 'Hero — Garden Season', imageUrl: '/photography/hero-02.jpg', position: 'HERO', status: 1, sort: 2,
+  { name: 'Hero — Garden Season', imageUrl: '/photography/hero-03.jpg', position: 'HERO', status: 1, sort: 2,
     title: 'The Garden Edit', subtitle: 'Lace, tulle, and palettes grown from the landscape.', ctaText: 'Explore the Edit', ctaLink: '/inspiration' },
   { name: 'Featured — Made-to-Order', imageUrl: '/photography/featured-atelier.jpg', position: 'FEATURED', status: 1, sort: 1,
     title: 'Cut for You, Not for a Shelf', subtitle: 'Every gown made to your measurements in 8–12 weeks. Rush available.', ctaText: 'How It Works', ctaLink: '/blog/made-to-order-timeline-guide' },
