@@ -38,3 +38,6 @@ logs/
 # 部署配置(含密钥)与容器运行数据(日志/卷 bind mount)
 .env.deploy
 /data/
+
+# 生产发布构建配置(release.sh --env)
+.env.deploy.prod
