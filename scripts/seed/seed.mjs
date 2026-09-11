@@ -28,7 +28,7 @@ const CAT_I18N = {
   'Wedding Guest': ['Invitada de Boda', 'Invitée de Mariage'],
   'Accessories': ['Accesorios', 'Accessoires'],
   'Jewelry & Headpieces': ['Joyería y Tocados', 'Bijoux & Ornements'],
-  'Flower Girl': ['Niña de las Flores', 'Demoiselle d'Honneur Fille'],
+  'Flower Girl': ['Niña de las Flores', "Demoiselle d'Honneur Fille"],
   'Wraps & Cover-Ups': ['Chales y Abrigos', 'Châles & Couvertures']
 }
 const COLL_I18N = {
