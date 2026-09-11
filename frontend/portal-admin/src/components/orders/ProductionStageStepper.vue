@@ -59,7 +59,16 @@ async function go(target: ProductionStage | null) {
       <button class="btn-ghost" :disabled="busy || prev == null" :title="prev == null ? '已是第一阶段' : `回退到「${productionStageMeta(prev).label}」`" data-testid="production-prev" @click="go(prev)">
         <ArrowLeftIcon class="h-4 w-4" />回退一档
       </button>
-      <button class="btn-gold" :disabled="busy || next == null" :title="next == null ? '已是最后阶段，可创建包裹发货' : `推进到「${productionStageMeta(next).label}」`" data-testid="production-next" @click="go(next)">
+      <span
+        v-if="next == null && !busy"
+        role="status"
+        class="badge bg-ok/12 text-ok"
+        title="制作已全部完成，可在下方创建包裹并发货"
+        data-testid="production-ready"
+      >
+        <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>已可发货
+      </span>
+      <button v-else class="btn-gold" :disabled="busy" :title="next == null ? '已是最后阶段，可创建包裹发货' : `推进到「${productionStageMeta(next).label}」`" data-testid="production-next" @click="go(next)">
         {{ busy ? '处理中…' : next == null ? '已可发货' : `推进到「${productionStageMeta(next).label}」` }}<ArrowRightIcon v-if="next != null" class="h-4 w-4" />
       </button>
     </div>
