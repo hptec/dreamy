@@ -17,7 +17,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       categoryNames={[]}
       title="All Styles"
       description="Explore every dress, gown, and accessory for your celebration."
-      heroImage="/photography/hero-02.jpg"
+      heroImage="/photography/bride-plp.jpg"
       basePath="/products"
       searchParams={sp}
     />

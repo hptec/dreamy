@@ -8,7 +8,7 @@ export const blogPosts = [
   {
     title: 'What to Wear to a Beach Wedding: The Complete Guide', slug: 'what-to-wear-beach-wedding-guide',
     category: 'Wedding Guest Guides', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/blog-beach-attire.jpg',
+    cover: '/photography/blog-beach-bride.jpg',
     excerpt: 'Sand, salt, and sunset light — everything you need to choose a dress (and shoes) that will survive the tide line beautifully.',
     content: P(['Sand changes everything. The dress that photographs like a dream in a ballroom can turn into a wrestling match on a beach — so before you fall in love with a silhouette, fall in love with the right fabric.',
       '**For brides:** think chiffon, tulle, and lightweight crepe. These fabrics move with the ocean breeze instead of fighting it, and they shake sand right out. Our Cove dress was tested on three beaches before we signed off on it — the mid-calf hem stays above the tide line, and it packs into a carry-on without a single wrinkle. If you have your heart set on a train, choose a detachable one; the ceremony photos will thank you, and the reception-you will too.',
@@ -19,7 +19,7 @@ export const blogPosts = [
   {
     title: 'Garden Wedding Attire: Fabrics That Breathe (and Photograph Beautifully)', slug: 'garden-wedding-fabrics-guide',
     category: 'Wedding Guest Guides', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/blog-garden-fabrics.jpg',
+    cover: '/photography/blog-fabric.jpg',
     excerpt: 'A garden in July is a photographer\'s dream and a polyester dress\'s nightmare. Here is how to pick fabrics that keep their cool.',
     content: P(['Garden weddings give you golden light, living backdrops, and — if you dress wrong — the slow realization that your dress has become a greenhouse. Fabric choice matters more here than at any other venue type.',
       '**The fabrics that work:** chiffon and tulle float away from the body and let air move; cotton-blend crepe breathes while holding a structured shape; matte jersey wicks better than any of them but photographs with a slight sheen under direct sun — know which you are getting. Our Bella bridesmaid dress uses double-layer chiffon precisely because single-layer reads pale and translucent against greenery.',
@@ -30,7 +30,7 @@ export const blogPosts = [
   {
     title: 'Cliffside & Coastal Ceremony Dresses That Won\'t Fight the Wind', slug: 'cliffside-coastal-dresses-wind',
     category: 'Buying Guides', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/hero-02.jpg',
+    cover: '/photography/blog-wind-veil.jpg',
     excerpt: 'The view is dramatic; the wind is more dramatic. How to choose a silhouette that holds its shape three hundred feet above the Pacific.',
     content: P(['Every cliffside couple has the same Pinterest board: the bride, the drop, the infinite ocean. And every cliffside photographer has the same private knowledge: the wind has opinions about your dress.',
       'The good news is that wind, handled correctly, is a collaborator. The dresses that look incredible on cliffs are the ones engineered to catch air in a controlled way — heavier bodices with lighter skirts, so the dress moves without ever moving you.',
@@ -41,7 +41,7 @@ export const blogPosts = [
   {
     title: 'Barn & Meadow Weddings: Textures That Love Golden Hour', slug: 'barn-meadow-wedding-textures',
     category: 'Buying Guides', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/lookbook-golden.jpg',
+    cover: '/photography/blog-lace-detail.jpg',
     excerpt: 'Weathered wood and wild grasses want lace, crepe, and a little bit of sparkle. Here is how to dress for the most forgiving light of your life.',
     content: P(['Golden hour in a meadow is the most forgiving light that exists — it forgives a lot, but it also reveals everything. Texture becomes the whole story: smooth fabrics look flat, and dimensional fabrics come alive.',
       '**Lace is the meadow\'s native language.** Scalloped edges, re-embroidered florals, and tiered ruffles all catch the low sun and create depth that flat satin simply cannot. If you are the bride, look for lace with some openwork — at golden hour, the light through the pattern is the detail everyone remembers.',
@@ -52,7 +52,7 @@ export const blogPosts = [
   {
     title: 'How to Choose a Wedding Dress for Sand, Grass, or Stone Aisles', slug: 'choose-dress-sand-grass-stone-aisles',
     category: 'Buying Guides', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/lookbook-garden.jpg',
+    cover: '/photography/blog-hem-length.jpg',
     excerpt: 'Your aisle surface decides your hemline, your shoes, and honestly some of your silhouette. A field guide, surface by surface.',
     content: P(['We spend months on silhouettes and lace patterns, and then the aisle gets a vote. Here is what each surface does to a dress — and how to choose one that ends the night still looking like it was chosen, not survived.',
       '**Sand.** The enemy of hems and heels. Tea-length and midi dresses are the obvious answer, but a floor-length chiffon also survives sand well — it is light enough to shake clean. What does not survive: heavy satin trains (they scoop), anything with a horsehair hem (it acts like a broom), and stilettos of any height. Wear flats or barefoot sandals and lean into it; barefoot-in-lace is a whole genre of beautiful photos.',
@@ -63,7 +63,7 @@ export const blogPosts = [
   {
     title: 'The 8–12 Week Timeline: When to Order Your Made-to-Order Gown', slug: 'made-to-order-timeline-guide',
     category: 'Planning', author: 'The Dreamy Atelier', status: 1,
-    cover: '/photography/blog-atelier-timeline.jpg',
+    cover: '/photography/featured-atelier.jpg',
     excerpt: 'Made-to-order means your dress is cut for you, not pulled from a shelf — which means the calendar is part of the design. Here is the honest timeline.',
     content: P(['"Why does my dress take eight weeks?" is the second-most-common question we hear, right after "will it fit?" — and the answers are related.',
       'A made-to-order gown is cut after you order it. The pattern is adjusted to your measurements, the fabric is cut by hand, the boning is shaped, and the lace — if there is lace — is placed by a person, not a machine. This is why made-to-order fits better than anything off a rack, and also why it cannot be rushed without charge: the calendar is not bureaucratic, it is craft.',
@@ -158,9 +158,9 @@ export const lookbooks = [
 
 // Banner(position: HERO=1? 按枚举——MarketingSeed 用 HERO/FEATURED/TOPBAR;status 1=published)
 export const banners = [
-  { name: 'Hero — Coastal Season', imageUrl: '/photography/hero-01.jpg', position: 'HERO', status: 1, sort: 1,
+  { name: 'Hero — Coastal Season', imageUrl: '/photography/bride-hero-01.jpg', position: 'HERO', status: 1, sort: 1,
     title: 'Dresses Made for the Outdoors', subtitle: 'Engineered for tide lines, gardens, and golden hour — not ballrooms.', ctaText: 'Shop Wedding Dresses', ctaLink: '/wedding-dresses' },
-  { name: 'Hero — Garden Season', imageUrl: '/photography/hero-03.jpg', position: 'HERO', status: 1, sort: 2,
+  { name: 'Hero — Garden Season', imageUrl: '/photography/bride-hero-02.jpg', position: 'HERO', status: 1, sort: 2,
     title: 'The Garden Edit', subtitle: 'Lace, tulle, and palettes grown from the landscape.', ctaText: 'Explore the Edit', ctaLink: '/inspiration' },
   { name: 'Featured — Made-to-Order', imageUrl: '/photography/featured-atelier.jpg', position: 'FEATURED', status: 1, sort: 1,
     title: 'Cut for You, Not for a Shelf', subtitle: 'Every gown made to your measurements in 8–12 weeks. Rush available.', ctaText: 'How It Works', ctaLink: '/blog/made-to-order-timeline-guide' },
