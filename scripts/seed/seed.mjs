@@ -1,5 +1,5 @@
 // Dreamy 生产数据灌入主编排:admin REST API(经公网网关) + 评价 SQL(经 SSH 直插)
-// 用法:API_BASE=http://dreamy.cerestech.cn:60080/api node scripts/seed/seed.mjs
+// 用法:API_BASE=https://dreamy.cerestech.cn:60080/api node scripts/seed/seed.mjs
 // 前置:scripts/seed/reset.sh 已执行(空库);服务器 mysql 容器运行中
 import { execFileSync } from 'node:child_process'
 import { login, post, put, get } from './api.mjs'
@@ -301,7 +301,7 @@ async function main() {
     { label: 'Bridesmaids', link_type: 3, ref_id: catIdByPath['Bridesmaids'], sort_order: 3, target: 'self', enabled: true },
     { label: 'Occasion & Party', link_type: 3, ref_id: catIdByPath['Occasion & Party'], sort_order: 4, target: 'self', enabled: true },
     { label: 'Real Weddings', link_type: 2, page_key: 'real-weddings', sort_order: 5, target: 'self', enabled: true },
-    { label: 'Journal', link_type: 1, url: '/blog', sort_order: 6, target: 'self', enabled: true }
+    { label: 'The Journal', link_type: 1, url: '/blog', sort_order: 6, target: 'self', enabled: true }
   ]
   await put('/admin/site-builder/navigation', { items: navItems, version: 0 })
   log(`导航 ${navItems.length} 项`)
