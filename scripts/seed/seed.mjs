@@ -11,6 +11,8 @@ import { buildReviews, ratingSummary } from './data-reviews.mjs'
 
 const PUBLISHED = 2, ACTIVE = 3
 const DEPLOY_SSH = process.env.DEPLOY_SSH ?? 'root@47.238.216.69'
+// SEED_TARGET=local:评价 SQL 与缓存清理走本机 docker(pd-mysql/pd-redis),配合 API_BASE=http://localhost:18081/api
+const LOCAL = process.env.SEED_TARGET === 'local'
 const log = (m) => console.log(`[seed] ${m}`)
 
 // ── 翻译映射 ──
@@ -24,7 +26,6 @@ const CAT_I18N = {
   'Short & Convertible': ['Cortos y Convertibles', 'Courtes & Convertibles'],
   'Occasion & Party': ['Ocasión y Fiesta', 'Occasion & Fête'],
   'Prom & Evening': ['Gala y Noche', 'Gala & Soirée'],
-  'Homecoming': ['Homecoming', 'Homecoming'],
   'Wedding Guest': ['Invitada de Boda', 'Invitée de Mariage'],
   'Accessories': ['Accesorios', 'Accessoires'],
   'Jewelry & Headpieces': ['Joyería y Tocados', 'Bijoux & Ornements'],
@@ -188,10 +189,17 @@ async function main() {
   // 创建顺序 = created_at 序:婚纱最后创建,New Arrivals(created_at DESC)呈现婚纱新款
   const allProducts = [...accessories, ...occasionDresses, ...bridesmaidDresses, ...weddingDresses]
   const productIdBySlug = {}
-  let sort = 0
+  // PLP 默认按 sort ASC:深底商品图(Elowen/Juno)排到货架尾部,与 created_at(新品位)解耦
+  const ELOWEN = 'elowen-aline-cold-shoulder-wedding-dress', JUNO = 'juno-two-piece-wedding-dress-set'
+  const ranked = allProducts.filter((p) => p.slug !== ELOWEN && p.slug !== JUNO)
+  // Elowen 落婚纱货架第 9 位、Juno 第 12 位:两张深底图不同排并列
+  ranked.splice(ranked.length - 2, 0, allProducts.find((p) => p.slug === ELOWEN))
+  ranked.push(allProducts.find((p) => p.slug === JUNO))
+  const sortOf = new Map(ranked.map((p, i) => [p.slug, i + 1]))
+  let n0 = 0
   for (const p of allProducts) {
-    process.stdout.write(`  商品 ${++sort}/${allProducts.length}: ${p.slug} ... `)
-    const r = await post('/admin/products', toProductPayload(p, catIdByPath, colIdByName, sort))
+    process.stdout.write(`  商品 ${++n0}/${allProducts.length}: ${p.slug} ... `)
+    const r = await post('/admin/products', toProductPayload(p, catIdByPath, colIdByName, sortOf.get(p.slug)))
     productIdBySlug[p.slug] = r.id
     console.log(`#${r.id}`)
   }
@@ -348,16 +356,26 @@ async function main() {
   const summary = ratingSummary(rows)
   const sql = buildReviewSql(rows, productIdBySlug, summary)
   log(`评价 ${rows.length} 条(SQL 经 SSH 直插)...`)
-  execFileSync('ssh', ['-o', 'ConnectTimeout=15', DEPLOY_SSH,
-    `PW=$(grep "^MYSQL_ROOT_PASSWORD=" /opt/dreamy/.env.deploy | cut -d= -f2); docker exec -i dreamy-mysql-1 mysql --default-character-set=utf8mb4 -uroot -p"$PW" identity`],
-    { input: sql, stdio: ['pipe', 'inherit', 'inherit'] })
+  if (LOCAL) {
+    execFileSync('docker', ['exec', '-i', 'pd-mysql', 'mysql', '--default-character-set=utf8mb4', '-uroot', '-proot', 'identity'],
+      { input: sql, stdio: ['pipe', 'inherit', 'pipe'] })
+  } else {
+    execFileSync('ssh', ['-o', 'ConnectTimeout=15', DEPLOY_SSH,
+      `PW=$(grep "^MYSQL_ROOT_PASSWORD=" /opt/dreamy/.env.deploy | cut -d= -f2); docker exec -i dreamy-mysql-1 mysql --default-character-set=utf8mb4 -uroot -p"$PW" identity`],
+      { input: sql, stdio: ['pipe', 'inherit', 'inherit'] })
+  }
   log(`评价插入完成(评分覆盖 ${Object.keys(summary).length} 款)`)
 
   // ⑰ 缓存刷新(评价/评分不走 admin API 的失效链,重启 backend 清 caffeine)
-  execFileSync('ssh', ['-o', 'ConnectTimeout=15', DEPLOY_SSH,
-    'docker exec dreamy-redis-1 redis-cli flushall >/dev/null && cd /opt/dreamy && docker compose --env-file .env.deploy restart backend 2>&1 | tail -1'],
-    { stdio: ['ignore', 'inherit', 'inherit'] })
-  log('Redis 已清空,backend 重启中(约 60s 就绪)')
+  if (LOCAL) {
+    execFileSync('docker', ['exec', 'pd-redis', 'redis-cli', 'flushall'], { stdio: ['ignore', 'inherit', 'inherit'] })
+    log('本机 Redis 已清空;评价评分依赖进程内缓存,需手动重启本地 backend(bootRun)')
+  } else {
+    execFileSync('ssh', ['-o', 'ConnectTimeout=15', DEPLOY_SSH,
+      'docker exec dreamy-redis-1 redis-cli flushall >/dev/null && cd /opt/dreamy && docker compose --env-file .env.deploy restart backend 2>&1 | tail -1'],
+      { stdio: ['ignore', 'inherit', 'inherit'] })
+    log('Redis 已清空,backend 重启中(约 60s 就绪)')
+  }
 
   log('=== 全部完成 ===')
   const counts = await get('/admin/products?page=1&page_size=1')

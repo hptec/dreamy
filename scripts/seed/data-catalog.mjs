@@ -8,17 +8,17 @@ export const attributeDefs = [
       { locale: 'es', label: 'Silueta', options: ['Línea A', 'Sirena', 'Recto', 'Evasé', 'Princesa'] },
       { locale: 'fr', label: 'Silhouette', options: ['Ligne A', 'Sirène', 'Fourreau', 'Évasée', 'Princesse'] }
     ] },
-  { key: 'neckline', label: 'Neckline', type: 1, options: ['One-Shoulder', 'V-Neck', 'Deep-V', 'Strapless', 'Halter', 'Sweetheart', 'Off-Shoulder', 'Square'],
+  { key: 'neckline', label: 'Neckline', type: 1, options: ['One-Shoulder', 'V-Neck', 'Deep-V', 'Strapless', 'Halter', 'Sweetheart', 'Off-Shoulder', 'Square', 'Cowl', 'Scoop', 'Illusion', 'Cold-Shoulder'],
     translations: [
-      { locale: 'es', label: 'Escote', options: ['Un hombro', 'Cuello V', 'V profundo', 'Palabra de honor', 'Halter', 'Corazón', 'Hombros descubiertos', 'Cuadrado'] },
-      { locale: 'fr', label: 'Encolure', options: ['Asymétrique', 'Col V', 'V plongeant', 'Bustier', 'Dos-nu', 'Cœur', 'Épaules dénudées', 'Carré'] }
+      { locale: 'es', label: 'Escote', options: ['Un hombro', 'Cuello V', 'V profundo', 'Palabra de honor', 'Halter', 'Corazón', 'Hombros descubiertos', 'Cuadrado', 'Drapeado', 'Redondo', 'Ilusión', 'Hombros al aire'] },
+      { locale: 'fr', label: 'Encolure', options: ['Asymétrique', 'Col V', 'V plongeant', 'Bustier', 'Dos-nu', 'Cœur', 'Épaules dénudées', 'Carré', 'Col bénitier', 'Arrondi', 'Illusion', 'Épaules ajourées'] }
     ] },
-  { key: 'sleeve', label: 'Sleeve', type: 1, options: ['Sleeveless', 'Long Sleeve', 'Short Sleeve', 'Strap', 'Off-Shoulder'] },
+  { key: 'sleeve', label: 'Sleeve', type: 1, options: ['Sleeveless', 'Long Sleeve', 'Short Sleeve', 'Cap Sleeve', 'Strap', 'Off-Shoulder'] },
   { key: 'back_style', label: 'Back Style', type: 1, options: ['Open Back', 'Lace-Up', 'Zipper', 'Button', 'Keyhole'] },
   { key: 'waistline', label: 'Waistline', type: 1, options: ['Natural', 'Empire', 'Drop', 'Basque'] },
   { key: 'train', label: 'Train', type: 1, options: ['None', 'Sweep', 'Chapel', 'Cathedral', 'Detachable'] },
   { key: 'length', label: 'Length', type: 1, options: ['Floor', 'Short', 'Tea-Length', 'High-Low'] },
-  { key: 'fabric', label: 'Fabric', type: 1, options: ['Tulle', 'Lace', 'Chiffon', 'Satin', 'Crepe', 'Organza', 'Sequin', 'Mikado'] },
+  { key: 'fabric', label: 'Fabric', type: 1, options: ['Tulle', 'Lace', 'Chiffon', 'Satin', 'Crepe', 'Organza', 'Sequin', 'Mikado', 'Jacquard'] },
   { key: 'support', label: 'Support', type: 1, options: ['Built-in Bra', 'Boning', 'Padded Cups', 'None'] },
   { key: 'season', label: 'Season', type: 1, options: ['Spring', 'Summer', 'Fall', 'Winter'] },
   { key: 'embellishment', label: 'Embellishments', type: 2, options: ['Lace', 'Beading', 'Sequins', 'Embroidery', 'Appliqué', 'Pearls', 'Ruffles'] },
@@ -63,8 +63,7 @@ export const categories = [
     { name: 'Short & Convertible', sort: 2 }
   ] },
   { name: 'Occasion & Party', attributeSetLabel: 'Occasion Set', sort: 3, children: [
-    { name: 'Prom & Evening', sort: 1 },
-    { name: 'Homecoming', sort: 2 }
+    { name: 'Prom & Evening', sort: 1 }
   ] },
   { name: 'Accessories', attributeSetLabel: 'Accessory Set', sort: 4, children: [
     { name: 'Jewelry & Headpieces', sort: 1 },

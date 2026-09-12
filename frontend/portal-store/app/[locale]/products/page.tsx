@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CollectionPage, type CollectionSearchParams } from '@/components/product/collection-page'
+import { ALL_STYLES_HERO } from '@/lib/collection-hero'
 
 /** Canonical all-products route used by site-builder navigation and revalidation. */
 
@@ -15,9 +16,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   return (
     <CollectionPage
       categoryNames={[]}
-      title="All Styles"
-      description="Explore every dress, gown, and accessory for your celebration."
-      heroImage="/photography/bride-plp.jpg"
+      hero={ALL_STYLES_HERO}
       basePath="/products"
       searchParams={sp}
     />

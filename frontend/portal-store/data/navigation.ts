@@ -33,7 +33,7 @@ export const mainNav: NavItem[] = [
         ]
       }
     ],
-    featured: { label: 'New Arrivals', href: '/wedding-dresses?sort=newest', image: `${C}/kissprom/wedding-aline-tulle-01.jpg` }
+    featured: { label: 'New Arrivals', href: '/wedding-dresses?sort=newest', image: '/photography/plp-wedding-dresses.jpg' }
   },
   {
     label: 'Special Occasion',
@@ -57,7 +57,7 @@ export const mainNav: NavItem[] = [
         ]
       }
     ],
-    featured: { label: 'Bridesmaid Edit', href: '/special-occasion?cat=Bridesmaid', image: `${C}/birdygrey/bridesmaid-pink-bella-01.jpg` }
+    featured: { label: 'Bridesmaid Edit', href: '/special-occasion?cat=Bridesmaid', image: '/photography/featured-bridesmaids.jpg' }
   },
   {
     label: 'Accessories',
@@ -73,12 +73,12 @@ export const mainNav: NavItem[] = [
         ]
       }
     ],
-    featured: { label: 'Complete the Look', href: '/accessories', image: `${C}/birdygrey/accessory-jewelry-01.jpg` }
+    featured: { label: 'Complete the Look', href: '/accessories', image: '/photography/plp-accessories.jpg' }
   },
   {
     label: 'Outdoor Weddings',
     href: '/outdoor-weddings',
-    featured: { label: 'Real Outdoor Weddings', href: '/real-weddings', image: `${C}/davidsbridal/wedding-dress-04.jpg` }
+    featured: { label: 'Real Outdoor Weddings', href: '/real-weddings', image: '/photography/rw-big-sur.jpg' }
   },
   {
     label: 'Inspiration',

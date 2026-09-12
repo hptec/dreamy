@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CollectionPage, type CollectionSearchParams } from '@/components/product/collection-page'
+import { resolveCollectionHero } from '@/lib/collection-hero'
 
 /** PAGE-CAT-S02：RSC + URL 驱动。 */
 
@@ -15,9 +16,7 @@ export default async function AccessoriesPage({ searchParams }: { searchParams: 
   return (
     <CollectionPage
       categoryNames={['Accessories']}
-      title="Accessories"
-      description="The finishing touches — veils, heels, jewelry, and headpieces to complete every look."
-      heroImage="/photography/featured-atelier.jpg"
+      hero={resolveCollectionHero('Accessories')!}
       basePath="/accessories"
       searchParams={sp}
     />

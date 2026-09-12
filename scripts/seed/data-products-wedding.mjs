@@ -1,36 +1,134 @@
 // 婚纱系列(12 款):A-Line/Mermaid/Ballgown/Sheath/Beach,户外场景叙事
+// 文案跟图纪律:每款图库 = 全身主图 → -detail 细节裁切 → -skirt 裙摆裁切(如有);文案描述图中真实可见的款式
 import { dress, IMG } from './data-products-helpers.mjs'
 
 export const weddingDresses = [
   dress({
-    name: 'Aria Lace A-Line Wedding Dress', slug: 'aria-lace-aline-wedding-dress',
+    name: 'Elowen Off-the-Shoulder Lace Sleeve Sheath', slug: 'elowen-aline-cold-shoulder-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Garden & Boho'],
-    price: 449, compareAt: 549, isNew: true, isBest: true, recommend: true,
-    color: 'Ivory', fabricMain: 'Lace',
-    description: 'Scalloped floral lace traces a soft sweetheart neckline before flowing into an effortless A-line skirt — cut for the bride who wants to look like herself, only more so. The airy tulle underskirt keeps every step weightless as you move between ceremony and reception under open sky.',
-    designerNote: 'We developed this lace exclusively with a family-run mill. The scallop edges are hand-placed so the pattern reads continuous around the bodice — no visible seams, no shortcuts.',
-    sellingPoints: ['Exclusive scalloped floral lace', 'Detachable satin waist sash included', 'Fully boned bodice with built-in bra', 'Floor-length A-line skirt with sweep train'],
-    leadTimeDays: 63, rushAvailable: true,
-    attributes: { silhouette: ['A-Line'], neckline: ['Sweetheart'], fabric: ['Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden', 'Vineyard'], style_tag: ['Romantic', 'Boho'], embellishment: ['Lace'] },
+    price: 479, compareAt: 559, recommend: false,
+    color: 'Ivory', fabricMain: 'Crepe',
+    description: 'Illusion off-the-shoulder lace long sleeves over a draped crepe sheath — bare shoulders without going strapless, coverage without losing the line. The crepe is gathered softly across the hip so the silhouette photographs like candlelight, even at noon.',
+    designerNote: 'The lace sleeves are set on illusion mesh so they sit just below the shoulder and stay there. The draping is anchored at one hidden seam — it moves, it never shifts.',
+    sellingPoints: ['Illusion off-the-shoulder lace long sleeves', 'Draped crepe sheath with hip gathering', 'Bodice with internal boning', 'Sweep train, bustle-ready'],
+    leadTimeDays: 56, rushAvailable: true,
+    attributes: { silhouette: ['Sheath'], neckline: ['Off-Shoulder'], sleeve: ['Long Sleeve'], fabric: ['Crepe'], embellishment: ['Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden'], style_tag: ['Romantic', 'Modern'] },
     images: [
-      { url: IMG('kissprom/wedding-aline-lace-02.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 0 }
+      { url: IMG('davidsbridal/wedding-dress-04.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-04-detail.jpg'), kind: 1, sort: 1 }
+    ],
+    collections: ['Garden Romance']
+  }),
+  dress({
+    name: 'Juno Beaded Deep-V Sheath', slug: 'juno-two-piece-wedding-dress-set',
+    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
+    price: 749, compareAt: 899, recommend: false,
+    color: 'Ivory', fabricMain: 'Tulle',
+    description: 'Allover beaded embroidery on a deep-V sheath — light from every angle, from the first toast to the last song. The beading is dense at the bodice and softens toward the sweep train so the dress glows rather than glares.',
+    designerNote: 'The embroidery is hand-beaded across 60 hours. We set it on a stretch base with a wide, soft waist — no digging, no adjusting, just dancing.',
+    sellingPoints: ['Hand-beaded allover embroidery', 'Deep-V neckline with thin straps', 'Fitted sheath with sweep train', 'Lined in silk-touch crepe'],
+    leadTimeDays: 77,
+    attributes: { silhouette: ['Sheath'], neckline: ['Deep-V'], sleeve: ['Sleeveless'], fabric: ['Tulle'], embellishment: ['Beading', 'Embroidery'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Beach', 'Garden'], style_tag: ['Glam', 'Modern'] },
+    images: [
+      { url: IMG('davidsbridal/wedding-dress-set-07.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-set-07-detail.jpg'), kind: 1, sort: 1 }
+    ],
+    collections: ['Coastal Bride', 'Boho Wildflower']
+  }),
+  dress({
+    name: 'Bea Satin Halter Ballgown', slug: 'bea-satin-ballgown-wedding-dress',
+    categoryPath: ['Wedding Dresses', 'Classic Elegance'],
+    price: 899, compareAt: 1099, isBest: true,
+    color: 'Ivory', fabricMain: 'Satin',
+    description: 'A halter deep-V neckline over a clean, full satin ballgown skirt — the once-in-a-lifetime dress, engineered to be worn all day. No lace, no beading: just architecture and shine. The skirt holds its bell shape from first look to last dance.',
+    designerNote: 'Satin is unforgiving to cut and irresistible once cut correctly. We built a horsehair hem so the ballgown keeps its architecture — no collapsing at hour ten.',
+    sellingPoints: ['Halter neckline with deep V', 'Clean unembellished satin ballgown skirt', 'Horsehair-braid hem holds the bell shape', 'Structured bodice with built-in bra'],
+    leadTimeDays: 84, rushAvailable: false,
+    attributes: { silhouette: ['Ballgown'], neckline: ['Halter'], sleeve: ['Sleeveless'], fabric: ['Satin'], back_style: ['Zipper'], train: ['Chapel'], support: ['Built-in Bra'], occasion: ['Garden'], style_tag: ['Classic', 'Modern'] },
+    images: [
+      { url: IMG('davidsbridal/wedding-dress-06.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-06-detail.jpg'), kind: 1, sort: 1 }
     ],
     collections: ['Garden Romance', 'Ivory & Champagne']
   }),
   dress({
-    name: 'Wren Tulle A-Line Wedding Dress', slug: 'wren-tulle-aline-wedding-dress',
+    name: 'Dahlia Long Sleeve Beaded Lace Sheath', slug: 'dahlia-fit-flare-wedding-dress',
+    categoryPath: ['Wedding Dresses', 'Garden & Boho'],
+    price: 549, compareAt: 649,
+    color: 'Ivory', fabricMain: 'Lace',
+    description: 'Beaded lace long sleeves, a soft V-neckline, and a sheath that reads expensive from every angle. The lace is worked over a fitted base so the beading catches candlelight while the line stays clean — barefoot in the meadow, champagne in hand.',
+    designerNote: 'The sleeves are cut from a single stretch-lace panel so they follow your arm instead of fighting it. The beading is densest at the bodice and fades toward the hem — we placed it, twice.',
+    sellingPoints: ['Beaded lace long sleeves', 'Soft V-neckline', 'Fitted sheath with sweep train', 'Lined in soft crepe for warm-weather comfort'],
+    leadTimeDays: 63, rushAvailable: true,
+    attributes: { silhouette: ['Sheath'], neckline: ['V-Neck'], sleeve: ['Long Sleeve'], fabric: ['Lace'], embellishment: ['Beading', 'Lace'], back_style: ['Button'], train: ['Sweep'], occasion: ['Garden', 'Elopement'], style_tag: ['Romantic', 'Vintage'], season: ['Summer'] },
+    images: [
+      { url: IMG('davidsbridal/wedding-dress-03.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-03-detail.jpg'), kind: 1, sort: 1 }
+    ],
+    collections: ['Boho Wildflower', 'Modern Minimal']
+  }),
+  dress({
+    name: 'Sylvie Beaded Cap-Sleeve Sheath', slug: 'sylvie-sheath-wedding-dress',
+    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
+    price: 429, compareAt: 499, recommend: true,
+    color: 'Ivory', fabricMain: 'Tulle',
+    description: 'One clean line from shoulder to hem, covered in light. The Sylvie is an allover-beaded sheath with cap sleeves and a soft V-neckline — the minimalist\'s answer to "what do I wear to city hall and dinner after," if the minimalist likes to sparkle.',
+    designerNote: 'True minimalism hides its effort: the beading is worked on a stretch tulle base so the dress skims and moves — no stiffness, no weight you can feel.',
+    sellingPoints: ['Allover beading on soft stretch tulle', 'Cap sleeves with V-neckline', 'Fitted sheath, fully lined', 'Effortless city-hall-to-dinner dress'],
+    leadTimeDays: 49, rushAvailable: true,
+    attributes: { silhouette: ['Sheath'], neckline: ['V-Neck'], sleeve: ['Cap Sleeve'], fabric: ['Tulle'], embellishment: ['Beading'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Courthouse', 'Elopement', 'Beach'], style_tag: ['Glam', 'Modern'] },
+    images: [
+      { url: IMG('davidsbridal/wedding-dress-02.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-02-detail.jpg'), kind: 1, sort: 1 }
+    ],
+    collections: ['Modern Minimal', 'Coastal Bride']
+  }),
+  dress({
+    name: 'Noelle Lace Ballgown with Illusion Neckline', slug: 'noelle-mermaid-wedding-dress',
+    categoryPath: ['Wedding Dresses', 'Classic Elegance'],
+    price: 599, compareAt: 699,
+    color: 'Ivory', fabricMain: 'Lace',
+    description: 'A full lace ballgown with an illusion bateau neckline and sheer lace sleeves — the collarbone framed, the skirt sweeping into a chapel train. Made for the cathedral aisle and the reception grand entrance alike.',
+    designerNote: 'We set the lace on illusion mesh at the neckline so it reads as if it floats on skin. The skirt carries a soft petticoat — full without the weight.',
+    sellingPoints: ['Illusion bateau neckline', 'Sheer lace sleeves', 'Full lace ballgown skirt with petticoat', 'Chapel train with bustle loops'],
+    leadTimeDays: 70,
+    attributes: { silhouette: ['Ballgown'], neckline: ['Illusion'], sleeve: ['Long Sleeve'], fabric: ['Lace'], embellishment: ['Lace'], back_style: ['Button'], train: ['Chapel'], support: ['Built-in Bra'], occasion: ['Garden'], style_tag: ['Classic', 'Romantic'] },
+    images: [
+      { url: IMG('davidsbridal/wedding-dress-08.jpg'), kind: 1, sort: 0 },
+      { url: IMG('davidsbridal/wedding-dress-08-detail.jpg'), kind: 1, sort: 1 },
+      { url: IMG('davidsbridal/wedding-dress-08-skirt.jpg'), kind: 1, sort: 2 }
+    ],
+    collections: ['Ivory & Champagne']
+  }),
+  dress({
+    name: 'Cove High-Low Beach Wedding Dress', slug: 'cove-short-beach-wedding-dress',
+    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
+    price: 299, compareAt: 359, isNew: true, isBest: true,
+    color: 'Ivory', fabricMain: 'Organza',
+    description: 'Barefoot ceremony, salt in the air, a dress that packs into a carry-on. A strapless corset bodice sits over a bubble-hem organza skirt cut high in front and sweeping long behind — sand-friendly at the toes, dramatic in the photos, and it never met a breeze it didn\'t like.',
+    designerNote: 'We flew this prototype to three beaches before signing off. Crisp organza was the only fabric that held the bubble hem in ocean wind and shook the sand right off.',
+    sellingPoints: ['Packs into a carry-on, no steaming needed', 'Strapless corset bodice with boning', 'Bubble-hem organza high-low skirt', 'Short in front — sand-friendly'],
+    leadTimeDays: 42, rushAvailable: true,
+    attributes: { silhouette: ['A-Line'], neckline: ['Strapless'], sleeve: ['Sleeveless'], fabric: ['Organza'], length: ['High-Low'], back_style: ['Lace-Up'], train: ['Sweep'], support: ['Built-in Bra'], occasion: ['Beach', 'Elopement'], style_tag: ['Modern', 'Romantic'], season: ['Summer'] },
+    images: [
+      { url: IMG('kissprom/wedding-beach-short-05.jpg'), kind: 1, sort: 0 },
+      { url: IMG('kissprom/wedding-beach-short-05-detail.jpg'), kind: 1, sort: 1 }
+    ],
+    collections: ['Coastal Bride', 'Ivory & Champagne']
+  }),
+  dress({
+    name: 'Wren Off-the-Shoulder Tulle Tea-Length Dress', slug: 'wren-tulle-aline-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Classic Elegance'],
     price: 399, compareAt: 499, isBest: true, recommend: true,
     color: 'Ivory', fabricMain: 'Tulle',
-    description: 'Layers upon layers of whisper-soft tulle fall from a structured satin bodice, catching the light with every turn. A modern square neckline keeps the silhouette clean; the skirt does all the talking. Our most requested style for courthouse ceremonies that turn into garden parties.',
-    designerNote: 'Eleven individually cut tulle layers give the skirt its cloud-like movement without the weight — we tested until the dress danced on its own.',
-    sellingPoints: ['Eleven-layer airy tulle skirt', 'Structured satin bodice, square neckline', 'Weighs under 2 lbs in most sizes', 'Pockets. Real, deep, dress-with-pockets.'],
+    description: 'Whisper-soft tulle falls from an off-the-shoulder bodice to a tea-length hem that shows off the shoes — and the dancing. The bare-shoulder neckline keeps the silhouette romantic; the skirt does all the talking. Our most requested style for courthouse ceremonies that turn into garden parties.',
+    designerNote: 'The off-shoulder band is elasticated and lined so it stays exactly where we put it — bare shoulders, zero tugging, all night.',
+    sellingPoints: ['Off-the-shoulder tulle neckline', 'Tea-length A-line skirt — shoe-friendly', 'Weighs under 2 lbs in most sizes', 'Layered soft tulle with full lining'],
     leadTimeDays: 56, rushAvailable: true,
-    attributes: { silhouette: ['A-Line'], neckline: ['Square'], fabric: ['Tulle'], back_style: ['Button'], train: ['Sweep'], occasion: ['Courthouse', 'Garden'], style_tag: ['Modern', 'Minimalist'] },
+    attributes: { silhouette: ['A-Line'], neckline: ['Off-Shoulder'], sleeve: ['Short Sleeve'], fabric: ['Tulle'], length: ['Tea-Length'], back_style: ['Zipper'], train: ['None'], occasion: ['Courthouse', 'Garden'], style_tag: ['Romantic', 'Modern'] },
     images: [
       { url: IMG('kissprom/wedding-aline-tulle-01.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 1 }
+      { url: IMG('kissprom/wedding-aline-tulle-01-detail.jpg'), kind: 1, sort: 1 }
     ],
     collections: ['Modern Minimal', 'Ivory & Champagne']
   }),
@@ -38,160 +136,68 @@ export const weddingDresses = [
     name: 'Ingrid Long Sleeve A-Line Wedding Dress', slug: 'ingrid-longsleeve-aline-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Garden & Boho'],
     price: 529, compareAt: 629,
-    color: 'Ivory', fabricMain: 'Lace',
-    description: 'Illusion long sleeves in heritage-inspired lace make this the dress for autumn vows and candlelit forests. A gently scooped neckline and low open back balance the coverage; the A-line skirt in soft crepe moves like water.',
-    designerNote: 'The sleeves are cut from a single stretch-lace panel so they skim — never cling. Designed for brides who want coverage without losing an inch of romance.',
-    sellingPoints: ['Illusion stretch-lace long sleeves', 'Low scoop back with covered buttons', 'Soft crepe A-line skirt', 'Perfect for fall and winter ceremonies'],
+    color: 'Ivory', fabricMain: 'Chiffon',
+    description: 'Sheer long sleeves scattered with floral lace appliqué make this the dress for autumn vows and candlelit forests. A soft V-neckline balances the coverage; the chiffon A-line skirt opens at a front slit and moves like water.',
+    designerNote: 'The sleeves are cut from a single sheer panel so they skim — never cling — and each appliqué is hand-placed to trail from shoulder to wrist. Coverage without losing an inch of romance.',
+    sellingPoints: ['Sheer long sleeves with floral lace appliqué', 'Soft V-neckline', 'Chiffon A-line skirt with front slit', 'Perfect for fall and winter ceremonies'],
     leadTimeDays: 70,
-    attributes: { silhouette: ['A-Line'], neckline: ['V-Neck'], sleeve: ['Long Sleeve'], fabric: ['Lace'], back_style: ['Open Back'], train: ['Sweep'], occasion: ['Forest', 'Garden'], style_tag: ['Romantic', 'Vintage'], season: ['Fall'] },
+    attributes: { silhouette: ['A-Line'], neckline: ['V-Neck'], sleeve: ['Long Sleeve'], fabric: ['Chiffon'], embellishment: ['Appliqué', 'Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Forest', 'Garden'], style_tag: ['Romantic', 'Vintage'], season: ['Fall'] },
     images: [
       { url: IMG('kissprom/wedding-aline-longsleeve-06.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 2 }
+      { url: IMG('kissprom/wedding-aline-longsleeve-06-detail.jpg'), kind: 1, sort: 1 },
+      { url: IMG('kissprom/wedding-aline-longsleeve-06-skirt.jpg'), kind: 1, sort: 2 }
     ],
     collections: ['Garden Romance']
-  }),
-  dress({
-    name: 'Cove Short Beach Wedding Dress', slug: 'cove-short-beach-wedding-dress',
-    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
-    price: 299, compareAt: 359, isNew: true, isBest: true,
-    color: 'Ivory', fabricMain: 'Chiffon',
-    description: 'Barefoot ceremony, salt in the air, a dress that packs into a carry-on. This short chiffon number hits mid-calf with the softest flutter sleeves — it dries in minutes if the tide comes in, and it never met a breeze it didn\'t like.',
-    designerNote: 'We flew this prototype to three beaches before signing off. Chiffon was the only fabric that stayed graceful in ocean wind and shook the sand right off.',
-    sellingPoints: ['Packs into a carry-on, no steaming needed', 'Quick-dry wrinkle-resistant chiffon', 'Flutter sleeves with open neckline', 'Mid-calf hem — sand-friendly'],
-    leadTimeDays: 42, rushAvailable: true,
-    attributes: { silhouette: ['A-Line'], neckline: ['Off-Shoulder'], sleeve: ['Short Sleeve'], fabric: ['Chiffon'], length: ['Tea-Length'], train: ['None'], occasion: ['Beach', 'Elopement'], style_tag: ['Boho', 'Minimalist'], season: ['Summer'] },
-    images: [
-      { url: IMG('kissprom/wedding-beach-short-05.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 3 }
-    ],
-    collections: ['Coastal Bride', 'Ivory & Champagne']
-  }),
-  dress({
-    name: 'Marisol Chiffon Mermaid Wedding Dress', slug: 'marisol-chiffon-mermaid-wedding-dress',
-    categoryPath: ['Wedding Dresses', 'Classic Elegance'],
-    price: 489, compareAt: 589,
-    color: 'Ivory', fabricMain: 'Chiffon',
-    description: 'A mermaid silhouette in featherlight chiffon — the paradox that works. The bodice traces every curve before the skirt flares into a soft, swishable train. Made for golden-hour portraits on the cliffs.',
-    designerNote: 'Traditional mermaids use heavy satin that locks your knees together. We rebuilt the shape in layered chiffon so you can actually walk — and dance.',
-    sellingPoints: ['Curve-skimming bodice with boning', 'Flared chiffon train with real movement', 'Surplice neckline with inner corset', 'Dance-floor tested silhouette'],
-    leadTimeDays: 63,
-    attributes: { silhouette: ['Mermaid'], neckline: ['V-Neck'], fabric: ['Chiffon'], back_style: ['Zipper'], train: ['Chapel'], occasion: ['Vineyard', 'Garden'], style_tag: ['Modern', 'Romantic'] },
-    images: [
-      { url: IMG('kissprom/wedding-mermaid-chiffon-03.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 4 }
-    ],
-    collections: ['Garden Romance', 'Ivory & Champagne']
   }),
   dress({
     name: 'Odette Lace Mermaid Wedding Dress', slug: 'odette-lace-mermaid-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Classic Elegance'],
     price: 649, compareAt: 789, recommend: true,
     color: 'Ivory', fabricMain: 'Lace',
-    description: 'Vintage-inspired floral lace over a corseted mermaid base, finished with a deep sweetheart neckline. This is the dress for the bride who wants drama without shouting — every bead is placed by hand, every line deliberate.',
+    description: 'Vintage-inspired floral lace over a corseted mermaid base, finished with a sweetheart neckline on thin straps. This is the dress for the bride who wants drama without shouting — every bead is placed by hand, every line deliberate.',
     designerNote: 'The corsetry takes 40 hours per gown. We kept the exterior soft and the interior architectural: you get the curve, the lace does the work.',
-    sellingPoints: ['Hand-placed beaded floral lace', 'Interior corset with 14 bones', 'Deep sweetheart neckline', 'Chapel train with lace hem border'],
+    sellingPoints: ['Hand-placed beaded floral lace', 'Interior corset with 14 bones', 'Sweetheart neckline with thin straps', 'Chapel train with lace hem border'],
     leadTimeDays: 84,
-    attributes: { silhouette: ['Mermaid'], neckline: ['Sweetheart'], fabric: ['Lace'], back_style: ['Lace-Up'], train: ['Chapel'], embellishment: ['Beading', 'Lace', 'Pearls'], occasion: ['Garden'], style_tag: ['Classic', 'Glam'] },
+    attributes: { silhouette: ['Mermaid'], neckline: ['Sweetheart'], sleeve: ['Sleeveless'], fabric: ['Lace'], back_style: ['Lace-Up'], train: ['Chapel'], embellishment: ['Beading', 'Lace', 'Pearls'], occasion: ['Garden'], style_tag: ['Classic', 'Glam'] },
     images: [
       { url: IMG('kissprom/wedding-mermaid-lace-04.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 5 }
+      { url: IMG('kissprom/wedding-mermaid-lace-04-detail.jpg'), kind: 1, sort: 1 },
+      { url: IMG('kissprom/wedding-mermaid-lace-04-skirt.jpg'), kind: 1, sort: 2 }
     ],
     collections: ['Garden Romance']
   }),
   dress({
-    name: 'Bea Satin Ballgown Wedding Dress', slug: 'bea-satin-ballgown-wedding-dress',
+    name: 'Marisol Crepe Mermaid with Sheer Puff Sleeves', slug: 'marisol-chiffon-mermaid-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Classic Elegance'],
-    price: 899, compareAt: 1099, isBest: true,
-    color: 'Ivory', fabricMain: 'Satin',
-    description: 'Full-skirted Mikado satin with a cathedral train — the once-in-a-lifetime dress, engineered to be worn all day. The bodice is a proper corset (lace-up back, modesty panel included) and the skirt holds its bell shape from first look to last dance.',
-    designerNote: 'Mikado is unforgiving to cut and irresistible once cut correctly. We built a horsehair hem so the ballgown keeps its architecture — no collapsing at hour ten.',
-    sellingPoints: ['Cathedral train in structured Mikado satin', 'Lace-up corset back with modesty panel', 'Horsehair-braid hem holds the bell shape', 'Detachable train option available'],
-    leadTimeDays: 84, rushAvailable: false,
-    attributes: { silhouette: ['Ballgown'], neckline: ['Strapless'], fabric: ['Mikado'], back_style: ['Lace-Up'], train: ['Cathedral'], support: ['Built-in Bra'], occasion: ['Garden'], style_tag: ['Classic', 'Glam'] },
+    price: 489, compareAt: 589,
+    color: 'Ivory', fabricMain: 'Crepe',
+    description: 'A clean crepe mermaid with off-the-shoulder sheer puff sleeves — modern lines, romantic shoulders. The bodice traces every curve before the skirt flares into a chapel train edged in lace. Made for golden-hour portraits on the cliffs.',
+    designerNote: 'Traditional mermaids use heavy satin that locks your knees together. We rebuilt the shape in stretch crepe so you can actually walk — and gave it sheer puff sleeves so it still feels like a wedding.',
+    sellingPoints: ['Off-the-shoulder sheer puff sleeves', 'Curve-skimming stretch crepe with boning', 'Chapel train with lace-edged hem', 'Dance-floor tested silhouette'],
+    leadTimeDays: 63,
+    attributes: { silhouette: ['Mermaid'], neckline: ['Off-Shoulder'], sleeve: ['Long Sleeve'], fabric: ['Crepe'], embellishment: ['Lace'], back_style: ['Zipper'], train: ['Chapel'], occasion: ['Vineyard', 'Garden'], style_tag: ['Modern', 'Romantic'] },
     images: [
-      { url: IMG('davidsbridal/wedding-dress-06.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 6 }
+      { url: IMG('kissprom/wedding-mermaid-chiffon-03.jpg'), kind: 1, sort: 0 },
+      { url: IMG('kissprom/wedding-mermaid-chiffon-03-detail.jpg'), kind: 1, sort: 1 },
+      { url: IMG('kissprom/wedding-mermaid-chiffon-03-skirt.jpg'), kind: 1, sort: 2 }
     ],
     collections: ['Garden Romance', 'Ivory & Champagne']
   }),
   dress({
-    name: 'Dahlia Fit & Flare Wedding Dress', slug: 'dahlia-fit-flare-wedding-dress',
+    name: 'Aria Lace A-Line Wedding Dress', slug: 'aria-lace-aline-wedding-dress',
     categoryPath: ['Wedding Dresses', 'Garden & Boho'],
-    price: 549, compareAt: 649,
-    color: 'Ivory', fabricMain: 'Crepe',
-    description: 'Fluid crepe wrapped into a fit-and-flare that reads expensive from every angle. The high neckline and covered buttons down the spine give it a quiet 1970s spirit — barefoot in the meadow, champagne in hand.',
-    designerNote: 'Cut on the bias so the crepe follows your body instead of fighting it. The flare begins exactly at the knee — we measured, twice.',
-    sellingPoints: ['Bias-cut fluid crepe', 'High neckline, covered back buttons', 'Fit & flare with knee-length flare point', 'Unlined for warm-weather comfort'],
-    leadTimeDays: 63, rushAvailable: true,
-    attributes: { silhouette: ['Fit & Flare'], neckline: ['Halter'], fabric: ['Crepe'], back_style: ['Button'], train: ['Sweep'], occasion: ['Garden', 'Elopement'], style_tag: ['Boho', 'Vintage'], season: ['Summer'] },
-    images: [
-      { url: IMG('davidsbridal/wedding-dress-03.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 7 }
-    ],
-    collections: ['Boho Wildflower', 'Modern Minimal']
-  }),
-  dress({
-    name: 'Elowen A-Line Wedding Dress with Cold Shoulder', slug: 'elowen-aline-cold-shoulder-wedding-dress',
-    categoryPath: ['Wedding Dresses', 'Garden & Boho'],
-    price: 479, compareAt: 559, isNew: true,
-    color: 'Ivory', fabricMain: 'Tulle',
-    description: 'A cold-shoulder neckline in soft tulle and glitter mesh — bare shoulders without going strapless. The A-line skirt catches light in a way that photographs like candlelight, even at noon.',
-    designerNote: 'The glitter mesh is woven, not printed — it will not shed on your dress, your groom, or your grandmother\'s antique sofa.',
-    sellingPoints: ['Cold-shoulder sleeves with glitter mesh', 'Woven (non-shedding) sparkle tulle', 'Bodice with internal boning', 'Sweep train, bustle-ready'],
-    leadTimeDays: 56, rushAvailable: true,
-    attributes: { silhouette: ['A-Line'], neckline: ['Off-Shoulder'], sleeve: ['Short Sleeve'], fabric: ['Tulle'], embellishment: ['Sequins'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden'], style_tag: ['Romantic', 'Glam'] },
-    images: [
-      { url: IMG('davidsbridal/wedding-dress-04.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/pdp-coldshoulder-lavender-01.jpg'), kind: 2, sort: 0 }
-    ],
-    collections: ['Garden Romance']
-  }),
-  dress({
-    name: 'Sylvie Sheath Wedding Dress', slug: 'sylvie-sheath-wedding-dress',
-    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
-    price: 429, compareAt: 499, recommend: true,
-    color: 'Ivory', fabricMain: 'Crepe',
-    description: 'One clean line from shoulder to hem. The Sylvie is a crepe sheath with a plunge neckline and an open square back — the minimalist\'s answer to "what do I wear to city hall and dinner after."',
-    designerNote: 'True minimalism hides its effort: three hidden panels shape the waist without a single visible seam.',
-    sellingPoints: ['Seamless crepe sheath silhouette', 'Plunge V neckline, open back', 'Hidden waist-shaping panels', 'Effortless city-hall-to-dinner dress'],
-    leadTimeDays: 49, rushAvailable: true,
-    attributes: { silhouette: ['Sheath'], neckline: ['Deep-V'], fabric: ['Crepe'], back_style: ['Open Back'], train: ['None'], occasion: ['Courthouse', 'Elopement', 'Beach'], style_tag: ['Minimalist', 'Modern'] },
-    images: [
-      { url: IMG('davidsbridal/wedding-dress-05.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 8 }
-    ],
-    collections: ['Modern Minimal', 'Coastal Bride']
-  }),
-  dress({
-    name: 'Noelle Mermaid Wedding Dress', slug: 'noelle-mermaid-wedding-dress',
-    categoryPath: ['Wedding Dresses', 'Classic Elegance'],
-    price: 599, compareAt: 699,
-    color: 'Ivory', fabricMain: 'Satin',
-    description: 'Satin mermaid with a sculpted bodice and a flirtatious flared train. The off-shoulder neckline frames the collarbone; the fit does everything else. Made for the reception grand entrance.',
-    designerNote: 'We added a hidden back pleat so the flare opens when you walk — it reads dramatic in photos and stays walkable in real life.',
-    sellingPoints: ['Sculpted satin bodice with boning', 'Off-shoulder neckline', 'Hidden walking pleat for mobility', 'Chapel train with bustle loops'],
-    leadTimeDays: 70,
-    attributes: { silhouette: ['Mermaid'], neckline: ['Off-Shoulder'], fabric: ['Satin'], back_style: ['Zipper'], train: ['Chapel'], support: ['Built-in Bra'], occasion: ['Garden'], style_tag: ['Classic', 'Glam'] },
-    images: [
-      { url: IMG('davidsbridal/wedding-dress-08.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 9 }
-    ],
-    collections: ['Ivory & Champagne']
-  }),
-  dress({
-    name: 'Juno Two-Piece Wedding Dress Set', slug: 'juno-two-piece-wedding-dress-set',
-    categoryPath: ['Wedding Dresses', 'Beach & Destination'],
-    price: 749, compareAt: 899, isNew: true,
+    price: 449, compareAt: 549, isNew: true, isBest: true, recommend: true,
     color: 'Ivory', fabricMain: 'Lace',
-    description: 'A beaded lace crop top with a flowing high-waist skirt — wear them together for the ceremony, swap the top for the after-party. Two pieces, three outfits, one very sensible bride.',
-    designerNote: 'The top is hand-beaded across 60 hours. The skirt waistband is wide and soft — no digging, no adjusting, just dancing.',
-    sellingPoints: ['Hand-beaded lace crop top', 'High-waist flowing tulle skirt', 'Separates: restyle for the after-party', 'Both pieces lined in silk-touch crepe'],
-    leadTimeDays: 77,
-    attributes: { silhouette: ['A-Line'], neckline: ['Strapless'], fabric: ['Lace'], embellishment: ['Beading', 'Pearls'], train: ['Detachable'], occasion: ['Beach', 'Garden'], style_tag: ['Modern', 'Boho'] },
+    description: 'Floral lace traces a plunging deep-V neckline held by the thinnest straps, then flows into an effortless A-line skirt with a high leg slit — cut for the bride who wants to look like herself, only more so. The airy lining keeps every step weightless as you move between ceremony and reception under open sky.',
+    designerNote: 'We developed this lace exclusively with a family-run mill. The floral motifs are hand-placed so the pattern reads continuous around the plunge — no visible seams, no shortcuts.',
+    sellingPoints: ['Exclusive floral lace with plunging deep-V', 'Thin adjustable spaghetti straps', 'High front leg slit for easy movement', 'Floor-length A-line skirt with sweep train'],
+    leadTimeDays: 63, rushAvailable: true,
+    attributes: { silhouette: ['A-Line'], neckline: ['Deep-V'], sleeve: ['Sleeveless'], fabric: ['Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden', 'Vineyard'], style_tag: ['Romantic', 'Boho'], embellishment: ['Lace'] },
     images: [
-      { url: IMG('davidsbridal/wedding-dress-set-07.jpg'), kind: 1, sort: 0 },
-      { url: IMG('davidsbridal/lifestyle-banner-bridal-02.jpg'), kind: 2, sort: 10 }
+      { url: IMG('kissprom/wedding-aline-lace-02.jpg'), kind: 1, sort: 0 },
+      { url: IMG('kissprom/wedding-aline-lace-02-detail.jpg'), kind: 1, sort: 1 },
+      { url: IMG('kissprom/wedding-aline-lace-02-skirt.jpg'), kind: 1, sort: 2 }
     ],
-    collections: ['Coastal Bride', 'Boho Wildflower']
+    collections: ['Garden Romance', 'Ivory & Champagne']
   })
 ]

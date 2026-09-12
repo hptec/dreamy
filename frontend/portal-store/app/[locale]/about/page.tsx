@@ -1,21 +1,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Eyebrow } from '@/components/ui/primitives'
+import { EditorialHero } from '@/components/marketing/editorial-hero'
 
 export const metadata: Metadata = { title: 'About Dreamy', description: 'Our story — luxury outdoor wedding dresses designed for the modern bride.' }
 
 export default function AboutPage() {
   return (
     <div>
-      <section className="relative h-[55vh] min-h-[380px] overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/competitor-refs/davidsbridal/wedding-dress-04.jpg" alt="The Dreamy atelier" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-ink/35" />
-        <div className="container-luxe relative flex h-full flex-col items-center justify-center text-center text-canvas">
-          <Eyebrow className="text-gold-light">Our Story</Eyebrow>
-          <h1 className="mt-3 font-display text-5xl font-medium lg:text-6xl">Designed for golden hour</h1>
-        </div>
-      </section>
+      <EditorialHero
+        image="/photography/about-atelier.jpg"
+        alt="Gowns hanging in the Dreamy atelier"
+        eyebrow="Our Story"
+        title="Designed for golden hour"
+        description="Made-to-measure gowns, cut for open skies — from our atelier to your aisle."
+        objectPosition="center 50%"
+      />
 
       <section className="container-luxe max-w-3xl py-16 text-center">
         <p className="font-display text-3xl leading-relaxed">Dreamy began with a simple belief: a wedding dress should feel as free and natural as the place you fall in love.</p>

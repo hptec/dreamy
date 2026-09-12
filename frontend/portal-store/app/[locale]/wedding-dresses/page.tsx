@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CollectionPage, type CollectionSearchParams } from '@/components/product/collection-page'
+import { resolveCollectionHero } from '@/lib/collection-hero'
 
 /** PAGE-CAT-S02：RSC + URL searchParams 驱动筛选（E-CAT-01/06/07）。 */
 
@@ -15,9 +16,7 @@ export default async function WeddingDressesPage({ searchParams }: { searchParam
   return (
     <CollectionPage
       categoryNames={['Wedding Dresses', 'Bridal']}
-      title="Wedding Dresses"
-      description="Airy, light-catching gowns made to move with you — from beachfront vows to garden celebrations."
-      heroImage="/photography/lookbook-golden.jpg"
+      hero={resolveCollectionHero('Wedding Dresses')!}
       basePath="/wedding-dresses"
       searchParams={sp}
     />

@@ -14,6 +14,7 @@ import { SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react'
 import type { Paginated, StoreFilterDim, StoreProductCard } from '@/lib/api/store-types'
 import { ProductCard } from '@/components/product/product-card'
 import { QuickViewModal } from '@/components/product/quick-view-modal'
+import { EditorialHero } from '@/components/marketing/editorial-hero'
 import { Select } from '@/components/ui/select'
 import { useI18n } from '@/lib/i18n/i18n-context'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ export function CollectionView({
   description,
   data,
   heroImage,
+  heroObjectPosition,
+  heroVariant,
   colorOptions = [],
   colorCollectionMap = {},
   filterDims = [],
@@ -46,6 +49,8 @@ export function CollectionView({
   description?: string
   data: Paginated<StoreProductCard> | null
   heroImage?: string
+  heroObjectPosition?: string
+  heroVariant?: 'split' | 'wide'
   /** Shop by Color 色板标签名（E-CAT-07 派生；空则不渲染颜色组） */
   colorOptions?: string[]
   /** 色板名 → 集合 id:色系筛选走集合维度(后端 color 参数为 SKU 单色精确匹配,色组名必然落空) */
@@ -143,21 +148,16 @@ export function CollectionView({
 
   return (
     <div>
-      {/* Hero / 标题区：70vh 大片 + 深色渐变蒙层（原 42vh 矮版升级） */}
-      <div className="relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-ink text-canvas">
-        {heroImage && (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={heroImage} alt={title} className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-b from-ink/35 via-ink/45 to-ink/70" />
-          </>
-        )}
-        <div className="container-luxe relative py-24 text-center">
-          <p className="eyebrow mb-3 text-gold-light">{t.collection.eyebrow}</p>
-          <h1 className="heading-display text-4xl text-canvas sm:text-5xl lg:text-6xl">{title}</h1>
-          {description && <p className="mx-auto mt-4 max-w-xl text-canvas/85">{description}</p>}
+      {/* Hero：编辑感分栏（图上零蒙层，文字落在 canvas 面板） */}
+      {heroImage ? (
+        <EditorialHero variant={heroVariant ?? 'split'} image={heroImage} alt={title} eyebrow={t.collection.eyebrow} title={title} description={description} objectPosition={heroObjectPosition} />
+      ) : (
+        <div className="container-luxe py-16 text-center">
+          <p className="eyebrow mb-3">{t.collection.eyebrow}</p>
+          <h1 className="heading-display text-4xl sm:text-5xl lg:text-6xl">{title}</h1>
+          {description && <p className="mx-auto mt-4 max-w-xl text-ink-soft">{description}</p>}
         </div>
-      </div>
+      )}
 
       <div className="container-luxe py-10">
         {/* Sub tabs（子分类，cat searchParam 驱动） */}

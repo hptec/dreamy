@@ -108,7 +108,7 @@ export function NewsletterModal() {
       <div className="relative grid w-full max-w-3xl animate-fadeup overflow-hidden rounded-sm bg-canvas shadow-lift sm:grid-cols-2">
         <button onClick={close} className="absolute right-3 top-3 z-10 cursor-pointer rounded-full bg-canvas/80 p-1.5" aria-label="Close"><X className="h-4 w-4" /></button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/competitor-refs/davidsbridal/wedding-dress-04.jpg" alt="Outdoor bride" className="hidden h-full w-full object-cover sm:block" />
+        <img src="/photography/newsletter-bride.jpg" alt="Bride in a veil" className="hidden h-full w-full object-cover object-[center_30%] sm:block" />
         <div className="flex flex-col justify-center p-8 sm:p-10">
           <p className="eyebrow mb-2">Welcome to Dreamy</p>
           <h2 className="font-display text-3xl font-medium leading-tight">Join the Dreamy<br />atelier list</h2>

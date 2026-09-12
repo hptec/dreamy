@@ -79,7 +79,7 @@ const poolsFor = (slug) => {
 
 // 评价数分布:hero 款 22-40 / 主力 8-16 / 常规 4-8 / 新品 3-5
 const heroSlugs = ['aria-lace-aline-wedding-dress', 'wren-tulle-aline-wedding-dress', 'cove-short-beach-wedding-dress', 'alex-bridesmaid-dress-black', 'bryten-convertible-bridesmaid-dress', 'cassia-one-shoulder-prom-dress']
-const bestSlugs = ['bea-satin-ballgown-wedding-dress', 'marisol-chiffon-mermaid-wedding-dress', 'odette-lace-mermaid-wedding-dress', 'bella-bridesmaid-dress-blush', 'sage-bridesmaid-dress-slit', 'shimmer-sequin-homecoming-dress', 'fleur-floral-sweetheart-prom-dress', 'juno-two-piece-wedding-dress-set']
+const bestSlugs = ['bea-satin-ballgown-wedding-dress', 'marisol-chiffon-mermaid-wedding-dress', 'odette-lace-mermaid-wedding-dress', 'bella-bridesmaid-dress-blush', 'sage-bridesmaid-dress-slit', 'danny-cowl-neck-bridesmaid-dress-blush', 'fleur-floral-sweetheart-prom-dress', 'juno-two-piece-wedding-dress-set']
 
 export function buildReviews() {
   const all = [...weddingDresses, ...bridesmaidDresses, ...occasionDresses]

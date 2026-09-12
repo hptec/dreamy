@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CollectionPage, type CollectionSearchParams } from '@/components/product/collection-page'
+import { resolveCollectionHero } from '@/lib/collection-hero'
 
 /** PAGE-CAT-S02：RSC + URL 驱动（原 mock subTabs → 分类树子分类 cat 参数）。 */
 
@@ -15,9 +16,7 @@ export default async function SpecialOccasionPage({ searchParams }: { searchPara
   return (
     <CollectionPage
       categoryNames={['Special Occasion']}
-      title="Special Occasion"
-      description="Bridesmaid, guest, and evening dresses your whole party will love — and actually re-wear."
-      heroImage="/photography/lookbook-coastal.jpg"
+      hero={resolveCollectionHero('Special Occasion')!}
       basePath="/special-occasion"
       searchParams={sp}
     />

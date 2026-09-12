@@ -135,12 +135,14 @@ export function LoginCard() {
 
   return (
     <div className="grid min-h-[80vh] lg:grid-cols-2">
-      <div className="relative hidden lg:block">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/competitor-refs/davidsbridal/wedding-dress-04.jpg" alt="Outdoor bride" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-ink/25" />
-        <div className="absolute bottom-12 left-12 text-canvas">
-          <p className="font-display text-4xl font-medium leading-tight">Your story<br />starts here</p>
+      <div className="hidden flex-col bg-canvas lg:flex">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/photography/login-bride.jpg" alt="Bride by the window" className="absolute inset-0 h-full w-full object-cover object-[center_30%]" />
+        </div>
+        <div className="px-12 py-8">
+          <p className="eyebrow text-gold-deep">Dreamy Atelier</p>
+          <p className="mt-2 font-display text-3xl font-medium leading-tight text-ink">Your story starts here</p>
         </div>
       </div>
 

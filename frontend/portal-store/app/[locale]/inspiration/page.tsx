@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { palette } from '@/data/products'
 import { fetchStoreLookbooks, fetchStoreWeddings } from '@/lib/api/marketing-server'
 import { LookbookGrid } from '@/components/marketing/lookbook-grid'
-import { SectionHeading, Eyebrow } from '@/components/ui/primitives'
+import { SectionHeading } from '@/components/ui/primitives'
+import { EditorialHero } from '@/components/marketing/editorial-hero'
 import { getMessages } from '@/lib/i18n/messages'
 import { buildAlternates } from '@/lib/i18n/seo'
 import type { Locale } from '@/lib/api/types'
@@ -41,15 +42,7 @@ export default async function InspirationPage({
 
   return (
     <div>
-      <section className="relative h-[50vh] min-h-[360px] overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/competitor-refs/birdygrey/bridesmaid-pink-bryten-02.jpg" alt="Inspiration" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-ink/30" />
-        <div className="container-luxe relative flex h-full flex-col items-center justify-center text-center text-canvas">
-          <Eyebrow className="text-gold-light">{t.heroEyebrow}</Eyebrow>
-          <h1 className="mt-3 font-display text-5xl font-medium lg:text-6xl">{t.heroTitle}</h1>
-        </div>
-      </section>
+      <EditorialHero variant="wide" image="/photography/inspiration-hero.jpg" alt={t.heroTitle} eyebrow={t.heroEyebrow} title={t.heroTitle} objectPosition="center 45%" />
 
       <section className="container-luxe py-16">
         <SectionHeading eyebrow={t.editsEyebrow} title={t.editsTitle} />

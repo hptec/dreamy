@@ -64,12 +64,11 @@ export function LookbookGrid({ lookbooks, initialId }: { lookbooks: StoreLookboo
               ) : (
                 <div className="absolute inset-0 bg-muted" aria-hidden="true" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
-              <div className="absolute bottom-5 left-5 text-canvas">
-                <p className="eyebrow text-gold-light">{l.theme}</p>
-                <h3 className="font-display text-2xl font-medium">{l.title}</h3>
-                {l.description && <div className="mt-1 max-w-[16rem] line-clamp-2 text-xs text-canvas/70"><ReactMarkdown>{l.description}</ReactMarkdown></div>}
-              </div>
+            </div>
+            <div className="mt-4">
+              <p className="eyebrow text-gold-deep">{l.theme}</p>
+              <h3 className="mt-1 font-display text-2xl font-medium text-ink">{l.title}</h3>
+              {l.description && <div className="mt-1 max-w-[18rem] line-clamp-2 text-xs text-ink-soft"><ReactMarkdown>{l.description}</ReactMarkdown></div>}
             </div>
           </button>
         ))}

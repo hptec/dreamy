@@ -62,7 +62,7 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
 
   return (
     <section
-      className="relative h-[72svh] min-h-[440px] max-h-[760px] overflow-hidden bg-ink text-canvas"
+      className="relative grid overflow-hidden bg-canvas text-ink lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:min-h-[560px] lg:max-h-[720px]"
       role="region"
       aria-roledescription="carousel"
       aria-label="Homepage highlights"
@@ -97,36 +97,71 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
         touchStartX.current = null
       }}
     >
-      {visibleSlides.map((slide, index) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={slide.id ?? `${slide.imageUrl}-${index}`}
-          src={slide.imageUrl ?? ''}
-          alt=""
-          aria-hidden={index !== activeIndex}
-          className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-700 ease-luxe motion-reduce:transition-none ${
-            index === activeIndex ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-      ))}
-      {/* 蒙层：全图轻压暗 + 左下深色渐变（rgba(0,0,0,.45)→transparent，只压文字侧保主标题可读） */}
-      <div
-        className="absolute inset-0 bg-ink/15 bg-[linear-gradient(to_top_right,rgba(0,0,0,0.45),rgba(0,0,0,0)_62%)]"
-        aria-hidden="true"
-      />
+      {/* 图栏：零蒙层，文字全部落在左侧 canvas 面板 */}
+      <div className="relative order-1 aspect-[4/3] overflow-hidden bg-muted sm:aspect-[5/4] lg:order-2 lg:aspect-auto">
+        {visibleSlides.map((slide, index) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={slide.id ?? `${slide.imageUrl}-${index}`}
+            src={slide.imageUrl ?? ''}
+            alt=""
+            aria-hidden={index !== activeIndex}
+            className={`absolute inset-0 h-full w-full object-cover object-[65%_30%] transition-opacity duration-700 ease-luxe motion-reduce:transition-none ${
+              index === activeIndex ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ))}
+        {hasMultiple && (
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 sm:bottom-6 sm:right-6">
+            <button
+              type="button"
+              onClick={() => {
+                stopAutoPlay()
+                goTo(activeIndex - 1)
+              }}
+              className="grid h-10 w-10 place-items-center border border-ink/30 bg-canvas/80 text-ink backdrop-blur-sm transition-colors hover:bg-ink hover:text-canvas"
+              aria-label="Previous slide"
+              title="Previous slide"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setRotationMode(isAutoPlaying ? 'paused' : 'explicit')}
+              className="grid h-10 w-10 place-items-center border border-ink/30 bg-canvas/80 text-ink backdrop-blur-sm transition-colors hover:bg-ink hover:text-canvas"
+              aria-label={isAutoPlaying ? 'Pause slideshow' : 'Resume slideshow'}
+              title={isAutoPlaying ? 'Pause slideshow' : 'Resume slideshow'}
+            >
+              {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                stopAutoPlay()
+                goTo(activeIndex + 1)
+              }}
+              className="grid h-10 w-10 place-items-center border border-ink/30 bg-canvas/80 text-ink backdrop-blur-sm transition-colors hover:bg-ink hover:text-canvas"
+              aria-label="Next slide"
+              title="Next slide"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
 
-      <div className="container-luxe relative flex h-full items-end pb-16 pt-24 sm:pb-20 lg:pb-24">
-        <div className="max-w-2xl" aria-live={isAutoPlaying ? 'off' : 'polite'}>
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-luxe text-canvas/75">
+      <div className="order-2 flex items-center px-6 py-12 sm:px-10 lg:order-1 lg:px-14 lg:py-16">
+        <div className="max-w-xl" aria-live={isAutoPlaying ? 'off' : 'polite'}>
+          <p className="mb-5 text-[11px] font-medium uppercase tracking-luxe text-gold-deep">
             {String(activeIndex + 1).padStart(2, '0')} / {String(visibleSlides.length).padStart(2, '0')}
           </p>
           {activeTitle && (
-            <h1 className="break-words font-display text-4xl font-medium leading-[1.02] tracking-normal sm:text-5xl lg:text-6xl">
+            <h1 className="break-words font-display text-4xl font-medium leading-[1.04] tracking-normal text-ink sm:text-5xl lg:text-6xl">
               {activeTitle}
             </h1>
           )}
           {activeSlide.subtitle && (
-            <p className="mt-5 max-w-xl text-base leading-7 text-canvas/85 sm:text-lg">
+            <p className="mt-5 max-w-lg text-base leading-7 text-ink-soft sm:text-lg">
               {activeSlide.subtitle}
             </p>
           )}
@@ -136,7 +171,7 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
                 {activeSlide.ctaLink && activeSlide.ctaText && (
                   <Link
                     href={activeSlide.ctaLink}
-                    className="inline-flex items-center justify-center border border-canvas bg-transparent px-7 py-3.5 text-[13px] font-medium uppercase tracking-[0.25em] text-canvas transition-colors duration-300 hover:bg-canvas hover:text-ink"
+                    className="inline-flex items-center justify-center border border-ink bg-ink px-7 py-3.5 text-[13px] font-medium uppercase tracking-[0.25em] text-canvas transition-colors duration-300 hover:bg-transparent hover:text-ink"
                   >
                     {activeSlide.ctaText}
                   </Link>
@@ -144,73 +179,34 @@ export function HomeHeroCarousel({ slides }: { slides: StoreHeroSlide[] }) {
                 {activeSlide.ctaLinkSecondary && activeSlide.ctaTextSecondary && (
                   <Link
                     href={activeSlide.ctaLinkSecondary}
-                    className="inline-flex items-center justify-center border border-canvas/70 px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-canvas transition-colors duration-300 hover:border-canvas hover:bg-canvas hover:text-ink"
+                    className="inline-flex items-center justify-center border border-ink/40 px-7 py-3.5 text-[13px] font-medium uppercase tracking-luxe text-ink transition-colors duration-300 hover:border-ink hover:bg-ink hover:text-canvas"
                   >
                     {activeSlide.ctaTextSecondary}
                   </Link>
                 )}
               </div>
             ) : null}
+          {hasMultiple && (
+            <div className="mt-10 flex gap-2" aria-label="Choose slide">
+              {visibleSlides.map((slide, index) => (
+                <button
+                  key={slide.id ?? index}
+                  type="button"
+                  onClick={() => {
+                    stopAutoPlay()
+                    goTo(index)
+                  }}
+                  className={`h-2.5 w-2.5 border border-ink transition-colors ${
+                    index === activeIndex ? 'bg-ink' : 'bg-transparent'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                  aria-current={index === activeIndex ? 'true' : undefined}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {hasMultiple && (
-        <div className="absolute bottom-5 right-5 flex items-center gap-2 sm:bottom-8 sm:right-8">
-          <button
-            type="button"
-            onClick={() => {
-              stopAutoPlay()
-              goTo(activeIndex - 1)
-            }}
-            className="grid h-10 w-10 place-items-center border border-canvas/55 text-canvas transition-colors hover:border-canvas hover:bg-canvas hover:text-ink"
-            aria-label="Previous slide"
-            title="Previous slide"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setRotationMode(isAutoPlaying ? 'paused' : 'explicit')}
-            className="grid h-10 w-10 place-items-center border border-canvas/55 text-canvas transition-colors hover:border-canvas hover:bg-canvas hover:text-ink"
-            aria-label={isAutoPlaying ? 'Pause slideshow' : 'Resume slideshow'}
-            title={isAutoPlaying ? 'Pause slideshow' : 'Resume slideshow'}
-          >
-            {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              stopAutoPlay()
-              goTo(activeIndex + 1)
-            }}
-            className="grid h-10 w-10 place-items-center border border-canvas/55 text-canvas transition-colors hover:border-canvas hover:bg-canvas hover:text-ink"
-            aria-label="Next slide"
-            title="Next slide"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {hasMultiple && (
-        <div className="absolute bottom-6 left-5 flex gap-2 sm:bottom-9 sm:left-8" aria-label="Choose slide">
-          {visibleSlides.map((slide, index) => (
-            <button
-              key={slide.id ?? index}
-              type="button"
-              onClick={() => {
-                stopAutoPlay()
-                goTo(index)
-              }}
-              className={`h-2.5 w-2.5 border border-canvas transition-colors ${
-                index === activeIndex ? 'bg-canvas' : 'bg-transparent'
-              }`}
-              aria-label={`Go to slide ${index + 1}`}
-              aria-current={index === activeIndex ? 'true' : undefined}
-            />
-          ))}
-        </div>
-      )}
     </section>
   )
 }

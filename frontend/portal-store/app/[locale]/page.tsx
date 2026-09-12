@@ -54,21 +54,22 @@ export default async function HomePage({
                     <Link
                       key={card.id}
                       href={`/products?collection=${card.id}`}
-                      className="group relative aspect-[3/4] overflow-hidden rounded-sm bg-muted"
+                      className="group min-w-0"
                     >
-                      {card.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={card.imageUrl}
-                          alt={card.name}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
-                      <div className="absolute inset-x-0 bottom-0 p-5 text-canvas">
+                      <div className="relative aspect-[3/4] overflow-hidden rounded-sm bg-muted">
+                        {card.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={card.imageUrl}
+                            alt={card.name}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105"
+                          />
+                        )}
+                      </div>
+                      <div className="mt-3">
                         <h3 className="break-words font-display text-2xl font-medium">{card.name}</h3>
                         {typeof card.productCount === 'number' && card.productCount > 0 && (
-                          <p className="text-xs text-canvas/80">{card.productCount} styles</p>
+                          <p className="text-xs text-ink-soft">{card.productCount} styles</p>
                         )}
                       </div>
                     </Link>

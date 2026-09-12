@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { fetchStoreWeddings } from '@/lib/api/marketing-server'
 
 import { SectionHeading } from '@/components/ui/primitives'
+import { EditorialHero } from '@/components/marketing/editorial-hero'
 import type { Locale } from '@/lib/api/types'
 
 /** /real-weddings（PAGE-MKT-S05，layout-keep + data-swap）：E-MKT-04；链接 href=/real-weddings/{id}。 */
@@ -27,16 +28,14 @@ export default async function RealWeddingsPage({ params }: { params: Promise<Pag
   return (
     <div>
       {heroWedding && (
-        <section className="relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-ink text-canvas">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={heroWedding.cover} alt={heroWedding.couple} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-ink/35 via-ink/45 to-ink/70" aria-hidden="true" />
-          <div className="container-luxe relative py-24 text-center">
-            <p className="eyebrow mb-3 text-gold-light">Real love stories</p>
-            <h1 className="heading-display text-4xl text-canvas sm:text-5xl lg:text-6xl">Real Outdoor Weddings</h1>
-            <p className="mx-auto mt-4 max-w-xl text-canvas/85">See how real couples styled their outdoor celebrations — and shop every look.</p>
-          </div>
-        </section>
+        <EditorialHero
+          image={heroWedding.cover!}
+          alt={heroWedding.couple}
+          eyebrow="Real love stories"
+          title="Real Outdoor Weddings"
+          description="See how real couples styled their outdoor celebrations — and shop every look."
+          objectPosition="center 40%"
+        />
       )}
 
       <div className="container-luxe py-12">

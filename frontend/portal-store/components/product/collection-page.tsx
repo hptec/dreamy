@@ -7,6 +7,7 @@
 import { fetchStoreCategories, fetchStoreProductFilters, fetchStoreProducts, fetchStoreCollections, findCategoryByName } from '@/lib/api/catalog-server'
 import { CollectionView } from '@/components/product/collection-view'
 import { parsePriceParam } from '@/components/product/product-utils'
+import { resolveCollectionHero, type CollectionHero } from '@/lib/collection-hero'
 
 export interface CollectionSearchParams {
   [key: string]: string | string[] | undefined
@@ -35,17 +36,14 @@ const FALLBACK_COLORS = ['Sage', 'Dusty Blue', 'Blush', 'Champagne', 'Lavender',
 
 export async function CollectionPage({
   categoryNames,
-  title,
-  description,
-  heroImage,
+  hero,
   basePath,
   searchParams
 }: {
   /** 分类名候选（与后台分类树对齐，命中即取其 id；含子分类商品） */
   categoryNames: string[]
-  title: string
-  description?: string
-  heroImage?: string
+  /** 页面默认 hero；/products 聚合页会按 cat 命中的顶级分类切换 */
+  hero: CollectionHero
   basePath: string
   searchParams: CollectionSearchParams
 }) {
@@ -98,11 +96,17 @@ export async function CollectionPage({
 
   const subTabs = (category?.children ?? []).map((c) => ({ label: c.name, value: c.name }))
 
+  // 主导航 CATEGORY 条目落到 /products?cat=<顶级分类>：hero/标题按命中的顶级分类切换
+  const topLevel = category ?? tree.find((c) => c.name === cat || String(c.id) === cat || c.children?.some((ch) => ch.name === cat || String(ch.id) === cat))
+  const activeHero = resolveCollectionHero(topLevel?.name) ?? hero
+
   return (
     <CollectionView
-      title={title}
-      description={description}
-      heroImage={heroImage}
+      title={activeHero.title}
+      description={activeHero.description}
+      heroImage={activeHero.heroImage}
+      heroObjectPosition={activeHero.objectPosition}
+      heroVariant={activeHero.variant}
       data={data}
       colorOptions={colorOptions.length > 0 ? colorOptions : FALLBACK_COLORS}
       colorCollectionMap={colorCollectionMap}

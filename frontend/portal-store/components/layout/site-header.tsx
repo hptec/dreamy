@@ -280,11 +280,12 @@ function MegaPanel({ label, onClose, onMouseEnter }: { label: string; onClose: (
           </div>
         ))}
         {item.featured && (
-          <Link href={item.featured.href} onClick={onClose} className="group relative col-start-4 overflow-hidden rounded-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.featured.image} alt={item.featured.label} className="h-56 w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
-            <span className="absolute bottom-4 left-4 text-sm font-medium uppercase tracking-luxe text-canvas">{item.featured.label}</span>
+          <Link href={item.featured.href} onClick={onClose} className="group col-start-4">
+            <div className="overflow-hidden rounded-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.featured.image} alt={item.featured.label} className="h-48 w-full object-cover object-[center_30%] transition-transform duration-700 ease-luxe group-hover:scale-105" />
+            </div>
+            <span className="mt-3 block text-[11px] font-medium uppercase tracking-luxe text-ink transition-colors group-hover:text-gold-deep">{item.featured.label}</span>
           </Link>
         )}
       </div>

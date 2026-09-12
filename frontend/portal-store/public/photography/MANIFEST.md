@@ -1,96 +1,63 @@
-# Dreamy 摄影图库清单（免费商用替换竞品参考图）
+# Dreamy 摄影图库清单（第三轮 · 2026-09-12 · 高级感重做）
 
-本目录图片全部来自 **Unsplash**（Unsplash License：可免费商用、无需署名、可修改），
-用于替换 `public/competitor-refs/` 下三家竞品混拍的参考图。下载参数统一 `w=1600&q=80&fm=jpg`，
-全部为横构图（1600×1067 左右）、JPEG、>100KB，并经 ffmpeg signalstats 色调校验（优先暖调/金色光线）。
+本目录 36 张图全部来自 **Unsplash**（Unsplash License：免费商用、无需署名、可修改；已排除 Unsplash+ 付费图）。
+第三轮以《视觉标准与艺术指导简报》（quiet luxury / 户外暖米 / 主体先于环境）重做全部营销位：
+前两轮 24 张图（含乐高车、风景空景、暗调背光等）已全部移除。
 
-## 第一轮已就位（16 张）
+## 选图与调色纪律
 
-| 文件名 | 用途 | 画面内容 | 来源 URL | License |
-|---|---|---|---|---|
-| hero-01.jpg | Hero banner | 户外草坪婚礼仪式场地：白椅排 + 花拱门，暖阳、留白可压字 | https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80&fm=jpg | Unsplash License |
-| hero-02.jpg | Hero banner | 金色原野逆光广角，太阳光晕，大面积天空留白压字 | https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1600&q=80&fm=jpg | Unsplash License |
-| hero-03.jpg | Hero banner | 黄昏原野情侣相拥，金色逆光 | https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=1600&q=80&fm=jpg | Unsplash License |
-| wedding-beach.jpg | Real weddings 实景 | 海滩婚礼仪式场景，金色暖调（WebSearch 检索结果确认为海滩婚礼题材） | https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80&fm=jpg | Unsplash License |
-| wedding-garden.jpg | Real weddings 实景 | 花园婚宴长桌：白花桌花 + 自然光 | https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=1600&q=80&fm=jpg | Unsplash License |
-| wedding-forest.jpg | Real weddings 实景 | 森林光束小径，暖调深林氛围（无人物，纯场景纪实） | https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1600&q=80&fm=jpg | Unsplash License |
-| wedding-desert.jpg | Real weddings 实景 | 沙丘暖光（沙漠日落场景，无人物） | https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1600&q=80&fm=jpg | Unsplash License |
-| blog-beach-attire.jpg | Blog 封面（沙滩着装） | 热带海岸全景，白沙滩 + 棕榈（沙滩婚礼语境图） | https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80&fm=jpg | Unsplash License |
-| blog-garden-fabrics.jpg | Blog 封面（花园面料） | 金色光斑树叶柔光，有机质感纹理（原竖图已居中裁横） | https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1600&h=1067&fit=crop&q=80&fm=jpg | Unsplash License |
-| blog-atelier-timeline.jpg | Blog 封面（定制工期） | 婚纱试身/裁缝调整，暖光工坊（原竖图已居中裁横） | https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=1600&h=1067&fit=crop&q=80&fm=jpg | Unsplash License |
-| blog-dress-code.jpg | Blog 封面（着装规范） | 宴席举杯庆祝人群，暖光 | https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1600&q=80&fm=jpg | Unsplash License |
-| blog-real-weddings.jpg | Blog 封面（真实婚礼合集） | 婚礼情侣温馨相拥瞬间，暖金色调 | https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=1600&q=80&fm=jpg | Unsplash License |
-| lookbook-coastal.jpg | Lookbook 封面（Coastal Romance） | 海滩婚纱情侣（WebSearch 检索结果确认为海滩婚礼人像） | https://images.unsplash.com/photo-1520854221256-17451cc331bf?w=1600&q=80&fm=jpg | Unsplash License |
-| lookbook-garden.jpg | Lookbook 封面（Garden Edit） | 草地/原野情侣，明亮柔光 | https://images.unsplash.com/photo-1529636798458-92182e662485?w=1600&q=80&fm=jpg | Unsplash License |
-| lookbook-golden.jpg | Lookbook 封面（Golden Hour） | 黄昏情侣，强暖金色调大片 | https://images.unsplash.com/photo-1591604466107-ec97de577aff?w=1600&q=80&fm=jpg | Unsplash License |
-| featured-atelier.jpg | Featured banner（定制工坊） | 缝纫/裁缝工作台细节，暖光工坊 | https://images.unsplash.com/photo-1550005809-91ad75fb315f?w=1600&q=80&fm=jpg | Unsplash License |
+- **发现**：Unsplash 官方搜索（真实 Chromium 会话）28 组关键词 × 3 页 → 1,142 张免费图 → PIL 量化预筛（L 120–225 / 黑切 ≤12% / S ≤90 / 近白 R−B ≥ −4）→ 380 张 → **逐张目检**（本会话 Read 可直读图片）→ 36 张落位。
+- **主体规则**：每张营销图必须有穿着婚纱/礼服的人物（Accessories 位允许人体局部 + 配饰；About 允许工坊场景）；无人风景零容忍。
+- **调色配方（PIL，顺序固定）**：近白像素白平衡至 R−B +8..+16 → 黑点抬升至 14 → gamma 迭代到目标亮度（hero 172 / 卡片 172 / 细节 185）→ 高光柔和回收（>200 段）→ 高光 knee（>205/215 段软压，白切归零）→ HSV 饱和度收敛 25–65 → JPEG q84，长边 hero 2000 / 卡片 1500。
+- **门槛（PIL 实测，600px 缩图）**：营销图 L 均值 hero 150–195 / 卡片 140–200；黑切（L<30）≤ 3%（森林位 ≤ 8%）；近白 R−B +4..+22。
 
-## 第二轮采购（2026-09-12，婚纱产品导向）
+## 落位表（36 张）
 
-市场总监判定第一轮 16 张偏"婚礼场地风景"，主角错位。本轮 8 张全部以**穿婚纱的新娘/模特为画面主体**，
-下载参数同第一轮（横构图 w=1600，JPEG，>100KB，暖调校验通过）。
-
-**内容确证方法**：本轮改用 Unsplash 官方开源数据集（Unsplash Research Dataset Lite，
-`unsplash.com/data/lite/latest` → S3 直链 `unsplash-datasets.s3.amazonaws.com`，v1.0.0–v1.4.0 共 5 版、
-约 12.5 万张照片元数据）做确证：每张图的照片描述（AI description）、关键词标签（AI 置信度/摄影师自标）、
-搜索转化记录（用户在 Unsplash 搜索 "bride"/"wedding dress" 后实际下载了该图）三重交叉。
-所有图仍从官方 CDN `images.unsplash.com` 下载，Unsplash License 不变。
-
-| 文件名 | 用途 | 画面内容（依据官方数据集） | 来源 URL | 确证依据 | License |
+| 文件 | 用途 / 画面（目检） | Unsplash 页面 | CDN 源 | 调色后实测 | License |
 |---|---|---|---|---|---|
-| bride-hero-01.jpg | 首页 hero 主图 | 白色婚纱新娘手持花束全身像（户外） | https://images.unsplash.com/photo-1591079027855-bafd5e245e67?w=1600&q=80&fm=jpg | AI 描述 "woman in white wedding dress holding bouquet of flowers"；关键词 bride 0.91/veil 0.77；**"wedding dress" 搜索转化×4、"bride"×2** | Unsplash License |
-| bride-hero-02.jpg | 首页 hero 副图 | 新婚夫妇（新娘着婚纱）穿行自然场景，行走动态、氛围感 | https://images.unsplash.com/photo-1745641280207-31b61005cb6f?w=1600&q=80&fm=jpg | AI 描述 "A newlywed couple walks through a scenic landscape"；**摄影师自标 wedding / wedding dress**；暖调 +5。注意：为夫妇双人构图，"背影/后背细节"构图未经视觉复核 | Unsplash License |
-| bride-plp.jpg | PLP 婚纱线 hero | 新娘（和新郎）持花造型，浅银白色调，横构图 | https://images.unsplash.com/photo-1555892732-311de32c2aff?w=1600&q=80&fm=jpg | **摄影师自标 bride + groom + couple + wedding dress**（wedding dress 置信 86）；AI 描述 "person holding flowers"；调色板 silver×2 主导 | Unsplash License |
-| blog-fabric.jpg | Blog：面料指南 | 新娘双手覆在婚纱裙面上（面料/裙身细节特写） | https://images.unsplash.com/photo-1745270093288-b6613a4030fe?w=1600&h=1067&fit=crop&q=80&fm=jpg | AI 描述 **"Bride's hands are clasped over her wedding dress"**；bride 摄影师自标 + 0.70、wedding gown 0.95；原竖图居中裁横；暖调 +21 | Unsplash License |
-| blog-beach-bride.jpg | Blog：海滩着装 | 新娘+新郎立于白沙丘上（人物为主景，沙地场景） | https://images.unsplash.com/photo-1562956643-b533e5f8524f?w=1600&q=80&fm=jpg | AI 描述 **"groom and bride on white hill"**；关键词 sand 0.9995 / dune 0.98 / person 0.99；暖调 +10。注意：为沙丘场景（非典型海滩），双人构图 | Unsplash License |
-| blog-wind-veil.jpg | Blog：风中裙摆 | 戴头纱的婚纱新娘持花束肖像 | https://images.unsplash.com/photo-1554755049-bcebd1782fcb?w=1600&h=1067&fit=crop&q=80&fm=jpg | AI 描述 "woman wearing wedding gown holding bouquet of flowers"；**关键词 veil 置信 0.975**、lace 0.56；原竖图居中裁横；暖调 +21。**注意：头纱在画面中确证，但"被风吹起"的动态未经确证，建议人工复核** | Unsplash License |
-| blog-lace-detail.jpg | Blog：蕾丝工艺 | 白色长袖蕾丝裙女子嗅花（蕾丝裙清晰可见） | https://images.unsplash.com/photo-1572876028907-c0c771dd4a27?w=1600&q=80&fm=jpg | AI 描述 **"woman wearing white lace long-sleeved dress sniffing petaled flower"**；暖调 +7。注意：为生活场景而非微距特写，画面含帽子（hat 0.95）；非明确 wedding 标签 | Unsplash License |
-| blog-hem-length.jpg | Blog：裙长/场地指南 | 婚纱新娘持玫瑰花束（全身裙摆视角，疑似背面/拖尾视角） | https://images.unsplash.com/photo-1575760416973-75c58424241e?w=1600&h=1067&fit=crop&q=80&fm=jpg | AI 描述 **"woman wearing wedding gown holding rose bouquet"**；关键词 bride 0.987（AI 服务 2）、wedding gown 0.55、back 0.46；原竖图居中裁横；暖调 +13 | Unsplash License |
+| hero-coastal.jpg | 首页 hero #1 Coastal：新娘独立于浅色沙质海崖，白纱与薄雾天空同调，高调柔光，右侧主体左侧留白 | https://unsplash.com/photos/Sa_yng06Weg | https://images.unsplash.com/photo-1664762786271-0de3ba34ae65 | L 176.5 / 黑切 0.3% / S 52.1 / R−B 6.3 | Unsplash License |
+| hero-garden.jpg | 首页 hero #2 Garden：新娘在松林公园小径，头纱被风吹起，逆光柔和 | https://unsplash.com/photos/YE4LB51mDk8 | https://images.unsplash.com/photo-1537062223249-aec61b3e4d6d | L 166.6 / 黑切 0.0% / S 36.8 / R−B 9.3 | Unsplash License |
+| featured-atelier.jpg | Featured「Cut for You」：裁缝双手为蕾丝婚纱扣扣（制作证据，窗光） | https://unsplash.com/photos/ekHkF65XR-A | https://images.unsplash.com/photo-1632378464836-a6a856632552 | L 167.9 / 黑切 0.0% / S 42.7 / R−B 11.2 | Unsplash License |
+| featured-bridesmaids.jpg | Featured「One Dress, Six Ways」：三位伴娘背影（藕粉/淡紫同色系不同款）+ 新娘 | https://unsplash.com/photos/2S6xEssCbt8 | https://images.unsplash.com/photo-1552223412-61c0b0de9eb7 | L 169.2 / 黑切 0.2% / S 51.4 / R−B 10.7 | Unsplash License |
+| plp-wedding-dresses.jpg | 分类 hero Wedding Dresses：新娘全身 A 字纱裙立于海岸礁石，金色薄雾 | https://unsplash.com/photos/osjQOp0NFb4 | https://images.unsplash.com/photo-1587318634139-bbc108e44808 | L 186.9 / 黑切 0.0% / S 33.5 / R−B 8.2 | Unsplash License |
+| plp-bridesmaids.jpg | 分类 hero Bridesmaids：七位伴娘鼠尾草/薄荷色礼服海滩成组 + 花童 | https://unsplash.com/photos/3-qWXJDgvWU | https://images.unsplash.com/photo-1725044551825-45c484ae6f2d | L 172.1 / 黑切 0.4% / S 24.4 / R−B 10.3 | Unsplash License |
+| plp-occasion.jpg | 分类 hero Occasion & Party：香槟色钉珠晚礼服，石材壁龛前 | https://unsplash.com/photos/K-fjUm5X6hU | https://images.unsplash.com/photo-1746025242964-a3e41e3ac049 | L 170.2 / 黑切 0.0% / S 25.6 / R−B 10.2 | Unsplash License |
+| plp-accessories.jpg | 分类 hero Accessories：珍珠水滴耳饰 + 手部 + 网纱袖特写 | https://unsplash.com/photos/kCAlBlcsuVA | https://images.unsplash.com/photo-1655048955753-04b75e7622ca | L 170.1 / 黑切 0.0% / S 51.0 / R−B 11.5 | Unsplash License |
+| plp-all-styles.jpg | 分类 hero All Styles：新娘与两位藕粉色伴娘背影同框（松林草地） | https://unsplash.com/photos/RiXnsL4kpGY | https://images.unsplash.com/photo-1552221856-cd364b9822a0 | L 167.1 / 黑切 0.1% / S 46.1 / R−B 6.8 | Unsplash License |
+| rw-santa-fe.jpg | Real Wedding Santa Fe / Desert Garden：新娘手持蒲苇+酒红花束，沙漠山丘暖光（seed 首位，兼作 Real Weddings 页 hero） | https://unsplash.com/photos/Tp00n0CRjJQ | https://images.unsplash.com/photo-1758565177153-570f99aa43eb | L 168.7 / 黑切 0.0% / S 46.5 / R−B 8.0 | Unsplash License |
+| rw-charleston.jpg | Real Wedding Charleston / Coastal Garden：新人在白色花艺拱门下起舞，头顶西班牙苔藓橡树（原竖图裁 4:5） | https://unsplash.com/photos/YDGGXUclqvI | https://images.unsplash.com/photo-1776383081653-604bf98fd168 | L 180.3 / 黑切 0.1% / S 41.1 / R−B 9.3 | Unsplash License |
+| rw-tulum.jpg | Real Wedding Tulum / Barefoot Beach：新人赤足牵手漫步浅色沙滩 | https://unsplash.com/photos/UudvF0Zfw9U | https://images.unsplash.com/photo-1747419003011-97b50122a653 | L 179.4 / 黑切 2.7% / S 49.9 / R−B 6.6 | Unsplash License |
+| rw-big-sur.jpg | Real Wedding Big Sur / Cliffside：新娘薄纱裙立于海崖草地俯瞰海湾 | https://unsplash.com/photos/A1N59dDK9m4 | https://images.unsplash.com/photo-1653628890170-ea242ff6d1b4 | L 161.4 / 黑切 0.0% / S 42.9 / R−B 6.7 | Unsplash License |
+| rw-oregon.jpg | Real Wedding Oregon / Forest & Moss：新人在桉树林光斑中 | https://unsplash.com/photos/vS0e56JrRSA | https://images.unsplash.com/photo-1776267890469-572c13b6f2dc | L 163.9 / 黑切 1.5% / S 50.6 / R−B 7.9 | Unsplash License |
+| rw-wisconsin.jpg | Real Wedding Wisconsin / Barn & Meadow：新娘在金色麦田旋转裙摆 | https://unsplash.com/photos/OicvZDXO9kA | https://images.unsplash.com/photo-1672344838703-a5fc22950698 | L 193.0 / 黑切 0.1% / S 57.1 / R−B 9.3 | Unsplash License |
+| blog-beach-guide.jpg | Journal 海滩着装指南：浅色长裙女子立于海滩礁石，浪花 | https://unsplash.com/photos/m389ZhNfsCs | https://images.unsplash.com/photo-1592261393678-c2f439d46890 | L 176.9 / 黑切 0.8% / S 56.2 / R−B 5.5 | Unsplash License |
+| blog-fabrics.jpg | Journal 面料指南：蕾丝裙边高调特写 | https://unsplash.com/photos/K-zyVx3Jakw | https://images.unsplash.com/photo-1525169087805-031a4da0623c | L 192.3 / 黑切 0.0% / S 23.2 / R−B 13.0 | Unsplash License |
+| blog-wind-veil.jpg | Journal 风中头纱：新娘头纱被风高高吹起，金色黄昏 | https://unsplash.com/photos/VUQpGIA3bhE | https://images.unsplash.com/photo-1621196811441-682f5298fbb5 | L 189.8 / 黑切 3.9% / S 38.3 / R−B 8.6 | Unsplash License |
+| blog-barn-meadow.jpg | Journal 谷仓与草地：新娘手捧花束立于金色草地 | https://unsplash.com/photos/Snj3VEksbbE | https://images.unsplash.com/photo-1575011732056-edc3c7a9a631 | L 168.9 / 黑切 1.6% / S 65.4 / R−B 6.5 | Unsplash License |
+| blog-aisle-hem.jpg | Journal 沙/草/石 aisle 裙长指南：新娘赤足提裙摆 | https://unsplash.com/photos/PDX5nCjTAaQ | https://images.unsplash.com/photo-1549576269-a563007c10ac | L 192.0 / 黑切 0.6% / S 30.5 / R−B 8.6 | Unsplash License |
+| blog-timeline-atelier.jpg | Journal 定制工期：裁缝为蕾丝婚纱背部扣扣（工坊） | https://unsplash.com/photos/s6WAWHo7uts | https://images.unsplash.com/photo-1607007790017-40658637b97b | L 165.3 / 黑切 0.0% / S 57.6 / R−B 15.1 | Unsplash License |
+| blog-dress-code.jpg | Journal 户外着装规范：女宾客穿粉色长裙在温室花园 | https://unsplash.com/photos/SuttBWNIgw4 | https://images.unsplash.com/photo-1777612959480-9036a2f65a95 | L 162.0 / 黑切 0.1% / S 45.7 / R−B 14.2 | Unsplash License |
+| blog-real-weddings.jpg | Journal Real Weddings 章：新人在林间头纱下相拥 | https://unsplash.com/photos/kWS4fSlZUNI | https://images.unsplash.com/photo-1776267887590-5afc3369a74f | L 186.6 / 黑切 1.0% / S 30.1 / R−B 7.3 | Unsplash License |
+| lookbook-coastal.jpg | Lookbook Coastal Romance：新娘在礁石海岸，雾光 | https://unsplash.com/photos/zAvlp9D-lEI | https://images.unsplash.com/photo-1662045470097-7df60e32e7ff | L 166.6 / 黑切 4.9% / S 25.4 / R−B 11.4 | Unsplash License |
+| lookbook-garden.jpg | Lookbook Garden Edit：新娘在花园奔跑，裙摆飞扬 | https://unsplash.com/photos/bOAHweaf8us | https://images.unsplash.com/photo-1772404245130-0a45c577bce3 | L 166.6 / 黑切 0.3% / S 48.3 / R−B 7.3 | Unsplash License |
+| lookbook-golden.jpg | Lookbook Golden Hour：新娘在麦田逆光 | https://unsplash.com/photos/EE1dIl8DJsI | https://images.unsplash.com/photo-1560082073-7b1b2ccbf9b1 | L 174.9 / 黑切 0.9% / S 56.6 / R−B 6.6 | Unsplash License |
+| about-atelier.jpg | About hero：裁缝为新娘整理蕾丝露背婚纱（匠人 + 婚纱，窗光） | https://unsplash.com/photos/G2h2LtEhwe0 | https://images.unsplash.com/photo-1665703156168-b9c74332a076 | L 165.1 / 黑切 0.0% / S 48.5 / R−B 16.1 | Unsplash License |
+| outdoor-hero.jpg | Outdoor Weddings hero：新娘立于海边岩石，蓝天云 | https://unsplash.com/photos/x0qLKq_dAiA | https://images.unsplash.com/photo-1627010972131-3364d07a759f | L 185.0 / 黑切 1.1% / S 46.6 / R−B 10.5 | Unsplash License |
+| tile-beach.jpg | Outdoor tile Beach：新娘蕾丝纱裙立于棕榈大道，头纱飘 | https://unsplash.com/photos/9o7ugDmGKwg | https://images.unsplash.com/photo-1593575619794-1deb0104f65b | L 166.8 / 黑切 0.1% / S 56.0 / R−B 12.5 | Unsplash License |
+| tile-garden.jpg | Outdoor tile Garden：新娘在花园小径，柔光 | https://unsplash.com/photos/5zwACOXFiBg | https://images.unsplash.com/photo-1776267034712-1e61ccdd0849 | L 164.2 / 黑切 0.5% / S 53.0 / R−B 9.4 | Unsplash License |
+| tile-boho.jpg | Outdoor tile Boho：新人在巨人柱仙人掌与山丘前相拥（自 2.2:1 原图裁 3:4） | https://unsplash.com/photos/NzSHljoOmkY | https://images.unsplash.com/photo-1610703892002-81399073fcdc | L 170.7 / 黑切 0.9% / S 57.3 / R−B 7.0 | Unsplash License |
+| tile-forest.jpg | Outdoor tile Forest：新人在高大树林中 | https://unsplash.com/photos/J9zHwm2HWws | https://images.unsplash.com/photo-1776267890276-3776e4d1bd50 | L 158.7 / 黑切 0.4% / S 51.0 / R−B 10.8 | Unsplash License |
+| tile-vineyard.jpg | Outdoor tile Vineyard：新人背影俯瞰葡萄园山谷 | https://unsplash.com/photos/Xz3LpZb2gWY | https://images.unsplash.com/photo-1633118287620-f4ba5d7bdc9b | L 166.3 / 黑切 0.9% / S 62.7 / R−B 6.2 | Unsplash License |
+| inspiration-hero.jpg | Inspiration hero：伴娘们藕粉色礼服背影成组 | https://unsplash.com/photos/AmSSPYrLriQ | https://images.unsplash.com/photo-1495380802461-f7ca08f6595e | L 165.5 / 黑切 0.0% / S 30.7 / R−B 10.6 | Unsplash License |
+| login-bride.jpg | Login 左栏：新娘背影立于白色窗帘窗光前，蕾丝露背 | https://unsplash.com/photos/xfNhe75x_vo | https://images.unsplash.com/photo-1611145678882-edb8ab823bc6 | L 209.0 / 黑切 0.0% / S 25.1 / R−B 8.1 | Unsplash License |
+| newsletter-bride.jpg | Newsletter 弹窗：戴头纱新娘高调肖像 | https://unsplash.com/photos/DEc62HFUo-4 | https://images.unsplash.com/photo-1718389827959-5c3b30b10fda | L 203.0 / 黑切 0.1% / S 54.6 / R−B 9.4 | Unsplash License |
+## 页面接线
 
-### 第二轮缺口（2 张，宁缺毋滥）
+- 首页 hero 两帧、Featured 两卡、Real Weddings 六封面、Journal 八封面、Lookbook 三封面：`scripts/seed/data-content.mjs`（数据层，需重播种）
+- 分类 hero：`frontend/portal-store/lib/collection-hero.ts`（按 `cat` 参数切换 title/description/hero；主导航三大分类落到 `/products?cat=…` 时不再共用同图同题）
+- About / Outdoor Weddings（hero + 5 tile）/ Inspiration / Login / Newsletter：各页面/组件硬编码路径
 
-| 预期文件名 | 用途 | 未落地原因 |
-|---|---|---|
-| blog-atelier-sewing.jpg | Blog：定制时间线（裁缝缝纫婚纱/工坊场景） | Unsplash 数据集全部 5 个版本（约 12.5 万张样本）中无任何可确证的缝纫/裁缝/工坊题材照片；WebSearch 本轮不可用、unsplash.com/pexels.com 搜索页均被反爬拦截，拒绝盲配。**过渡方案：第一轮 blog-atelier-timeline.jpg（婚纱试身）与 featured-atelier.jpg（缝纫工作台）仍在库中可临时顶位**（二者上线前亦需人工目检） |
-| bridesmaids-group.jpg | Featured：伴娘群像 | 同上，无任何可确证的多位伴娘群像候选；数据集中 bridesmaid 关键词命中的均为花束特写。冷调候选已按暖调纪律弃用 |
+## 已移除（第一、二轮 24 张）
 
-### 第二轮候选池备注（备选与弃用）
-
-- 备选（已验证、未采用）：photo-1589404879476-a276396cb9dc（"woman in white wedding dress holding bouquet"，竖图，
-  可作 hero-01 替补）；photo-1591079027855-bafd5e245e67 同摄影师的 photo-1585109599241-ae041ce3ad83（海边白裙，+11 暖，
-  但无 wedding 语义标签）；photo-1486805960212-1267b4ba0a76（bride 0.81，但调色板偏暗灰、裙摆显著度存疑）；
-  photo-1551468307-8c1e3c78013c（"white textile" + wedding 搜索转化×741，疑婚纱面料/婚品细节特写，
-  但关键词混有 gemstone/diamond/stationery 语义，未敢直接用于 blog-fabric，可人工目检后替换）。
-- 弃用（证据矛盾）：photo-1575011732056-edc3c7a9a631（原 hero-02 候选，白裙草地行走 +36 暖，
-  但 evening dress 0.91/bridesmaid/teen 标签与婚纱语义冲突）；photo-1567496148901-f977bb150e68（seashore 新娘候选，
-  但混有 swimwear/shorts 标签且冷调 -10）；photo-1615439579304-b1aa180c67f6（"couple sitting on sand" 实为沙丘游客照，
-  dune/tourist/vacation 标签）。
-
-## 第一轮缺口（6 张，宁缺毋滥）
-
-| 预期文件名 | 用途 | 未落地原因 |
-|---|---|---|
-| wedding-barn.jpg | Real weddings：谷仓金色黄昏 | 未能定位到可确证内容的 Unsplash/Pexels 谷仓婚礼图（搜索通道被反爬拦截，WebSearch 间歇不可用），拒绝盲配 |
-| wedding-cliff.jpg | Real weddings：悬崖两人仪式 | 同上，悬崖/悬崖 elopement 题材无可验证候选 |
-| blog-wind-dress.jpg | Blog：风中裙摆 | 无可确证内容的"裙摆随风"候选图 |
-| blog-barn-textures.jpg | Blog：谷仓纹理 | 同谷仓题材缺口 |
-| blog-aisle-guide.jpg | Blog：鞋/裙长指南 | 唯一鞋履候选图为冷蓝色调（U140/V109），违反暖调纪律，弃用 |
-| featured-bridesmaids.jpg | Featured：伴娘群像 | 无可确证内容的伴娘群像候选图 |
-
-## 验证说明
-
-- **技术校验（两轮全部通过）**：`file` 确认 JPEG；`du` 确认 >100KB；尺寸 1600 宽横构图（多数 1600×1067，
-  `blog-lace-detail` 为 1600×900 原生比例）。
-- **色调校验（ffmpeg signalstats，V(Cr)−U(Cb) > 0 判暖）**：第一轮 16 张中 14 张为暖调（+7 ~ +82），
-  `blog-beach-attire`（+4）与 `lookbook-garden`（+1）为中性微暖，无冷蓝超标图。
-  冷调候选（夜景烟花 U142/V118、蓝色海岸 U138/V108、蓝调缝纫机 U133/V120）均已弃用。
-  第二轮 8 张全部为暖调或中性微暖（+5 ~ +36）。
-- **内容核验**：本会话运行环境无法对图片做视觉确认（Read 工具仅回传 CDN 链接）。
-  第一轮画面内容基于公开可检索的图库常识 + WebSearch 结果描述交叉判断。其中
-  `wedding-beach`、`lookbook-coastal`、`blog-real-weddings` 三张有 WebSearch 描述佐证；
-  `blog-dress-code`、`featured-atelier`、`blog-atelier-timeline` 三张建议上线前人工目检复核，
-  若内容不符可直接按来源 URL 重新选图替换。
-  第二轮 8 张全部有 Unsplash 官方数据集的 AI 描述 + 关键词标签 + 搜索转化记录三重确证（逐张依据见上表）；
-  其中 `bride-hero-02`（双人构图）、`blog-beach-bride`（沙丘非典型海滩）、`blog-wind-veil`（风效未确证）、
-  `blog-lace-detail`（含帽子、非微距）四张的构图细节建议上线前人工目检复核。
-- 所有图仅允许 Unsplash License 语义下的商用（免费、无需署名、可裁剪修改）。
+hero-01/02/03、wedding-beach/garden/forest/desert、blog-beach-attire、blog-garden-fabrics、blog-atelier-timeline（乐高车）、blog-dress-code（餐桌）、blog-real-weddings（红气球）、lookbook-coastal/garden/golden、featured-atelier（捧花）、bride-hero-01（暗调）、bride-hero-02（悬崖小人）、bride-plp、blog-fabric、blog-beach-bride、blog-wind-veil、blog-lace-detail、blog-hem-length。
+移除原因：目检发现内容错误（非婚纱主体/风景空景/静物）或曝光 key 过低（L < 100）破坏高级感。

@@ -4,6 +4,7 @@ import { fetchStoreProducts } from '@/lib/api/catalog-server'
 import { fetchStoreWeddings } from '@/lib/api/marketing-server'
 import { ProductCard } from '@/components/product/product-card'
 import { SectionHeading, Eyebrow, TextLink } from '@/components/ui/primitives'
+import { EditorialHero } from '@/components/marketing/editorial-hero'
 
 /**
  * PAGE-CAT-S02（outdoor-weddings 聚合页，layout-keep + data-swap）：
@@ -18,11 +19,11 @@ export const metadata: Metadata = {
 }
 
 const subThemes = [
-  { theme: 'Beach', image: '/competitor-refs/kissprom/wedding-beach-short-05.jpg', blurb: 'Light fabrics & barefoot ease for sand and sea.' },
-  { theme: 'Garden', image: '/competitor-refs/davidsbridal/bridesmaid-sage-01.jpg', blurb: 'Romantic florals & lush greenery tones.' },
-  { theme: 'Boho', image: '/competitor-refs/birdygrey/bridesmaid-pink-bella-01.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
-  { theme: 'Forest', image: '/competitor-refs/kissprom/wedding-aline-longsleeve-06.jpg', blurb: 'Woodland fairytale gowns with sleeves & layers.' },
-  { theme: 'Vineyard', image: '/competitor-refs/kissprom/prom-champagne-lace-05.jpg', blurb: 'Golden-hour glamour in warm, sun-kissed shades.' }
+  { theme: 'Beach', image: '/photography/tile-beach.jpg', blurb: 'Light fabrics & barefoot ease for sand and sea.' },
+  { theme: 'Garden', image: '/photography/tile-garden.jpg', blurb: 'Romantic florals & lush greenery tones.' },
+  { theme: 'Boho', image: '/photography/tile-boho.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
+  { theme: 'Forest', image: '/photography/tile-forest.jpg', blurb: 'Woodland fairytale gowns with sleeves & layers.' },
+  { theme: 'Vineyard', image: '/photography/tile-vineyard.jpg', blurb: 'Golden-hour glamour in warm, sun-kissed shades.' }
 ]
 
 export default async function OutdoorWeddingsPage() {
@@ -36,16 +37,15 @@ export default async function OutdoorWeddingsPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative h-[60vh] min-h-[420px] overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/competitor-refs/davidsbridal/wedding-dress-04.jpg" alt="Outdoor wedding" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-ink/35" />
-        <div className="container-luxe relative flex h-full flex-col items-center justify-center text-center text-canvas">
-          <Eyebrow className="text-gold-light">Curated by setting</Eyebrow>
-          <h1 className="mt-3 font-display text-5xl font-medium lg:text-6xl">Outdoor Weddings</h1>
-          <p className="mt-4 max-w-xl text-canvas/85">From windswept beaches to candlelit vineyards — find the gown made for your view.</p>
-        </div>
-      </section>
+      <EditorialHero
+        variant="wide"
+        image="/photography/outdoor-hero.jpg"
+        alt="Bride on a coastal rock"
+        eyebrow="Curated by setting"
+        title="Outdoor Weddings"
+        description="From windswept beaches to candlelit vineyards — find the gown made for your view."
+        objectPosition="center 35%"
+      />
 
       {/* Sub-themes */}
       <section className="container-luxe py-16 lg:py-20">
