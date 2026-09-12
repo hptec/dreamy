@@ -41,3 +41,11 @@ logs/
 
 # 生产发布构建配置(release.sh --env)
 .env.deploy.prod
+
+# TLS 证书(生产=阿里云私钥严禁入库;本地自签亦不入库)
+nginx/certs/
+# 阿里云证书原件与解压产物(zip 内含私钥,严禁入库)
+nginx/*.zip
+nginx/*.pem
+nginx/*.key
+nginx/validation/

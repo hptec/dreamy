@@ -1,6 +1,6 @@
 // admin/store REST API 客户端(release.sh 同源约定:JSON snake_case,R{code,data} 包裹)
-// 用法:API_BASE=http://dreamy.cerestech.cn:60080/api node ...
-const BASE = process.env.API_BASE ?? 'http://dreamy.cerestech.cn:60080/api'
+// 用法:API_BASE=https://dreamy.cerestech.cn:60080/api node ...
+const BASE = process.env.API_BASE ?? 'https://dreamy.cerestech.cn:60080/api'
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'admin@dreamy.com'
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'Admin@123456'
 

@@ -1,5 +1,5 @@
 import { chromium } from 'playwright'
-const base = process.argv[2] || 'http://dreamy.cerestech.cn:60080'
+const base = process.argv[2] || 'https://dreamy.cerestech.cn:60080'
 const out = process.argv[3]
 const pages = [
   ['home','/'], ['plp-all','/products'], ['plp-wedding','/products?cat=Wedding+Dresses'], ['plp-bridesmaids','/products?cat=Bridesmaids'],

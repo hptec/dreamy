@@ -48,7 +48,7 @@ wait_http() {
   local waited=0
   printf "[deploy] 等待 %s 就绪 (%s) " "${label}" "${url}"
   while [ "${waited}" -lt "${timeout}" ]; do
-    if curl -fsS --max-time 5 "${url}" >/dev/null 2>&1; then
+    if curl -fsSk --max-time 5 "${url}" >/dev/null 2>&1; then
       echo "OK (${waited}s)"
       return 0
     fi
@@ -63,9 +63,10 @@ wait_http() {
 
 # 后端含 JVM 启动 + DdlAuto 自动建表,给足时间(回环端口,不对外)
 wait_http "backend" "http://127.0.0.1:${BACKEND_PORT:-18081}/actuator/health" 180
-wait_http "portal-store" "http://127.0.0.1:${STORE_PORT:-5173}/" 60
+# 网关已 TLS 化:探活打 127.0.0.1 而证书 CN 是域名,curl -k 免校验
+wait_http "portal-store" "https://127.0.0.1:${STORE_PORT:-5173}/" 60
 # admin 经网关 /admin/ 路径(单端口分流,不映射独立宿主端口)
-wait_http "portal-admin" "http://127.0.0.1:${STORE_PORT:-5173}/admin/" 60
+wait_http "portal-admin" "https://127.0.0.1:${STORE_PORT:-5173}/admin/" 60
 
 echo "[deploy] 清理旧镜像层..."
 docker image prune -f

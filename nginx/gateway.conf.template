@@ -1,14 +1,26 @@
-# 边缘网关:唯一对外入口,单端口按路径分流(上域名+HTTPS 时仅需改本网关配置):
+# 边缘网关:唯一对外入口,单端口按路径分流,TLS 终结于本网关:
 #   /           → portal-store(默认路由)
 #   /admin/     → portal-admin(网关剥离 /admin 前缀,admin 容器按根路径服务,其 nginx 零感知)
 #   /api/       → backend(浏览器同源 API:admin SPA / store OIDC 回调 / newsletter 退订 / webhook)
 #   /actuator/  → backend(健康检查与调试)
+# HTTPS 为硬要求:Google OIDC 等外部回调的公网 redirect_uri 仅认 https(localhost 除外)。
+# 证书由 compose 挂载 ./nginx/certs/(fullchain.pem+privkey.pem);生产=阿里云免费证书,
+# 本地验证=scripts/gen-dev-cert.sh 自签;目录缺失或为空时本网关启动即失败。
 # 上游地址由环境变量注入(默认 compose 服务名,与 DB_URL 的 mysql:3306 同为编排层契约)。
 # 注意 Host 用 $http_host 原样透传(含端口):$host 丢端口会让后端把同源 POST 误判为跨域。
 
 server {
-    listen 5173;
+    listen 5173 ssl;
+    http2 on;
     server_name _;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
     # 重定向用相对 Location(默认会拼 listen 端口 5173,把 60080 入口用户引到未放行端口)
     absolute_redirect off;
 

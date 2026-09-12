@@ -15,7 +15,7 @@ buildx 构建 store ─┘   三镜像双 tag  ──────────→
 - 后端 JAR / admin 静态产物本身跨架构,本地原生编译;store 镜像在 buildx 的 `linux/amd64` 环境内构建(standalone 含平台 SWC 二进制)。
 - **全部配置外置** `.env.deploy`:镜像内零地址零密钥;compose 内只有 `${VAR:-默认值}` 引用。公网地址只填 `PUBLIC_STORE_URL`/`PUBLIC_ADMIN_URL` 两行,其余(CORS/SITE_BASE_URL/NEXT_PUBLIC_*/VITE_*)自动派生。
 - 服务间请求全程同源:store 浏览器 `/api` 由 Next middleware 反代、admin 浏览器 `/api` 由其容器内 nginx 反代、store RSC 取数直连 `BACKEND_INTERNAL_URL`。
-- **边缘网关**:`gateway` 容器(nginx)是唯一对外入口,**单端口按路径分流**:`/` → store、`/admin/` → admin(网关剥离前缀)、`/api/` 与 `/actuator/` → backend;backend 仅绑宿主回环,admin/store 不映射宿主端口;上域名 + HTTPS 时只改 `nginx/gateway.conf.template` 一处。
+- **边缘网关**:`gateway` 容器(nginx)是唯一对外入口,**单端口按路径分流并终结 TLS**:`/` → store、`/admin/` → admin(网关剥离前缀)、`/api/` 与 `/actuator/` → backend;backend 仅绑宿主回环,admin/store 不映射宿主端口。HTTPS 为硬要求(Google OIDC 等外部回调的公网 redirect_uri 仅认 https),证书挂载自 `nginx/certs/`。
 
 ## 一、一次性准备
 
@@ -26,7 +26,21 @@ buildx 构建 store ─┘   三镜像双 tag  ──────────→
 3. 在命名空间下创建 3 个**私有仓库**:`dreamy-backend`、`dreamy-store`、`dreamy-admin`(代码源选"本地仓库")。
 4. 左侧"访问凭证"设置**固定密码**,本地与服务器 `docker login` 都用它。
 
-### 2. 本地 Mac
+### 2. TLS 证书(公网域名必配,本地验证可自签)
+
+```bash
+# 生产:阿里云控制台 → 数字证书管理服务 → SSL 证书 → 免费证书(20 张/年)
+#   申请单域名证书(如 dreamy.cerestech.cn,DNS 验证域名在同账号时自动通过)
+#   下载 nginx 格式,重命名后放到服务器与本地仓库的 nginx/certs/(目录已被 .gitignore 排除):
+#     <证书>.pem  → nginx/certs/fullchain.pem   (若下载包含中间证书链,拼接: cat cert.pem chain.pem > fullchain.pem)
+#     <证书>.key  → nginx/certs/privkey.pem
+# 注意:阿里云免费证书有效期 3 个月,到期需重新申请替换(替换后 docker compose up -d gateway 即生效)。
+
+# 本地验证:一键自签(浏览器告警属预期)
+bash scripts/gen-dev-cert.sh
+```
+
+### 3. 本地 Mac
 
 ```bash
 # Docker Desktop 设置确认:
@@ -43,7 +57,7 @@ cp .env.deploy.example .env.deploy
 # 注意:CORS 变量要填浏览器实际访问的完整来源(协议+域名+端口,127.0.0.1 与 localhost 是不同源,逗号分隔多值)
 ```
 
-### 3. 香港服务器(一次性初始化)
+### 4. 香港服务器(一次性初始化)
 
 ```bash
 # 以 root 或 sudo 执行;之后日常部署需要 docker 组权限或 sudo
@@ -83,7 +97,7 @@ bash scripts/deploy.sh
 
 - **空库自动建表**:后端首次启动由 huihao-mysql `DdlAuto: update` 自动创建全部表结构。
 - **演示数据**:`.env.deploy` 置 `DEMO_SEED_ENABLED=true` 可灌入演示商品/内容(验收完可关)。
-- **首个管理员**:`DREAMY_BOOTSTRAP_ADMIN_EMAIL/PASSWORD` 填入后启动即创建,登录 `http://<IP>:5173/admin` 管理端;创建后可将两项置空。
+- **首个管理员**:`DREAMY_BOOTSTRAP_ADMIN_EMAIL/PASSWORD` 填入后启动即创建,登录 `https://<域名>:<端口>/admin` 管理端;创建后可将两项置空。
 - **MySQL 仅绑 127.0.0.1:3306**,外部管理走 SSH 隧道:
   ```bash
   ssh -L 3306:127.0.0.1:3306 root@<服务器IP>   # 然后本地用 127.0.0.1:3306 连接
