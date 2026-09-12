@@ -8,11 +8,11 @@ export const weddingDresses = [
     categoryPath: ['Wedding Dresses', 'Garden & Boho'],
     price: 479, compareAt: 559, recommend: false,
     color: 'Ivory', fabricMain: 'Crepe',
-    description: 'Illusion off-the-shoulder lace long sleeves over a draped crepe sheath — bare shoulders without going strapless, coverage without losing the line. The crepe is gathered softly across the hip so the silhouette photographs like candlelight, even at noon.',
+    description: 'Illusion bateau neckline with lace long sleeves over a draped crepe sheath — bare shoulders without going strapless, coverage without losing the line. The crepe is gathered softly across the hip so the silhouette photographs like candlelight, even at noon.',
     designerNote: 'The lace sleeves are set on illusion mesh so they sit just below the shoulder and stay there. The draping is anchored at one hidden seam — it moves, it never shifts.',
     sellingPoints: ['Illusion off-the-shoulder lace long sleeves', 'Draped crepe sheath with hip gathering', 'Bodice with internal boning', 'Sweep train, bustle-ready'],
     leadTimeDays: 56, rushAvailable: true,
-    attributes: { silhouette: ['Sheath'], neckline: ['Off-Shoulder'], sleeve: ['Long Sleeve'], fabric: ['Crepe'], embellishment: ['Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden'], style_tag: ['Romantic', 'Modern'] },
+    attributes: { silhouette: ['Sheath'], neckline: ['Illusion'], sleeve: ['Long Sleeve'], fabric: ['Crepe'], embellishment: ['Lace'], back_style: ['Zipper'], train: ['Sweep'], occasion: ['Garden'], style_tag: ['Romantic', 'Modern'] },
     images: [
       { url: IMG('davidsbridal/wedding-dress-04.jpg'), kind: 1, sort: 0 },
       { url: IMG('davidsbridal/wedding-dress-04-detail.jpg'), kind: 1, sort: 1 }

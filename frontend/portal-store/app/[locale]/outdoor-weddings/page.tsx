@@ -19,11 +19,11 @@ export const metadata: Metadata = {
 }
 
 const subThemes = [
-  { theme: 'Beach', image: '/photography/tile-beach.jpg', blurb: 'Light fabrics & barefoot ease for sand and sea.' },
-  { theme: 'Garden', image: '/photography/tile-garden.jpg', blurb: 'Romantic florals & lush greenery tones.' },
-  { theme: 'Boho', image: '/photography/tile-boho.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
-  { theme: 'Forest', image: '/photography/tile-forest.jpg', blurb: 'Woodland fairytale gowns with sleeves & layers.' },
-  { theme: 'Vineyard', image: '/photography/tile-vineyard.jpg', blurb: 'Golden-hour glamour in warm, sun-kissed shades.' }
+  { theme: 'Beach', href: '/wedding-dresses?a_occasion=Beach', image: '/photography/tile-beach.jpg', blurb: 'Light fabrics & barefoot ease for sand and sea.' },
+  { theme: 'Garden', href: '/wedding-dresses?a_occasion=Garden', image: '/photography/tile-garden.jpg', blurb: 'Romantic florals & lush greenery tones.' },
+  { theme: 'Boho', href: '/wedding-dresses?a_style_tag=Boho', image: '/photography/tile-boho.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
+  { theme: 'Forest', href: '/wedding-dresses?a_occasion=Forest', image: '/photography/tile-forest.jpg', blurb: 'Woodland fairytale gowns with sleeves & layers.' },
+  { theme: 'Vineyard', href: '/wedding-dresses?a_occasion=Vineyard', image: '/photography/tile-vineyard.jpg', blurb: 'Golden-hour glamour in warm, sun-kissed shades.' }
 ]
 
 export default async function OutdoorWeddingsPage() {
@@ -38,20 +38,19 @@ export default async function OutdoorWeddingsPage() {
     <div>
       {/* Hero */}
       <EditorialHero
-        variant="wide"
         image="/photography/outdoor-hero.jpg"
         alt="Bride on a coastal rock"
         eyebrow="Curated by setting"
         title="Outdoor Weddings"
         description="From windswept beaches to candlelit vineyards — find the gown made for your view."
-        objectPosition="center 35%"
+        objectPosition="28% 40%"
       />
 
       {/* Sub-themes */}
       <section className="container-luxe py-16 lg:py-20">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
           {subThemes.map((t) => (
-            <Link key={t.theme} href={`/wedding-dresses?color=${encodeURIComponent(t.theme)}`} className="group">
+            <Link key={t.theme} href={t.href} className="group">
               <div className="aspect-[3/4] overflow-hidden rounded-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={t.image} alt={t.theme} className="h-full w-full object-cover transition-transform duration-700 ease-luxe group-hover:scale-105" />

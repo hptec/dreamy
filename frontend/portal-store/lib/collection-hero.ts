@@ -13,7 +13,7 @@ export const ALL_STYLES_HERO: CollectionHero = {
   title: 'All Styles',
   description: 'Every gown, dress, and finishing touch — designed for celebrations under open skies.',
   heroImage: '/photography/plp-all-styles.jpg',
-  objectPosition: 'center 45%',
+  objectPosition: 'center 22%',
   variant: 'split'
 }
 

@@ -42,7 +42,7 @@ export default async function InspirationPage({
 
   return (
     <div>
-      <EditorialHero variant="wide" image="/photography/inspiration-hero.jpg" alt={t.heroTitle} eyebrow={t.heroEyebrow} title={t.heroTitle} objectPosition="center 45%" />
+      <EditorialHero variant="wide" image="/photography/inspiration-hero.jpg" alt={t.heroTitle} eyebrow={t.heroEyebrow} title={t.heroTitle} objectPosition="center 25%" />
 
       <section className="container-luxe py-16">
         <SectionHeading eyebrow={t.editsEyebrow} title={t.editsTitle} />

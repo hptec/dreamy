@@ -81,11 +81,11 @@ export function CookieConsent() {
       )}
 
       {show && (
-        <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm animate-fadeup rounded-sm border border-line bg-surface p-5 shadow-lift">
-          <p className="text-sm text-ink-soft">
+        <div className="fixed inset-x-0 bottom-0 z-50 animate-fadeup border-t border-line bg-surface px-4 py-3 shadow-lift sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[calc(100%-2rem)] sm:max-w-sm sm:rounded-sm sm:border sm:p-5">
+          <p className="text-xs leading-5 text-ink-soft sm:text-sm">
             {t.cookieConsent.body}
           </p>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-2.5 flex gap-2 sm:mt-4">
             <button
               onClick={() => choose('granted')}
               className="flex-1 cursor-pointer rounded-sm bg-ink px-5 py-2 text-xs font-medium uppercase tracking-luxe text-canvas transition-colors hover:bg-gold-deep"

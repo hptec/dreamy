@@ -19,6 +19,10 @@ const nextConfig = {
     // 商品/内容图为 API 下发的绝对 URL，页面统一使用 <img>（unoptimized 保持既有行为）
     unoptimized: true
   },
+  // /login 快捷入口 → 真实登录页（locale 前缀由 middleware 处理，此处仅做路径归一）
+  async redirects() {
+    return [{ source: '/login', destination: '/account/login', permanent: true }]
+  },
   // MF-L4S-002：HTTP 安全响应头基线（全路由）。
   // CSP connect-src 中的 API 直连地址由 API_DIRECT_ORIGIN 注入(dev 默认 http://localhost:18081);
   // 同源反代模式下浏览器只需 'self'，直连值仅为 dev/特殊场景保留。

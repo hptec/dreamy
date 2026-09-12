@@ -191,11 +191,11 @@ export const occasionDresses = [
     categoryPath: ['Occasion & Party', 'Prom & Evening'],
     price: 219, compareAt: 269, recommend: true,
     color: 'Champagne', fabricMain: 'Lace',
-    description: 'Champagne lace over a smoothing base, with a strapless straight neckline and a soft A-line skirt. Old-Hollywood energy with a modern fit — the dress that gets two compliments before you\'ve checked your coat.',
+    description: 'Champagne lace over a smoothing base, with a straight neckline on thin straps and a soft A-line skirt. Old-Hollywood energy with a modern fit — the dress that gets two compliments before you\'ve checked your coat.',
     designerNote: 'The lace is placed so the pattern mirrors itself across the center front — symmetry you feel even if you never notice it.',
-    sellingPoints: ['Mirrored champagne lace placement', 'Strapless straight neckline with inner support', 'Soft A-line skirt, fully lined', 'Zero cling, all-night comfort'],
+    sellingPoints: ['Mirrored champagne lace placement', 'Straight neckline on thin straps, inner support', 'Soft A-line skirt, fully lined', 'Zero cling, all-night comfort'],
     leadTimeDays: 35,
-    attributes: { silhouette: ['A-Line'], neckline: ['Strapless'], sleeve: ['Sleeveless'], fabric: ['Lace'], back_style: ['Zipper'], embellishment: ['Lace'], length: ['Floor'], style_tag: ['Glam', 'Vintage'] },
+    attributes: { silhouette: ['A-Line'], neckline: ['Square'], sleeve: ['Strap'], fabric: ['Lace'], back_style: ['Zipper'], embellishment: ['Lace'], length: ['Floor'], style_tag: ['Glam', 'Vintage'] },
     images: [
       { url: IMG('kissprom/prom-champagne-lace-05.jpg'), kind: 1, sort: 0 },
       { url: IMG('kissprom/prom-champagne-lace-05-detail.jpg'), kind: 1, sort: 1 }
@@ -207,11 +207,11 @@ export const occasionDresses = [
     categoryPath: ['Occasion & Party', 'Prom & Evening'],
     price: 209, compareAt: 249,
     color: 'Emerald', fabricMain: 'Lace',
-    description: 'Deep emerald lace, strapless, with a soft A-line skirt — the winter-formal answer to "I want to look like a jewel." Fully lined, softly fitted at the bodice, quietly knockout.',
+    description: 'Deep emerald lace on thin straps with a straight neckline and a soft A-line skirt — the winter-formal answer to "I want to look like a jewel." Fully lined, softly fitted at the bodice, quietly knockout.',
     designerNote: 'A test batch survived a Chicago December (with the matching wrap). Approved.',
-    sellingPoints: ['Strapless lace bodice with inner support', 'Deep emerald, fully lined', 'Soft A-line skirt', 'Winter-formal approved'],
+    sellingPoints: ['Straight-neck lace bodice on thin straps, inner support', 'Deep emerald, fully lined', 'Soft A-line skirt', 'Winter-formal approved'],
     leadTimeDays: 35, rushAvailable: true,
-    attributes: { silhouette: ['A-Line'], neckline: ['Strapless'], fabric: ['Lace'], embellishment: ['Lace'], length: ['Floor'], style_tag: ['Classic', 'Glam'], season: ['Winter'] },
+    attributes: { silhouette: ['A-Line'], neckline: ['Square'], sleeve: ['Strap'], fabric: ['Lace'], embellishment: ['Lace'], length: ['Floor'], style_tag: ['Classic', 'Glam'], season: ['Winter'] },
     images: [
       { url: IMG('kissprom/prom-darkgreen-lace-06.jpg'), kind: 1, sort: 0 },
       { url: IMG('kissprom/prom-darkgreen-lace-06-detail.jpg'), kind: 1, sort: 1 }
@@ -297,7 +297,7 @@ export const accessories = [
     leadTimeDays: 14, rushAvailable: true, customSizeAvailable: false, installment: false,
     sizeChart: null,
     skus: [{ skuCode: 'JEWEL-PEARL-01', color: 'Pearl White', size: 'One Size', stock: 40 }],
-    attributes: { fabric: ['Lace'], embellishment: ['Pearls'], style_tag: ['Classic', 'Romantic'] },
+    attributes: { embellishment: ['Pearls'], style_tag: ['Classic', 'Romantic'] },
     images: [
       { url: IMG('birdygrey/accessory-jewelry-01-crop.jpg'), kind: 1, sort: 0 }
     ],

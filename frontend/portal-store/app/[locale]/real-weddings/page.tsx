@@ -34,7 +34,7 @@ export default async function RealWeddingsPage({ params }: { params: Promise<Pag
           eyebrow="Real love stories"
           title="Real Outdoor Weddings"
           description="See how real couples styled their outdoor celebrations — and shop every look."
-          objectPosition="center 40%"
+          objectPosition="center 22%"
         />
       )}
 
