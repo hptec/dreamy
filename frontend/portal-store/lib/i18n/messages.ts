@@ -957,8 +957,8 @@ const en: UiMessages = {
     generic: 'Nothing here yet.'
   },
   blog: {
-    title: 'Wedding Blog',
-    eyebrow: 'The Journal',
+    title: 'The Journal',
+    eyebrow: 'Dreamy Atelier',
     description: 'Planning tips, fabric guides, and outdoor wedding inspiration.',
     empty: 'New stories are on the way — check back soon.',
     backToBlog: '← Back to blog',
@@ -1588,8 +1588,8 @@ const es: DeepPartial<UiMessages> = {
     generic: 'Aun no hay nada aqui.'
   },
   blog: {
-    title: 'Blog de Bodas',
-    eyebrow: 'El Diario',
+    title: 'El Journal',
+    eyebrow: 'Atelier Dreamy',
     description: 'Consejos de planificacion, guias de telas e inspiracion para bodas al aire libre.',
     empty: 'Nuevas historias estan en camino — vuelve pronto.',
     backToBlog: '← Volver al blog',
@@ -2217,8 +2217,8 @@ const fr: DeepPartial<UiMessages> = {
     generic: 'Rien ici pour le moment.'
   },
   blog: {
-    title: 'Blog Mariage',
-    eyebrow: 'Le Journal',
+    title: 'Le Journal',
+    eyebrow: 'Atelier Dreamy',
     description: 'Conseils de planification, guides des tissus et inspiration pour mariages en plein air.',
     empty: 'De nouvelles histoires arrivent — revenez bientot.',
     backToBlog: '← Retour au blog',

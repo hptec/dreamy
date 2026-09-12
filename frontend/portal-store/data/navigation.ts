@@ -89,7 +89,7 @@ export const mainNav: NavItem[] = [
         links: [
           { label: 'Lookbook', href: '/inspiration' },
           { label: 'Real Weddings', href: '/real-weddings' },
-          { label: 'Wedding Blog', href: '/blog' },
+          { label: 'The Journal', href: '/blog' },
           { label: 'Planning Guides', href: '/wedding-guides' }
         ]
       }
@@ -121,7 +121,7 @@ export const footerNav: MegaColumn[] = [
     title: 'Company',
     links: [
       { label: 'About Dreamy', href: '/about' },
-      { label: 'Wedding Blog', href: '/blog' },
+      { label: 'The Journal', href: '/blog' },
       { label: 'Real Weddings', href: '/real-weddings' },
       { label: 'Planning Guides', href: '/wedding-guides' }
     ]

@@ -45,7 +45,7 @@ export default async function BlogPage({
   if (posts.length === 0) {
     return (
       <div className="container-luxe py-12">
-        <SectionHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
+        <SectionHeading as="h1" eyebrow={t.eyebrow} title={t.title} description={t.description} />
         <p className="py-24 text-center text-ink-soft">{t.empty}</p>
       </div>
     )
@@ -54,7 +54,7 @@ export default async function BlogPage({
   // 3 列大图卡片流（4:5 画幅 + Cormorant 标题 + 分类 eyebrow + hover 轻缩放；数据结构不变）
   return (
     <div className="container-luxe py-12">
-      <SectionHeading eyebrow={t.eyebrow} title={t.title} description={t.description} />
+      <SectionHeading as="h1" eyebrow={t.eyebrow} title={t.title} description={t.description} />
 
       <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (

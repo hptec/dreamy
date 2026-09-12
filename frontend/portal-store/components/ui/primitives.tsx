@@ -11,18 +11,21 @@ export function SectionHeading({
   title,
   description,
   align = 'center',
+  as: Tag = 'h2',
   className
 }: {
   eyebrow?: string
   title: string
   description?: string
   align?: 'center' | 'left'
+  /** 页面主标题传 h1（每页唯一 h1） */
+  as?: 'h1' | 'h2'
   className?: string
 }) {
   return (
     <div className={cn('max-w-2xl', align === 'center' ? 'mx-auto text-center' : 'text-left', className)}>
       {eyebrow && <Eyebrow className="mb-3">{eyebrow}</Eyebrow>}
-      <h2 className="heading-display text-3xl sm:text-4xl lg:text-[2.75rem]">{title}</h2>
+      <Tag className="heading-display text-3xl sm:text-4xl lg:text-[2.75rem]">{title}</Tag>
       {description && <p className="mt-4 text-ink-soft leading-relaxed">{description}</p>}
     </div>
   )
