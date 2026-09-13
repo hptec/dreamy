@@ -57,6 +57,7 @@ export function SiteHeader({
         featured: i.megaMenu?.featured ?? undefined,
       }))
     : mainNav
+  const desktopNavItems = navItems.filter((i) => i.href !== '/')
   const activePath = stripLocale(pathname ?? '/')
   const [announceIdx, setAnnounceIdx] = useState(0)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -108,25 +109,26 @@ export function SiteHeader({
         <div className="container-luxe" onMouseLeave={() => setOpenMenu(null)}>
           <div className="flex h-16 items-center justify-between lg:h-20">
             {/* 移动端菜单按钮 */}
-            <button onClick={() => setMobileOpen(true)} className="cursor-pointer p-2 lg:hidden" aria-label={t.layout.header.openMenu}>
+            <button onClick={() => setMobileOpen(true)} className="cursor-pointer p-2 xl:hidden" aria-label={t.layout.header.openMenu}>
               <Menu className="h-5 w-5" />
             </button>
 
             {/* Logo */}
-            <Link href="/" className="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0">
-              <span className="font-display text-2xl font-semibold tracking-tight lg:text-[1.75rem]">Dreamy</span>
-              <span className="ml-1 hidden align-super text-[9px] uppercase tracking-wide2 text-gold lg:inline">Atelier</span>
+            <Link href="/" className="absolute left-1/2 -translate-x-1/2 xl:static xl:mr-6 xl:translate-x-0 min-[1400px]:mr-10">
+              <span className="font-display text-2xl font-semibold tracking-tight xl:text-[1.75rem]">Dreamy</span>
+              <span className="ml-1 hidden align-super text-[9px] uppercase tracking-wide2 text-gold min-[1400px]:inline">Atelier</span>
             </Link>
 
-            {/* 桌面导航 */}
-            <nav className="hidden items-center gap-7 lg:flex">
-              {navItems.map((item) => (
+            {/* 桌面导航：Home 由 logo 承担不重复占位；六项+图标 1280 以下放不下，走汉堡；
+                单行不换行，1280/1400/1536 三档递增字号与间距 */}
+            <nav className="hidden items-center gap-4 xl:flex min-[1400px]:gap-6 2xl:gap-7">
+              {desktopNavItems.map((item) => (
                 <div key={item.label} onMouseEnter={() => setOpenMenu(hasColumns(item) ? item.label : null)} className="py-7">
                   <Link
                     href={item.href}
                     {...linkTargetProps(item.target)}
                     className={cn(
-                      'flex items-center gap-1 text-[13px] font-medium uppercase tracking-luxe transition-colors hover:text-gold-deep',
+                      'flex items-center gap-1 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] transition-colors hover:text-gold-deep min-[1400px]:text-[12px] min-[1400px]:tracking-[0.14em] 2xl:text-[13px] 2xl:tracking-luxe',
                       activePath.startsWith(item.href) && item.href !== '/' ? 'text-gold-deep' : 'text-ink'
                     )}
                   >
@@ -138,7 +140,7 @@ export function SiteHeader({
             </nav>
 
             {/* 工具图标 */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 xl:ml-6">
               <button onClick={() => setSearchOpen(true)} className="cursor-pointer p-2 transition-colors hover:text-gold-deep" aria-label={t.layout.header.searchAria}>
                 <Search className="h-5 w-5" />
               </button>
@@ -276,7 +278,7 @@ function MegaPanel({ item, onClose, onMouseEnter }: { item?: HeaderNavItem; onCl
   if (!item || !hasColumns(item)) return null
   const columns = item.columns!
   return (
-    <div onMouseEnter={onMouseEnter} onMouseLeave={onClose} className="absolute inset-x-0 top-full hidden border-b border-line bg-canvas shadow-lift lg:block">
+    <div onMouseEnter={onMouseEnter} onMouseLeave={onClose} className="absolute inset-x-0 top-full hidden border-b border-line bg-canvas shadow-lift xl:block">
       <div className="container-luxe grid grid-cols-4 gap-8 py-10">
         {columns.map((col) => (
           <div key={col.title}>
@@ -393,7 +395,7 @@ function MobileMenu({ items, onClose }: { items: HeaderNavItem[]; onClose: () =>
   const [expanded, setExpanded] = useState<string | null>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return (
-    <div className="fixed inset-0 z-50 lg:hidden">
+    <div className="fixed inset-0 z-50 xl:hidden">
       <div className="absolute inset-0 bg-ink/40" onClick={onClose} />
       <div className="absolute left-0 top-0 h-full w-[85%] max-w-sm animate-fadeup overflow-y-auto bg-canvas">
         <div className="flex items-center justify-between border-b border-line p-5">
