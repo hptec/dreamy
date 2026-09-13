@@ -43,6 +43,7 @@ export function CollectionView({
   colorCollectionMap = {},
   filterDims = [],
   subTabs,
+  subTabsAllValue = '',
   basePath
 }: {
   title: string
@@ -57,8 +58,13 @@ export function CollectionView({
   colorCollectionMap?: Record<string, number>
   /** 动态属性筛选维度（E-CAT-27；空则不渲染属性组） */
   filterDims?: StoreFilterDim[]
-  /** 子分类 tab（value=category id 字符串，cat searchParam 驱动） */
+  /** 子分类 tab（value=子分类名，cat searchParam 驱动） */
   subTabs?: { label: string; value: string }[]
+  /**
+   * 「All」tab 写入的 cat 值：/wedding-dresses 等有父分类的路由为 ''（去掉 cat 即回父分类）；
+   * /products?cat=<顶级分类> 聚合路由必须写回顶级分类名，否则「All」会把 cat 清空落到全站 32 款。
+   */
+  subTabsAllValue?: string
   basePath: string
 }) {
   const router = useRouter()
@@ -116,15 +122,17 @@ export function CollectionView({
 
   const attrActiveCount = Object.keys(attrSelections).length
   const activeCount = [color, collectionActive, size, price].filter(Boolean).length + attrActiveCount
-  const clearAll = () => {
-    const patch: Record<string, string | null> = { color: null, collection: null, size: null, price: null }
-    for (const key of Object.keys(attrSelections)) patch['a_' + key] = null
-    navigate(patch)
-  }
-
   const items = data?.data ?? []
   const total = data?.totalElements ?? 0
   const totalPages = data?.totalPages ?? 1
+  // 空结果时「清除筛选」连 cat 一起清：cat 不在分类树里（旧链接 ?cat=Shoes 等）会由 collection-page
+  // 按空结果渲染，若只清 color/size/attr 用户点了也走不出空页
+  const clearAll = () => {
+    const patch: Record<string, string | null> = { color: null, collection: null, size: null, price: null }
+    for (const key of Object.keys(attrSelections)) patch['a_' + key] = null
+    if (items.length === 0 && cat) patch.cat = null
+    navigate(patch)
+  }
 
   const filterGroups = (
     <FilterGroups
@@ -163,12 +171,12 @@ export function CollectionView({
         {/* Sub tabs（子分类，cat searchParam 驱动） */}
         {subTabs && subTabs.length > 0 && (
           <div className="mb-8 flex flex-wrap justify-center gap-2 border-b border-line pb-6">
-            {[{ label: t.collection.all, value: '' }, ...subTabs].map((t2) => {
+            {[{ label: t.collection.all, value: subTabsAllValue }, ...subTabs].map((t2, idx) => {
               const catPatch: Record<string, string | null> = { cat: t2.value || null }
               for (const key of Object.keys(attrSelections)) catPatch['a_' + key] = null
               return (
                 <button
-                  key={t2.value || 'all'}
+                  key={idx === 0 ? 'all' : t2.value}
                   onClick={() => navigate(catPatch)}
                   className={cn('cursor-pointer rounded-full px-5 py-2 text-[13px] font-medium uppercase tracking-luxe transition-colors', cat === t2.value ? 'bg-ink text-canvas' : 'border border-line text-ink-soft hover:border-ink')}
                 >

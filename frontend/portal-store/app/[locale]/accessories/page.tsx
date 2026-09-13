@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Bridal Accessories',
-  description: 'Veils, shoes, jewelry, and headpieces to complete your outdoor wedding look.'
+  description: 'Jewelry, headpieces, getting-ready sets, and flower girl dresses to complete your outdoor wedding look.'
 }
 
 export default async function AccessoriesPage({ searchParams }: { searchParams: Promise<CollectionSearchParams> }) {

@@ -183,6 +183,16 @@ function normalizeHomePage(page: RawStoreHomePage | null): StoreHomePage | null 
   return { sections }
 }
 
+/**
+ * 导航项 mega_menu_json 契约（与 data/navigation.ts 的静态 NavItem 同形，运营在 site_builder 维护）：
+ * columns 每栏一组链接；featured 为右侧推荐图卡。链接必须落到真实可筛选的目录参数
+ * （/products?cat=<分类名>[&a_<key>=v][&collection=<id>]），由 scripts/seed/data-site-nav.mjs 统一生成。
+ */
+export interface StoreMegaMenu {
+  columns?: { title: string; links: { label: string; href: string }[] }[]
+  featured?: { label: string; href: string; image: string } | null
+}
+
 export interface StoreNavigationItem {
   id: number
   parentId: number | null
@@ -191,7 +201,7 @@ export interface StoreNavigationItem {
   url: string | null
   target: string
   linkType: number
-  megaMenu: any
+  megaMenu: StoreMegaMenu | null
   sortOrder: number
 }
 

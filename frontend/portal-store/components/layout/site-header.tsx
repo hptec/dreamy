@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react'
 import { LocalizedLink as Link } from '@/components/localized-link'
 import { usePathname } from 'next/navigation'
 import { Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, Globe, Check } from 'lucide-react'
-import { mainNav, announcements as staticAnnouncements, currencies, languages } from '@/data/navigation'
+import { mainNav, announcements as staticAnnouncements, currencies, languages, type NavItem } from '@/data/navigation'
 import type { StoreProductCard } from '@/lib/api/store-types'
 import { searchStoreProducts } from '@/lib/api/catalog-api'
 import { useStore } from '@/components/store-provider'
@@ -22,6 +22,14 @@ import type { Locale } from '@/lib/api/types'
 import { cn, linkTargetProps } from '@/lib/utils'
 
 import type { StoreNavigationItem } from '@/lib/api/site-builder-server'
+
+/** 头部导航项（API 项与静态 mainNav 归一后的形态） */
+type HeaderNavItem = NavItem & { target?: string }
+
+/** 有二级内容才展示 chevron / mega panel / 移动端展开 */
+function hasColumns(item: HeaderNavItem): boolean {
+  return !!item.columns && item.columns.length > 0
+}
 
 export function SiteHeader({
   announcements: serverAnnouncements,
@@ -37,13 +45,16 @@ export function SiteHeader({
   const hydrate = useAuthStore((s) => s.hydrate)
   const accountHref = isAuthenticated ? '/account' : '/account/login'
   const announcements = serverAnnouncements && serverAnnouncements.length > 0 ? serverAnnouncements : staticAnnouncements
-  // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav；url 已由后端按 linkType 解析
-  const navItems = navigationItems && navigationItems.length > 0
+  // KD-5：导航项从 site_builder 域读取，空回退静态 mainNav；url 已由后端按 linkType 解析。
+  // 二级菜单（桌面 mega panel / 移动端展开）同源取 mega_menu_json（columns/featured），
+  // 桌面与移动端共用同一份 navItems，避免两套信息架构各说各话。
+  const navItems: HeaderNavItem[] = navigationItems && navigationItems.length > 0
     ? navigationItems.filter((i) => i.parentId === null).map((i) => ({
         label: i.label,
         href: i.url ?? '/',
         target: i.target,
-        megaMenu: i.megaMenu,
+        columns: i.megaMenu?.columns?.filter((c) => c.links?.length > 0),
+        featured: i.megaMenu?.featured ?? undefined,
       }))
     : mainNav
   const activePath = stripLocale(pathname ?? '/')
@@ -110,17 +121,17 @@ export function SiteHeader({
             {/* 桌面导航 */}
             <nav className="hidden items-center gap-7 lg:flex">
               {navItems.map((item) => (
-                <div key={item.label} onMouseEnter={() => setOpenMenu(item.label)} className="py-7">
+                <div key={item.label} onMouseEnter={() => setOpenMenu(hasColumns(item) ? item.label : null)} className="py-7">
                   <Link
                     href={item.href}
-                    {...linkTargetProps('target' in item ? item.target : undefined)}
+                    {...linkTargetProps(item.target)}
                     className={cn(
                       'flex items-center gap-1 text-[13px] font-medium uppercase tracking-luxe transition-colors hover:text-gold-deep',
                       activePath.startsWith(item.href) && item.href !== '/' ? 'text-gold-deep' : 'text-ink'
                     )}
                   >
                     {item.label}
-                    {'columns' in item && item.columns && <ChevronDown className="h-3 w-3" />}
+                    {hasColumns(item) && <ChevronDown className="h-3 w-3" />}
                   </Link>
                 </div>
               ))}
@@ -152,14 +163,14 @@ export function SiteHeader({
 
         {/* Mega Menu */}
         {openMenu && (
-          <MegaPanel label={openMenu} onMouseEnter={() => setOpenMenu(openMenu)} onClose={() => setOpenMenu(null)} />
+          <MegaPanel item={navItems.find((n) => n.label === openMenu)} onMouseEnter={() => setOpenMenu(openMenu)} onClose={() => setOpenMenu(null)} />
         )}
       </div>
 
       {/* 搜索抽屉 */}
       {searchOpen && <SearchDrawer onClose={() => setSearchOpen(false)} />}
       {/* 移动端菜单 */}
-      {mobileOpen && <MobileMenu onClose={() => setMobileOpen(false)} />}
+      {mobileOpen && <MobileMenu items={navItems} onClose={() => setMobileOpen(false)} />}
       {/* 购物车抽屉 */}
       <CartDrawer />
     </header>
@@ -261,13 +272,13 @@ function TopbarSelect({
   )
 }
 
-function MegaPanel({ label, onClose, onMouseEnter }: { label: string; onClose: () => void; onMouseEnter: () => void }) {
-  const item = mainNav.find((n) => n.label === label)
-  if (!item?.columns) return null
+function MegaPanel({ item, onClose, onMouseEnter }: { item?: HeaderNavItem; onClose: () => void; onMouseEnter: () => void }) {
+  if (!item || !hasColumns(item)) return null
+  const columns = item.columns!
   return (
     <div onMouseEnter={onMouseEnter} onMouseLeave={onClose} className="absolute inset-x-0 top-full hidden border-b border-line bg-canvas shadow-lift lg:block">
       <div className="container-luxe grid grid-cols-4 gap-8 py-10">
-        {item.columns.map((col) => (
+        {columns.map((col) => (
           <div key={col.title}>
             <p className="eyebrow mb-4">{col.title}</p>
             <ul className="space-y-2.5">
@@ -299,7 +310,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
   const [results, setResults] = useState<StoreProductCard[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const seq = useRef(0)
-  const popular = ['Sage bridesmaid', 'A-line tulle', 'Beach wedding', 'Cathedral veil']
+  const popular = ['Sage bridesmaid', 'A-line lace', 'Beach wedding', 'Mermaid']
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -377,7 +388,7 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
   )
 }
 
-function MobileMenu({ onClose }: { onClose: () => void }) {
+function MobileMenu({ items, onClose }: { items: HeaderNavItem[]; onClose: () => void }) {
   const { t } = useI18n()
   const [expanded, setExpanded] = useState<string | null>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -390,18 +401,28 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="cursor-pointer p-2" aria-label={t.layout.header.closeMenu}><X className="h-5 w-5" /></button>
         </div>
         <nav className="p-5">
-          {mainNav.map((item) => (
+          {items.map((item) => (
             <div key={item.label} className="border-b border-line/60 py-1">
-              <button
-                onClick={() => setExpanded(expanded === item.label ? null : item.label)}
-                className="flex w-full cursor-pointer items-center justify-between py-3 text-sm font-medium uppercase tracking-luxe"
-              >
-                {item.label}
-                {item.columns && <ChevronDown className={cn('h-4 w-4 transition-transform', expanded === item.label && 'rotate-180')} />}
-              </button>
-              {expanded === item.label && item.columns && (
+              {hasColumns(item) ? (
+                <button
+                  onClick={() => setExpanded(expanded === item.label ? null : item.label)}
+                  className="flex w-full cursor-pointer items-center justify-between py-3 text-sm font-medium uppercase tracking-luxe"
+                >
+                  {item.label}
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', expanded === item.label && 'rotate-180')} />
+                </button>
+              ) : (
+                // 无二级内容的项直接可点（原实现点标题无响应，无子菜单的项在移动端根本进不去）
+                <Link href={item.href} {...linkTargetProps(item.target)} onClick={onClose} className="flex w-full items-center justify-between py-3 text-sm font-medium uppercase tracking-luxe">
+                  {item.label}
+                </Link>
+              )}
+              {expanded === item.label && hasColumns(item) && (
                 <div className="space-y-3 pb-4 pl-3">
-                  {item.columns.map((col) => (
+                  <Link href={item.href} {...linkTargetProps(item.target)} onClick={onClose} className="block py-1.5 text-sm font-medium text-ink">
+                    {t.common.viewAll} · {item.label}
+                  </Link>
+                  {item.columns!.map((col) => (
                     <div key={col.title}>
                       <p className="eyebrow mb-1.5">{col.title}</p>
                       {col.links.map((l) => (

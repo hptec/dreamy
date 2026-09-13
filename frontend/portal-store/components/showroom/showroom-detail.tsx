@@ -170,7 +170,7 @@ export function ShowroomDetailView({ id }: { id: number }) {
             <ArrowLeft className="h-3.5 w-3.5" /> My Showrooms
           </Link>
         ) : (
-          <Link href="/special-occasion" className="flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-luxe text-ink-soft transition-colors hover:text-ink">
+          <Link href="/products?cat=Bridesmaids" className="flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-luxe text-ink-soft transition-colors hover:text-ink">
             <ArrowLeft className="h-3.5 w-3.5" /> Browse Dresses
           </Link>
         )}
@@ -264,7 +264,7 @@ export function ShowroomDetailView({ id }: { id: number }) {
         {room.items.length === 0 ? (
           <div className="mt-6 flex flex-col items-center gap-4 rounded-sm border border-dashed border-line py-16 text-center">
             <p className="max-w-sm text-sm text-ink-soft">No styles yet. Browse the collection and tap the showroom icon on any dress to add it here.</p>
-            <Link href="/special-occasion" className="btn-outline">Browse Dresses</Link>
+            <Link href="/products?cat=Bridesmaids" className="btn-outline">Browse Dresses</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">

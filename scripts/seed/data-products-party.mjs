@@ -305,7 +305,7 @@ export const accessories = [
   }),
   dress({
     name: 'Getting Ready Silk-Touch Pajama Set', slug: 'getting-ready-silktouch-pajama-set',
-    categoryPath: ['Accessories', 'Wraps & Cover-Ups'],
+    categoryPath: ['Accessories', 'Getting Ready'],
     price: 69, recommend: true,
     color: 'Ivory', fabricMain: 'Satin',
     description: 'The morning-of uniform: a piped ivory satin set with button top and shorts, monogram-ready. Photo-ready from hair-and-makeup to the first look.',

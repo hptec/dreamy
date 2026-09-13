@@ -17,83 +17,117 @@ export interface NavItem {
   featured?: { label: string; href: string; image: string }
 }
 
-const C = '/competitor-refs'
-
+/**
+ * 静态导航兜底（site_builder 导航接口为空/失败时使用）。
+ *
+ * 约束：每条链接必须落到目录里真实存在、且有商品的筛选口径 ——
+ * 分类走 /products?cat=<后台分类名>，款式走 a_<attr>=<value>，色系走 collection=<色板集合 id>。
+ * 禁止写目录里不存在的伪分类（如 cat=Shoes / cat=A-Line），否则 CollectionPage 会落到空页。
+ * 主数据源是 scripts/seed/data-site-nav.mjs（写进 site_builder 的 mega_menu_json），此处与其保持同构。
+ */
 export const mainNav: NavItem[] = [
   {
     label: 'Wedding Dresses',
-    href: '/wedding-dresses',
+    href: '/products?cat=Wedding+Dresses',
     columns: [
+      {
+        title: 'Shop by Setting',
+        links: [
+          { label: 'Beach & Destination', href: '/products?cat=Beach+%26+Destination' },
+          { label: 'Garden & Boho', href: '/products?cat=Garden+%26+Boho' },
+          { label: 'Classic Elegance', href: '/products?cat=Classic+Elegance' }
+        ]
+      },
       {
         title: 'Shop by Silhouette',
         links: [
-          { label: 'A-Line', href: '/wedding-dresses?cat=A-Line' },
-          { label: 'Mermaid', href: '/wedding-dresses?cat=Mermaid' },
-          { label: 'Short', href: '/wedding-dresses?cat=Short' }
+          { label: 'A-Line', href: '/products?cat=Wedding+Dresses&a_silhouette=A-Line' },
+          { label: 'Sheath', href: '/products?cat=Wedding+Dresses&a_silhouette=Sheath' },
+          { label: 'Mermaid', href: '/products?cat=Wedding+Dresses&a_silhouette=Mermaid' },
+          { label: 'Ballgown', href: '/products?cat=Wedding+Dresses&a_silhouette=Ballgown' },
+          { label: 'Short & Tea-Length', href: '/products?cat=Wedding+Dresses&a_length=Tea-Length%7CHigh-Low' }
+        ]
+      },
+      {
+        title: 'Shop by Detail',
+        links: [
+          { label: 'Long Sleeve', href: '/products?cat=Wedding+Dresses&a_sleeve=Long+Sleeve' },
+          { label: 'Lace', href: '/products?cat=Wedding+Dresses&a_embellishment=Lace' },
+          { label: 'Beaded', href: '/products?cat=Wedding+Dresses&a_embellishment=Beading' }
         ]
       }
     ],
-    featured: { label: 'New Arrivals', href: '/wedding-dresses?sort=newest', image: '/photography/plp-wedding-dresses.jpg' }
+    featured: { label: 'New Arrivals', href: '/products?cat=Wedding+Dresses&sort=newest', image: '/photography/plp-wedding-dresses.jpg' }
   },
   {
-    label: 'Special Occasion',
-    href: '/special-occasion',
+    label: 'Bridesmaids',
+    href: '/products?cat=Bridesmaids',
     columns: [
       {
-        title: 'Shop by Role',
+        title: 'Shop by Style',
         links: [
-          { label: 'Bridesmaid', href: '/special-occasion?cat=Bridesmaid' },
-          { label: 'Prom', href: '/special-occasion?cat=Prom' },
-          { label: 'Cocktail', href: '/special-occasion?cat=Cocktail' }
+          { label: 'Long Bridesmaid Dresses', href: '/products?cat=Long+Bridesmaid+Dresses' },
+          { label: 'Short & Convertible', href: '/products?cat=Short+%26+Convertible' },
+          { label: 'One-Shoulder', href: '/products?cat=Bridesmaids&a_neckline=One-Shoulder' },
+          { label: 'Cowl Neck', href: '/products?cat=Bridesmaids&a_neckline=Cowl' }
         ]
       },
       {
         title: 'Shop by Color',
         links: [
-          { label: 'Sage', href: '/special-occasion?color=Sage' },
-          { label: 'Dusty Blue', href: '/special-occasion?color=Dusty+Blue' },
-          { label: 'Blush', href: '/special-occasion?color=Blush' },
-          { label: 'Champagne', href: '/special-occasion?color=Champagne' }
+          { label: 'Blush & Dusty Rose', href: '/products?cat=Bridesmaids&collection=6' },
+          { label: 'Sage & Olive', href: '/products?cat=Bridesmaids&collection=7' },
+          { label: 'Blue Hues', href: '/products?cat=Bridesmaids&collection=8' },
+          { label: 'Black & Espresso', href: '/products?cat=Bridesmaids&collection=9' }
         ]
       }
     ],
-    featured: { label: 'Bridesmaid Edit', href: '/special-occasion?cat=Bridesmaid', image: '/photography/featured-bridesmaids.jpg' }
+    featured: { label: 'Bridesmaid Edit', href: '/products?cat=Bridesmaids', image: '/photography/featured-bridesmaids.jpg' }
+  },
+  {
+    label: 'Occasion & Party',
+    href: '/products?cat=Occasion+%26+Party',
+    columns: [
+      {
+        title: 'Shop by Occasion',
+        links: [
+          { label: 'Prom & Evening', href: '/products?cat=Prom+%26+Evening' },
+          { label: 'Ballgowns', href: '/products?cat=Occasion+%26+Party&a_silhouette=Ballgown' },
+          { label: 'One-Shoulder', href: '/products?cat=Occasion+%26+Party&a_neckline=One-Shoulder' }
+        ]
+      },
+      {
+        title: 'Shop by Fabric',
+        links: [
+          { label: 'Lace', href: '/products?cat=Occasion+%26+Party&a_fabric=Lace' },
+          { label: 'Tulle', href: '/products?cat=Occasion+%26+Party&a_fabric=Tulle' }
+        ]
+      }
+    ],
+    featured: { label: 'Party Season', href: '/products?cat=Occasion+%26+Party&sort=newest', image: '/photography/plp-occasion.jpg' }
   },
   {
     label: 'Accessories',
-    href: '/accessories',
+    href: '/products?cat=Accessories',
     columns: [
       {
-        title: 'Categories',
+        title: 'Complete the Look',
         links: [
-          { label: 'Veils', href: '/accessories?cat=Veils' },
-          { label: 'Shoes', href: '/accessories?cat=Shoes' },
-          { label: 'Jewelry', href: '/accessories?cat=Jewelry' },
-          { label: 'Headpieces', href: '/accessories?cat=Headpieces' }
+          { label: 'Jewelry & Headpieces', href: '/products?cat=Jewelry+%26+Headpieces' },
+          { label: 'Getting Ready', href: '/products?cat=Getting+Ready' },
+          { label: 'Flower Girl', href: '/products?cat=Flower+Girl' }
         ]
       }
     ],
-    featured: { label: 'Complete the Look', href: '/accessories', image: '/photography/plp-accessories.jpg' }
+    featured: { label: 'Complete the Look', href: '/products?cat=Accessories', image: '/photography/plp-accessories.jpg' }
   },
   {
-    label: 'Outdoor Weddings',
-    href: '/outdoor-weddings',
-    featured: { label: 'Real Outdoor Weddings', href: '/real-weddings', image: '/photography/rw-big-sur.jpg' }
+    label: 'Real Weddings',
+    href: '/real-weddings'
   },
   {
-    label: 'Inspiration',
-    href: '/inspiration',
-    columns: [
-      {
-        title: 'Explore',
-        links: [
-          { label: 'Lookbook', href: '/inspiration' },
-          { label: 'Real Weddings', href: '/real-weddings' },
-          { label: 'The Journal', href: '/blog' },
-          { label: 'Planning Guides', href: '/wedding-guides' }
-        ]
-      }
-    ]
+    label: 'The Journal',
+    href: '/blog'
   }
 ]
 
@@ -101,9 +135,10 @@ export const footerNav: MegaColumn[] = [
   {
     title: 'Shop',
     links: [
-      { label: 'Wedding Dresses', href: '/wedding-dresses' },
-      { label: 'Special Occasion', href: '/special-occasion' },
-      { label: 'Accessories', href: '/accessories' },
+      { label: 'Wedding Dresses', href: '/products?cat=Wedding+Dresses' },
+      { label: 'Bridesmaids', href: '/products?cat=Bridesmaids' },
+      { label: 'Occasion & Party', href: '/products?cat=Occasion+%26+Party' },
+      { label: 'Accessories', href: '/products?cat=Accessories' },
       { label: 'Outdoor Weddings', href: '/outdoor-weddings' }
     ]
   },

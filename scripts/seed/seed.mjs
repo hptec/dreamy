@@ -8,6 +8,7 @@ import { weddingDresses } from './data-products-wedding.mjs'
 import { bridesmaidDresses, occasionDresses, accessories } from './data-products-party.mjs'
 import { blogPosts, realWeddings, lookbooks, banners, coupons, announcements } from './data-content.mjs'
 import { buildReviews, ratingSummary } from './data-reviews.mjs'
+import { buildNavItems, buildFooterColumns } from './data-site-nav.mjs'
 
 const PUBLISHED = 2, ACTIVE = 3
 const DEPLOY_SSH = process.env.DEPLOY_SSH ?? 'root@47.238.216.69'
@@ -30,7 +31,7 @@ const CAT_I18N = {
   'Accessories': ['Accesorios', 'Accessoires'],
   'Jewelry & Headpieces': ['Joyería y Tocados', 'Bijoux & Ornements'],
   'Flower Girl': ['Niña de las Flores', "Demoiselle d'Honneur Fille"],
-  'Wraps & Cover-Ups': ['Chales y Abrigos', 'Châles & Couvertures']
+  'Getting Ready': ['Preparativos de la Novia', 'Préparatifs de la Mariée']
 }
 const COLL_I18N = {
   'Coastal Bride': ['Novia Costera', 'Mariée Côtière'],
@@ -294,46 +295,15 @@ async function main() {
   }
   log(`首页区块 ${homeSections.length} 个`)
 
-  // ⑬ 导航(顶级 6 项:CATEGORY 型 ref_id 关联分类,PAGE 型用系统页键)
-  const navItems = [
-    { label: 'Home', link_type: 2, page_key: 'home', sort_order: 1, target: 'self', enabled: true },
-    { label: 'Wedding Dresses', link_type: 3, ref_id: catIdByPath['Wedding Dresses'], sort_order: 2, target: 'self', enabled: true },
-    { label: 'Bridesmaids', link_type: 3, ref_id: catIdByPath['Bridesmaids'], sort_order: 3, target: 'self', enabled: true },
-    { label: 'Occasion & Party', link_type: 3, ref_id: catIdByPath['Occasion & Party'], sort_order: 4, target: 'self', enabled: true },
-    { label: 'Real Weddings', link_type: 2, page_key: 'real-weddings', sort_order: 5, target: 'self', enabled: true },
-    { label: 'The Journal', link_type: 1, url: '/blog', sort_order: 6, target: 'self', enabled: true }
-  ]
+  // ⑬ 导航 + ⑭ 页脚：定义集中在 data-site-nav.mjs（apply-site-nav.mjs 可对存量环境单独重放）
+  //   顶级项 CATEGORY 型 ref_id 关联分类；二级 mega_menu_json 全部落到真实分类/属性/色板集合筛选
+  const navItems = buildNavItems(catIdByPath, colIdByName)
   await put('/admin/site-builder/navigation', { items: navItems, version: 0 })
-  log(`导航 ${navItems.length} 项`)
+  log(`导航 ${navItems.length} 项（含 ${navItems.filter((i) => i.mega_menu_json).length} 个 mega menu）`)
 
-  // ⑭ 页脚(4 栏)
-  await put('/admin/site-builder/footer', {
-    version: 0,
-    columns: [
-      { title: 'Shop', sort_order: 1, enabled: true, links: [
-        { label: 'All Wedding Dresses', url: '/products?cat=Wedding%20Dresses', sort_order: 1, target: 'self' },
-        { label: 'Bridesmaids', url: '/products?cat=Bridesmaids', sort_order: 2, target: 'self' },
-        { label: 'New Arrivals', url: '/products?sort=new', sort_order: 3, target: 'self' },
-        { label: 'Best Sellers', url: '/products?sort=best', sort_order: 4, target: 'self' }
-      ] },
-      { title: 'Inspiration', sort_order: 2, enabled: true, links: [
-        { label: 'Real Weddings', url: '/real-weddings', sort_order: 1, target: 'self' },
-        { label: 'Lookbooks', url: '/lookbooks', sort_order: 2, target: 'self' },
-        { label: 'The Journal', url: '/blog', sort_order: 3, target: 'self' },
-        { label: 'When to Order Your Gown', url: '/blog/made-to-order-timeline-guide', sort_order: 4, target: 'self' }
-      ] },
-      { title: 'Help', sort_order: 3, enabled: true, links: [
-        { label: 'Shipping & Delivery', url: '/blog/made-to-order-timeline-guide', sort_order: 1, target: 'self' },
-        { label: 'Contact Us', url: '/contact', sort_order: 2, target: 'self' },
-        { label: 'Track Order', url: '/track-order', sort_order: 3, target: 'self' }
-      ] },
-      { title: 'Company', sort_order: 4, enabled: true, links: [
-        { label: 'About Us', url: '/about', sort_order: 1, target: 'self' },
-        { label: 'Our Craft', url: '/about', sort_order: 2, target: 'self' }
-      ] }
-    ]
-  })
-  log('页脚 4 栏')
+  const footerColumns = buildFooterColumns()
+  await put('/admin/site-builder/footer', { version: 0, columns: footerColumns })
+  log(`页脚 ${footerColumns.length} 栏`)
 
   // ⑮ 运费
   for (const c of carriers) {

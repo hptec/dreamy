@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const subThemes = [
   { theme: 'Beach', href: '/wedding-dresses?a_occasion=Beach', image: '/photography/tile-beach.jpg', blurb: 'Light fabrics & barefoot ease for sand and sea.' },
   { theme: 'Garden', href: '/wedding-dresses?a_occasion=Garden', image: '/photography/tile-garden.jpg', blurb: 'Romantic florals & lush greenery tones.' },
-  { theme: 'Boho', href: '/wedding-dresses?a_style_tag=Boho', image: '/photography/tile-boho.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
+  { theme: 'Boho', href: '/wedding-dresses?cat=Garden+%26+Boho', image: '/photography/tile-boho.jpg', blurb: 'Free-spirited silhouettes & earthy palettes.' },
   { theme: 'Forest', href: '/wedding-dresses?a_occasion=Forest', image: '/photography/tile-forest.jpg', blurb: 'Woodland fairytale gowns with sleeves & layers.' },
   { theme: 'Vineyard', href: '/wedding-dresses?a_occasion=Vineyard', image: '/photography/tile-vineyard.jpg', blurb: 'Golden-hour glamour in warm, sun-kissed shades.' }
 ]

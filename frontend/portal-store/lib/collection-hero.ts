@@ -55,7 +55,7 @@ const BY_CATEGORY: Record<string, CollectionHero> = {
   },
   Accessories: {
     title: 'Accessories',
-    description: 'The finishing touches — veils, pearls, and headpieces to complete every look.',
+    description: 'The finishing touches — pearl jewelry, getting-ready sets, and flower girl dresses to complete every look.',
     heroImage: '/photography/plp-accessories.jpg',
     objectPosition: 'center 30%',
     variant: 'split'

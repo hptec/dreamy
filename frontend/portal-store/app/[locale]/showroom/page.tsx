@@ -77,7 +77,7 @@ export default function ShowroomListPage() {
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             <button onClick={() => setModalOpen(true)} className="btn-primary"><Plus className="h-4 w-4" /> Create a Showroom</button>
-            <Link href="/special-occasion" className="btn-outline">Browse Bridesmaid Dresses</Link>
+            <Link href="/products?cat=Bridesmaids" className="btn-outline">Browse Bridesmaid Dresses</Link>
           </div>
         </div>
       ) : (

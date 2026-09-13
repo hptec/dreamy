@@ -67,7 +67,7 @@ export const categories = [
   ] },
   { name: 'Accessories', attributeSetLabel: 'Accessory Set', sort: 4, children: [
     { name: 'Jewelry & Headpieces', sort: 1 },
-    { name: 'Wraps & Cover-Ups', sort: 2 },
+    { name: 'Getting Ready', sort: 2 },
     { name: 'Flower Girl', sort: 3 }
   ] }
 ]

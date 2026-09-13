@@ -70,7 +70,7 @@ function SearchInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
 
-  const suggestions = ['Sage', 'A-Line', 'Beach', 'Bridesmaid', 'Veil', 'Lace']
+  const suggestions = ['Sage', 'A-Line', 'Beach', 'Bridesmaid', 'Mermaid', 'Lace']
   const total = result?.totalElements ?? 0
   const canLoadMore = result !== null && items.length < total
 

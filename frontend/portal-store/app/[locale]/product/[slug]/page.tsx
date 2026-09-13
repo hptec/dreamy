@@ -47,12 +47,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   ])
 
   const gallery = galleryOf(product).map((img) => img.url)
-  const categorySlugMap: Record<string, string> = {
-    'wedding dresses': '/wedding-dresses',
-    'special occasion': '/special-occasion',
-    accessories: '/accessories'
-  }
-  const categoryHref = categorySlugMap[(product.categoryName ?? '').toLowerCase()] ?? '/wedding-dresses'
+  // 面包屑落到商品所属（叶子）分类的真实列表页：/products?cat=<分类名> 由 CollectionPage 全树解析。
+  // 原按三个原型分类名硬映射，叶子分类（Garden & Boho / Long Bridesmaid Dresses…）全部落空 → 伴娘裙也跳婚纱页。
+  const categoryHref = product.categoryName
+    ? `/products?cat=${encodeURIComponent(product.categoryName)}`
+    : '/products'
 
   return (
     <div>

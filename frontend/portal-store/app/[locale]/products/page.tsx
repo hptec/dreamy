@@ -10,9 +10,12 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const sp = await searchParams
   const cat = Array.isArray(sp.cat) ? sp.cat[0] : sp.cat
   const hero = resolveCollectionHero(cat)
-  return hero
-    ? { title: hero.title, description: hero.description }
-    : { title: 'All Dresses & Accessories', description: 'Browse every Dreamy gown, dress, accessory, and finishing touch in one place.' }
+  if (hero) return { title: hero.title, description: hero.description }
+  // 子分类（Beach & Destination / Prom & Evening…）无独立 hero 文案，title 直接用分类名，避免多页共用同一 title
+  if (cat && Number.isNaN(Number(cat))) {
+    return { title: cat, description: `Shop ${cat} — designed for celebrations under open skies.` }
+  }
+  return { title: 'All Dresses & Accessories', description: 'Browse every Dreamy gown, dress, accessory, and finishing touch in one place.' }
 }
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<CollectionSearchParams> }) {

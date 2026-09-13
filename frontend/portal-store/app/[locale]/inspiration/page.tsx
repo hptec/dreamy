@@ -68,7 +68,7 @@ export default async function InspirationPage({
             ))}
           </div>
           <div className="mt-8 text-center">
-            <Link href="/special-occasion" className="btn-primary">{t.paletteCta}</Link>
+            <Link href="/products?cat=Bridesmaids" className="btn-primary">{t.paletteCta}</Link>
           </div>
         </div>
       </section>
