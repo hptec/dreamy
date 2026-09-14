@@ -35,7 +35,34 @@ export default defineConfig({
       host: 'localhost'
     },
     headers: securityHeaders,
+    // dev 代理分流(与 nginx/gateway.conf.template 口径一致):
+    // admin 身份域端点 → Rust server(18082),其余 /api → backend(18081)。
+    // 对象键按序匹配,长前缀在前,兜底 '/api' 殿后。
     proxy: {
+      '/api/admin/auth': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
+      '/api/admin/admins': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
+      '/api/admin/roles': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
+      '/api/admin/permissions': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
+      '/api/admin/users': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
+      '/api/admin/operation-logs': {
+        target: 'http://localhost:18082',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:18081',
         changeOrigin: true

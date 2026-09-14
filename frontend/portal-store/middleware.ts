@@ -38,9 +38,15 @@ export function middleware(request: NextRequest) {
   // 0.5 API 同源代理:浏览器 fetch('/api/...') 运行时转发到后端。
   //     不用 next.config rewrites(build 时固化进 manifest 无法运行时改址);
   //     BACKEND_ORIGIN 由部署层注入(docker-compose),dev 默认本地后端。
+  //     身份域前缀(与 nginx/gateway.conf.template 分流口径一致)→ SERVER_ORIGIN(Rust server);
+  //     注意本中间件随 store 镜像进生产,SERVER_ORIGIN 由 compose 注入(http://server:18082)。
   if (pathname.startsWith('/api/')) {
-    const backend = process.env.BACKEND_ORIGIN || 'http://localhost:18081'
-    const target = new URL(pathname + search, backend)
+    const isIdentity =
+      pathname.startsWith('/api/store/auth/') || pathname.startsWith('/api/store/account/')
+    const base = isIdentity
+      ? process.env.SERVER_ORIGIN || 'http://localhost:18082'
+      : process.env.BACKEND_ORIGIN || 'http://localhost:18081'
+    const target = new URL(pathname + search, base)
     return NextResponse.rewrite(target)
   }
 

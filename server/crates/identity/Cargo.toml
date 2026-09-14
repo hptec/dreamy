@@ -1,0 +1,12 @@
+[package]
+name = "identity"
+version.workspace = true
+edition.workspace = true
+description = "身份域(用户/认证/admin RBAC):api/service/entity/grpc/mail/oidc/ratelimit"
+
+[dependencies]
+common = { workspace = true }
+proto = { workspace = true }
+axum = { workspace = true }
+sea-orm = { workspace = true }
+tonic = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "dreamy-server"
+version.workspace = true
+edition.workspace = true
+description = "dreamy 服务端本体(bin crate:组装与启动)"
+
+[dependencies]
+common = { workspace = true }
+identity = { workspace = true }
+proto = { workspace = true }
+axum = { workspace = true }
+tonic = { workspace = true }
+tokio = { workspace = true }
+sea-orm = { workspace = true }
+redis = { workspace = true }
+serde_yaml = { workspace = true }
+utoipa = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

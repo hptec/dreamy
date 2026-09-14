@@ -1,0 +1,16 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+description = "共享地基:R 包络/错误码/config/DB 自举/健康端点/CORS 中间件"
+
+[dependencies]
+axum = { workspace = true }
+sea-orm = { workspace = true }
+redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tower-http = { workspace = true }
+utoipa = { workspace = true }
+urlencoding = { workspace = true }
+tracing = { workspace = true }

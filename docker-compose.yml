@@ -55,6 +55,7 @@ services:
       STORE_UPSTREAM: ${STORE_UPSTREAM:-http://portal-store:3000}
       ADMIN_UPSTREAM: ${ADMIN_UPSTREAM:-http://portal-admin:80}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:18081}
+      SERVER_UPSTREAM: ${SERVER_UPSTREAM:-http://server:18082}
     volumes:
       - ./nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./nginx/certs:/etc/nginx/certs:ro
@@ -69,6 +70,7 @@ services:
       retries: 5
     depends_on:
       - backend
+      - server
       - portal-store
       - portal-admin
 
@@ -86,6 +88,8 @@ services:
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       LOGGING_FILE_NAME: /app/logs/identity.log
+      # Rust server(身份域)gRPC 通道(P4 切换版接线后启用)
+      IDENTITY_GRPC_ADDR: ${IDENTITY_GRPC_ADDR:-http://server:18083}
       # 派生地址:默认取公网入口变量,避免同一 URL 重复填写(如需偏离再显式覆盖)
       SITE_BASE_URL: ${SITE_BASE_URL:-${PUBLIC_STORE_URL:-http://localhost:5173}}
       STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
@@ -102,6 +106,42 @@ services:
       redis:
         condition: service_healthy
 
+  # ── Rust server(dreamy-server):身份域(用户/认证/admin RBAC)首个入驻域;
+  #     主库 dreamy_server(独立建库),次库 identity(operation_log/email_template 共享过渡表);
+  #     REST 18082(经网关分流) + gRPC 18083(backend 内部通道)──
+  server:
+    image: dreamy-server:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # 整份 .env.deploy 注入(DB_PASSWORD/JWT 双密钥/RESEND_API_KEY 等复用)
+    env_file: .env.deploy
+    environment:
+      TZ: ${TZ:-Asia/Hong_Kong}
+      SERVER_HTTP_PORT: 18082
+      SERVER_GRPC_PORT: 18083
+      SERVER_DB_HOST: mysql
+      SERVER_DB_PORT: 3306
+      SERVER_DB_NAME: dreamy_server
+      SERVER_DB_LEGACY_NAME: identity
+      DB_USERNAME: ${DB_USERNAME:-root}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
+      ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 仅绑本机回环:调试与 deploy.sh 探活用(gRPC 18083 仅 compose 内网开放,不对宿主暴露)
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-18082}:18082"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:18082/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   portal-store:
     image: dreamy-store:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -113,6 +153,8 @@ services:
       # 同源 API 反代(middleware)与 RSC 服务端取数共用后端内网地址
       BACKEND_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
       API_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+      # middleware 身份域分流(与网关 gateway.conf.template 口径一致):auth/account → Rust server
+      SERVER_ORIGIN: ${SERVER_INTERNAL_URL:-http://server:18082}
       # CSP frame-ancestors 的管理端来源(headers() 在 build 时固化):同源部署与 store 入口一致
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
     depends_on:

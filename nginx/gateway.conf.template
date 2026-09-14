@@ -51,6 +51,24 @@ server {
         client_max_body_size 20m;
     }
 
+    # 身份域 API → server(Rust;路径原样转发)。
+    # 一条正则收敛全部身份域前缀(与 backend/store middleware、admin vite proxy 三处口径必须一致);
+    # 正则 location 优先于前缀 location,故 /api/ 兜底(backend)不会截胡。
+    # 前缀口径:/api/admin/auth/ 带尾斜杠(auth-config 是独立分支,两者互不包含);
+    #            /api/store/auth、/api/store/account 业务上恒带子路径。
+    # OPTIONS(CORS 预检)随本块转发至 server,由其 CorsLayer 应答。
+    # 变更门禁:scripts/test-gateway-routes.sh 路由矩阵断言(新增/调整前缀必须同步改矩阵)。
+    location ~ ^/api/(store/auth/|store/account/|admin/auth/|admin/auth-config|admin/admins|admin/roles|admin/permissions|admin/users|admin/operation-logs) {
+        proxy_pass ${SERVER_UPSTREAM};
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_read_timeout 60s;
+        client_max_body_size 20m;
+    }
+
     # backend API 直通(路径原样转发)
     location /api/ {
         proxy_pass ${BACKEND_UPSTREAM};
@@ -58,6 +76,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
         proxy_read_timeout 60s;
         client_max_body_size 20m;
     }

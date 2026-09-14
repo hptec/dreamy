@@ -28,13 +28,17 @@ set +a
 
 TAG="$(date +%Y%m%d%H%M)-$(git rev-parse --short HEAD)"
 
-# 前置产物校验(JAR/dist 由 release.sh scp 上来,或服务器手动放置)
+# 前置产物校验(JAR/dist/Rust 二进制由 release.sh scp 上来,或服务器手动放置)
 if [ ! -f backend/build/libs/identity-app.jar ]; then
   echo "[remote-build] 错误: backend/build/libs/identity-app.jar 缺失(应由 release.sh 传输)" >&2
   exit 1
 fi
 if [ ! -f frontend/portal-admin/dist/index.html ]; then
   echo "[remote-build] 错误: frontend/portal-admin/dist 缺失" >&2
+  exit 1
+fi
+if [ ! -f server/target/x86_64-unknown-linux-musl/release/dreamy-server ]; then
+  echo "[remote-build] 错误: server/target/x86_64-unknown-linux-musl/release/dreamy-server 缺失" >&2
   exit 1
 fi
 
@@ -50,6 +54,7 @@ build_image() {
 }
 
 build_image backend backend/
+build_image server server/
 build_image admin frontend/portal-admin/
 build_image store frontend/portal-store/ \
   --build-arg NEXT_PUBLIC_SITE_URL="${PUBLIC_STORE_URL:-}" \

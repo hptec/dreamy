@@ -1,0 +1,40 @@
+//! 总路由装配:基础设施端点 + 各域子路由 + 全局中间件(安全头/请求 ID)。
+//! 新域入驻在此挂载(见 crate 顶部注释)。
+
+use axum::http::{header, header::HeaderValue};
+use axum::routing::get;
+use axum::Router;
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
+
+use common::state::SharedState;
+
+pub fn build(state: SharedState) -> Router {
+    // 域 router 自行消费 SharedState(内部 with_state)返回已物化的 Router<()>;
+    // 装配层:基础设施路由消费状态 → 嵌入各域 → 全局中间件,零状态耦合。
+    let store_api = identity::api::store_router(state.clone());
+    let admin_api = identity::api::admin_router(state.clone());
+
+    Router::new()
+        .route("/healthz", get(common::health::healthz))
+        .route("/readyz", get(common::health::readyz))
+        .with_state(state)
+        .nest("/api/store", store_api)
+        .nest("/api/admin", admin_api)
+        // 安全响应头三件套(对齐 Java SecurityHeadersFilter;HSTS 由 TLS 网关层负责)
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::REFERER,
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        // 请求 ID:上游(网关/Java)已带则透传,否则生成
+        .layer(PropagateRequestIdLayer::x_request_id())
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+}

@@ -36,7 +36,7 @@ if ! docker compose --env-file "${ENV_FILE}" config --quiet; then
 fi
 
 echo "[deploy] 校验本地镜像 (IMAGE_TAG=${IMAGE_TAG:-latest})..."
-for svc in backend store admin; do
+for svc in backend server store admin; do
   if ! docker image inspect "dreamy-${svc}:${IMAGE_TAG:-latest}" >/dev/null 2>&1; then
     echo "[deploy] 错误: 本机无镜像 dreamy-${svc}:${IMAGE_TAG:-latest}" >&2
     echo "[deploy]   先在本地执行 release.sh(或服务器执行 remote-build.sh)构建;" >&2
@@ -68,6 +68,8 @@ wait_http() {
 
 # 后端含 JVM 启动 + DdlAuto 自动建表,给足时间(回环端口,不对外)
 wait_http "backend" "http://127.0.0.1:${BACKEND_PORT:-18081}/actuator/health" 180
+# Rust server:启动即连库自举 dreamy_server 库,较 JVM 快(回环端口,REST 层)
+wait_http "server" "http://127.0.0.1:${SERVER_PORT:-18082}/readyz" 60
 # 网关已 TLS 化:探活打 127.0.0.1 而证书 CN 是域名,curl -k 免校验
 wait_http "portal-store" "https://127.0.0.1:${STORE_PORT:-5173}/" 60
 # admin 经网关 /admin/ 路径(单端口分流,不映射独立宿主端口)

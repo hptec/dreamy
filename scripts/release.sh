@@ -103,16 +103,39 @@ export npm_config_registry="https://registry.npmmirror.com"
   VITE_API_BASE_URL="" VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-}" ADMIN_BASE="/admin/" pnpm build
 )
 
+# ── ②b server(Rust):zigbuild 交叉编译 musl 静态二进制 ──
+# 依赖:cargo install cargo-zigbuild + brew install zig
+# 远程模式=香港服务器 x86_64;--load 本地验证=本机平台容器(Apple Silicon 为 arm64)
+if [ "${MODE}" = "local" ]; then
+  case "$(uname -m)" in
+    arm64)  RUST_TRIPLE="aarch64-unknown-linux-musl" ;;
+    x86_64) RUST_TRIPLE="x86_64-unknown-linux-musl" ;;
+  esac
+else
+  RUST_TRIPLE="x86_64-unknown-linux-musl"
+fi
+echo "[release] 编译 server (Rust ${RUST_TRIPLE}) ..."
+(
+  cd "${PROJECT_ROOT}/server"
+  cargo zigbuild --release --target "${RUST_TRIPLE}"
+)
+SERVER_BIN="${PROJECT_ROOT}/server/target/${RUST_TRIPLE}/release/dreamy-server"
+if [ ! -f "${SERVER_BIN}" ]; then
+  echo "[release] 错误: server 二进制缺失(cargo-zigbuild/zig 是否安装?)" >&2
+  exit 1
+fi
+
 # ── ③a 远程模式:scp 产物 → 服务器构建推送 ────────────────
 if [ "${MODE}" = "remote" ]; then
   REMOTE_DIR="${DEPLOY_DIR:-/opt/dreamy}"
   echo "[release] 远程模式:同步代码到 ${DEPLOY_SSH}:${REMOTE_DIR} ..."
   ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "cd ${REMOTE_DIR} && git pull --ff-only -q"
 
-  echo "[release] 传输 JAR 与 admin dist ..."
-  ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "mkdir -p ${REMOTE_DIR}/backend/build/libs ${REMOTE_DIR}/frontend/portal-admin"
+  echo "[release] 传输 JAR、admin dist 与 server 二进制 ..."
+  ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "mkdir -p ${REMOTE_DIR}/backend/build/libs ${REMOTE_DIR}/frontend/portal-admin ${REMOTE_DIR}/server/target/x86_64-unknown-linux-musl/release"
   scp -o ConnectTimeout=15 -q "${PROJECT_ROOT}/backend/build/libs/identity-app.jar" "${DEPLOY_SSH}:${REMOTE_DIR}/backend/build/libs/"
   scp -o ConnectTimeout=15 -q -r "${PROJECT_ROOT}/frontend/portal-admin/dist" "${DEPLOY_SSH}:${REMOTE_DIR}/frontend/portal-admin/"
+  scp -o ConnectTimeout=15 -q "${SERVER_BIN}" "${DEPLOY_SSH}:${REMOTE_DIR}/server/target/x86_64-unknown-linux-musl/release/dreamy-server"
 
   echo "[release] 触发服务器构建(后台 nohup,断线不影响)..."
   ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "cd ${REMOTE_DIR} && nohup bash scripts/remote-build.sh > /tmp/remote-build.log 2>&1 & echo \"[release] 构建进程 PID=\$!\""
@@ -128,7 +151,7 @@ if [ "${MODE}" = "remote" ]; then
     if echo "${OUT}" | grep -q "ALL DONE"; then
       echo "${OUT}" | tail -1
       echo "[release] 完成。"
-      echo "[release] 已构建 dreamy-{backend,store,admin}:latest 及对应时间戳 tag 到服务器本机 daemon(见上方输出)"
+      echo "[release] 已构建 dreamy-{backend,server,store,admin}:latest 及对应时间戳 tag 到服务器本机 daemon(见上方输出)"
       echo "[release] 服务器执行: cd ${REMOTE_DIR} && bash scripts/deploy.sh"
       exit 0
     fi
@@ -161,6 +184,8 @@ build_image() {
 }
 
 build_image backend "${PROJECT_ROOT}/backend"
+build_image server "${PROJECT_ROOT}/server" \
+  --build-arg BINARY="target/${RUST_TRIPLE}/release/dreamy-server"
 build_image admin "${PROJECT_ROOT}/frontend/portal-admin"
 build_image store "${PROJECT_ROOT}/frontend/portal-store" \
   --build-arg NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-}" \

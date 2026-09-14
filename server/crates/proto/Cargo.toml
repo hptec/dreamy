@@ -1,0 +1,14 @@
+[package]
+name = "proto"
+version.workspace = true
+edition.workspace = true
+description = "gRPC 契约生成(源头:仓库顶层 proto/;Java 侧同源消费)"
+
+[dependencies]
+tonic = { workspace = true }
+prost = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+prost-build = { workspace = true }
+protoc-bin-vendored = { workspace = true }
