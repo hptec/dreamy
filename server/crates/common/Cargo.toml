@@ -12,4 +12,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tower-http = { workspace = true }
 urlencoding = { workspace = true }
+chrono = { workspace = true }
+inventory = { workspace = true }
 tracing = { workspace = true }

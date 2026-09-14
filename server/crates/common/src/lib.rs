@@ -1,6 +1,7 @@
 //! 共享地基:全部域 crate 复用的横切能力。
 //!
-//! - [`error`]:R 响应包络 + 错误码全表(与 Java 字节级对齐)+ 唯一错误位置标识
+//! - [`error`]:R 响应包络 + 错误码全表(与 Java 字节级对齐)+ 唯一错误位置标识(error_site!)
+//! - [`int_enum`]:Java IntEnum/Describe 同构枚举机制(int_enum!)
 //! - [`config`]:env 配置装载与校验
 //! - [`state`]:进程级共享状态(DB 主/次连接 + Redis)
 //! - [`bootstrap`]:dreamy_server 库幂等自举
@@ -11,5 +12,7 @@ pub mod bootstrap;
 pub mod config;
 pub mod error;
 pub mod health;
+pub mod int_enum;
 pub mod middleware;
 pub mod state;
+pub mod time;

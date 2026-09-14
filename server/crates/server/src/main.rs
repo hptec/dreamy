@@ -41,7 +41,7 @@ async fn main() {
         }
     };
     let db_legacy = common::bootstrap::connect_legacy(&cfg).await;
-    let redis = redis::Client::open(cfg.redis_url()).ok();
+    let redis = build_redis_manager(&cfg).await;
 
     let state: SharedState = std::sync::Arc::new(AppState {
         db: db.clone(),
@@ -51,10 +51,10 @@ async fn main() {
     });
 
     let grpc_addr = std::net::SocketAddr::from(([0, 0, 0, 0], cfg.grpc_port));
-    let grpc_db = db.clone();
+    let grpc_state = state.clone();
     let grpc_task = tokio::spawn(async move {
         let svc = proto::dreamy::identity::v1::identity_gate_server::IdentityGateServer::new(
-            identity::grpc::IdentityGateImpl { db: grpc_db },
+            identity::grpc::IdentityGateImpl { state: grpc_state },
         );
         if let Err(err) = tonic::transport::Server::builder()
             .add_service(svc)
@@ -86,6 +86,24 @@ async fn main() {
     }
     let _ = grpc_task.await;
     tracing::info!("[boot] 已优雅退出");
+}
+
+async fn build_redis_manager(
+    cfg: &common::config::Config,
+) -> Option<redis::aio::ConnectionManager> {
+    match redis::Client::open(cfg.redis_url()) {
+        Ok(client) => match redis::aio::ConnectionManager::new(client).await {
+            Ok(manager) => Some(manager),
+            Err(err) => {
+                tracing::warn!("[boot] Redis 不可达(缓存/频控降级 DB):{err}");
+                None
+            }
+        },
+        Err(err) => {
+            tracing::warn!("[boot] Redis 地址非法({}):{err}", cfg.redis_url());
+            None
+        }
+    }
 }
 
 async fn shutdown_signal() {

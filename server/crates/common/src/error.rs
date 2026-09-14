@@ -146,19 +146,38 @@ impl ErrorCode {
     }
 }
 
-/// 业务错误:details(如校验字段错误映射)放入 R.data
+/// 业务错误:details(如校验字段错误映射)放入 R.data。
+/// `site` 是**唯一错误位置标识**(用户指令:错误能正确反映唯一出错的代码地点),
+/// 经 [`crate::error_site!`] 宏声明——注册进全局表,测试断言全局唯一。
 #[derive(Debug)]
 pub struct BizError {
     pub code: ErrorCode,
+    pub site: &'static str,
     pub message: Option<String>,
     pub details: Option<serde_json::Value>,
 }
 
+/// 错误位置注册表项(inventory 收集,测试断言全局唯一)
+pub struct ErrorSite(pub &'static str);
+
+inventory::collect!(ErrorSite);
+
+/// 声明一个唯一错误位置标识(同时登记进全局注册表)。
+/// 约定命名:`<domain>/<模块>/<位置>`,如 `identity/otp/consume_valid_code`。
+#[macro_export]
+macro_rules! error_site {
+    ($(#[$m:meta])* $vis:vis $name:ident = $val:literal) => {
+        $(#[$m])*
+        $vis const $name: &str = $val;
+        ::inventory::submit! { $crate::error::ErrorSite($val) }
+    };
+}
+
 impl BizError {
-    #[allow(dead_code)]
-    pub fn new(code: ErrorCode) -> Self {
+    pub fn new(site: &'static str, code: ErrorCode) -> Self {
         BizError {
             code,
+            site,
             message: None,
             details: None,
         }
@@ -179,7 +198,8 @@ impl BizError {
 
 impl From<ErrorCode> for BizError {
     fn from(code: ErrorCode) -> Self {
-        BizError::new(code)
+        // 仅测试/骨架便捷路径;业务代码必须显式传 site 定位错误点
+        BizError::new("common/anonymous", code)
     }
 }
 
@@ -195,6 +215,15 @@ impl IntoResponse for BizError {
         let message = self
             .message
             .or_else(|| resolve_message(self.code.code(), "en"));
+        // 对齐 Java GlobalExceptionHandler 日志口径:4xx 客户端类不打日志,5xx WARN
+        // 日志含 site(唯一错误位置)+ code,配合 X-Request-Id 可精确定位出错代码点
+        if self.code.http().is_server_error() {
+            tracing::warn!(
+                site = self.site,
+                code = self.code.code(),
+                "[error] 服务端错误"
+            );
+        }
         let body = R::<serde_json::Value> {
             code: self.code.code(),
             message,
@@ -202,5 +231,41 @@ impl IntoResponse for BizError {
             data: self.details,
         };
         (self.code.http(), Json(body)).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_sites_globally_unique() {
+        let mut sites: Vec<&'static str> = inventory::iter::<ErrorSite>
+            .into_iter()
+            .map(|s| s.0)
+            .collect();
+        sites.sort_unstable();
+        let before = sites.len();
+        sites.dedup();
+        assert_eq!(before, sites.len(), "存在重复 error site: {sites:?}");
+        // 骨架期至少已有兜底 site 注册(identity 域随 P1-P3 增量登记)
+        assert!(!sites.is_empty(), "error site 注册表为空");
+    }
+
+    #[test]
+    fn error_code_http_mapping() {
+        assert_eq!(
+            ErrorCode::Validation.http(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        assert_eq!(ErrorCode::RefreshInvalid.http(), StatusCode::UNAUTHORIZED);
+        assert_eq!(ErrorCode::RoleLocked.http(), StatusCode::FORBIDDEN);
+        assert_eq!(ErrorCode::OtpExpired.http(), StatusCode::GONE);
+        assert_eq!(
+            ErrorCode::ResendTooSoon.http(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(ErrorCode::OidcUnavailable.http(), StatusCode::BAD_GATEWAY);
+        assert_eq!(ErrorCode::OidcTimeout.http(), StatusCode::GATEWAY_TIMEOUT);
     }
 }

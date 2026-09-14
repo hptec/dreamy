@@ -22,15 +22,12 @@ async fn db_ping(conn: &DatabaseConnection) -> bool {
     .is_ok()
 }
 
-async fn redis_ping(client: &redis::Client) -> bool {
-    match client.get_multiplexed_tokio_connection().await {
-        Ok(mut conn) => redis::cmd("PING")
-            .query_async::<String>(&mut conn)
-            .await
-            .map(|v| v.eq_ignore_ascii_case("PONG"))
-            .unwrap_or(false),
-        Err(_) => false,
-    }
+async fn redis_ping(conn: &mut redis::aio::ConnectionManager) -> bool {
+    redis::cmd("PING")
+        .query_async::<String>(conn)
+        .await
+        .map(|v| v.eq_ignore_ascii_case("PONG"))
+        .unwrap_or(false)
 }
 
 /// readiness:DB 主/次连接 + Redis 连通性(compose healthcheck 与 deploy 探活挂钩)
@@ -47,7 +44,10 @@ pub async fn readyz(State(state): State<SharedState>) -> impl IntoResponse {
     checks.insert("db_legacy".into(), serde_json::json!(db_legacy));
 
     let redis_ok = match &state.redis {
-        Some(client) => redis_ping(client).await,
+        Some(manager) => {
+            let mut conn = manager.clone();
+            redis_ping(&mut conn).await
+        }
         None => false,
     };
     checks.insert("redis".into(), serde_json::json!(redis_ok));

@@ -9,7 +9,8 @@ pub struct AppState {
     pub db: DatabaseConnection,
     /// 次库连接(identity 库,共享过渡表 operation_log / email_template;可能缺席)
     pub db_legacy: Option<DatabaseConnection>,
-    pub redis: Option<redis::Client>,
+    /// Redis 长连接管理器(自动重连,clone 即用);缺席时相关能力降级 DB
+    pub redis: Option<redis::aio::ConnectionManager>,
     pub cfg: Config,
 }
 

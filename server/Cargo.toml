@@ -26,7 +26,7 @@ tonic = "0.13"
 prost = "0.13"
 tower-http = { version = "0.6", features = ["cors", "set-header", "request-id"] }
 # 数据
-sea-orm = { version = "1", features = ["sqlx-mysql", "runtime-tokio-rustls", "macros"] }
+sea-orm = { version = "1", features = ["sqlx-mysql", "runtime-tokio-rustls", "macros", "with-chrono"] }
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 # 序列化
 serde = { version = "1", features = ["derive"] }
@@ -41,6 +41,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 thiserror = "2"
 urlencoding = "2"
 futures = "0.3"
+# 错误位置注册表(error_site! 收集,测试断言唯一)
+inventory = "0.3"
 # 构建期
 tonic-build = "0.13"
 prost-build = "0.13"

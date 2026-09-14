@@ -31,7 +31,9 @@ pub fn cors_layer(origins: &str) -> CorsLayer {
         .allow_credentials(true)
 }
 
+crate::error_site!(pub SITE_ROUTE_FALLBACK = "common/route/fallback");
+
 /// 未知 API 路径统一走 R 包络 404(对齐 Java 无路由 40400)
 pub async fn api_fallback() -> impl IntoResponse {
-    crate::error::BizError::new(crate::error::ErrorCode::NotFound)
+    crate::error::BizError::new(SITE_ROUTE_FALLBACK, crate::error::ErrorCode::NotFound)
 }
