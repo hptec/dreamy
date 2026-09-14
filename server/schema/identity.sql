@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_email` (`email`)
+  INDEX `idx_user_created_at` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自然人账户';
 
 CREATE TABLE IF NOT EXISTS `user_identity` (

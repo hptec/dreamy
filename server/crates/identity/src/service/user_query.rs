@@ -336,18 +336,21 @@ pub async fn list_users(
     q: &ListQuery,
 ) -> Result<(Vec<UserView>, u64), SvcError> {
     let condition = build_condition(&q.conds)?;
-    let paginator = user::Entity::find()
-        .filter(condition)
-        .order_by(
-            col(q.order.0),
-            if q.order.1 {
-                sea_orm::Order::Desc
-            } else {
-                sea_orm::Order::Asc
-            },
-        )
-        .order_by_asc(user::Column::Id) // 稳定兜底:同序值不漂移,分页不重不漏
-        .paginate(&state.db, q.page_size);
+    let primary = col(q.order.0);
+    let mut query = user::Entity::find().filter(condition).order_by(
+        primary,
+        if q.order.1 {
+            sea_orm::Order::Desc
+        } else {
+            sea_orm::Order::Asc
+        },
+    );
+    // 稳定兜底:主排序列非主键时追加 id 升序(主键序天然稳定;
+    // 无条件追加会产生 ORDER BY id DESC, id ASC 矛盾子句,实测把主键排序拖成全表排序)
+    if !matches!(primary, user::Column::Id) {
+        query = query.order_by_asc(user::Column::Id);
+    }
+    let paginator = query.paginate(&state.db, q.page_size);
     let total = paginator.num_items().await?;
     let items = paginator.fetch_page(q.page.saturating_sub(1)).await?;
     Ok((items.iter().map(UserView::from).collect(), total))

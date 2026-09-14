@@ -67,8 +67,14 @@ pub struct JwtProvider {
 impl JwtProvider {
     /// 密钥来自 Config(与 Java 共享同一 env;缺失即 MissingKey,启动时已 WARN)
     pub fn new(cfg: &Config) -> Result<Self, JwtError> {
-        let store = cfg.store_jwt_secret.as_deref().ok_or(JwtError::MissingKey)?;
-        let admin = cfg.admin_jwt_secret.as_deref().ok_or(JwtError::MissingKey)?;
+        let store = cfg
+            .store_jwt_secret
+            .as_deref()
+            .ok_or(JwtError::MissingKey)?;
+        let admin = cfg
+            .admin_jwt_secret
+            .as_deref()
+            .ok_or(JwtError::MissingKey)?;
         Ok(JwtProvider {
             store_key: EncodingKey::from_secret(store.as_bytes()),
             admin_key: EncodingKey::from_secret(admin.as_bytes()),
@@ -77,7 +83,14 @@ impl JwtProvider {
         })
     }
 
-    pub fn issue_store(&self, user_id: i64, jti: &str, method: &str, refresh: bool, ttl: i64) -> Result<String, JwtError> {
+    pub fn issue_store(
+        &self,
+        user_id: i64,
+        jti: &str,
+        method: &str,
+        refresh: bool,
+        ttl: i64,
+    ) -> Result<String, JwtError> {
         let now = chrono::Utc::now().timestamp();
         let claims = StoreClaims {
             iss: ISS_STORE.into(),
@@ -89,11 +102,21 @@ impl JwtProvider {
             iat: now,
             exp: now + ttl,
         };
-        encode(&Header::new(jsonwebtoken::Algorithm::HS256), &claims, &self.store_key)
-            .map_err(|e| JwtError::Invalid(e.to_string()))
+        encode(
+            &Header::new(jsonwebtoken::Algorithm::HS256),
+            &claims,
+            &self.store_key,
+        )
+        .map_err(|e| JwtError::Invalid(e.to_string()))
     }
 
-    pub fn issue_admin(&self, admin_id: i64, role_id: i64, jti: &str, ttl: i64) -> Result<String, JwtError> {
+    pub fn issue_admin(
+        &self,
+        admin_id: i64,
+        role_id: i64,
+        jti: &str,
+        ttl: i64,
+    ) -> Result<String, JwtError> {
         let now = chrono::Utc::now().timestamp();
         let claims = AdminClaims {
             iss: ISS_ADMIN.into(),
@@ -105,8 +128,12 @@ impl JwtProvider {
             iat: now,
             exp: now + ttl,
         };
-        encode(&Header::new(jsonwebtoken::Algorithm::HS256), &claims, &self.admin_key)
-            .map_err(|e| JwtError::Invalid(e.to_string()))
+        encode(
+            &Header::new(jsonwebtoken::Algorithm::HS256),
+            &claims,
+            &self.admin_key,
+        )
+        .map_err(|e| JwtError::Invalid(e.to_string()))
     }
 
     /// 解析 store 令牌(iss/typ/exp 校验;refresh 令牌同构返回,由调用方按场景判定)
@@ -254,8 +281,13 @@ mod tests {
         assert!(header_json.contains("HS256"));
         // 载荷解码回读:字段名全量锁定(缺一即与 Java 侧契约漂移)
         let payload_json = String::from_utf8(base64_url_decode(parts[1])).unwrap();
-        for field in ["iss", "sub", "jti", "typ", "method", "refresh", "iat", "exp"] {
-            assert!(payload_json.contains(&format!("\"{field}\"")), "claims 缺字段 {field}");
+        for field in [
+            "iss", "sub", "jti", "typ", "method", "refresh", "iat", "exp",
+        ] {
+            assert!(
+                payload_json.contains(&format!("\"{field}\"")),
+                "claims 缺字段 {field}"
+            );
         }
     }
 

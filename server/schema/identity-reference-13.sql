@@ -1,5 +1,5 @@
 -- identity 域 13 张表 schema 冻结参考(11 迁移表 + 2 共享表 operation_log/email_template)
--- 用途:P1 check-schema-drift.sh 比对基准;生成日期:2026-09-14
+-- 用途:P1 check-schema-drift.sh 比对基准;生成日期:2026-09-14 变更:新增 idx_user_created_at(created_at DESC)——百万行排序证据驱动(ORDER BY created_at DESC, id ASC 精确匹配,InnoDB 二级索引隐式主键后缀 ASC)
 CREATE TABLE IF NOT EXISTS `user` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS `user` (
   `anonymized_at` datetime DEFAULT NULL COMMENT '匿名化时间',
   `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_email` (`email`)
+  UNIQUE KEY `uk_user_email` (`email`),
+  KEY `idx_user_created_at` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自然人账户';
 CREATE TABLE IF NOT EXISTS `user_identity` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
