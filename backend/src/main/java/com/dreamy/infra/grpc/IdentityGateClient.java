@@ -49,7 +49,7 @@ public class IdentityGateClient {
     private final IdentityGateGrpc.IdentityGateBlockingStub stub;
 
     public IdentityGateClient(
-            @Value("${IDENTITY_GRPC_ENABLED:false}") boolean enabled,
+            @Value("${identity.grpc.enabled:false}") boolean enabled,
             @Value("${IDENTITY_GRPC_ADDR:http://server:18083}") String addr) {
         this.enabled = enabled;
         if (enabled) {

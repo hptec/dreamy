@@ -37,7 +37,7 @@ public class CustomerInfoPort {
     private final Function<Long, com.dreamy.domain.user.entity.User> dbFallback;
 
     public CustomerInfoPort(
-            @Value("${IDENTITY_GRPC_ENABLED:false}") boolean enabled,
+            @Value("${identity.grpc.enabled:false}") boolean enabled,
             IdentityGateClient gate,
             com.dreamy.domain.user.repository.UserMapper userMapper) {
         this.enabled = enabled;
