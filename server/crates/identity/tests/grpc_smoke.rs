@@ -11,10 +11,12 @@
 //! 未设置 IDENTITY_SMOKE_ADDR 时自动跳过(cargo test 全量跑不依赖外部服务)。
 
 use identity::entity::{
-    admin_session, admin_user, permission, role, role_permission, user, user_identity, user_session,
+    admin_session, admin_user, identity_email, identity_google, permission, role, role_permission,
+    user, user_identity,
 };
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
+    QueryFilter,
 };
 use tonic::transport::Channel;
 use tonic::Request;
@@ -28,21 +30,35 @@ fn env(key: &str, default: &str) -> String {
 
 /// 清理历史冒烟残留(幂等,任何一次运行前先清)
 async fn cleanup(db: &DatabaseConnection) {
-    user_session::Entity::delete_many()
-        .filter(user_session::Column::TokenId.starts_with("smoke-"))
-        .exec(db)
-        .await
-        .ok();
     admin_session::Entity::delete_many()
         .filter(admin_session::Column::TokenId.starts_with("smoke-"))
         .exec(db)
         .await
         .ok();
-    user_identity::Entity::delete_many()
-        .filter(user_identity::Column::ProviderUid.starts_with("smoke-uid"))
+    identity_email::Entity::delete_many()
+        .filter(identity_email::Column::Email.starts_with("smoke-"))
         .exec(db)
         .await
         .ok();
+    identity_google::Entity::delete_many()
+        .filter(identity_google::Column::GoogleSub.starts_with("smoke-uid"))
+        .exec(db)
+        .await
+        .ok();
+    // Redis 会话主存键清理(v2.2)
+    if let Ok(client) = redis::Client::open(format!(
+        "redis://{}:{}",
+        env("REDIS_HOST", "127.0.0.1"),
+        env("REDIS_PORT", "6379")
+    )) {
+        if let Ok(mut conn) = client.get_connection() {
+            let _: Result<(), _> = redis::cmd("DEL")
+                .arg("session:smoke-jti-store-1")
+                .arg("session:smoke-jti-missing")
+                .arg("user_sessions:1")
+                .query(&mut conn);
+        }
+    }
     for email_prefix in ["smoke-", "demo-seed@"] {
         user::Entity::delete_many()
             .filter(user::Column::Email.starts_with(email_prefix))
@@ -129,7 +145,7 @@ async fn grpc_smoke() {
     };
     let user = user.insert(&db).await.expect("插入 user 失败");
     let identity = user_identity::ActiveModel {
-        user_id: sea_orm::Set(user.id as i64),
+        user_id: sea_orm::Set(user.id),
         provider: sea_orm::Set(2), // GOOGLE
         provider_uid: sea_orm::Set("smoke-uid-google-1".into()),
         identifier: sea_orm::Set(Some("smoke-user@dreamy.test".into())),
@@ -138,20 +154,59 @@ async fn grpc_smoke() {
         connected: sea_orm::Set(1),
         ..Default::default()
     };
-    identity.insert(&db).await.expect("插入 user_identity 失败");
-    user_session::ActiveModel {
-        user_id: sea_orm::Set(user.id as i64),
-        token_id: sea_orm::Set("smoke-jti-store-1".into()),
-        refresh_token_id: sea_orm::Set(Some("smoke-jti-store-refresh".into())),
-        is_new_device: sea_orm::Set(0),
-        method: sea_orm::Set(1),
-        status: sea_orm::Set(1), // ACTIVE
-        version: sea_orm::Set(0),
+    // SeaORM 限制:复合主键+自增(insert/exec 均 UnpackInsertId)→ 原生 SQL;
+    // P2 档案写入按「raw insert + 按 uk(user_id,provider) 回读取 id」封装
+    let _ = identity; // ActiveModel 仅作字段说明,实际经原生 SQL
+    db.execute(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::MySql,
+        r#"INSERT INTO user_identity (user_id, provider, provider_uid, identifier, is_primary, verified, connected) VALUES (?, ?, ?, ?, 0, 1, 1)"#,
+        [
+            user.id.into(),
+            2i32.into(),
+            "smoke-uid-google-1".into(),
+            "smoke-user@dreamy.test".into(),
+        ],
+    ))
+    .await
+    .expect("插入 user_identity 失败");
+    // v2.2 路由层:email + google 各一行(凭证 → user_id)
+    identity_email::ActiveModel {
+        email: sea_orm::Set("smoke-user@dreamy.test".into()),
+        user_id: sea_orm::Set(user.id),
         ..Default::default()
     }
     .insert(&db)
     .await
-    .expect("插入 user_session 失败");
+    .expect("插入 identity_email 失败");
+    identity_google::ActiveModel {
+        google_sub: sea_orm::Set("smoke-uid-google-1".into()),
+        user_id: sea_orm::Set(user.id),
+        ..Default::default()
+    }
+    .insert(&db)
+    .await
+    .expect("插入 identity_google 失败");
+    // v2.2 会话权威主存:Redis session:{token_id}(完整 JSON,TTL=refresh 期)
+    let now = chrono::Utc::now().timestamp();
+    let session_json = serde_json::json!({
+        "id": 1, "user_id": user.id as i64, "method": 1,
+        "refresh_token_id": "smoke-jti-store-refresh",
+        "access_exp": now + 7200, "refresh_exp": now + 2_592_000,
+        "device": null, "browser": null, "ip": "127.0.0.1", "location": null
+    });
+    let redis_client = redis::Client::open(format!(
+        "redis://{}:{}",
+        env("REDIS_HOST", "127.0.0.1"),
+        env("REDIS_PORT", "6379")
+    ))
+    .expect("Redis 地址非法");
+    let mut rconn = redis_client.get_connection().expect("连接 Redis 失败");
+    let _: Result<(), _> = redis::cmd("SET")
+        .arg("session:smoke-jti-store-1")
+        .arg(session_json.to_string())
+        .arg("EX")
+        .arg(3600)
+        .query(&mut rconn);
 
     // ── ValidateStoreSession:命中 / 未命中 / 空参 ──
     let resp = gate
@@ -162,7 +217,7 @@ async fn grpc_smoke() {
         ))
         .await
         .expect("rpc 失败");
-    assert!(resp.into_inner().valid, "活跃会话应为 valid");
+    assert!(resp.into_inner().valid, "Redis 主存中的活跃会话应为 valid");
 
     let resp = gate
         .validate_store_session(Request::new(
@@ -172,7 +227,10 @@ async fn grpc_smoke() {
         ))
         .await
         .expect("rpc 失败");
-    assert!(!resp.into_inner().valid, "不存在的 jti 应为 invalid");
+    assert!(
+        !resp.into_inner().valid,
+        "key miss = invalid(撤销/过期/不存在无歧义)"
+    );
 
     let resp = gate
         .validate_store_session(Request::new(

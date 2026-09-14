@@ -5,8 +5,6 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "admin_session")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
     pub admin_id: i64,
@@ -16,6 +14,8 @@ pub struct Model {
     pub device: Option<String>,
     pub status: i8,
     pub last_active_at: Option<DateTime>,
+    pub created_at: Option<DateTime>,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -5,11 +5,10 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "user_identity")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
-    pub user_id: i64,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub user_id: u64,
     pub provider: i8,
     pub provider_uid: String,
     pub identifier: Option<String>,
@@ -21,6 +20,8 @@ pub struct Model {
     pub relay_valid: Option<i8>,
     pub bound_at: Option<DateTime>,
     pub last_login_at: Option<DateTime>,
+    pub created_at: Option<DateTime>,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -5,20 +5,20 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "auth_config")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
     pub email_enabled: i8,
     pub google_enabled: i8,
     pub apple_enabled: i8,
-    pub otp_length: i32,
+    pub otp_length: i8,
     pub otp_ttl_minutes: i32,
     pub otp_resend_seconds: i32,
     pub otp_max_attempts: i32,
-    pub min_methods: i32,
+    pub min_methods: i8,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
+    pub created_at: Option<DateTime>,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

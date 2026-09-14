@@ -19,8 +19,8 @@ jsonwebtoken = { workspace = true }
 bcrypt = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-
-[dev-dependencies]
 tokio = { workspace = true }
 futures = { workspace = true }
+
+[dev-dependencies]
 base64 = "0.22"

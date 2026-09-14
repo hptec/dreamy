@@ -5,19 +5,20 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "otp_code")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
     pub email: String,
     pub code_hash: String,
-    pub length: i32,
+    pub length: i8,
     pub expires_at: DateTime,
     pub attempts: i32,
     pub max_attempts: i32,
     pub status: i8,
     pub last_sent_at: Option<DateTime>,
     pub version: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub created_at: DateTime,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

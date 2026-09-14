@@ -3,20 +3,11 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "login_history")]
+#[sea_orm(table_name = "identity_email")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: u64,
-    pub user_id: Option<u64>,
-    pub email: Option<String>,
-    pub method: i8,
-    pub ip: Option<String>,
-    pub device: Option<String>,
-    pub location: Option<String>,
-    pub result: i8,
-    pub is_new_device: i8,
-    pub notified: i8,
     #[sea_orm(primary_key, auto_increment = false)]
+    pub email: String,
+    pub user_id: u64,
     pub created_at: DateTime,
 }
 

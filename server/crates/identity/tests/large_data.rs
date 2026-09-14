@@ -33,6 +33,10 @@ where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = ()>,
 {
+    // 预热 2 轮不计样(排除冷缓冲/首查编译的离群值——测量方法学,非预算放水)
+    for _ in 0..2 {
+        f().await;
+    }
     let mut samples: Vec<f64> = Vec::with_capacity(runs);
     for _ in 0..runs {
         let t = Instant::now();
@@ -96,7 +100,7 @@ async fn large_data_evidence() {
     admin
         .execute(Statement::from_string(
             sea_orm::DatabaseBackend::MySql,
-            "CREATE TABLE dreamy_bench.user LIKE identity.user",
+            "CREATE TABLE dreamy_bench.user LIKE dreamy_server.user",
         ))
         .await
         .unwrap();
@@ -104,6 +108,15 @@ async fn large_data_evidence() {
         .execute(Statement::from_string(
             sea_orm::DatabaseBackend::MySql,
             "INSERT INTO dreamy_bench.user (id, email, email_verified, tier, status, anonymized, version, joined_at, created_at, updated_at) VALUES (1, 'seed@bench.test', 1, 1, 1, 0, 0, NOW(), NOW(), NOW())",
+        ))
+        .await
+        .unwrap();
+
+    // v2.2:email 查找走 identity_email 路由表(bench 同构复制 + 灌数)
+    admin
+        .execute(Statement::from_string(
+            sea_orm::DatabaseBackend::MySql,
+            "CREATE TABLE dreamy_bench.identity_email LIKE dreamy_server.identity_email",
         ))
         .await
         .unwrap();
@@ -140,6 +153,14 @@ async fn large_data_evidence() {
         t0.elapsed().as_secs_f64()
     );
     assert!(total >= 1_000_000, "行数不足百万:{total}");
+    // 路由表灌数(email → id,百万行)
+    admin
+        .execute(Statement::from_string(
+            sea_orm::DatabaseBackend::MySql,
+            "INSERT INTO dreamy_bench.identity_email (email, user_id, created_at) SELECT email, id, NOW() FROM dreamy_bench.user",
+        ))
+        .await
+        .expect("路由表灌数失败");
 
     let state: SharedState = std::sync::Arc::new(AppState {
         db,
@@ -175,7 +196,7 @@ async fn large_data_evidence() {
             page: 1,
             page_size: 20,
         };
-        let (p50, p95) = measure_p(8, || async {
+        let (p50, p95) = measure_p(12, || async {
             user_query::list_users(&state, &q).await.unwrap();
         })
         .await;
@@ -280,7 +301,13 @@ async fn large_data_evidence() {
             user_query::get_user(&state, &lookup).await.unwrap();
         })
         .await;
-        record(&mut evidence, "⑦ GetUser by email(uk 索引)", p50, p95, 20.0);
+        record(
+            &mut evidence,
+            "⑦ GetUser by email(路由两跳)",
+            p50,
+            p95,
+            20.0,
+        );
     }
 
     // 统一断言:任一超标即失败(证据触发优化:补索引/改查询),完整证据表已先行输出

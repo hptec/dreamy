@@ -1,181 +1,247 @@
--- dreamy_server 空库自举 DDL(11 张身份域表)
--- 来源:本地全栈验证库 identity(huihao-mysql auto-DDL 建表)mysqldump --no-data
--- 生成日期:2026-09-14 规则:仅 CREATE IF NOT EXISTS,已剥 AUTO_INCREMENT 当前值,绝不 DROP/ALTER
--- 注意:operation_log/email_template 留 identity 库(共享过渡表),不在本文件
+-- dreamy_server 空库自举 DDL(v2.2,权威设计:docs/identity-schema-v2.md)
+-- 来源:用户四轮讨论定稿;生成日期:2026-09-14
+-- 规则:仅 CREATE IF NOT EXISTS,幂等,绝不 DROP/COPY/ALTER 存量。
+-- 注意:email_template/operation_log 为共享过渡表,留 identity 库,不在本文件。
+-- 时序表(login_history/otp_code)建表仅带 pmax 哨兵,实际月分区由启动期
+-- partition_maintain 任务 REORGANIZE 生成(空 pmax 分裂=秒级元数据操作)。
+
+-- ══════════ 路由层(KEY 哈希 25 区,容量 1 亿,满载每区 400 万) ══════════
+
+CREATE TABLE IF NOT EXISTS `identity_email` (
+  `email`      VARCHAR(255) NOT NULL COMMENT '归一化小写;全局唯一由本表强制',
+  `user_id`    BIGINT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`email`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='路由:邮箱 → 主账号(邮箱注册/归并域)'
+  PARTITION BY KEY (`email`) PARTITIONS 25;
+
+CREATE TABLE IF NOT EXISTS `identity_google` (
+  `google_sub` VARCHAR(255) NOT NULL COMMENT 'Google OIDC sub',
+  `user_id`    BIGINT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`google_sub`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='路由:Google 凭证 → 主账号'
+  PARTITION BY KEY (`google_sub`) PARTITIONS 25;
+
+CREATE TABLE IF NOT EXISTS `identity_apple` (
+  `apple_sub`  VARCHAR(255) NOT NULL COMMENT 'Apple OIDC sub',
+  `user_id`    BIGINT UNSIGNED NOT NULL,
+  `relay_email` VARCHAR(255) NULL COMMENT '隐藏邮箱时的中继地址(展示用,不参与归并)',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`apple_sub`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='路由:Apple 凭证 → 主账号'
+  PARTITION BY KEY (`apple_sub`) PARTITIONS 25;
+
+-- ══════════ 主档层(RANGE(id) 400 万段,co-location) ══════════
+
 CREATE TABLE IF NOT EXISTS `user` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `email` varchar(255) NOT NULL COMMENT '邮箱',
-  `email_verified` tinyint(1) NOT NULL DEFAULT '0' COMMENT '邮箱已验证',
-  `locale_pref` varchar(8) DEFAULT NULL COMMENT '用户偏好语言(en/es/fr,决策13/FUNC-019)',
-  `name` varchar(100) DEFAULT NULL COMMENT '昵称',
-  `phone` varchar(32) DEFAULT NULL COMMENT '手机号',
-  `tier` tinyint NOT NULL DEFAULT '1' COMMENT '等级：1=常规 2=VIP',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=正常 2=已禁用 3=已删除 4=已匿名化',
-  `avatar` varchar(512) DEFAULT NULL COMMENT '头像 URL',
-  `joined_at` datetime DEFAULT NULL COMMENT '加入时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
-  `anonymized` tinyint(1) NOT NULL DEFAULT '0' COMMENT '已匿名化',
-  `anonymized_at` datetime DEFAULT NULL COMMENT '匿名化时间',
-  `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email`         VARCHAR(255) NOT NULL COMMENT '展示快照;唯一性由 identity_email 强制',
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+  `locale_pref`   VARCHAR(8) DEFAULT NULL,
+  `name`          VARCHAR(100) DEFAULT NULL,
+  `phone`         VARCHAR(32) DEFAULT NULL,
+  `tier`          TINYINT NOT NULL DEFAULT 1 COMMENT '等级：1=常规 2=VIP',
+  `status`        TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常 2=已禁用 3=已删除 4=已匿名化',
+  `avatar`        VARCHAR(512) DEFAULT NULL,
+  `joined_at`     DATETIME DEFAULT NULL,
+  `deleted_at`    DATETIME DEFAULT NULL,
+  `anonymized`    TINYINT(1) NOT NULL DEFAULT 0,
+  `anonymized_at` DATETIME DEFAULT NULL,
+  `version`       INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
+  `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_email` (`email`)
-  INDEX `idx_user_created_at` (`created_at` DESC)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自然人账户';
+  KEY `idx_email` (`email`),
+  KEY `idx_created_at` (`created_at` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='主账号(自然人)'
+  PARTITION BY RANGE (`id`) (
+    PARTITION p0 VALUES LESS THAN (4000000),
+    PARTITION p1 VALUES LESS THAN (8000000),
+    PARTITION p2 VALUES LESS THAN (12000000),
+    PARTITION pmax VALUES LESS THAN MAXVALUE
+  );
 
 CREATE TABLE IF NOT EXISTS `user_identity` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `user_id` bigint NOT NULL COMMENT '外键 user.id',
-  `provider` tinyint NOT NULL COMMENT '渠道：1=邮箱 2=Google 3=Apple',
-  `provider_uid` varchar(255) NOT NULL COMMENT '渠道唯一标识 email=邮箱小写/OIDC=sub',
-  `identifier` varchar(255) DEFAULT NULL COMMENT '展示标识',
-  `is_primary` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否主身份',
-  `verified` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已验证',
-  `connected` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否已连接',
-  `hidden_email` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否隐藏邮箱 Apple Hide My Email',
-  `relay_email` varchar(255) DEFAULT NULL COMMENT '中继邮箱',
-  `relay_valid` tinyint(1) DEFAULT NULL COMMENT '中继邮箱是否有效',
-  `bound_at` datetime DEFAULT NULL COMMENT '绑定时间',
-  `last_login_at` datetime DEFAULT NULL COMMENT '最后登录时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_identity_provider_uid` (`provider`,`provider_uid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='登录凭证';
+  `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'REST 契约暴露(解绑路径参数)',
+  `user_id`      BIGINT UNSIGNED NOT NULL,
+  `provider`     TINYINT NOT NULL COMMENT '1=邮箱 2=Google 3=Apple',
+  `provider_uid` VARCHAR(255) NOT NULL COMMENT '档案冗余;全局唯一由路由表强制',
+  `identifier`   VARCHAR(255) DEFAULT NULL,
+  `is_primary`   TINYINT(1) NOT NULL DEFAULT 0,
+  `verified`     TINYINT(1) NOT NULL DEFAULT 0,
+  `connected`    TINYINT(1) NOT NULL DEFAULT 1,
+  `hidden_email` TINYINT(1) NOT NULL DEFAULT 0,
+  `relay_email`  VARCHAR(255) DEFAULT NULL,
+  `relay_valid`  TINYINT(1) DEFAULT NULL,
+  `bound_at`     DATETIME DEFAULT NULL,
+  `last_login_at` DATETIME DEFAULT NULL,
+  `created_at`   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`, `user_id`),
+  UNIQUE KEY `uk_user_provider` (`user_id`, `provider`),
+  KEY `idx_provider_uid` (`provider`, `provider_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='凭证档案(登录方式元数据);与 user 分区边界一致(co-location)'
+  PARTITION BY RANGE (`user_id`) (
+    PARTITION p0 VALUES LESS THAN (4000000),
+    PARTITION p1 VALUES LESS THAN (8000000),
+    PARTITION p2 VALUES LESS THAN (12000000),
+    PARTITION pmax VALUES LESS THAN MAXVALUE
+  );
 
-CREATE TABLE IF NOT EXISTS `user_session` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `user_id` bigint NOT NULL COMMENT '关联用户 user.id',
-  `token_id` varchar(64) NOT NULL COMMENT 'access JWT jti',
-  `refresh_token_id` varchar(64) DEFAULT NULL COMMENT 'refresh JWT jti',
-  `access_expires_at` datetime DEFAULT NULL COMMENT 'access 过期时间',
-  `refresh_expires_at` datetime DEFAULT NULL COMMENT 'refresh 过期时间',
-  `device` varchar(255) DEFAULT NULL COMMENT '设备信息',
-  `browser` varchar(128) DEFAULT NULL COMMENT '浏览器信息',
-  `ip` varchar(64) DEFAULT NULL COMMENT '登录 IP',
-  `location` varchar(255) DEFAULT NULL COMMENT '登录地点',
-  `is_new_device` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否新设备',
-  `method` tinyint NOT NULL COMMENT '登录方式：1=邮箱 2=Google 3=Apple',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=活跃 2=已撤销',
-  `last_active_at` datetime DEFAULT NULL COMMENT '最近活跃时间',
-  `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_session_token_id` (`token_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='消费端会话';
-
-CREATE TABLE IF NOT EXISTS `otp_code` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `email` varchar(255) NOT NULL COMMENT '邮箱',
-  `code_hash` varchar(255) NOT NULL COMMENT 'OTP 哈希（仅哈希）',
-  `length` int NOT NULL COMMENT '验证码长度 4/6/8',
-  `expires_at` datetime NOT NULL COMMENT '过期时间',
-  `attempts` int NOT NULL DEFAULT '0' COMMENT '已尝试次数',
-  `max_attempts` int NOT NULL COMMENT '最大尝试次数 3..10',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=待验证 2=已消耗 3=已过期 4=已锁定',
-  `last_sent_at` datetime DEFAULT NULL COMMENT '最近发送时间',
-  `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
-  PRIMARY KEY (`id`),
-  KEY `idx_otp_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='一次性验证码';
-
-CREATE TABLE IF NOT EXISTS `auth_config` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `email_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '邮箱登录启用（恒 true）',
-  `google_enabled` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Google 登录启用',
-  `apple_enabled` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Apple 登录启用',
-  `otp_length` int NOT NULL DEFAULT '6' COMMENT 'OTP 长度 4/6/8',
-  `otp_ttl_minutes` int NOT NULL DEFAULT '5' COMMENT 'OTP 有效期 1..30 分钟',
-  `otp_resend_seconds` int NOT NULL DEFAULT '60' COMMENT '重发间隔 10..120 秒',
-  `otp_max_attempts` int NOT NULL DEFAULT '5' COMMENT '最大尝试 3..10',
-  `min_methods` int NOT NULL DEFAULT '1' COMMENT '最少连接方式 1..3',
-  `google_client_id` varchar(255) DEFAULT NULL COMMENT 'Google Client ID',
-  `apple_service_id` varchar(255) DEFAULT NULL COMMENT 'Apple Service ID',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='认证配置（单例 id=1）';
+-- ══════════ 时序层(月分区,pmax 哨兵;DROP 清理暂缓=v2.2 决策 12) ══════════
 
 CREATE TABLE IF NOT EXISTS `login_history` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `user_id` bigint DEFAULT NULL COMMENT '弱引用 user.id，可空',
-  `email` varchar(255) DEFAULT NULL COMMENT '登录邮箱',
-  `method` tinyint NOT NULL COMMENT '登录方式：1=邮箱 2=Google 3=Apple',
-  `ip` varchar(64) DEFAULT NULL COMMENT '登录 IP',
-  `device` varchar(255) DEFAULT NULL COMMENT '设备信息',
-  `location` varchar(255) DEFAULT NULL COMMENT '登录地点',
-  `result` tinyint NOT NULL COMMENT '登录结果：1=成功 2=失败',
-  `is_new_device` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否新设备',
-  `notified` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已通知',
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`       BIGINT UNSIGNED DEFAULT NULL COMMENT '弱引用可空(登录失败无 user)',
+  `email`         VARCHAR(255) DEFAULT NULL,
+  `method`        TINYINT NOT NULL,
+  `ip`            VARCHAR(64) DEFAULT NULL,
+  `device`        VARCHAR(255) DEFAULT NULL,
+  `location`      VARCHAR(255) DEFAULT NULL,
+  `result`        TINYINT NOT NULL COMMENT '1=成功 2=失败',
+  `is_new_device` TINYINT(1) NOT NULL DEFAULT 0,
+  `notified`      TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`, `created_at`),
+  KEY `idx_user_created` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='登录历史(审计);月分区;清理暂缓(v2.2 决策 12)'
+  PARTITION BY RANGE COLUMNS (`created_at`) (
+    PARTITION pmax VALUES LESS THAN (MAXVALUE)
+  );
+
+CREATE TABLE IF NOT EXISTS `otp_code` (
+  `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email`       VARCHAR(255) NOT NULL,
+  `code_hash`   VARCHAR(100) NOT NULL COMMENT 'bcrypt',
+  `length`      TINYINT NOT NULL,
+  `expires_at`  DATETIME NOT NULL,
+  `attempts`    INT NOT NULL DEFAULT 0,
+  `max_attempts` INT NOT NULL,
+  `status`      TINYINT NOT NULL DEFAULT 1 COMMENT '1=待验证 2=已消费 3=过期 4=锁定',
+  `last_sent_at` DATETIME DEFAULT NULL,
+  `version`     INT NOT NULL DEFAULT 0 COMMENT '乐观锁',
+  `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`, `created_at`),
+  KEY `idx_email_status` (`email`, `status`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='邮箱验证码(DB 主存);月分区;清理暂缓——校验查询必须带 created_at 下界谓词强制分区裁剪'
+  PARTITION BY RANGE COLUMNS (`created_at`) (
+    PARTITION pmax VALUES LESS THAN (MAXVALUE)
+  );
+
+-- ══════════ 会话冷备(普通表不分区;Redis 为权威主存) ══════════
+
+CREATE TABLE IF NOT EXISTS `user_session` (
+  `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'REST 契约数字 session_id 来源(登录时同步 INSERT 取回,写入 Redis 会话 JSON)',
+  `user_id`          BIGINT UNSIGNED NOT NULL,
+  `token_id`         VARCHAR(64) NOT NULL COMMENT 'JWT jti',
+  `refresh_token_id` VARCHAR(64) DEFAULT NULL,
+  `access_expires_at`  DATETIME DEFAULT NULL,
+  `refresh_expires_at` DATETIME DEFAULT NULL,
+  `device`           VARCHAR(255) DEFAULT NULL,
+  `browser`          VARCHAR(255) DEFAULT NULL,
+  `ip`               VARCHAR(64) DEFAULT NULL,
+  `location`         VARCHAR(255) DEFAULT NULL,
+  `is_new_device`    TINYINT(1) NOT NULL DEFAULT 0,
+  `method`           TINYINT NOT NULL,
+  `status`           TINYINT NOT NULL DEFAULT 1 COMMENT '1=有效 2=已撤销',
+  `last_active_at`   DATETIME DEFAULT NULL,
+  `version`          INT NOT NULL DEFAULT 0,
+  `created_at`       DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  KEY `idx_login_history_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='登录记录';
+  UNIQUE KEY `uk_token` (`token_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='会话冷备/审计(Redis 为权威主存;Redis 故障降级 uk_token 点查;暂不清理=v2.2 决策 12)';
+
+-- ══════════ admin/RBAC/配置(量级 ≤ 千行,不分区) ══════════
 
 CREATE TABLE IF NOT EXISTS `admin_user` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` varchar(100) DEFAULT NULL COMMENT '操作员名称',
-  `email` varchar(255) NOT NULL COMMENT '登录邮箱（uk_admin_email，创建后不可改）',
-  `password_hash` varchar(255) NOT NULL COMMENT 'BCrypt 密码哈希',
-  `role_id` bigint NOT NULL COMMENT '关联角色 role.id',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=正常 2=已禁用',
-  `last_login_at` datetime DEFAULT NULL COMMENT '最近登录时间',
-  `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`          VARCHAR(100) DEFAULT NULL,
+  `email`         VARCHAR(255) NOT NULL,
+  `password_hash` VARCHAR(100) NOT NULL COMMENT 'BCrypt',
+  `role_id`       BIGINT NOT NULL,
+  `status`        TINYINT NOT NULL DEFAULT 1 COMMENT '1=正常 2=已禁用',
+  `last_login_at` DATETIME DEFAULT NULL,
+  `version`       INT NOT NULL DEFAULT 0,
+  `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_admin_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='后台操作员';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='管理员';
 
 CREATE TABLE IF NOT EXISTS `admin_session` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `admin_id` bigint NOT NULL COMMENT '关联操作员 admin_user.id',
-  `token_id` varchar(64) NOT NULL COMMENT 'JWT jti',
-  `ip` varchar(64) DEFAULT NULL COMMENT '登录 IP',
-  `device` varchar(255) DEFAULT NULL COMMENT '设备信息',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=活跃 2=已撤销',
-  `last_active_at` datetime DEFAULT NULL COMMENT '最近活跃时间',
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_id`      BIGINT NOT NULL,
+  `token_id`      VARCHAR(64) NOT NULL,
+  `ip`            VARCHAR(64) DEFAULT NULL,
+  `device`        VARCHAR(255) DEFAULT NULL,
+  `status`        TINYINT NOT NULL DEFAULT 1 COMMENT '1=有效 2=已撤销',
+  `last_active_at` DATETIME DEFAULT NULL,
+  `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_admin_session_token` (`token_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='后台会话';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='管理员会话';
 
 CREATE TABLE IF NOT EXISTS `role` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` varchar(64) NOT NULL COMMENT '角色名',
-  `type` tinyint NOT NULL DEFAULT '2' COMMENT '类型：1=系统预设 2=自定义',
-  `is_locked` tinyint(1) NOT NULL DEFAULT '0' COMMENT '锁定（超管保护）',
-  `version` int NOT NULL DEFAULT '0' COMMENT '乐观锁版本',
+  `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`       VARCHAR(40) NOT NULL COMMENT '角色名',
+  `type`       TINYINT NOT NULL DEFAULT 2 COMMENT '1=系统预设 2=自定义',
+  `is_locked`  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '超管标记:锁定角色=全权限',
+  `version`    INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色';
 
 CREATE TABLE IF NOT EXISTS `permission` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `perm_code` varchar(128) NOT NULL COMMENT '权限业务码（原 key）',
-  `group` varchar(64) NOT NULL COMMENT '分组',
-  `label` varchar(128) NOT NULL COMMENT '展示名',
+  `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `perm_code`  VARCHAR(64) NOT NULL COMMENT '权限码(/xxx 形式)',
+  `group`      VARCHAR(64) NOT NULL COMMENT '分组',
+  `label`      VARCHAR(100) NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_permission_perm_code` (`perm_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='菜单权限点字典';
+  UNIQUE KEY `uk_permission_code` (`perm_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='权限字典';
 
 CREATE TABLE IF NOT EXISTS `role_permission` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `role_id` bigint NOT NULL COMMENT '角色 id（FK role.id）',
-  `permission_id` bigint NOT NULL COMMENT '权限 id（FK permission.id，原 permissionKey）',
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `role_id`       BIGINT NOT NULL,
+  `permission_id` BIGINT NOT NULL,
+  `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_permission` (`role_id`,`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色-权限关联';
 
+CREATE TABLE IF NOT EXISTS `auth_config` (
+  `id`                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email_enabled`      TINYINT(1) NOT NULL DEFAULT 1,
+  `google_enabled`     TINYINT(1) NOT NULL DEFAULT 1,
+  `apple_enabled`      TINYINT(1) NOT NULL DEFAULT 1,
+  `otp_length`         TINYINT NOT NULL DEFAULT 6 COMMENT '4/6/8',
+  `otp_ttl_minutes`    INT NOT NULL DEFAULT 5 COMMENT '1-30',
+  `otp_resend_seconds` INT NOT NULL DEFAULT 60 COMMENT '10-120',
+  `otp_max_attempts`   INT NOT NULL DEFAULT 5 COMMENT '3-10',
+  `min_methods`        TINYINT NOT NULL DEFAULT 1 COMMENT '1-3',
+  `google_client_id`   VARCHAR(255) DEFAULT NULL,
+  `apple_service_id`   VARCHAR(255) DEFAULT NULL,
+  `created_at`         DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at`         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='认证配置(单例 id=1)';

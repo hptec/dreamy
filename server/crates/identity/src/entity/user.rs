@@ -5,11 +5,8 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "user")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
-    #[sea_orm(unique)]
     pub email: String,
     pub email_verified: i8,
     pub locale_pref: Option<String>,
@@ -23,6 +20,8 @@ pub struct Model {
     pub anonymized: i8,
     pub anonymized_at: Option<DateTime>,
     pub version: i32,
+    pub created_at: Option<DateTime>,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

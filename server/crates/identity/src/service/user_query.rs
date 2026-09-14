@@ -15,7 +15,7 @@ use redis::AsyncCommands;
 use sea_orm::{ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 
-use crate::entity::{user, user_identity};
+use crate::entity::{identity_apple, identity_email, identity_google, user};
 use crate::service::SvcError;
 
 const USER_TTL: u64 = 300;
@@ -75,7 +75,7 @@ impl From<&user::Model> for UserView {
     }
 }
 
-/// 精确查找(单值)
+/// 精确查找(单值)。v2.2:email/provider 查找走路由表两跳(先解析 user_id 再查主档)
 pub async fn get_user(state: &SharedState, lookup: &Lookup) -> Result<UserView, SvcError> {
     let model = match lookup {
         Lookup::Id(id) => get_by_id(state, *id).await?,
@@ -84,8 +84,11 @@ pub async fn get_user(state: &SharedState, lookup: &Lookup) -> Result<UserView, 
             if email.is_empty() {
                 return Err(SvcError::InvalidArg("email 为空".into()));
             }
-            user::Entity::find()
-                .filter(user::Column::Email.eq(email))
+            let route = identity_email::Entity::find_by_id(email)
+                .one(&state.db)
+                .await?
+                .ok_or(SvcError::NotFound)?;
+            user::Entity::find_by_id(route.user_id)
                 .one(&state.db)
                 .await?
                 .ok_or(SvcError::NotFound)?
@@ -97,13 +100,32 @@ pub async fn get_user(state: &SharedState, lookup: &Lookup) -> Result<UserView, 
             if provider_uid.is_empty() {
                 return Err(SvcError::InvalidArg("provider_uid 为空".into()));
             }
-            let identity = user_identity::Entity::find()
-                .filter(user_identity::Column::Provider.eq(*provider as i8))
-                .filter(user_identity::Column::ProviderUid.eq(provider_uid.as_str()))
-                .one(&state.db)
-                .await?
-                .ok_or(SvcError::NotFound)?;
-            user::Entity::find_by_id(identity.user_id as u64)
+            // 按登录类型路由(v2.2 三张路由表):1=email 2=google 3=apple
+            let user_id = match provider {
+                1 => {
+                    identity_email::Entity::find_by_id(provider_uid.as_str())
+                        .one(&state.db)
+                        .await?
+                        .ok_or(SvcError::NotFound)?
+                        .user_id
+                }
+                2 => {
+                    identity_google::Entity::find_by_id(provider_uid.as_str())
+                        .one(&state.db)
+                        .await?
+                        .ok_or(SvcError::NotFound)?
+                        .user_id
+                }
+                3 => {
+                    identity_apple::Entity::find_by_id(provider_uid.as_str())
+                        .one(&state.db)
+                        .await?
+                        .ok_or(SvcError::NotFound)?
+                        .user_id
+                }
+                other => return Err(SvcError::InvalidArg(format!("provider 非法: {other}"))),
+            };
+            user::Entity::find_by_id(user_id)
                 .one(&state.db)
                 .await?
                 .ok_or(SvcError::NotFound)?

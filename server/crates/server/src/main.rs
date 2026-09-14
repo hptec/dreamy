@@ -40,6 +40,11 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    // v2.2 分区维护:启动同步跑一次(月分区生成/水位扩段),再起每小时巡检
+    identity::service::partition_maintain::run_once(&db).await;
+    let maintain_db = db.clone();
+    tokio::spawn(identity::service::partition_maintain::schedule(maintain_db));
+
     let db_legacy = common::bootstrap::connect_legacy(&cfg).await;
     let redis = build_redis_manager(&cfg).await;
 
@@ -92,13 +97,25 @@ async fn build_redis_manager(
     cfg: &common::config::Config,
 ) -> Option<redis::aio::ConnectionManager> {
     match redis::Client::open(cfg.redis_url()) {
-        Ok(client) => match redis::aio::ConnectionManager::new(client).await {
-            Ok(manager) => Some(manager),
-            Err(err) => {
-                tracing::warn!("[boot] Redis 不可达(缓存/频控降级 DB):{err}");
-                None
+        Ok(client) => {
+            // ConnectionManager 对不可达地址会无限重试——超时兜底,避免启动卡死
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                redis::aio::ConnectionManager::new(client),
+            )
+            .await
+            {
+                Ok(Ok(manager)) => Some(manager),
+                Ok(Err(err)) => {
+                    tracing::warn!("[boot] Redis 不可达(缓存/频控降级 DB):{err}");
+                    None
+                }
+                Err(_) => {
+                    tracing::warn!("[boot] Redis 连接超时 5s(降级 DB,后续连接由管理器自动重试)");
+                    None
+                }
             }
-        },
+        }
         Err(err) => {
             tracing::warn!("[boot] Redis 地址非法({}):{err}", cfg.redis_url());
             None
