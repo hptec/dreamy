@@ -1,4 +1,4 @@
-# identity 域数据架构设计 v2（分区化 + Redis 主存会话）
+# identity 域数据架构设计 v2.1（分区化 + Redis 主存会话）
 
 > 状态：**待用户评审**。评审通过后按「§8 代码影响清单」重做 P1 数据层。
 > 演进记录：v1 单库单表（Java 原样）→ 讨论定稿本版。
@@ -17,6 +17,7 @@
 | 8 | admin/字典/配置表不分区 | 量级 ≤ 千行，分区纯开销 |
 | 9 | 自动扩展 = Rust 内置调度任务 | tokio 定时，幂等加锁，随服务部署 |
 | 10 | 复杂分析查询走 CDC → 分析库预案 | OLTP 表不做列式；MySQL 自建无列式引擎，版本保持 8.4 LTS |
+| 11 | (v2.1)会话冷备表月分区 | 30 天保留=表内恒 1-2 分区,token 降级点查代价可忽略;三张时序表统一 DROP PARTITION 清理,批量 DELETE 出局 |
 
 ## 1. 总体拓扑
 
@@ -180,11 +181,11 @@ CREATE TABLE IF NOT EXISTS `otp_code` (
 > 时序表建表仅带 pmax 哨兵；**启动阶段**分区维护任务即时 REORGANIZE 生成
 > 实际分区（空 pmax 分裂=秒级元数据操作），业务流量开始前完成。
 
-### 2.4 会话冷备（KEY(token_id) 25 区，Redis 为主存）
+### 2.4 会话冷备（月分区，Redis 为权威主存；v2.1 修订）
 
 ```sql
 CREATE TABLE IF NOT EXISTS `user_session` (
-  `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'REST 契约数字 session_id 来源(登录时同步 INSERT 取回,写入 Redis 会话 JSON)',
   `user_id`          BIGINT UNSIGNED NOT NULL,
   `token_id`         VARCHAR(64) NOT NULL COMMENT 'JWT jti',
   `refresh_token_id` VARCHAR(64) NULL,
@@ -199,15 +200,22 @@ CREATE TABLE IF NOT EXISTS `user_session` (
   `status`           TINYINT NOT NULL DEFAULT 1,
   `last_active_at`   DATETIME NULL,
   `version`          INT NOT NULL DEFAULT 0,
-  `created_at`       DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `created_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`, `token_id`),
-  UNIQUE KEY `uk_token` (`token_id`),
+  PRIMARY KEY (`id`, `created_at`),
+  UNIQUE KEY `uk_token` (`token_id`, `created_at`),
   KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='会话冷备/审计(Redis 为权威主存;Redis 故障降级点查,按 user 撤销走 idx_user)'
-  PARTITION BY KEY (`token_id`) PARTITIONS 25;
+  COMMENT='会话冷备/审计(Redis 为权威主存;30 天保留=表内仅 1-2 个月分区,token 降级点查为 uk 前缀扫 1-2 分区,毫秒级)'
+  PARTITION BY RANGE COLUMNS (`created_at`) (
+    PARTITION pmax VALUES LESS THAN (MAXVALUE)
+  );
 ```
+
+> v2.1 修订说明:原方案 KEY(token_id) 分区为降级查询裁剪而牺牲了 DROP PARTITION 清理。
+> 重估后发现保留期 30 天意味着表内恒为 1-2 个月分区——token 点查跨分区代价可忽略,
+> 时间分区 + DROP 清理是更优解,且与 login_history/otp_code 三张时序表模式统一,
+> 批量 DELETE 从设计中消失。
 
 ### 2.5 不分区表（量级 ≤ 千行）
 
@@ -219,7 +227,7 @@ CREATE TABLE IF NOT EXISTS `user_session` (
 
 | 键 | 类型 | 值 | TTL | 用途 |
 |---|---|---|---|---|
-| `session:{token_id}` | STRING | 会话 JSON{user_id, method, refresh_token_id, access_exp, refresh_exp, device, ip, browser, location} | refresh 有效期（30d） | **会话权威主存**；校验 GET+判 access_exp；旋转=新键 SET+旧键 DEL |
+| `session:{token_id}` | STRING | 会话 JSON{id, user_id, method, refresh_token_id, access_exp, refresh_exp, device, ip, browser, location}（id=冷备表自增 session_id,REST 契约用） | refresh 有效期（30d） | **会话权威主存**；校验 GET+判 access_exp；旋转=新键 SET+旧键 DEL |
 | `user_sessions:{user_id}` | SET | token_id 成员 | 30d | 该用户全部会话索引（admin 列表/强制下线遍历 DEL；读取时 GET 探活过滤残留） |
 | `otp:resend:{email}` | STRING | "1" | resend_seconds | 重发冷却 |
 | `otp:count:email:{email}:h` / `:d` | STRING | 计数 | 1h / 1d | 发码配额（email 5/h、5/d） |
@@ -242,8 +250,9 @@ CREATE TABLE IF NOT EXISTS `user_session` (
  ② login_history: 确保未来 2 个月分区存在（REORGANIZE pmax）；DROP 超过 13 个月的分区
  ③ otp_code: 确保未来 2 天日分区存在；DROP 超过 3 天的分区
  ④ 全部动作先查 information_schema.PARTITIONS 判幂等；每次动作 INFO 日志留证据
-任务 session_cold_retention（每日）:
-  冷备表 created_at < now−30d 批量 DELETE（500/批，对齐 Java 原语义）
+任务 session_cold_retention（随 partition_maintain）:
+  user_session 冷备表:确保未来 2 个月分区存在(REORGANIZE pmax);
+  DROP 超过 30 天的分区(与 login_history/otp_code 统一为分区级清理,无批量 DELETE)
 ```
 
 ## 5. 查询路径（K 定位验证）
