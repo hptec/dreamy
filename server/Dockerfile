@@ -11,8 +11,8 @@
 # 二进制三元组随构建平台切换(release.sh 注入):
 #   远程(香港服务器 x86_64):target/x86_64-unknown-linux-musl/release/dreamy-server
 #   --load 本地验证(Apple Silicon):target/aarch64-unknown-linux-musl/release/dreamy-server
-ARG BINARY=target/x86_64-unknown-linux-musl/release/dreamy-server
 FROM debian:bookworm-slim
+ARG BINARY=target/x86_64-unknown-linux-musl/release/dreamy-server
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \

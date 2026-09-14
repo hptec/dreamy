@@ -15,8 +15,12 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 urlencoding = { workspace = true }
+jsonwebtoken = { workspace = true }
+bcrypt = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+futures = { workspace = true }
+base64 = "0.22"

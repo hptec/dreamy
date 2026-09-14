@@ -16,4 +16,5 @@ pub mod entity;
 pub mod entity_legacy;
 pub mod enums;
 pub mod grpc;
+pub mod security;
 pub mod service;
