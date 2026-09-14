@@ -24,6 +24,11 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+# IdentityGate gRPC 通道(P4 切换开关;false=回滚态直查 DB)
+identity:
+  grpc:
+    enabled: \${IDENTITY_GRPC_ENABLED:false}
+
 server:
   port: 18081
 
