@@ -155,6 +155,8 @@ pub struct BizError {
     pub site: &'static str,
     pub message: Option<String>,
     pub details: Option<serde_json::Value>,
+    /// 响应消息语言(store=Accept-Language;admin 固定 zh)
+    pub locale: &'static str,
 }
 
 /// 错误位置注册表项(inventory 收集,测试断言全局唯一)
@@ -180,7 +182,14 @@ impl BizError {
             site,
             message: None,
             details: None,
+            locale: "en",
         }
+    }
+
+    /// 响应语言(store 端点按 Accept-Language 注入;admin 用 zh)
+    pub fn with_locale(mut self, locale: &'static str) -> Self {
+        self.locale = locale;
+        self
     }
 
     #[allow(dead_code)]
@@ -203,10 +212,16 @@ impl From<ErrorCode> for BizError {
     }
 }
 
-/// i18n 消息解析(key=error.{code});语言包 P2 从 Java messages_*.properties 移植接入
-fn resolve_message(code: i32, _locale: &str) -> Option<String> {
-    let _ = code;
-    None
+/// i18n 消息解析(key=error.{code});消息层与响应解耦:
+/// BizError 携带 locale(过滤器/中间件按 Accept-Language 注入),响应时解析
+fn resolve_message(code: i32, locale: &str) -> Option<String> {
+    let loc = match locale {
+        "es" => crate::i18n::Locale::Es,
+        "fr" => crate::i18n::Locale::Fr,
+        "zh" => crate::i18n::Locale::Zh,
+        _ => crate::i18n::Locale::En,
+    };
+    crate::i18n::message(code, loc)
 }
 
 impl IntoResponse for BizError {
@@ -214,7 +229,7 @@ impl IntoResponse for BizError {
         // message 优先级:显式消息 > i18n > 缺省 null(Java 侧 i18n 缺 key 时 message=null)
         let message = self
             .message
-            .or_else(|| resolve_message(self.code.code(), "en"));
+            .or_else(|| resolve_message(self.code.code(), self.locale));
         // 对齐 Java GlobalExceptionHandler 日志口径:4xx 客户端类不打日志,5xx WARN
         // 日志含 site(唯一错误位置)+ code,配合 X-Request-Id 可精确定位出错代码点
         if self.code.http().is_server_error() {

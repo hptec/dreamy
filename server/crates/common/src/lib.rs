@@ -12,6 +12,7 @@ pub mod bootstrap;
 pub mod config;
 pub mod error;
 pub mod health;
+pub mod i18n;
 pub mod int_enum;
 pub mod middleware;
 pub mod state;

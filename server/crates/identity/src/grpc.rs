@@ -20,6 +20,7 @@ fn map_err(err: SvcError) -> Status {
     match err {
         SvcError::NotFound => Status::not_found(err.to_string()),
         SvcError::InvalidArg(msg) => Status::invalid_argument(msg),
+        SvcError::Code { code, .. } => Status::internal(format!("identity code {code}")),
         SvcError::Infra(source) => {
             tracing::error!(error = %source, "[grpc] 基础设施错误");
             Status::unavailable("identity storage unavailable")
