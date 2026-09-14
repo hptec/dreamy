@@ -289,7 +289,12 @@ async fn large_data_evidence() {
         over.is_empty(),
         "大数据量预算超标(需优化后复测):{}",
         over.iter()
-            .map(|e| format!("{} p95={:.0}ms>={:.0}ms", e.label, e.p95, e.budget))
+            .map(|e| {
+                format!(
+                    "{} p50={:.0}ms p95={:.0}ms>={:.0}ms",
+                    e.label, e.p50, e.p95, e.budget
+                )
+            })
             .collect::<Vec<_>>()
             .join("; ")
     );
