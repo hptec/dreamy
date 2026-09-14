@@ -55,6 +55,34 @@ async fn cleanup(db: &DatabaseConnection) {
         .exec(db)
         .await
         .ok();
+    // 先按 smoke 角色/权限反查关联再删(role 无外键,孤儿行会残留并污染迁移守卫)
+    let smoke_role_ids: Vec<i64> = role::Entity::find()
+        .filter(role::Column::Name.starts_with("smoke-"))
+        .all(db)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| r.id as i64)
+        .collect();
+    let smoke_perm_ids: Vec<i64> = permission::Entity::find()
+        .filter(permission::Column::PermCode.starts_with("smoke."))
+        .all(db)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| p.id as i64)
+        .collect();
+    if !smoke_role_ids.is_empty() || !smoke_perm_ids.is_empty() {
+        use sea_orm::QueryFilter as _;
+        let mut del = role_permission::Entity::delete_many();
+        if !smoke_role_ids.is_empty() {
+            del = del.filter(role_permission::Column::RoleId.is_in(smoke_role_ids));
+        }
+        if !smoke_perm_ids.is_empty() {
+            del = del.filter(role_permission::Column::PermissionId.is_in(smoke_perm_ids));
+        }
+        del.exec(db).await.ok();
+    }
     permission::Entity::delete_many()
         .filter(permission::Column::PermCode.starts_with("smoke."))
         .exec(db)
