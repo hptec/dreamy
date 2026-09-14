@@ -4,6 +4,7 @@
 //! 约定:域 router 自行消费 SharedState(内部 with_state),对外返回已物化的 Router<()>,
 //! 装配层(server crate router.rs)零状态耦合地 nest。
 
+pub mod admin;
 pub mod store_account;
 pub mod store_auth;
 
@@ -45,12 +46,11 @@ pub fn store_router(state: SharedState, jwt: JwtProvider) -> axum::Router {
         .with_state(())
 }
 
-/// /api/admin/*(P3 实现;当前 404 兜底占位)
-pub fn admin_router(state: SharedState) -> axum::Router {
-    axum::Router::new()
+/// /api/admin/*(P3:admin_auth + admins/roles/permissions/users/auth-config/operation-logs)
+pub fn admin_router(state: SharedState, jwt: JwtProvider) -> axum::Router {
+    admin::router(state.clone(), jwt)
         .fallback(api_fallback)
         .layer(cors_layer(&state.cfg.admin_cors_origin))
-        .with_state(())
 }
 
 /// 无 JWT 密钥时的降级挂载(骨架/无密钥环境):认证端点全 40100,config 仍可用

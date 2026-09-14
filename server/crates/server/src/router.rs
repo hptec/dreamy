@@ -14,11 +14,16 @@ pub fn build(state: SharedState) -> Router {
     // 装配层:基础设施路由消费状态 → 嵌入各域 → 全局中间件,零状态耦合。
     // JwtProvider:P2 起签发必需;缺失时 store 域以无签发模式挂载(账户端点全 401)
     let jwt = identity::security::JwtProvider::new(&state.cfg).ok();
-    let store_api = match jwt {
+    let store_api = match jwt.clone() {
         Some(jwt) => identity::api::store_router(state.clone(), jwt),
         None => identity::api::store_router_no_jwt(state.clone()),
     };
-    let admin_api = identity::api::admin_router(state.clone());
+    let admin_api = match jwt {
+        Some(jwt) => identity::api::admin_router(state.clone(), jwt),
+        None => axum::Router::new()
+            .fallback(common::middleware::api_fallback)
+            .layer(tower_http::cors::CorsLayer::permissive()),
+    };
 
     Router::new()
         .route("/healthz", get(common::health::healthz))
