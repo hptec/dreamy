@@ -77,6 +77,13 @@ dependencies {
     // ── OIDC（Google/Apple 校验）─────────────────────────────────
     implementation "com.nimbusds:nimbus-jose-jwt:${nimbusJoseJwtVersion}"
 
+    // ── gRPC(IdentityGate:与 Rust server 同源 proto/,顶层 proto/dreamy/)──
+    implementation 'io.grpc:grpc-netty-shaded:1.66.0'
+    implementation 'io.grpc:grpc-protobuf:1.66.0'
+    implementation 'io.grpc:grpc-stub:1.66.0'
+    implementation 'com.google.protobuf:protobuf-java:3.25.5'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // generated code @Generated
+
     // ── Database driver ──────────────────────────────────────────
     runtimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
 
@@ -107,6 +114,16 @@ dependencies {
     testImplementation 'net.java.dev.jna:jna:5.17.0'
     testImplementation 'net.java.dev.jna:jna-platform:5.17.0'
     testRuntimeOnly "com.mysql:mysql-connector-j:${mysqlConnectorVersion}"
+}
+
+// ── gRPC 生成代码:预生成入库(src/generated/java),构建零 protoc 依赖 ──
+// 再生成方式:protoc + protoc-gen-grpc-java(见 scripts/regen-grpc-java.sh)
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/generated/java'
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
