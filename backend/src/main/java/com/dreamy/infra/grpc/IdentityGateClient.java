@@ -152,16 +152,16 @@ public class IdentityGateClient {
     /** 条件构造(MyBatis-Lambda 式类型化;LIKE 仅 Email 列且拒绝通配符) */
     public static Condition eq(UserColumn column, String value) {
         return Condition.newBuilder()
-                .setColumnValue(column.getNumber())
-                .setOpValue(CondOp.EQ_VALUE)
+                .setColumn(column)
+                .setOp(CondOp.COND_OP_EQ)
                 .addValues(value)
                 .build();
     }
 
     public static Condition likePrefix(String emailPrefix) {
         return Condition.newBuilder()
-                .setColumnValue(UserColumn.EMAIL_VALUE)
-                .setOpValue(CondOp.LIKE_PREFIX_VALUE)
+                .setColumn(UserColumn.USER_COLUMN_EMAIL)
+                .setOp(CondOp.COND_OP_LIKE_PREFIX)
                 .addValues(emailPrefix)
                 .build();
     }
