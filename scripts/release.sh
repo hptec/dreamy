@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================
 # 脚本名称: release.sh
-# 功能描述: 编译 + 构建三镜像 + 推送阿里云 ACR(双 tag: latest + <时间戳>-<短SHA>)
+# 功能描述: 编译 + 服务器构建三镜像(本地 tag: latest + <时间戳>-<短SHA>,不经镜像仓库)
 #
 # 模式(默认远程):
 #   远程模式(推荐,稳定): 本地编译 JAR/admin dist → scp 到香港服务器 →
-#     服务器原生 x86_64 构建 linux/amd64 镜像(scripts/remote-build.sh)→ docker push ACR。
-#     服务器 Docker Hub 直连快,且产物直 push 免疫 ACR 对 OCI attestation 的拒收。
-#   --local 本地模式: 本地 buildx linux/amd64 构建(依赖 Rosetta 与 Docker Hub 拉取速度,不稳定时用远程)。
-#   --load 本地验证: 不推送,平台跟随本机,docker compose --env-file .env.deploy up -d 直接跑。
+#     服务器原生 x86_64 构建 linux/amd64 镜像(scripts/remote-build.sh,
+#     --load 装进服务器本机 docker daemon)。镜像仅在本机流转,无外部仓库依赖。
+#   --load 本地验证: 本机平台构建不传输,docker compose --env-file .env.deploy up -d 直接跑。
 #
-# 使用方式: bash scripts/release.sh --env .env.deploy.prod          # 生产发布(远程构建+推送)
-#           bash scripts/release.sh --env .env.deploy.prod --local  # 本地构建+推送
-#           bash scripts/release.sh --load                           # 本地验证镜像
-# 依赖环境: GraalVM JDK25、pnpm、远程模式需 SSH 免密到服务器且服务器已 docker login ACR
+# 使用方式: bash scripts/release.sh --env .env.deploy.prod   # 生产发布(远程构建至服务器本机)
+#           bash scripts/release.sh --load                    # 本地验证镜像
+# 依赖环境: GraalVM JDK25、pnpm、远程模式需 SSH 免密到服务器
 # 配置来源: --env 指定(默认 .env.deploy;生产用 .env.deploy.prod,含 DEPLOY_SSH)
 # 发布完成后: 服务器执行 bash scripts/deploy.sh
 # =============================================================
@@ -23,12 +21,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 MODE="remote"
-LOAD_ONLY=0
 ENV_FILE="${RELEASE_ENV_FILE:-${PROJECT_ROOT}/.env.deploy}"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --local) MODE="local" ;;
-    --load) MODE="local"; LOAD_ONLY=1 ;;
+    --load) MODE="local" ;;
     --env)
       [ -n "${2:-}" ] || { echo "[release] --env 需要配置文件路径" >&2; exit 1; }
       ENV_FILE="$2"; shift ;;
@@ -38,7 +34,7 @@ while [ $# -gt 0 ]; do
 done
 if [ ! -f "${ENV_FILE}" ]; then
   echo "[release] 未找到 ${ENV_FILE}" >&2
-  echo "[release] 请先执行: cp .env.deploy.example .env.deploy 并填写(--load 模式 ACR_NAMESPACE 可填任意值)" >&2
+  echo "[release] 请先执行: cp .env.deploy.example .env.deploy 并填写" >&2
   exit 1
 fi
 set -a
@@ -50,17 +46,7 @@ set +a
 NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-${PUBLIC_STORE_URL:-}}"
 VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-${PUBLIC_STORE_URL:-}}"
 
-# ── 前置校验 ─────────────────────────────────────────────
-missing=()
-for v in ACR_REGISTRY ACR_NAMESPACE; do
-  if [ -z "$(eval "echo \${${v}:-}")" ]; then missing+=("${v}"); fi
-done
-if [ "${#missing[@]}" -gt 0 ]; then
-  echo "[release] 错误: ${ENV_FILE} 缺少必填变量: ${missing[*]}" >&2
-  exit 1
-fi
-
-if [ "${MODE}" = "remote" ] && [ "${LOAD_ONLY}" = "0" ]; then
+if [ "${MODE}" = "remote" ]; then
   if [ -z "${DEPLOY_SSH:-}" ]; then
     echo "[release] 错误: 远程模式需要在配置中设置 DEPLOY_SSH(如 root@<服务器IP>)" >&2
     exit 1
@@ -84,13 +70,13 @@ fi
 SHORT_SHA="$(git -C "${PROJECT_ROOT}" rev-parse --short HEAD)"
 RELEASE_TAG="$(date +%Y%m%d%H%M)-${SHORT_SHA}"
 PLATFORM="${PLATFORM:-linux/amd64}"
-if [ "${LOAD_ONLY}" = "1" ]; then
+if [ "${MODE}" = "local" ]; then
   # 本地验证用本机平台:原生运行最快且不需要模拟
   case "$(uname -m)" in
     arm64)  PLATFORM="linux/arm64" ;;
     x86_64) PLATFORM="linux/amd64" ;;
   esac
-  echo "[release] --load 模式:平台 ${PLATFORM},不推送(镜像名与 compose 一致,可直接 up)"
+  echo "[release] --load 模式:平台 ${PLATFORM},仅构建到本机(镜像名与 compose 一致,可直接 up)"
 fi
 
 # ── ① 后端:本地编译 bootJar ─────────────────────────────
@@ -142,7 +128,7 @@ if [ "${MODE}" = "remote" ]; then
     if echo "${OUT}" | grep -q "ALL DONE"; then
       echo "${OUT}" | tail -1
       echo "[release] 完成。"
-      echo "[release] 已推送 ${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-{backend,store,admin}:latest 及对应时间戳 tag(见上方输出)"
+      echo "[release] 已构建 dreamy-{backend,store,admin}:latest 及对应时间戳 tag 到服务器本机 daemon(见上方输出)"
       echo "[release] 服务器执行: cd ${REMOTE_DIR} && bash scripts/deploy.sh"
       exit 0
     fi
@@ -158,23 +144,19 @@ if [ "${MODE}" = "remote" ]; then
   exit 1
 fi
 
-# ── ③b 本地模式:buildx 三镜像 ───────────────────────────
-PUSH_FLAG="--push"
-if [ "${LOAD_ONLY}" = "1" ]; then PUSH_FLAG="--load"; fi
-
+# ── ③b 本地验证模式(--load):buildx 三镜像进本机 daemon ──
 build_image() {
   local name="$1" dir="$2"; shift 2
-  local repo="${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-${name}"
-  echo "[release] 构建镜像 ${repo} (platform: ${PLATFORM}, tags: latest / ${RELEASE_TAG}) ..."
+  echo "[release] 构建镜像 dreamy-${name} (platform: ${PLATFORM}, tags: latest / ${RELEASE_TAG}) ..."
   # shellcheck disable=SC2086
-  # --provenance/--sbom off:新 buildkit 默认附 OCI attestation manifest,ACR 个人版不识别(unknown manifest class)
+  # --provenance/--sbom off:OCI attestation manifest 在部分工具链不受支持,保持关闭
   docker buildx build \
     --platform "${PLATFORM}" \
     --provenance=false --sbom=false \
-    -t "${repo}:latest" \
-    -t "${repo}:${RELEASE_TAG}" \
+    -t "dreamy-${name}:latest" \
+    -t "dreamy-${name}:${RELEASE_TAG}" \
     "$@" \
-    ${PUSH_FLAG} \
+    --load \
     "${dir}"
 }
 
@@ -186,10 +168,4 @@ build_image store "${PROJECT_ROOT}/frontend/portal-store" \
   --build-arg NEXT_PUBLIC_GA4_ID="${NEXT_PUBLIC_GA4_ID:-}" \
   --build-arg ADMIN_ORIGIN="${ADMIN_ORIGIN:-${PUBLIC_STORE_URL:-}}"
 
-echo "[release] 完成。"
-if [ "${LOAD_ONLY}" = "0" ]; then
-  echo "[release] 已推送 ${ACR_REGISTRY}/${ACR_NAMESPACE}/dreamy-{backend,store,admin}:{latest,${RELEASE_TAG}}"
-  echo "[release] 服务器执行: bash scripts/deploy.sh"
-else
-  echo "[release] 本地验证: docker compose --env-file .env.deploy up -d"
-fi
+echo "[release] 完成。本地验证: docker compose --env-file .env.deploy up -d"

@@ -2,10 +2,11 @@
 # =============================================================
 # 脚本名称: deploy.sh
 # 功能描述: 香港服务器一键部署(不在服务器上编译)
-#           同步编排文件 → 拉取 ACR 镜像 → 替换容器 → 健康检查 → 清理旧镜像
+#           同步编排文件 → 校验本地镜像 → 替换容器 → 健康检查 → 清理旧镜像
 # 使用方式: bash scripts/deploy.sh
-# 前置条件: 服务器已装 docker + git、已 clone 仓库、.env.deploy 已填写、已 docker login ACR
-# 回滚方式: .env.deploy 改 IMAGE_TAG=<旧时间戳-短SHA>(见 release.sh 输出历史 tag) 后重跑本脚本
+# 前置条件: 服务器已装 docker + git、已 clone 仓库、.env.deploy 已填写、
+#           已跑过 release.sh/remote-build.sh(镜像 dreamy-{backend,store,admin} 在本机 daemon)
+# 回滚方式: .env.deploy 改 IMAGE_TAG=<旧时间戳-短SHA>(docker images 可查,tag 须仍在本机) 后重跑本脚本
 # =============================================================
 set -euo pipefail
 
@@ -34,11 +35,15 @@ if ! docker compose --env-file "${ENV_FILE}" config --quiet; then
   exit 1
 fi
 
-echo "[deploy] 拉取最新镜像..."
-if ! docker compose --env-file "${ENV_FILE}" pull; then
-  echo "[deploy] 拉取失败:若为认证错误,先执行 docker login ${ACR_REGISTRY:-registry.cn-hongkong.aliyuncs.com}" >&2
-  exit 1
-fi
+echo "[deploy] 校验本地镜像 (IMAGE_TAG=${IMAGE_TAG:-latest})..."
+for svc in backend store admin; do
+  if ! docker image inspect "dreamy-${svc}:${IMAGE_TAG:-latest}" >/dev/null 2>&1; then
+    echo "[deploy] 错误: 本机无镜像 dreamy-${svc}:${IMAGE_TAG:-latest}" >&2
+    echo "[deploy]   先在本地执行 release.sh(或服务器执行 remote-build.sh)构建;" >&2
+    echo "[deploy]   回滚场景请 docker images dreamy-${svc} 查看仍在本机的历史 tag" >&2
+    exit 1
+  fi
+done
 
 echo "[deploy] 启动/替换容器..."
 docker compose --env-file "${ENV_FILE}" up -d

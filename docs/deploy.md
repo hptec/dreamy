@@ -1,32 +1,27 @@
-# Dreamy 部署手册(本地编译 → 阿里云 ACR → 香港服务器)
+# Dreamy 部署手册(本地编译 → 服务器本地构建镜像 → 香港服务器)
 
 ## 架构总览
 
 ```
-本地 Mac(release.sh)                      阿里云 ACR 个人版·香港         香港服务器 x86_64(deploy.sh)
-──────────────────────────                ─────────────────────         ──────────────────────────────
-gradlew bootJar ──┐                       registry.cn-hongkong.         docker compose pull
-pnpm build(admin)─┼→ buildx linux/amd64   aliyuncs.com/<ns>/            → up -d(替换容器)
-buildx 构建 store ─┘   三镜像双 tag  ──────────→  dreamy-{backend,          → 健康检查
-                                                  store,admin}              → prune 旧镜像
+本地 Mac(release.sh)                     香港服务器 x86_64(remote-build.sh + deploy.sh)
+──────────────────────────               ──────────────────────────────────────────────
+gradlew bootJar ──┐                      git pull 源码 + 接收 scp 上来的 JAR/dist
+pnpm build(admin)─┼→ scp 产物 ────────→  buildx linux/amd64 原生构建三镜像(--load 进本机 daemon)
+                                         dreamy-{backend,store,admin}
+                                           双 tag:latest + <时间戳>-<短SHA>(仅存本机)
+                                       deploy.sh:校验本地镜像 → up -d(替换容器)
+                                         → 健康检查 → prune 旧镜像
 ```
 
-- **编译全部在本地**完成,服务器只拉镜像运行(需装 `docker` + `git`,无需 JDK/Node)。
-- 后端 JAR / admin 静态产物本身跨架构,本地原生编译;store 镜像在 buildx 的 `linux/amd64` 环境内构建(standalone 含平台 SWC 二进制)。
+- **无外部镜像仓库**:镜像构建后直接装载进服务器本机 docker daemon,tag 历史即本机 `docker images` 所见(回滚/发布档案都依赖它)。
+- 编译分工:后端 JAR / admin 静态产物跨架构,在本地 Mac 原生编译后 scp;store(standalone 含平台 SWC 二进制)在服务器 `linux/amd64` 环境内构建。服务器需装 `docker` + `git`,无需 JDK/Node。
 - **全部配置外置** `.env.deploy`:镜像内零地址零密钥;compose 内只有 `${VAR:-默认值}` 引用。公网地址只填 `PUBLIC_STORE_URL`/`PUBLIC_ADMIN_URL` 两行,其余(CORS/SITE_BASE_URL/NEXT_PUBLIC_*/VITE_*)自动派生。
 - 服务间请求全程同源:store 浏览器 `/api` 由 Next middleware 反代、admin 浏览器 `/api` 由其容器内 nginx 反代、store RSC 取数直连 `BACKEND_INTERNAL_URL`。
 - **边缘网关**:`gateway` 容器(nginx)是唯一对外入口,**单端口按路径分流并终结 TLS**:`/` → store、`/admin/` → admin(网关剥离前缀)、`/api/` 与 `/actuator/` → backend;backend 仅绑宿主回环,admin/store 不映射宿主端口。HTTPS 为硬要求(Google OIDC 等外部回调的公网 redirect_uri 仅认 https),证书挂载自 `nginx/certs/`。
 
 ## 一、一次性准备
 
-### 1. 阿里云 ACR(个人版免费)
-
-1. 控制台 → 容器镜像服务 → **个人实例**(选 **香港** 地域,与服务器同地域拉取最快)。
-2. 创建**命名空间**(如 `dreamy-harryhe`),记入 `.env.deploy` 的 `ACR_NAMESPACE`。
-3. 在命名空间下创建 3 个**私有仓库**:`dreamy-backend`、`dreamy-store`、`dreamy-admin`(代码源选"本地仓库")。
-4. 左侧"访问凭证"设置**固定密码**,本地与服务器 `docker login` 都用它。
-
-### 2. TLS 证书(公网域名必配,本地验证可自签)
+### 1. TLS 证书(公网域名必配,本地验证可自签)
 
 ```bash
 # 生产:阿里云控制台 → 数字证书管理服务 → SSL 证书 → 免费证书(20 张/年)
@@ -40,24 +35,19 @@ buildx 构建 store ─┘   三镜像双 tag  ──────────→
 bash scripts/gen-dev-cert.sh
 ```
 
-### 3. 本地 Mac
+### 2. 本地 Mac
 
 ```bash
-# Docker Desktop 设置确认:
-#   Settings → General → Use Rosetta for x86/amd64 emulation on Apple Silicon(勾选,store 镜像构建提速明显)
-docker login registry.cn-hongkong.aliyuncs.com   # 用户名=阿里云全账号,密码=固定密码
-
-# 首次使用先预拉基础镜像(Docker Hub 直连极慢,脚本走 daocloud 镜像站并 retag 官方名;
-# 多架构 manifest 一次覆盖本地验证与 amd64 发布,后续构建均命中本地缓存)
+# 首次使用先预拉基础镜像(仅供本地 --load 验证构建提速;服务器构建会自行直连 Docker Hub 拉取)
 bash scripts/pull-base-images.sh
 
 cd <仓库>
 cp .env.deploy.example .env.deploy
-# 填写:ACR_NAMESPACE、<服务器IP>、5 个密钥(JWT/AES/HMAC 至少 32 字节)、MYSQL_ROOT_PASSWORD
+# 填写:<服务器IP>、5 个密钥(JWT/AES/HMAC 至少 32 字节)、MYSQL_ROOT_PASSWORD;生产发布用 .env.deploy.prod(含 DEPLOY_SSH)
 # 注意:CORS 变量要填浏览器实际访问的完整来源(协议+域名+端口,127.0.0.1 与 localhost 是不同源,逗号分隔多值)
 ```
 
-### 4. 香港服务器(一次性初始化)
+### 3. 香港服务器(一次性初始化)
 
 ```bash
 # 以 root 或 sudo 执行;之后日常部署需要 docker 组权限或 sudo
@@ -68,29 +58,30 @@ apt-get install -y git                          # Debian/Ubuntu;CentOS 用 yum
 git clone <仓库地址> /opt/dreamy && cd /opt/dreamy
 
 cp .env.deploy.example .env.deploy
-vim .env.deploy        # 与本地同一份内容:ACR、服务器 IP、全部密钥
-
-docker login registry.cn-hongkong.aliyuncs.com
+vim .env.deploy        # 与本地同一份内容:公网地址、密钥等
 ```
 
 ## 二、日常发布(每次上线)
 
 ```bash
-# ① 本地 Mac:编译 + 推镜像(双 tag:latest + <时间戳>-<短SHA>,如 202609081551-a1b2c3d)
-bash scripts/release.sh
+# ① 本地 Mac:编译 JAR/dist → scp → 触发服务器构建三镜像(本地双 tag:latest + <时间戳>-<短SHA>)
+bash scripts/release.sh --env .env.deploy.prod
 
-# ② 香港服务器:拉取 + 替换 + 健康检查
+# ② 香港服务器:校验本地镜像 → 替换容器 + 健康检查
 cd /opt/dreamy && bash scripts/deploy.sh
 ```
 
-`deploy.sh` 流程:`git pull`(仅同步编排/脚本)→ `docker compose pull` → `up -d`(MySQL/Redis 数据卷不受影响)→ 三个服务健康探测(后端 180s 超时,含首启动 DdlAuto 自动建表)→ `docker image prune`。
+`deploy.sh` 流程:`git pull`(仅同步编排/脚本)→ 校验 `dreamy-{backend,store,admin}` 本地镜像存在 → `up -d`(MySQL/Redis 数据卷不受影响)→ 三个服务健康探测(后端 180s 超时,含首启动 DdlAuto 自动建表)→ `docker image prune`。
 
 ## 三、回滚
 
 ```bash
-# 服务器上:改 tag 为任意历史版本,重跑部署(tag 前缀时间戳见历次 release.sh 输出,短 SHA 用 git log 查)
+# 服务器上:改 tag 为仍在本机的历史版本,重跑部署(docker images 可查所有本地历史 tag)
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=202609081551-a1b2c3d/' .env.deploy
 bash scripts/deploy.sh
+
+# 注意:tag 档案只存在于服务器本机 daemon,若旧 tag 已被清理,需 checkout 对应 commit
+# 重新走一遍 release.sh 构建链恢复
 ```
 
 ## 四、首次启动须知

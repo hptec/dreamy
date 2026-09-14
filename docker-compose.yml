@@ -73,7 +73,8 @@ services:
       - portal-admin
 
   backend:
-    image: ${ACR_REGISTRY:?请在 .env.deploy 配置}/${ACR_NAMESPACE:?请在 .env.deploy 配置}/dreamy-backend:${IMAGE_TAG:-latest}
+    # 本地镜像:由 scripts/remote-build.sh 在本机构建(不走镜像仓库),tag 历史留在本机 docker daemon
+    image: dreamy-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # 整份 .env.deploy(secrets/模式开关等)注入后端容器
     env_file: .env.deploy
@@ -102,7 +103,7 @@ services:
         condition: service_healthy
 
   portal-store:
-    image: ${ACR_REGISTRY:?}/${ACR_NAMESPACE:?}/dreamy-store:${IMAGE_TAG:-latest}
+    image: dreamy-store:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Hong_Kong}
@@ -118,7 +119,7 @@ services:
       - backend
 
   portal-admin:
-    image: ${ACR_REGISTRY:?}/${ACR_NAMESPACE:?}/dreamy-admin:${IMAGE_TAG:-latest}
+    image: dreamy-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Hong_Kong}
