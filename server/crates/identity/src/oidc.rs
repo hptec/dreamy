@@ -164,7 +164,7 @@ pub async fn verify(
         .map(|(_, i)| *i)
         .ok_or_else(|| SvcError::code(50201))?;
 
-    let (header_b64, payload_b64) = decode_segments(id_token)?;
+    let (header_b64, _payload_b64) = decode_segments(id_token)?;
     let header: HeaderOnly =
         serde_json::from_slice(&b64url_decode(&header_b64)?).map_err(|_| SvcError::code(50201))?;
 

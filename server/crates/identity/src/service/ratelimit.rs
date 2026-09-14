@@ -34,7 +34,7 @@ fn resend_key(email: &str) -> String {
     format!("otp:resend:{email}")
 }
 
-pub async fn check_resend(state: &SharedState, email: &str, resend_seconds: u64) -> RateDecision {
+pub async fn check_resend(state: &SharedState, email: &str, _resend_seconds: u64) -> RateDecision {
     let Some(mut conn) = state.redis.clone() else {
         return RateDecision {
             permitted: true,

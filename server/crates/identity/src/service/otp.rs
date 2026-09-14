@@ -8,23 +8,24 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as AsyncMutex;
 
 use common::state::SharedState;
 use sea_orm::{ConnectionTrait, Statement};
 
-use crate::entity::otp_code;
 use crate::enums::OtpStatus;
 use crate::service::{authconfig, ratelimit, SvcError};
 
-/// 进程内按 email 串行的消费锁(替代 Java huihao-redis onIdLock;单实例部署前提)
-fn email_lock(email: &str) -> Arc<Mutex<()>> {
-    static LOCKS: std::sync::LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
+/// 进程内按 email 串行的消费锁(替代 Java huihao-redis onIdLock;单实例部署前提)。
+/// 内层用 tokio Mutex:guard 需跨 .await 持有(消费段含 DB IO,与 Java 分布式锁同跨度)
+fn email_lock(email: &str) -> Arc<AsyncMutex<()>> {
+    static LOCKS: std::sync::LazyLock<Mutex<HashMap<String, Arc<AsyncMutex<()>>>>> =
         std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
     LOCKS
         .lock()
         .unwrap()
         .entry(email.to_string())
-        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .or_insert_with(|| Arc::new(AsyncMutex::new(())))
         .clone()
 }
 
@@ -150,7 +151,7 @@ pub async fn verify_code_only(
 ) -> Result<(), SvcError> {
     let email = normalize(raw_email);
     let lock = email_lock(&email);
-    let _guard = lock.lock().unwrap();
+    let _guard = lock.lock().await;
     consume_valid_code(state, &email, code).await
 }
 
@@ -162,7 +163,7 @@ pub async fn consume_for_login(
 ) -> Result<(), SvcError> {
     let email = normalize(raw_email);
     let lock = email_lock(&email);
-    let _guard = lock.lock().unwrap();
+    let _guard = lock.lock().await;
     consume_valid_code(state, &email, code).await
 }
 
@@ -183,7 +184,6 @@ async fn consume_valid_code(state: &SharedState, email: &str, code: &str) -> Res
     let Some(row) = row else {
         return Err(SvcError::code(41001)); // 无 pending
     };
-    use sea_orm::TryGetable;
     let (id, created_at, code_hash, expires_at, attempts, max_attempts, version) = (
         row.try_get_by_index::<i64>(0)
             .map_err(|_| SvcError::code(50000))?,

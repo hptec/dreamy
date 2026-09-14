@@ -153,7 +153,7 @@ pub async fn resolve_or_merge(
            VALUES (?, ?, ?, ?, 1, ?, 1, ?, ?, ?, NOW(), NOW())"#,
         [
             (user_id as i64).into(),
-            (provider.code() as i32).into(),
+            provider.code().into(),
             provider_uid.into(),
             merge_email.clone().or(relay_email.map(|r| r.to_string())).into(),
             (email_verified as i8).into(),
@@ -210,7 +210,7 @@ async fn attach_identity(
            VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, NOW(), NOW())"#,
         [
             (existing.id as i64).into(),
-            (provider.code() as i32).into(),
+            provider.code().into(),
             provider_uid.into(),
             identifier.into(),
             (verified as i8).into(),

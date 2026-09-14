@@ -80,7 +80,7 @@ pub async fn send_template(
 
 /// 底层发送:RESEND_API_KEY 缺席 → stub;失败重试 3 次(1s/2s/4s 退避,对齐 Java)
 pub async fn send(
-    state: &SharedState,
+    _state: &SharedState,
     to: &str,
     subject: &str,
     body: &str,

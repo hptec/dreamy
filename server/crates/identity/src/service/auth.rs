@@ -187,7 +187,7 @@ async fn open_session(
                 ctx.user_agent.clone().into(),
                 ctx.ip.clone().into(),
                 (new_device as i8).into(),
-                (method.code() as i32).into(),
+                method.code().into(),
             ],
         ))
         .await?;
@@ -204,7 +204,7 @@ async fn open_session(
             [
                 (user.id as i64).into(),
                 user.email.clone().into(),
-                (method.code() as i32).into(),
+                method.code().into(),
                 ctx.ip.clone().into(),
                 device.into(),
                 (new_device as i8).into(),
@@ -296,7 +296,6 @@ pub async fn refresh(
         .await?
         .ok_or(SvcError::code(40102))?;
 
-    use sea_orm::TryGetable;
     macro_rules! col {
         ($t:ty, $i:expr) => {
             row.try_get_by_index::<$t>($i)
@@ -458,7 +457,7 @@ pub async fn record_failed_login(
                     .map(|u| (u as i64).into())
                     .unwrap_or_else(|| sea_orm::sea_query::Value::BigInt(None)),
                 email.into(),
-                (method.code() as i32).into(),
+                method.code().into(),
                 ip.into(),
             ],
         ))
