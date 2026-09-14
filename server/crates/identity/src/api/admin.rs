@@ -184,7 +184,7 @@ async fn admin_login(
     {
         Ok(outcome) => Json(R::ok(Some(json!({
             "token": outcome.token,
-            "admin": admin_json(&outcome.admin),
+            "admin": admin_json(&outcome.admin, "超级管理员", outcome.is_super),
             "permission_keys": outcome.permission_keys,
             "is_super": outcome.is_super,
         }))))
@@ -193,12 +193,22 @@ async fn admin_login(
     }
 }
 
-fn admin_json(a: &admin_auth::AdminDto) -> serde_json::Value {
+fn admin_json(a: &admin_auth::AdminDto, role_name: &str, is_super: bool) -> serde_json::Value {
+    // 对齐 Java AdminAuthSessionView:@JsonProperty 显式字段,status 为枚举名字符串
     json!({
         "id": a.id, "name": a.name, "email": a.email,
-        "role_id": a.role_id, "role_name": null, // login 响应无 role_name(对齐 AdminAuthSessionView:显式 null)
-        "status": a.status, "last_login_at": a.last_login_at,
+        "role_id": a.role_id, "role_name": if is_super { Some(role_name) } else { None },
+        "status": status_name(a.status), "last_login_at": a.last_login_at,
     })
+}
+
+/// admin status 枚举名(对齐 Java AdminDTO.status 序列化为枚举名)
+fn status_name(status: i32) -> String {
+    match status {
+        1 => "ACTIVE".into(),
+        2 => "DISABLED".into(),
+        _ => "ACTIVE".into(),
+    }
 }
 
 async fn admin_logout(authed: AuthedAdmin, State(st): State<AdminState>) -> Response {
@@ -215,7 +225,7 @@ async fn admin_me(authed: AuthedAdmin, State(st): State<AdminState>) -> Response
             "admin": {
                 "id": data.admin.id, "name": data.admin.name, "email": data.admin.email,
                 "role_id": data.admin.role_id, "role_name": data.role_name,
-                "status": data.admin.status, "last_login_at": data.admin.last_login_at,
+                "status": status_name(data.admin.status), "last_login_at": data.admin.last_login_at,
             },
             "role_name": data.role_name,
             "is_super": data.is_super,
@@ -314,7 +324,7 @@ async fn create_admin(
             let mut resp = Json(R::ok(Some(json!({
                 "id": admin.id, "name": admin.name, "email": admin.email,
                 "role_id": admin.role_id, "role_name": null,
-                "status": admin.status, "last_login_at": admin.last_login_at,
+                "status": status_name(admin.status), "last_login_at": admin.last_login_at,
             }))))
             .into_response();
             *resp.status_mut() = axum::http::StatusCode::CREATED;
@@ -359,7 +369,7 @@ async fn update_admin(
             Json(R::ok(Some(json!({
                 "id": admin.id, "name": admin.name, "email": admin.email,
                 "role_id": admin.role_id, "role_name": null,
-                "status": admin.status, "last_login_at": admin.last_login_at,
+                "status": status_name(admin.status), "last_login_at": admin.last_login_at,
             }))))
             .into_response()
         }
@@ -434,7 +444,7 @@ async fn toggle_admin_status(
             Json(R::ok(Some(json!({
                 "id": admin.id, "name": admin.name, "email": admin.email,
                 "role_id": admin.role_id, "role_name": null,
-                "status": admin.status, "last_login_at": admin.last_login_at,
+                "status": status_name(admin.status), "last_login_at": admin.last_login_at,
             }))))
             .into_response()
         }
