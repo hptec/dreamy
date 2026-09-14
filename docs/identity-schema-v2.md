@@ -31,10 +31,13 @@ identity_email / identity_google / identity_apple   (各 25 区,1 亿)
 user ──┬─ RANGE(id) 每 400 万段,co-location          【K 裁剪】
        └─ user_identity ── RANGE(user_id) 同边界      【K 裁剪】
 
-会话:  Redis 主存(每请求校验 ~0.1ms) + user_session 表冷备(KEY(token_id) 25 区)
+会话:  Redis 主存(每请求校验 ~0.1ms) + user_session 表冷备(月分区,30 天保留)
 验证码: otp_code 表 DB 主存(日分区) + Redis 频控
 审计:  login_history 月分区
 ```
+
+> 三张时序表(login_history/otp_code/user_session 冷备)统一模式:pmax 哨兵建表 +
+> 启动期生成实际分区 + 维护任务按期 DROP PARTITION 清理。
 
 ## 2. MySQL DDL 全量（dreamy_server 库 v2）
 
