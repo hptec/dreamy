@@ -2,24 +2,14 @@
 //! 配置装载 → 库自举与连接 → 域路由挂载 → REST/gRPC 双服务。
 //!
 //! 新域入驻:crates/<domain> 落地后,在本 crate router.rs 挂载其子路由、
-//! main.rs 注册其 gRPC 服务(如有)、openapi.rs 合并其契约路径。
+//! main.rs 注册其 gRPC 服务(如有)。
 
-mod openapi;
 mod router;
 
 use common::state::{AppState, SharedState};
-use utoipa::OpenApi;
 
 #[tokio::main]
 async fn main() {
-    // 子命令:导出 OpenAPI 契约(不依赖任何外部服务)
-    if std::env::args().any(|a| a == "--export-openapi") {
-        let yaml = serde_yaml::to_string(&openapi::ApiDoc::openapi()).expect("openapi 序列化失败");
-        std::fs::write("openapi.yaml", yaml).expect("写入 openapi.yaml 失败");
-        println!("[openapi] openapi.yaml 已导出");
-        return;
-    }
-
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(

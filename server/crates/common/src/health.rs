@@ -9,7 +9,6 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use crate::state::SharedState;
 
 /// liveness:进程存活即 200(不查依赖,避免依赖抖动引发容器重启风暴)
-#[utoipa::path(get, tag = "infra", path = "/healthz", responses((status = 200, description = "进程存活")))]
 pub async fn healthz() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "ok" }))
 }
@@ -35,10 +34,6 @@ async fn redis_ping(client: &redis::Client) -> bool {
 }
 
 /// readiness:DB 主/次连接 + Redis 连通性(compose healthcheck 与 deploy 探活挂钩)
-#[utoipa::path(get, tag = "infra", path = "/readyz", responses(
-    (status = 200, description = "全部依赖就绪"),
-    (status = 503, description = "存在不可用依赖(checks 中明细)")
-))]
 pub async fn readyz(State(state): State<SharedState>) -> impl IntoResponse {
     let mut checks = serde_json::Map::new();
 

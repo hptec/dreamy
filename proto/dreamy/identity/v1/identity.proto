@@ -1,17 +1,23 @@
 // ============================================================================
-// IdentityGate — dreamy 身份域内部 gRPC 契约（Java backend ⇄ Rust server）
+// IdentityGate — dreamy 身份域内部 gRPC 契约(Java backend ⇄ Rust server)
 //
 // 契约纪律:
 //   1. 字段编号一经发布不可复用;废弃字段进 reserved,新增字段只用新编号。
 //   2. 所有 rpc 的错误语义以 gRPC status 表达,Java 侧统一映射:
 //      - NOT_FOUND        → 调用方按业务语义处理(GetUser 未命中)
-//      - INVALID_ARGUMENT → 调用方编码 BUG(白名单外字段/条件/超限),FAIL FAST
+//      - INVALID_ARGUMENT → 调用方编码 BUG(白名单外条件/超限),FAIL FAST
 //      - UNAVAILABLE / DEADLINE_EXCEEDED → HTTP 503 {code:50001},绝不映射 401(避免误踢登录态)
 //      - 其余 status      → HTTP 500 {code:50000} + ERROR 日志
 //   3. 调用方(Java)只传验签后的结构化标识(token_id=jti / admin_id / user_id),
 //      绝不传原始 JWT 原文、绝不传密码/哈希。
-//   4. 消息上限:fields ≤ 16、conditions ≤ 8、IN values ≤ 100、page_size ≤ 100,
+//   4. 查询不做字段投影(用户决策:固定脱敏记录整条返回,性能影响可忽略);
+//      脱敏基线 = Java UserProfileDTO 字段集,provider_uid 等凭证标识与
+//      审计内部字段(version/deleted_at/anonymized_at)永不出域。
+//   5. 消息上限:conditions ≤ 8、IN values ≤ 100、page_size ≤ 100,
 //      超限一律 INVALID_ARGUMENT(白名单枚举 + 上限即注入面防线,无自由字符串拼 SQL)。
+//
+// 性能要求(用户指令:每个接口性能做到极限,包括但不限于 Redis):
+//   会话校验/权限解析/用户查询在 Rust 侧均为 Redis-first + 主动失效,详见实施计划。
 //
 // 命名空间:后续域按 dreamy.<domain>.v1 增量加包,不扩本包。
 // ============================================================================
@@ -24,7 +30,7 @@ package dreamy.identity.v1;
 // ----------------------------------------------------------------------------
 service IdentityGate {
   // store 会话有效性(热路径,Java StoreJwtFilter 每请求调用)。
-  // 纯读:任何内部错误以 UNAVAILABLE 表达(Java 转 503),绝不把基础设施故障伪装成 invalid。
+  // Rust 侧 Redis-first:命中即返回;撤销即时 DEL 失效;Redis 不可用回落 DB。
   rpc ValidateStoreSession(ValidateStoreSessionRequest) returns (ValidateStoreSessionResponse);
 
   // admin 会话有效性(含管理员状态复核,对齐 Java SessionValidator.isAdminSessionValid)。
@@ -32,13 +38,14 @@ service IdentityGate {
 
   // 管理员实时权限集(Java PermissionAspect 每次受注解保护的请求调用)。
   // admin 不存在 → 返回空列表(对齐 Java resolvePermissions 语义),不用 NOT_FOUND。
+  // Rust 侧 Redis 缓存 + 角色/权限/管理员变更时主动失效(变更即时生效语义保留)。
   rpc ResolvePermissions(ResolvePermissionsRequest) returns (ResolvePermissionsResponse);
 
-  // 通用查询:GraphQL 式字段投影(只回填请求字段)+ 精确查找(单值)。
-  // 未命中 → NOT_FOUND;白名单外字段 → INVALID_ARGUMENT。
+  // 通用查询:精确查找(单值),返回固定脱敏记录 UserRecord。
+  // 未命中 → NOT_FOUND。
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
 
-  // 通用查询:MyBatis-Lambda 式类型化条件(枚举列 + 枚举操作符)+ 投影 + 分页。
+  // 通用查询:类型化条件(MyBatis-Lambda 式枚举列 × 枚举操作符)+ 分页。
   // 服务端强制追加 id 升序稳定兜底;LIKE 仅前缀匹配(防全表扫描)。
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
 
@@ -89,21 +96,21 @@ message ResolvePermissionsResponse {
 }
 
 // ----------------------------------------------------------------------------
-// 用户字段投影(白名单即防线:枚举之外无字段可选)
+// 用户记录(固定脱敏集,无投影:整条返回)
 // ----------------------------------------------------------------------------
-enum UserField {
-  USER_FIELD_UNSPECIFIED = 0;
-  USER_FIELD_ID = 1;
-  USER_FIELD_EMAIL = 2;
-  USER_FIELD_EMAIL_VERIFIED = 3;
-  USER_FIELD_NAME = 4;
-  USER_FIELD_PHONE = 5;
-  USER_FIELD_TIER = 6;           // UserTier: 1=REGULAR 2=VIP
-  USER_FIELD_STATUS = 7;         // UserStatus: 1=ACTIVE 2=DISABLED 3=DELETED 4=ANONYMIZED
-  USER_FIELD_AVATAR = 8;
-  USER_FIELD_LOCALE_PREF = 9;
-  USER_FIELD_JOINED_AT = 10;     // ISO-8601(与 REST 序列化同构)
-  USER_FIELD_ANONYMIZED = 11;
+message UserRecord {
+  int64 id = 1;
+  string email = 2;
+  bool email_verified = 3;
+  optional string name = 4;         // DB 可空 → optional
+  optional string phone = 5;
+  int32 tier = 6;                   // UserTier: 1=REGULAR 2=VIP
+  int32 status = 7;                 // UserStatus: 1=ACTIVE 2=DISABLED 3=DELETED 4=ANONYMIZED
+  optional string avatar = 8;
+  optional string locale_pref = 9;  // en/es/fr
+  optional string joined_at = 10;   // ISO-8601(与 REST 序列化同构)
+  bool anonymized = 11;
+  reserved 12 to 99;
 }
 
 // ----------------------------------------------------------------------------
@@ -115,9 +122,7 @@ message GetUserRequest {
     string email = 2;                        // 已规范化(小写)或由服务端规范化
     ProviderIdentity provider_identity = 3; // (provider, provider_uid) 复合查找
   }
-  // 投影字段(去重后 ≤16);空 → 仅回填 id(最小默认)
-  repeated UserField fields = 4;
-  reserved 5 to 99;
+  reserved 4 to 99;
 }
 message ProviderIdentity {
   int32 provider = 1;    // AuthProvider tinyint: 1=EMAIL 2=GOOGLE 3=APPLE
@@ -125,19 +130,8 @@ message ProviderIdentity {
   reserved 3 to 15;
 }
 message GetUserResponse {
-  // 全部 optional:仅回填请求投影的字段,未请求字段保持缺省
-  optional int64 id = 1;
-  optional string email = 2;
-  optional bool email_verified = 3;
-  optional string name = 4;
-  optional string phone = 5;
-  optional int32 tier = 6;
-  optional int32 status = 7;
-  optional string avatar = 8;
-  optional string locale_pref = 9;
-  optional string joined_at = 10;
-  optional bool anonymized = 11;
-  reserved 12 to 99;
+  UserRecord record = 1;
+  reserved 2 to 99;
 }
 
 // ----------------------------------------------------------------------------
@@ -166,16 +160,15 @@ message Condition {
 }
 message ListUsersRequest {
   repeated Condition conditions = 1; // ≤8,AND 语义
-  repeated UserField fields = 2;     // ≤16
   // 排序白名单:"id|email|status|tier|created_at|joined_at" + 可选 " asc|desc";
   // 空 → 默认 "created_at desc";服务端恒定追加 id 升序稳定兜底。
-  string order_by = 3;
-  int32 page = 4;      // 1 起(0 视为 1)
-  int32 page_size = 5; // 1..100(缺省 20)
-  reserved 6 to 99;
+  string order_by = 2;
+  int32 page = 3;      // 1 起(0 视为 1)
+  int32 page_size = 4; // 1..100(缺省 20)
+  reserved 5 to 99;
 }
 message ListUsersResponse {
-  repeated GetUserResponse items = 1;
+  repeated UserRecord items = 1;
   int64 total = 2; // 命中总数(与分页无关)
   reserved 3 to 99;
 }
