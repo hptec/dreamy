@@ -1,4 +1,4 @@
-# identity 域数据架构设计 v2.1（分区化 + Redis 主存会话）
+# identity 域数据架构设计 v2.2（分区化 + Redis 主存会话）
 
 > 状态：**待用户评审**。评审通过后按「§8 代码影响清单」重做 P1 数据层。
 > 演进记录：v1 单库单表（Java 原样）→ 讨论定稿本版。
@@ -12,12 +12,13 @@
 | 3 | 路由表 KEY 哈希分区预建 25 区 | 容量 1 亿（满载每区 400 万）；等值查询自动裁剪；唯一键=分区键，全局唯一由 DB 强制 |
 | 4 | 主档表 RANGE(id) 追加式 | user/identity 每 400 万一段，pmax 哨兵 + 空区 REORGANIZE 扩容（秒级） |
 | 5 | user_session **Redis 主存** | TTL=令牌有效期、DEL 即撤销、DB 双写冷备、Redis 故障降级 DB 点查 |
-| 6 | otp_code **DB 主存**（修订） | Redis 主存有 key-miss 语义歧义（空库重启误判在途码）且收益微小（登录频率=低频）；DB 日分区 + DROP 清理，Redis 只做频控 |
-| 7 | login_history 月分区 | 自动追加 + 超 1 年 DROP PARTITION（亿级表的秒级清理红利） |
+| 6 | otp_code **DB 主存**（修订） | Redis 主存有 key-miss 语义歧义（空库重启误判在途码）且收益微小（登录频率=低频）；DB **月分区**，Redis 只做频控 |
+| 7 | login_history 月分区 | 自动追加；DROP 清理**暂缓启用**（见决策 12） |
 | 8 | admin/字典/配置表不分区 | 量级 ≤ 千行，分区纯开销 |
 | 9 | 自动扩展 = Rust 内置调度任务 | tokio 定时，幂等加锁，随服务部署 |
 | 10 | 复杂分析查询走 CDC → 分析库预案 | OLTP 表不做列式；MySQL 自建无列式引擎，版本保持 8.4 LTS |
-| 11 | (v2.1)会话冷备表月分区 | 30 天保留=表内恒 1-2 分区,token 降级点查代价可忽略;三张时序表统一 DROP PARTITION 清理,批量 DELETE 出局 |
+| 11 | (v2.1→v2.2 修订)会话冷备表**不分区** | v2.1 曾定月分区;v2.2 按用户指令改普通表(简单优先,暂不清理则分区收益无从体现) |
+| 12 | (v2.2)清理策略**全面暂缓** | OTP 改月分区;会话冷备不分区;**暂不删除任何日志**(保留完整审计);DROP PARTITION 维护路径保留实现但默认不执行,后续按磁盘水位/行数阈值另行下令启用 |
 
 ## 1. 总体拓扑
 
@@ -31,13 +32,13 @@ identity_email / identity_google / identity_apple   (各 25 区,1 亿)
 user ──┬─ RANGE(id) 每 400 万段,co-location          【K 裁剪】
        └─ user_identity ── RANGE(user_id) 同边界      【K 裁剪】
 
-会话:  Redis 主存(每请求校验 ~0.1ms) + user_session 表冷备(月分区,30 天保留)
-验证码: otp_code 表 DB 主存(日分区) + Redis 频控
+会话:  Redis 主存(每请求校验 ~0.1ms) + user_session 冷备表(普通表,不分区)
+验证码: otp_code 表 DB 主存(月分区) + Redis 频控
 审计:  login_history 月分区
 ```
 
-> 三张时序表(login_history/otp_code/user_session 冷备)统一模式:pmax 哨兵建表 +
-> 启动期生成实际分区 + 维护任务按期 DROP PARTITION 清理。
+> 两张时序表(login_history/otp_code)统一模式:pmax 哨兵建表 + 启动期生成实际月分区 +
+> 维护任务自动追加新月分区;**DROP 清理暂缓**(v2.2 决策 12,保留全部审计数据)。
 
 ## 2. MySQL DDL 全量（dreamy_server 库 v2）
 
@@ -154,7 +155,7 @@ CREATE TABLE IF NOT EXISTS `login_history` (
   PRIMARY KEY (`id`, `created_at`),
   KEY `idx_user_created` (`user_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='登录历史(审计);月分区,超 1 年 DROP PARTITION'
+  COMMENT='登录历史(审计);月分区;清理暂缓(v2.2 决策 12)'
   PARTITION BY RANGE COLUMNS (`created_at`) (
     PARTITION pmax VALUES LESS THAN (MAXVALUE)
   );
@@ -175,7 +176,7 @@ CREATE TABLE IF NOT EXISTS `otp_code` (
   PRIMARY KEY (`id`, `created_at`),
   KEY `idx_email_status` (`email`, `status`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='邮箱验证码(DB 主存);日分区,保留 2 天'
+  COMMENT='邮箱验证码(DB 主存);月分区;清理暂缓——校验查询必须带 created_at 下界谓词强制分区裁剪(见 §5)'
   PARTITION BY RANGE COLUMNS (`created_at`) (
     PARTITION pmax VALUES LESS THAN (MAXVALUE)
   );
@@ -184,7 +185,7 @@ CREATE TABLE IF NOT EXISTS `otp_code` (
 > 时序表建表仅带 pmax 哨兵；**启动阶段**分区维护任务即时 REORGANIZE 生成
 > 实际分区（空 pmax 分裂=秒级元数据操作），业务流量开始前完成。
 
-### 2.4 会话冷备（月分区，Redis 为权威主存；v2.1 修订）
+### 2.4 会话冷备（普通表不分区，Redis 为权威主存；v2.2 修订）
 
 ```sql
 CREATE TABLE IF NOT EXISTS `user_session` (
@@ -203,22 +204,18 @@ CREATE TABLE IF NOT EXISTS `user_session` (
   `status`           TINYINT NOT NULL DEFAULT 1,
   `last_active_at`   DATETIME NULL,
   `version`          INT NOT NULL DEFAULT 0,
-  `created_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at`       DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at`       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`, `created_at`),
-  UNIQUE KEY `uk_token` (`token_id`, `created_at`),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token` (`token_id`),
   KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='会话冷备/审计(Redis 为权威主存;30 天保留=表内仅 1-2 个月分区,token 降级点查为 uk 前缀扫 1-2 分区,毫秒级)'
-  PARTITION BY RANGE COLUMNS (`created_at`) (
-    PARTITION pmax VALUES LESS THAN (MAXVALUE)
-  );
+  COMMENT='会话冷备/审计(Redis 为权威主存;Redis 故障降级 uk_token 点查;暂不清理=v2.2 决策 12)';
 ```
 
-> v2.1 修订说明:原方案 KEY(token_id) 分区为降级查询裁剪而牺牲了 DROP PARTITION 清理。
-> 重估后发现保留期 30 天意味着表内恒为 1-2 个月分区——token 点查跨分区代价可忽略,
-> 时间分区 + DROP 清理是更优解,且与 login_history/otp_code 三张时序表模式统一,
-> 批量 DELETE 从设计中消失。
+> v2.2 修订:不分区普通表(PK/uk 无分区约束,全局唯一天然合法),降级点查走 uk_token。
+> 暂不清理意味着该表随登录量持续增长;后续启用清理时可 ALTER TABLE 在线转月分区
+> (DDL 重写全表,需窗口)或直接启用批量清理——启用条件与时机由磁盘水位/行数阈值另行下令。
 
 ### 2.5 不分区表（量级 ≤ 千行）
 
@@ -250,12 +247,12 @@ CREATE TABLE IF NOT EXISTS `user_session` (
     MAX(id) > 最高实分区边界 − 400,000（90% 水位）
       → REORGANIZE PARTITION pmax INTO (p_next VALUES LESS THAN (边界+400万), pmax)
     （pmax 保持空——任务永远提前扩；即便失职溢出进 pmax，REORGANIZE 仍在线正确，仅变慢+告警）
- ② login_history: 确保未来 2 个月分区存在（REORGANIZE pmax）；DROP 超过 13 个月的分区
- ③ otp_code: 确保未来 2 天日分区存在；DROP 超过 3 天的分区
+ ② login_history: 确保未来 2 个月月分区存在（REORGANIZE pmax）
+ ③ otp_code: 确保未来 2 个月月分区存在（REORGANIZE pmax）
  ④ 全部动作先查 information_schema.PARTITIONS 判幂等；每次动作 INFO 日志留证据
-任务 session_cold_retention（随 partition_maintain）:
-  user_session 冷备表:确保未来 2 个月分区存在(REORGANIZE pmax);
-  DROP 超过 30 天的分区(与 login_history/otp_code 统一为分区级清理,无批量 DELETE)
+ ⑤ DROP PARTITION 清理动作**全部暂缓执行**（v2.2 决策 12:保留完整审计）——
+    代码路径保留、配置开关默认关闭;后续按磁盘水位/行数阈值下令启用
+任务 session_cold_retention: 暂缓（会话冷备为普通表且不清理）
 ```
 
 ## 5. 查询路径（K 定位验证）
@@ -265,11 +262,11 @@ CREATE TABLE IF NOT EXISTS `user_session` (
 | Google 登录 | identity_google 点查 → user_id → user + user_identity | 每步 1 区 |
 | 邮箱登录/归并 | identity_email 点查 → user_id → … | 每步 1 区 |
 | 每请求会话校验 | `GET session:{token_id}`（Redis，~0.1ms） | — |
-| 会话降级（Redis 故障） | user_session KEY(token_id) 点查 | 1 区 |
-| OTP 校验 | otp_code `email+status+created_at≥NOW()-24h` | 裁剪至 1-2 日分区 |
+| 会话降级（Redis 故障） | user_session 普通表 uk_token 点查 | 无分区,索引点查 |
+| OTP 校验 | otp_code `email+status+created_at≥NOW()-24h`(谓词强制裁剪) | 裁剪至当月 1 分区 |
 | 列出登录方式 | user_identity WHERE user_id=? | 1 区（co-location） |
 | admin 用户列表 | 优先 K 定位；无 K 全量筛选=分区归并+游标分页 | 全区归并（已确认接受） |
-| 用户详情（近 20 登录） | login_history (user_id, created_at) | 命中 1-2 月分区 |
+| 用户详情（近 20 登录） | login_history (user_id, created_at) 分区各取 top-20 归并 | 各月分区索引扫,分区数×20 行归并 |
 
 ## 6. 归并语义在新结构下的实现
 
