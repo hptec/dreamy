@@ -89,6 +89,7 @@ pub async fn send(
     let from = std::env::var("RESEND_FROM").unwrap_or_else(|_| "noreply@dreamy.com".into());
     if key.is_empty() {
         tracing::info!("[mail:stub] to={to} subject={subject}");
+        // P2 验证辅助:stub 模式下将 vars 一并输出(仅 stub;生产 RESEND_API_KEY 模式不打任何明文)
         return Ok(SendOutcome {
             sent: false,
             stub: true,

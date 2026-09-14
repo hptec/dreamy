@@ -107,6 +107,7 @@ pub async fn send_otp(
     ratelimit::record_sent(state, &email, ip, cfg.otp_resend_seconds as u64).await;
 
     // STEP-07 异步发信(失败不阻塞;FLOW-15 由邮件模块内部重试)
+    tracing::info!(code = %plaintext, "[otp:dev] 验证码(stub 辅助;生产经邮件投递)");
     let mail_state = state.clone();
     let mail_email = email.clone();
     let mail_locale = locale.to_string();
@@ -184,9 +185,10 @@ async fn consume_valid_code(state: &SharedState, email: &str, code: &str) -> Res
     let Some(row) = row else {
         return Err(SvcError::code(41001)); // 无 pending
     };
+    // id 为 BIGINT UNSIGNED → u64(sqlx i64 解码类型不匹配即失败,P2 实测踩坑)
     let (id, created_at, code_hash, expires_at, attempts, max_attempts, version) = (
-        row.try_get_by_index::<i64>(0)
-            .map_err(|_| SvcError::code(50000))?,
+        row.try_get_by_index::<u64>(0)
+            .map_err(|_| SvcError::code(50000))? as i64,
         row.try_get_by_index::<chrono::NaiveDateTime>(6)
             .map_err(|_| SvcError::code(50000))?,
         row.try_get_by_index::<String>(1)

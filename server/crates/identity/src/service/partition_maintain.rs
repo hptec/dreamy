@@ -97,8 +97,8 @@ async fn ensure_id_segments(db: &DatabaseConnection, table: &str, col: &str) -> 
             format!("SELECT COALESCE(MAX(`{col}`), 0) FROM `{table}`"),
         ))
         .await?
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0) as u64;
+        .and_then(|r| r.try_get_by_index::<u64>(0).ok())
+        .unwrap_or(0);
     // 已有最高实边界:从分区名解析(pN = 第 N 段,边界 (N+1)*400万)
     let highest_seg = existing
         .iter()

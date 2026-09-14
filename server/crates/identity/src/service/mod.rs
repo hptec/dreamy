@@ -2,6 +2,7 @@
 //!
 //! 性能纪律(用户指令):每个接口 Redis-first + 主动失效,Redis 故障一律降级 DB 不失败。
 
+pub mod account;
 pub mod auth;
 pub mod authconfig;
 pub mod demo_user;

@@ -110,6 +110,45 @@ impl ErrorCode {
         }
     }
 
+    /// 数值码 → 枚举(REST 层映射 SvcError::Code 用;未知值 None → 调用方兜底 Internal)
+    pub fn from_wire(code: i32) -> Option<Self> {
+        Some(match code {
+            40000 => Self::Validation,
+            40001 => Self::InvalidEmail,
+            40002 => Self::ConfigOutOfRange,
+            40010 => Self::BadRequestBody,
+            40100 => Self::Unauthorized,
+            40101 => Self::OtpInvalid,
+            40102 => Self::RefreshInvalid,
+            40103 => Self::CredentialsInvalid,
+            40300 => Self::Forbidden,
+            40301 => Self::AccountDisabled,
+            40302 => Self::AdminDisabled,
+            40303 => Self::ProviderDisabled,
+            40304 => Self::PrimaryEmailRequired,
+            40305 => Self::MinMethodsRequired,
+            40306 => Self::SuperAdminProtected,
+            40307 => Self::CannotDeleteSelf,
+            40308 => Self::RoleLocked,
+            40400 => Self::NotFound,
+            40500 => Self::MethodNotAllowed,
+            40901 => Self::EmailExists,
+            40902 => Self::EmailConflictUnverified,
+            40903 => Self::IdentityTaken,
+            40904 => Self::RoleInUse,
+            41001 => Self::OtpExpired,
+            41002 => Self::OtpLocked,
+            42901 => Self::ResendTooSoon,
+            42902 => Self::RateLimited,
+            50000 => Self::Internal,
+            50001 => Self::Database,
+            50002 => Self::EmailSendFailed,
+            50201 => Self::OidcUnavailable,
+            50401 => Self::OidcTimeout,
+            _ => return None,
+        })
+    }
+
     pub fn http(&self) -> StatusCode {
         match self {
             Self::Validation | Self::InvalidEmail | Self::ConfigOutOfRange => {

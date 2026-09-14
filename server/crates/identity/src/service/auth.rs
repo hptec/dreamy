@@ -303,8 +303,8 @@ pub async fn refresh(
         };
     }
     let row_data = RowData {
-        id: col!(i64, 0),
-        user_id: col!(i64, 1),
+        id: col!(u64, 0) as i64,
+        user_id: col!(u64, 1) as i64,
         old_access_jti: row
             .try_get_by_index::<Option<String>>(2)
             .ok()
