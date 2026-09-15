@@ -94,7 +94,11 @@ async fn ensure_id_segments(db: &DatabaseConnection, table: &str, col: &str) -> 
     let max_id: u64 = db
         .query_one(Statement::from_string(
             sea_orm::DatabaseBackend::MySql,
-            format!("SELECT COALESCE(MAX(`{col}`), 0) FROM `{table}`"),
+            format!(
+                // CAST 必须:COALESCE(BIGINT UNSIGNED, 有符号 0) 被 MySQL 提升为 DECIMAL,
+                // u64 解码失败会被 .ok() 静默吞成 max_id=0,水位判断永远不触发
+                "SELECT CAST(COALESCE(MAX(`{col}`), 0) AS UNSIGNED) FROM `{table}`"
+            ),
         ))
         .await?
         .and_then(|r| r.try_get_by_index::<u64>(0).ok())
