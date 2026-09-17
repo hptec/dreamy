@@ -335,22 +335,30 @@ pub async fn change_primary_email(
         .filter(identity_email::Column::Email.eq(me.email.clone()))
         .exec(&txn)
         .await?;
-    // STEP-3b 新 email 凭证 is_primary=1(无则建)+ 路由 upsert
-    let existing_new = user_identity::Entity::find()
+    // STEP-3b 新 email 凭证 is_primary=1 + 路由 upsert
+    // uk(user_id, provider) 下 email 档案行至多一条:存在(含旧邮箱行/已解绑行)则改指
+    // 新邮箱,不存在(Google/Apple 单一凭证用户)才 INSERT——否则 INSERT 必撞唯一键
+    // (2026-09-17 E2E 实证,Java 同源逻辑同病;修 Rust 侧)
+    let existing_email_row = user_identity::Entity::find()
         .filter(user_identity::Column::UserId.eq(user_id as u64))
         .filter(user_identity::Column::Provider.eq(AuthProvider::Email.code() as i8))
-        .filter(user_identity::Column::ProviderUid.eq(normalized.clone()))
         .one(&txn)
         .await?;
-    if existing_new.is_some() {
+    if let Some(row) = existing_email_row {
         user_identity::Entity::update_many()
+            .col_expr(
+                user_identity::Column::ProviderUid,
+                Expr::value(normalized.clone()),
+            )
+            .col_expr(
+                user_identity::Column::Identifier,
+                Expr::value(Some(normalized.clone())),
+            )
             .col_expr(user_identity::Column::IsPrimary, Expr::value(1i8))
             .col_expr(user_identity::Column::Verified, Expr::value(1i8))
             .col_expr(user_identity::Column::Connected, Expr::value(1i8))
             .col_expr(user_identity::Column::UpdatedAt, Expr::value(now))
-            .filter(user_identity::Column::UserId.eq(user_id as u64))
-            .filter(user_identity::Column::Provider.eq(AuthProvider::Email.code() as i8))
-            .filter(user_identity::Column::ProviderUid.eq(normalized.clone()))
+            .filter(user_identity::Column::Id.eq(row.id))
             .exec(&txn)
             .await?;
     } else {
