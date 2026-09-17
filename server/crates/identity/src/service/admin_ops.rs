@@ -1,11 +1,15 @@
 //! admin 运营服务(FLOW-10/12):管理员 CRUD、角色 CRUD、用户运营、认证配置、审计写入。
 
 use common::state::SharedState;
-use sea_orm::ConnectionTrait;
-use sea_orm::Statement;
-use sea_orm::TransactionTrait;
+use sea_orm::sea_query::Expr;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set, TransactionTrait,
+};
 
-use crate::enums::{AdminStatus, RoleType, UserStatus};
+use crate::entity::{admin_session, admin_user, login_history, operation_log, permission, role,
+    role_permission, user, user_session};
+use crate::enums::{AdminStatus, RoleType, SessionStatus, UserStatus};
 use crate::service::{permissions, session, user_query, SvcError};
 
 // ══════════ 管理员 CRUD(FLOW-10) ══════════
@@ -19,27 +23,22 @@ pub struct AdminRow {
     pub last_login_at: Option<String>,
 }
 
+fn admin_row(a: admin_user::Model) -> AdminRow {
+    AdminRow {
+        id: a.id as i64,
+        name: a.name,
+        email: a.email,
+        role_id: a.role_id,
+        status: a.status as i32,
+        last_login_at: a.last_login_at.map(common::time::format_iso),
+    }
+}
+
 async fn fetch_admin(state: &SharedState, admin_id: i64) -> Result<Option<AdminRow>, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, name, email, role_id, status, last_login_at FROM admin_user WHERE id = ?"#,
-            [admin_id.into()],
-        ))
-        .await?;
-    Ok(row.map(|r| AdminRow {
-        id: r.try_get_by_index::<u64>(0).unwrap_or(0) as i64,
-        name: r.try_get_by_index::<Option<String>>(1).ok().flatten(),
-        email: r.try_get_by_index::<String>(2).unwrap_or_default(),
-        role_id: r.try_get_by_index::<i64>(3).unwrap_or(0),
-        status: r.try_get_by_index::<i8>(4).unwrap_or(1) as i32,
-        last_login_at: r
-            .try_get_by_index::<Option<chrono::NaiveDateTime>>(5)
-            .ok()
-            .flatten()
-            .map(common::time::format_iso),
-    }))
+    Ok(admin_user::Entity::find_by_id(admin_id as u64)
+        .one(&state.db)
+        .await?
+        .map(admin_row))
 }
 
 pub async fn get_admin(state: &SharedState, admin_id: i64) -> Result<AdminRow, SvcError> {
@@ -55,57 +54,26 @@ pub async fn page_admins(
     status: Option<i32>,
     role_id: Option<i64>,
 ) -> Result<(Vec<AdminRow>, u64), SvcError> {
-    let mut where_clauses = vec!["1=1".to_string()];
-    let mut params: Vec<sea_orm::sea_query::Value> = vec![];
+    let mut cond = Condition::all();
     if let Some(st) = status {
-        where_clauses.push(format!("status = {}", st));
+        cond = cond.add(admin_user::Column::Status.eq(st as i8));
     }
     if let Some(rid) = role_id {
-        where_clauses.push("role_id = ?".to_string());
-        params.push(rid.into());
+        cond = cond.add(admin_user::Column::RoleId.eq(rid));
     }
-    let where_sql = where_clauses.join(" AND ");
-    let params_clone = params.clone();
-    let total: u64 = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(r#"SELECT COUNT(*) FROM admin_user WHERE {where_sql}"#),
-            params,
-        ))
-        .await?
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0) as u64;
-    let offset = (page - 1) * page_size;
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(r#"SELECT id, name, email, role_id, status, last_login_at FROM admin_user WHERE {where_sql} ORDER BY id LIMIT ? OFFSET ?"#),
-            {
-                let mut p = params_clone;
-                p.push((page_size as i64).into());
-                p.push((offset as i64).into());
-                p
-            },
-        ))
+    let total = admin_user::Entity::find()
+        .filter(cond.clone())
+        .count(&state.db)
         .await?;
-    let items = rows
-        .iter()
-        .map(|r| AdminRow {
-            id: r.try_get_by_index::<u64>(0).unwrap_or(0) as i64,
-            name: r.try_get_by_index::<Option<String>>(1).ok().flatten(),
-            email: r.try_get_by_index::<String>(2).unwrap_or_default(),
-            role_id: r.try_get_by_index::<i64>(3).unwrap_or(0),
-            status: r.try_get_by_index::<i8>(4).unwrap_or(1) as i32,
-            last_login_at: r
-                .try_get_by_index::<Option<chrono::NaiveDateTime>>(5)
-                .ok()
-                .flatten()
-                .map(common::time::format_iso),
-        })
-        .collect();
-    Ok((items, total))
+    let offset = (page - 1) * page_size;
+    let rows = admin_user::Entity::find()
+        .filter(cond)
+        .order_by_asc(admin_user::Column::Id)
+        .limit(page_size)
+        .offset(offset)
+        .all(&state.db)
+        .await?;
+    Ok((rows.into_iter().map(admin_row).collect(), total))
 }
 
 pub async fn create_admin(
@@ -126,16 +94,18 @@ pub async fn create_admin(
         return Err(SvcError::code_with(40000, details));
     }
     let hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|_| SvcError::code(50000))?;
-    let inserted = state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO admin_user (name, email, password_hash, role_id, status, version, created_at, updated_at)
-               VALUES (?, ?, ?, ?, 1, 0, NOW(), NOW())"#,
-            [name.into(), email.clone().into(), hash.into(), role_id.into()],
-        ))
-        .await?;
-    fetch_admin(state, inserted.last_insert_id() as i64)
+    let created = admin_user::ActiveModel {
+        name: Set(Some(name.to_string())),
+        email: Set(email),
+        password_hash: Set(hash),
+        role_id: Set(role_id),
+        status: Set(AdminStatus::Active.code() as i8),
+        version: Set(0),
+        ..Default::default()
+    }
+    .insert(&state.db)
+    .await?;
+    fetch_admin(state, created.id as i64)
         .await?
         .ok_or(SvcError::code(50000))
 }
@@ -160,22 +130,23 @@ pub async fn update_admin(
             return Err(SvcError::code_with(40000, details));
         }
     }
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE admin_user SET
-                 name = COALESCE(?, name),
-                 role_id = COALESCE(?, role_id),
-                 updated_at = NOW(), version = version + 1
-               WHERE id = ?"#,
-            [
-                name.map(|s| s.to_string()).into(),
-                role_id.into(),
-                admin_id.into(),
-            ],
-        ))
-        .await?;
+    // COALESCE 语义:仅更新提供字段 + version 自增
+    let now = chrono::Local::now().naive_local();
+    let mut upd = admin_user::Entity::update_many()
+        .col_expr(
+            admin_user::Column::Version,
+            Expr::col(admin_user::Column::Version).add(1),
+        )
+        .col_expr(admin_user::Column::UpdatedAt, Expr::value(now))
+        .filter(admin_user::Column::Id.eq(admin_id as u64))
+        .to_owned();
+    if let Some(n) = name {
+        upd = upd.col_expr(admin_user::Column::Name, Expr::value(n.to_string()));
+    }
+    if let Some(rid) = role_id {
+        upd = upd.col_expr(admin_user::Column::RoleId, Expr::value(rid));
+    }
+    upd.exec(&state.db).await?;
     get_admin(state, admin_id).await
 }
 
@@ -194,18 +165,13 @@ pub async fn delete_admin(
         return Err(SvcError::code(40306));
     }
     let txn = state.db.begin().await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"DELETE FROM admin_user WHERE id = ?"#,
-        [admin_id.into()],
-    ))
-    .await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"DELETE FROM admin_session WHERE admin_id = ?"#,
-        [admin_id.into()],
-    ))
-    .await?;
+    admin_user::Entity::delete_by_id(admin_id as u64)
+        .exec(&txn)
+        .await?;
+    admin_session::Entity::delete_many()
+        .filter(admin_session::Column::AdminId.eq(admin_id))
+        .exec(&txn)
+        .await?;
     txn.commit().await?;
     Ok(())
 }
@@ -223,13 +189,18 @@ pub async fn toggle_admin_status(
             return Err(SvcError::code(40306));
         }
     }
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE admin_user SET status = ?, updated_at = NOW(), version = version + 1 WHERE id = ?"#,
-            [status.into(), admin_id.into()],
-        ))
+    admin_user::Entity::update_many()
+        .col_expr(admin_user::Column::Status, Expr::value(status as i8))
+        .col_expr(
+            admin_user::Column::UpdatedAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .col_expr(
+            admin_user::Column::Version,
+            Expr::col(admin_user::Column::Version).add(1),
+        )
+        .filter(admin_user::Column::Id.eq(admin_id as u64))
+        .exec(&state.db)
         .await?;
     if status != AdminStatus::Active.code() {
         // 禁用即级联撤销全部会话
@@ -246,98 +217,83 @@ pub async fn reset_admin_password(
 ) -> Result<(), SvcError> {
     let hash =
         bcrypt::hash(new_password, bcrypt::DEFAULT_COST).map_err(|_| SvcError::code(50000))?;
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE admin_user SET password_hash = ?, updated_at = NOW(), version = version + 1 WHERE id = ?"#,
-            [hash.into(), admin_id.into()],
-        ))
+    admin_user::Entity::update_many()
+        .col_expr(admin_user::Column::PasswordHash, Expr::value(hash))
+        .col_expr(
+            admin_user::Column::UpdatedAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .col_expr(
+            admin_user::Column::Version,
+            Expr::col(admin_user::Column::Version).add(1),
+        )
+        .filter(admin_user::Column::Id.eq(admin_id as u64))
+        .exec(&state.db)
         .await?;
     revoke_all_admin_sessions(state, admin_id).await;
     Ok(())
 }
 
 async fn revoke_all_admin_sessions(state: &SharedState, admin_id: i64) {
-    let Ok(tokens) = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT token_id FROM admin_session WHERE admin_id = ? AND status = 1"#,
-            [admin_id.into()],
-        ))
+    let Ok(tokens) = admin_session::Entity::find()
+        .filter(admin_session::Column::AdminId.eq(admin_id))
+        .filter(admin_session::Column::Status.eq(SessionStatus::Active.code() as i8))
+        .all(&state.db)
         .await
     else {
         return;
     };
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE admin_session SET status = 2, updated_at = NOW() WHERE admin_id = ? AND status = 1"#,
-            [admin_id.into()],
-        ))
+    admin_session::Entity::update_many()
+        .col_expr(
+            admin_session::Column::Status,
+            Expr::value(SessionStatus::Revoked.code() as i8),
+        )
+        .col_expr(
+            admin_session::Column::UpdatedAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .filter(admin_session::Column::AdminId.eq(admin_id))
+        .filter(admin_session::Column::Status.eq(SessionStatus::Active.code() as i8))
+        .exec(&state.db)
         .await
         .ok();
-    for t in tokens {
-        if let Ok(jti) = t.try_get_by_index::<String>(0) {
-            crate::service::session::revoke_admin(state, &jti).await;
-        }
+    for t in &tokens {
+        crate::service::session::revoke_admin(state, &t.token_id).await;
     }
 }
 
 async fn admin_email_exists(state: &SharedState, email: &str) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT 1 FROM admin_user WHERE email = ?"#,
-            [email.into()],
-        ))
+    let found = admin_user::Entity::find()
+        .filter(admin_user::Column::Email.eq(email))
+        .one(&state.db)
         .await?;
-    Ok(row.is_some())
+    Ok(found.is_some())
 }
 
 async fn role_exists(state: &SharedState, role_id: i64) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT 1 FROM role WHERE id = ?"#,
-            [role_id.into()],
-        ))
+    let found = role::Entity::find_by_id(role_id as u64)
+        .one(&state.db)
         .await?;
-    Ok(row.is_some())
+    Ok(found.is_some())
 }
 
 pub async fn is_super_admin(state: &SharedState, admin_id: i64) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT r.is_locked FROM admin_user a JOIN role r ON r.id = a.role_id WHERE a.id = ?"#,
-            [admin_id.into()],
-        ))
+    let admin = admin_user::Entity::find_by_id(admin_id as u64)
+        .one(&state.db)
         .await?;
-    Ok(row
-        .and_then(|r| r.try_get_by_index::<i8>(0).ok())
-        .map(|v| v != 0)
-        .unwrap_or(false))
+    let Some(admin) = admin else {
+        return Ok(false);
+    };
+    is_super_role_id(state, admin.role_id).await
 }
 
 async fn is_super_role_id(state: &SharedState, role_id: i64) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT is_locked FROM role WHERE id = ?"#,
-            [role_id.into()],
-        ))
-        .await?;
-    Ok(row
-        .and_then(|r| r.try_get_by_index::<i8>(0).ok())
-        .map(|v| v != 0)
-        .unwrap_or(false))
+    let locked = role::Entity::find_by_id(role_id as u64)
+        .one(&state.db)
+        .await?
+        .map(|r| r.is_locked != 0)
+        .unwrap_or(false);
+    Ok(locked)
 }
 
 // ══════════ 角色 CRUD ══════════
@@ -352,25 +308,29 @@ pub struct RoleRow {
 }
 
 pub async fn list_roles(state: &SharedState) -> Result<Vec<RoleRow>, SvcError> {
-    let rows = state
-        .db
-        .query_all(Statement::from_string(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT r.id, r.name, r.type, r.is_locked,
-                      (SELECT COUNT(*) FROM admin_user a WHERE a.role_id = r.id) AS member_count
-               FROM role r ORDER BY r.id"#,
-        ))
+    let roles = role::Entity::find()
+        .order_by_asc(role::Column::Id)
+        .all(&state.db)
         .await?;
-    let mut list = Vec::with_capacity(rows.len());
-    for r in rows {
-        let role_id = r.try_get_by_index::<u64>(0).unwrap_or(0) as i64;
-        let keys = role_permission_keys(state, role_id).await?;
+    // member_count 单查询聚合(防 N+1)
+    let counts: Vec<(i64, i64)> = admin_user::Entity::find()
+        .select_only()
+        .column(admin_user::Column::RoleId)
+        .column_as(admin_user::Column::Id.count(), "member_count")
+        .group_by(admin_user::Column::RoleId)
+        .into_tuple()
+        .all(&state.db)
+        .await?;
+    let count_map: std::collections::HashMap<i64, i64> = counts.into_iter().collect();
+    let mut list = Vec::with_capacity(roles.len());
+    for r in roles {
+        let keys = role_permission_keys(state, r.id as i64).await?;
         list.push(RoleRow {
-            id: role_id,
-            name: r.try_get_by_index::<String>(1).unwrap_or_default(),
-            r#type: r.try_get_by_index::<i8>(2).unwrap_or(2) as i32,
-            is_locked: r.try_get_by_index::<i8>(3).unwrap_or(0) != 0,
-            member_count: r.try_get_by_index::<i64>(4).unwrap_or(0),
+            id: r.id as i64,
+            name: r.name,
+            r#type: r.r#type as i32,
+            is_locked: r.is_locked != 0,
+            member_count: count_map.get(&(r.id as i64)).copied().unwrap_or(0),
             permission_keys: keys,
         });
     }
@@ -378,19 +338,20 @@ pub async fn list_roles(state: &SharedState) -> Result<Vec<RoleRow>, SvcError> {
 }
 
 async fn role_permission_keys(state: &SharedState, role_id: i64) -> Result<Vec<String>, SvcError> {
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT p.perm_code FROM role_permission rp JOIN permission p ON p.id = rp.permission_id
-               WHERE rp.role_id = ? ORDER BY p.id"#,
-            [role_id.into()],
-        ))
+    let rps = role_permission::Entity::find()
+        .filter(role_permission::Column::RoleId.eq(role_id))
+        .all(&state.db)
         .await?;
-    Ok(rows
-        .iter()
-        .filter_map(|r| r.try_get_by_index::<String>(0).ok())
-        .collect())
+    let pids: Vec<i64> = rps.iter().map(|r| r.permission_id).collect();
+    if pids.is_empty() {
+        return Ok(vec![]);
+    }
+    let perms = permission::Entity::find()
+        .filter(permission::Column::Id.is_in(pids))
+        .order_by_asc(permission::Column::Id)
+        .all(&state.db)
+        .await?;
+    Ok(perms.into_iter().map(|p| p.perm_code).collect())
 }
 
 pub async fn create_role(state: &SharedState, name: &str) -> Result<RoleRow, SvcError> {
@@ -398,19 +359,18 @@ pub async fn create_role(state: &SharedState, name: &str) -> Result<RoleRow, Svc
         let details = serde_json::json!({"name": "role name already exists"});
         return Err(SvcError::code_with(40000, details));
     }
-    let inserted = state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO role (name, type, is_locked, version, created_at, updated_at)
-               VALUES (?, 2, 0, 0, NOW(), NOW())"#,
-            [name.into()],
-        ))
-        .await?;
-    let role_id = inserted.last_insert_id() as i64;
+    let created = role::ActiveModel {
+        name: Set(name.to_string()),
+        r#type: Set(RoleType::Custom.code() as i8),
+        is_locked: Set(0),
+        version: Set(0),
+        ..Default::default()
+    }
+    .insert(&state.db)
+    .await?;
     Ok(RoleRow {
-        id: role_id,
-        name: name.to_string(),
+        id: created.id as i64,
+        name: created.name,
         r#type: RoleType::Custom.code(),
         is_locked: false,
         member_count: 0,
@@ -433,13 +393,18 @@ pub async fn update_role(
             let details = serde_json::json!({"name": "role name already exists"});
             return Err(SvcError::code_with(40000, details));
         }
-        state
-            .db
-            .execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"UPDATE role SET name = ?, updated_at = NOW(), version = version + 1 WHERE id = ?"#,
-                [n.into(), role_id.into()],
-            ))
+        role::Entity::update_many()
+            .col_expr(role::Column::Name, Expr::value(n.to_string()))
+            .col_expr(
+                role::Column::UpdatedAt,
+                Expr::value(chrono::Local::now().naive_local()),
+            )
+            .col_expr(
+                role::Column::Version,
+                Expr::col(role::Column::Version).add(1),
+            )
+            .filter(role::Column::Id.eq(role_id as u64))
+            .exec(&state.db)
             .await?;
     }
     if let Some(keys) = permission_keys {
@@ -452,21 +417,27 @@ pub async fn update_role(
             }
         }
         // 全量重写(DELETE + INSERT,对齐 Java)
-        let txn = state.db.begin().await?;
-        txn.execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"DELETE FROM role_permission WHERE role_id = ?"#,
-            [role_id.into()],
-        ))
-        .await?;
-        for k in keys {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO role_permission (role_id, permission_id, created_at, updated_at)
-                   SELECT ?, id, NOW(), NOW() FROM permission WHERE perm_code = ?"#,
-                [role_id.into(), k.into()],
-            ))
+        let perms = permission::Entity::find()
+            .filter(permission::Column::PermCode.is_in(keys.to_vec()))
+            .all(&state.db)
             .await?;
+        let txn = state.db.begin().await?;
+        role_permission::Entity::delete_many()
+            .filter(role_permission::Column::RoleId.eq(role_id))
+            .exec(&txn)
+            .await?;
+        let rows: Vec<role_permission::ActiveModel> = perms
+            .into_iter()
+            .map(|p| role_permission::ActiveModel {
+                role_id: Set(role_id),
+                permission_id: Set(p.id as i64),
+                ..Default::default()
+            })
+            .collect();
+        if !rows.is_empty() {
+            role_permission::Entity::insert_many(rows)
+                .exec_without_returning(&txn)
+                .await?;
         }
         txn.commit().await?;
         // 权限变更 → 该角色全部管理员缓存失效
@@ -480,59 +451,39 @@ pub async fn delete_role(state: &SharedState, role_id: i64) -> Result<(), SvcErr
         return Err(SvcError::code(40308));
     }
     // 40904:有成员
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT COUNT(*) FROM admin_user WHERE role_id = ?"#,
-            [role_id.into()],
-        ))
+    let members = admin_user::Entity::find()
+        .filter(admin_user::Column::RoleId.eq(role_id))
+        .count(&state.db)
         .await?;
-    let count = row
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0);
-    if count > 0 {
+    if members > 0 {
         return Err(SvcError::code(40904));
     }
     let txn = state.db.begin().await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"DELETE FROM role_permission WHERE role_id = ?"#,
-        [role_id.into()],
-    ))
-    .await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"DELETE FROM role WHERE id = ?"#,
-        [role_id.into()],
-    ))
-    .await?;
+    role_permission::Entity::delete_many()
+        .filter(role_permission::Column::RoleId.eq(role_id))
+        .exec(&txn)
+        .await?;
+    role::Entity::delete_by_id(role_id as u64)
+        .exec(&txn)
+        .await?;
     txn.commit().await?;
     Ok(())
 }
 
 async fn role_name_exists(state: &SharedState, name: &str) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT 1 FROM role WHERE name = ?"#,
-            [name.into()],
-        ))
+    let found = role::Entity::find()
+        .filter(role::Column::Name.eq(name))
+        .one(&state.db)
         .await?;
-    Ok(row.is_some())
+    Ok(found.is_some())
 }
 
 async fn perm_code_exists(state: &SharedState, code: &str) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT 1 FROM permission WHERE perm_code = ?"#,
-            [code.into()],
-        ))
+    let found = permission::Entity::find()
+        .filter(permission::Column::PermCode.eq(code))
+        .one(&state.db)
         .await?;
-    Ok(row.is_some())
+    Ok(found.is_some())
 }
 
 pub struct PermissionRow {
@@ -542,19 +493,16 @@ pub struct PermissionRow {
 }
 
 pub async fn list_permissions(state: &SharedState) -> Result<Vec<PermissionRow>, SvcError> {
-    let rows = state
-        .db
-        .query_all(Statement::from_string(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT perm_code, `group`, label FROM permission ORDER BY id"#,
-        ))
+    let perms = permission::Entity::find()
+        .order_by_asc(permission::Column::Id)
+        .all(&state.db)
         .await?;
-    Ok(rows
-        .iter()
-        .map(|r| PermissionRow {
-            perm_code: r.try_get_by_index::<String>(0).unwrap_or_default(),
-            group: r.try_get_by_index::<String>(1).unwrap_or_default(),
-            label: r.try_get_by_index::<String>(2).unwrap_or_default(),
+    Ok(perms
+        .into_iter()
+        .map(|p| PermissionRow {
+            perm_code: p.perm_code,
+            group: p.group,
+            label: p.label,
         })
         .collect())
 }
@@ -566,20 +514,24 @@ pub async fn toggle_user_status(
     user_id: i64,
     status: i32,
 ) -> Result<crate::entity::user::Model, SvcError> {
-    use sea_orm::EntityTrait;
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE user SET status = ?, updated_at = NOW(), version = version + 1 WHERE id = ?"#,
-            [status.into(), user_id.into()],
-        ))
+    user::Entity::update_many()
+        .col_expr(user::Column::Status, Expr::value(status as i8))
+        .col_expr(
+            user::Column::UpdatedAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .col_expr(
+            user::Column::Version,
+            Expr::col(user::Column::Version).add(1),
+        )
+        .filter(user::Column::Id.eq(user_id as u64))
+        .exec(&state.db)
         .await?;
     if status == UserStatus::Disabled.code() {
         session::revoke_all_for_user(state, user_id).await;
     }
     user_query::invalidate_user(state, user_id).await;
-    crate::entity::user::Entity::find_by_id(user_id as u64)
+    user::Entity::find_by_id(user_id as u64)
         .one(&state.db)
         .await?
         .ok_or(SvcError::code(40400))
@@ -595,27 +547,14 @@ pub async fn force_logout(
         let Some(sid) = session_id else {
             return Err(SvcError::code(40000));
         };
-        let row = state
-            .db
-            .query_one(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"SELECT token_id, user_id, status FROM user_session WHERE id = ?"#,
-                [sid.into()],
-            ))
-            .await?;
-        let Some(row) = row else {
-            return Err(SvcError::code(40400));
-        };
-        let uid = row
-            .try_get_by_index::<u64>(1)
-            .map_err(|_| SvcError::code(50000))?;
-        if uid as i64 != user_id {
+        let row = user_session::Entity::find_by_id(sid as u64)
+            .one(&state.db)
+            .await?
+            .ok_or(SvcError::code(40400))?;
+        if row.user_id as i64 != user_id {
             return Err(SvcError::code(40400));
         }
-        let token = row
-            .try_get_by_index::<String>(0)
-            .map_err(|_| SvcError::code(50000))?;
-        session::revoke_store(state, &token, user_id).await;
+        session::revoke_store(state, &row.token_id, user_id).await;
     } else {
         session::revoke_all_for_user(state, user_id).await;
     }
@@ -624,7 +563,7 @@ pub async fn force_logout(
 
 /// 用户详情(FLOW-12 getUserDetail:NP-001 防 N+1)
 pub struct UserDetailData {
-    pub user: crate::entity::user::Model,
+    pub user: user::Model,
     pub identities: Vec<crate::service::account::IdentityView>,
     pub sessions: Vec<SessionView>,
     pub login_history: Vec<LoginHistoryView>,
@@ -655,66 +594,49 @@ pub async fn user_detail(
     user_id: i64,
     history_limit: u64,
 ) -> Result<UserDetailData, SvcError> {
-    use sea_orm::EntityTrait;
-    let user = crate::entity::user::Entity::find_by_id(user_id as u64)
+    let me = user::Entity::find_by_id(user_id as u64)
         .one(&state.db)
         .await?
         .ok_or(SvcError::code(40400))?;
     let identities = crate::service::account::list_identities(state, user_id).await?;
 
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, device, browser, ip, location, method, status, last_active_at
-               FROM user_session WHERE user_id = ? ORDER BY id DESC"#,
-            [user_id.into()],
-        ))
-        .await?;
-    let sessions = rows
-        .iter()
-        .map(|r| SessionView {
-            id: r.try_get_by_index::<u64>(0).unwrap_or(0) as i64,
-            device: r.try_get_by_index::<Option<String>>(1).ok().flatten(),
-            browser: r.try_get_by_index::<Option<String>>(2).ok().flatten(),
-            ip: r.try_get_by_index::<Option<String>>(3).ok().flatten(),
-            location: r.try_get_by_index::<Option<String>>(4).ok().flatten(),
-            method: r.try_get_by_index::<i32>(5).unwrap_or(0),
-            status: r.try_get_by_index::<i8>(6).unwrap_or(1) as i32,
-            last_active_at: r
-                .try_get_by_index::<Option<chrono::NaiveDateTime>>(7)
-                .ok()
-                .flatten()
-                .map(common::time::format_iso),
+    let sessions = user_session::Entity::find()
+        .filter(user_session::Column::UserId.eq(user_id as u64))
+        .order_by_desc(user_session::Column::Id)
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|s| SessionView {
+            id: s.id as i64,
+            device: s.device,
+            browser: s.browser,
+            ip: s.ip,
+            location: s.location,
+            method: s.method as i32,
+            status: s.status as i32,
+            last_active_at: s.last_active_at.map(common::time::format_iso),
         })
         .collect();
 
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, method, ip, device, result, created_at FROM login_history
-               WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"#,
-            [user_id.into(), (history_limit as i64).into()],
-        ))
-        .await?;
-    let login_history = rows
-        .iter()
-        .map(|r| LoginHistoryView {
-            id: r.try_get_by_index::<u64>(0).unwrap_or(0) as i64,
-            method: r.try_get_by_index::<i32>(1).unwrap_or(0),
-            ip: r.try_get_by_index::<Option<String>>(2).ok().flatten(),
-            device: r.try_get_by_index::<Option<String>>(3).ok().flatten(),
-            result: r.try_get_by_index::<i8>(4).unwrap_or(1) as i32,
-            created_at: r
-                .try_get_by_index::<chrono::NaiveDateTime>(5)
-                .map(common::time::format_iso)
-                .unwrap_or_default(),
+    let login_history = login_history::Entity::find()
+        .filter(login_history::Column::UserId.eq(user_id as u64))
+        .order_by_desc(login_history::Column::CreatedAt)
+        .limit(history_limit)
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|h| LoginHistoryView {
+            id: h.id as i64,
+            method: h.method as i32,
+            ip: h.ip,
+            device: h.device,
+            result: h.result as i32,
+            created_at: common::time::format_iso(h.created_at),
         })
         .collect();
 
     Ok(UserDetailData {
-        user,
+        user: me,
         identities,
         sessions,
         login_history,
@@ -734,22 +656,17 @@ pub async fn audit(
     ip: &str,
     user_agent: Option<&str>,
 ) {
-    let result = state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO operation_log (operator_id, operator_name, action, target, ip, user_agent, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())"#,
-            [
-                operator_id.into(),
-                operator_name.into(),
-                action.into(),
-                target.into(),
-                ip.into(),
-                user_agent.into(),
-            ],
-        ))
-        .await;
+    let result = operation_log::Entity::insert(operation_log::ActiveModel {
+        operator_id: Set(operator_id),
+        operator_name: Set(Some(operator_name.to_string())),
+        action: Set(action.to_string()),
+        target: Set(Some(target.to_string())),
+        ip: Set(Some(ip.to_string())),
+        user_agent: Set(user_agent.map(|u| u.to_string())),
+        ..Default::default()
+    })
+    .exec_without_returning(&state.db)
+    .await;
     if let Err(e) = result {
         // 对齐 Java AuditAspect 吞异常语义 + 用户指令不静默:ERROR 日志 + 可见计数
         tracing::error!(error = %e, action, "[audit] 审计写入失败(不阻塞主流程)");
@@ -776,46 +693,39 @@ pub struct OperationLogFilter {
     pub to: Option<String>,
 }
 
-fn build_oplog_where(f: &OperationLogFilter) -> (String, Vec<sea_orm::sea_query::Value>) {
-    let mut clauses = vec!["1=1".to_string()];
-    let mut params: Vec<sea_orm::sea_query::Value> = vec![];
+fn oplog_condition(f: &OperationLogFilter) -> Condition {
+    let mut cond = Condition::all();
     if let Some(a) = f.action.as_deref() {
         if !a.is_empty() {
-            clauses.push("action = ?".into());
-            params.push(a.to_string().into());
+            cond = cond.add(operation_log::Column::Action.eq(a));
         }
     }
     if let Some(oid) = f.operator_id {
-        clauses.push("operator_id = ?".into());
-        params.push(oid.into());
+        cond = cond.add(operation_log::Column::OperatorId.eq(oid));
     }
     if let Some(v) = f.from.as_deref() {
         if !v.is_empty() {
-            clauses.push("created_at >= ?".into());
-            params.push(v.to_string().into());
+            // 字符串与 DATETIME 比较,MySQL 隐式转换(与原绑定参数语义一致)
+            cond = cond.add(operation_log::Column::CreatedAt.gte(v.to_string()));
         }
     }
     if let Some(v) = f.to.as_deref() {
         if !v.is_empty() {
-            clauses.push("created_at <= ?".into());
-            params.push(v.to_string().into());
+            cond = cond.add(operation_log::Column::CreatedAt.lte(v.to_string()));
         }
     }
-    (clauses.join(" AND "), params)
+    cond
 }
 
-fn row_data(r: &sea_orm::QueryResult) -> OperationLogRowData {
+fn row_data(r: operation_log::Model) -> OperationLogRowData {
     OperationLogRowData {
-        id: r.try_get_by_index::<u64>(0).unwrap_or(0),
-        operator_name: r.try_get_by_index::<Option<String>>(1).ok().flatten(),
-        action: r.try_get_by_index::<String>(2).unwrap_or_default(),
-        target: r.try_get_by_index::<Option<String>>(3).ok().flatten(),
-        ip: r.try_get_by_index::<Option<String>>(4).ok().flatten(),
-        changes: r.try_get_by_index::<Option<String>>(5).ok().flatten(),
-        created_at: r
-            .try_get_by_index::<Option<chrono::NaiveDateTime>>(6)
-            .ok()
-            .flatten(),
+        id: r.id,
+        operator_name: r.operator_name,
+        action: r.action,
+        target: r.target,
+        ip: r.ip,
+        changes: r.changes,
+        created_at: r.created_at,
     }
 }
 
@@ -826,34 +736,20 @@ pub async fn query_operation_logs(
     page: u64,
     page_size: u64,
 ) -> Result<(Vec<OperationLogRowData>, i64), SvcError> {
-    let (where_sql, params) = build_oplog_where(filter);
-    let total_params = params.clone();
-    let total: i64 = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(r#"SELECT COUNT(*) FROM operation_log WHERE {where_sql}"#),
-            total_params,
-        ))
-        .await?
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0);
+    let cond = oplog_condition(filter);
+    let total = operation_log::Entity::find()
+        .filter(cond.clone())
+        .count(&state.db)
+        .await? as i64;
     let offset = page.saturating_sub(1).saturating_mul(page_size);
-    let mut page_params = params;
-    page_params.push((page_size as i64).into());
-    page_params.push((offset as i64).into());
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(
-                r#"SELECT id, operator_name, action, target, ip, changes, created_at
-                   FROM operation_log WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?"#
-            ),
-            page_params,
-        ))
+    let rows = operation_log::Entity::find()
+        .filter(cond)
+        .order_by_desc(operation_log::Column::Id)
+        .limit(page_size)
+        .offset(offset)
+        .all(&state.db)
         .await?;
-    Ok((rows.iter().map(row_data).collect(), total))
+    Ok((rows.into_iter().map(row_data).collect(), total))
 }
 
 /// 导出查询(ORDER BY id ASC;from/to 必传与 92 天窗口由调用方校验)
@@ -861,17 +757,10 @@ pub async fn stream_operation_logs(
     state: &SharedState,
     filter: &OperationLogFilter,
 ) -> Result<Vec<OperationLogRowData>, SvcError> {
-    let (where_sql, params) = build_oplog_where(filter);
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(
-                r#"SELECT id, operator_name, action, target, ip, changes, created_at
-                   FROM operation_log WHERE {where_sql} ORDER BY id"#
-            ),
-            params,
-        ))
+    let rows = operation_log::Entity::find()
+        .filter(oplog_condition(filter))
+        .order_by_asc(operation_log::Column::Id)
+        .all(&state.db)
         .await?;
-    Ok(rows.iter().map(row_data).collect())
+    Ok(rows.into_iter().map(row_data).collect())
 }

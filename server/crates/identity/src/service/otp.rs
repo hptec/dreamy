@@ -13,7 +13,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use common::partition;
 use common::state::SharedState;
 use sea_orm::sea_query::Expr;
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, Set};
 
 use crate::entity::otp_code;
 use crate::enums::OtpStatus;

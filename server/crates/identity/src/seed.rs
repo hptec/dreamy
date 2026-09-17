@@ -2,7 +2,9 @@
 //! 种子集 = 身份域 4 code(otp/new_device/change_primary/account_deleted,本域发信用)
 //! + 业务域 10 code(翻译自 Java MailTemplateSeedInitializer,Java 经 gRPC TemplateGate 取用)。
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+
+use crate::entity::email_template;
 
 type Seed = (&'static str, &'static str, &'static str, &'static str);
 
@@ -121,23 +123,23 @@ const SEEDS: &[Seed] = &[
 pub async fn seed_mail_templates(db: &DatabaseConnection) {
     let mut created = 0usize;
     for (code, locale, subject, body) in SEEDS {
-        let exists = db
-            .query_one(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"SELECT 1 FROM email_template WHERE code = ? AND locale = ? LIMIT 1"#,
-                [(*code).into(), (*locale).into()],
-            ))
+        let exists = email_template::Entity::find()
+            .filter(email_template::Column::Code.eq(*code))
+            .filter(email_template::Column::Locale.eq(*locale))
+            .one(db)
             .await;
         if matches!(exists, Ok(Some(_))) {
             continue;
         }
-        let result = db
-            .execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO email_template (code, locale, subject, body) VALUES (?, ?, ?, ?)"#,
-                [(*code).into(), (*locale).into(), (*subject).into(), (*body).into()],
-            ))
-            .await;
+        let result = email_template::Entity::insert(email_template::ActiveModel {
+            code: Set((*code).to_string()),
+            locale: Set((*locale).to_string()),
+            subject: Set((*subject).to_string()),
+            body: Set((*body).to_string()),
+            ..Default::default()
+        })
+        .exec_without_returning(db)
+        .await;
         match result {
             Ok(_) => created += 1,
             Err(e) => {

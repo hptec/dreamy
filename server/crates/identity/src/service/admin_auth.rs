@@ -6,11 +6,11 @@
 //! - 真随机 jti:CSPRNG(uuid v4),替代旧 LCG(可预测)
 
 use common::state::SharedState;
-use sea_orm::ConnectionTrait;
-use sea_orm::Statement;
-use sea_orm::TransactionTrait;
+use sea_orm::sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set, TransactionTrait};
 
-use crate::enums::AdminStatus;
+use crate::entity::{admin_session, admin_user, role};
+use crate::enums::{AdminStatus, SessionStatus};
 use crate::security::{JwtProvider, ADMIN_ACCESS_TTL};
 use crate::service::{permissions, SvcError};
 
@@ -64,43 +64,27 @@ pub async fn login(
         return Err(SvcError::code(42903));
     }
 
-    // 事务 + 行锁(SELECT ... FOR UPDATE,对齐 Java selectByEmailForUpdate)
+    // 事务 + 行锁(FOR UPDATE,对齐 Java selectByEmailForUpdate)
     let txn = state.db.begin().await?;
-    let row = txn
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, name, email, password_hash, role_id, status, last_login_at
-               FROM admin_user WHERE email = ? FOR UPDATE"#,
-            [email.clone().into()],
-        ))
+    let admin = admin_user::Entity::find()
+        .filter(admin_user::Column::Email.eq(email.clone()))
+        .lock_exclusive()
+        .one(&txn)
         .await?;
-    let Some(row) = row else {
+    let Some(admin) = admin else {
         // 恒定响应:不存在账号也跑一次 BCrypt(耗时对齐,消除时序枚举信道)后同样计数锁定
         let _ = bcrypt::verify(password, DUMMY_BCRYPT_HASH);
         record_login_failure(state, &email, ip, max_attempts, lock_seconds).await;
         return Err(SvcError::code(40103));
     };
-    let admin_id = row
-        .try_get_by_index::<u64>(0)
-        .map_err(|_| SvcError::code(50000))? as i64;
-    let name = row.try_get_by_index::<Option<String>>(1).ok().flatten();
-    let stored_hash = row
-        .try_get_by_index::<String>(3)
-        .map_err(|_| SvcError::code(50000))?;
-    let role_id = row
-        .try_get_by_index::<i64>(4)
-        .map_err(|_| SvcError::code(50000))?;
-    let status = row
-        .try_get_by_index::<i8>(5)
-        .map_err(|_| SvcError::code(50000))?;
-    let last_login_at = row
-        .try_get_by_index::<Option<chrono::NaiveDateTime>>(6)
-        .ok()
-        .flatten()
-        .map(common::time::format_iso);
+    let admin_id = admin.id as i64;
+    let name = admin.name.clone();
+    let role_id = admin.role_id;
+    let status = admin.status;
+    let last_login_at = admin.last_login_at.map(common::time::format_iso);
 
     // BCrypt 校验(40103)
-    if !bcrypt::verify(password, &stored_hash).unwrap_or(false) {
+    if !bcrypt::verify(password, &admin.password_hash).unwrap_or(false) {
         record_login_failure(state, &email, ip, max_attempts, lock_seconds).await;
         return Err(SvcError::code(40103));
     }
@@ -117,24 +101,28 @@ pub async fn login(
         .map_err(|_| SvcError::code(50000))?;
 
     // admin_session INSERT + last_login_at 更新(事务内)
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO admin_session (admin_id, token_id, ip, device, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 1, NOW(), NOW())"#,
-        [
-            admin_id.into(),
-            jti.clone().into(),
-            ip.into(),
-            user_agent.into(),
-        ],
-    ))
+    admin_session::Entity::insert(admin_session::ActiveModel {
+        admin_id: Set(admin_id),
+        token_id: Set(jti.clone()),
+        ip: Set(Some(ip.to_string())),
+        device: Set(user_agent.map(|u| u.to_string())),
+        status: Set(SessionStatus::Active.code() as i8),
+        ..Default::default()
+    })
+    .exec_without_returning(&txn)
     .await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"UPDATE admin_user SET last_login_at = NOW(), version = version + 1 WHERE id = ?"#,
-        [admin_id.into()],
-    ))
-    .await?;
+    admin_user::Entity::update_many()
+        .col_expr(
+            admin_user::Column::LastLoginAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .col_expr(
+            admin_user::Column::Version,
+            Expr::col(admin_user::Column::Version).add(1),
+        )
+        .filter(admin_user::Column::Id.eq(admin.id))
+        .exec(&txn)
+        .await?;
     txn.commit().await?;
 
     // 登录成功:清账号失败计数(锁定标记不在此清——能成功说明未锁定)
@@ -216,29 +204,27 @@ async fn record_login_failure(
 }
 
 async fn is_super_role(state: &SharedState, role_id: i64) -> Result<bool, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT is_locked FROM role WHERE id = ?"#,
-            [role_id.into()],
-        ))
-        .await?;
-    Ok(row
-        .and_then(|r| r.try_get_by_index::<i8>(0).ok())
-        .map(|v| v != 0)
-        .unwrap_or(false))
+    let locked = role::Entity::find_by_id(role_id as u64)
+        .one(&state.db)
+        .await?
+        .map(|r| r.is_locked != 0)
+        .unwrap_or(false);
+    Ok(locked)
 }
 
 /// adminLogout:撤销 admin_session + Redis DEL
 pub async fn logout(state: &SharedState, token_id: &str) -> Result<(), SvcError> {
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE admin_session SET status = 2, updated_at = NOW() WHERE token_id = ?"#,
-            [token_id.into()],
-        ))
+    admin_session::Entity::update_many()
+        .col_expr(
+            admin_session::Column::Status,
+            Expr::value(SessionStatus::Revoked.code() as i8),
+        )
+        .col_expr(
+            admin_session::Column::UpdatedAt,
+            Expr::value(chrono::Local::now().naive_local()),
+        )
+        .filter(admin_session::Column::TokenId.eq(token_id))
+        .exec(&state.db)
         .await?;
     crate::service::session::revoke_admin(state, token_id).await;
     Ok(())
@@ -253,48 +239,31 @@ pub struct AdminMeData {
 }
 
 pub async fn me_data(state: &SharedState, admin_id: i64) -> Result<AdminMeData, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT a.id, a.name, a.email, a.role_id, a.status, a.last_login_at, r.name, r.is_locked
-               FROM admin_user a LEFT JOIN role r ON r.id = a.role_id WHERE a.id = ?"#,
-            [admin_id.into()],
-        ))
-        .await?;
-    let Some(row) = row else {
-        return Err(SvcError::code(40100));
-    };
-    let status = row
-        .try_get_by_index::<i8>(4)
-        .map_err(|_| SvcError::code(50000))?;
-    if status != AdminStatus::Active.code() as i8 {
+    let admin = admin_user::Entity::find_by_id(admin_id as u64)
+        .one(&state.db)
+        .await?
+        .ok_or(SvcError::code(40100))?;
+    if admin.status != AdminStatus::Active.code() as i8 {
         return Err(SvcError::code(40302));
     }
-    let role_id = row
-        .try_get_by_index::<i64>(3)
-        .map_err(|_| SvcError::code(50000))?;
-    let is_super = row.try_get_by_index::<i8>(7).unwrap_or(0) != 0;
+    // 原 LEFT JOIN role:角色缺失 → name=None、is_super=false(两跳等价)
+    let role = role::Entity::find_by_id(admin.role_id as u64)
+        .one(&state.db)
+        .await
+        .ok()
+        .flatten();
     let permission_keys = permissions::resolve(state, admin_id).await?;
     Ok(AdminMeData {
         admin: AdminDto {
-            id: row
-                .try_get_by_index::<u64>(0)
-                .map_err(|_| SvcError::code(50000))? as i64,
-            name: row.try_get_by_index::<Option<String>>(1).ok().flatten(),
-            email: row
-                .try_get_by_index::<String>(2)
-                .map_err(|_| SvcError::code(50000))?,
-            role_id,
-            status: status as i32,
-            last_login_at: row
-                .try_get_by_index::<Option<chrono::NaiveDateTime>>(5)
-                .ok()
-                .flatten()
-                .map(common::time::format_iso),
+            id: admin.id as i64,
+            name: admin.name.clone(),
+            email: admin.email.clone(),
+            role_id: admin.role_id,
+            status: admin.status as i32,
+            last_login_at: admin.last_login_at.map(common::time::format_iso),
         },
-        role_name: row.try_get_by_index::<Option<String>>(6).ok().flatten(),
-        is_super,
+        role_name: role.as_ref().map(|r| r.name.clone()),
+        is_super: role.as_ref().map(|r| r.is_locked != 0).unwrap_or(false),
         permission_keys,
     })
 }
