@@ -15,8 +15,7 @@ use identity::entity::{
     user, user_identity,
 };
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-    QueryFilter,
+    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use tonic::transport::Channel;
 use tonic::Request;
@@ -154,21 +153,11 @@ async fn grpc_smoke() {
         connected: sea_orm::Set(1),
         ..Default::default()
     };
-    // SeaORM 限制:复合主键+自增(insert/exec 均 UnpackInsertId)→ 原生 SQL;
-    // P2 档案写入按「raw insert + 按 uk(user_id,provider) 回读取 id」封装
-    let _ = identity; // ActiveModel 仅作字段说明,实际经原生 SQL
-    db.execute(sea_orm::Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO user_identity (user_id, provider, provider_uid, identifier, is_primary, verified, connected) VALUES (?, ?, ?, ?, 0, 1, 1)"#,
-        [
-            user.id.into(),
-            2i32.into(),
-            "smoke-uid-google-1".into(),
-            "smoke-user@dreamy.test".into(),
-        ],
-    ))
-    .await
-    .expect("插入 user_identity 失败");
+    // SeaORM 限制:复合主键+自增(insert/exec 均 UnpackInsertId)→ exec_without_returning
+    user_identity::Entity::insert(identity)
+        .exec_without_returning(&db)
+        .await
+        .expect("插入 user_identity 失败");
     // v2.2 路由层:email + google 各一行(凭证 → user_id)
     identity_email::ActiveModel {
         email: sea_orm::Set("smoke-user@dreamy.test".into()),

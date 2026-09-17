@@ -15,6 +15,10 @@
 //! - 段分区表(分区键 id/user_id 已知):事务前 ensure_id_segments([id]),id 已知精确
 //! - 水位预扩等策略(哪些表、何时探测)由域 crate 自行定义
 //!   (identity 域见 service::ensure_user_segments)
+//!
+//! ⚠ 本模块是全仓唯一保留原生 SQL 的位置:分区 DDL(ALTER TABLE … ADD/REORGANIZE
+//! PARTITION)与 information_schema 元数据查询,SeaORM 查询 DSL 无法表达。
+//! 业务表查询/写入一律走实体 DSL(禁止 Statement::from_sql_and_values)。
 
 use chrono::{Datelike, NaiveDateTime};
 use crate::state::SharedState;

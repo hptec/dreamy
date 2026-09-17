@@ -3,10 +3,10 @@
 //! RESEND_API_KEY 缺席 → stub 模式(日志代替外发,对齐 MAIL_MODE=stub 语义)。
 
 use common::state::SharedState;
-use sea_orm::ConnectionTrait;
-use sea_orm::Statement;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
 
+use crate::entity::email_template;
 use crate::service::SvcError;
 
 #[derive(Debug, Deserialize)]
@@ -27,17 +27,15 @@ pub(crate) async fn load_template(
         let code = code.to_string();
         let loc = loc.to_string();
         async move {
-            let qr = db
-                .query_one(Statement::from_sql_and_values(
-                    sea_orm::DatabaseBackend::MySql,
-                    r#"SELECT subject, body FROM email_template WHERE code = ? AND locale = ?"#,
-                    [code.into(), loc.into()],
-                ))
+            let tpl = email_template::Entity::find()
+                .filter(email_template::Column::Code.eq(code))
+                .filter(email_template::Column::Locale.eq(loc))
+                .one(&db)
                 .await
                 .ok()??;
             Some(TemplateRow {
-                subject: qr.try_get_by_index(0).ok()?,
-                body: qr.try_get_by_index(1).ok()?,
+                subject: tpl.subject,
+                body: tpl.body,
             })
         }
     };
