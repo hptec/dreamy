@@ -3,10 +3,7 @@ package com.dreamy.config;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductMapper;
-import com.dreamy.enums.UserStatus;
-import com.dreamy.enums.UserTier;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.enums.AssignStatus;
 import com.dreamy.enums.VoteValue;
 import com.dreamy.domain.member.entity.ShowroomComment;
@@ -56,7 +53,7 @@ public class ShowroomSeedInitializer {
     private final ShowroomVoteRepository voteRepository;
     private final ShowroomCommentRepository commentRepository;
     private final ProductMapper productMapper;
-    private final UserMapper userMapper;
+    private final CustomerInfoPort customerInfoPort;
 
     private final Map<String, Long> productIdBySlug = new HashMap<>();
     private final Map<String, Long> userIdByName = new HashMap<>();
@@ -66,14 +63,14 @@ public class ShowroomSeedInitializer {
                                    ShowroomMemberRepository memberRepository,
                                    ShowroomVoteRepository voteRepository,
                                    ShowroomCommentRepository commentRepository,
-                                   ProductMapper productMapper, UserMapper userMapper) {
+                                   ProductMapper productMapper, CustomerInfoPort customerInfoPort) {
         this.showroomRepository = showroomRepository;
         this.itemRepository = itemRepository;
         this.memberRepository = memberRepository;
         this.voteRepository = voteRepository;
         this.commentRepository = commentRepository;
         this.productMapper = productMapper;
-        this.userMapper = userMapper;
+        this.customerInfoPort = customerInfoPort;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -219,26 +216,12 @@ public class ShowroomSeedInitializer {
         });
     }
 
-    /** 种子用户（按派生 email 幂等；review ensureUser 同惯例） */
+    /** 种子用户(按派生 email 经 CustomerInfoPort gRPC 幂等归并;Rust 侧 EnsureDemoUser 通道) */
     private Long ensureUser(String fullName) {
         return userIdByName.computeIfAbsent(fullName, name -> {
             String email = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", ".")
                     .replaceAll("^\\.|\\.$", "") + "@seed.dreamy.com";
-            User existing = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, email));
-            if (existing != null) {
-                return existing.getId();
-            }
-            User user = new User();
-            user.setEmail(email);
-            user.setEmailVerified(true);
-            user.setName(name);
-            user.setTier(UserTier.REGULAR);
-            user.setStatus(UserStatus.ACTIVE);
-            user.setJoinedAt(LocalDateTime.parse("2026-05-01T10:00"));
-            user.setAnonymized(false);
-            user.setVersion(0);
-            userMapper.insert(user);
-            return user.getId();
+            return customerInfoPort.ensureDemoUser(email, name);
         });
     }
 }

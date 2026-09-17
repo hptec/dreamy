@@ -72,8 +72,6 @@ jetcache:
       uri: redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}
 
 identity:
-  grpc:
-    enabled: ${IDENTITY_GRPC_ENABLED:false}
   jwt:
     store:
       # 至少 32 字节，且不得与 admin 密钥相同；JwtTokenProvider 启动时 fail-fast。
@@ -83,18 +81,9 @@ identity:
     admin:
       secret: ${ADMIN_JWT_SECRET:}
       access-ttl-seconds: 28800
-  oidc:
-    mode: ${OIDC_MODE:real}
-    # real 模式 aud 校验必须等于 client_id，否则全部 id_token 被拒（RealOidcVerifier BLOCKER-3）
-    google:
-      client-id: ${GOOGLE_CLIENT_ID:693342012243-bbusvo3ije990k9ddv7qdvs4kjrd1hsn.apps.googleusercontent.com}
-    apple:
-      client-id: ${APPLE_CLIENT_ID:}
   mail:
     mode: ${MAIL_MODE:stub}
     from: noreply@dreamy.com
-  retention:
-    cron: "0 0 3 * * *"
 
 # ===== portal-api-integration 公共基建（七域前置依赖）=====
 
@@ -110,20 +99,10 @@ dreamy:
   # 仅开发/演示环境显式开启；生产默认不灌入或覆盖任何业务数据。
   seed:
     demo-enabled: ${DEMO_SEED_ENABLED:false}
-  bootstrap-admin:
-    # 新环境创建首个管理员必须显式提供，避免公开固定密码。
-    email: ${DREAMY_BOOTSTRAP_ADMIN_EMAIL:}
-    password: ${DREAMY_BOOTSTRAP_ADMIN_PASSWORD:}
   # StoreJwtFilter 配置化白名单（error-strategy L2 要求 2；条目形式 METHOD:pattern，
   # 无 METHOD 前缀缺省匹配全部 method——review-api-detail 0.1 定稿，向后兼容）
   security:
     store-public-paths:
-      # identity 既有 5 条公开路径（配置化迁移，行为保持不变）
-      - /api/store/auth/otp/send
-      - /api/store/auth/otp/verify
-      - /api/store/auth/oidc/**
-      - /api/store/auth/refresh
-      - /api/store/auth/config
       # catalog 域登记 3 条（catalog-api-detail 0.1）
       - /api/store/products/**
       - /api/store/categories

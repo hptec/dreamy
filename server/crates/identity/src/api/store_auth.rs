@@ -14,7 +14,7 @@ use serde_json::json;
 use super::StoreState;
 
 use crate::security::JwtProvider;
-use crate::service::{auth, authconfig, otp, SvcError};
+use crate::service::{auth, authconfig, otp, ratelimit, SvcError};
 
 pub fn router(state: SharedState, jwt: JwtProvider) -> Router {
     Router::new()
@@ -31,11 +31,21 @@ fn locale_of(headers: &HeaderMap) -> Locale {
 }
 
 fn client_ip(headers: &HeaderMap) -> String {
+    // 信任链:X-Real-IP(网关注入,可信)优先;XFF 只信最右一跳——最左值是客户端可伪造位,
+    // 取最左会绕过 IP 频控/IP 熔断并污染 login_history 取证
     headers
-        .get("x-forwarded-for")
+        .get("x-real-ip")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
         .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-forwarded-for")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.rsplit(',').next())
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+        })
         .unwrap_or_else(|| "127.0.0.1".into())
 }
 
@@ -124,14 +134,64 @@ async fn verify_otp(
         return b.with_details(json!(details)).into_response();
     }
 
+    // 防御参数(auth_config 可调;读取失败回退默认,对齐 admin 锁定参数回退模式)
+    let ip = client_ip(&headers);
+    let (rate_per_min, alert_threshold, alert_email) = match authconfig::get(&st.shared).await {
+        Ok(c) => (
+            c.verify_ip_rate_per_minute.max(1) as u64,
+            c.attack_alert_threshold.max(1) as i64,
+            c.admin_alert_email,
+        ),
+        Err(e) => {
+            tracing::warn!(error = %e, "[verify-otp] auth_config 不可读,防御参数回退默认(30/min,阈值20)");
+            (30, 20, None)
+        }
+    };
+    // V7 IP 级频控(42904)
+    if let Some(remain) = ratelimit::check_verify_rate(&st.shared, &ip, rate_per_min).await {
+        return svc_to_biz(
+            "identity/auth/verify_otp",
+            locale,
+            SvcError::code_with(42904, json!({ "remaining_seconds": remain })),
+        )
+        .into_response();
+    }
+    // L2 双键递进退避(42905)
+    if let Some(remain) = ratelimit::check_backoff(&st.shared, &email, &ip).await {
+        return svc_to_biz(
+            "identity/auth/verify_otp",
+            locale,
+            SvcError::code_with(42905, json!({ "remaining_seconds": remain })),
+        )
+        .into_response();
+    }
+
     let ctx = auth::LoginContext {
-        ip: client_ip(&headers),
+        ip,
         user_agent: user_agent(&headers),
         device_fingerprint: None,
     };
     match auth::login_with_otp(&st.shared, &st.jwt, &email, &code, &ctx).await {
-        Ok(result) => Json(R::ok(Some(login_response(&result)))).into_response(),
-        Err(e) => svc_to_biz("identity/auth/verify_otp", locale, e).into_response(),
+        Ok(result) => {
+            ratelimit::clear_backoff(&st.shared, &email).await;
+            Json(R::ok(Some(login_response(&result)))).into_response()
+        }
+        Err(e) => {
+            // L2:仅验证码类失败计数(40101 码错/41001 无码或过期/41002 锁定);频控与系统错误不计
+            if let Some(c) = e.biz_code() {
+                if [40101, 41001, 41002].contains(&c) {
+                    ratelimit::record_verify_failure(
+                        &st.shared,
+                        &email,
+                        &ctx.ip,
+                        alert_threshold,
+                        alert_email.as_deref(),
+                    )
+                    .await;
+                }
+            }
+            svc_to_biz("identity/auth/verify_otp", locale, e).into_response()
+        }
     }
 }
 

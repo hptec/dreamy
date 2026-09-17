@@ -1,6 +1,7 @@
 package com.dreamy.domain.refund.service;
 
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
+import com.dreamy.infra.grpc.IdentityGateClient;
 import com.dreamy.infra.stripe.StripeClient;
 import com.dreamy.infra.stripe.StripeRefund;
 import com.dreamy.infra.stripe.StripeUnavailableException;
@@ -87,33 +88,30 @@ class RefundServiceTest {
     @Mock
     TradingEventsPublisher eventsPublisher;
     @Mock
-    UserMapper userMapper;
+    CustomerInfoPort customerInfoPort;
+    @Mock
+    IdentityGateClient identityGateClient;
     @Mock
     OrderEventRecorder orderEventRecorder;
 
     RefundService service;
 
     /** 初始化 MyBatis-Plus lambda 缓存（findUserIdsByNameOrEmailLike 的 LambdaQueryWrapper 需要 User TableInfo）。 */
-    @org.junit.jupiter.api.BeforeAll
-    static void initMybatisPlusCache() {
-        org.apache.ibatis.builder.MapperBuilderAssistant assistant = new org.apache.ibatis.builder.MapperBuilderAssistant(
-                new org.apache.ibatis.session.Configuration(), "");
-        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
-                assistant, com.dreamy.domain.user.entity.User.class);
-    }
-
     @BeforeEach
     void setUp() {
         service = new RefundService(refundRepository, orderRepository, orderLineRepository, paymentRepository,
                 checkoutConfigRepository, orderNoGenerator, skuStockAdapter, stripeClient,
-                new TradingImmediateTxRunner(), new TradingAfterCommitRunner(), audit, eventsPublisher, userMapper,
+                new TradingImmediateTxRunner(), new TradingAfterCommitRunner(), audit, eventsPublisher,
+                customerInfoPort, identityGateClient,
                 orderEventRecorder);
         CheckoutConfig config = new CheckoutConfig();
         config.setGiftWrapFeeUsd(new BigDecimal("15.00"));
         config.setCustomRefundGraceHours(24);
         lenient().when(checkoutConfigRepository.getSingleton()).thenReturn(config);
         lenient().when(orderNoGenerator.nextRefundNo()).thenReturn("RFD-20260610-0001");
-        lenient().when(userMapper.selectByIds(any())).thenReturn(List.of());
+        lenient().when(customerInfoPort.byIds(any())).thenReturn(java.util.Map.of());
+        lenient().when(identityGateClient.listUsers(any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(dreamy.identity.v1.ListUsersResponse.getDefaultInstance());
     }
 
     private Order order(OrderStatus status, LocalDateTime paidAt, LocalDateTime shippedAt) {
@@ -543,9 +541,11 @@ class RefundServiceTest {
     @Test
     @DisplayName("RM-TRD-02: 客户名/邮箱模糊 → user ids（API-TRD-03 listAdminOrders 搜索范围扩展，ALIGN-015）")
     void findUserIdsByNameOrEmailLike() {
-        com.dreamy.domain.user.entity.User user = new com.dreamy.domain.user.entity.User();
-        user.setId(7L);
-        when(userMapper.selectList(any())).thenReturn(List.of(user));
+        dreamy.identity.v1.ListUsersResponse resp = dreamy.identity.v1.ListUsersResponse.newBuilder()
+                .addItems(dreamy.identity.v1.UserRecord.newBuilder().setId(7L))
+                .build();
+        when(identityGateClient.listUsers(any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(resp);
         assertThat(service.findUserIdsByNameOrEmailLike("Alice")).containsExactly(7L);
     }
 }

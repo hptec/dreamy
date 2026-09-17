@@ -115,7 +115,7 @@ pub async fn send_otp(
     ratelimit::record_sent(state, &email, ip, cfg.otp_resend_seconds as u64).await;
 
     // STEP-07 异步发信(失败不阻塞;FLOW-15 由邮件模块内部重试)
-    tracing::info!(code = %plaintext, "[otp:dev] 验证码(stub 辅助;生产经邮件投递)");
+    // 安全红线:验证码明文绝不落日志(与 Java StubMailSender redaction 同口径)
     let mail_state = state.clone();
     let mail_email = email.clone();
     let mail_locale = locale.to_string();

@@ -1,7 +1,5 @@
 package com.dreamy.infra;
 
-import com.dreamy.domain.admin.entity.AdminUser;
-import com.dreamy.domain.admin.repository.AdminUserMapper;
 import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.security.AuthContext;
 import com.dreamy.security.AuthPrincipal;
@@ -33,18 +31,16 @@ public class TradingAuditRecorder {
     public static final String ACTION_CHECKOUT_CONFIG = "结算配置变更";
 
     private final AuditService auditService;
-    private final AdminUserMapper adminUserMapper;
 
-    public TradingAuditRecorder(AuditService auditService, AdminUserMapper adminUserMapper) {
+    public TradingAuditRecorder(AuditService auditService) {
         this.auditService = auditService;
-        this.adminUserMapper = adminUserMapper;
     }
 
     /** 写 operation_log（事务内调用）。日志脱敏：target 仅记 order_no/refund_no，不含 PII。 */
     public void record(String action, String target, String changesJson) {
         try {
             Long operatorId = currentOperatorId();
-            auditService.record(operatorId, resolveOperatorName(operatorId), action, target,
+            auditService.record(operatorId, null, action, target,
                     extractIp(), extractUa(), changesJson);
         } catch (Exception ex) {
             // 审计写入失败不应吞掉事务语义之外的异常——记录并继续（与 identity AuditAspect 同口径）
@@ -63,21 +59,6 @@ public class TradingAuditRecorder {
         } catch (NumberFormatException ignored) {
             return null;
         }
-    }
-
-    private String resolveOperatorName(Long operatorId) {
-        if (operatorId == null) {
-            return "系统";
-        }
-        try {
-            AdminUser admin = adminUserMapper.selectById(operatorId);
-            if (admin != null && admin.getName() != null) {
-                return admin.getName();
-            }
-        } catch (Exception ignored) {
-            // 回退 id 字符串
-        }
-        return String.valueOf(operatorId);
     }
 
     private String extractIp() {

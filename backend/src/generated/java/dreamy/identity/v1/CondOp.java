@@ -31,7 +31,7 @@ public enum CondOp
   COND_OP_IN(2),
   /**
    * <pre>
-   * values 恰 1 个,前缀匹配(email 模糊检索专用)
+   * values 恰 1 个,前缀匹配(仅 EMAIL/NAME 列;防全表扫描)
    * </pre>
    *
    * <code>COND_OP_LIKE_PREFIX = 3;</code>
@@ -62,7 +62,7 @@ public enum CondOp
   public static final int COND_OP_IN_VALUE = 2;
   /**
    * <pre>
-   * values 恰 1 个,前缀匹配(email 模糊检索专用)
+   * values 恰 1 个,前缀匹配(仅 EMAIL/NAME 列;防全表扫描)
    * </pre>
    *
    * <code>COND_OP_LIKE_PREFIX = 3;</code>

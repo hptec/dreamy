@@ -12,6 +12,20 @@ use crate::enums::{AuthProvider, LoginOutcome, SessionStatus, UserStatus};
 use crate::security::{JwtProvider, StoreClaims, STORE_ACCESS_TTL, STORE_REFRESH_TTL};
 use crate::service::{merge, otp, session, SvcError};
 
+/// TTL 配置化(D2):auth_config 可调,读取失败回退编译期默认(仅影响新签发)
+async fn store_ttls(state: &SharedState) -> (i64, i64) {
+    match crate::service::authconfig::get(state).await {
+        Ok(c) => (
+            (c.store_access_ttl_minutes.max(1) as i64) * 60,
+            (c.store_refresh_ttl_days.max(1) as i64) * 86_400,
+        ),
+        Err(e) => {
+            tracing::warn!(error = %e, "[auth] auth_config 不可读,token TTL 回退默认(2h/30d)");
+            (STORE_ACCESS_TTL, STORE_REFRESH_TTL)
+        }
+    }
+}
+
 pub struct LoginContext {
     pub ip: String,
     pub user_agent: Option<String>,
@@ -99,7 +113,8 @@ async fn complete_login(
         return Err(SvcError::code(40301));
     }
 
-    // 新设备判定:login_history 无 (user_id, device, SUCCESS)
+    // 新设备判定:90 天窗口内无 (user_id, device, SUCCESS)
+    // (窗口谓词兼作月分区裁剪:无时间下界会扫全部月分区,随历史增长线性变慢)
     let device = ctx
         .device_fingerprint
         .clone()
@@ -108,7 +123,19 @@ async fn complete_login(
     let new_device = is_new_device(state, user.id, &device).await;
 
     // STEP-06 会话签发:冷备 INSERT 取数字 id → Redis 主存
-    let tokens = open_session(state, jwt, &user, method, new_device, ctx, &device).await?;
+    let (access_ttl, refresh_ttl) = store_ttls(state).await;
+    let tokens = open_session(
+        state,
+        jwt,
+        &user,
+        method,
+        new_device,
+        ctx,
+        &device,
+        access_ttl,
+        refresh_ttl,
+    )
+    .await?;
 
     Ok(LoginResult {
         tokens,
@@ -122,16 +149,19 @@ async fn is_new_device(state: &SharedState, user_id: u64, device: &str) -> bool 
     if device.is_empty() {
         return true;
     }
+    let cutoff = chrono::Local::now().naive_local() - chrono::Duration::days(90);
     let found = login_history::Entity::find()
         .filter(login_history::Column::UserId.eq(user_id))
         .filter(login_history::Column::Device.eq(device))
         .filter(login_history::Column::Result.eq(LoginOutcome::Success.code() as i8))
+        .filter(login_history::Column::CreatedAt.gte(cutoff))
         .one(&state.db)
         .await;
     !matches!(found, Ok(Some(_)))
 }
 
 /// 会话签发:冷备(user_session INSERT + login_history INSERT)→ Redis(session:{jti} + user_sessions 集合)
+#[allow(clippy::too_many_arguments)]
 async fn open_session(
     state: &SharedState,
     jwt: &JwtProvider,
@@ -140,10 +170,12 @@ async fn open_session(
     new_device: bool,
     ctx: &LoginContext,
     device: &str,
+    access_ttl: i64,
+    refresh_ttl: i64,
 ) -> Result<TokenPairDto, SvcError> {
     let now = chrono::Local::now().naive_local();
-    let access_exp = now + chrono::Duration::seconds(STORE_ACCESS_TTL);
-    let refresh_exp = now + chrono::Duration::seconds(STORE_REFRESH_TTL);
+    let access_exp = now + chrono::Duration::seconds(access_ttl);
+    let refresh_exp = now + chrono::Duration::seconds(refresh_ttl);
 
     let access_jti = uuid_v4();
     let refresh_jti = uuid_v4();
@@ -154,7 +186,7 @@ async fn open_session(
             &access_jti,
             &method.code().to_string(),
             false,
-            STORE_ACCESS_TTL,
+            access_ttl,
         )
         .map_err(|_| SvcError::code(50000))?;
     let refresh_token = jwt
@@ -163,7 +195,7 @@ async fn open_session(
             &refresh_jti,
             &method.code().to_string(),
             true,
-            STORE_REFRESH_TTL,
+            refresh_ttl,
         )
         .map_err(|_| SvcError::code(50000))?;
 
@@ -266,7 +298,10 @@ async fn open_session(
     })
 }
 
-/// FLOW-04 令牌刷新(滑动重签:旧 jti 失效 + 新对签发)
+/// FLOW-04 令牌刷新(滑动重签:旧 jti 失效 + 新对签发)。
+/// 活性校验以冷备行为准(可撤销状态机:status/refresh_expires);Redis 主存承载 access 热校验。
+/// V3 并发安全:UPDATE 带乐观锁(version 条件),同 refresh_token 并发刷仅一成功;
+/// V4 重用检测:已旋转的旧 jti 再次出现 → 疑似盗用,整链撤销。
 pub async fn refresh(
     state: &SharedState,
     jwt: &JwtProvider,
@@ -279,15 +314,26 @@ pub async fn refresh(
     if !claims.refresh {
         return Err(SvcError::code(40102)); // access 令牌冒充 refresh
     }
-    // 旧会话链:session:{access_jti} 主存里 refresh_token_id 应匹配
-    // (冷备为审计;主存为准——refresh 旋转后旧 access 失效)
+    let (access_ttl, refresh_ttl) = store_ttls(state).await;
+
     // 校验 refresh jti 活性:冷备 status=ACTIVE + refresh_expires 未过
     let row = user_session::Entity::find()
         .filter(user_session::Column::RefreshTokenId.eq(claims.jti.clone()))
         .filter(user_session::Column::Status.eq(SessionStatus::Active.code() as i8))
         .one(&state.db)
-        .await?
-        .ok_or(SvcError::code(40102))?;
+        .await?;
+    let Some(row) = row else {
+        // V4:查无 Active 行时,若该 jti 曾被旋转过 = 旧令牌被重用,疑似盗用 → 整链撤销
+        if let Some(uid) = session::rotated_owner(state, &claims.jti).await {
+            tracing::warn!(
+                jti = %claims.jti,
+                user_id = uid,
+                "[security] refresh 重用:已旋转 jti 再次出现,疑似令牌盗用,整链撤销"
+            );
+            session::revoke_all_for_user(state, uid).await;
+        }
+        return Err(SvcError::code(40102));
+    };
 
     // 用户存在性与禁用复核
     let user = user::Entity::find_by_id(row.user_id)
@@ -305,8 +351,8 @@ pub async fn refresh(
     }
 
     let now = chrono::Local::now().naive_local();
-    let access_exp = now + chrono::Duration::seconds(STORE_ACCESS_TTL);
-    let new_refresh_exp = now + chrono::Duration::seconds(STORE_REFRESH_TTL);
+    let access_exp = now + chrono::Duration::seconds(access_ttl);
+    let new_refresh_exp = now + chrono::Duration::seconds(refresh_ttl);
     let access_jti = uuid_v4();
     let new_refresh_jti = uuid_v4();
     let access_token = jwt
@@ -315,7 +361,7 @@ pub async fn refresh(
             &access_jti,
             &claims.method,
             false,
-            STORE_ACCESS_TTL,
+            access_ttl,
         )
         .map_err(|_| SvcError::code(50000))?;
     let new_refresh_token = jwt
@@ -324,16 +370,19 @@ pub async fn refresh(
             &new_refresh_jti,
             &claims.method,
             true,
-            STORE_REFRESH_TTL,
+            refresh_ttl,
         )
         .map_err(|_| SvcError::code(50000))?;
 
-    // 旧链失效:撤销旧 access 主存 + 冷备整行 UPDATE(新 jti 对;version 自增)
+    // V4 旋转链证据:旧 refresh jti → user_id(TTL=新 refresh 有效期)
+    session::mark_rotated(state, &claims.jti, row.user_id as i64, refresh_ttl).await;
+    // 旧 access 撤销(并发双刷时双方 DEL 同键,幂等)
     let old_access_jti = row.token_id.clone();
     if !old_access_jti.is_empty() {
         session::revoke_store(state, &old_access_jti, row.user_id as i64).await;
     }
-    let _ = user_session::Entity::update_many()
+    // V3 乐观锁:version 条件防并发双活(并发刷同一 token 仅一成功)
+    let updated = user_session::Entity::update_many()
         .col_expr(user_session::Column::TokenId, Expr::value(access_jti.clone()))
         .col_expr(
             user_session::Column::RefreshTokenId,
@@ -349,8 +398,13 @@ pub async fn refresh(
             Expr::col(user_session::Column::Version).add(1),
         )
         .filter(user_session::Column::Id.eq(row.id))
+        .filter(user_session::Column::Version.eq(row.version))
         .exec(&state.db)
-        .await;
+        .await?;
+    if updated.rows_affected == 0 {
+        // 并发输家:本请求签发的令牌对未登记即作废(冷备无行/Redis 无键,天然无效)
+        return Err(SvcError::code(40102));
+    }
     session::write_session(
         state,
         &access_jti,

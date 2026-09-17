@@ -1,8 +1,43 @@
 # 用户模块 Rust 迁移 — 遗留任务清单
 
-> 生成时间:2026-09-15
+> 生成时间:2026-09-15 | 更新:2026-09-18(任务 1 Java 完整删码已完成并 E2E 验证全绿)
+
+## ✅ E2E 冒烟结果(2026-09-18,全绿)
+
+1. admin 登录(网关 TLS→Rust 签发 token)✓
+2. bootstrap 种子就位(permission 27/admin_user 1/auth_config 1)✓
+3. Java 种子经 gRPC 重建 demo 用户 22 个 @seed.dreamy.com + review 13/showroom 2/question 8 重灌(user_id 对齐)✓
+4. 审计 operator_name 快照:Java 链(创建分类→'超级管理员')✓ Rust 链(auth-config PUT→'超级管理员')✓——顺带把 Rust REST 端点 11 处传 claims.sub 的存量瑕疵改为传空走兜底
+5. 订单/退款列表链路 code=0(库空属数据空)✓
+6. 管理端搜索 keyword=Emma(name/email LIKE_PREFIX)code=0✓
+
+**auth_config WARN 根因澄清**:非删码引入——是 OTP verify 频控会话扩展了 auth_config 实体+identity.sql(6 新列)但未对存量库迁移,SELECT Unknown column→Err→幂等失效。已 ALTER TABLE 加 6 列修复(重启 bootstrap 日志干净)。**教训:实体改列需同步存量库 ALTER**。
+
+**check-schema-drift.sh 已退役删除**:门禁管的 11 张 identity 死表已随删码 DROP,无引用。
+
+**镜像**:dreamy-{backend,server,store,admin}:202609180025-2f6956a(本机 daemon);server 于 17:16 重建(含 audit sub→空修复)。
+
+## 2026-09-18 删码执行记录(任务 1 完成)
 > 分支:feature/1.0.0(本地,未推远程)
-> 上次提交:20095b3(基线) + 2026-09-15 新提交(含 admin API 加密前缀/审计邮件 gRPC 通道/CSPRNG 替换等,详见 git log)
+
+## 2026-09-18 删码执行记录(任务 1 完成)
+
+**删码面**(62 主代码文件 + 13 测试文件 git rm):
+- domain/{user,otp,session,authconfig,admin,role} 全包 + domain/audit 的 LoginHistory/Mapper/RetentionScheduler(**AuditService 保留**,审计记录器共用)
+- 6 控制器(StoreAuth/Account/UserOps/AdminAuth/Role/AuthConfig)+ UserDetailView/LoginHistoryDTO/IdentityDtoMapper
+- OidcVerifier(含 Real/Stub)/OtpRateLimiter/SessionValidityCache/AdminSessionValidityCache/DataInitializer
+- SessionValidator/PermissionAspect/CustomerInfoPort/IdentityGateClient 删回滚态分支(恒 gRPC);JwtTokenProvider 删 issueStoreTokens/reissueStoreTokens/issueAdminToken(保留 parse + guest 签发)
+- application.yml 清 identity.grpc.enabled/oidc/retention/bootstrap-admin/auth 白名单 5 条;.env.deploy 删 IDENTITY_GRPC_ENABLED
+
+**删码发现的 3 个缺口及修复**:
+1. **Rust bootstrap 缺口**:权限字典/超管/auth_config 种子原靠 Java DataInitializer 播种→migrate 迁移,删码后新环境无法自举 → `identity::bootstrap::seed_identity_baseline`(auth_config 单例+27 权限点+超管角色/账户,幂等,bcrypt cost 10;凭据 DREAMY_BOOTSTRAP_ADMIN_EMAIL/PASSWORD,demo 开关时 Admin@123456)
+2. **名称搜索缺口**:RefundService/AdminOrderService 管理端客户名搜索无 gRPC 支撑 → proto UserColumn 加 `USER_COLUMN_NAME=7` + LIKE_PREFIX(Name|Email);findUserIdsByNameOrEmailLike 改 name+email 两次前缀查询并集(LIKE 语义从 %kw% 收窄为前缀,协议防全表扫描纪律)
+3. **审计 operator_name 缺口**:Admin JWT claims 无 name,7 处审计调用点无法本地取名 → Rust `admin_ops::audit` 兜底(operator_name 空+operator_id 非空→同库查 admin_user 快照);新增 IdentityGate.ListAdminNames rpc(批量 admin 名,订单时间线用)
+
+**验证**:
+- Rust:cargo build+test 全 workspace 绿(29 passed;新增 bootstrap 权限表单测)
+- Java:mvn/gradle compileJava+test 全绿(785 passed;删 13 个身份域测试,JwtTokenProviderTest/JwtGuestTokenTest/StoreJwtFilterGuestTest 改测试内同构 claims 构造 token,4 个业务测试 mock 换 CustomerInfoPort/IdentityGateClient,AbstractIT 用 @TestConfiguration 显式注册 IdentityGate stub——显式 classes 时嵌套 TestConfiguration 不自动检测,种子启动期需 stub 就位)
+- 库清理:.env 确认后 DROP identity 库 13 张死表(user/user_identity/user_session/admin_session/admin_user/auth_config/otp_code/login_history/permission/role/role_permission/email_template/operation_log;先 mysqldump 备份 data/backup-identity-pre-drop-*.sql);TRUNCATE review/showroom 等 demo 业务表让种子经 gRPC 重建对齐新 user_id;mail_record 为 Java q.mail 现役表保留
 
 ## 已完成(不需要重做)
 
@@ -18,22 +53,7 @@
 
 ## 遗留任务(按优先级排序)
 
-### 任务 1:Java 完整删码(切换后清理)
-
-**状态**:之前尝试完整删码后发现牵连 6 个 config 初始化器 + 7 个审计记录器 + 邮件渲染器(共 21+ 文件直接引用 identity 域实体),当时选择回退保留双模。**架构上已达成切换目标**(identity 流量全部到 Rust,Java 双模走 gRPC),Java 代码保留作回滚保障。
-
-**具体步骤**:
-1. 逐个改造 6 个 config 初始化器(DataInitializer/AnalyticsSeedInitializer/CatalogSeedInitializer/MarketingSeedInitializer/ReviewSeedInitializer/TradingSeedInitializer/ShowroomSeedInitializer/ReviewSeedInitializer)——删除 identity 种子部分(Rust 已覆盖),保留商品/内容种子;种子中 UserMapper 写 User 的改走 CustomerInfoPort.ensureDemoUser(gRPC)
-2. 7 个审计记录器(OrderEventRecorder/CatalogAuditRecorder/MarketingAuditRecorder/ReviewAuditRecorder/ShippingAuditRecorder/TradingAuditRecorder)——AdminUserMapper 查 operator_name 改为从 gRPC AuditGate 或 IdentityGate 获取(审计通道已在 proto 中定义:dreamy.audit.v1)
-3. MailPortConfig/EmailTemplateRenderer/MailTemplateSeedInitializer——UserMapper 改走 CustomerInfoPort;EmailTemplate 实体收编到 dreamy_server(已迁移,见 proto mail.v1)
-4. CustomerInfoPort 删除回滚态分支(仅保留 gRPC 路径)
-5. SessionValidator/PermissionAspect 删除回滚态分支(纯 gRPC)
-6. JwtTokenProvider 裁剪——删 issueStoreTokens/issueAdminToken(仅保留 parse + issueShowroomGuestToken)
-7. 删 domain/{user,otp,session,authconfig,admin,role}(44 文件)、6 控制器(StoreAuth/Account/UserOps/AdminAuth/Role/AuthConfig)、LoginHistory+RetentionScheduler、OidcVerifier/OtpRateLimiter/SessionValidityCache/AdminSessionValidityCache、IdentityDtoMapper
-8. 删关联测试(~21 文件)
-9. 编译+剩余测试全绿验证
-
-**注意**:此步骤应在生产切换稳定运行一段时间后执行,作为独立变更提交。
+### ~~任务 1:Java 完整删码~~ ✅ 已完成(2026-09-18,见上方执行记录)
 
 ### 任务 2:性能压测(用户指令:大数据量×并发×干扰)
 

@@ -1,7 +1,5 @@
 package com.dreamy.domain.order.service;
 
-import com.dreamy.domain.admin.entity.AdminUser;
-import com.dreamy.domain.admin.repository.AdminUserMapper;
 import com.dreamy.domain.order.entity.OrderEvent;
 import com.dreamy.domain.order.repository.OrderEventRepository;
 import com.dreamy.dto.TradingDtos.OrderEventDto;
@@ -9,6 +7,7 @@ import com.dreamy.enums.OrderActorType;
 import com.dreamy.enums.OrderEventType;
 import com.dreamy.enums.OrderStatus;
 import com.dreamy.enums.ProductionStage;
+import com.dreamy.infra.grpc.IdentityGateClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,11 +30,11 @@ public class OrderEventRecorder {
     private static final Logger log = LoggerFactory.getLogger(OrderEventRecorder.class);
 
     private final OrderEventRepository orderEventRepository;
-    private final AdminUserMapper adminUserMapper;
+    private final IdentityGateClient identityGateClient;
 
-    public OrderEventRecorder(OrderEventRepository orderEventRepository, AdminUserMapper adminUserMapper) {
+    public OrderEventRecorder(OrderEventRepository orderEventRepository, IdentityGateClient identityGateClient) {
         this.orderEventRepository = orderEventRepository;
-        this.adminUserMapper = adminUserMapper;
+        this.identityGateClient = identityGateClient;
     }
 
     /**
@@ -112,6 +111,7 @@ public class OrderEventRecorder {
         return result;
     }
 
+    /** ADMIN 触发者名批量解析(IdentityGate gRPC,防 N+1;名字缺失回退 id 字符串) */
     private Map<Long, String> loadAdminNames(List<OrderEvent> events) {
         List<Long> ids = events.stream()
                 .filter(e -> e.getActorType() == OrderActorType.ADMIN)
@@ -119,18 +119,17 @@ public class OrderEventRecorder {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<Long, String> names = new HashMap<>();
         if (ids.isEmpty()) {
-            return names;
+            return Map.of();
         }
         try {
-            for (AdminUser admin : adminUserMapper.selectByIds(ids)) {
-                names.put(admin.getId(), admin.getName());
-            }
+            Map<Long, String> names = new HashMap<>(identityGateClient.listAdminNames(ids));
+            ids.forEach(id -> names.putIfAbsent(id, String.valueOf(id)));
+            return names;
         } catch (Exception ex) {
             log.warn("[ORDER-EVENT] admin name resolve failed ids={}", ids, ex);
+            return Map.of();
         }
-        return names;
     }
 
     private static String truncate(String value, int max) {

@@ -128,11 +128,20 @@ fn svc_err_resp(site: &'static str, err: SvcError) -> Response {
 }
 
 fn client_ip(headers: &HeaderMap) -> String {
+    // 信任链:X-Real-IP(网关注入,可信)优先;XFF 只信最右一跳——最左值可伪造,会绕过 IP 熔断
     headers
-        .get("x-forwarded-for")
+        .get("x-real-ip")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
         .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-forwarded-for")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.rsplit(',').next())
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+        })
         .unwrap_or_else(|| "127.0.0.1".into())
 }
 
@@ -313,7 +322,7 @@ async fn create_admin(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "创建管理员",
                 &admin.email,
                 &client_ip(&headers),
@@ -358,7 +367,7 @@ async fn update_admin(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "编辑管理员",
                 &admin.email,
                 &client_ip(&headers),
@@ -390,7 +399,7 @@ async fn delete_admin(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "删除管理员",
                 &format!("ID:{id}"),
                 &client_ip(&headers),
@@ -433,7 +442,7 @@ async fn toggle_admin_status(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "禁用管理员",
                 &admin.email,
                 &client_ip(&headers),
@@ -477,7 +486,7 @@ async fn reset_password(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "重置密码",
                 &format!("ID:{id}"),
                 &client_ip(&headers),
@@ -534,7 +543,7 @@ async fn create_role(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "创建角色",
                 &role.name,
                 &client_ip(&headers),
@@ -582,7 +591,7 @@ async fn update_role(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "权限变更",
                 &format!("ID:{id}"),
                 &client_ip(&headers),
@@ -609,7 +618,7 @@ async fn delete_role(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "删除角色",
                 &format!("ID:{id}"),
                 &client_ip(&headers),
@@ -668,7 +677,8 @@ async fn list_users(
     }
     if let Some(ref e) = email {
         if !e.trim().is_empty() {
-            conds.push(crate::service::Cond::EmailLikePrefix(
+            conds.push(crate::service::Cond::LikePrefix(
+                crate::service::Col::Email,
                 e.trim().to_lowercase(),
             ));
         }
@@ -759,7 +769,7 @@ async fn toggle_user_status(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "用户禁用",
                 &u.email,
                 &client_ip(&headers),
@@ -808,7 +818,7 @@ async fn force_logout(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "强制下线",
                 &format!("ID:{id}"),
                 &client_ip(&headers),
@@ -835,6 +845,12 @@ async fn get_auth_config(authed: AuthedAdmin, State(st): State<AdminState>) -> R
             "otp_max_attempts": cfg.otp_max_attempts, "min_methods": cfg.min_methods,
             "admin_login_max_attempts": cfg.admin_login_max_attempts,
             "admin_login_lock_minutes": cfg.admin_login_lock_minutes,
+            "verify_ip_rate_per_minute": cfg.verify_ip_rate_per_minute,
+            "attack_alert_threshold": cfg.attack_alert_threshold,
+            "admin_alert_email": cfg.admin_alert_email,
+            "store_access_ttl_minutes": cfg.store_access_ttl_minutes,
+            "store_refresh_ttl_days": cfg.store_refresh_ttl_days,
+            "admin_access_ttl_hours": cfg.admin_access_ttl_hours,
             "google_client_id": cfg.google_client_id, "apple_service_id": cfg.apple_service_id,
         }))))
         .into_response(),
@@ -872,6 +888,12 @@ async fn update_auth_config(
         min_methods: i("min_methods").map(|x| x as i8),
         admin_login_max_attempts: i("admin_login_max_attempts"),
         admin_login_lock_minutes: i("admin_login_lock_minutes"),
+        verify_ip_rate_per_minute: i("verify_ip_rate_per_minute"),
+        attack_alert_threshold: i("attack_alert_threshold"),
+        admin_alert_email: s("admin_alert_email"),
+        store_access_ttl_minutes: i("store_access_ttl_minutes"),
+        store_refresh_ttl_days: i("store_refresh_ttl_days"),
+        admin_access_ttl_hours: i("admin_access_ttl_hours"),
         google_client_id: s("google_client_id"),
         apple_service_id: s("apple_service_id"),
     };
@@ -880,7 +902,7 @@ async fn update_auth_config(
             admin_ops::audit(
                 &st.shared,
                 Some(admin_id_of(&authed)),
-                &authed.claims.sub,
+                "", // operator_name 传空:audit 内部按 operator_id 同库快照 admin 名(MAP-006)
                 "认证配置变更",
                 "auth_config",
                 &client_ip(&headers),
@@ -894,6 +916,12 @@ async fn update_auth_config(
                 "otp_max_attempts": cfg.otp_max_attempts, "min_methods": cfg.min_methods,
                 "admin_login_max_attempts": cfg.admin_login_max_attempts,
                 "admin_login_lock_minutes": cfg.admin_login_lock_minutes,
+                "verify_ip_rate_per_minute": cfg.verify_ip_rate_per_minute,
+                "attack_alert_threshold": cfg.attack_alert_threshold,
+                "admin_alert_email": cfg.admin_alert_email,
+                "store_access_ttl_minutes": cfg.store_access_ttl_minutes,
+                "store_refresh_ttl_days": cfg.store_refresh_ttl_days,
+                "admin_access_ttl_hours": cfg.admin_access_ttl_hours,
                 "google_client_id": cfg.google_client_id, "apple_service_id": cfg.apple_service_id,
             }))))
             .into_response()

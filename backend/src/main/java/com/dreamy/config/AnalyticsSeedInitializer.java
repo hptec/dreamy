@@ -1,12 +1,6 @@
 package com.dreamy.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -37,55 +31,15 @@ public class AnalyticsSeedInitializer {
 
     private static final String IDX_NAME = "idx_order_status_paid";
 
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
     private final DataSource dataSource;
 
-    public AnalyticsSeedInitializer(PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                    RolePermissionMapper rolePermissionMapper, DataSource dataSource) {
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
+    public AnalyticsSeedInitializer(DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
-        ensurePermissions();
         ensureOrdersPaidIndex();
-    }
-
-    /** §7 权限字典幂等补登 + 绑定超管角色 */
-    @Transactional
-    public void ensurePermissions() {
-        ensurePermission("/dashboard", "概览", "仪表盘");
-        ensurePermission("/analytics", "数据分析", "数据看板");
-    }
-
-    private void ensurePermission(String permCode, String group, String label) {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, permCode));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode(permCode);
-            permission.setGroup(group);
-            permission.setLabel(label);
-            permissionMapper.insert(permission);
-            log.info("[AnalyticsSeed] 权限点 {} 已登记", permCode);
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
     }
 
     /** IDX-ANA-001：orders(status, paid_at) 协同索引（幂等：information_schema 判存在；缺表不阻塞） */

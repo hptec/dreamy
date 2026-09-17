@@ -78,6 +78,15 @@ async fn jwks_for(provider: &str, force_refresh: bool) -> Result<Arc<JwksCache>,
                 return Ok(c);
             }
         }
+    } else {
+        // V5 回源节流:30s 内已拉过则复用缓存——伪造 token 洪水的回源最多 1 次/30s,
+        // 正常 kid 轮换(月级频率)不受影响
+        let cached = CACHES.read().await.get(provider).cloned();
+        if let Some(c) = cached {
+            if c.fetched_at.elapsed() < Duration::from_secs(30) {
+                return Ok(c);
+            }
+        }
     }
     let url = JWKS_URLS
         .iter()
@@ -185,12 +194,11 @@ pub async fn verify(
         validation.leeway = 60;
         match jsonwebtoken::decode::<IdTokenClaims>(id_token, key, &validation) {
             Ok(data) => break data.claims,
-            Err(e) if force => {
-                tracing::warn!(error = %e, "[oidc] {provider} 验签失败(已回源重拉)");
+            // V5:kid 已知但验签失败 = 伪造/篡改 token,直接拒——不回源,
+            // 否则伪造洪水会被放大为对 Google/Apple 的出网请求 DoS
+            Err(e) => {
+                tracing::warn!(error = %e, "[oidc] {provider} 验签失败(kid 已知,拒绝)");
                 return Err(SvcError::code(50201));
-            }
-            Err(_) => {
-                force = true; // 第一轮失败 → 重拉 JWKS 再试
             }
         }
     };

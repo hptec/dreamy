@@ -4,8 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.enums.ProductStatus;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductMapper;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.port.ReviewCatalogSnapshotPort;
 import com.dreamy.port.ReviewIdentityQueryPort;
 import com.dreamy.port.TradingPurchaseQueryPort;
@@ -88,13 +87,9 @@ public class ReviewPortConfig {
 
     @Bean
     @ConditionalOnMissingBean(ReviewIdentityQueryPort.class)
-    public ReviewIdentityQueryPort identityQueryPortAdapter(UserMapper userMapper) {
-        return userId -> {
-            if (userId == null) {
-                return null;
-            }
-            User user = userMapper.selectById(userId);
-            return user == null ? null : user.getName();
-        };
+    public ReviewIdentityQueryPort identityQueryPortAdapter(CustomerInfoPort customerInfoPort) {
+        return userId -> customerInfoPort.byId(userId == null ? 0 : userId)
+                .map(CustomerInfoPort.CustomerInfo::name)
+                .orElse(null);
     }
 }

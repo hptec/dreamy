@@ -249,7 +249,7 @@ async fn large_data_evidence() {
     // ④ 前缀过滤(email 唯一索引可走)
     {
         let q = ListQuery {
-            conds: vec![Cond::EmailLikePrefix("bulk-1234".into())],
+            conds: vec![Cond::LikePrefix(Col::Email, "bulk-1234".into())],
             order: (Col::Id, false),
             page: 1,
             page_size: 20,

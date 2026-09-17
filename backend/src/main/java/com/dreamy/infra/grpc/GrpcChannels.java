@@ -14,8 +14,7 @@ import java.util.concurrent.TimeUnit;
  * Rust server gRPC 共享通道(单一 ManagedChannel,三客户端复用:
  * IdentityGateClient / AuditGateClient / TemplateGateClient)。
  *
- * 常开(惰性连接 + 自动重连):审计/模板通道不受 identity.grpc.enabled 门控——
- * 表已收编 Rust 主库,回滚态(IDENTITY_GRPC_ENABLED=false)下业务审计仍须经本通道写入。
+ * 常开(惰性连接 + 自动重连):2026-09-17 Java 删码后 IdentityGate/AuditGate/TemplateGate 三通道恒开。
  * 目标地址与身份校验通道同源(IDENTITY_GRPC_ADDR,compose 内网 http://server:18083)。
  */
 @Component

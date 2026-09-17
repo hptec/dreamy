@@ -16,7 +16,6 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,8 +31,7 @@ import java.util.concurrent.TimeUnit;
  * - NOT_FOUND → Optional.empty();INVALID_ARGUMENT → IllegalStateException(编码 BUG,fail fast)
  * - 只传验签后的结构化标识(token_id=jti/admin_id/user_id),绝不传原始 JWT/密码
  *
- * 接线开关:IDENTITY_GRPC_ENABLED(默认 false,P4 切换版启用;
- * false 时全部方法抛 IdentityUnavailableException,保证未接线期间行为可预期)。
+ * 2026-09-17 Java 删码:IDENTITY_GRPC_ENABLED 开关移除,恒 gRPC(纯切换终态)。
  * 通道复用 {@link GrpcChannels} 共享 ManagedChannel(生命周期归其管理)。
  */
 @Component
@@ -42,19 +40,11 @@ public class IdentityGateClient {
     private static final Logger log = LoggerFactory.getLogger(IdentityGateClient.class);
     private static final long DEADLINE_MS = 500;
 
-    private final boolean enabled;
     private final IdentityGateGrpc.IdentityGateBlockingStub stub;
 
-    public IdentityGateClient(
-            @Value("${identity.grpc.enabled:false}") boolean enabled,
-            GrpcChannels channels) {
-        this.enabled = enabled;
-        if (enabled) {
-            this.stub = IdentityGateGrpc.newBlockingStub(channels.channel());
-            log.info("[identity-grpc] 启用");
-        } else {
-            this.stub = null;
-        }
+    public IdentityGateClient(GrpcChannels channels) {
+        this.stub = IdentityGateGrpc.newBlockingStub(channels.channel());
+        log.info("[identity-grpc] 启用(恒 gRPC 终态)");
     }
 
     // ===== 会话校验(热路径) =====
@@ -137,7 +127,7 @@ public class IdentityGateClient {
             String joinedAt, boolean anonymized) {
     }
 
-    /** 条件构造(MyBatis-Lambda 式类型化;LIKE 仅 Email 列且拒绝通配符) */
+    /** 条件构造(MyBatis-Lambda 式类型化;LIKE 仅 Email/Name 列且拒绝通配符) */
     public static Condition eq(UserColumn column, String value) {
         return Condition.newBuilder()
                 .setColumn(column)
@@ -146,11 +136,12 @@ public class IdentityGateClient {
                 .build();
     }
 
-    public static Condition likePrefix(String emailPrefix) {
+    /** 前缀匹配(仅 Email/Name 列;Email 由服务端小写化,通配符 %/_ 服务端拒绝) */
+    public static Condition likePrefix(UserColumn column, String prefix) {
         return Condition.newBuilder()
-                .setColumn(UserColumn.USER_COLUMN_EMAIL)
+                .setColumn(column)
                 .setOp(CondOp.COND_OP_LIKE_PREFIX)
-                .addValues(emailPrefix)
+                .addValues(prefix)
                 .build();
     }
 
@@ -174,6 +165,22 @@ public class IdentityGateClient {
                 .getUserId();
     }
 
+    // ===== 管理员名快照 =====
+
+    /** 批量管理员名(订单时间线等展示用);不存在的 id 不出现在结果中 */
+    public java.util.Map<Long, String> listAdminNames(java.util.Collection<Long> adminIds) {
+        if (adminIds == null || adminIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        dreamy.identity.v1.ListAdminNamesResponse resp = call("listAdminNames",
+                stub -> stub.listAdminNames(
+                        dreamy.identity.v1.ListAdminNamesRequest.newBuilder()
+                                .addAllAdminIds(adminIds).build()));
+        java.util.Map<Long, String> out = new java.util.HashMap<>();
+        resp.getItemsList().forEach(n -> out.put(n.getAdminId(), n.getName()));
+        return out;
+    }
+
     // ===== 统一调用骨架(deadline/异常映射/未接线守卫) =====
 
     private <T> T call(String rpc, GrpcCall<T> fn) {
@@ -183,10 +190,6 @@ public class IdentityGateClient {
     }
 
     private <T> Optional<T> callOptional(String rpc, GrpcCall<T> fn) {
-        if (!enabled) {
-            throw new IdentityUnavailableException(
-                    "IdentityGate 未启用(IDENTITY_GRPC_ENABLED=false):" + rpc, null);
-        }
         try {
             return Optional.of(fn.apply(stub.withDeadlineAfter(DEADLINE_MS, TimeUnit.MILLISECONDS)));
         } catch (StatusRuntimeException e) {

@@ -1,5 +1,5 @@
 //! 邮件模板种子(email_template,主库;启动幂等:按 code+locale 存在即跳过,不覆盖存量)。
-//! 种子集 = 身份域 4 code(otp/new_device/change_primary/account_deleted,本域发信用)
+//! 种子集 = 身份域 5 code(otp/new_device/change_primary/account_deleted/security_alert,本域发信用)
 //! + 业务域 10 code(翻译自 Java MailTemplateSeedInitializer,Java 经 gRPC TemplateGate 取用)。
 
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
@@ -38,6 +38,15 @@ const SEEDS: &[Seed] = &[
         "Tu cuenta Dreamy ha sido eliminada según lo solicitado. Lamentamos verte partir. Este correo es la confirmación final."),
     ("account_deleted", "fr", "Votre compte Dreamy a été supprimé",
         "Votre compte Dreamy a été supprimé à votre demande. Nous sommes désolés de vous voir partir. Cet e-mail constitue la confirmation finale."),
+    // security_alert:vars = email, ip, count(ratelimit.rs verify 连续失败告警;收件人=管理员)
+    ("security_alert", "en", "Security alert: unusual sign-in activity",
+        "We detected {{count}} failed verification attempts for {{email}} from IP {{ip}} in a short period. Please review account security in the admin console if needed."),
+    ("security_alert", "es", "Alerta de seguridad: actividad de inicio de sesión inusual",
+        "Detectamos {{count}} intentos fallidos de verificación para {{email}} desde la IP {{ip}} en un breve periodo. Revisa la seguridad de la cuenta en la consola de administración si es necesario."),
+    ("security_alert", "fr", "Alerte de sécurité : activité de connexion inhabituelle",
+        "Nous avons détecté {{count}} tentatives de vérification échouées pour {{email}} depuis l'IP {{ip}} en peu de temps. Veuillez vérifier la sécurité du compte dans la console d'administration si nécessaire."),
+    ("security_alert", "zh", "安全告警：异常登录尝试",
+        "检测到针对 {{email}} 的验证码连续 {{count}} 次校验失败（来源 IP：{{ip}}）。如有必要，请在管理后台核查该账号的安全状态。"),
     // ===== 业务域 10 code(Java q.mail 消费经 gRPC 取用;翻译自 MailTemplateSeedInitializer) =====
     // order_confirmed(EVT-TRD-001 order.paid)
     ("order_confirmed", "en", "Your Dreamy order {{order_no}} is confirmed",
@@ -148,6 +157,6 @@ pub async fn seed_mail_templates(db: &DatabaseConnection) {
         }
     }
     if created > 0 {
-        tracing::info!("[seed] 邮件模板播种完成:新增 {created} 条(身份 4 code + 业务 10 code)");
+        tracing::info!("[seed] 邮件模板播种完成:新增 {created} 条(身份 5 code + 业务 10 code)");
     }
 }

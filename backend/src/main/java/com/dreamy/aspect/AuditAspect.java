@@ -1,7 +1,5 @@
 package com.dreamy.aspect;
 
-import com.dreamy.domain.admin.entity.AdminUser;
-import com.dreamy.domain.admin.repository.AdminUserMapper;
 import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.security.AuthContext;
 import com.dreamy.security.AuthPrincipal;
@@ -21,11 +19,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuditAspect {
 
     private final AuditService auditService;
-    private final AdminUserMapper adminUserMapper;
 
-    public AuditAspect(AuditService auditService, AdminUserMapper adminUserMapper) {
+    public AuditAspect(AuditService auditService) {
         this.auditService = auditService;
-        this.adminUserMapper = adminUserMapper;
     }
 
     @Around("@annotation(auditLog)")
@@ -34,7 +30,7 @@ public class AuditAspect {
         try {
             AuthPrincipal p = AuthContext.get();
             Long operatorId = p != null && p.subject() != null ? Long.parseLong(p.subject()) : null;
-            String operatorName = resolveOperatorName(operatorId);
+            String operatorName = null;
             String target = auditLog.target().isEmpty() ? extractTarget(result, pjp.getArgs()) : auditLog.target();
             String ip = extractIp();
             String ua = extractUa();
@@ -77,16 +73,6 @@ public class AuditAspect {
             if (arg instanceof Long id) return "ID:" + id;
         }
         return null;
-    }
-
-    private String resolveOperatorName(Long operatorId) {
-        if (operatorId == null) return "系统";
-        try {
-            AdminUser admin = adminUserMapper.selectById(operatorId);
-            if (admin != null && admin.getName() != null) return admin.getName();
-        } catch (Exception ignored) {
-        }
-        return String.valueOf(operatorId);
     }
 
     private String extractIp() {

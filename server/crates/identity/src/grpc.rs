@@ -61,6 +61,7 @@ fn parse_col(c: i32) -> Result<user_query::Col, SvcError> {
     match parsed {
         pb::UserColumn::Id => Ok(user_query::Col::Id),
         pb::UserColumn::Email => Ok(user_query::Col::Email),
+        pb::UserColumn::Name => Ok(user_query::Col::Name),
         pb::UserColumn::Status => Ok(user_query::Col::Status),
         pb::UserColumn::Tier => Ok(user_query::Col::Tier),
         pb::UserColumn::CreatedAt => Ok(user_query::Col::CreatedAt),
@@ -76,6 +77,8 @@ fn parse_val(col: user_query::Col, raw: &str) -> Result<CondVal, SvcError> {
             .map(CondVal::Num)
             .map_err(|_| invalid(format!("数值列收到非数值: {raw}"))),
         user_query::Col::Email => Ok(CondVal::Str(raw.to_string())),
+        // Name 仅支持 LIKE_PREFIX 过滤,不参与 Eq/IN
+        user_query::Col::Name => Err(invalid("Name 列仅支持 LIKE_PREFIX")),
         user_query::Col::CreatedAt | user_query::Col::JoinedAt => {
             // 双格式:MySQL 字面量与 ISO 均接受
             chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S")
@@ -119,8 +122,8 @@ fn parse_conditions(conds: Vec<pb::Condition>) -> Result<Vec<Cond>, SvcError> {
                 Cond::In(col, vals)
             }
             pb::CondOp::LikePrefix => {
-                if col != user_query::Col::Email {
-                    return Err(invalid("LIKE_PREFIX 仅允许 Email 列"));
+                if !matches!(col, user_query::Col::Email | user_query::Col::Name) {
+                    return Err(invalid("LIKE_PREFIX 仅允许 Email/Name 列"));
                 }
                 if c.values.len() != 1 {
                     return Err(invalid("LIKE_PREFIX 仅接受单值"));
@@ -130,7 +133,13 @@ fn parse_conditions(conds: Vec<pb::Condition>) -> Result<Vec<Cond>, SvcError> {
                 if v.contains('%') || v.contains('_') {
                     return Err(invalid("LIKE_PREFIX 值不允许包含 % 或 _"));
                 }
-                Cond::EmailLikePrefix(v.to_lowercase())
+                // email 小写化(路由表全小写);name 保留原样(collation 大小写不敏感)
+                let normalized = if col == user_query::Col::Email {
+                    v.to_lowercase()
+                } else {
+                    v.clone()
+                };
+                Cond::LikePrefix(col, normalized)
             }
             _ => return Err(invalid("操作码未指定")),
         };
@@ -271,5 +280,32 @@ impl pb::identity_gate_server::IdentityGate for IdentityGateImpl {
             .await
             .map_err(map_err)?;
         Ok(Response::new(pb::EnsureDemoUserResponse { user_id }))
+    }
+
+    async fn list_admin_names(
+        &self,
+        request: Request<pb::ListAdminNamesRequest>,
+    ) -> Result<Response<pb::ListAdminNamesResponse>, Status> {
+        let req = request.into_inner();
+        if req.admin_ids.is_empty() {
+            return Ok(Response::new(pb::ListAdminNamesResponse { items: vec![] }));
+        }
+        if req.admin_ids.len() > MAX_IN_VALUES {
+            return Err(map_err(invalid(format!(
+                "admin_ids 超上限 {MAX_IN_VALUES}"
+            ))));
+        }
+        let items = service::admin_ops::list_admin_names(&self.state, &req.admin_ids)
+            .await
+            .map_err(map_err)?;
+        Ok(Response::new(pb::ListAdminNamesResponse {
+            items: items
+                .into_iter()
+                .map(|(admin_id, name)| pb::AdminName {
+                    admin_id,
+                    name,
+                })
+                .collect(),
+        }))
     }
 }

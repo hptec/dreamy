@@ -40,7 +40,8 @@ bcrypt = "0.15"
 uuid = { version = "1", features = ["v4"] }
 rand = "0.9"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt", "registry"] }
+tracing-appender = "0.2"
 thiserror = "2"
 urlencoding = "2"
 futures = "0.3"

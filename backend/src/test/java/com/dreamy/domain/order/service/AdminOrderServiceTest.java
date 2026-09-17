@@ -1,7 +1,7 @@
 package com.dreamy.domain.order.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dreamy.domain.user.entity.User;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
 import com.dreamy.enums.OrderActorType;
 import com.dreamy.enums.OrderEventType;
@@ -120,12 +120,9 @@ class AdminOrderServiceTest {
         return order;
     }
 
-    private User user(long id, String name, String email) {
-        User user = new User();
-        user.setId(id);
-        user.setName(name);
-        user.setEmail(email);
-        return user;
+    private CustomerInfoPort.CustomerInfo user(long id, String name, String email) {
+        return new CustomerInfoPort.CustomerInfo(id, email, true, name, null,
+                1, 1, null, null, null, false);
     }
 
     private Page<Order> pageOf(List<Order> records) {

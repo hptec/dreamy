@@ -9,8 +9,7 @@ import com.dreamy.domain.product.entity.ProductTranslation;
 import com.dreamy.domain.product.repository.ProductImageMapper;
 import com.dreamy.domain.product.repository.ProductMapper;
 import com.dreamy.domain.product.repository.ProductTranslationMapper;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.port.ShowroomCatalogSnapshotPort;
 import com.dreamy.port.ShowroomIdentityQueryPort;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -89,13 +88,9 @@ public class ShowroomPortConfig {
 
     @Bean
     @ConditionalOnMissingBean(ShowroomIdentityQueryPort.class)
-    public ShowroomIdentityQueryPort showroomIdentityQueryPortAdapter(UserMapper userMapper) {
-        return customerId -> {
-            if (customerId == null) {
-                return null;
-            }
-            User user = userMapper.selectById(customerId);
-            return user == null ? null : user.getName();
-        };
+    public ShowroomIdentityQueryPort showroomIdentityQueryPortAdapter(CustomerInfoPort customerInfoPort) {
+        return customerId -> customerInfoPort.byId(customerId == null ? 0 : customerId)
+                .map(CustomerInfoPort.CustomerInfo::name)
+                .orElse(null);
     }
 }

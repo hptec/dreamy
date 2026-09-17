@@ -1,7 +1,6 @@
 package com.dreamy.domain.order.service;
 
-import com.dreamy.domain.admin.entity.AdminUser;
-import com.dreamy.domain.admin.repository.AdminUserMapper;
+import com.dreamy.infra.grpc.IdentityGateClient;
 import com.dreamy.domain.order.entity.OrderEvent;
 import com.dreamy.domain.order.repository.OrderEventRepository;
 import com.dreamy.dto.TradingDtos.OrderEventDto;
@@ -33,7 +32,7 @@ class OrderEventRecorderTest {
     @Mock
     OrderEventRepository orderEventRepository;
     @Mock
-    AdminUserMapper adminUserMapper;
+    IdentityGateClient identityGateClient;
 
     @InjectMocks
     OrderEventRecorder recorder;
@@ -88,7 +87,7 @@ class OrderEventRecorderTest {
         assertThat(dtos).hasSize(1);
         assertThat(dtos.get(0).actorName()).isNull();
         assertThat(dtos.get(0).actorType()).isEqualTo(3);
-        verify(adminUserMapper, never()).selectByIds(any());
+        verify(identityGateClient, never()).listAdminNames(any());
     }
 
     @Test
@@ -108,17 +107,15 @@ class OrderEventRecorderTest {
         b.setTitle("Order paid");
         b.setCustomerVisible(true);
         when(orderEventRepository.listByOrderId(9L)).thenReturn(List.of(a, b));
-        AdminUser admin = new AdminUser();
-        admin.setId(3L);
-        admin.setName("Ops Lee");
-        when(adminUserMapper.selectByIds(any())).thenReturn(List.of(admin));
+        // IdentityGate ListAdminNames mock(名字缺失由服务回退 id 字符串)
+        when(identityGateClient.listAdminNames(any())).thenReturn(Map.of(3L, "Ops Lee"));
 
         List<OrderEventDto> dtos = recorder.listAdmin(9L);
 
         assertThat(dtos).extracting(OrderEventDto::actorName).containsExactly("Ops Lee", null);
         @SuppressWarnings("unchecked")
         ArgumentCaptor<java.util.Collection<Long>> ids = ArgumentCaptor.forClass(java.util.Collection.class);
-        verify(adminUserMapper).selectByIds(ids.capture());
+        verify(identityGateClient).listAdminNames(ids.capture());
         assertThat(ids.getValue()).containsExactly(3L);
     }
 }

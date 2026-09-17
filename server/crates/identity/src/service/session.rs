@@ -177,6 +177,29 @@ pub fn admin_key(token_id: &str) -> String {
     format!("admin:session:valid:{token_id}")
 }
 
+// ===== refresh 旋转链证据(V4 重用检测) =====
+
+fn rotated_key(old_jti: &str) -> String {
+    format!("session:rotated:{old_jti}")
+}
+
+/// 旋转时登记旧 refresh jti → user_id(TTL=新 refresh 有效期):
+/// 该 jti 再次出现即盗用信号,持有整链撤销依据
+pub async fn mark_rotated(state: &SharedState, old_jti: &str, user_id: i64, ttl_secs: i64) {
+    if let Some(mut conn) = state.redis.clone() {
+        let _: Result<(), _> = conn
+            .set_ex::<_, _, ()>(rotated_key(old_jti), user_id.to_string(), ttl_secs.max(1) as u64)
+            .await;
+    }
+}
+
+/// 旧 refresh jti 是否已被旋转过(返回属主 user_id)
+pub async fn rotated_owner(state: &SharedState, old_jti: &str) -> Option<i64> {
+    let mut conn = state.redis.clone()?;
+    let v: Option<String> = conn.get(rotated_key(old_jti)).await.ok().flatten();
+    v.and_then(|s| s.parse().ok())
+}
+
 pub async fn revoke_admin(state: &SharedState, token_id: &str) {
     if let Some(mut conn) = state.redis.clone() {
         if let Err(e) = conn.del::<_, ()>(admin_key(token_id)).await {

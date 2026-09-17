@@ -1,12 +1,6 @@
 package com.dreamy.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
 import com.dreamy.domain.checkout.entity.CheckoutConfig;
 import com.dreamy.domain.checkout.repository.CheckoutConfigRepository;
 import com.dreamy.domain.exchangerate.entity.ExchangeRate;
@@ -45,19 +39,11 @@ public class TradingSeedInitializer {
 
     private final ExchangeRateRepository exchangeRateRepository;
     private final CheckoutConfigRepository checkoutConfigRepository;
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
 
     public TradingSeedInitializer(ExchangeRateRepository exchangeRateRepository,
-                                  CheckoutConfigRepository checkoutConfigRepository,
-                                  PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                  RolePermissionMapper rolePermissionMapper) {
+                                  CheckoutConfigRepository checkoutConfigRepository) {
         this.exchangeRateRepository = exchangeRateRepository;
         this.checkoutConfigRepository = checkoutConfigRepository;
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -65,7 +51,6 @@ public class TradingSeedInitializer {
     public void seed() {
         seedExchangeRates();
         seedCheckoutConfig();
-        ensureSettingsPermission();
     }
 
     private void seedExchangeRates() {
@@ -104,30 +89,4 @@ public class TradingSeedInitializer {
                 + "auto_complete=7d, auto_deliver=30d, pending_timeout=30m, spread=0, production_days=21）");
     }
 
-    /** /settings 权限点注册 + 超管角色绑定（与 catalog ensureAttributeSetsPermission 同范式） */
-    private void ensureSettingsPermission() {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, "/settings"));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode("/settings");
-            permission.setGroup("发布与系统");
-            permission.setLabel("汇率与结算配置");
-            permissionMapper.insert(permission);
-            log.info("[TRADING-SEED] permission /settings 已注册");
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>()
-                .eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
-    }
 }

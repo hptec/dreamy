@@ -69,6 +69,8 @@ pub enum ErrorCode {
     ResendTooSoon,           // 42901 → 429
     RateLimited,             // 42902 → 429
     AdminLoginLocked,        // 42903 → 429
+    VerifyRateLimited,       // 42904 → 429(verify OTP IP 频控)
+    VerifyBackoff,           // 42905 → 429(verify OTP 失败递进退避)
     Internal,                // 50000 → 500
     Database,                // 50001 → 500
     EmailSendFailed,         // 50002 → 500
@@ -107,6 +109,8 @@ impl ErrorCode {
             Self::ResendTooSoon => 42901,
             Self::RateLimited => 42902,
             Self::AdminLoginLocked => 42903,
+            Self::VerifyRateLimited => 42904,
+            Self::VerifyBackoff => 42905,
             Self::Internal => 50000,
             Self::Database => 50001,
             Self::EmailSendFailed => 50002,
@@ -146,6 +150,8 @@ impl ErrorCode {
             42901 => Self::ResendTooSoon,
             42902 => Self::RateLimited,
             42903 => Self::AdminLoginLocked,
+            42904 => Self::VerifyRateLimited,
+            42905 => Self::VerifyBackoff,
             50000 => Self::Internal,
             50001 => Self::Database,
             50002 => Self::EmailSendFailed,
@@ -184,6 +190,7 @@ impl ErrorCode {
             Self::ResendTooSoon | Self::RateLimited | Self::AdminLoginLocked => {
                 StatusCode::TOO_MANY_REQUESTS
             }
+            Self::VerifyRateLimited | Self::VerifyBackoff => StatusCode::TOO_MANY_REQUESTS,
             Self::Internal | Self::Database | Self::EmailSendFailed => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -331,6 +338,14 @@ impl SvcError {
         SvcError::Code {
             code,
             details: Some(details),
+        }
+    }
+
+    /// wire 业务码(仅 Code 变体有;调用方按码分流逻辑用,如 verify 失败计数)
+    pub fn biz_code(&self) -> Option<i32> {
+        match self {
+            SvcError::Code { code, .. } => Some(*code),
+            _ => None,
         }
     }
 }

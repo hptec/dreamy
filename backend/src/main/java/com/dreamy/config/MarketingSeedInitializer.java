@@ -3,12 +3,6 @@ package com.dreamy.config;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductRepository;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
 import com.dreamy.domain.banner.entity.Banner;
 import com.dreamy.domain.banner.entity.BannerTranslation;
 import com.dreamy.domain.banner.repository.BannerRepository;
@@ -84,16 +78,12 @@ public class MarketingSeedInitializer {
     private final GuideRepository guideRepository;
     private final GuideTaskService guideTaskService;
     private final ProductRepository catalogProductRepository;
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
 
     public MarketingSeedInitializer(CouponMapper couponMapper, CouponRepository couponRepository,
                                     FlashSaleRepository flashSaleRepository, BannerRepository bannerRepository,
                                     BlogPostRepository blogPostRepository, RealWeddingRepository weddingRepository,
                                     LookbookRepository lookbookRepository, GuideRepository guideRepository, GuideTaskService guideTaskService,
-                                    ProductRepository catalogProductRepository, PermissionMapper permissionMapper,
-                                    RoleMapper roleMapper, RolePermissionMapper rolePermissionMapper) {
+                                    ProductRepository catalogProductRepository) {
         this.couponMapper = couponMapper;
         this.couponRepository = couponRepository;
         this.flashSaleRepository = flashSaleRepository;
@@ -104,16 +94,11 @@ public class MarketingSeedInitializer {
         this.guideRepository = guideRepository;
         this.guideTaskService = guideTaskService;
         this.catalogProductRepository = catalogProductRepository;
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void init() {
-        ensurePermission("/promotions", "营销活动", "促销管理（券与闪购）");
-        ensurePermission("/banners", "站点装修", "Banner 投放");
         seedBanners();
         backfillGuideTaskTranslations();
         if (couponMapper.selectCount(null) > 0) {
@@ -130,31 +115,6 @@ public class MarketingSeedInitializer {
     }
 
     /** RBAC 权限点登记（幂等按 perm_code）+ 绑定超管角色（与 CatalogSeedInitializer 同惯例） */
-    private void ensurePermission(String permCode, String group, String label) {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, permCode));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode(permCode);
-            permission.setGroup(group);
-            permission.setLabel(label);
-            permissionMapper.insert(permission);
-            log.info("[MarketingSeed] 权限点 {} 已登记", permCode);
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
-    }
-
     private List<Long> publishedProductIds(int limit) {
         try {
             return catalogProductRepository.listRecoNewArrivals(limit).stream().map(Product::getId).toList();

@@ -10,12 +10,8 @@ use common::state::{AppState, SharedState};
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .init();
+    // WorkerGuard 须持有到进程结束:drop 时才 flush non_blocking 缓冲,提前丢弃会丢日志
+    let _log_guard = init_logging();
 
     let cfg = match common::config::Config::from_env() {
         Ok(c) => c,
@@ -41,6 +37,9 @@ async fn main() {
     };
     // 邮件模板种子(幂等:code+locale 存在即跳过;身份 4 code + 业务 16 code)
     identity::seed::seed_mail_templates(&db).await;
+    // 身份基线种子(幂等:auth_config 单例 + 权限字典 27 点 + 超管角色/账户;
+    // Java DataInitializer 删码后新环境唯一自举来源)
+    identity::bootstrap::seed_identity_baseline(&db).await;
 
     let redis = build_redis_manager(&cfg).await;
 
@@ -140,4 +139,45 @@ async fn build_redis_manager(
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("[boot] 收到退出信号,开始优雅停机");
+}
+
+/// 日志双写:stdout(容器 docker logs)+ 按天滚动文件(SERVER_LOG_DIR,默认 ../logs)。
+/// 默认值口径与 Java bootRun 对称(cwd=server/,../logs 指向项目根 logs/);
+/// 容器由 compose 注入 SERVER_LOG_DIR=/app/logs。目录不可用时降级仅 stdout,不阻断启动。
+/// 返回 WorkerGuard,调用方须持有到进程结束。
+fn init_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    let filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    let log_dir = std::env::var("SERVER_LOG_DIR").unwrap_or_else(|_| "../logs".into());
+
+    // prefix + 日期 + suffix → dreamy-server.2026-09-17.log
+    let (file_layer, guard) = match tracing_appender::rolling::RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::DAILY)
+        .filename_prefix("dreamy-server")
+        .filename_suffix("log")
+        .build(&log_dir)
+    {
+        Ok(appender) => {
+            let (writer, guard) = tracing_appender::non_blocking(appender);
+            (
+                Some(tracing_subscriber::fmt::layer().json().with_writer(writer)),
+                Some(guard),
+            )
+        }
+        Err(err) => {
+            eprintln!("[boot] 日志目录 {log_dir} 不可用,降级仅 stdout:{err}");
+            (None, None)
+        }
+    };
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(tracing_subscriber::fmt::layer().json())
+        .with(file_layer)
+        .init();
+
+    guard
 }

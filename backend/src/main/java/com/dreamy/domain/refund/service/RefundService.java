@@ -13,8 +13,8 @@ import com.dreamy.domain.payment.entity.Payment;
 import com.dreamy.domain.payment.repository.PaymentRepository;
 import com.dreamy.domain.refund.entity.Refund;
 import com.dreamy.domain.refund.repository.RefundRepository;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
+import com.dreamy.infra.grpc.IdentityGateClient;
 import com.dreamy.dto.TradingDtos.AdminRefundDto;
 import com.dreamy.dto.TradingDtos.StoreRefundDto;
 import com.dreamy.enums.OrderActorType;
@@ -78,7 +78,8 @@ public class RefundService {
     private final TradingAfterCommitRunner afterCommit;
     private final TradingAuditRecorder audit;
     private final TradingEventsPublisher eventsPublisher;
-    private final UserMapper userMapper;
+    private final CustomerInfoPort customerInfoPort;
+    private final IdentityGateClient identityGateClient;
     private final OrderEventRecorder orderEventRecorder;
 
     public RefundService(RefundRepository refundRepository, OrderRepository orderRepository,
@@ -86,7 +87,8 @@ public class RefundService {
                          CheckoutConfigRepository checkoutConfigRepository, OrderNoGenerator orderNoGenerator,
                          SkuStockAdapter skuStockAdapter, StripeClient stripeClient, TradingTxRunner txRunner,
                          TradingAfterCommitRunner afterCommit, TradingAuditRecorder audit,
-                         TradingEventsPublisher eventsPublisher, UserMapper userMapper,
+                         TradingEventsPublisher eventsPublisher, CustomerInfoPort customerInfoPort,
+                         IdentityGateClient identityGateClient,
                          OrderEventRecorder orderEventRecorder) {
         this.refundRepository = refundRepository;
         this.orderRepository = orderRepository;
@@ -100,7 +102,8 @@ public class RefundService {
         this.afterCommit = afterCommit;
         this.audit = audit;
         this.eventsPublisher = eventsPublisher;
-        this.userMapper = userMapper;
+        this.customerInfoPort = customerInfoPort;
+        this.identityGateClient = identityGateClient;
         this.orderEventRecorder = orderEventRecorder;
     }
 
@@ -440,17 +443,18 @@ public class RefundService {
         Map<Long, Order> orders = orderRepository.listByIds(
                         result.getRecords().stream().map(Refund::getOrderId).distinct().toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Order::getId, o -> o));
-        Map<Long, User> users = loadUsers(result.getRecords().stream().map(Refund::getCustomerId).distinct().toList());
+        Map<Long, CustomerInfoPort.CustomerInfo> users = loadUsers(
+                result.getRecords().stream().map(Refund::getCustomerId).distinct().toList());
         return TradingPaginatedSupport.of(result, r -> toAdminDto(r, orders.get(r.getOrderId()), users));
     }
 
     /** MAP-TRD-008：AdminRefund 视图（order_no/customer 派生 + stripe_refund_id/return_tracking_no + 快照） */
-    public AdminRefundDto toAdminDto(Refund refund, Order order, Map<Long, User> users) {
-        User user = users == null ? null : users.get(refund.getCustomerId());
+    public AdminRefundDto toAdminDto(Refund refund, Order order, Map<Long, CustomerInfoPort.CustomerInfo> users) {
+        CustomerInfoPort.CustomerInfo user = users == null ? null : users.get(refund.getCustomerId());
         return new AdminRefundDto(refund.getId(), refund.getRefundNo(), refund.getOrderId(), refund.getAmount(),
                 refund.getCurrency(), refund.getReason(), refund.getRejectReason(), refund.getStatus().getKey(),
                 refund.getAppliedAt(), order == null ? null : order.getOrderNo(), refund.getCustomerId(),
-                user == null ? null : user.getName(), user == null ? null : user.getEmail(),
+                user == null ? null : user.name(), user == null ? null : user.email(),
                 refund.getStripeRefundId(), refund.getReturnTrackingNo(),
                 refund.getFromStatus() == null ? null : refund.getFromStatus().getKey(),
                 refund.getFromStage() == null ? null : refund.getFromStage().getKey(),
@@ -475,36 +479,41 @@ public class RefundService {
         return payload;
     }
 
-    /** identity 用户快照批量联取（进程内只读，防 N+1；查询优化补充：先 identity 后 IN 回查口径同源） */
-    public Map<Long, User> loadUsers(List<Long> userIds) {
-        Map<Long, User> result = new HashMap<>();
-        if (userIds == null || userIds.isEmpty()) {
-            return result;
-        }
-        for (User user : userMapper.selectByIds(userIds)) {
-            result.put(user.getId(), user);
-        }
-        return result;
+    /** identity 用户快照批量联取(CustomerInfoPort gRPC,防 N+1;gRPC 不可达返回空集由装配侧降级) */
+    public Map<Long, CustomerInfoPort.CustomerInfo> loadUsers(List<Long> userIds) {
+        return customerInfoPort.byIds(userIds);
     }
 
-    /** 客户邮箱模糊 → user ids（identity 自有索引，避免跨域 join——IDX-TRD 查询优化补充） */
+    /** 客户邮箱前缀 → user ids(IdentityGate ListUsers LIKE_PREFIX;协议纪律:仅前缀匹配防全表扫描) */
     public List<Long> findUserIdsByEmailLike(String emailLike) {
-        return userMapper.selectList(new LambdaQueryWrapper<User>()
-                        .like(User::getEmail, emailLike)
-                        .select(User::getId)
-                        .last("LIMIT 500"))
-                .stream().map(User::getId).toList();
+        String prefix = emailLike == null ? "" : emailLike.trim();
+        if (prefix.isEmpty()) {
+            return List.of();
+        }
+        dreamy.identity.v1.ListUsersResponse resp = identityGateClient.listUsers(
+                List.of(IdentityGateClient.likePrefix(
+                        dreamy.identity.v1.UserColumn.USER_COLUMN_EMAIL, prefix)),
+                "id asc", 1, 100);
+        return resp.getItemsList().stream().map(dreamy.identity.v1.UserRecord::getId).toList();
     }
 
     /**
-     * RM-TRD-02：客户名/邮箱模糊 → user ids（API-TRD-03 listAdminOrders 搜索范围扩展，ALIGN-015；
-     * QP-TRD-01：LIKE '%kw%' 不走索引，与既有邮箱搜索同量级，管理端低频可接受，不引入额外索引）。
+     * RM-TRD-02：客户名/邮箱搜索 → user ids(API-TRD-03 listAdminOrders 搜索范围扩展,ALIGN-015)。
+     * 协议无 OR 条件 → name 与 email 各一次 LIKE_PREFIX 取并集(前缀匹配语义,防全表扫描)。
      */
     public List<Long> findUserIdsByNameOrEmailLike(String keyword) {
-        return userMapper.selectList(new LambdaQueryWrapper<User>()
-                        .and(w -> w.like(User::getName, keyword).or().like(User::getEmail, keyword))
-                        .select(User::getId)
-                        .last("LIMIT 500"))
-                .stream().map(User::getId).toList();
+        String prefix = keyword == null ? "" : keyword.trim();
+        if (prefix.isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<Long> ids = new java.util.LinkedHashSet<>();
+        for (dreamy.identity.v1.UserColumn col : new dreamy.identity.v1.UserColumn[]{
+                dreamy.identity.v1.UserColumn.USER_COLUMN_NAME,
+                dreamy.identity.v1.UserColumn.USER_COLUMN_EMAIL}) {
+            dreamy.identity.v1.ListUsersResponse resp = identityGateClient.listUsers(
+                    List.of(IdentityGateClient.likePrefix(col, prefix)), "id asc", 1, 100);
+            resp.getItemsList().forEach(r -> ids.add(r.getId()));
+        }
+        return List.copyOf(ids);
     }
 }

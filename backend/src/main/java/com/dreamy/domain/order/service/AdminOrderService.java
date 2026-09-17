@@ -1,7 +1,6 @@
 package com.dreamy.domain.order.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dreamy.domain.user.entity.User;
 import com.dreamy.enums.OrderActorType;
 import com.dreamy.enums.OrderEventType;
 import com.dreamy.enums.OrderStatus;
@@ -27,6 +26,7 @@ import com.dreamy.dto.TradingDtos.ShipmentCreateRequest;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
 import com.dreamy.infra.TradingAfterCommitRunner;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.infra.TradingAuditRecorder;
 import com.dreamy.infra.TradingTxRunner;
 import com.dreamy.mq.TradingEventsPublisher;
@@ -140,7 +140,7 @@ public class AdminOrderService {
             result.setRecords(filtered);
         }
         // STEP-TRD-02 customer_name/customer_email 批量联取（防 N+1）
-        Map<Long, User> users = refundService.loadUsers(
+        Map<Long, CustomerInfoPort.CustomerInfo> users = refundService.loadUsers(
                 result.getRecords().stream().map(Order::getCustomerId).distinct().toList());
         // RM-TRD-01c item_count 批量聚合（SUM(qty) GROUP BY，缺失 → 0）
         Map<Long, Integer> itemCounts = orderLineRepository.sumQtyByOrderIds(
@@ -180,7 +180,7 @@ public class AdminOrderService {
             if (batch.isEmpty()) {
                 break;
             }
-            Map<Long, User> users = refundService.loadUsers(
+            Map<Long, CustomerInfoPort.CustomerInfo> users = refundService.loadUsers(
                     batch.stream().map(Order::getCustomerId).distinct().toList());
             Map<Long, Integer> itemCounts = orderLineRepository.sumQtyByOrderIds(
                     batch.stream().map(Order::getId).toList());
@@ -245,11 +245,11 @@ public class AdminOrderService {
     /** CSV 行装配（列序见 API-TRD-02 出参；country=RM-TRD-01b / item_count=RM-TRD-01c 派生；
      * customer_name/customer_email/country 为顾客侧可控文本 → 公式注入中和（L4 security 修复），
      * 金额/数字/系统枚举列不做中和） */
-    private String csvLine(Order order, User user, Map<Long, Integer> itemCounts) {
+    private String csvLine(Order order, CustomerInfoPort.CustomerInfo user, Map<Long, Integer> itemCounts) {
         return String.join(",",
                 csvCell(order.getOrderNo()),
-                csvCellUntrusted(user == null ? null : user.getName()),
-                csvCellUntrusted(user == null ? null : user.getEmail()),
+                csvCellUntrusted(user == null ? null : user.name()),
+                csvCellUntrusted(user == null ? null : user.email()),
                 csvCellUntrusted(extractCountry(order)),
                 String.valueOf(itemCounts.getOrDefault(order.getId(), 0)),
                 csvCell(order.getTotalAmount() == null ? null : order.getTotalAmount().toPlainString()),
@@ -467,13 +467,13 @@ public class AdminOrderService {
     // ==================== 装配（MAP-TRD-005 + API-TRD-01 扩展列） ====================
 
     /** MAP-TRD-005：country（RM-TRD-01b）/ item_count（RM-TRD-01c，缺失 → 0）追加 */
-    private AdminOrderListItem toListItem(Order o, User user, Map<Long, Integer> itemCounts) {
+    private AdminOrderListItem toListItem(Order o, CustomerInfoPort.CustomerInfo user, Map<Long, Integer> itemCounts) {
         return new AdminOrderListItem(o.getId(), o.getOrderNo(), o.getStatus().getKey(), o.getCurrency(),
                 o.getExchangeRate(), o.getWeddingDate(), o.getSubtotal(), o.getShippingFee(), o.getGiftWrap(),
                 o.getGiftWrapFee(), o.getDiscountAmount(), o.getTotalAmount(), o.getCouponId(),
                 o.getPaymentMethod(), o.getCarrier(), o.getTrackingNo(), o.getExpiresAt(), o.getPaidAt(),
                 o.getShippedAt(), o.getCompletedAt(), o.getCreatedAt(), o.getCustomerId(),
-                user == null ? null : user.getName(), user == null ? null : user.getEmail(),
+                user == null ? null : user.name(), user == null ? null : user.email(),
                 extractCountry(o), itemCounts.getOrDefault(o.getId(), 0),
                 StoreOrderService.keyOf(o.getProductionStage()), weddingDaysLeft(o.getWeddingDate()),
                 o.getDeliveredAt(), o.getTaxAmount(), o.getRefundedAmount(), o.getAmountVersion(),
@@ -489,8 +489,8 @@ public class AdminOrderService {
     public AdminOrderDetail assembleDetail(Order order) {
         List<OrderLine> lines = orderLineRepository.listByOrderId(order.getId());
         List<Refund> refunds = refundRepository.listByOrderId(order.getId());
-        Map<Long, User> users = refundService.loadUsers(List.of(order.getCustomerId()));
-        User user = users.get(order.getCustomerId());
+        Map<Long, CustomerInfoPort.CustomerInfo> users = refundService.loadUsers(List.of(order.getCustomerId()));
+        CustomerInfoPort.CustomerInfo user = users.get(order.getCustomerId());
         int graceHours = checkoutConfigRepository.getSingleton().getCustomRefundGraceHours();
         LocalDateTime now = LocalDateTime.now();
         List<OrderLineDto> lineDtos = lines.stream()
@@ -503,8 +503,8 @@ public class AdminOrderService {
                 order.getTotalAmount(), order.getCouponId(), order.getPaymentMethod(), order.getCarrier(),
                 order.getTrackingNo(), order.getExpiresAt(), order.getPaidAt(), order.getShippedAt(),
                 order.getCompletedAt(), order.getCreatedAt(), order.getCustomerId(),
-                user == null ? null : user.getName(), user == null ? null : user.getEmail(),
-                user == null ? null : user.getPhone(), lineDtos, order.getAddressSnapshot(),
+                user == null ? null : user.name(), user == null ? null : user.email(),
+                user == null ? null : user.phone(), lineDtos, order.getAddressSnapshot(),
                 StoreOrderService.toPaymentSummary(paymentRepository.findByOrderId(order.getId())),
                 refundDtos,
                 StoreOrderService.keyOf(order.getProductionStage()), order.getDeliveredAt(), order.getTaxAmount(),

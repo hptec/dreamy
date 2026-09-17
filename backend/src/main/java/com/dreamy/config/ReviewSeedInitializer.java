@@ -3,16 +3,7 @@ package com.dreamy.config;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dreamy.domain.product.entity.Product;
 import com.dreamy.domain.product.repository.ProductMapper;
-import com.dreamy.enums.UserStatus;
-import com.dreamy.enums.UserTier;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.enums.QuestionVisibility;
 import com.dreamy.enums.ReviewStatus;
 import com.dreamy.domain.question.entity.ProductQuestion;
@@ -59,64 +50,30 @@ public class ReviewSeedInitializer {
     private final ReviewImageRepository imageRepository;
     private final ProductQuestionRepository questionRepository;
     private final ProductMapper productMapper;
-    private final UserMapper userMapper;
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
+    private final CustomerInfoPort customerInfoPort;
 
     private final Map<String, Long> productIdBySlug = new HashMap<>();
     private final Map<String, Long> userIdByName = new HashMap<>();
 
     public ReviewSeedInitializer(ReviewRepository reviewRepository, ReviewImageRepository imageRepository,
                                  ProductQuestionRepository questionRepository, ProductMapper productMapper,
-                                 UserMapper userMapper, PermissionMapper permissionMapper,
-                                 RoleMapper roleMapper, RolePermissionMapper rolePermissionMapper) {
+                                 CustomerInfoPort customerInfoPort) {
         this.reviewRepository = reviewRepository;
         this.imageRepository = imageRepository;
         this.questionRepository = questionRepository;
         this.productMapper = productMapper;
-        this.userMapper = userMapper;
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
+        this.customerInfoPort = customerInfoPort;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void init() {
-        ensureReviewsPermission();
         if (reviewRepository.countAll() > 0 || questionRepository.countAll() > 0) {
             return;
         }
         seedReviews();
         seedQuestions();
         log.info("[ReviewSeed] review 种子数据初始化完成");
-    }
-
-    /** RBAC 权限点 /reviews（幂等按 perm_code）+ 绑定超管角色（catalog ensureAttributeSetsPermission 同惯例） */
-    private void ensureReviewsPermission() {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, "/reviews"));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode("/reviews");
-            permission.setGroup("内容管理");
-            permission.setLabel("评价与 Q&A");
-            permissionMapper.insert(permission);
-            log.info("[ReviewSeed] 权限点 /reviews 已登记");
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
     }
 
     // ==================== 评价（mock.js reviews 13 行全量） ====================
@@ -333,26 +290,12 @@ public class ReviewSeedInitializer {
         });
     }
 
-    /** 种子用户（按派生 email 幂等；identity 无消费端用户种子，本域补建以满足 user_id 逻辑外键） */
+    /** 种子用户(按派生 email 经 CustomerInfoPort gRPC 幂等归并;Rust 侧 EnsureDemoUser 通道) */
     private Long ensureUser(String fullName) {
         return userIdByName.computeIfAbsent(fullName, name -> {
             String email = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", ".")
                     .replaceAll("^\\.|\\.$", "") + "@seed.dreamy.com";
-            User existing = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, email));
-            if (existing != null) {
-                return existing.getId();
-            }
-            User user = new User();
-            user.setEmail(email);
-            user.setEmailVerified(true);
-            user.setName(name);
-            user.setTier(UserTier.REGULAR);
-            user.setStatus(UserStatus.ACTIVE);
-            user.setJoinedAt(LocalDateTime.parse("2026-05-01 10:00", MOCK_TIME));
-            user.setAnonymized(false);
-            user.setVersion(0);
-            userMapper.insert(user);
-            return user.getId();
+            return customerInfoPort.ensureDemoUser(email, name);
         });
     }
 }

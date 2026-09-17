@@ -29,7 +29,7 @@ import java.util.Set;
 /**
  * site_builder 域演示数据 seed（幂等）。
  * SF-L4-02：HomeBuilder.vue + NavigationConfig.vue UI 预览需要真实 API 数据。
- * 监听 ApplicationReadyEvent，在 DataInitializer（默认 @Order 0）之后执行。
+ * 监听 ApplicationReadyEvent 执行(身份基线种子已随 Java 删码迁至 Rust server bootstrap)。
  * 首页区块按 section_type 补齐，不覆盖已有运营数据（幂等）。
  */
 @Component

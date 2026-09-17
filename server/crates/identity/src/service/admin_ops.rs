@@ -647,6 +647,8 @@ pub async fn user_detail(
 
 /// admin 操作审计写入(失败 ERROR 不阻塞;REST 调用点与 gRPC AuditGate 共用)。
 /// operator_id:None = 系统操作(Java MergeService 语义)。
+/// operator_name 快照兜底:Java 侧(删码后)不再查 admin 名,传空且 operator_id 非空时
+/// 由本侧同库查 admin_user 补齐——省一次 gRPC 往返,快照语义不变(MAP-006)。
 pub async fn audit(
     state: &SharedState,
     operator_id: Option<i64>,
@@ -656,9 +658,20 @@ pub async fn audit(
     ip: &str,
     user_agent: Option<&str>,
 ) {
+    let name_snapshot = match (operator_id, operator_name) {
+        (Some(id), "") => admin_user::Entity::find_by_id(id as u64)
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|a| a.name)
+            .unwrap_or_else(|| id.to_string()),
+        (None, _) => String::new(),
+        (Some(_), name) => name.to_string(),
+    };
     let result = operation_log::Entity::insert(operation_log::ActiveModel {
         operator_id: Set(operator_id),
-        operator_name: Set(Some(operator_name.to_string())),
+        operator_name: Set(Some(name_snapshot)),
         action: Set(action.to_string()),
         target: Set(Some(target.to_string())),
         ip: Set(Some(ip.to_string())),
@@ -671,6 +684,26 @@ pub async fn audit(
         // 对齐 Java AuditAspect 吞异常语义 + 用户指令不静默:ERROR 日志 + 可见计数
         tracing::error!(error = %e, action, "[audit] 审计写入失败(不阻塞主流程)");
     }
+}
+
+/// 批量管理员名快照(Java 订单时间线 DTO 装配;ids 1..100 由 gRPC 层校验)。
+/// 仅暴露 name;不存在/已删除 id 不出现在结果中(调用方自行回退 id 字符串)。
+pub async fn list_admin_names(
+    state: &SharedState,
+    admin_ids: &[i64],
+) -> Result<Vec<(i64, String)>, SvcError> {
+    if admin_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids: Vec<u64> = admin_ids.iter().map(|v| *v as u64).collect();
+    let rows = admin_user::Entity::find()
+        .filter(admin_user::Column::Id.is_in(ids))
+        .all(&state.db)
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|a| a.name.map(|n| (a.id as i64, n)))
+        .collect())
 }
 
 // ══════════ 审计查询(主库 dreamy_server;REST handler 与 gRPC AuditGate 共用) ══════════

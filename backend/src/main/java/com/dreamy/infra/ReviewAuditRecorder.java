@@ -1,7 +1,5 @@
 package com.dreamy.infra;
 
-import com.dreamy.domain.admin.entity.AdminUser;
-import com.dreamy.domain.admin.repository.AdminUserMapper;
 import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.security.AuthContext;
 import com.dreamy.security.AuthPrincipal;
@@ -29,11 +27,9 @@ public class ReviewAuditRecorder {
     private static final Logger log = LoggerFactory.getLogger(ReviewAuditRecorder.class);
 
     private final AuditService auditService;
-    private final AdminUserMapper adminUserMapper;
 
-    public ReviewAuditRecorder(AuditService auditService, AdminUserMapper adminUserMapper) {
+    public ReviewAuditRecorder(AuditService auditService) {
         this.auditService = auditService;
-        this.adminUserMapper = adminUserMapper;
     }
 
     /** 写 operation_log（事务内调用，随 TX 原子提交/回滚）；store 提交端点不调用（非后台操作） */
@@ -48,27 +44,12 @@ public class ReviewAuditRecorder {
                     // 非数字主体（不应出现）按系统操作记录
                 }
             }
-            auditService.record(operatorId, resolveOperatorName(operatorId), action, target,
+            auditService.record(operatorId, null, action, target,
                     extractIp(), extractUa(), changesJson);
         } catch (Exception ex) {
             // 审计写入失败记录并继续（与 identity AuditAspect 同口径）
             log.warn("[AUDIT-REV] record failed action={} target={}", action, target, ex);
         }
-    }
-
-    private String resolveOperatorName(Long operatorId) {
-        if (operatorId == null) {
-            return "系统";
-        }
-        try {
-            AdminUser admin = adminUserMapper.selectById(operatorId);
-            if (admin != null && admin.getName() != null) {
-                return admin.getName();
-            }
-        } catch (Exception ignored) {
-            // 回退 id 字符串
-        }
-        return String.valueOf(operatorId);
     }
 
     private String extractIp() {

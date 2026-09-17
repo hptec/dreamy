@@ -35,14 +35,8 @@ import com.dreamy.domain.collection.entity.CollectionGroupTranslation;
 import com.dreamy.domain.collection.entity.CollectionTranslation;
 import com.dreamy.domain.collection.repository.CollectionGroupRepository;
 import com.dreamy.domain.collection.repository.CollectionRepository;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
 import com.dreamy.domain.product.entity.vo.FabricComposition;
 import com.dreamy.domain.product.entity.vo.CareItem;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -88,9 +82,6 @@ public class CatalogSeedInitializer {
     private final AttributeSetRepository attributeSetRepository;
     private final CollectionGroupRepository collectionGroupRepository;
     private final CollectionRepository collectionRepository;
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
     private final JdbcTemplate jdbcTemplate;
 
     public CatalogSeedInitializer(ProductMapper productMapper, ProductRepository productRepository,
@@ -102,9 +93,7 @@ public class CatalogSeedInitializer {
                                   CategoryRepository categoryRepository,
                                   AttributeDefRepository attributeDefRepository,
                                   AttributeSetRepository attributeSetRepository,
-                                  CollectionGroupRepository collectionGroupRepository, CollectionRepository collectionRepository,
-                                  PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                  RolePermissionMapper rolePermissionMapper, JdbcTemplate jdbcTemplate) {
+                                  CollectionGroupRepository collectionGroupRepository, CollectionRepository collectionRepository, JdbcTemplate jdbcTemplate) {
         this.productMapper = productMapper;
         this.productRepository = productRepository;
         this.imageRepository = imageRepository;
@@ -118,16 +107,12 @@ public class CatalogSeedInitializer {
         this.attributeSetRepository = attributeSetRepository;
         this.collectionGroupRepository = collectionGroupRepository;
         this.collectionRepository = collectionRepository;
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
         this.jdbcTemplate = jdbcTemplate;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void init() {
-        ensureAttributeSetsPermission();
         if (hasCatalogData()) {
             log.info("[CatalogSeed] 检测到既有 Catalog 数据，跳过演示数据初始化");
             return;
@@ -154,31 +139,6 @@ public class CatalogSeedInitializer {
     }
 
     /** RBAC 权限点 /attribute-sets（幂等按 perm_code）+ 绑定超管角色 */
-    private void ensureAttributeSetsPermission() {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, "/attribute-sets"));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode("/attribute-sets");
-            permission.setGroup("商品管理");
-            permission.setLabel("属性集");
-            permissionMapper.insert(permission);
-            log.info("[CatalogSeed] 权限点 /attribute-sets 已登记");
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
-    }
-
     private Map<String, Long> seedAttributeDefs() {
         Map<String, Long> ids = new LinkedHashMap<>();
         ids.put("silhouette", insertDef("silhouette", "Silhouette", AttributeType.SELECT,

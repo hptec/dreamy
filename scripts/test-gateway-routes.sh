@@ -5,7 +5,7 @@
 #           用真实 nginx/gateway.conf.template + 4 个 stub 上游,
 #           断言每条身份域前缀路由到 server、负向样本仍回 backend、
 #           页面路由不变;覆盖 OPTIONS 预检与 URL 编码路径。
-#           变更网关前缀/新增路由必须同步本矩阵(codex 评审约定)。
+#           变更网关前缀/新增路由必须同步本矩阵。
 # 使用方式: bash scripts/test-gateway-routes.sh
 # 依赖环境: Docker(拉起临时 nginx + http-echo stub,测试完自动清理)
 # =============================================================

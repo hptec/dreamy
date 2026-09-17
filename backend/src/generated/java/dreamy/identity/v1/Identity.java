@@ -90,6 +90,21 @@ public final class Identity {
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_dreamy_identity_v1_EnsureDemoUserResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_dreamy_identity_v1_ListAdminNamesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_dreamy_identity_v1_ListAdminNamesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_dreamy_identity_v1_AdminName_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_dreamy_identity_v1_AdminName_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_dreamy_identity_v1_ListAdminNamesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_dreamy_identity_v1_ListAdminNamesResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -134,31 +149,38 @@ public final class Identity {
       "UserRecord\022\r\n\005total\030\002 \001(\003J\004\010\003\020d\":\n\025Ensur" +
       "eDemoUserRequest\022\r\n\005email\030\001 \001(\t\022\014\n\004name\030" +
       "\002 \001(\tJ\004\010\003\020\020\"/\n\026EnsureDemoUserResponse\022\017\n" +
-      "\007user_id\030\001 \001(\003J\004\010\002\020\020*\271\001\n\nUserColumn\022\033\n\027U" +
-      "SER_COLUMN_UNSPECIFIED\020\000\022\022\n\016USER_COLUMN_" +
-      "ID\020\001\022\025\n\021USER_COLUMN_EMAIL\020\002\022\026\n\022USER_COLU" +
-      "MN_STATUS\020\003\022\024\n\020USER_COLUMN_TIER\020\004\022\032\n\026USE" +
-      "R_COLUMN_CREATED_AT\020\005\022\031\n\025USER_COLUMN_JOI" +
-      "NED_AT\020\006*Z\n\006CondOp\022\027\n\023COND_OP_UNSPECIFIE" +
-      "D\020\000\022\016\n\nCOND_OP_EQ\020\001\022\016\n\nCOND_OP_IN\020\002\022\027\n\023C" +
-      "OND_OP_LIKE_PREFIX\020\0032\220\005\n\014IdentityGate\022y\n" +
-      "\024ValidateStoreSession\022/.dreamy.identity." +
-      "v1.ValidateStoreSessionRequest\0320.dreamy." +
-      "identity.v1.ValidateStoreSessionResponse" +
-      "\022y\n\024ValidateAdminSession\022/.dreamy.identi" +
-      "ty.v1.ValidateAdminSessionRequest\0320.drea" +
-      "my.identity.v1.ValidateAdminSessionRespo" +
-      "nse\022s\n\022ResolvePermissions\022-.dreamy.ident" +
-      "ity.v1.ResolvePermissionsRequest\032..dream" +
-      "y.identity.v1.ResolvePermissionsResponse" +
-      "\022R\n\007GetUser\022\".dreamy.identity.v1.GetUser" +
-      "Request\032#.dreamy.identity.v1.GetUserResp" +
-      "onse\022X\n\tListUsers\022$.dreamy.identity.v1.L" +
-      "istUsersRequest\032%.dreamy.identity.v1.Lis" +
-      "tUsersResponse\022g\n\016EnsureDemoUser\022).dream" +
-      "y.identity.v1.EnsureDemoUserRequest\032*.dr" +
-      "eamy.identity.v1.EnsureDemoUserResponseB" +
-      "\002P\001b\006proto3"
+      "\007user_id\030\001 \001(\003J\004\010\002\020\020\"0\n\025ListAdminNamesRe" +
+      "quest\022\021\n\tadmin_ids\030\001 \003(\003J\004\010\002\020\020\"1\n\tAdminN" +
+      "ame\022\020\n\010admin_id\030\001 \001(\003\022\014\n\004name\030\002 \001(\tJ\004\010\003\020" +
+      "\020\"L\n\026ListAdminNamesResponse\022,\n\005items\030\001 \003" +
+      "(\0132\035.dreamy.identity.v1.AdminNameJ\004\010\002\020\020*" +
+      "\317\001\n\nUserColumn\022\033\n\027USER_COLUMN_UNSPECIFIE" +
+      "D\020\000\022\022\n\016USER_COLUMN_ID\020\001\022\025\n\021USER_COLUMN_E" +
+      "MAIL\020\002\022\026\n\022USER_COLUMN_STATUS\020\003\022\024\n\020USER_C" +
+      "OLUMN_TIER\020\004\022\032\n\026USER_COLUMN_CREATED_AT\020\005" +
+      "\022\031\n\025USER_COLUMN_JOINED_AT\020\006\022\024\n\020USER_COLU" +
+      "MN_NAME\020\007*Z\n\006CondOp\022\027\n\023COND_OP_UNSPECIFI" +
+      "ED\020\000\022\016\n\nCOND_OP_EQ\020\001\022\016\n\nCOND_OP_IN\020\002\022\027\n\023" +
+      "COND_OP_LIKE_PREFIX\020\0032\371\005\n\014IdentityGate\022y" +
+      "\n\024ValidateStoreSession\022/.dreamy.identity" +
+      ".v1.ValidateStoreSessionRequest\0320.dreamy" +
+      ".identity.v1.ValidateStoreSessionRespons" +
+      "e\022y\n\024ValidateAdminSession\022/.dreamy.ident" +
+      "ity.v1.ValidateAdminSessionRequest\0320.dre" +
+      "amy.identity.v1.ValidateAdminSessionResp" +
+      "onse\022s\n\022ResolvePermissions\022-.dreamy.iden" +
+      "tity.v1.ResolvePermissionsRequest\032..drea" +
+      "my.identity.v1.ResolvePermissionsRespons" +
+      "e\022R\n\007GetUser\022\".dreamy.identity.v1.GetUse" +
+      "rRequest\032#.dreamy.identity.v1.GetUserRes" +
+      "ponse\022X\n\tListUsers\022$.dreamy.identity.v1." +
+      "ListUsersRequest\032%.dreamy.identity.v1.Li" +
+      "stUsersResponse\022g\n\016EnsureDemoUser\022).drea" +
+      "my.identity.v1.EnsureDemoUserRequest\032*.d" +
+      "reamy.identity.v1.EnsureDemoUserResponse" +
+      "\022g\n\016ListAdminNames\022).dreamy.identity.v1." +
+      "ListAdminNamesRequest\032*.dreamy.identity." +
+      "v1.ListAdminNamesResponseB\002P\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -254,6 +276,24 @@ public final class Identity {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_dreamy_identity_v1_EnsureDemoUserResponse_descriptor,
         new java.lang.String[] { "UserId", });
+    internal_static_dreamy_identity_v1_ListAdminNamesRequest_descriptor =
+      getDescriptor().getMessageTypes().get(15);
+    internal_static_dreamy_identity_v1_ListAdminNamesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_dreamy_identity_v1_ListAdminNamesRequest_descriptor,
+        new java.lang.String[] { "AdminIds", });
+    internal_static_dreamy_identity_v1_AdminName_descriptor =
+      getDescriptor().getMessageTypes().get(16);
+    internal_static_dreamy_identity_v1_AdminName_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_dreamy_identity_v1_AdminName_descriptor,
+        new java.lang.String[] { "AdminId", "Name", });
+    internal_static_dreamy_identity_v1_ListAdminNamesResponse_descriptor =
+      getDescriptor().getMessageTypes().get(17);
+    internal_static_dreamy_identity_v1_ListAdminNamesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_dreamy_identity_v1_ListAdminNamesResponse_descriptor,
+        new java.lang.String[] { "Items", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

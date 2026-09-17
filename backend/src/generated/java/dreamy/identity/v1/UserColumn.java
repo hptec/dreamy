@@ -43,6 +43,14 @@ public enum UserColumn
    * <code>USER_COLUMN_JOINED_AT = 6;</code>
    */
   USER_COLUMN_JOINED_AT(6),
+  /**
+   * <pre>
+   * 2026-09-17 Java 删码补:管理端客户名搜索(ListUsers LIKE_PREFIX)
+   * </pre>
+   *
+   * <code>USER_COLUMN_NAME = 7;</code>
+   */
+  USER_COLUMN_NAME(7),
   UNRECOGNIZED(-1),
   ;
 
@@ -74,6 +82,14 @@ public enum UserColumn
    * <code>USER_COLUMN_JOINED_AT = 6;</code>
    */
   public static final int USER_COLUMN_JOINED_AT_VALUE = 6;
+  /**
+   * <pre>
+   * 2026-09-17 Java 删码补:管理端客户名搜索(ListUsers LIKE_PREFIX)
+   * </pre>
+   *
+   * <code>USER_COLUMN_NAME = 7;</code>
+   */
+  public static final int USER_COLUMN_NAME_VALUE = 7;
 
 
   public final int getNumber() {
@@ -107,6 +123,7 @@ public enum UserColumn
       case 4: return USER_COLUMN_TIER;
       case 5: return USER_COLUMN_CREATED_AT;
       case 6: return USER_COLUMN_JOINED_AT;
+      case 7: return USER_COLUMN_NAME;
       default: return null;
     }
   }

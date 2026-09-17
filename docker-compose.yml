@@ -36,6 +36,9 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
+    # 本地原生服务(monitor/开发)需经宿主回环访问 Redis,对齐 mysql 的 127.0.0.1 映射前例
+    ports:
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -129,6 +132,10 @@ services:
       REDIS_PORT: ${REDIS_PORT:-6379}
       STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
       ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
+      # 日志双写:容器内 /app/logs(与 backend 同口径),按天滚动 dreamy-server.<date>.log
+      SERVER_LOG_DIR: /app/logs
+    volumes:
+      - ./data/logs/server:/app/logs
     depends_on:
       mysql:
         condition: service_healthy

@@ -1,12 +1,6 @@
 package com.dreamy.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.dreamy.domain.role.entity.Permission;
-import com.dreamy.domain.role.entity.Role;
-import com.dreamy.domain.role.entity.RolePermission;
-import com.dreamy.domain.role.repository.PermissionMapper;
-import com.dreamy.domain.role.repository.RoleMapper;
-import com.dreamy.domain.role.repository.RolePermissionMapper;
 import com.dreamy.domain.carrier.entity.Carrier;
 import com.dreamy.domain.carrier.repository.CarrierMapper;
 import com.dreamy.enums.CarrierStatus;
@@ -26,7 +20,7 @@ import java.util.List;
 
 /**
  * shipping 域种子数据初始化（决策 21 mock 转种子；配置类数据生产与 dev/staging 同灌）。
- * 幂等：carrier/shipping_rate 各自表非空即跳过（跟随 identity DataInitializer / CatalogSeedInitializer 惯例）。
+ * 幂等：carrier/shipping_rate 各自表非空即跳过（跟随 CatalogSeedInitializer 惯例）。
  * 同时幂等补登 RBAC 权限点 /shipping 并绑定超管角色（shipping-data-detail §8.3；identity 种子已含则跳过）。
  * 种子自检（§8.2）：①三 enabled 满足 CV-SHP-005；②每区域 3 行精确承运商行；③Rest of World 兜底行（CV-SHP-006）；
  * ④承运商 name 与 Order.carrier 枚举三值逐字一致；含 USPS Priority disabled 第 4 行（DEC-SHP-6）。
@@ -40,54 +34,20 @@ public class ShippingSeedInitializer {
 
     private final CarrierMapper carrierMapper;
     private final ShippingRateMapper rateMapper;
-    private final PermissionMapper permissionMapper;
-    private final RoleMapper roleMapper;
-    private final RolePermissionMapper rolePermissionMapper;
 
-    public ShippingSeedInitializer(CarrierMapper carrierMapper, ShippingRateMapper rateMapper,
-                                   PermissionMapper permissionMapper, RoleMapper roleMapper,
-                                   RolePermissionMapper rolePermissionMapper) {
+    public ShippingSeedInitializer(CarrierMapper carrierMapper, ShippingRateMapper rateMapper) {
         this.carrierMapper = carrierMapper;
         this.rateMapper = rateMapper;
-        this.permissionMapper = permissionMapper;
-        this.roleMapper = roleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void init() {
-        ensurePermission();
         seedCarriers();
         seedRates();
     }
 
     /** §8.3 权限字典幂等补登（/shipping，发布与系统/物流配置）+ 绑定超管角色 */
-    private void ensurePermission() {
-        Permission permission = permissionMapper.selectOne(new LambdaQueryWrapper<Permission>()
-                .eq(Permission::getPermCode, "/shipping"));
-        if (permission == null) {
-            permission = new Permission();
-            permission.setPermCode("/shipping");
-            permission.setGroup("发布与系统");
-            permission.setLabel("物流配置");
-            permissionMapper.insert(permission);
-            log.info("[ShippingSeed] 权限点 /shipping 已登记");
-        }
-        Role superRole = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getName, "超级管理员"));
-        if (superRole != null) {
-            Long bound = rolePermissionMapper.selectCount(new LambdaQueryWrapper<RolePermission>()
-                    .eq(RolePermission::getRoleId, superRole.getId())
-                    .eq(RolePermission::getPermissionId, permission.getId()));
-            if (bound == null || bound == 0) {
-                RolePermission rp = new RolePermission();
-                rp.setRoleId(superRole.getId());
-                rp.setPermissionId(permission.getId());
-                rolePermissionMapper.insert(rp);
-            }
-        }
-    }
-
     /** 种子承运方：FedEx/UPS/DHL 三启用 + USPS disabled（DEC-SHP-6 原型对照行） */
     private void seedCarriers() {
         Long count = carrierMapper.selectCount(null);

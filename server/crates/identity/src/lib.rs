@@ -7,11 +7,13 @@
 //! - `grpc`:IdentityGate 内部通道实现(Java backend 调用)
 //! - `grpc_support`:AuditGate/TemplateGate 内部通道实现(Java 业务侧审计/邮件模板)
 //! - `seed`:邮件模板启动种子(email_template 自 identity 库收编主库)
+//! - `bootstrap`:身份基线种子(auth_config/权限字典/超管角色/超管账户;Java DataInitializer 删码后的唯一自举来源)
 //! - 其他域内支撑件(mail/oidc/ratelimit)随 P2/P3 落地
 //!
 //! 对外 REST 路由以 store/admin 两个子树挂载到 server crate 的 router。
 
 pub mod api;
+pub mod bootstrap;
 pub mod entity;
 pub mod enums;
 pub mod grpc;

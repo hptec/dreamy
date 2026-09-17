@@ -56,6 +56,10 @@ service IdentityGate {
   // 幂等:按 email 归并,已存在直接返回既有 user_id。
   rpc EnsureDemoUser(EnsureDemoUserRequest) returns (EnsureDemoUserResponse);
 
+  // 批量管理员名快照(Java 订单时间线 DTO 装配等展示用;仅暴露 name,不泄凭据;
+  // ids ≤ 100,与 ListUsers IN 纪律一致)。不存在/已删除的 id 不出现在响应中。
+  rpc ListAdminNames(ListAdminNamesRequest) returns (ListAdminNamesResponse);
+
   // 预留:后续内部治理 rpc(缓存失效通告、种子版本协商等)从 100 号起编号。
 }
 
@@ -148,12 +152,13 @@ enum UserColumn {
   USER_COLUMN_TIER = 4;
   USER_COLUMN_CREATED_AT = 5;
   USER_COLUMN_JOINED_AT = 6;
+  USER_COLUMN_NAME = 7; // 2026-09-17 Java 删码补:管理端客户名搜索(ListUsers LIKE_PREFIX)
 }
 enum CondOp {
   COND_OP_UNSPECIFIED = 0;
   COND_OP_EQ = 1;          // values 恰 1 个
   COND_OP_IN = 2;          // values 1..100
-  COND_OP_LIKE_PREFIX = 3; // values 恰 1 个,前缀匹配(email 模糊检索专用)
+  COND_OP_LIKE_PREFIX = 3; // values 恰 1 个,前缀匹配(仅 EMAIL/NAME 列;防全表扫描)
 }
 message Condition {
   UserColumn column = 1;
@@ -186,5 +191,22 @@ message EnsureDemoUserRequest {
 }
 message EnsureDemoUserResponse {
   int64 user_id = 1;
+  reserved 2 to 15;
+}
+
+// ----------------------------------------------------------------------------
+// ListAdminNames(批量管理员名快照)
+// ----------------------------------------------------------------------------
+message ListAdminNamesRequest {
+  repeated int64 admin_ids = 1; // 1..100,超限 INVALID_ARGUMENT
+  reserved 2 to 15;
+}
+message AdminName {
+  int64 admin_id = 1;
+  string name = 2;
+  reserved 3 to 15;
+}
+message ListAdminNamesResponse {
+  repeated AdminName items = 1; // 仅含命中的 id
   reserved 2 to 15;
 }

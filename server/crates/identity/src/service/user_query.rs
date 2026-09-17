@@ -232,11 +232,12 @@ fn parse_iso(s: Option<String>) -> Option<chrono::NaiveDateTime> {
 
 // ===== ListUsers:类型化条件构造 =====
 
-/// 排序/过滤列白名单(与 proto UserColumn 一致)
+/// 排序/过滤列白名单(与 proto UserColumn 一致;NAME 仅用于 LIKE_PREFIX 过滤,不参与排序)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Col {
     Id,
     Email,
+    Name,
     Status,
     Tier,
     CreatedAt,
@@ -255,8 +256,9 @@ pub enum CondVal {
 pub enum Cond {
     Eq(Col, CondVal),
     In(Col, Vec<CondVal>),
-    /// 仅 Email 列;通配符(%/_)由 gRPC 层预先拒绝(语义精确前缀)
-    EmailLikePrefix(String),
+    /// 仅 Email/Name 列;通配符(%/_)由 gRPC 层预先拒绝(语义精确前缀)。
+    /// Email 值由 gRPC 层小写化(路由表全小写),Name 保留原样(collation _ai_ci 大小写不敏感)。
+    LikePrefix(Col, String),
 }
 
 #[derive(Debug, Clone)]
@@ -272,6 +274,7 @@ fn col(c: Col) -> user::Column {
     match c {
         Col::Id => user::Column::Id,
         Col::Email => user::Column::Email,
+        Col::Name => user::Column::Name,
         Col::Status => user::Column::Status,
         Col::Tier => user::Column::Tier,
         Col::CreatedAt => user::Column::CreatedAt,
@@ -285,6 +288,8 @@ fn typed_expr(c: Col, v: CondVal) -> Result<sea_orm::sea_query::SimpleExpr, SvcE
         (Col::Status, CondVal::Num(n)) => col(c).eq(n as i8),
         (Col::Tier, CondVal::Num(n)) => col(c).eq(n as i8),
         (Col::Email, CondVal::Str(s)) => col(c).eq(s),
+        // Name 仅支持 LIKE_PREFIX 过滤(见 Cond::LikePrefix),Eq/IN 组合为调用方编码 BUG
+        (Col::Name, _) => return Err(SvcError::InvalidArg("Name 列仅支持 LIKE_PREFIX".into())),
         (Col::CreatedAt | Col::JoinedAt, CondVal::Dt(d)) => col(c).eq(d),
         _ => return Err(SvcError::InvalidArg(format!("列 {c:?} 与值类型不匹配"))),
     };
@@ -334,6 +339,8 @@ fn typed_in_expr(c: Col, vals: Vec<CondVal>) -> Result<sea_orm::sea_query::Simpl
             }
             col(c).is_in(dts)
         }
+        // Name 仅支持 LIKE_PREFIX 过滤,Eq/IN 组合为调用方编码 BUG
+        Col::Name => return Err(SvcError::InvalidArg("Name 列仅支持 LIKE_PREFIX".into())),
     };
     Ok(expr)
 }
@@ -344,9 +351,7 @@ fn build_condition(conds: &[Cond]) -> Result<Condition, SvcError> {
         match cond {
             Cond::Eq(c, v) => all = all.add(typed_expr(*c, v.clone())?),
             Cond::In(c, vals) => all = all.add(typed_in_expr(*c, vals.clone())?),
-            Cond::EmailLikePrefix(prefix) => {
-                all = all.add(user::Column::Email.starts_with(prefix.as_str()))
-            }
+            Cond::LikePrefix(c, prefix) => all = all.add(col(*c).starts_with(prefix.as_str())),
         }
     }
     Ok(all)

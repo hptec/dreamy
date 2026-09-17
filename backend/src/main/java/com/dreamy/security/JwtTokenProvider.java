@@ -19,9 +19,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 双密钥 JWT 工具：签发/解析 store 与 admin token。
- * 约束: shared-contracts jwt_isolation；DR-01 独立密钥不复用；EDGE-024 跨端误用由过滤器据 type 拒 40100。
- * 签发 store TokenPair(access 2h + refresh 30d)；admin access 8h 无 refresh。
+ * 双密钥 JWT 工具(2026-09-17 Java 删码裁剪版):解析 store/admin token + 签发展厅 guest token。
+ * store/admin 签发权已全在 Rust server(issue_store/issue_admin),Java 仅保留验签解析
+ * (parseStoreToken/parseAdminToken/parseStoreBearer——HS256 共享密钥本地验签,零网络往返)。
+ * 约束: shared-contracts jwt_isolation;DR-01 独立密钥不复用;EDGE-024 跨端误用由过滤器据 type 拒 40100。
  * showroom guest JWT（showroom-api-detail 0.2-1）：以 storeKey 签名（同基建复用，不新增密钥；guest 属
  * 消费端体系，按 typ claim 区分，与 CP-020 双密钥隔离不冲突）；claims sub=member_id/jti/typ=guest/
  * showroom_id/member_id/inv_ver；TTL 配置项 dreamy.showroom.guest-token-ttl-seconds 缺省 86400（24h）；
@@ -74,72 +75,7 @@ public class JwtTokenProvider {
         return raw;
     }
 
-    // ===== store 签发（access 2h + refresh 30d） =====
-    public TokenPair issueStoreTokens(String userId, String method) {
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime accessExp = now.plusSeconds(props.getStore().getAccessTtlSeconds());
-        LocalDateTime refreshExp = now.plusSeconds(props.getStore().getRefreshTtlSeconds());
-        String jti = UUID.randomUUID().toString();
-        String refreshJti = UUID.randomUUID().toString();
-
-        String access = Jwts.builder()
-                .issuer(props.getStore().getIssuer())
-                .subject(userId)
-                .id(jti)
-                .claim(CLAIM_TYPE, AuthPrincipal.TYPE_STORE)
-                .claim(CLAIM_METHOD, method)
-                .claim(CLAIM_REFRESH, false)
-                .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))
-                .expiration(Date.from(accessExp.toInstant(ZoneOffset.UTC)))
-                .signWith(storeKey)
-                .compact();
-
-        String refresh = Jwts.builder()
-                .issuer(props.getStore().getIssuer())
-                .subject(userId)
-                .id(refreshJti)
-                .claim(CLAIM_TYPE, AuthPrincipal.TYPE_STORE)
-                .claim(CLAIM_METHOD, method)
-                .claim(CLAIM_REFRESH, true)
-                .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))
-                .expiration(Date.from(refreshExp.toInstant(ZoneOffset.UTC)))
-                .signWith(storeKey)
-                .compact();
-
-        TokenPair pair = new TokenPair();
-        pair.setAccessToken(access);
-        pair.setRefreshToken(refresh);
-        pair.setAccessExpiresAt(accessExp);
-        pair.setRefreshExpiresAt(refreshExp);
-        pair.setTokenId(jti);
-        pair.setRefreshTokenId(refreshJti);
-        return pair;
-    }
-
-    /** FLOW-04 滑动续期：基于既有 user/method 重新签发 access+refresh */
-    public TokenPair reissueStoreTokens(String userId, String method) {
-        return issueStoreTokens(userId, method);
-    }
-
-    // ===== admin 签发（access 8h 无 refresh） =====
-    public AdminToken issueAdminToken(String adminId, String roleId) {
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime exp = now.plusSeconds(props.getAdmin().getAccessTtlSeconds());
-        String jti = UUID.randomUUID().toString();
-        String token = Jwts.builder()
-                .issuer(props.getAdmin().getIssuer())
-                .subject(adminId)
-                .id(jti)
-                .claim(CLAIM_TYPE, AuthPrincipal.TYPE_ADMIN)
-                .claim(CLAIM_ROLE_ID, roleId)
-                .claim(CLAIM_REFRESH, false)
-                .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))
-                .expiration(Date.from(exp.toInstant(ZoneOffset.UTC)))
-                .signWith(adminKey)
-                .compact();
-        return new AdminToken(token, jti, exp);
-    }
-
+    // ===== store 解析 =====
     /** 解析 store token；签名/类型/过期校验失败抛 UNAUTHORIZED(40100)（EX-03） */
     public AuthPrincipal parseStoreToken(String token) {
         Claims c = parse(token, storeKey);

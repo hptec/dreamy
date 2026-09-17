@@ -3,8 +3,8 @@ package com.dreamy.domain.shipment.service;
 import com.dreamy.domain.order.entity.Order;
 import com.dreamy.domain.order.repository.OrderMapper;
 import com.dreamy.domain.order.service.OrderEventRecorder;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
+import com.dreamy.infra.grpc.CustomerInfoPort;
+import java.util.Optional;
 import com.dreamy.dto.TradingDtos.OrderTrackRequest;
 import com.dreamy.dto.TradingDtos.OrderTrackView;
 import com.dreamy.enums.OrderStatus;
@@ -40,7 +40,7 @@ import static org.mockito.Mockito.when;
 class GuestOrderTrackServiceTest {
 
     @Mock OrderMapper orderMapper;
-    @Mock UserMapper userMapper;
+    @Mock CustomerInfoPort customerInfoPort;
     @Mock ShipmentQueryService shipmentQueryService;
     @Mock OrderEventRecorder orderEventRecorder;
     @Mock GuestTrackRateLimiter rateLimiter;
@@ -57,7 +57,7 @@ class GuestOrderTrackServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GuestOrderTrackService(orderMapper, userMapper, shipmentQueryService, orderEventRecorder, rateLimiter);
+        service = new GuestOrderTrackService(orderMapper, customerInfoPort, shipmentQueryService, orderEventRecorder, rateLimiter);
         when(rateLimiter.tryAcquire(anyString())).thenReturn(true);
         order = new Order();
         order.setId(1L);
@@ -68,10 +68,8 @@ class GuestOrderTrackServiceTest {
         order.setTotalAmount(new BigDecimal("300.00"));
         order.setAddressSnapshot(Map.of("receiver", "Emma Watson", "country_code", "GB", "line", "secret"));
         when(orderMapper.selectOne(any())).thenReturn(order);
-        User user = new User();
-        user.setId(7L);
-        user.setEmail("emma@example.com");
-        when(userMapper.selectById(7L)).thenReturn(user);
+        when(customerInfoPort.byId(7L)).thenReturn(Optional.of(new CustomerInfoPort.CustomerInfo(
+                7L, "emma@example.com", true, "Emma", null, 1, 1, null, null, null, false)));
         when(shipmentQueryService.listByOrder(1L)).thenReturn(List.of());
         when(orderEventRecorder.listCustomerVisible(1L)).thenReturn(List.of());
     }
@@ -112,6 +110,6 @@ class GuestOrderTrackServiceTest {
         assertThatThrownBy(() -> service.track(new OrderTrackRequest(null, "emma@example.com"), "1.1.1.1"))
                 .isInstanceOfSatisfying(TradingException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(TradingErrorCode.FIELD_VALIDATION_FAILED));
-        verify(userMapper, never()).selectById(anyLong());
+        verify(customerInfoPort, never()).byId(org.mockito.ArgumentMatchers.anyLong());
     }
 }

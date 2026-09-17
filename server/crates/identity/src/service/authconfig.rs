@@ -19,6 +19,12 @@ pub struct AuthConfigData {
     pub admin_login_lock_minutes: i32,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
+    pub verify_ip_rate_per_minute: i32,
+    pub attack_alert_threshold: i32,
+    pub admin_alert_email: Option<String>,
+    pub store_access_ttl_minutes: i32,
+    pub store_refresh_ttl_days: i32,
+    pub admin_access_ttl_hours: i32,
 }
 
 pub async fn get(state: &SharedState) -> Result<AuthConfigData, SvcError> {
@@ -43,6 +49,12 @@ fn to_data(m: &auth_config::Model) -> AuthConfigData {
         admin_login_lock_minutes: m.admin_login_lock_minutes,
         google_client_id: m.google_client_id.clone(),
         apple_service_id: m.apple_service_id.clone(),
+        verify_ip_rate_per_minute: m.verify_ip_rate_per_minute,
+        attack_alert_threshold: m.attack_alert_threshold,
+        admin_alert_email: m.admin_alert_email.clone(),
+        store_access_ttl_minutes: m.store_access_ttl_minutes,
+        store_refresh_ttl_days: m.store_refresh_ttl_days,
+        admin_access_ttl_hours: m.admin_access_ttl_hours,
     }
 }
 
@@ -59,6 +71,12 @@ pub struct AuthConfigUpdate {
     pub admin_login_lock_minutes: Option<i32>,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
+    pub verify_ip_rate_per_minute: Option<i32>,
+    pub attack_alert_threshold: Option<i32>,
+    pub admin_alert_email: Option<String>,
+    pub store_access_ttl_minutes: Option<i32>,
+    pub store_refresh_ttl_days: Option<i32>,
+    pub admin_access_ttl_hours: Option<i32>,
 }
 
 pub async fn update(
@@ -101,6 +119,37 @@ pub async fn update(
             return Err(SvcError::code(40002));
         }
     }
+    if let Some(v) = patch.verify_ip_rate_per_minute {
+        if !(5..=300).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.attack_alert_threshold {
+        if !(10..=1000).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.admin_alert_email.clone() {
+        // 空 = 清除(退化为仅告警日志);非空必须形如邮箱
+        if !v.is_empty() && !v.contains('@') {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.store_access_ttl_minutes {
+        if !(10..=1440).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.store_refresh_ttl_days {
+        if !(1..=90).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.admin_access_ttl_hours {
+        if !(1..=24).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
 
     let row = auth_config::Entity::find_by_id(1u64)
         .one(&state.db)
@@ -140,6 +189,24 @@ pub async fn update(
     if let Some(v) = patch.apple_service_id.clone() {
         am.apple_service_id = Set(if v.is_empty() { None } else { Some(v) });
     }
+    if let Some(v) = patch.verify_ip_rate_per_minute {
+        am.verify_ip_rate_per_minute = Set(v);
+    }
+    if let Some(v) = patch.attack_alert_threshold {
+        am.attack_alert_threshold = Set(v);
+    }
+    if let Some(v) = patch.admin_alert_email.clone() {
+        am.admin_alert_email = Set(if v.is_empty() { None } else { Some(v) });
+    }
+    if let Some(v) = patch.store_access_ttl_minutes {
+        am.store_access_ttl_minutes = Set(v);
+    }
+    if let Some(v) = patch.store_refresh_ttl_days {
+        am.store_refresh_ttl_days = Set(v);
+    }
+    if let Some(v) = patch.admin_access_ttl_hours {
+        am.admin_access_ttl_hours = Set(v);
+    }
     let updated = am.update(&state.db).await?;
     Ok(to_data(&updated))
 }
@@ -163,6 +230,12 @@ pub async fn seed_if_missing(db: &DatabaseTransaction) -> Result<(), sea_orm::Db
             min_methods: Set(1),
             admin_login_max_attempts: Set(5),
             admin_login_lock_minutes: Set(15),
+            verify_ip_rate_per_minute: Set(30),
+            attack_alert_threshold: Set(20),
+            admin_alert_email: Set(None),
+            store_access_ttl_minutes: Set(120),
+            store_refresh_ttl_days: Set(30),
+            admin_access_ttl_hours: Set(8),
             google_client_id: Set(None),
             apple_service_id: Set(None),
             ..Default::default()

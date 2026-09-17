@@ -3,13 +3,12 @@ package com.dreamy.domain.shipment.service;
 import com.dreamy.domain.order.entity.Order;
 import com.dreamy.domain.order.repository.OrderMapper;
 import com.dreamy.domain.order.service.OrderEventRecorder;
-import com.dreamy.domain.user.entity.User;
-import com.dreamy.domain.user.repository.UserMapper;
 import com.dreamy.dto.TradingDtos.OrderTrackRequest;
 import com.dreamy.dto.TradingDtos.OrderTrackView;
 import com.dreamy.error.TradingErrorCode;
 import com.dreamy.error.TradingException;
 import com.dreamy.infra.GuestTrackRateLimiter;
+import com.dreamy.infra.grpc.CustomerInfoPort;
 import com.dreamy.support.NameMasker;
 import com.dreamy.support.TradingFieldErrors;
 import com.dreamy.support.TradingParams;
@@ -27,16 +26,16 @@ import java.util.Map;
 public class GuestOrderTrackService {
 
     private final OrderMapper orderMapper;
-    private final UserMapper userMapper;
+    private final CustomerInfoPort customerInfoPort;
     private final ShipmentQueryService shipmentQueryService;
     private final OrderEventRecorder orderEventRecorder;
     private final GuestTrackRateLimiter rateLimiter;
 
-    public GuestOrderTrackService(OrderMapper orderMapper, UserMapper userMapper,
+    public GuestOrderTrackService(OrderMapper orderMapper, CustomerInfoPort customerInfoPort,
                                   ShipmentQueryService shipmentQueryService, OrderEventRecorder orderEventRecorder,
                                   GuestTrackRateLimiter rateLimiter) {
         this.orderMapper = orderMapper;
-        this.userMapper = userMapper;
+        this.customerInfoPort = customerInfoPort;
         this.shipmentQueryService = shipmentQueryService;
         this.orderEventRecorder = orderEventRecorder;
         this.rateLimiter = rateLimiter;
@@ -55,8 +54,11 @@ public class GuestOrderTrackService {
         if (order == null) {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
-        User user = userMapper.selectById(order.getCustomerId());
-        if (user == null || user.getEmail() == null || !user.getEmail().equalsIgnoreCase(email)) {
+        // 邮箱归属校验经 CustomerInfoPort(IdentityGate gRPC);用户不存在或邮箱不匹配一律 404601(防探测)
+        String ownerEmail = customerInfoPort.byId(order.getCustomerId())
+                .map(info -> info.email())
+                .orElse(null);
+        if (ownerEmail == null || !ownerEmail.equalsIgnoreCase(email)) {
             throw new TradingException(TradingErrorCode.ORDER_NOT_FOUND);
         }
         Map<String, Object> snapshot = order.getAddressSnapshot();

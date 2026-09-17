@@ -206,6 +206,37 @@ public final class IdentityGateGrpc {
     return getEnsureDemoUserMethod;
   }
 
+  private static volatile io.grpc.MethodDescriptor<dreamy.identity.v1.ListAdminNamesRequest,
+      dreamy.identity.v1.ListAdminNamesResponse> getListAdminNamesMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ListAdminNames",
+      requestType = dreamy.identity.v1.ListAdminNamesRequest.class,
+      responseType = dreamy.identity.v1.ListAdminNamesResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<dreamy.identity.v1.ListAdminNamesRequest,
+      dreamy.identity.v1.ListAdminNamesResponse> getListAdminNamesMethod() {
+    io.grpc.MethodDescriptor<dreamy.identity.v1.ListAdminNamesRequest, dreamy.identity.v1.ListAdminNamesResponse> getListAdminNamesMethod;
+    if ((getListAdminNamesMethod = IdentityGateGrpc.getListAdminNamesMethod) == null) {
+      synchronized (IdentityGateGrpc.class) {
+        if ((getListAdminNamesMethod = IdentityGateGrpc.getListAdminNamesMethod) == null) {
+          IdentityGateGrpc.getListAdminNamesMethod = getListAdminNamesMethod =
+              io.grpc.MethodDescriptor.<dreamy.identity.v1.ListAdminNamesRequest, dreamy.identity.v1.ListAdminNamesResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ListAdminNames"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  dreamy.identity.v1.ListAdminNamesRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  dreamy.identity.v1.ListAdminNamesResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new IdentityGateMethodDescriptorSupplier("ListAdminNames"))
+              .build();
+        }
+      }
+    }
+    return getListAdminNamesMethod;
+  }
+
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -324,6 +355,17 @@ public final class IdentityGateGrpc {
         io.grpc.stub.StreamObserver<dreamy.identity.v1.EnsureDemoUserResponse> responseObserver) {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getEnsureDemoUserMethod(), responseObserver);
     }
+
+    /**
+     * <pre>
+     * 批量管理员名快照(Java 订单时间线 DTO 装配等展示用;仅暴露 name,不泄凭据;
+     * ids ≤ 100,与 ListUsers IN 纪律一致)。不存在/已删除的 id 不出现在响应中。
+     * </pre>
+     */
+    default void listAdminNames(dreamy.identity.v1.ListAdminNamesRequest request,
+        io.grpc.stub.StreamObserver<dreamy.identity.v1.ListAdminNamesResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getListAdminNamesMethod(), responseObserver);
+    }
   }
 
   /**
@@ -434,6 +476,18 @@ public final class IdentityGateGrpc {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getEnsureDemoUserMethod(), getCallOptions()), request, responseObserver);
     }
+
+    /**
+     * <pre>
+     * 批量管理员名快照(Java 订单时间线 DTO 装配等展示用;仅暴露 name,不泄凭据;
+     * ids ≤ 100,与 ListUsers IN 纪律一致)。不存在/已删除的 id 不出现在响应中。
+     * </pre>
+     */
+    public void listAdminNames(dreamy.identity.v1.ListAdminNamesRequest request,
+        io.grpc.stub.StreamObserver<dreamy.identity.v1.ListAdminNamesResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getListAdminNamesMethod(), getCallOptions()), request, responseObserver);
+    }
   }
 
   /**
@@ -521,6 +575,17 @@ public final class IdentityGateGrpc {
     public dreamy.identity.v1.EnsureDemoUserResponse ensureDemoUser(dreamy.identity.v1.EnsureDemoUserRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getEnsureDemoUserMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
+     * 批量管理员名快照(Java 订单时间线 DTO 装配等展示用;仅暴露 name,不泄凭据;
+     * ids ≤ 100,与 ListUsers IN 纪律一致)。不存在/已删除的 id 不出现在响应中。
+     * </pre>
+     */
+    public dreamy.identity.v1.ListAdminNamesResponse listAdminNames(dreamy.identity.v1.ListAdminNamesRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getListAdminNamesMethod(), getCallOptions(), request);
     }
   }
 
@@ -616,6 +681,18 @@ public final class IdentityGateGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getEnsureDemoUserMethod(), getCallOptions()), request);
     }
+
+    /**
+     * <pre>
+     * 批量管理员名快照(Java 订单时间线 DTO 装配等展示用;仅暴露 name,不泄凭据;
+     * ids ≤ 100,与 ListUsers IN 纪律一致)。不存在/已删除的 id 不出现在响应中。
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<dreamy.identity.v1.ListAdminNamesResponse> listAdminNames(
+        dreamy.identity.v1.ListAdminNamesRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getListAdminNamesMethod(), getCallOptions()), request);
+    }
   }
 
   private static final int METHODID_VALIDATE_STORE_SESSION = 0;
@@ -624,6 +701,7 @@ public final class IdentityGateGrpc {
   private static final int METHODID_GET_USER = 3;
   private static final int METHODID_LIST_USERS = 4;
   private static final int METHODID_ENSURE_DEMO_USER = 5;
+  private static final int METHODID_LIST_ADMIN_NAMES = 6;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -665,6 +743,10 @@ public final class IdentityGateGrpc {
         case METHODID_ENSURE_DEMO_USER:
           serviceImpl.ensureDemoUser((dreamy.identity.v1.EnsureDemoUserRequest) request,
               (io.grpc.stub.StreamObserver<dreamy.identity.v1.EnsureDemoUserResponse>) responseObserver);
+          break;
+        case METHODID_LIST_ADMIN_NAMES:
+          serviceImpl.listAdminNames((dreamy.identity.v1.ListAdminNamesRequest) request,
+              (io.grpc.stub.StreamObserver<dreamy.identity.v1.ListAdminNamesResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -726,6 +808,13 @@ public final class IdentityGateGrpc {
               dreamy.identity.v1.EnsureDemoUserRequest,
               dreamy.identity.v1.EnsureDemoUserResponse>(
                 service, METHODID_ENSURE_DEMO_USER)))
+        .addMethod(
+          getListAdminNamesMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              dreamy.identity.v1.ListAdminNamesRequest,
+              dreamy.identity.v1.ListAdminNamesResponse>(
+                service, METHODID_LIST_ADMIN_NAMES)))
         .build();
   }
 
@@ -780,6 +869,7 @@ public final class IdentityGateGrpc {
               .addMethod(getGetUserMethod())
               .addMethod(getListUsersMethod())
               .addMethod(getEnsureDemoUserMethod())
+              .addMethod(getListAdminNamesMethod())
               .build();
         }
       }
