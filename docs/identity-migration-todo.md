@@ -18,9 +18,7 @@
 **镜像**:dreamy-{backend,server,store,admin}:202609180025-2f6956a(本机 daemon);server 于 17:16 重建(含 audit sub→空修复)。
 
 ## 2026-09-18 删码执行记录(任务 1 完成)
-> 分支:feature/1.0.0(本地,未推远程)
-
-## 2026-09-18 删码执行记录(任务 1 完成)
+> 分支:feature/1.0.0(本地,未推远程),提交 cc91c4d
 
 **删码面**(62 主代码文件 + 13 测试文件 git rm):
 - domain/{user,otp,session,authconfig,admin,role} 全包 + domain/audit 的 LoginHistory/Mapper/RetentionScheduler(**AuditService 保留**,审计记录器共用)
@@ -59,14 +57,21 @@
 
 **用户原话**:"大数据量下的性能,而且我要知道是在多少并发或多少合理的干扰。所谓干扰,就是模拟实际情况的情况下,它能达到什么样的性能标准。"
 
+**⚠ 2026-09-18 删码后的执行上下文修正**:
+- ~~与 Java 基线对比~~ **已不可行**(Java 身份域已删码,commit cc91c4d)——只输出绝对值供用户判断
+- 灌库目标改为 **dreamy_server 主库**(identity 库 13 张身份死表已 DROP):user 主档 + identity_email 路由表
+- ~~RetentionScheduler 干扰~~ 已随 Java 删码退役;干扰模型改用:Redis 故障注入(停 redis 容器/iptables 延迟)、分区维护巡检、mail 发信慢调用
+- 灌库走 Rust 写路径时注意 partition_guard 分区自愈已上线(写入后自动预扩,免手动建分区)
+- Rust 侧既有压测资产:identity/tests/large_data.rs(百万行七场景,可扩展)
+
 **具体要求**:
 - 灌库:百万级 user 行(已有 1M 证据)+ identity_email 路由表 100 万行
 - 并发度:阶梯测试(10/50/100/500 并发)
-- 干扰模型:模拟真实流量——读写混合(如 80% 读 / 20% 写)、缓存命中率(冷/热/缓存故障)、后台任务竞争(RetentionScheduler 同时运行)
+- 干扰模型:读写混合(如 80% 读 / 20% 写)、缓存命中率(冷/热/缓存故障)、后台任务竞争
 - 输出:p50/p95/p99 延迟曲线 + 吞吐量 QPS + 资源占用(CPU/RSS/Redis 命中率)
 - 工具:wrk 或自写 tokio 压测脚本;Rust 集成测试框架驱动
-- 场景:OTP 发码/验证(含 Redis 频控)、config 读取、路由表两跳查找、ListUsers 分页(首页+深分页)、admin 操作
-- 判定:与 Java 基线对比(需 Java 同条件跑一组);或至少输出绝对值供用户判断
+- 场景:OTP 发码/验证(含 Redis 频控,verify IP 频控 42904 已上线)、config 读取(注意 auth_config 新 6 列)、路由表两跳查找、ListUsers 分页(首页+深分页;NAME 列 LIKE_PREFIX 2026-09-18 新增)、admin 操作
+- 判定:输出绝对值供用户判断
 
 ### 任务 3:内存泄漏 soak 测试(用户指令)
 
@@ -82,7 +87,7 @@
 ### 任务 4:并发稳定性测试(用户指令)
 
 **具体场景**:
-- 并发 OTP 消费:同 email 并发 10 请求仅一成功(对齐 OtpConcurrencyIT)
+- 并发 OTP 消费:同 email 并发 10 请求仅一成功(原 Java OtpConcurrencyIT 已随删码删除,场景语义迁移到 Rust 侧测试或 E2E 脚本)
 - 并发登录 vs 禁用:登录过程中禁用账户 → 禁用后立即 40301
 - 并发 refresh 旋转:同 refresh_token 并发刷 → 仅一成功,无重复 jti 存活
 - 并发归并:同 email 不同 provider 并发登录 → 归并正确不产生孤儿
@@ -96,13 +101,13 @@
 3. 服务器 `bash scripts/deploy.sh`
 4. 网关分流已内置于 compose(gateway 自动分流到 server 容器)
 5. 生产验收:google-login-prod.verify.mjs + 五页 200 链接审计
-6. 回滚预案:IMAGE_TAG 回退 + IDENTITY_GRPC_ENABLED=false
+6. **回滚预案(2026-09-18 修正)**:~~IDENTITY_GRPC_ENABLED=false 回滚通道已随删码移除~~——唯一回滚手段是 IMAGE_TAG 回退到删码前镜像(如 <202609180025 的旧 tag);注意回退到删码前 Java 镜像时,identity 库 13 张死表已 DROP、Java 侧 DataInitializer 也已删,回滚态 Java 需先恢复库快照(data/backup-identity-pre-drop-*.sql,仅本地有)——生产发布前务必确认快照已妥善保管
 
 ### 任务 6:用户侧前置(非开发工作)
 
 - [ ] 注册 Resend、验证发信域名(SPF/DKIM)、获取 API key
 - [ ] Google/Apple OIDC client_id 配置(OIDC real 模式登录用)
-- [ ] 确认是否推送到远程仓库(git push origin feature/1.0.0 + tag)
+- [ ] 确认是否推送到远程仓库(git push origin feature/1.0.0 + tag;最新提交 cc91c4d=删码收编,159 文件净减 4011 行)
 
 ## 架构终态速查
 
