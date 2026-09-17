@@ -88,7 +88,7 @@ fn user_id(claims: &StoreClaims) -> i64 {
 }
 
 fn to_resp(site: &'static str, locale: Locale, err: SvcError) -> Response {
-    super::store_auth::svc_to_biz(site, locale, err).into_response()
+    common::error::svc_to_biz(site, locale, err).into_response()
 }
 
 /// 2.1 getProfile

@@ -721,23 +721,21 @@ pub async fn user_detail(
     })
 }
 
-// ══════════ 审计写入(次连接 identity 库,只增不删) ══════════
+// ══════════ 审计写入(主库 dreamy_server,只增不删) ══════════
 
-/// 迁走的 admin 操作审计:Rust 经次连接写 operation_log(失败 ERROR 不阻塞)
+/// admin 操作审计写入(失败 ERROR 不阻塞;REST 调用点与 gRPC AuditGate 共用)。
+/// operator_id:None = 系统操作(Java MergeService 语义)。
 pub async fn audit(
     state: &SharedState,
-    operator_id: i64,
+    operator_id: Option<i64>,
     operator_name: &str,
     action: &str,
     target: &str,
     ip: &str,
     user_agent: Option<&str>,
 ) {
-    let Some(legacy) = state.db_legacy.as_ref() else {
-        tracing::error!("[audit] 次库缺席,审计丢弃 action={action}");
-        return;
-    };
-    let result = legacy
+    let result = state
+        .db
         .execute(Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::MySql,
             r#"INSERT INTO operation_log (operator_id, operator_name, action, target, ip, user_agent, created_at, updated_at)
@@ -756,4 +754,124 @@ pub async fn audit(
         // 对齐 Java AuditAspect 吞异常语义 + 用户指令不静默:ERROR 日志 + 可见计数
         tracing::error!(error = %e, action, "[audit] 审计写入失败(不阻塞主流程)");
     }
+}
+
+// ══════════ 审计查询(主库 dreamy_server;REST handler 与 gRPC AuditGate 共用) ══════════
+
+/// operation_log 行(REST JSON 与 gRPC OperationLogRow 的共同数据源)
+pub struct OperationLogRowData {
+    pub id: u64,
+    pub operator_name: Option<String>,
+    pub action: String,
+    pub target: Option<String>,
+    pub ip: Option<String>,
+    pub changes: Option<String>,
+    pub created_at: Option<chrono::NaiveDateTime>,
+}
+
+pub struct OperationLogFilter {
+    pub action: Option<String>,
+    pub operator_id: Option<i64>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+}
+
+fn build_oplog_where(f: &OperationLogFilter) -> (String, Vec<sea_orm::sea_query::Value>) {
+    let mut clauses = vec!["1=1".to_string()];
+    let mut params: Vec<sea_orm::sea_query::Value> = vec![];
+    if let Some(a) = f.action.as_deref() {
+        if !a.is_empty() {
+            clauses.push("action = ?".into());
+            params.push(a.to_string().into());
+        }
+    }
+    if let Some(oid) = f.operator_id {
+        clauses.push("operator_id = ?".into());
+        params.push(oid.into());
+    }
+    if let Some(v) = f.from.as_deref() {
+        if !v.is_empty() {
+            clauses.push("created_at >= ?".into());
+            params.push(v.to_string().into());
+        }
+    }
+    if let Some(v) = f.to.as_deref() {
+        if !v.is_empty() {
+            clauses.push("created_at <= ?".into());
+            params.push(v.to_string().into());
+        }
+    }
+    (clauses.join(" AND "), params)
+}
+
+fn row_data(r: &sea_orm::QueryResult) -> OperationLogRowData {
+    OperationLogRowData {
+        id: r.try_get_by_index::<u64>(0).unwrap_or(0),
+        operator_name: r.try_get_by_index::<Option<String>>(1).ok().flatten(),
+        action: r.try_get_by_index::<String>(2).unwrap_or_default(),
+        target: r.try_get_by_index::<Option<String>>(3).ok().flatten(),
+        ip: r.try_get_by_index::<Option<String>>(4).ok().flatten(),
+        changes: r.try_get_by_index::<Option<String>>(5).ok().flatten(),
+        created_at: r
+            .try_get_by_index::<Option<chrono::NaiveDateTime>>(6)
+            .ok()
+            .flatten(),
+    }
+}
+
+/// 分页查询(ORDER BY id DESC;返回 (rows, total))
+pub async fn query_operation_logs(
+    state: &SharedState,
+    filter: &OperationLogFilter,
+    page: u64,
+    page_size: u64,
+) -> Result<(Vec<OperationLogRowData>, i64), SvcError> {
+    let (where_sql, params) = build_oplog_where(filter);
+    let total_params = params.clone();
+    let total: i64 = state
+        .db
+        .query_one(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            format!(r#"SELECT COUNT(*) FROM operation_log WHERE {where_sql}"#),
+            total_params,
+        ))
+        .await?
+        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
+        .unwrap_or(0);
+    let offset = page.saturating_sub(1).saturating_mul(page_size);
+    let mut page_params = params;
+    page_params.push((page_size as i64).into());
+    page_params.push((offset as i64).into());
+    let rows = state
+        .db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            format!(
+                r#"SELECT id, operator_name, action, target, ip, changes, created_at
+                   FROM operation_log WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?"#
+            ),
+            page_params,
+        ))
+        .await?;
+    Ok((rows.iter().map(row_data).collect(), total))
+}
+
+/// 导出查询(ORDER BY id ASC;from/to 必传与 92 天窗口由调用方校验)
+pub async fn stream_operation_logs(
+    state: &SharedState,
+    filter: &OperationLogFilter,
+) -> Result<Vec<OperationLogRowData>, SvcError> {
+    let (where_sql, params) = build_oplog_where(filter);
+    let rows = state
+        .db
+        .query_all(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            format!(
+                r#"SELECT id, operator_name, action, target, ip, changes, created_at
+                   FROM operation_log WHERE {where_sql} ORDER BY id"#
+            ),
+            params,
+        ))
+        .await?;
+    Ok(rows.iter().map(row_data).collect())
 }

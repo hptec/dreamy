@@ -6,6 +6,7 @@ import com.dreamy.domain.session.entity.AdminSession;
 import com.dreamy.domain.session.repository.AdminSessionMapper;
 import com.dreamy.domain.session.repository.UserSessionMapper;
 import com.dreamy.enums.AdminStatus;
+import com.dreamy.infra.grpc.IdentityGateClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,12 +26,15 @@ class SessionValidatorTest {
     @Mock UserSessionMapper userSessionMapper;
     @Mock AdminSessionMapper adminSessionMapper;
     @Mock AdminUserMapper adminUserMapper;
+    @Mock IdentityGateClient identityGateClient;
 
     private SessionValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new SessionValidator(userSessionMapper, adminSessionMapper, adminUserMapper);
+        // 回滚态(grpcEnabled=false)DB 直查路径;gRPC 路径由网关级 E2E 覆盖
+        validator = new SessionValidator(false, identityGateClient,
+                userSessionMapper, adminSessionMapper, adminUserMapper);
     }
 
     @Test

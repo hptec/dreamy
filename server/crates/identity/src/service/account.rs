@@ -1,10 +1,14 @@
 //! 账户服务(FLOW-05/06/08):资料更新、登录方式管理、换主邮箱、删号。
 //! 语义对齐 Java IdentityService(v2.2 路由表版)。
 
+use common::partition;
 use common::state::SharedState;
-use sea_orm::{ConnectionTrait, EntityTrait, Statement, TransactionTrait};
+use sea_orm::sea_query::Expr;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set, TransactionTrait,
+};
 
-use crate::entity::user;
+use crate::entity::{identity_apple, identity_email, identity_google, user, user_identity};
 use crate::enums::{AuthProvider, UserStatus};
 use crate::service::{authconfig, merge, otp, session, user_query, SvcError};
 
@@ -43,27 +47,19 @@ pub async fn update_profile(
     locale_pref: Option<&str>,
 ) -> Result<user::Model, SvcError> {
     // 乐观更新(仅提供字段;version 不动——Java 侧同样不带乐观锁)
-    let sets: Vec<String> = vec![];
-    let _ = sets;
-    let dn = display_name.map(|s| s.to_string());
-    let lp = locale_pref.map(|s| s.to_string());
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE user SET
-                 name = COALESCE(?, name),
-                 locale_pref = COALESCE(?, locale_pref),
-                 updated_at = NOW()
-               WHERE id = ?"#,
-            [dn.into(), lp.into(), user_id.into()],
-        ))
-        .await?;
+    let mut am = user::ActiveModel {
+        id: Set(user_id as u64),
+        ..Default::default()
+    };
+    if let Some(name) = display_name {
+        am.name = Set(Some(name.to_string()));
+    }
+    if let Some(locale) = locale_pref {
+        am.locale_pref = Set(Some(locale.to_string()));
+    }
+    am.updated_at = Set(Some(chrono::Local::now().naive_local()));
+    let updated = am.update(&state.db).await?;
     user_query::invalidate_user(state, user_id).await;
-    let updated = user::Entity::find_by_id(user_id as u64)
-        .one(&state.db)
-        .await?
-        .ok_or(SvcError::NotFound)?;
     Ok(updated)
 }
 
@@ -72,37 +68,69 @@ pub async fn list_identities(
     state: &SharedState,
     user_id: i64,
 ) -> Result<Vec<IdentityView>, SvcError> {
-    let rows = state
-        .db
-        .query_all(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, provider, identifier, is_primary, verified, hidden_email, relay_valid, last_login_at
-               FROM user_identity WHERE user_id = ? AND connected = 1 ORDER BY id"#,
-            [user_id.into()],
-        ))
+    let rows = user_identity::Entity::find()
+        .filter(user_identity::Column::UserId.eq(user_id as u64))
+        .filter(user_identity::Column::Connected.eq(1i8))
+        .order_by_asc(user_identity::Column::Id)
+        .all(&state.db)
         .await?;
-    let mut list = Vec::with_capacity(rows.len());
-    for r in rows {
-        list.push(IdentityView {
-            id: r.try_get_by_index::<u64>(0).unwrap_or(0) as i64,
-            provider: r.try_get_by_index::<i32>(1).unwrap_or(0),
-            identifier: r.try_get_by_index::<Option<String>>(2).ok().flatten(),
-            is_primary: r.try_get_by_index::<i8>(3).unwrap_or(0) != 0,
-            verified: r.try_get_by_index::<i8>(4).unwrap_or(0) != 0,
-            hidden_email: r.try_get_by_index::<i8>(5).unwrap_or(0) != 0,
-            relay_valid: r
-                .try_get_by_index::<Option<i8>>(6)
-                .ok()
-                .flatten()
-                .map(|v| v != 0),
-            last_login_at: r
-                .try_get_by_index::<Option<chrono::NaiveDateTime>>(7)
-                .ok()
-                .flatten()
-                .map(common::time::format_iso),
-        });
+    Ok(rows
+        .into_iter()
+        .map(|r| IdentityView {
+            id: r.id as i64,
+            provider: r.provider as i32,
+            identifier: r.identifier,
+            is_primary: r.is_primary != 0,
+            verified: r.verified != 0,
+            hidden_email: r.hidden_email != 0,
+            relay_valid: r.relay_valid.map(|v| v != 0),
+            last_login_at: r.last_login_at.map(common::time::format_iso),
+        })
+        .collect())
+}
+
+/// 路由表写入(凭证键 → user_id;按提供方分表)
+pub(crate) async fn insert_route<C>(
+    txn: &C,
+    provider: AuthProvider,
+    provider_uid: &str,
+    user_id: u64,
+    relay_email: Option<String>,
+) -> Result<(), sea_orm::DbErr>
+where
+    C: sea_orm::ConnectionTrait,
+{
+    match provider {
+        AuthProvider::Email => {
+            identity_email::Entity::insert(identity_email::ActiveModel {
+                email: Set(provider_uid.to_string()),
+                user_id: Set(user_id),
+                ..Default::default()
+            })
+            .exec_without_returning(txn)
+            .await?;
+        }
+        AuthProvider::Google => {
+            identity_google::Entity::insert(identity_google::ActiveModel {
+                google_sub: Set(provider_uid.to_string()),
+                user_id: Set(user_id),
+                ..Default::default()
+            })
+            .exec_without_returning(txn)
+            .await?;
+        }
+        AuthProvider::Apple => {
+            identity_apple::Entity::insert(identity_apple::ActiveModel {
+                apple_sub: Set(provider_uid.to_string()),
+                user_id: Set(user_id),
+                relay_email: Set(relay_email),
+                ..Default::default()
+            })
+            .exec_without_returning(txn)
+            .await?;
+        }
     }
-    Ok(list)
+    Ok(())
 }
 
 /// FLOW-05 bindIdentity(FUNC-008)
@@ -172,51 +200,26 @@ pub async fn bind_identity(
 
     // STEP-03 INSERT(路由 + 档案,同事务)
     let now = chrono::Local::now().naive_local();
+    // v3 分区拦截:user_id 已知,事务前精确确保 user_identity 段(事务内 DDL 会隐式提交)
+    let _ = partition::ensure_id_segments(state, "user_identity", &[user_id as u64]).await;
     let txn = state.db.begin().await?;
     // 路由表
-    match provider_enum {
-        AuthProvider::Email => {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO identity_email (email, user_id, created_at) VALUES (?, ?, NOW())"#,
-                [provider_uid.clone().into(), user_id.into()],
-            ))
-            .await?;
-        }
-        AuthProvider::Google => {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO identity_google (google_sub, user_id, created_at) VALUES (?, ?, NOW())"#,
-                [provider_uid.clone().into(), user_id.into()],
-            ))
-            .await?;
-        }
-        AuthProvider::Apple => {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO identity_apple (apple_sub, user_id, relay_email, created_at) VALUES (?, ?, ?, NOW())"#,
-                [provider_uid.clone().into(), user_id.into(), relay.clone().into()],
-            ))
-            .await?;
-        }
-    }
-    // 档案(非首个凭证 is_primary=0)
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO user_identity
-           (user_id, provider, provider_uid, identifier, is_primary, verified, connected, hidden_email, relay_email, bound_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, NOW(), NOW())"#,
-        [
-            user_id.into(),
-            provider.into(),
-            provider_uid.into(),
-            identifier.into(),
-            (verified as i8).into(),
-            (hidden as i8).into(),
-            relay.into(),
-            now.into(),
-        ],
-    ))
+    insert_route(&txn, provider_enum, &provider_uid, user_id as u64, relay.clone()).await?;
+    // 档案(非首个凭证 is_primary=0;复合主键+自增 → exec_without_returning)
+    user_identity::Entity::insert(user_identity::ActiveModel {
+        user_id: Set(user_id as u64),
+        provider: Set(provider as i8),
+        provider_uid: Set(provider_uid),
+        identifier: Set(identifier),
+        is_primary: Set(0),
+        verified: Set(verified as i8),
+        connected: Set(1),
+        hidden_email: Set(hidden as i8),
+        relay_email: Set(relay),
+        bound_at: Set(Some(now)),
+        ..Default::default()
+    })
+    .exec_without_returning(&txn)
     .await?;
     txn.commit().await?;
     let _ = ip; // Java 记录 bind ip 于 login_history;此处省略(登录历史只记登录事件)
@@ -230,25 +233,15 @@ pub async fn unbind_identity(
     user_id: i64,
     identity_id: i64,
 ) -> Result<(), SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, user_id, is_primary, connected FROM user_identity WHERE id = ?"#,
-            [identity_id.into()],
-        ))
-        .await?;
-    let Some(row) = row else {
-        return Err(SvcError::code(40400));
-    };
-    let owner = row
-        .try_get_by_index::<u64>(1)
-        .map_err(|_| SvcError::code(50000))?;
-    if owner != user_id as u64 {
+    let row = user_identity::Entity::find()
+        .filter(user_identity::Column::Id.eq(identity_id as u64))
+        .one(&state.db)
+        .await?
+        .ok_or(SvcError::code(40400))?;
+    if row.user_id as i64 != user_id {
         return Err(SvcError::code(40300)); // STEP-01 归属
     }
-    let is_primary = row.try_get_by_index::<i8>(2).unwrap_or(0) != 0;
-    if is_primary {
+    if row.is_primary != 0 {
         return Err(SvcError::code(40304)); // STEP-02 主邮箱
     }
     // STEP-03 min_methods
@@ -258,55 +251,45 @@ pub async fn unbind_identity(
         return Err(SvcError::code(40305));
     }
     // STEP-04 connected=false + 删路由(同事务)
-    let provider = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT provider, provider_uid FROM user_identity WHERE id = ?"#,
-            [identity_id.into()],
-        ))
-        .await?;
+    let now = chrono::Local::now().naive_local();
+    let provider = AuthProvider::from_code(row.provider as i32);
+    let provider_uid = row.provider_uid.clone();
     let txn = state.db.begin().await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"UPDATE user_identity SET connected = 0, updated_at = NOW() WHERE id = ?"#,
-        [identity_id.into()],
-    ))
-    .await?;
-    if let Some(pr) = provider {
-        let prov = pr.try_get_by_index::<i32>(0).unwrap_or(0);
-        let uid = pr.try_get_by_index::<String>(1).unwrap_or_default();
-        let del_sql = match prov {
-            1 => "DELETE FROM identity_email WHERE email = ?",
-            2 => "DELETE FROM identity_google WHERE google_sub = ?",
-            3 => "DELETE FROM identity_apple WHERE apple_sub = ?",
-            _ => "",
-        };
-        if !del_sql.is_empty() {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                del_sql,
-                [uid.into()],
-            ))
-            .await?;
+    user_identity::Entity::update_many()
+        .col_expr(user_identity::Column::Connected, Expr::value(0i8))
+        .col_expr(user_identity::Column::UpdatedAt, Expr::value(now))
+        .filter(user_identity::Column::Id.eq(identity_id as u64))
+        .exec(&txn)
+        .await?;
+    match provider {
+        Some(AuthProvider::Email) => {
+            identity_email::Entity::delete_by_id(provider_uid)
+                .exec(&txn)
+                .await?;
         }
+        Some(AuthProvider::Google) => {
+            identity_google::Entity::delete_by_id(provider_uid)
+                .exec(&txn)
+                .await?;
+        }
+        Some(AuthProvider::Apple) => {
+            identity_apple::Entity::delete_by_id(provider_uid)
+                .exec(&txn)
+                .await?;
+        }
+        None => {}
     }
     txn.commit().await?;
     Ok(())
 }
 
 async fn count_connected(state: &SharedState, user_id: i64) -> Result<i64, SvcError> {
-    let row = state
-        .db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT COUNT(*) FROM user_identity WHERE user_id = ? AND connected = 1"#,
-            [user_id.into()],
-        ))
+    let n = user_identity::Entity::find()
+        .filter(user_identity::Column::UserId.eq(user_id as u64))
+        .filter(user_identity::Column::Connected.eq(1i8))
+        .count(&state.db)
         .await?;
-    Ok(row
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0))
+    Ok(n as i64)
 }
 
 /// FLOW-06 changePrimaryEmail(FUNC-026 EDGE-020)
@@ -327,70 +310,90 @@ pub async fn change_primary_email(
     otp::verify_code_only(state, &normalized, code).await?;
 
     let now = chrono::Local::now().naive_local();
+    // v3 分区拦截:user_id 已知,事务前精确确保 user_identity 段
+    let _ = partition::ensure_id_segments(state, "user_identity", &[user_id as u64]).await;
+    // 旧邮箱路由删除需要旧主邮箱(JOIN pe.email = u.email 的等价拆分)
+    let me = user::Entity::find_by_id(user_id as u64)
+        .one(&state.db)
+        .await?
+        .ok_or(SvcError::NotFound)?;
     let txn = state.db.begin().await?;
-    // STEP-3a 旧 email 凭证降级 is_primary=0 + connected=0 + 删路由
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"UPDATE user_identity SET is_primary = 0, connected = 0, updated_at = NOW()
-           WHERE user_id = ? AND provider = 1 AND is_primary = 1"#,
-        [user_id.into()],
-    ))
-    .await?;
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"DELETE pe FROM user u JOIN identity_email pe ON pe.user_id = u.id
-           WHERE u.id = ? AND pe.email = u.email"#,
-        [user_id.into()],
-    ))
-    .await?;
+    // STEP-3a 旧 email 凭证降级 is_primary=0 + connected=0
+    user_identity::Entity::update_many()
+        .col_expr(user_identity::Column::IsPrimary, Expr::value(0i8))
+        .col_expr(user_identity::Column::Connected, Expr::value(0i8))
+        .col_expr(user_identity::Column::UpdatedAt, Expr::value(now))
+        .filter(user_identity::Column::UserId.eq(user_id as u64))
+        .filter(user_identity::Column::Provider.eq(AuthProvider::Email.code() as i8))
+        .filter(user_identity::Column::IsPrimary.eq(1i8))
+        .exec(&txn)
+        .await?;
+    // 删旧 email 路由(原 JOIN DELETE:pe.user_id = u.id AND pe.email = u.email)
+    identity_email::Entity::delete_many()
+        .filter(identity_email::Column::UserId.eq(user_id as u64))
+        .filter(identity_email::Column::Email.eq(me.email.clone()))
+        .exec(&txn)
+        .await?;
     // STEP-3b 新 email 凭证 is_primary=1(无则建)+ 路由 upsert
-    let existing_new = txn
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id FROM user_identity WHERE user_id = ? AND provider = 1 AND provider_uid = ?"#,
-            [user_id.into(), normalized.clone().into()],
-        ))
+    let existing_new = user_identity::Entity::find()
+        .filter(user_identity::Column::UserId.eq(user_id as u64))
+        .filter(user_identity::Column::Provider.eq(AuthProvider::Email.code() as i8))
+        .filter(user_identity::Column::ProviderUid.eq(normalized.clone()))
+        .one(&txn)
         .await?;
     if existing_new.is_some() {
-        txn.execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE user_identity SET is_primary = 1, verified = 1, connected = 1, updated_at = NOW()
-               WHERE user_id = ? AND provider = 1 AND provider_uid = ?"#,
-            [user_id.into(), normalized.clone().into()],
-        ))
-        .await?;
+        user_identity::Entity::update_many()
+            .col_expr(user_identity::Column::IsPrimary, Expr::value(1i8))
+            .col_expr(user_identity::Column::Verified, Expr::value(1i8))
+            .col_expr(user_identity::Column::Connected, Expr::value(1i8))
+            .col_expr(user_identity::Column::UpdatedAt, Expr::value(now))
+            .filter(user_identity::Column::UserId.eq(user_id as u64))
+            .filter(user_identity::Column::Provider.eq(AuthProvider::Email.code() as i8))
+            .filter(user_identity::Column::ProviderUid.eq(normalized.clone()))
+            .exec(&txn)
+            .await?;
     } else {
-        txn.execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO user_identity
-               (user_id, provider, provider_uid, identifier, is_primary, verified, connected, bound_at, created_at, updated_at)
-               VALUES (?, 1, ?, ?, 1, 1, 1, ?, NOW(), NOW())"#,
-            [user_id.into(), normalized.clone().into(), normalized.clone().into(), now.into()],
-        ))
+        user_identity::Entity::insert(user_identity::ActiveModel {
+            user_id: Set(user_id as u64),
+            provider: Set(AuthProvider::Email.code() as i8),
+            provider_uid: Set(normalized.clone()),
+            identifier: Set(Some(normalized.clone())),
+            is_primary: Set(1),
+            verified: Set(1),
+            connected: Set(1),
+            bound_at: Set(Some(now)),
+            ..Default::default()
+        })
+        .exec_without_returning(&txn)
         .await?;
     }
     // 路由 upsert(他人不持有时插入;本人持有为幂等)
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO identity_email (email, user_id, created_at) VALUES (?, ?, NOW())
-           ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)"#,
-        [normalized.clone().into(), user_id.into()],
-    ))
+    identity_email::Entity::insert(identity_email::ActiveModel {
+        email: Set(normalized.clone()),
+        user_id: Set(user_id as u64),
+        ..Default::default()
+    })
+    .on_conflict(
+        sea_orm::sea_query::OnConflict::new()
+            .update_column(identity_email::Column::UserId)
+            .to_owned(),
+    )
+    .exec_without_returning(&txn)
     .await?;
     // STEP-3c user 主邮箱更新
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"UPDATE user SET email = ?, email_verified = 1, updated_at = NOW() WHERE id = ?"#,
-        [normalized.clone().into(), user_id.into()],
-    ))
-    .await?;
+    user::Entity::update_many()
+        .col_expr(user::Column::Email, Expr::value(normalized.clone()))
+        .col_expr(user::Column::EmailVerified, Expr::value(1i8))
+        .col_expr(user::Column::UpdatedAt, Expr::value(now))
+        .filter(user::Column::Id.eq(user_id as u64))
+        .exec(&txn)
+        .await?;
     txn.commit().await?;
 
     // STEP-4 旧邮箱通知 + 缓存失效
     user_query::invalidate_user(state, user_id).await;
     let st = state.clone();
     let mail_to = normalized.clone();
-    let _ = &normalized;
     tokio::spawn(async move {
         let _ = crate::mail::send_template(
             &st,
@@ -413,13 +416,15 @@ pub async fn delete_account(state: &SharedState, user_id: i64) -> Result<(), Svc
         .ok_or(SvcError::NotFound)?;
     let now = chrono::Local::now().naive_local();
     // STEP-01 软删 + 撤销全部会话
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE user SET status = 3, deleted_at = ?, updated_at = NOW() WHERE id = ?"#,
-            [now.into(), user_id.into()],
-        ))
+    user::Entity::update_many()
+        .col_expr(
+            user::Column::Status,
+            Expr::value(UserStatus::Deleted.code() as i8),
+        )
+        .col_expr(user::Column::DeletedAt, Expr::value(now))
+        .col_expr(user::Column::UpdatedAt, Expr::value(now))
+        .filter(user::Column::Id.eq(user_id as u64))
+        .exec(&state.db)
         .await?;
     session::revoke_all_for_user(state, user_id).await;
     user_query::invalidate_user(state, user_id).await;

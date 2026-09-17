@@ -3,10 +3,12 @@
 pub use super::admin_session::Entity as AdminSession;
 pub use super::admin_user::Entity as AdminUser;
 pub use super::auth_config::Entity as AuthConfig;
+pub use super::email_template::Entity as EmailTemplate;
 pub use super::identity_apple::Entity as IdentityApple;
 pub use super::identity_email::Entity as IdentityEmail;
 pub use super::identity_google::Entity as IdentityGoogle;
 pub use super::login_history::Entity as LoginHistory;
+pub use super::operation_log::Entity as OperationLog;
 pub use super::otp_code::Entity as OtpCode;
 pub use super::permission::Entity as Permission;
 pub use super::role::Entity as Role;

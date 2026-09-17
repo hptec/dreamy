@@ -5,15 +5,14 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "email_template")]
 pub struct Model {
-    pub created_at: Option<DateTime>,
-    pub updated_at: Option<DateTime>,
     #[sea_orm(primary_key)]
     pub id: u64,
     pub code: String,
     pub locale: String,
     pub subject: String,
-    #[sea_orm(column_type = "Text")]
     pub body: String,
+    pub created_at: Option<DateTime>,
+    pub updated_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

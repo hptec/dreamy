@@ -9,7 +9,7 @@ import com.dreamy.dto.SessionDTO;
 import com.dreamy.dto.UserProfileDTO;
 import com.dreamy.domain.admin.entity.AdminUser;
 import com.dreamy.domain.authconfig.entity.AuthConfig;
-import com.dreamy.domain.audit.entity.OperationLog;
+import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.domain.role.entity.Permission;
 import com.dreamy.domain.user.entity.User;
 import com.dreamy.domain.user.entity.UserIdentity;
@@ -42,8 +42,8 @@ public interface IdentityDtoMapper {
     @Mapping(target = "roleName", ignore = true)
     AdminDTO toAdmin(AdminUser entity);
 
-    // MAP-006 OperationLog→LogDTO（changes JSON 原样，operator_name 快照）
-    OperationLogDTO toOperationLog(OperationLog entity);
+    // MAP-006 审计行→LogDTO（changes JSON 原样，operator_name 快照;行视图自 AuditGate gRPC）
+    OperationLogDTO toOperationLog(AuditService.OperationLogRow row);
 
     // 权限字典
     @Mapping(source = "permCode", target = "key")

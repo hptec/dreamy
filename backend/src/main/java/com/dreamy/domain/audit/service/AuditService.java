@@ -1,21 +1,19 @@
 package com.dreamy.domain.audit.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dreamy.error.BizException;
 import com.dreamy.error.ErrorCode;
-import com.dreamy.domain.audit.entity.OperationLog;
-import com.dreamy.domain.audit.repository.OperationLogMapper;
+import com.dreamy.infra.grpc.AuditGateClient;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * 审计领域服务（operation_log 写入与查询）。
+ * 审计领域服务（operation_log 写入与查询；表已收编 Rust 主库 dreamy_server，
+ * 全部读写经 AuditGate gRPC 通道——Java 业务侧审计记录器/AOP/合并日志共用）。
  * 约束: FLOW-17 AOP 审计；RM-100（仅 insert）/RM-101（分页倒序）/RM-102（导出流式）；
  * EDGE-018 只读无 delete；MAP-006 changes JSON 原样 + operator_name 快照。
  */
@@ -25,93 +23,49 @@ public class AuditService {
     /** BLOCKER-5：导出时间窗强制上限（天）。未传 from/to 或跨度超限 → 拒绝，防全表流式拉取 */
     private static final long MAX_EXPORT_WINDOW_DAYS = 92L;
 
-    /** DEC-002：导出分页轮询每页条数，逐页回调后丢弃，堆内常驻仅一页（替代游标流式） */
-    private static final int EXPORT_PAGE_SIZE = 1000;
-
-    private final OperationLogMapper operationLogMapper;
-
-    public AuditService(OperationLogMapper operationLogMapper) {
-        this.operationLogMapper = operationLogMapper;
+    /** 行视图(Controller DTO 映射与 CSV 导出共用;替代原直查实体) */
+    public record OperationLogRow(
+            Long id, String operatorName, String action, String target,
+            String ip, String userAgent, String changes, LocalDateTime createdAt) {
     }
 
-    /** RM-100 insert：写审计（action ∈ ck_oplog_action 15 种枚举） */
+    private final AuditGateClient auditGateClient;
+
+    public AuditService(AuditGateClient auditGateClient) {
+        this.auditGateClient = auditGateClient;
+    }
+
+    /** RM-100 insert：写审计（best-effort,失败在 client 侧 ERROR 日志丢弃,不打断主流程） */
     public void record(Long operatorId, String operatorName, String action,
                        String target, String ip, String userAgent, String changesJson) {
-        OperationLog entry = new OperationLog();
-        entry.setOperatorId(operatorId);
-        entry.setOperatorName(operatorName);
-        entry.setAction(action);
-        entry.setTarget(target);
-        entry.setIp(ip);
-        entry.setUserAgent(userAgent);
-        entry.setChanges(changesJson);
-        operationLogMapper.insert(entry);
+        auditGateClient.record(operatorId, operatorName, action, target, ip, userAgent, changesJson);
     }
 
-    /** RM-101 pageByFilter：按 action/operator/时间范围筛选，created_at 倒序（idx_oplog_created） */
-    public IPage<OperationLog> page(int page, int pageSize, String action, Long operatorId,
-                                          LocalDateTime from, LocalDateTime to) {
-        return operationLogMapper.selectPage(new Page<>(page, pageSize), buildFilter(action, operatorId, from, to));
+    /** RM-101 pageByFilter：按 action/operator/时间范围筛选，id 倒序（等价 created_at 倒序） */
+    public IPage<OperationLogRow> page(int page, int pageSize, String action, Long operatorId,
+                                       LocalDateTime from, LocalDateTime to) {
+        AuditGateClient.Paged result = auditGateClient.page(action, operatorId, from, to, page, pageSize);
+        Page<OperationLogRow> pg = new Page<>(page, pageSize, result.total());
+        pg.setRecords(result.items().stream()
+                .map(r -> new OperationLogRow(
+                        r.id(), r.operatorName(), r.action(), r.target(),
+                        r.ip(), null, r.changes(), r.createdAt()))
+                .toList());
+        return pg;
     }
 
     /**
-     * RM-102 streamForExport（BLOCKER-5）：分页轮询导出，逐页回调写出，绝不全量物化进堆。
-     * 约束: operation_log 百万行/月，原 selectList 全量进 List 必 OOM。
-     *
-     * DEC-002（ORM 合规重构）：由 native {@code @Select(<script>)} + fetchSize=Integer.MIN_VALUE 游标流式
-     * 改为 LambdaQueryWrapper 分页轮询——每页 {@value #EXPORT_PAGE_SIZE} 条、按 id 游标递减（{@code id < lastId}）拉取，
-     * 逐页回调消费后即丢弃，堆内常驻仅一页。强制时间窗上限（必传 from/to 且跨度≤{@value #MAX_EXPORT_WINDOW_DAYS} 天）
-     * 保证轮询次数有界（防无界全表扫描）。不再持有长事务连接：每页查询独立从连接池借还。
-     *
-     * @param consumer 逐行回调（如 CSV writer.write）；由调用方负责写出，本方法不缓存行
+     * RM-102 streamForExport（BLOCKER-5）：gRPC 服务端流式逐行回调，堆内不缓存行。
+     * 时间窗上限仍本地强制（必传 from/to 且跨度≤{@value #MAX_EXPORT_WINDOW_DAYS} 天）。
      */
     public void streamForExport(String action, Long operatorId,
                                 LocalDateTime from, LocalDateTime to,
-                                Consumer<OperationLog> consumer) {
+                                Consumer<OperationLogRow> consumer) {
         enforceExportWindow(from, to);
-        Long lastId = null;
-        while (true) {
-            List<OperationLog> pageRows = fetchExportPage(action, operatorId, from, to, lastId);
-            if (pageRows.isEmpty()) {
-                break;
-            }
-            for (OperationLog row : pageRows) {
-                consumer.accept(row);
-            }
-            // 不足一页 → 已到末页，结束轮询
-            if (pageRows.size() < EXPORT_PAGE_SIZE) {
-                break;
-            }
-            // id 游标递减：下一页取 id 严格小于本页末条（id 自增，单调对应创建顺序）
-            lastId = pageRows.get(pageRows.size() - 1).getId();
-        }
-    }
-
-    /**
-     * DEC-002：导出单页查询——LambdaQueryWrapper + id 游标（{@code id < lastId}）+ LIMIT {@value #EXPORT_PAGE_SIZE}。
-     * 按 id 倒序取页，等价原 created_at DESC 导出顺序（id 自增与创建时序单调一致）。
-     */
-    private List<OperationLog> fetchExportPage(String action, Long operatorId,
-                                                     LocalDateTime from, LocalDateTime to, Long lastId) {
-        LambdaQueryWrapper<OperationLog> qw = new LambdaQueryWrapper<>();
-        if (action != null) {
-            qw.eq(OperationLog::getAction, action);
-        }
-        if (operatorId != null) {
-            qw.eq(OperationLog::getOperatorId, operatorId);
-        }
-        if (from != null) {
-            qw.ge(OperationLog::getCreatedAt, from);
-        }
-        if (to != null) {
-            qw.le(OperationLog::getCreatedAt, to);
-        }
-        if (lastId != null) {
-            qw.lt(OperationLog::getId, lastId);
-        }
-        qw.orderByDesc(OperationLog::getId)
-                .last("LIMIT " + EXPORT_PAGE_SIZE);
-        return operationLogMapper.selectList(qw);
+        auditGateClient.stream(from, to, action, operatorId)
+                .forEachRemaining(r -> consumer.accept(new OperationLogRow(
+                        r.id(), r.operatorName(), r.action(), r.target(),
+                        r.ip(), null, r.changes(), r.createdAt())));
     }
 
     /**
@@ -141,24 +95,5 @@ public class AuditService {
                     java.util.Map.of("field", "from/to",
                             "reason", "export window exceeds " + MAX_EXPORT_WINDOW_DAYS + " days"));
         }
-    }
-
-    private LambdaQueryWrapper<OperationLog> buildFilter(String action, Long operatorId,
-                                                               LocalDateTime from, LocalDateTime to) {
-        LambdaQueryWrapper<OperationLog> qw = new LambdaQueryWrapper<>();
-        if (action != null) {
-            qw.eq(OperationLog::getAction, action);
-        }
-        if (operatorId != null) {
-            qw.eq(OperationLog::getOperatorId, operatorId);
-        }
-        if (from != null) {
-            qw.ge(OperationLog::getCreatedAt, from);
-        }
-        if (to != null) {
-            qw.le(OperationLog::getCreatedAt, to);
-        }
-        qw.orderByDesc(OperationLog::getCreatedAt);
-        return qw;
     }
 }

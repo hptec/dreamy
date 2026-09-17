@@ -1,0 +1,95 @@
+// ============================================================================
+// AuditGate — dreamy 审计域内部 gRPC 契约(Java backend → Rust server)
+//
+// operation_log 表随身份域 v2 收敛落 Rust 主库(dreamy_server),Java 业务侧
+// (交易/营销/评价/目录/物流审计记录器、账户合并、admin 日志查询)经本通道
+// 写入与查询;operator_id 弱引用的 admin_user 与表同库。
+//
+// 契约纪律(承袭 identity.proto):
+//   1. 字段编号一经发布不可复用;废弃字段进 reserved,新增字段只用新编号。
+//   2. 错误语义以 gRPC status 表达:
+//      - INVALID_ARGUMENT → 调用方编码 BUG(参数缺失/超限),FAIL FAST
+//      - UNAVAILABLE / DEADLINE_EXCEEDED → 写入类 best-effort 丢弃(ERROR 日志);
+//        查询类由调用方决定(HTTP 503 {code:50001})
+//      - 其余 status → ERROR 日志
+//   3. RecordOperationLog 为 best-effort 语义:任何失败不阻塞调用方业务主流程
+//      (对齐 Java AuditAspect 失败吞异常约定,无重试)。
+// ============================================================================
+syntax = "proto3";
+
+package dreamy.audit.v1;
+
+// Java 侧顶层类生成(Rust prost 忽略此选项)
+option java_multiple_files = true;
+
+// ----------------------------------------------------------------------------
+// 服务定义
+// ----------------------------------------------------------------------------
+service AuditGate {
+  // 审计写入(best-effort:调用方失败吞错,不重试不阻塞)。
+  rpc RecordOperationLog(RecordOperationLogRequest) returns (RecordOperationLogResponse);
+
+  // 分页查询(admin operation-logs 列表;过滤参数语义与 REST 端点一致)。
+  rpc ListOperationLogs(ListOperationLogsRequest) returns (ListOperationLogsResponse);
+
+  // 导出流(CSV 数据源;from/to 必传,跨度 ≤92 天由调用方校验;ORDER BY id ASC)。
+  rpc StreamOperationLogs(StreamOperationLogsRequest) returns (stream OperationLogRow);
+
+  // 预留:后续治理 rpc 从 100 号起编号。
+}
+
+// ----------------------------------------------------------------------------
+// 写入
+// ----------------------------------------------------------------------------
+message RecordOperationLogRequest {
+  optional int64 operator_id = 1;    // 弱引用 admin_user.id,系统操作为 NULL
+  optional string operator_name = 2; // 快照
+  string action = 3;
+  optional string target = 4;
+  optional string ip = 5;
+  optional string user_agent = 6;
+  optional string changes = 7;       // 变更前后对比 JSON 原样存储
+  reserved 8 to 99;
+}
+message RecordOperationLogResponse {
+  reserved 1 to 99;
+}
+
+// ----------------------------------------------------------------------------
+// 记录行(查询/导出共用)
+// ----------------------------------------------------------------------------
+message OperationLogRow {
+  int64 id = 1;
+  optional string operator_name = 2;
+  string action = 3;
+  optional string target = 4;
+  optional string ip = 5;
+  optional string changes = 6;
+  optional string created_at = 7;    // ISO-8601(与 REST 序列化同构)
+  reserved 8 to 99;
+}
+
+// ----------------------------------------------------------------------------
+// 查询/导出
+// ----------------------------------------------------------------------------
+message ListOperationLogsRequest {
+  optional string action = 1;  // 精确匹配
+  optional int64 operator_id = 2;
+  optional string from = 3;    // created_at >=,ISO-8601
+  optional string to = 4;      // created_at <=,ISO-8601
+  int32 page = 5;              // 1 起(0 视为 1)
+  int32 page_size = 6;         // 1..100(缺省 20)
+  reserved 7 to 99;
+}
+message ListOperationLogsResponse {
+  repeated OperationLogRow items = 1; // ORDER BY id DESC
+  int64 total = 2;                    // 命中总数(与分页无关)
+  reserved 3 to 99;
+}
+message StreamOperationLogsRequest {
+  string from = 1;             // 必传,ISO-8601
+  string to = 2;               // 必传,ISO-8601
+  optional string action = 3;
+  optional int64 operator_id = 4;
+  reserved 5 to 99;
+}

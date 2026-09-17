@@ -93,11 +93,11 @@ public class AuthConfigController {
         response.setHeader("Content-Disposition", "attachment; filename=operation-logs.csv");
         PrintWriter writer = response.getWriter();
         writer.println("id,operator_name,action,target,ip,created_at");
-        // BLOCKER-5：流式逐行写出（ResultHandler 回调），不全量物化进堆；时间窗上限由 AuditService 强制
+        // BLOCKER-5：流式逐行写出（gRPC 服务端流回调），不全量物化进堆；时间窗上限由 AuditService 强制
         auditService.streamForExport(action, operatorId, from, to, log -> {
             writer.printf("%s,%s,%s,%s,%s,%s%n",
-                    csv(String.valueOf(log.getId())), csv(log.getOperatorName()), csv(log.getAction()),
-                    csv(log.getTarget()), csv(log.getIp()), log.getCreatedAt());
+                    csv(String.valueOf(log.id())), csv(log.operatorName()), csv(log.action()),
+                    csv(log.target()), csv(log.ip()), log.createdAt());
         });
     }
 

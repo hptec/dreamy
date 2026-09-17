@@ -21,5 +21,7 @@ TOOLS="${PROTOC_TOOLS_DIR:-/tmp/protoc-tools}"
   --java_out=backend/src/generated/java \
   --plugin=protoc-gen-grpc-java="${TOOLS}/grpc-plugin" \
   --grpc-java_out=backend/src/generated/java \
-  proto/dreamy/identity/v1/identity.proto
+  proto/dreamy/identity/v1/identity.proto \
+  proto/dreamy/audit/v1/audit.proto \
+  proto/dreamy/mail/v1/mail.proto
 echo "[regen] 完成:backend/src/generated/java"

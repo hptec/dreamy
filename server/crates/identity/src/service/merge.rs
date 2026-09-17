@@ -8,12 +8,14 @@
 //!
 //! Apple 隐藏邮箱:identifier 用 relay email,不参与邮箱归并。
 
+use common::partition;
 use common::state::SharedState;
-use sea_orm::{ConnectionTrait, EntityTrait, Statement, TransactionTrait};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set, TransactionTrait};
 
 use crate::entity::user;
+use crate::entity::user_identity;
 use crate::enums::{AuthProvider, UserStatus, UserTier};
-use crate::service::SvcError;
+use crate::service::{account, ensure_user_segments, SvcError};
 
 pub struct MergeOutcome {
     pub user: user::Model,
@@ -30,7 +32,7 @@ pub async fn find_user_id_by_provider(
     provider: AuthProvider,
     provider_uid: &str,
 ) -> Result<Option<u64>, SvcError> {
-    use sea_orm::EntityTrait;
+    use sea_orm::EntityTrait as _;
     let user_id = match provider {
         AuthProvider::Email => crate::entity::identity_email::Entity::find_by_id(provider_uid)
             .one(&state.db)
@@ -53,7 +55,7 @@ pub async fn find_user_by_email(
     state: &SharedState,
     email: &str,
 ) -> Result<Option<user::Model>, SvcError> {
-    use sea_orm::EntityTrait;
+    use sea_orm::EntityTrait as _;
     let Ok(route) = crate::entity::identity_email::Entity::find_by_id(normalize(email))
         .one(&state.db)
         .await
@@ -130,51 +132,61 @@ pub async fn resolve_or_merge(
             .unwrap_or_else(|| format!("hidden-{}@relay.dreamy", provider_uid))
     });
     let txn = state.db.begin().await?;
-    let insert = txn
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO user (email, email_verified, tier, status, anonymized, version, joined_at, created_at, updated_at)
-               VALUES (?, ?, 1, 1, 0, 0, ?, NOW(), NOW())"#,
-            [
-                email_for_user.into(),
-                (email_verified as i8).into(),
-                now.into(),
-            ],
-        ))
-        .await?;
-    let user_id = insert.last_insert_id() as u64;
+    let created = user::ActiveModel {
+        email: Set(email_for_user),
+        email_verified: Set(email_verified as i8),
+        tier: Set(UserTier::Regular.code() as i8),
+        status: Set(UserStatus::Active.code() as i8),
+        anonymized: Set(0),
+        version: Set(0),
+        joined_at: Set(Some(now)),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+    let user_id = created.id;
     // 路由表写入(凭证键 → user_id)
-    insert_route(&txn, provider, provider_uid, user_id, relay_email).await?;
+    account::insert_route(
+        &txn,
+        provider,
+        provider_uid,
+        user_id,
+        relay_email.map(|r| r.to_string()),
+    )
+    .await?;
     // 档案写入(uk(user_id, provider);is_primary=首个凭证为 true)
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO user_identity
-           (user_id, provider, provider_uid, identifier, is_primary, verified, connected, hidden_email, relay_email, bound_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 1, ?, 1, ?, ?, ?, NOW(), NOW())"#,
-        [
-            (user_id as i64).into(),
-            provider.code().into(),
-            provider_uid.into(),
-            merge_email.clone().or(relay_email.map(|r| r.to_string())).into(),
-            (email_verified as i8).into(),
-            (hidden_email as i8).into(),
-            relay_email.into(),
-            now.into(),
-        ],
-    ))
+    user_identity::Entity::insert(user_identity::ActiveModel {
+        user_id: Set(user_id),
+        provider: Set(provider.code() as i8),
+        provider_uid: Set(provider_uid.to_string()),
+        identifier: Set(merge_email.clone().or(relay_email.map(|r| r.to_string()))),
+        is_primary: Set(1),
+        verified: Set(email_verified as i8),
+        connected: Set(1),
+        hidden_email: Set(hidden_email as i8),
+        relay_email: Set(relay_email.map(|r| r.to_string())),
+        bound_at: Set(Some(now)),
+        ..Default::default()
+    })
+    .exec_without_returning(&txn)
     .await?;
     // 邮箱路由(新建且邮箱已验证时,email 路由同时建立——邮箱登录域)
     if let Some(ref mail) = merge_email {
         if provider != AuthProvider::Email && email_verified {
-            txn.execute(Statement::from_sql_and_values(
-                sea_orm::DatabaseBackend::MySql,
-                r#"INSERT INTO identity_email (email, user_id, created_at) VALUES (?, ?, NOW())"#,
-                [(mail.as_str()).into(), (user_id as i64).into()],
-            ))
+            crate::entity::identity_email::Entity::insert(
+                crate::entity::identity_email::ActiveModel {
+                    email: Set(mail.clone()),
+                    user_id: Set(user_id),
+                    ..Default::default()
+                },
+            )
+            .exec_without_returning(&txn)
             .await?;
         }
     }
     txn.commit().await?;
+    // v3 分区水位:user INSERT 成功后预扩下一段(id 事后才知;user_identity 同边界跟随)
+    ensure_user_segments(state, user_id).await;
     let created = user::Entity::find_by_id(user_id)
         .one(&state.db)
         .await?
@@ -196,65 +208,38 @@ async fn attach_identity(
     verified: bool,
 ) -> Result<(), SvcError> {
     let now = chrono::Local::now().naive_local();
+    // v3 分区拦截:既有账号 user_id 已知,事务前精确确保段(事务内 DDL 会隐式提交)
+    let _ = partition::ensure_id_segments(state, "user_identity", &[existing.id]).await;
     let txn = state.db.begin().await?;
-    insert_route(&txn, provider, provider_uid, existing.id, relay_email).await?;
+    account::insert_route(
+        &txn,
+        provider,
+        provider_uid,
+        existing.id,
+        relay_email.map(|r| r.to_string()),
+    )
+    .await?;
     let identifier = if hidden_email {
         relay_email.map(|r| r.to_string())
     } else {
         Some(existing.email.clone())
     };
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        r#"INSERT INTO user_identity
-           (user_id, provider, provider_uid, identifier, is_primary, verified, connected, hidden_email, relay_email, bound_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, NOW(), NOW())"#,
-        [
-            (existing.id as i64).into(),
-            provider.code().into(),
-            provider_uid.into(),
-            identifier.into(),
-            (verified as i8).into(),
-            (hidden_email as i8).into(),
-            relay_email.into(),
-            now.into(),
-        ],
-    ))
+    user_identity::Entity::insert(user_identity::ActiveModel {
+        user_id: Set(existing.id),
+        provider: Set(provider.code() as i8),
+        provider_uid: Set(provider_uid.to_string()),
+        identifier: Set(identifier),
+        is_primary: Set(0),
+        verified: Set(verified as i8),
+        connected: Set(1),
+        hidden_email: Set(hidden_email as i8),
+        relay_email: Set(relay_email.map(|r| r.to_string())),
+        bound_at: Set(Some(now)),
+        ..Default::default()
+    })
+    .exec_without_returning(&txn)
     .await?;
     txn.commit().await?;
-    Ok(())
-}
-
-async fn insert_route(
-    txn: &sea_orm::DatabaseTransaction,
-    provider: AuthProvider,
-    provider_uid: &str,
-    user_id: u64,
-    relay_email: Option<&str>,
-) -> Result<(), sea_orm::DbErr> {
-    let (sql, params): (&str, Vec<sea_orm::sea_query::Value>) = match provider {
-        AuthProvider::Email => (
-            r#"INSERT INTO identity_email (email, user_id, created_at) VALUES (?, ?, NOW())"#,
-            vec![provider_uid.into(), (user_id as i64).into()],
-        ),
-        AuthProvider::Google => (
-            r#"INSERT INTO identity_google (google_sub, user_id, created_at) VALUES (?, ?, NOW())"#,
-            vec![provider_uid.into(), (user_id as i64).into()],
-        ),
-        AuthProvider::Apple => (
-            r#"INSERT INTO identity_apple (apple_sub, user_id, relay_email, created_at) VALUES (?, ?, ?, NOW())"#,
-            vec![
-                provider_uid.into(),
-                (user_id as i64).into(),
-                relay_email.into(),
-            ],
-        ),
-    };
-    txn.execute(Statement::from_sql_and_values(
-        sea_orm::DatabaseBackend::MySql,
-        sql,
-        params,
-    ))
-    .await?;
     Ok(())
 }
 

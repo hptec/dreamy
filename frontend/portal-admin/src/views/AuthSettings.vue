@@ -31,6 +31,8 @@ const form = reactive({
   otpResendSeconds: 30,
   otpMaxAttempts: 5,
   minMethods: 1,
+  adminLoginMaxAttempts: 5,
+  adminLoginLockMinutes: 15,
 })
 const oauth = reactive({ googleClientId: '', appleServiceId: '' })
 const errors = ref<Record<string, string>>({})
@@ -45,6 +47,8 @@ function applyConfig(cfg: AuthConfig) {
   form.otpResendSeconds = cfg.otpResendSeconds
   form.otpMaxAttempts = cfg.otpMaxAttempts
   form.minMethods = cfg.minMethods
+  form.adminLoginMaxAttempts = cfg.adminLoginMaxAttempts ?? 5
+  form.adminLoginLockMinutes = cfg.adminLoginLockMinutes ?? 15
   oauth.googleClientId = cfg.googleClientId || ''
   oauth.appleServiceId = cfg.appleServiceId || ''
 }
@@ -75,6 +79,8 @@ function validate(): boolean {
   if (form.otpResendSeconds < 10 || form.otpResendSeconds > 120) e.otpResendSeconds = '重发间隔需在 10–120 秒之间'
   if (form.otpMaxAttempts < 3 || form.otpMaxAttempts > 10) e.otpMaxAttempts = '最大尝试次数需在 3–10 之间'
   if (form.minMethods < 1 || form.minMethods > 3) e.minMethods = '至少保留登录方式数需在 1–3 之间'
+  if (form.adminLoginMaxAttempts < 3 || form.adminLoginMaxAttempts > 10) e.adminLoginMaxAttempts = '失败锁定阈值需在 3–10 之间'
+  if (form.adminLoginLockMinutes < 5 || form.adminLoginLockMinutes > 60) e.adminLoginLockMinutes = '锁定时长需在 5–60 分钟之间'
   errors.value = e
   return Object.keys(e).length === 0
 }
@@ -94,6 +100,8 @@ async function save() {
       otpResendSeconds: form.otpResendSeconds,
       otpMaxAttempts: form.otpMaxAttempts,
       minMethods: form.minMethods,
+      adminLoginMaxAttempts: form.adminLoginMaxAttempts,
+      adminLoginLockMinutes: form.adminLoginLockMinutes,
       googleClientId: oauth.googleClientId || null,
       appleServiceId: oauth.appleServiceId || null,
     })
@@ -252,6 +260,28 @@ onMounted(load)
             <input v-model.number="form.otpMaxAttempts" type="number" min="3" max="10" class="field w-full" />
             <p v-if="errors.otpMaxAttempts" class="mt-1 text-[12px] text-danger">{{ errors.otpMaxAttempts }}</p>
           </div>
+        </div>
+      </div>
+
+      <!-- 管理端登录防护 -->
+      <div class="panel p-6">
+        <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><LockClosedIcon class="h-4 w-4 text-gold-deep" />管理端登录防护</h3>
+        <p class="mb-4 text-[12px] text-ink-faint">管理员密码登录的失败锁定策略（防在线爆破）。</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">失败锁定阈值（次）</label>
+            <input v-model.number="form.adminLoginMaxAttempts" type="number" min="3" max="10" class="field w-full" />
+            <p v-if="errors.adminLoginMaxAttempts" class="mt-1 text-[12px] text-danger">{{ errors.adminLoginMaxAttempts }}</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">锁定时长（分钟）</label>
+            <input v-model.number="form.adminLoginLockMinutes" type="number" min="5" max="60" class="field w-full" />
+            <p v-if="errors.adminLoginLockMinutes" class="mt-1 text-[12px] text-danger">{{ errors.adminLoginLockMinutes }}</p>
+          </div>
+        </div>
+        <div class="mt-3 flex items-start gap-2 rounded-luxe bg-info/8 px-4 py-3 text-[12px] text-ink-soft">
+          <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-info" />
+          <p>同一邮箱连续失败达到阈值后锁定指定时长（期间正确密码也不放行）；另有 IP 维度独立熔断（1 小时内失败 20 次）。锁定不区分邮箱是否真实存在，无法用于探测已注册邮箱。</p>
         </div>
       </div>
 

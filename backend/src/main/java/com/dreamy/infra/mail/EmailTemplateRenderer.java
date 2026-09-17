@@ -1,47 +1,35 @@
 package com.dreamy.infra.mail;
 
-import com.dreamy.domain.authconfig.entity.EmailTemplate;
-import com.dreamy.domain.authconfig.repository.EmailTemplateMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.dreamy.infra.grpc.TemplateGateClient;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 /**
- * 邮件模板渲染器：按 (code, locale) 取模板，缺失回退默认 locale(en)，替换 {{var}} 占位。
- * 约束: RM-120（uk_template_code_locale 缺失回退）；I18N-PLAN。
+ * 邮件模板渲染器：经 TemplateGate gRPC 取模板（Rust 侧含 en 回退），
+ * 本地替换 {{var}} 占位（语义与原直查渲染一致）。
+ * 约束: RM-120（uk_template_code_locale 缺失回退,回退已下沉 Rust 侧）；I18N-PLAN。
+ * 通道不可达 → IdentityUnavailableException（进邮件发送失败重试链,与原直查 DB 故障同语义）。
  */
 @Component
 public class EmailTemplateRenderer {
 
-    private static final String DEFAULT_LOCALE = "en";
+    private final TemplateGateClient templateGateClient;
 
-    private final EmailTemplateMapper templateMapper;
-
-    public EmailTemplateRenderer(EmailTemplateMapper templateMapper) {
-        this.templateMapper = templateMapper;
+    public EmailTemplateRenderer(TemplateGateClient templateGateClient) {
+        this.templateGateClient = templateGateClient;
     }
 
     public Rendered render(String code, String locale, Map<String, String> vars) {
-        EmailTemplate tpl = findTemplate(code, locale);
-        if (tpl == null) {
-            tpl = findTemplate(code, DEFAULT_LOCALE);
-        }
+        TemplateGateClient.Template tpl = templateGateClient.getTemplate(code, locale)
+                .orElse(null);
         String subject = code;
         String body = "";
         if (tpl != null) {
-            subject = apply(tpl.getSubject(), vars);
-            body = apply(tpl.getBody(), vars);
+            subject = apply(tpl.subject(), vars);
+            body = apply(tpl.body(), vars);
         }
         return new Rendered(subject, body);
-    }
-
-    private EmailTemplate findTemplate(String code, String locale) {
-        LambdaQueryWrapper<EmailTemplate> qw = new LambdaQueryWrapper<>();
-        qw.eq(EmailTemplate::getCode, code)
-                .eq(EmailTemplate::getLocale, locale)
-                .last("LIMIT 1");
-        return templateMapper.selectOne(qw);
     }
 
     private String apply(String text, Map<String, String> vars) {

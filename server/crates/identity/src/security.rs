@@ -176,7 +176,6 @@ mod tests {
             db_host: String::new(),
             db_port: 0,
             db_name: String::new(),
-            db_legacy_name: String::new(),
             db_user: String::new(),
             db_password: String::new(),
             redis_host: String::new(),

@@ -11,7 +11,6 @@ use axum::routing::{delete, get, patch, post, put};
 use axum::{Json, Router};
 use common::error::{BizError, ErrorCode, R};
 use common::state::SharedState;
-use sea_orm::ConnectionTrait;
 use serde_json::json;
 
 use crate::security::{AdminClaims, JwtProvider};
@@ -125,7 +124,7 @@ async fn require_permission(
 }
 
 fn svc_err_resp(site: &'static str, err: SvcError) -> Response {
-    super::store_auth::svc_to_biz(site, common::i18n::Locale::Zh, err).into_response()
+    common::error::svc_to_biz(site, common::i18n::Locale::Zh, err).into_response()
 }
 
 fn client_ip(headers: &HeaderMap) -> String {
@@ -313,7 +312,7 @@ async fn create_admin(
         Ok(admin) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "创建管理员",
                 &admin.email,
@@ -358,7 +357,7 @@ async fn update_admin(
         Ok(admin) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "编辑管理员",
                 &admin.email,
@@ -390,7 +389,7 @@ async fn delete_admin(
         Ok(()) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "删除管理员",
                 &format!("ID:{id}"),
@@ -433,7 +432,7 @@ async fn toggle_admin_status(
         Ok(admin) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "禁用管理员",
                 &admin.email,
@@ -477,7 +476,7 @@ async fn reset_password(
         Ok(()) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "重置密码",
                 &format!("ID:{id}"),
@@ -534,7 +533,7 @@ async fn create_role(
         Ok(role) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "创建角色",
                 &role.name,
@@ -582,7 +581,7 @@ async fn update_role(
         Ok(()) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "权限变更",
                 &format!("ID:{id}"),
@@ -609,7 +608,7 @@ async fn delete_role(
         Ok(()) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "删除角色",
                 &format!("ID:{id}"),
@@ -759,7 +758,7 @@ async fn toggle_user_status(
         Ok(u) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "用户禁用",
                 &u.email,
@@ -808,7 +807,7 @@ async fn force_logout(
         Ok(()) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "强制下线",
                 &format!("ID:{id}"),
@@ -834,6 +833,8 @@ async fn get_auth_config(authed: AuthedAdmin, State(st): State<AdminState>) -> R
             "apple_enabled": cfg.apple_enabled, "otp_length": cfg.otp_length,
             "otp_ttl_minutes": cfg.otp_ttl_minutes, "otp_resend_seconds": cfg.otp_resend_seconds,
             "otp_max_attempts": cfg.otp_max_attempts, "min_methods": cfg.min_methods,
+            "admin_login_max_attempts": cfg.admin_login_max_attempts,
+            "admin_login_lock_minutes": cfg.admin_login_lock_minutes,
             "google_client_id": cfg.google_client_id, "apple_service_id": cfg.apple_service_id,
         }))))
         .into_response(),
@@ -869,6 +870,8 @@ async fn update_auth_config(
         otp_resend_seconds: i("otp_resend_seconds"),
         otp_max_attempts: i("otp_max_attempts"),
         min_methods: i("min_methods").map(|x| x as i8),
+        admin_login_max_attempts: i("admin_login_max_attempts"),
+        admin_login_lock_minutes: i("admin_login_lock_minutes"),
         google_client_id: s("google_client_id"),
         apple_service_id: s("apple_service_id"),
     };
@@ -876,7 +879,7 @@ async fn update_auth_config(
         Ok(cfg) => {
             admin_ops::audit(
                 &st.shared,
-                admin_id_of(&authed),
+                Some(admin_id_of(&authed)),
                 &authed.claims.sub,
                 "认证配置变更",
                 "auth_config",
@@ -889,6 +892,8 @@ async fn update_auth_config(
                 "apple_enabled": cfg.apple_enabled, "otp_length": cfg.otp_length,
                 "otp_ttl_minutes": cfg.otp_ttl_minutes, "otp_resend_seconds": cfg.otp_resend_seconds,
                 "otp_max_attempts": cfg.otp_max_attempts, "min_methods": cfg.min_methods,
+                "admin_login_max_attempts": cfg.admin_login_max_attempts,
+                "admin_login_lock_minutes": cfg.admin_login_lock_minutes,
                 "google_client_id": cfg.google_client_id, "apple_service_id": cfg.apple_service_id,
             }))))
             .into_response()
@@ -897,7 +902,7 @@ async fn update_auth_config(
     }
 }
 
-// ══════════ operation-logs(次连接读 identity 库) ══════════
+// ══════════ operation-logs(主库直查;gRPC AuditGate 共用 service 层) ══════════
 
 async fn list_operation_logs(
     authed: AuthedAdmin,
@@ -907,77 +912,30 @@ async fn list_operation_logs(
     if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/logs").await {
         return *r;
     }
-    let Some(legacy) = st.shared.db_legacy.as_ref() else {
-        return svc_err_resp("identity/admin/operation_logs", SvcError::code(50001));
-    };
     let page: u64 = q.get("page").and_then(|v| v.parse().ok()).unwrap_or(1);
     let page_size: u64 = q.get("pageSize").and_then(|v| v.parse().ok()).unwrap_or(20);
-    let action = q.get("action").cloned();
-    let operator_id: Option<i64> = q.get("operator_id").and_then(|v| v.parse().ok());
-    let from = q.get("from").cloned();
-    let to = q.get("to").cloned();
-
-    let mut where_clauses = vec!["1=1".to_string()];
-    let mut params: Vec<sea_orm::sea_query::Value> = vec![];
-    if let Some(a) = &action {
-        if !a.is_empty() {
-            where_clauses.push("action = ?".into());
-            params.push(a.clone().into());
-        }
-    }
-    if let Some(oid) = operator_id {
-        where_clauses.push("operator_id = ?".into());
-        params.push(oid.into());
-    }
-    if let Some(f) = &from {
-        where_clauses.push("created_at >= ?".into());
-        params.push(f.clone().into());
-    }
-    if let Some(t) = &to {
-        where_clauses.push("created_at <= ?".into());
-        params.push(t.clone().into());
-    }
-    let where_sql = where_clauses.join(" AND ");
-    let total_params = params.clone();
-    let total: i64 = legacy
-        .query_one(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(r#"SELECT COUNT(*) FROM operation_log WHERE {where_sql}"#),
-            total_params,
-        ))
-        .await
-        .ok()
-        .flatten()
-        .and_then(|r| r.try_get_by_index::<i64>(0).ok())
-        .unwrap_or(0);
-    let offset = (page - 1) * page_size;
-    let mut page_params = params;
-    page_params.push((page_size as i64).into());
-    page_params.push((offset as i64).into());
-    let rows = legacy
-        .query_all(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(
-                r#"SELECT id, operator_name, action, target, ip, changes, created_at
-                       FROM operation_log WHERE {where_sql} ORDER BY id DESC LIMIT ? OFFSET ?"#
-            ),
-            page_params,
-        ))
-        .await;
-    let Ok(rows) = rows else {
+    let filter = admin_ops::OperationLogFilter {
+        action: q.get("action").cloned(),
+        operator_id: q.get("operator_id").and_then(|v| v.parse().ok()),
+        from: q.get("from").cloned(),
+        to: q.get("to").cloned(),
+    };
+    let Ok((rows, total)) =
+        admin_ops::query_operation_logs(&st.shared, &filter, page, page_size).await
+    else {
         return svc_err_resp("identity/admin/operation_logs", SvcError::code(50001));
     };
     let items: Vec<serde_json::Value> = rows
         .iter()
         .map(|r| {
             json!({
-                "id": r.try_get_by_index::<u64>(0).unwrap_or(0),
-                "operator_name": r.try_get_by_index::<Option<String>>(1).ok().flatten(),
-                "action": r.try_get_by_index::<String>(2).unwrap_or_default(),
-                "target": r.try_get_by_index::<Option<String>>(3).ok().flatten(),
-                "ip": r.try_get_by_index::<Option<String>>(4).ok().flatten(),
-                "changes": r.try_get_by_index::<Option<String>>(5).ok().flatten(),
-                "created_at": r.try_get_by_index::<chrono::NaiveDateTime>(6).map(common::time::format_iso).unwrap_or_default(),
+                "id": r.id,
+                "operator_name": r.operator_name,
+                "action": r.action,
+                "target": r.target,
+                "ip": r.ip,
+                "changes": r.changes,
+                "created_at": r.created_at.map(common::time::format_iso).unwrap_or_default(),
             })
         })
         .collect();
@@ -1016,33 +974,13 @@ async fn export_operation_logs(
             return b.with_message("时间跨度不能超过 92 天").into_response();
         }
     }
-    let Some(legacy) = st.shared.db_legacy.as_ref() else {
-        return svc_err_resp("identity/admin/export_logs", SvcError::code(50001));
+    let filter = admin_ops::OperationLogFilter {
+        action: q.get("action").cloned(),
+        operator_id: q.get("operator_id").and_then(|v| v.parse::<i64>().ok()),
+        from: Some(from),
+        to: Some(to),
     };
-    let mut where_clauses = vec!["created_at >= ?".to_string(), "created_at <= ?".to_string()];
-    let mut params: Vec<sea_orm::sea_query::Value> = vec![from.into(), to.into()];
-    if let Some(a) = q.get("action") {
-        if !a.is_empty() {
-            where_clauses.push("action = ?".into());
-            params.push(a.clone().into());
-        }
-    }
-    if let Some(oid) = q.get("operator_id").and_then(|v| v.parse::<i64>().ok()) {
-        where_clauses.push("operator_id = ?".into());
-        params.push(oid.into());
-    }
-    let rows = legacy
-        .query_all(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            format!(
-                r#"SELECT id, operator_name, action, target, ip, created_at
-                   FROM operation_log WHERE {} ORDER BY id"#,
-                where_clauses.join(" AND ")
-            ),
-            params,
-        ))
-        .await;
-    let Ok(rows) = rows else {
+    let Ok(rows) = admin_ops::stream_operation_logs(&st.shared, &filter).await else {
         return svc_err_resp("identity/admin/export_logs", SvcError::code(50001));
     };
     // CSV 构建(表头 + 双引号转义,对齐 Java csv())
@@ -1051,26 +989,12 @@ async fn export_operation_logs(
         let esc = |v: String| format!("\"{}\"", v.replace('"', "\"\""));
         csv.push_str(&format!(
             "{},{},{},{},{},{}\n",
-            r.try_get_by_index::<u64>(0).unwrap_or(0),
-            esc(r
-                .try_get_by_index::<Option<String>>(1)
-                .ok()
-                .flatten()
-                .unwrap_or_default()),
-            esc(r.try_get_by_index::<String>(2).unwrap_or_default()),
-            esc(r
-                .try_get_by_index::<Option<String>>(3)
-                .ok()
-                .flatten()
-                .unwrap_or_default()),
-            esc(r
-                .try_get_by_index::<Option<String>>(4)
-                .ok()
-                .flatten()
-                .unwrap_or_default()),
-            r.try_get_by_index::<chrono::NaiveDateTime>(5)
-                .map(common::time::format_iso)
-                .unwrap_or_default(),
+            r.id,
+            esc(r.operator_name.clone().unwrap_or_default()),
+            esc(r.action.clone()),
+            esc(r.target.clone().unwrap_or_default()),
+            esc(r.ip.clone().unwrap_or_default()),
+            r.created_at.map(common::time::format_iso).unwrap_or_default(),
         ));
     }
     let mut resp = csv.into_response();

@@ -6,7 +6,7 @@ use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use common::error::{BizError, ErrorCode, R};
+use common::error::{svc_to_biz, BizError, ErrorCode, R};
 use common::i18n::Locale;
 use common::state::SharedState;
 use serde_json::json;
@@ -24,36 +24,6 @@ pub fn router(state: SharedState, jwt: JwtProvider) -> Router {
         .route("/refresh", post(refresh))
         .route("/config", get(get_config))
         .with_state(StoreState { shared: state, jwt })
-}
-
-/// SvcError → BizError(REST 映射:NotFound→40400,InvalidArg→40000,Code→业务码,Infra→50001)
-pub fn svc_to_biz(site: &'static str, locale: Locale, err: SvcError) -> BizError {
-    let locale = locale.code();
-    let biz = match err {
-        SvcError::NotFound => BizError::new(site, ErrorCode::NotFound),
-        SvcError::InvalidArg(msg) => {
-            let mut b = BizError::new(site, ErrorCode::Validation).with_message(msg);
-            b.locale = locale;
-            return b;
-        }
-        SvcError::Code { code, details } => {
-            // 业务码 → ErrorCode 枚举(数值同构);未知码兜底 50000
-            let ec = ErrorCode::from_wire(code).unwrap_or(ErrorCode::Internal);
-            let mut b = BizError::new(site, ec);
-            if let Some(d) = details {
-                b = b.with_details(d);
-            }
-            b.locale = locale;
-            return b;
-        }
-        SvcError::Infra(source) => {
-            tracing::error!(error = %source, site, "[svc] 基础设施错误");
-            BizError::new(site, ErrorCode::Database)
-        }
-    };
-    let mut b = biz;
-    b.locale = locale;
-    b
 }
 
 fn locale_of(headers: &HeaderMap) -> Locale {

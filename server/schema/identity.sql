@@ -1,9 +1,13 @@
--- dreamy_server 空库自举 DDL(v2.2,权威设计:docs/identity-schema-v2.md)
--- 来源:用户四轮讨论定稿;生成日期:2026-09-14
+-- dreamy_server 空库自举 DDL(v2.3,权威设计:docs/identity-schema-v2.md)
+-- 来源:用户四轮讨论定稿;生成日期:2026-09-14;v2.3(2026-09-15)收编 operation_log/
+-- email_template(原 identity 库共享过渡表,Java 业务侧改经 gRPC AuditGate/TemplateGate),
+-- auth_config 增 admin 登录失败锁定两列。
 -- 规则:仅 CREATE IF NOT EXISTS,幂等,绝不 DROP/COPY/ALTER 存量。
--- 注意:email_template/operation_log 为共享过渡表,留 identity 库,不在本文件。
--- 时序表(login_history/otp_code)建表仅带 pmax 哨兵,实际月分区由启动期
--- partition_maintain 任务 REORGANIZE 生成(空 pmax 分裂=秒级元数据操作)。
+-- 注意:存量库加列/两表数据搬迁走 scripts/migrate-shared-tables.sh(自举只建表)。
+-- 时序表(login_history/otp_code)初始只带 p202501 低界分区,其余月分区由写入路径
+-- (通用机制 common::partition)按需动态建(Redis 拦截 + 1526 自愈,无计划任务,无 pmax 哨兵):
+-- 时间越界 INSERT 显式报错重试,不静默兜底。
+-- user/user_identity 去 pmax:水位预扩(注册后 id+10万 探测)+ 1526 自愈兜底。
 
 -- ══════════ 路由层(KEY 哈希 25 区,容量 1 亿,满载每区 400 万) ══════════
 
@@ -64,8 +68,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   PARTITION BY RANGE (`id`) (
     PARTITION p0 VALUES LESS THAN (4000000),
     PARTITION p1 VALUES LESS THAN (8000000),
-    PARTITION p2 VALUES LESS THAN (12000000),
-    PARTITION pmax VALUES LESS THAN MAXVALUE
+    PARTITION p2 VALUES LESS THAN (12000000)
   );
 
 CREATE TABLE IF NOT EXISTS `user_identity` (
@@ -92,8 +95,7 @@ CREATE TABLE IF NOT EXISTS `user_identity` (
   PARTITION BY RANGE (`user_id`) (
     PARTITION p0 VALUES LESS THAN (4000000),
     PARTITION p1 VALUES LESS THAN (8000000),
-    PARTITION p2 VALUES LESS THAN (12000000),
-    PARTITION pmax VALUES LESS THAN MAXVALUE
+    PARTITION p2 VALUES LESS THAN (12000000)
   );
 
 -- ══════════ 时序层(月分区,pmax 哨兵;DROP 清理暂缓=v2.2 决策 12) ══════════
@@ -113,9 +115,9 @@ CREATE TABLE IF NOT EXISTS `login_history` (
   PRIMARY KEY (`id`, `created_at`),
   KEY `idx_user_created` (`user_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='登录历史(审计);月分区;清理暂缓(v2.2 决策 12)'
+  COMMENT='登录历史(审计);月分区(v3 写入路径动态建,无 pmax;清理暂缓)'
   PARTITION BY RANGE COLUMNS (`created_at`) (
-    PARTITION pmax VALUES LESS THAN (MAXVALUE)
+    PARTITION p202501 VALUES LESS THAN ('2025-02-01')
   );
 
 CREATE TABLE IF NOT EXISTS `otp_code` (
@@ -134,9 +136,9 @@ CREATE TABLE IF NOT EXISTS `otp_code` (
   PRIMARY KEY (`id`, `created_at`),
   KEY `idx_email_status` (`email`, `status`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-  COMMENT='邮箱验证码(DB 主存);月分区;清理暂缓——校验查询必须带 created_at 下界谓词强制分区裁剪'
+  COMMENT='邮箱验证码(DB 主存);月分区(v3 写入路径动态建,无 pmax;清理暂缓)——校验查询必须带 created_at 下界谓词强制分区裁剪'
   PARTITION BY RANGE COLUMNS (`created_at`) (
-    PARTITION pmax VALUES LESS THAN (MAXVALUE)
+    PARTITION p202501 VALUES LESS THAN ('2025-02-01')
   );
 
 -- ══════════ 会话冷备(普通表不分区;Redis 为权威主存) ══════════
@@ -239,9 +241,40 @@ CREATE TABLE IF NOT EXISTS `auth_config` (
   `otp_resend_seconds` INT NOT NULL DEFAULT 60 COMMENT '10-120',
   `otp_max_attempts`   INT NOT NULL DEFAULT 5 COMMENT '3-10',
   `min_methods`        TINYINT NOT NULL DEFAULT 1 COMMENT '1-3',
+  `admin_login_max_attempts` INT NOT NULL DEFAULT 5 COMMENT 'admin 登录失败锁定阈值 3-10',
+  `admin_login_lock_minutes` INT NOT NULL DEFAULT 15 COMMENT 'admin 登录锁定时长 5-60 分钟',
   `google_client_id`   VARCHAR(255) DEFAULT NULL,
   `apple_service_id`   VARCHAR(255) DEFAULT NULL,
   `created_at`         DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='认证配置(单例 id=1)';
+
+-- ══════════ 运营审计与邮件模板(自 identity 库收编;Java 业务侧经 gRPC 写读) ══════════
+
+CREATE TABLE IF NOT EXISTS `operation_log` (
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `operator_id`   BIGINT DEFAULT NULL COMMENT '弱引用 admin_user.id,系统操作为 NULL',
+  `operator_name` VARCHAR(100) DEFAULT NULL,
+  `action`        VARCHAR(32) NOT NULL,
+  `target`        VARCHAR(255) DEFAULT NULL,
+  `ip`            VARCHAR(64) DEFAULT NULL,
+  `user_agent`    VARCHAR(512) DEFAULT NULL,
+  `changes`       TEXT COMMENT '变更前后对比 JSON {before,after}',
+  `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_oplog_operator` (`operator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志(只增不删)';
+
+CREATE TABLE IF NOT EXISTS `email_template` (
+  `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code`       VARCHAR(32) NOT NULL,
+  `locale`     VARCHAR(8) NOT NULL,
+  `subject`    VARCHAR(255) NOT NULL,
+  `body`       TEXT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_template_code_locale` (`code`,`locale`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板(种子由 Rust 启动自举:身份域 4 code + 业务域 10 code)';

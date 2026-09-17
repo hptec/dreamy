@@ -220,8 +220,15 @@ CREATE TABLE IF NOT EXISTS `user_session` (
 ### 2.5 不分区表（量级 ≤ 千行）
 
 `admin_user`、`admin_session`、`role`、`permission`、`role_permission`、`auth_config`
-（单行配置）、`email_template`（共享表，留 identity 库）——结构与 v1 一致，原样保留。
-`operation_log` 同为共享表留 identity 库（Java 继续写），不本域化。
+（单行配置）——结构与 v1 一致，原样保留（v2.3 起 auth_config 增 admin 登录失败锁定两列：
+`admin_login_max_attempts` INT DEFAULT 5、`admin_login_lock_minutes` INT DEFAULT 15）。
+
+> **v2.3 收编（2026-09-15）**：`operation_log`、`email_template` 自 identity 库收编
+> `dreamy_server`（DDL 见 `server/schema/identity.sql`；存量数据走
+> `scripts/migrate-shared-tables.sh`）。Java 业务侧审计写入/模板渲染/日志查询改经
+> gRPC 通道（`dreamy.audit.v1 AuditGate` / `dreamy.mail.v1 TemplateGate`，与
+> IdentityGate 同一 18083 端口）；email_template 种子由 Rust 启动自举（身份域 4 code
+> + 业务域 16 code）。identity 库同名旧表保留为死表快照。
 
 ## 3. Redis 数据结构定义
 

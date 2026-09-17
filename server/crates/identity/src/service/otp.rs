@@ -10,9 +10,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Mutex as AsyncMutex;
 
+use common::partition;
 use common::state::SharedState;
-use sea_orm::{ConnectionTrait, Statement};
+use sea_orm::sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 
+use crate::entity::otp_code;
 use crate::enums::OtpStatus;
 use crate::service::{authconfig, ratelimit, SvcError};
 
@@ -66,43 +69,48 @@ pub async fn send_otp(
         return Err(e);
     }
 
-    // STEP-05 失效旧 pending(原生 UPDATE:复合主键月分区表,col_expr 类型链最短路径)
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE otp_code SET status = 3, version = version + 1 WHERE email = ? AND status = 1"#,
-            [email.clone().into()],
-        ))
+    // STEP-05 失效旧 pending
+    otp_code::Entity::update_many()
+        .col_expr(
+            otp_code::Column::Status,
+            Expr::value(OtpStatus::Expired.code() as i8),
+        )
+        .col_expr(
+            otp_code::Column::Version,
+            Expr::col(otp_code::Column::Version).add(1),
+        )
+        .filter(otp_code::Column::Email.eq(email.clone()))
+        .filter(otp_code::Column::Status.eq(OtpStatus::Pending.code() as i8))
+        .exec(&state.db)
         .await?;
 
-    // STEP-06 生成明文(仅存 hash;本地 RNG,无外部依赖)
+    // STEP-06 生成明文(仅存 hash;本地 CSPRNG,无外部依赖)
     let plaintext = numeric_code(cfg.otp_length as usize);
     let code_hash =
         bcrypt::hash(&plaintext, bcrypt::DEFAULT_COST).map_err(|_| SvcError::code(50000))?;
     let now = chrono::Local::now().naive_local();
     let expires_at = now + chrono::Duration::minutes(cfg.otp_ttl_minutes as i64);
-    // 复合主键(id,created_at)+自增:SeaORM insert() 不可回解 → 原生 INSERT
-    // (created_at 显式落值:NOT NULL 分区键)
-    state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"INSERT INTO otp_code
-               (email, code_hash, length, expires_at, attempts, max_attempts, status, last_sent_at, version, created_at)
-               VALUES (?, ?, ?, ?, 0, ?, ?, ?, 0, ?)"#,
-            [
-                email.clone().into(),
-                code_hash.into(),
-                (cfg.otp_length as i32).into(),
-                expires_at.into(),
-                cfg.otp_max_attempts.into(),
-                (OtpStatus::Pending.code() as i8).into(),
-                now.into(),
-                now.into(),
-            ],
-        ))
-        .await?;
+    // created_at 显式落值(NOT NULL 分区键 + 复合主键)
+    // v3 分区拦截:写入前确保当月分区(容忍失败,1526 自愈兜底)
+    let _ = partition::ensure_months(state, "otp_code", &[now]).await;
+    // 复合主键(id,created_at)+自增:SeaORM UnpackInsertId 限制 → 实体 DSL 构建
+    // Statement,交由分区 insert_self_heal(1526 自愈重试)执行
+    let stmt = otp_code::Entity::insert(otp_code::ActiveModel {
+        email: Set(email.clone()),
+        code_hash: Set(code_hash),
+        length: Set(cfg.otp_length),
+        expires_at: Set(expires_at),
+        attempts: Set(0),
+        max_attempts: Set(cfg.otp_max_attempts),
+        status: Set(OtpStatus::Pending.code() as i8),
+        last_sent_at: Set(Some(now)),
+        version: Set(0),
+        created_at: Set(now),
+        updated_at: Set(Some(now)),
+        ..Default::default()
+    })
+    .build(sea_orm::DatabaseBackend::MySql);
+    partition::insert_self_heal(state, "otp_code", &[now], stmt).await?;
 
     ratelimit::record_sent(state, &email, ip, cfg.otp_resend_seconds as u64).await;
 
@@ -127,20 +135,12 @@ pub async fn send_otp(
 }
 
 fn numeric_code(len: usize) -> String {
-    // 简单安全随机:系统时间 + 线程 ID 混合作种(验证码场景足够;hash 侧 bcrypt 已加密强度)
-    let mut seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos() as u64
-        ^ (std::process::id() as u64) << 32;
-    let mut out = String::with_capacity(len);
-    for _ in 0..len {
-        seed = seed
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        out.push(char::from(b'0' + ((seed >> 33) % 10) as u8));
-    }
-    out
+    // CSPRNG(rand crate;2026-09-15 替换旧 LCG——时间+pid 种子可预测,观察少量输出可反推后续验证码)
+    use rand::Rng as _;
+    let mut rng = rand::rng();
+    (0..len)
+        .map(|_| char::from(b'0' + rng.random_range(0..10u8)))
+        .collect()
 }
 
 /// FLOW-02 verifyOtp(登录全管线)——归并/建号/禁用检查/会话签发在 auth.rs 编排;
@@ -172,108 +172,81 @@ async fn consume_valid_code(state: &SharedState, email: &str, code: &str) -> Res
     let db = &state.db;
     let cutoff = chrono::Local::now().naive_local() - chrono::Duration::hours(24);
     // STEP-01 取最新 pending(**created_at 下界谓词**强制月分区裁剪)
-    let row = db
-        .query_one(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"SELECT id, code_hash, expires_at, attempts, max_attempts, version, created_at
-               FROM otp_code
-               WHERE email = ? AND status = 1 AND created_at >= ?
-               ORDER BY created_at DESC LIMIT 1"#,
-            [email.into(), cutoff.into()],
-        ))
+    let row = otp_code::Entity::find()
+        .filter(otp_code::Column::Email.eq(email))
+        .filter(otp_code::Column::Status.eq(OtpStatus::Pending.code() as i8))
+        .filter(otp_code::Column::CreatedAt.gte(cutoff))
+        .order_by_desc(otp_code::Column::CreatedAt)
+        .one(db)
         .await?;
     let Some(row) = row else {
         return Err(SvcError::code(41001)); // 无 pending
     };
-    // id 为 BIGINT UNSIGNED → u64(sqlx i64 解码类型不匹配即失败,P2 实测踩坑)
-    let (id, created_at, code_hash, expires_at, attempts, max_attempts, version) = (
-        row.try_get_by_index::<u64>(0)
-            .map_err(|_| SvcError::code(50000))? as i64,
-        row.try_get_by_index::<chrono::NaiveDateTime>(6)
-            .map_err(|_| SvcError::code(50000))?,
-        row.try_get_by_index::<String>(1)
-            .map_err(|_| SvcError::code(50000))?,
-        row.try_get_by_index::<chrono::NaiveDateTime>(2)
-            .map_err(|_| SvcError::code(50000))?,
-        row.try_get_by_index::<i32>(3)
-            .map_err(|_| SvcError::code(50000))?,
-        row.try_get_by_index::<i32>(4)
-            .map_err(|_| SvcError::code(50000))?,
-        row.try_get_by_index::<i32>(5)
-            .map_err(|_| SvcError::code(50000))?,
-    );
     let now = chrono::Local::now().naive_local();
     // STEP-02 过期
-    if expires_at < now {
-        update_status(state, id, created_at, OtpStatus::Expired, version).await?;
+    if row.expires_at < now {
+        update_status(state, &row, OtpStatus::Expired).await?;
         return Err(SvcError::code(41001));
     }
     // STEP-03 hash 校验
-    if !bcrypt::verify(code, &code_hash).unwrap_or(false) {
-        let next = attempts + 1;
-        if next >= max_attempts {
-            update_status(state, id, created_at, OtpStatus::Locked, version).await?;
+    if !bcrypt::verify(code, &row.code_hash).unwrap_or(false) {
+        let next = row.attempts + 1;
+        if next >= row.max_attempts {
+            update_status(state, &row, OtpStatus::Locked).await?;
             return Err(SvcError::code(41002));
         }
-        bump_attempts(state, id, created_at, version, next).await?;
-        let details = serde_json::json!({ "remaining_attempts": max_attempts - next });
+        bump_attempts(state, &row, next).await?;
+        let details = serde_json::json!({ "remaining_attempts": row.max_attempts - next });
         return Err(SvcError::code_with(40101, details));
     }
     // 正确 → consumed(version 条件防并发双消费)
-    update_status(state, id, created_at, OtpStatus::Consumed, version).await?;
+    update_status(state, &row, OtpStatus::Consumed).await?;
     ratelimit::clear_resend(state, email).await;
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+/// 状态推进(乐观锁:version 条件防并发双消费)
 async fn update_status(
     state: &SharedState,
-    id: i64,
-    created_at: chrono::NaiveDateTime,
+    row: &otp_code::Model,
     status: OtpStatus,
-    version: i32,
 ) -> Result<(), SvcError> {
-    let res = state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE otp_code SET status = ?, version = version + 1
-               WHERE id = ? AND created_at = ? AND version = ?"#,
-            [
-                (status.code() as i8).into(),
-                id.into(),
-                created_at.into(),
-                version.into(),
-            ],
-        ))
+    let res = otp_code::Entity::update_many()
+        .col_expr(
+            otp_code::Column::Status,
+            Expr::value(status.code() as i8),
+        )
+        .col_expr(
+            otp_code::Column::Version,
+            Expr::col(otp_code::Column::Version).add(1),
+        )
+        .filter(otp_code::Column::Id.eq(row.id))
+        .filter(otp_code::Column::CreatedAt.eq(row.created_at))
+        .filter(otp_code::Column::Version.eq(row.version))
+        .exec(&state.db)
         .await?;
-    if res.rows_affected() == 0 {
+    if res.rows_affected == 0 {
         // 并发竞争(乐观锁失败):按已消费处理语义,交由上层(罕见)
-        tracing::warn!("[otp] 乐观锁竞争 id={id}");
+        tracing::warn!("[otp] 乐观锁竞争 id={}", row.id);
     }
     Ok(())
 }
 
 async fn bump_attempts(
     state: &SharedState,
-    id: i64,
-    created_at: chrono::NaiveDateTime,
-    version: i32,
+    row: &otp_code::Model,
     attempts: i32,
 ) -> Result<(), SvcError> {
-    let _ = state
-        .db
-        .execute(Statement::from_sql_and_values(
-            sea_orm::DatabaseBackend::MySql,
-            r#"UPDATE otp_code SET attempts = ?, version = version + 1
-               WHERE id = ? AND created_at = ? AND version = ?"#,
-            [
-                attempts.into(),
-                id.into(),
-                created_at.into(),
-                version.into(),
-            ],
-        ))
+    let _ = otp_code::Entity::update_many()
+        .col_expr(otp_code::Column::Attempts, Expr::value(attempts))
+        .col_expr(
+            otp_code::Column::Version,
+            Expr::col(otp_code::Column::Version).add(1),
+        )
+        .filter(otp_code::Column::Id.eq(row.id))
+        .filter(otp_code::Column::CreatedAt.eq(row.created_at))
+        .filter(otp_code::Column::Version.eq(row.version))
+        .exec(&state.db)
         .await?;
     Ok(())
 }

@@ -30,18 +30,12 @@ async fn redis_ping(conn: &mut redis::aio::ConnectionManager) -> bool {
         .unwrap_or(false)
 }
 
-/// readiness:DB 主/次连接 + Redis 连通性(compose healthcheck 与 deploy 探活挂钩)
+/// readiness:主库 + Redis 连通性(compose healthcheck 与 deploy 探活挂钩)
 pub async fn readyz(State(state): State<SharedState>) -> impl IntoResponse {
     let mut checks = serde_json::Map::new();
 
     let db_main = db_ping(&state.db).await;
     checks.insert("db_main".into(), serde_json::json!(db_main));
-
-    let db_legacy = match &state.db_legacy {
-        Some(conn) => db_ping(conn).await,
-        None => false,
-    };
-    checks.insert("db_legacy".into(), serde_json::json!(db_legacy));
 
     let redis_ok = match &state.redis {
         Some(manager) => {
@@ -52,7 +46,7 @@ pub async fn readyz(State(state): State<SharedState>) -> impl IntoResponse {
     };
     checks.insert("redis".into(), serde_json::json!(redis_ok));
 
-    // 主库为硬依赖;次库/Redis 允许暂缺(共享表端点在 P2/P3 自行降级)
+    // 主库为硬依赖;Redis 允许暂缺(缓存/频控降级 DB)
     let ready = db_main;
     let status = if ready { "ready" } else { "degraded" };
     let body = serde_json::json!({ "status": status, "checks": checks });

@@ -15,6 +15,8 @@ pub struct Model {
     pub otp_resend_seconds: i32,
     pub otp_max_attempts: i32,
     pub min_methods: i8,
+    pub admin_login_max_attempts: i32,
+    pub admin_login_lock_minutes: i32,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
     pub created_at: Option<DateTime>,

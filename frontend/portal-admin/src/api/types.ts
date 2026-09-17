@@ -165,6 +165,8 @@ export interface AuthConfig {
   otpResendSeconds: number
   otpMaxAttempts: number
   minMethods: number
+  adminLoginMaxAttempts?: number | null
+  adminLoginLockMinutes?: number | null
   googleClientId?: string | null
   appleServiceId?: string | null
   updatedAt?: string | null
@@ -178,6 +180,8 @@ export interface AuthConfigUpdatePayload {
   otpResendSeconds: number
   otpMaxAttempts: number
   minMethods: number
+  adminLoginMaxAttempts?: number | null
+  adminLoginLockMinutes?: number | null
   googleClientId?: string | null
   appleServiceId?: string | null
 }

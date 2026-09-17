@@ -36,7 +36,11 @@ pub async fn ensure(state: &SharedState, email: &str, name: &str) -> Result<i64,
         ..Default::default()
     };
     match model.insert(&state.db).await {
-        Ok(inserted) => Ok(inserted.id as i64),
+        Ok(inserted) => {
+            // v3 分区水位:user INSERT 成功后预扩下一段(user_identity 同边界跟随)
+            crate::service::ensure_user_segments(state, inserted.id).await;
+            Ok(inserted.id as i64)
+        }
         // 并发下唯一键冲突 → 幂等回读
         Err(_) => user::Entity::find()
             .filter(user::Column::Email.eq(email.as_str()))

@@ -29,7 +29,6 @@ async fn main() {
         http_port = cfg.http_port,
         grpc_port = cfg.grpc_port,
         db = %cfg.db_name,
-        db_legacy = %cfg.db_legacy_name,
         "[boot] dreamy-server 启动中"
     );
 
@@ -40,17 +39,13 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    // v2.2 分区维护:启动同步跑一次(月分区生成/水位扩段),再起每小时巡检
-    identity::service::partition_maintain::run_once(&db).await;
-    let maintain_db = db.clone();
-    tokio::spawn(identity::service::partition_maintain::schedule(maintain_db));
+    // 邮件模板种子(幂等:code+locale 存在即跳过;身份 4 code + 业务 16 code)
+    identity::seed::seed_mail_templates(&db).await;
 
-    let db_legacy = common::bootstrap::connect_legacy(&cfg).await;
     let redis = build_redis_manager(&cfg).await;
 
     let state: SharedState = std::sync::Arc::new(AppState {
         db: db.clone(),
-        db_legacy,
         redis,
         cfg: cfg.clone(),
     });
@@ -58,11 +53,30 @@ async fn main() {
     let grpc_addr = std::net::SocketAddr::from(([0, 0, 0, 0], cfg.grpc_port));
     let grpc_state = state.clone();
     let grpc_task = tokio::spawn(async move {
-        let svc = proto::dreamy::identity::v1::identity_gate_server::IdentityGateServer::new(
-            identity::grpc::IdentityGateImpl { state: grpc_state },
-        );
-        if let Err(err) = tonic::transport::Server::builder()
-            .add_service(svc)
+        // 同一 18083 挂三服务:IdentityGate(会话/用户) + AuditGate/TemplateGate(审计/模板)
+        let server = tonic::transport::Server::builder()
+            .add_service(
+                proto::dreamy::identity::v1::identity_gate_server::IdentityGateServer::new(
+                    identity::grpc::IdentityGateImpl {
+                        state: grpc_state.clone(),
+                    },
+                ),
+            )
+            .add_service(
+                proto::dreamy::audit::v1::audit_gate_server::AuditGateServer::new(
+                    identity::grpc_support::AuditGateImpl {
+                        state: grpc_state.clone(),
+                    },
+                ),
+            )
+            .add_service(
+                proto::dreamy::mail::v1::template_gate_server::TemplateGateServer::new(
+                    identity::grpc_support::TemplateGateImpl {
+                        state: grpc_state.clone(),
+                    },
+                ),
+            );
+        if let Err(err) = server
             .serve_with_shutdown(grpc_addr, shutdown_signal())
             .await
         {

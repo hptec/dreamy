@@ -8,7 +8,6 @@ pub struct Config {
     pub db_host: String,
     pub db_port: u16,
     pub db_name: String,
-    pub db_legacy_name: String,
     pub db_user: String,
     pub db_password: String,
     pub redis_host: String,
@@ -42,7 +41,6 @@ impl Config {
                 .parse()
                 .map_err(|_| "SERVER_DB_PORT 非法")?,
             db_name: var("SERVER_DB_NAME", "dreamy_server"),
-            db_legacy_name: var("SERVER_DB_LEGACY_NAME", "identity"),
             db_user: var("DB_USERNAME", "root"),
             db_password: env::var("DB_PASSWORD").unwrap_or_default(),
             redis_host: var("REDIS_HOST", "localhost"),
@@ -99,10 +97,6 @@ impl Config {
 
     pub fn db_main_url(&self) -> String {
         format!("{}/{}", self.db_base_url(), self.db_name)
-    }
-
-    pub fn db_legacy_url(&self) -> String {
-        format!("{}/{}", self.db_base_url(), self.db_legacy_name)
     }
 
     pub fn redis_url(&self) -> String {

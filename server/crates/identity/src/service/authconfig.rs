@@ -15,6 +15,8 @@ pub struct AuthConfigData {
     pub otp_resend_seconds: i32,
     pub otp_max_attempts: i32,
     pub min_methods: i8,
+    pub admin_login_max_attempts: i32,
+    pub admin_login_lock_minutes: i32,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
 }
@@ -37,6 +39,8 @@ fn to_data(m: &auth_config::Model) -> AuthConfigData {
         otp_resend_seconds: m.otp_resend_seconds,
         otp_max_attempts: m.otp_max_attempts,
         min_methods: m.min_methods,
+        admin_login_max_attempts: m.admin_login_max_attempts,
+        admin_login_lock_minutes: m.admin_login_lock_minutes,
         google_client_id: m.google_client_id.clone(),
         apple_service_id: m.apple_service_id.clone(),
     }
@@ -51,6 +55,8 @@ pub struct AuthConfigUpdate {
     pub otp_resend_seconds: Option<i32>,
     pub otp_max_attempts: Option<i32>,
     pub min_methods: Option<i8>,
+    pub admin_login_max_attempts: Option<i32>,
+    pub admin_login_lock_minutes: Option<i32>,
     pub google_client_id: Option<String>,
     pub apple_service_id: Option<String>,
 }
@@ -85,6 +91,16 @@ pub async fn update(
             return Err(SvcError::code(40002));
         }
     }
+    if let Some(v) = patch.admin_login_max_attempts {
+        if !(3..=10).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
+    if let Some(v) = patch.admin_login_lock_minutes {
+        if !(5..=60).contains(&v) {
+            return Err(SvcError::code(40002));
+        }
+    }
 
     let row = auth_config::Entity::find_by_id(1u64)
         .one(&state.db)
@@ -111,6 +127,12 @@ pub async fn update(
     }
     if let Some(v) = patch.min_methods {
         am.min_methods = Set(v);
+    }
+    if let Some(v) = patch.admin_login_max_attempts {
+        am.admin_login_max_attempts = Set(v);
+    }
+    if let Some(v) = patch.admin_login_lock_minutes {
+        am.admin_login_lock_minutes = Set(v);
     }
     if let Some(v) = patch.google_client_id.clone() {
         am.google_client_id = Set(if v.is_empty() { None } else { Some(v) });
@@ -139,6 +161,8 @@ pub async fn seed_if_missing(db: &DatabaseTransaction) -> Result<(), sea_orm::Db
             otp_resend_seconds: Set(60),
             otp_max_attempts: Set(5),
             min_methods: Set(1),
+            admin_login_max_attempts: Set(5),
+            admin_login_lock_minutes: Set(15),
             google_client_id: Set(None),
             apple_service_id: Set(None),
             ..Default::default()

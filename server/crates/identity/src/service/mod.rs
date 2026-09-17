@@ -10,55 +10,25 @@ pub mod authconfig;
 pub mod demo_user;
 pub mod merge;
 pub mod otp;
-pub mod partition_maintain;
 pub mod permissions;
 pub mod ratelimit;
 pub mod session;
 pub mod user_query;
 
+pub use common::error::SvcError;
 pub use user_query::{Col, Cond, CondVal, ListQuery, Lookup, UserView};
 
-use thiserror::Error;
+use common::state::SharedState;
 
-/// 领域服务错误(REST 层映射:NotFound→40400,InvalidArg→40000,Code→对应业务码,Infra→50001;
-/// gRPC 层映射:NotFound→NOT_FOUND,InvalidArg→INVALID_ARGUMENT,其余→UNAVAILABLE)
-/// DbErr 装箱:控制错误体积(Rust 惯例),`?` 自动转换不受影响
-#[derive(Debug, Error)]
-pub enum SvcError {
-    #[error("未命中")]
-    NotFound,
-    #[error("非法参数: {0}")]
-    InvalidArg(String),
-    /// 业务错误码(wire 契约值,如 40101/40902/42901)+ REST details(gRPC 查询路径不产生此变体)
-    #[error("业务错误 {code}")]
-    Code {
-        code: i32,
-        details: Option<serde_json::Value>,
-    },
-    #[error("基础设施错误: {0}")]
-    Infra(#[from] Box<sea_orm::DbErr>),
-}
-
-impl SvcError {
-    /// 业务码便捷构造(details 缺省 None)
-    pub fn code(code: i32) -> Self {
-        SvcError::Code {
-            code,
-            details: None,
+/// user 注册成功后的水位预扩(identity 域策略:双表 user/user_identity;机制在 common::partition)。
+/// 写入后检查——id 只有 INSERT 成功才拿到,且应用层零查询成本;探测 id+10万 所在段,
+/// 提前建段避免后续注册撞 1526。
+pub async fn ensure_user_segments(state: &SharedState, user_id: u64) {
+    const SEGMENT_WATERMARK: u64 = 100_000;
+    let probe = user_id.saturating_add(SEGMENT_WATERMARK);
+    for table in ["user", "user_identity"] {
+        if let Err(e) = common::partition::ensure_id_segments(state, table, &[probe]).await {
+            tracing::error!(error = %e, "[partition] {table} 水位段保障失败(id={user_id})");
         }
-    }
-
-    /// 业务码 + details(如 40101 remaining_attempts)
-    pub fn code_with(code: i32, details: serde_json::Value) -> Self {
-        SvcError::Code {
-            code,
-            details: Some(details),
-        }
-    }
-}
-
-impl From<sea_orm::DbErr> for SvcError {
-    fn from(err: sea_orm::DbErr) -> Self {
-        SvcError::Infra(Box::new(err))
     }
 }

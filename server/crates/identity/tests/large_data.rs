@@ -164,7 +164,6 @@ async fn large_data_evidence() {
 
     let state: SharedState = std::sync::Arc::new(AppState {
         db,
-        db_legacy: None,
         redis: None, // 纯 DB 路径;缓存热路径另证
         cfg: common::config::Config {
             http_port: 0,
@@ -172,7 +171,6 @@ async fn large_data_evidence() {
             db_host: String::new(),
             db_port: 0,
             db_name: "dreamy_bench".into(),
-            db_legacy_name: String::new(),
             db_user: String::new(),
             db_password: String::new(),
             redis_host: String::new(),

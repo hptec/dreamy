@@ -230,8 +230,10 @@ public class JwtTokenProvider {
     public AuthPrincipal parseAdminToken(String token) {
         Claims c = parse(token, adminKey);
         requireType(c, AuthPrincipal.TYPE_ADMIN);
+        // role_id 宽容解析:Java 签发为 String,Rust 签发为数字(2026-09-15 跨端 admin JWT 互通修复)
+        Object roleId = c.get(CLAIM_ROLE_ID);
         return new AuthPrincipal(c.getSubject(), c.getId(), AuthPrincipal.TYPE_ADMIN,
-                null, false, c.get(CLAIM_ROLE_ID, String.class), null);
+                null, false, roleId == null ? null : String.valueOf(roleId), null);
     }
 
     private Claims parse(String token, SecretKey key) {

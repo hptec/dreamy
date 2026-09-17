@@ -10,6 +10,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
+use thiserror::Error;
+
+use crate::i18n::Locale;
 
 /// huihao.web.R 的 Rust 同构体(serde 按声明序序列化,与 Jackson 字段序一致)
 #[derive(Serialize, Debug)]
@@ -65,6 +68,7 @@ pub enum ErrorCode {
     OtpLocked,               // 41002 → 410
     ResendTooSoon,           // 42901 → 429
     RateLimited,             // 42902 → 429
+    AdminLoginLocked,        // 42903 → 429
     Internal,                // 50000 → 500
     Database,                // 50001 → 500
     EmailSendFailed,         // 50002 → 500
@@ -102,6 +106,7 @@ impl ErrorCode {
             Self::OtpLocked => 41002,
             Self::ResendTooSoon => 42901,
             Self::RateLimited => 42902,
+            Self::AdminLoginLocked => 42903,
             Self::Internal => 50000,
             Self::Database => 50001,
             Self::EmailSendFailed => 50002,
@@ -140,6 +145,7 @@ impl ErrorCode {
             41002 => Self::OtpLocked,
             42901 => Self::ResendTooSoon,
             42902 => Self::RateLimited,
+            42903 => Self::AdminLoginLocked,
             50000 => Self::Internal,
             50001 => Self::Database,
             50002 => Self::EmailSendFailed,
@@ -175,7 +181,9 @@ impl ErrorCode {
             | Self::IdentityTaken
             | Self::RoleInUse => StatusCode::CONFLICT,
             Self::OtpExpired | Self::OtpLocked => StatusCode::GONE,
-            Self::ResendTooSoon | Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            Self::ResendTooSoon | Self::RateLimited | Self::AdminLoginLocked => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
             Self::Internal | Self::Database | Self::EmailSendFailed => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -288,9 +296,102 @@ impl IntoResponse for BizError {
     }
 }
 
+// ══════════════════ 领域服务错误(全域 crate 共用的 service 层契约) ══════════════════
+
+/// service 层错误(REST 层映射:NotFound→40400,InvalidArg→40000,Code→对应业务码,Infra→50001;
+/// gRPC 层映射:NotFound→NOT_FOUND,InvalidArg→INVALID_ARGUMENT,其余→UNAVAILABLE)
+/// DbErr 装箱:控制错误体积(Rust 惯例),`?` 自动转换不受影响
+#[derive(Debug, Error)]
+pub enum SvcError {
+    #[error("未命中")]
+    NotFound,
+    #[error("非法参数: {0}")]
+    InvalidArg(String),
+    /// 业务错误码(wire 契约值,如 40101/40902/42901)+ REST details(gRPC 查询路径不产生此变体)
+    #[error("业务错误 {code}")]
+    Code {
+        code: i32,
+        details: Option<serde_json::Value>,
+    },
+    #[error("基础设施错误: {0}")]
+    Infra(#[from] Box<sea_orm::DbErr>),
+}
+
+impl SvcError {
+    /// 业务码便捷构造(details 缺省 None)
+    pub fn code(code: i32) -> Self {
+        SvcError::Code {
+            code,
+            details: None,
+        }
+    }
+
+    /// 业务码 + details(如 40101 remaining_attempts)
+    pub fn code_with(code: i32, details: serde_json::Value) -> Self {
+        SvcError::Code {
+            code,
+            details: Some(details),
+        }
+    }
+}
+
+impl From<sea_orm::DbErr> for SvcError {
+    fn from(err: sea_orm::DbErr) -> Self {
+        SvcError::Infra(Box::new(err))
+    }
+}
+
+/// SvcError → BizError(REST 映射契约:NotFound→40400,InvalidArg→40000,
+/// Code→业务码(from_wire,未知兜底 50000),Infra→50001)。
+/// store/admin 及未来全部域 crate 的 api 层共用此单份映射。
+pub fn svc_to_biz(site: &'static str, locale: Locale, err: SvcError) -> BizError {
+    let locale = locale.code();
+    let biz = match err {
+        SvcError::NotFound => BizError::new(site, ErrorCode::NotFound),
+        SvcError::InvalidArg(msg) => {
+            let mut b = BizError::new(site, ErrorCode::Validation).with_message(msg);
+            b.locale = locale;
+            return b;
+        }
+        SvcError::Code { code, details } => {
+            // 业务码 → ErrorCode 枚举(数值同构);未知码兜底 50000
+            let ec = ErrorCode::from_wire(code).unwrap_or(ErrorCode::Internal);
+            let mut b = BizError::new(site, ec);
+            if let Some(d) = details {
+                b = b.with_details(d);
+            }
+            b.locale = locale;
+            return b;
+        }
+        SvcError::Infra(source) => {
+            tracing::error!(error = %source, site, "[svc] 基础设施错误");
+            BizError::new(site, ErrorCode::Database)
+        }
+    };
+    let mut b = biz;
+    b.locale = locale;
+    b
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn svc_error_rest_mapping() {
+        let f = |e: SvcError, code: ErrorCode| {
+            let b = svc_to_biz("t/one", Locale::En, e);
+            assert_eq!(b.code, code);
+            b
+        };
+        f(SvcError::NotFound, ErrorCode::NotFound);
+        let b = f(SvcError::InvalidArg("x".into()), ErrorCode::Validation);
+        assert_eq!(b.message.as_deref(), Some("x"));
+        let b = f(SvcError::code(40103), ErrorCode::CredentialsInvalid);
+        assert_eq!(b.locale, "en");
+        // 未知业务码兜底 50000
+        f(SvcError::code(99999), ErrorCode::Internal);
+    }
 
     #[test]
     fn error_sites_globally_unique() {

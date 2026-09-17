@@ -20,21 +20,6 @@ pub async fn connect_main(cfg: &crate::config::Config) -> Result<DatabaseConnect
     Ok(main)
 }
 
-/// 连接次库(identity,共享表 operation_log / email_template)。
-/// 缺失不阻断启动(仅 WARN + None;使用共享表的端点在 P2/P3 自行报错)。
-pub async fn connect_legacy(cfg: &crate::config::Config) -> Option<DatabaseConnection> {
-    match Database::connect(cfg.db_legacy_url()).await {
-        Ok(conn) => Some(conn),
-        Err(err) => {
-            tracing::warn!(
-                "[bootstrap] 次库 {} 不可用(共享表暂不可访问):{err}",
-                cfg.db_legacy_name
-            );
-            None
-        }
-    }
-}
-
 async fn apply_schema(conn: &DatabaseConnection, path: &str) -> Result<(), DbErr> {
     let sql = match std::fs::read_to_string(path) {
         Ok(s) => s,

@@ -10,16 +10,27 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import com.dreamy.DreamyApplication;
+import com.dreamy.infra.grpc.AuditGateClient;
+import com.dreamy.infra.grpc.TemplateGateClient;
 
 /**
  * 集成测试基类：真 MySQL + Redis（Testcontainers，零 Mock）。
  * 表结构由 huihao-mysql DDL-auto（@EnableMysql auto=update）从实体自动建立，不再挂载 schema.sql。
  * 种子数据（权限字典/超管/auth_config）由主代码 DataInitializer 在应用启动时幂等写入。
+ *
+ * 审计/邮件模板已收编 Rust 主库（gRPC 通道）：IT 环境无 Rust server，mock 两个 client——
+ * getTemplate 返回 empty（对齐原直查「模板缺失 → subject=code、body=""」语义）、record no-op（best-effort）。
  */
 @SpringBootTest(classes = DreamyApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("it")
 @Testcontainers
 public abstract class AbstractIT {
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected TemplateGateClient templateGateClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    protected AuditGateClient auditGateClient;
 
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("identity")

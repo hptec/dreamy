@@ -15,3 +15,4 @@ urlencoding = { workspace = true }
 chrono = { workspace = true }
 inventory = { workspace = true }
 tracing = { workspace = true }
+thiserror = { workspace = true }

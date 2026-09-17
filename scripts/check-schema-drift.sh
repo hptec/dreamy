@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================
 # 脚本名称: check-schema-drift.sh
-# 功能描述: schema 冻结门禁——从 live MySQL 重新 dump 13 张身份域表 DDL,
-#           与入库基准 server/schema/identity-reference-13.sql 逐字节比对,
-#           漂移即失败(防止 huihao auto-DDL/手工变更悄悄改掉实体假设)。
-#           生成方式与基准文件完全同构(mysqldump --no-data --compact
-#           --skip-add-drop-table + 剥 AUTO_INCREMENT 当前值)。
+# 功能描述: schema 冻结门禁——从 live MySQL 重新 dump identity 库 11 张身份域
+#           回滚快照表 DDL,与入库基准 server/schema/identity-reference-13.sql
+#           (历史文件名,现管 11 张)逐字节比对,漂移即失败(防止 huihao auto-DDL/
+#           手工变更悄悄改掉实体假设)。生成方式与基准文件完全同构
+#           (mysqldump --no-data --compact --skip-add-drop-table + 剥 AUTO_INCREMENT 当前值)。
+#           注意:operation_log/email_template 已收编 dreamy_server(Rust 主库),
+#           权威 DDL = server/schema/identity.sql(自举),不在本门禁范围;
+#           identity 库同名旧表为迁移遗留死表,保留作回滚快照。
 # 使用方式: bash scripts/check-schema-drift.sh
 # 失败处置: 若为有意变更——更新基准(重跑 dump 覆盖)并同步 SeaORM 实体
 # =============================================================
@@ -28,13 +31,13 @@ trap 'rm -f "${LIVE}"' EXIT
 docker compose --env-file "${ENV_FILE}" exec -T mysql mysqldump \
   -uroot -p"${MYSQL_ROOT_PASSWORD}" --no-data --compact --skip-add-drop-table \
   identity user user_identity user_session otp_code auth_config login_history \
-  admin_user admin_session role permission role_permission operation_log email_template \
+  admin_user admin_session role permission role_permission \
   2>/dev/null | sed -e 's/^CREATE TABLE `/CREATE TABLE IF NOT EXISTS `/g' \
                     -e '/^\/\*!/d' -e '/^SET /d' -e 's/ AUTO_INCREMENT=[0-9]*//' > "${LIVE}"
 
 # 双端剥注释行(基准文件含文档头注释,live dump 无注释;比对只看 DDL 本体)
 if diff -u <(sed '/^--/d' "${BASELINE}") <(sed '/^--/d' "${LIVE}") > /dev/null; then
-  echo "[drift] 一致:live schema 与入库基准逐字节相同(13 张表)"
+  echo "[drift] 一致:live schema 与入库基准逐字节相同(11 张表)"
 else
   echo "[drift] 错误:检测到 schema 漂移!" >&2
   diff -u <(sed '/^--/d' "${BASELINE}") <(sed '/^--/d' "${LIVE}") | head -60 >&2

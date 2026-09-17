@@ -12,11 +12,8 @@ import dreamy.identity.v1.ResolvePermissionsResponse;
 import dreamy.identity.v1.UserColumn;
 import dreamy.identity.v1.ValidateAdminSessionResponse;
 import dreamy.identity.v1.ValidateStoreSessionResponse;
-import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +34,7 @@ import java.util.concurrent.TimeUnit;
  *
  * 接线开关:IDENTITY_GRPC_ENABLED(默认 false,P4 切换版启用;
  * false 时全部方法抛 IdentityUnavailableException,保证未接线期间行为可预期)。
+ * 通道复用 {@link GrpcChannels} 共享 ManagedChannel(生命周期归其管理)。
  */
 @Component
 public class IdentityGateClient {
@@ -45,26 +43,16 @@ public class IdentityGateClient {
     private static final long DEADLINE_MS = 500;
 
     private final boolean enabled;
-    private final ManagedChannel channel;
     private final IdentityGateGrpc.IdentityGateBlockingStub stub;
 
     public IdentityGateClient(
             @Value("${identity.grpc.enabled:false}") boolean enabled,
-            @Value("${IDENTITY_GRPC_ADDR:http://server:18083}") String addr) {
+            GrpcChannels channels) {
         this.enabled = enabled;
         if (enabled) {
-            String target = addr.replaceFirst("^http://", "");
-            this.channel = NettyChannelBuilder.forTarget(target)
-                    .usePlaintext()
-                    .keepAliveTime(30, TimeUnit.SECONDS)
-                    .keepAliveTimeout(5, TimeUnit.SECONDS)
-                    .idleTimeout(300, TimeUnit.SECONDS)
-                    .maxInboundMessageSize(1024 * 1024)
-                    .build();
-            this.stub = IdentityGateGrpc.newBlockingStub(channel);
-            log.info("[identity-grpc] 启用,目标 {}", addr);
+            this.stub = IdentityGateGrpc.newBlockingStub(channels.channel());
+            log.info("[identity-grpc] 启用");
         } else {
-            this.channel = null;
             this.stub = null;
         }
     }
@@ -222,17 +210,5 @@ public class IdentityGateClient {
     @FunctionalInterface
     private interface GrpcCall<T> {
         T apply(IdentityGateGrpc.IdentityGateBlockingStub stub) throws StatusRuntimeException;
-    }
-
-    @PreDestroy
-    void shutdown() {
-        if (channel != null) {
-            channel.shutdown();
-            try {
-                channel.awaitTermination(5, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
     }
 }

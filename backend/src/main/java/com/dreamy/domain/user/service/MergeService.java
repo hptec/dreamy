@@ -6,10 +6,9 @@ import com.dreamy.enums.UserStatus;
 import com.dreamy.enums.UserTier;
 import com.dreamy.error.BizException;
 import com.dreamy.error.ErrorCode;
-import com.dreamy.domain.audit.entity.OperationLog;
+import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.domain.user.entity.User;
 import com.dreamy.domain.user.entity.UserIdentity;
-import com.dreamy.domain.audit.repository.OperationLogMapper;
 import com.dreamy.domain.user.repository.UserIdentityMapper;
 import com.dreamy.domain.user.repository.UserMapper;
 import huihao.redis.IdLockSupport;
@@ -22,7 +21,7 @@ import java.time.LocalDateTime;
 /**
  * 账户归并领域服务（FLOW-03 STEP-02~05，复用于 verifyOtp/oidcCallback）。
  * 约束: RM-010（findByProviderUid 幂等核心）；DR-02 归并规则（email_verified 一致自动并 R1，冲突即拒 40902）；
- * TX-002（归并单事务 INSERT identity + operation_log 账户合并）；FUNC-025/028。
+ * TX-002（归并单事务 INSERT identity + operation_log 账户合并；表收编 Rust 主库后审计经 gRPC best-effort）；FUNC-025/028。
  * 并发：按 email 加 huihao-redis 分布式锁（IdLockSupport），消除多实例下"查同邮箱→新建"的 check-then-act 竞态。
  */
 @Service
@@ -30,16 +29,16 @@ public class MergeService implements IdLockSupport {
 
     private final UserMapper userMapper;
     private final UserIdentityMapper identityMapper;
-    private final OperationLogMapper operationLogMapper;
+    private final AuditService auditService;
     private final RedissonClient redissonClient;
 
     public MergeService(UserMapper userMapper,
                         UserIdentityMapper identityMapper,
-                        OperationLogMapper operationLogMapper,
+                        AuditService auditService,
                         RedissonClient redissonClient) {
         this.userMapper = userMapper;
         this.identityMapper = identityMapper;
-        this.operationLogMapper = operationLogMapper;
+        this.auditService = auditService;
         this.redissonClient = redissonClient;
     }
 
@@ -160,14 +159,9 @@ public class MergeService implements IdLockSupport {
         identityMapper.insert(identity);
     }
 
-    /** TX-002：operator_name=系统 账户合并审计（FLOW-03） */
+    /** TX-002：operator_name=系统 账户合并审计（FLOW-03;经 AuditGate gRPC best-effort） */
     private void writeMergeLog(Long userId, String email) {
-        OperationLog logEntry = new OperationLog();
-        logEntry.setOperatorId(null);
-        logEntry.setOperatorName("系统");
-        logEntry.setAction("账户合并");
-        logEntry.setTarget(String.valueOf(userId));
-        operationLogMapper.insert(logEntry);
+        auditService.record(null, "系统", "账户合并", String.valueOf(userId), null, null, null);
     }
 
     public record MergeOutcome(User user, boolean newAccount) {

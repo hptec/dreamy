@@ -1,0 +1,44 @@
+// ============================================================================
+// TemplateGate — dreamy 邮件模板域内部 gRPC 契约(Java backend → Rust server)
+//
+// email_template 表随身份域 v2 收敛落 Rust 主库(dreamy_server),种子由 Rust
+// 自举(身份域 4 code + 业务域 16 code)。Java 业务侧(MailEventConsumer /
+// EmailTemplateRenderer)经本通道取模板;{{var}} 渲染留在调用方本地
+// (朴素字符串替换,语义不变)。
+//
+// 契约纪律(承袭 identity.proto):
+//   1. 字段编号一经发布不可复用;废弃字段进 reserved,新增字段只用新编号。
+//   2. locale 未命中自动回退 en(服务端实现);两级均未命中 → NOT_FOUND。
+//   3. UNAVAILABLE / DEADLINE_EXCEEDED → 调用方进入邮件发送失败重试链
+//      (与原直查 DB 故障同语义,不静默吞)。
+// ============================================================================
+syntax = "proto3";
+
+package dreamy.mail.v1;
+
+// Java 侧顶层类生成(Rust prost 忽略此选项)
+option java_multiple_files = true;
+
+// ----------------------------------------------------------------------------
+// 服务定义
+// ----------------------------------------------------------------------------
+service TemplateGate {
+  // 取模板(code+locale;locale 未命中服务端回退 en)。
+  rpc GetEmailTemplate(GetEmailTemplateRequest) returns (GetEmailTemplateResponse);
+
+  // 预留:后续治理 rpc 从 100 号起编号。
+}
+
+// ----------------------------------------------------------------------------
+// GetEmailTemplate
+// ----------------------------------------------------------------------------
+message GetEmailTemplateRequest {
+  string code = 1;   // 模板码(otp/new_device/order_confirmed/...)
+  string locale = 2; // en/es/fr/zh
+  reserved 3 to 99;
+}
+message GetEmailTemplateResponse {
+  string subject = 1;
+  string body = 2;   // 含 {{var}} 占位,由调用方本地替换
+  reserved 3 to 99;
+}

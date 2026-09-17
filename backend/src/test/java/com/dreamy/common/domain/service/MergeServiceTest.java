@@ -5,8 +5,7 @@ import com.dreamy.error.BizException;
 import com.dreamy.error.ErrorCode;
 import com.dreamy.domain.user.entity.User;
 import com.dreamy.domain.user.entity.UserIdentity;
-import com.dreamy.domain.audit.entity.OperationLog;
-import com.dreamy.domain.audit.repository.OperationLogMapper;
+import com.dreamy.domain.audit.service.AuditService;
 import com.dreamy.domain.user.repository.UserIdentityMapper;
 import com.dreamy.domain.user.repository.UserMapper;
 import com.dreamy.domain.user.service.MergeService;
@@ -32,7 +31,7 @@ class MergeServiceTest {
 
     @Mock UserMapper userMapper;
     @Mock UserIdentityMapper identityMapper;
-    @Mock OperationLogMapper operationLogMapper;
+    @Mock AuditService auditService;
     @Mock RedissonClient redissonClient;
     @Mock org.redisson.api.RLock rLock;
 
@@ -73,7 +72,7 @@ class MergeServiceTest {
         assertThat(outcome.user().getId()).isEqualTo(2L);
         assertThat(outcome.newAccount()).isFalse();
         verify(identityMapper).insert(any(UserIdentity.class));
-        verify(operationLogMapper).insert(any(OperationLog.class)); // TX-002 账户合并审计
+        verify(auditService).record(isNull(), eq("系统"), eq("账户合并"), anyString(), isNull(), isNull(), isNull()); // TX-002 账户合并审计
     }
 
     @Test

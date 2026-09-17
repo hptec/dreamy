@@ -2,6 +2,7 @@
 //! 会话签发 = 冷备 INSERT 取回数字 id → Redis 主存写入 → login_history。
 
 use chrono::NaiveDateTime;
+use common::partition;
 use common::state::SharedState;
 use sea_orm::{ConnectionTrait, EntityTrait, Statement};
 
@@ -193,10 +194,12 @@ async fn open_session(
         .await?;
     let session_id = inserted.last_insert_id() as i64;
 
-    // login_history(成功)
-    let _ = state
-        .db
-        .execute(Statement::from_sql_and_values(
+    // login_history(成功);v3 分区拦截:写入前确保当月分区 + 1526 自愈重试(失败不阻塞登录)
+    let _ = partition::insert_self_heal(
+        state,
+        "login_history",
+        &[chrono::Local::now().naive_local()],
+        Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::MySql,
             r#"INSERT INTO login_history
                (user_id, email, method, ip, device, result, is_new_device, notified, created_at)
@@ -209,8 +212,9 @@ async fn open_session(
                 device.into(),
                 (new_device as i8).into(),
             ],
-        ))
-        .await;
+        ),
+    )
+    .await;
 
     // Redis 主存(session:{access_jti} + 集合索引)
     session::write_session(
@@ -445,9 +449,11 @@ pub async fn record_failed_login(
     method: AuthProvider,
     ip: &str,
 ) {
-    let _ = state
-        .db
-        .execute(Statement::from_sql_and_values(
+    let _ = partition::insert_self_heal(
+        state,
+        "login_history",
+        &[chrono::Local::now().naive_local()],
+        Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::MySql,
             r#"INSERT INTO login_history
                (user_id, email, method, ip, result, is_new_device, notified, created_at)
@@ -460,7 +466,8 @@ pub async fn record_failed_login(
                 method.code().into(),
                 ip.into(),
             ],
-        ))
-        .await;
+        ),
+    )
+    .await;
     let _ = LoginOutcome::Failed.code(); // 枚举值即 SQL 常量 2(上方字面量)
 }

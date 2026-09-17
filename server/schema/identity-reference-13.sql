@@ -1,4 +1,5 @@
--- identity 域 13 张表 schema 冻结参考(11 迁移表 + 2 共享表 operation_log/email_template)
+-- identity 域 11 张回滚快照表 schema 冻结参考(文件名沿袭 13:原 2 共享表
+-- operation_log/email_template 已收编 dreamy_server,权威 DDL=server/schema/identity.sql)
 -- 用途:P1 check-schema-drift.sh 比对基准;生成日期:2026-09-14 变更:新增 idx_user_created_at(created_at DESC)——百万行排序证据驱动(ORDER BY created_at DESC, id ASC 精确匹配,InnoDB 二级索引隐式主键后缀 ASC)
 CREATE TABLE IF NOT EXISTS `user` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -166,28 +167,3 @@ CREATE TABLE IF NOT EXISTS `role_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_permission` (`role_id`,`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色-权限关联';
-CREATE TABLE IF NOT EXISTS `operation_log` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `operator_id` bigint DEFAULT NULL COMMENT '弱引用 admin_user.id，系统操作为 NULL',
-  `operator_name` varchar(100) DEFAULT NULL COMMENT '操作者名称',
-  `action` varchar(32) NOT NULL COMMENT '操作动作（15 种枚举）',
-  `target` varchar(255) DEFAULT NULL COMMENT '操作目标',
-  `ip` varchar(64) DEFAULT NULL COMMENT '操作 IP',
-  `user_agent` varchar(512) DEFAULT NULL COMMENT 'User-Agent',
-  `changes` text COMMENT '变更前后对比 JSON {before,after}',
-  PRIMARY KEY (`id`),
-  KEY `idx_oplog_operator` (`operator_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志';
-CREATE TABLE IF NOT EXISTS `email_template` (
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `code` varchar(32) NOT NULL COMMENT '模板码 otp/new_device/change_primary/account_deleted',
-  `locale` varchar(8) NOT NULL COMMENT '语言 en/es/fr',
-  `subject` varchar(255) NOT NULL COMMENT '邮件主题',
-  `body` text NOT NULL COMMENT '邮件正文',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_template_code_locale` (`code`,`locale`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板（三语 × 4 类）';

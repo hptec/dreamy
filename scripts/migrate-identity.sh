@@ -14,7 +14,8 @@
 #
 # 使用方式: bash scripts/migrate-identity.sh --confirm [--force]
 # 依赖环境: MySQL compose 容器可达;schema/identity.sql 为 v2.2
-# 注意:     operation_log/email_template 留 identity 库(共享过渡表),不在迁移范围
+# 注意:     operation_log/email_template 的收编见 scripts/migrate-shared-tables.sh
+#           (v2.3:两表迁 dreamy_server,Java 业务侧改经 gRPC)
 # =============================================================
 set -euo pipefail
 

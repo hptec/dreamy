@@ -10,20 +10,24 @@ use serde::Deserialize;
 use crate::service::SvcError;
 
 #[derive(Debug, Deserialize)]
-struct TemplateRow {
-    subject: String,
-    body: String,
+pub(crate) struct TemplateRow {
+    pub(crate) subject: String,
+    pub(crate) body: String,
 }
 
-/// 按 (code, locale) 读模板;缺失回退 en;再缺 → None(stub 日志)
-async fn load_template(state: &SharedState, code: &str, locale: &str) -> Option<TemplateRow> {
-    let legacy = state.db_legacy.as_ref()?;
+/// 按 (code, locale) 读模板;缺失回退 en;再缺 → None(gRPC TemplateGate 转 NOT_FOUND)
+pub(crate) async fn load_template(
+    state: &SharedState,
+    code: &str,
+    locale: &str,
+) -> Option<TemplateRow> {
+    let main = state.db.clone();
     let row = |loc: &str| {
-        let legacy = legacy.clone();
+        let db = main.clone();
         let code = code.to_string();
         let loc = loc.to_string();
         async move {
-            let qr = legacy
+            let qr = db
                 .query_one(Statement::from_sql_and_values(
                     sea_orm::DatabaseBackend::MySql,
                     r#"SELECT subject, body FROM email_template WHERE code = ? AND locale = ?"#,

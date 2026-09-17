@@ -359,6 +359,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "thiserror",
  "tower-http",
  "tracing",
  "urlencoding",
@@ -1095,6 +1096,7 @@ dependencies = [
  "jsonwebtoken",
  "once_cell",
  "proto",
+ "rand 0.9.5",
  "redis",
  "reqwest",
  "sea-orm",
@@ -1102,9 +1104,11 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tracing",
  "urlencoding",
+ "uuid",
 ]
 
 [[package]]

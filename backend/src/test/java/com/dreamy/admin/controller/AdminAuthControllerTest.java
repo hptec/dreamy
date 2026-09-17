@@ -141,6 +141,8 @@ class AdminAuthControllerTest {
     @MockitoBean IdentityDtoMapper mapper;
     @MockitoBean AuditService auditService;
     @MockitoBean com.dreamy.infra.SessionValidator sessionValidator;
+    // PermissionAspect(切片 @Import)构造依赖 gRPC 客户端,切片不扫 @Component → mock 装配
+    @MockitoBean com.dreamy.infra.grpc.IdentityGateClient identityGateClient;
     // PermissionAspect 实时查 DB，mock AdminUserMapper + RoleMapper 返回权限
     @MockitoBean AdminUserMapper adminUserMapper;
     @MockitoBean RoleMapper roleMapper;

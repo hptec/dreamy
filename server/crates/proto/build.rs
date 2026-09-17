@@ -7,7 +7,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .build_client(true)
         .compile_protos(
-            &["../../../proto/dreamy/identity/v1/identity.proto"],
+            &[
+                "../../../proto/dreamy/identity/v1/identity.proto",
+                "../../../proto/dreamy/audit/v1/audit.proto",
+                "../../../proto/dreamy/mail/v1/mail.proto",
+            ],
             &["../../../proto"],
         )?;
     Ok(())
