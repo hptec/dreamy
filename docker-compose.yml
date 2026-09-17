@@ -52,6 +52,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Hong_Kong}
+      # admin API 加密前缀 secret 段(必填,openssl rand -hex 12 生成)
+      ADMIN_API_SECRET: ${ADMIN_API_SECRET:?请在 .env.deploy 配置 ADMIN_API_SECRET(openssl rand -hex 12 生成)}
       STORE_UPSTREAM: ${STORE_UPSTREAM:-http://portal-store:3000}
       ADMIN_UPSTREAM: ${ADMIN_UPSTREAM:-http://portal-admin:80}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:18081}
@@ -107,7 +109,8 @@ services:
         condition: service_healthy
 
   # ── Rust server(dreamy-server):身份域(用户/认证/admin RBAC)首个入驻域;
-  #     主库 dreamy_server(独立建库),次库 identity(operation_log/email_template 共享过渡表);
+  #     主库 dreamy_server(operation_log/email_template 已收编;Java 业务侧经
+  #     gRPC 18083 AuditGate/TemplateGate 写读);
   #     REST 18082(经网关分流) + gRPC 18083(backend 内部通道)──
   server:
     image: dreamy-server:${IMAGE_TAG:-latest}
@@ -121,7 +124,6 @@ services:
       SERVER_DB_HOST: mysql
       SERVER_DB_PORT: 3306
       SERVER_DB_NAME: dreamy_server
-      SERVER_DB_LEGACY_NAME: identity
       DB_USERNAME: ${DB_USERNAME:-root}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}

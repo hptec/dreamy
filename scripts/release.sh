@@ -94,13 +94,40 @@ if [ ! -f "${PROJECT_ROOT}/backend/build/libs/identity-app.jar" ]; then
   exit 1
 fi
 
-# ── ② admin:本地构建静态产物(同源模式,VITE_API_BASE_URL 置空;/admin/ 子路径部署)──
+# ── ② admin:本地构建静态产物(同源模式,API 前缀取加密 secret 段;/admin/ 子路径部署)──
 echo "[release] 构建 portal-admin 静态产物 ..."
+# ADMIN_API_SECRET 对齐:前端构建注入值必须与 gateway 运行时值一致(remote 模式权威配置在服务器 .env.deploy)。
+# 分支:本地无+服务器有→取服务器值;双方均无→本地生成并回写+同步服务器;本地有+服务器无→推送到服务器;
+#       双方有但不一致→fail-fast(静默不一致会导致 admin API 全 404)。
+if [ -z "${ADMIN_API_SECRET:-}" ] && [ "${MODE}" = "remote" ]; then
+  ADMIN_API_SECRET="$(ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "grep -E '^ADMIN_API_SECRET=' ${DEPLOY_DIR:-/opt/dreamy}/.env.deploy 2>/dev/null | head -1 | cut -d= -f2" || true)"
+  if [ -n "${ADMIN_API_SECRET}" ]; then
+    export ADMIN_API_SECRET
+    echo "[release] ADMIN_API_SECRET 取自服务器 .env.deploy(本地 ${ENV_FILE} 未配,构建注入同值)"
+  fi
+fi
+if [ -z "${ADMIN_API_SECRET:-}" ]; then
+  ADMIN_API_SECRET="$(openssl rand -hex 12)"
+  export ADMIN_API_SECRET
+  printf '\n# admin API 加密前缀 secret 段(release.sh 自动生成,openssl rand -hex 12)\nADMIN_API_SECRET=%s\n' "${ADMIN_API_SECRET}" >> "${ENV_FILE}"
+  echo "[release] 已自动生成 ADMIN_API_SECRET 并写入 ${ENV_FILE}"
+fi
+if [ "${MODE}" = "remote" ]; then
+  REMOTE_SECRET="$(ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "grep -E '^ADMIN_API_SECRET=' ${DEPLOY_DIR:-/opt/dreamy}/.env.deploy 2>/dev/null | head -1 | cut -d= -f2" || true)"
+  if [ -z "${REMOTE_SECRET}" ]; then
+    ssh -o ConnectTimeout=15 "${DEPLOY_SSH}" "printf '\n# admin API 加密前缀 secret 段(release.sh 自动同步)\nADMIN_API_SECRET=%s\n' '${ADMIN_API_SECRET}' >> ${DEPLOY_DIR:-/opt/dreamy}/.env.deploy"
+    echo "[release] 已同步 ADMIN_API_SECRET 到服务器 .env.deploy"
+  elif [ "${REMOTE_SECRET}" != "${ADMIN_API_SECRET}" ]; then
+    echo "[release] 错误: 服务器 .env.deploy 与本地 ${ENV_FILE} 的 ADMIN_API_SECRET 不一致(gateway 正则与前端构建前缀必须同值,否则 admin API 全 404)" >&2
+    echo "[release] 请统一两侧值后重跑(以服务器为准改本地,或以本地为准改服务器)" >&2
+    exit 1
+  fi
+fi
 export npm_config_registry="https://registry.npmmirror.com"
 (
   cd "${PROJECT_ROOT}/frontend/portal-admin"
   if [ ! -d node_modules ]; then pnpm install --frozen-lockfile; fi
-  VITE_API_BASE_URL="" VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-}" ADMIN_BASE="/admin/" pnpm build
+  VITE_API_BASE_URL="/${ADMIN_API_SECRET}" VITE_STORE_BASE_URL="${VITE_STORE_BASE_URL:-}" ADMIN_BASE="/admin/" pnpm build
 )
 
 # ── ②b server(Rust):zigbuild 交叉编译 musl 静态二进制 ──

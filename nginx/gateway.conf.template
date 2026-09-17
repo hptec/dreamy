@@ -1,7 +1,8 @@
 # 边缘网关:唯一对外入口,单端口按路径分流,TLS 终结于本网关:
 #   /           → portal-store(默认路由)
 #   /admin/     → portal-admin(网关剥离 /admin 前缀,admin 容器按根路径服务,其 nginx 零感知)
-#   /api/       → backend(浏览器同源 API:admin SPA / store OIDC 回调 / newsletter 退订 / webhook)
+#   /${ADMIN_API_SECRET}/api/ → 剥壳后分流(身份域→server,其余→backend);admin API 唯一对外入口
+#   /api/       → backend(浏览器同源 API:store OIDC 回调 / newsletter 退订 / webhook;/api/admin/* 404)
 #   /actuator/  → backend(健康检查与调试)
 # HTTPS 为硬要求:Google OIDC 等外部回调的公网 redirect_uri 仅认 https(localhost 除外)。
 # 证书由 compose 挂载 ./nginx/certs/(fullchain.pem+privkey.pem);生产=阿里云免费证书,
@@ -51,14 +52,50 @@ server {
         client_max_body_size 20m;
     }
 
+    # ── admin API 加密前缀(secret 段)──
+    # 对外唯一可用的 admin API 入口:${ADMIN_API_SECRET}/api/admin/...;
+    # rewrite 剥掉 secret 段后按既有口径分流(身份域→server,其余→backend),
+    # Rust/Java 内部路径不变。前端 bundle 的真实请求前缀由构建注入同一 secret。
+    # 旧裸路径 /api/admin/* 对外一律 404(见下方拦截),防扫描器探测。
+    # secret 约定:仅 [a-zA-Z0-9](生成:openssl rand -hex 12),会进入正则,勿用元字符。
+
+    # 身份域(secret 段;正则 location 按声明顺序匹配,置于 404 拦截与 store 正则之前)
+    location ~ ^/${ADMIN_API_SECRET}/api/(admin/auth/|admin/auth-config|admin/admins|admin/roles|admin/permissions|admin/users|admin/operation-logs) {
+        rewrite ^/${ADMIN_API_SECRET}(/.*)$ $1 break;
+        proxy_pass ${SERVER_UPSTREAM};
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_read_timeout 60s;
+        client_max_body_size 20m;
+    }
+
+    # 其余 admin 业务 API(secret 段)→ backend
+    location ~ ^/${ADMIN_API_SECRET}/api/ {
+        rewrite ^/${ADMIN_API_SECRET}(/.*)$ $1 break;
+        proxy_pass ${BACKEND_UPSTREAM};
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_read_timeout 60s;
+        client_max_body_size 20m;
+    }
+
+    # 旧裸 admin 路径对外关闭:统一 404,与不存在的路径无差别
+    location = /api/admin  { return 404; }
+    location ~ ^/api/admin/ { return 404; }
+
     # 身份域 API → server(Rust;路径原样转发)。
-    # 一条正则收敛全部身份域前缀(与 backend/store middleware、admin vite proxy 三处口径必须一致);
+    # 一条正则收敛 store 侧身份域前缀(admin 侧已全部移入 secret 段,见上方);
     # 正则 location 优先于前缀 location,故 /api/ 兜底(backend)不会截胡。
-    # 前缀口径:/api/admin/auth/ 带尾斜杠(auth-config 是独立分支,两者互不包含);
-    #            /api/store/auth、/api/store/account 业务上恒带子路径。
+    # 前缀口径:/api/store/auth、/api/store/account 业务上恒带子路径。
     # OPTIONS(CORS 预检)随本块转发至 server,由其 CorsLayer 应答。
     # 变更门禁:scripts/test-gateway-routes.sh 路由矩阵断言(新增/调整前缀必须同步改矩阵)。
-    location ~ ^/api/(store/auth/|store/account/|admin/auth/|admin/auth-config|admin/admins|admin/roles|admin/permissions|admin/users|admin/operation-logs) {
+    location ~ ^/api/(store/auth/|store/account/) {
         proxy_pass ${SERVER_UPSTREAM};
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;

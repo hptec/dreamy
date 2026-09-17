@@ -44,6 +44,7 @@ run_stub server 18082 "UPSTREAM-SERVER"
 # 真实网关模板渲染(与 compose 同机制:nginx 官方镜像 envsubst-on-templates)
 docker run -d --rm --name "${GW}" --network "${NET}" \
   -p "127.0.0.1:${GW_PORT}:5173" \
+  -e ADMIN_API_SECRET="s3cr3t42" \
   -e STORE_UPSTREAM="http://rt-store:3000" \
   -e ADMIN_UPSTREAM="http://rt-admin:80" \
   -e BACKEND_UPSTREAM="http://rt-backend:18081" \
@@ -78,17 +79,27 @@ assert POST /api/store/auth/oidc/google/callback UPSTREAM-SERVER
 assert POST /api/store/auth/refresh           UPSTREAM-SERVER
 assert GET  /api/store/account/profile        UPSTREAM-SERVER
 assert GET  /api/store/account/identities     UPSTREAM-SERVER
-assert POST /api/admin/auth/login             UPSTREAM-SERVER
-assert GET  /api/admin/auth/me                UPSTREAM-SERVER
-assert GET  /api/admin/auth/permissions       UPSTREAM-SERVER
-assert GET  /api/admin/auth-config            UPSTREAM-SERVER
-assert GET  /api/admin/admins                 UPSTREAM-SERVER
-assert GET  /api/admin/roles                  UPSTREAM-SERVER
-assert GET  /api/admin/permissions            UPSTREAM-SERVER
-assert GET  /api/admin/users                  UPSTREAM-SERVER
-assert GET  /api/admin/users/1                UPSTREAM-SERVER
-assert GET  /api/admin/operation-logs         UPSTREAM-SERVER
-assert GET  /api/admin/operation-logs/export  UPSTREAM-SERVER
+echo "[routes] ── admin 加密前缀(secret 段)──"
+assert POST /s3cr3t42/api/admin/auth/login             UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/auth/me                UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/auth/permissions       UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/auth-config            UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/admins                 UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/roles                  UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/permissions            UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/users                  UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/users/1                UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/operation-logs         UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/operation-logs/export  UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/orders                 UPSTREAM-BACKEND
+assert GET  /s3cr3t42/api/admin/products               UPSTREAM-BACKEND
+assert GET  /s3cr3t42/api/admin/navigation             UPSTREAM-BACKEND
+
+echo "[routes] ── 旧裸 admin 路径对外关闭(统一 404)──"
+assert GET  /api/admin/auth/login                      "404 Not Found"
+assert GET  /api/admin/auth-config                     "404 Not Found"
+assert GET  /api/admin/products                        "404 Not Found"
+assert GET  /api/admin                                 "404 Not Found"
 
 echo "[routes] ── 负向样本 → backend(身份域之外不得误吸)──"
 assert GET  /api/store/products               UPSTREAM-BACKEND
@@ -96,9 +107,6 @@ assert GET  /api/store/orders                 UPSTREAM-BACKEND
 assert GET  /api/store/wishlists              UPSTREAM-BACKEND
 assert GET  /api/store/browse-history         UPSTREAM-BACKEND
 assert GET  /api/store/showrooms/1            UPSTREAM-BACKEND
-assert GET  /api/admin/orders                 UPSTREAM-BACKEND
-assert GET  /api/admin/products               UPSTREAM-BACKEND
-assert GET  /api/admin/navigation             UPSTREAM-BACKEND
 assert GET  /actuator/health                  UPSTREAM-BACKEND
 
 echo "[routes] ── 页面路由不变 ──"
@@ -107,6 +115,7 @@ assert GET  /admin/                           UPSTREAM-ADMIN
 
 echo "[routes] ── OPTIONS 预检与编码路径 ──"
 assert OPTIONS /api/store/auth/otp/send       UPSTREAM-SERVER
+assert OPTIONS /s3cr3t42/api/admin/auth/login UPSTREAM-SERVER
 assert OPTIONS /api/store/products            UPSTREAM-BACKEND
 assert GET  "/api/store/auth/%63onfig"        UPSTREAM-SERVER
 assert GET  /api/store/account/profile/       UPSTREAM-SERVER
