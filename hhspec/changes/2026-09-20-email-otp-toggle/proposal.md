@@ -55,6 +55,7 @@
 2. **服务重启与密钥**：首次重启用 `.env.deploy` 密钥导致既有浏览器令牌验签 401；已改回 `.env.backend.local`（本地原生直起的密钥来源，与旧进程一致）重启，E2E 复验 email 开关存库（0/1 往返）与登录页门控生效。
 3. **消费端配置请求走错后端（根因 Bug 3 复现）**：`frontend/portal-store/.env.local` 配置了 `NEXT_PUBLIC_API_BASE_URL=http://localhost:18081`，浏览器绕过同源代理直连 Java 18081（identity 不在 Java 上，返回 40100），前端 `load()` 捕获后静默降级为 FALLBACK（`emailEnabled:true`），导致"开关全关但登录页仍显示表单"。已移除该变量（留空走同源 fetch，由 `middleware.ts` 把 `/api/store/auth|account` 重写到 `SERVER_ORIGIN`=Rust 18082）。`NEXT_PUBLIC_*` 是启动时烤进 bundle 的，改后必须重启 dev server。无头浏览器 Playwright 复验：`/api/store/auth/config` 200 且全 false，页面渲染「Sign-in is temporarily unavailable」全关提示，邮箱表单与 OAuth 按钮均不再出现。附带恢复：Java 18081 经 `scripts/backend-api.sh` 重启（此前被 SIGTERM 一并带下，曾致 exchange-rates 500）。
 4. **移除配置降级 fallback（fail-closed）**：按用户要求干掉前端配置降级——`auth-config-store.ts` 删除 FALLBACK 常量，拉取失败时 `config` 保持 null 并置 `loadError`；`login-card.tsx` 的 `emailEnabled` 兜底从 `?? true` 改为 `?? false`（fail-closed），全关分支按 `loadError` 展示新增的 `t.login.configUnavailable`（en/es/fr）。验证：配置正常返回全 false → 全关提示、无邮箱表单；Playwright 拦截配置请求模拟失败 → 无邮箱表单、显示「Sign-in options could not be loaded. Please refresh the page and try again.」，故障可见。tsc ✅ vitest 22/22 ✅。其余 `fallback` 命中（Suspense 占位、商品色板兜底色、错误文案兜底）为普通 UI 模式，非配置降级，未改动。
+5. **收尾验证（补齐既有 TODO）**：① `scripts/test-gateway-routes.sh` 网关分流矩阵 37/37 PASS（含 `/api/admin/auth-config → UPSTREAM-SERVER` 断言，代理前缀与本次改动一致）；② E2E PUT 经 :5174 vite 代理完成 1→0 往返并存库（PUT 请求体为 snake_case，与 admin 前端 axios 拦截器行为一致；手工 camelCase 会被 Rust 端静默忽略属预期，浏览器链路无此问题）。
 
 ### 明确不做（Future）
 
