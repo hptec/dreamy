@@ -18,7 +18,7 @@
 | EX-07 | ForbiddenException | 应用 | 40300 | 跨用户撤销/无菜单权限 |
 | EX-08 | AccountDisabledException | 领域 | 40301 | 消费端禁用 |
 | EX-09 | AdminDisabledException | 应用 | 40302 | 后台禁用 |
-| EX-10 | ProviderDisabledException | 应用 | 40303 | OAuth 入口关闭 |
+| EX-10 | ProviderDisabledException | 应用 | 40303 | 登录方式关闭（OAuth 或 email 验证码） |
 | EX-11 | PrimaryEmailRequiredException | 领域 | 40304 | 解绑主邮箱 |
 | EX-12 | MinMethodsRequiredException | 领域 | 40305 | 低于 min_methods |
 | EX-13 | SuperAdminProtectedException | 应用 | 40306 | 超管保护 |
@@ -53,6 +53,7 @@
 | 端点 | 触发条件 | code | HTTP | 用户提示(脱敏后) | MUST_TEST |
 |------|---------|------|------|------------------|-----------|
 | sendOtp | 邮箱非法 | 40001 | 422 | "请输入有效邮箱" | ✓ |
+| sendOtp | 邮箱登录关闭 | 40303 | 403 | "该登录方式不可用" | ✓ |
 | sendOtp | 重发过频 | 42901 | 429 | "请稍后再试"(+剩余秒) | ✓ |
 | sendOtp | 发码超频 | 42902 | 429 | "请求过于频繁" | ✓ |
 | verifyOtp | 验证码错 | 40101 | 401 | "验证码错误"(+剩余次数) | ✓ |
@@ -60,6 +61,7 @@
 | verifyOtp | 锁定 | 41002 | 410 | "尝试过多，请重新获取" | ✓ |
 | verifyOtp/oidc | 账户禁用 | 40301 | 403 | "账户已被禁用" | ✓ |
 | oidcCallback | 方式关闭 | 40303 | 403 | "该登录方式不可用" | ✓ |
+| sendOtp | 邮箱验证码登录被 AuthConfig 关闭 | 40303 | 403 | "该登录方式不可用" | ✓ |
 | oidcCallback | 未验证冲突 | 40902 | 409 | "请用原方式登录后绑定" | ✓ |
 | oidcCallback | OIDC 超时 | 50401 | 504 | "改用邮箱验证码" | ✓ |
 | oidcCallback | OIDC 不可达 | 50201 | 502 | "改用邮箱验证码" | ✓ |

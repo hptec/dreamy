@@ -27,7 +27,7 @@
 - STEP-01 规范化 email（trim+lower）
 - STEP-02 频控：`INCR otp:resend:{email}`（TTL=otp_resend_seconds）；命中未过期 → 429 `42901`（details.remaining_resend_seconds）
 - STEP-03 频控窗口：`otp:count:email:{email}:h/:d`、`otp:count:ip:{ip}:h` 超阈 → 429 `42902`
-- STEP-04 读 AuthConfig（缓存 store:authconfig）取 otp_length/ttl/max_attempts；若 email_enabled=false（不可能，恒开）
+- STEP-04 读 AuthConfig（缓存 store:authconfig）取 otp_length/ttl/max_attempts；若 email_enabled=false → 403 `40303 EMAIL_LOGIN_DISABLED`（email 可关闭，FUNC-006/023）
 - STEP-05 失效旧 pending：`UPDATE otp_code SET status=expired WHERE email=? AND status=pending`
 - STEP-06 生成明文 code（length 位）→ 仅持久化 code_hash（BCrypt/SHA256+salt）；INSERT otp_code(status=pending, attempts=0, max_attempts, expires_at=now+ttl)
 - STEP-07 异步发邮件（template=otp, locale）→ FLOW-15 重试；失败不阻塞主流程
@@ -262,7 +262,7 @@
 
 ### 6.2 updateAuthConfig — PUT /api/admin/auth-config （FLOW-13, FUNC-023, EDGE-019）
 **入参**: AuthConfig 可写字段
-- V-CFG email_enabled 恒 true（强制）；otp_length∈{4,6,8}；ttl 1..30；resend 10..120；max_attempts 3..10；min_methods 1..3
+- V-CFG email_enabled/google_enabled/apple_enabled 均可开闭（bool 必填，允许全关，不做最少保留一种校验）；otp_length∈{4,6,8}；ttl 1..30；resend 10..120；max_attempts 3..10；min_methods 1..3
 - 越界 → 422 `40002 CONFIG_OUT_OF_RANGE`
 - STEP-01 UPDATE auth_config（单例 id=1）；审计 action=认证配置变更
 - STEP-02 `@CacheInvalidate store:authconfig`（消费端登录页即读新配置）

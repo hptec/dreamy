@@ -380,6 +380,9 @@ export interface UiMessages {
   login: {
     signInTitle: string
     signInSubtitle: string
+    allMethodsDisabled: string
+    emailDisabled: string
+    configUnavailable: string
     continueWithGoogle: string
     continueWithApple: string
     or: string
@@ -1006,6 +1009,9 @@ const en: UiMessages = {
   login: {
     signInTitle: 'Sign in or create account',
     signInSubtitle: "Enter your email and we'll send you a 6-digit code. No password needed.",
+    allMethodsDisabled: 'Sign-in is temporarily unavailable. Please check back later.',
+    emailDisabled: 'Email sign-in is currently unavailable. Please use another sign-in method.',
+    configUnavailable: 'Sign-in options could not be loaded. Please refresh the page and try again.',
     continueWithGoogle: 'Continue with Google',
     continueWithApple: 'Continue with Apple',
     or: 'or',
@@ -1635,6 +1641,9 @@ const es: DeepPartial<UiMessages> = {
   login: {
     signInTitle: 'Inicie sesion o cree una cuenta',
     signInSubtitle: 'Introduzca su correo y le enviaremos un codigo de 6 digitos. Sin contrasena.',
+    allMethodsDisabled: 'El inicio de sesion no esta disponible temporalmente. Vuelva mas tarde.',
+    emailDisabled: 'El inicio de sesion por correo no esta disponible. Use otro metodo.',
+    configUnavailable: 'No se pudieron cargar las opciones de inicio de sesion. Actualice la pagina e intentelo de nuevo.',
     continueWithGoogle: 'Continuar con Google',
     continueWithApple: 'Continuar con Apple',
     or: 'o',
@@ -2264,6 +2273,9 @@ const fr: DeepPartial<UiMessages> = {
   login: {
     signInTitle: 'Connectez-vous ou creez un compte',
     signInSubtitle: 'Saisissez votre e-mail et nous vous enverrons un code a 6 chiffres. Sans mot de passe.',
+    allMethodsDisabled: "La connexion est momentanement indisponible. Revenez plus tard.",
+    emailDisabled: "La connexion par e-mail est indisponible. Utilisez une autre methode.",
+    configUnavailable: "Impossible de charger les options de connexion. Actualisez la page et reessayez.",
     continueWithGoogle: 'Continuer avec Google',
     continueWithApple: 'Continuer avec Apple',
     or: 'ou',

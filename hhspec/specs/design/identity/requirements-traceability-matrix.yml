@@ -86,7 +86,7 @@ requirements:
   - { id: FUNC-003, title: 登录方式开关展示, coverage_status: covered, primary: frontend_designer, refs: ["getStoreAuthConfig"] }
   - { id: FUNC-004, title: Google OIDC 登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-03","oidcCallback"] }
   - { id: FUNC-005, title: Apple OIDC 登录, coverage_status: covered, primary: api_designer, refs: ["FLOW-03","oidcCallback"] }
-  - { id: FUNC-006, title: 关闭的第三方入口拒绝, coverage_status: covered, primary: error_designer, refs: ["40303 PROVIDER_DISABLED"] }
+  - { id: FUNC-006, title: 关闭的登录方式入口拒绝（含 email OTP）, coverage_status: covered, primary: error_designer, refs: ["40303 PROVIDER_DISABLED"] }
   - { id: FUNC-007, title: 资料读取, coverage_status: covered, primary: api_designer, refs: ["getProfile"] }
   - { id: FUNC-008, title: 绑定登录方式, coverage_status: covered, primary: api_designer, refs: ["FLOW-05","bindIdentity","40903"] }
   - { id: FUNC-009, title: 解绑登录方式, coverage_status: covered, primary: api_designer, refs: ["FLOW-05","unbindIdentity"] }

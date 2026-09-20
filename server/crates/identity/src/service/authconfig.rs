@@ -58,8 +58,9 @@ fn to_data(m: &auth_config::Model) -> AuthConfigData {
     }
 }
 
-/// admin 更新(区间校验 40002;email_enabled 服务端强制 true,对齐 Java)
+/// admin 更新(区间校验 40002;email/google/apple 均可开闭,允许全关,对齐 Java)
 pub struct AuthConfigUpdate {
+    pub email_enabled: Option<bool>,
     pub google_enabled: Option<bool>,
     pub apple_enabled: Option<bool>,
     pub otp_length: Option<i8>,
@@ -156,6 +157,9 @@ pub async fn update(
         .await?
         .ok_or(SvcError::code(50001))?;
     let mut am: auth_config::ActiveModel = row.into();
+    if let Some(v) = patch.email_enabled {
+        am.email_enabled = Set(v as i8);
+    }
     if let Some(v) = patch.google_enabled {
         am.google_enabled = Set(v as i8);
     }

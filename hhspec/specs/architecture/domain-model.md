@@ -129,7 +129,7 @@
 ### AuthConfig（单例认证配置）
 
 - **职责**: 全局认证策略单例：登录方式开关、OTP 策略、min_methods、OAuth 凭据展示。
-- **不变量**: email 主登录恒开不可关；OTP 数值越界（ttl>30、attempts<3 等）保存被拒。
+- **不变量**: 三种登录方式（email/google/apple）均可开闭，允许全关（不做「至少保留一种」的硬校验，管理员自行评估锁死风险）；OTP 数值越界（ttl>30、attempts<3 等）保存被拒。
 - **生命周期**: 仅更新（单例）；保存写 action=认证配置变更 OperationLog 并触发缓存失效。
 
 **属性**:

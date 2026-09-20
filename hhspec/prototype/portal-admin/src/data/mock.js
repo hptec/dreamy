@@ -304,7 +304,7 @@ export const authProviderMeta = {
 // 登录与认证配置（AuthSettings 消费）
 export const authConfig = {
   methods: [
-    { provider: 'email', label: '邮箱验证码（Passwordless）', enabled: true, locked: true, desc: '主登录方式，向用户邮箱发送一次性验证码，无需密码。' },
+    { provider: 'email', label: '邮箱验证码（Passwordless）', enabled: true, locked: false, desc: '向用户邮箱发送一次性验证码，无需密码。可开闭；关闭后消费端登录页不展示邮箱入口。' },
     { provider: 'google', label: 'Google 登录', enabled: true, locked: false, desc: 'OAuth 2.0 / OpenID Connect，按 Google sub 标识用户。' },
     { provider: 'apple', label: 'Apple 登录', enabled: true, locked: false, desc: '支持 Hide My Email，按 Apple sub 标识；首次授权才返回邮箱/姓名。' }
   ],

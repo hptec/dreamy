@@ -2,7 +2,7 @@
 //!
 //! 对齐 Java DataInitializer 语义(Java 删码后,本模块是新环境唯一自举来源——
 //! 此前权限/超管种子靠 Java 播种 identity 库再经 migrate-identity.sh 迁移):
-//! - auth_config 单例 id=1:email/google/apple 恒开,OTP 6 位 5 分钟,重发 60s,
+//! - auth_config 单例 id=1:email/google/apple 默认全开(均可开闭),OTP 6 位 5 分钟,重发 60s,
 //!   尝试 5 次,admin 登录锁 5 次/15 分钟(与 DDL 默认值一致)
 //! - permission 权限字典 27 点(portal-admin 菜单级路由,对齐 DataInitializer.initPermissions)
 //! - role 超管(is_locked,type=1)缺则建,并绑定全部权限(幂等:已绑定跳过)

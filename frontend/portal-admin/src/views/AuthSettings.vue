@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// PAGE-A06 / COMP-A07：登录与认证配置。email 强制只读 on；OTP 区间前端预校验 + 422 40002 回显
+// PAGE-A06 / COMP-A07：登录与认证配置。email/google/apple 均可开闭（允许全关）；OTP 区间前端预校验 + 422 40002 回显
 // 约束: FORM-A05 前端区间预校验→保存→字段级错误回显
 import { ref, reactive, onMounted } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -9,7 +9,7 @@ import { BizError } from '@/api/client'
 import type { AuthConfig } from '@/api/types'
 import {
   CheckBadgeIcon, KeyIcon, LinkIcon, LockClosedIcon, InformationCircleIcon,
-  ChevronUpDownIcon, CheckIcon,
+  ChevronUpDownIcon, CheckIcon, ShieldExclamationIcon, ClockIcon,
 } from '@heroicons/vue/24/outline'
 import {
   Listbox, ListboxButton, ListboxOptions, ListboxOption,
@@ -33,6 +33,12 @@ const form = reactive({
   minMethods: 1,
   adminLoginMaxAttempts: 5,
   adminLoginLockMinutes: 15,
+  verifyIpRatePerMinute: 30,
+  attackAlertThreshold: 20,
+  adminAlertEmail: '',
+  storeAccessTtlMinutes: 120,
+  storeRefreshTtlDays: 30,
+  adminAccessTtlHours: 8,
 })
 const oauth = reactive({ googleClientId: '', appleServiceId: '' })
 const errors = ref<Record<string, string>>({})
@@ -49,6 +55,12 @@ function applyConfig(cfg: AuthConfig) {
   form.minMethods = cfg.minMethods
   form.adminLoginMaxAttempts = cfg.adminLoginMaxAttempts ?? 5
   form.adminLoginLockMinutes = cfg.adminLoginLockMinutes ?? 15
+  form.verifyIpRatePerMinute = cfg.verifyIpRatePerMinute ?? 30
+  form.attackAlertThreshold = cfg.attackAlertThreshold ?? 20
+  form.adminAlertEmail = cfg.adminAlertEmail || ''
+  form.storeAccessTtlMinutes = cfg.storeAccessTtlMinutes ?? 120
+  form.storeRefreshTtlDays = cfg.storeRefreshTtlDays ?? 30
+  form.adminAccessTtlHours = cfg.adminAccessTtlHours ?? 8
   oauth.googleClientId = cfg.googleClientId || ''
   oauth.appleServiceId = cfg.appleServiceId || ''
 }
@@ -66,9 +78,9 @@ async function load() {
 }
 
 function toggleMethod(provider: string) {
-  if (provider === 'google') form.googleEnabled = !form.googleEnabled
+  if (provider === 'email') form.emailEnabled = !form.emailEnabled
+  else if (provider === 'google') form.googleEnabled = !form.googleEnabled
   else if (provider === 'apple') form.appleEnabled = !form.appleEnabled
-  // email 锁定，不可切换
 }
 
 // 前端区间预校验（与 openapi AuthConfigUpdate 约束一致）
@@ -81,6 +93,12 @@ function validate(): boolean {
   if (form.minMethods < 1 || form.minMethods > 3) e.minMethods = '至少保留登录方式数需在 1–3 之间'
   if (form.adminLoginMaxAttempts < 3 || form.adminLoginMaxAttempts > 10) e.adminLoginMaxAttempts = '失败锁定阈值需在 3–10 之间'
   if (form.adminLoginLockMinutes < 5 || form.adminLoginLockMinutes > 60) e.adminLoginLockMinutes = '锁定时长需在 5–60 分钟之间'
+  if (form.verifyIpRatePerMinute < 5 || form.verifyIpRatePerMinute > 300) e.verifyIpRatePerMinute = '验证频控需在 5–300 次/分钟之间'
+  if (form.attackAlertThreshold < 10 || form.attackAlertThreshold > 1000) e.attackAlertThreshold = '告警阈值需在 10–1000 之间'
+  if (form.adminAlertEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.adminAlertEmail)) e.adminAlertEmail = '告警通知邮箱格式不正确'
+  if (form.storeAccessTtlMinutes < 10 || form.storeAccessTtlMinutes > 1440) e.storeAccessTtlMinutes = '访问令牌有效期需在 10–1440 分钟之间'
+  if (form.storeRefreshTtlDays < 1 || form.storeRefreshTtlDays > 90) e.storeRefreshTtlDays = '刷新令牌有效期需在 1–90 天之间'
+  if (form.adminAccessTtlHours < 1 || form.adminAccessTtlHours > 24) e.adminAccessTtlHours = '管理员令牌有效期需在 1–24 小时之间'
   errors.value = e
   return Object.keys(e).length === 0
 }
@@ -93,6 +111,7 @@ async function save() {
   saving.value = true
   try {
     const updated = await authConfigApi.updateAuthConfig({
+      emailEnabled: form.emailEnabled,
       googleEnabled: form.googleEnabled,
       appleEnabled: form.appleEnabled,
       otpLength: form.otpLength,
@@ -102,6 +121,12 @@ async function save() {
       minMethods: form.minMethods,
       adminLoginMaxAttempts: form.adminLoginMaxAttempts,
       adminLoginLockMinutes: form.adminLoginLockMinutes,
+      verifyIpRatePerMinute: form.verifyIpRatePerMinute,
+      attackAlertThreshold: form.attackAlertThreshold,
+      adminAlertEmail: form.adminAlertEmail || null,
+      storeAccessTtlMinutes: form.storeAccessTtlMinutes,
+      storeRefreshTtlDays: form.storeRefreshTtlDays,
+      adminAccessTtlHours: form.adminAccessTtlHours,
       googleClientId: oauth.googleClientId || null,
       appleServiceId: oauth.appleServiceId || null,
     })
@@ -147,17 +172,21 @@ onMounted(load)
         <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><KeyIcon class="h-4 w-4 text-gold-deep" />登录方式</h3>
         <p class="mb-4 text-[12px] text-ink-faint">控制消费端可用的登录入口。OAuth 凭据开启后即可填写。</p>
         <div class="space-y-3">
-          <!-- email（锁定，无凭据） -->
+          <!-- email（可开闭，无凭据） -->
           <div class="flex items-start justify-between gap-3 rounded-luxe border border-line p-4">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-[13px] font-medium text-ink">邮箱验证码（Passwordless）</span>
-                <span class="inline-flex items-center gap-0.5 rounded-full bg-ink/6 px-1.5 py-0.5 text-[10px] text-ink-soft"><LockClosedIcon class="h-3 w-3" />主登录</span>
               </div>
-              <p class="mt-1 text-[12px] text-ink-soft">主登录方式，向用户邮箱发送一次性验证码，无需密码。</p>
+              <p class="mt-1 text-[12px] text-ink-soft">向用户邮箱发送一次性验证码，无需密码。关闭后消费端登录页不再展示邮箱入口。</p>
             </div>
-            <button type="button" class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-not-allowed items-center rounded-full bg-ok opacity-60">
-              <span class="inline-block h-4 w-4 translate-x-5 rounded-full bg-white shadow-sm" />
+            <button
+              type="button"
+              class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors"
+              :class="form.emailEnabled ? 'bg-ok' : 'bg-ink-faint'"
+              @click="toggleMethod('email')"
+            >
+              <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="form.emailEnabled ? 'translate-x-5' : 'translate-x-1'" />
             </button>
           </div>
 
@@ -301,6 +330,60 @@ onMounted(load)
               <p v-if="errors.minMethods" class="mt-1 text-[12px] text-danger">{{ errors.minMethods }}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 消费端防滥用 -->
+      <div class="panel p-6">
+        <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><ShieldExclamationIcon class="h-4 w-4 text-gold-deep" />消费端防滥用</h3>
+        <p class="mb-4 text-[12px] text-ink-faint">验证码校验接口的频控、递进退避与攻击告警（防持续破解与洪水）。</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">验证频控（次/分钟/IP）</label>
+            <input v-model.number="form.verifyIpRatePerMinute" type="number" min="5" max="300" class="field w-full" />
+            <p v-if="errors.verifyIpRatePerMinute" class="mt-1 text-[12px] text-danger">{{ errors.verifyIpRatePerMinute }}</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">攻击告警阈值（连续失败）</label>
+            <input v-model.number="form.attackAlertThreshold" type="number" min="10" max="1000" class="field w-full" />
+            <p v-if="errors.attackAlertThreshold" class="mt-1 text-[12px] text-danger">{{ errors.attackAlertThreshold }}</p>
+          </div>
+          <div class="col-span-2">
+            <label class="mb-1 block text-[13px] font-medium text-ink">告警通知邮箱</label>
+            <input v-model.trim="form.adminAlertEmail" type="email" placeholder="留空 = 仅记录告警日志" class="field w-full" />
+            <p v-if="errors.adminAlertEmail" class="mt-1 text-[12px] text-danger">{{ errors.adminAlertEmail }}</p>
+          </div>
+        </div>
+        <div class="mt-3 flex items-start gap-2 rounded-luxe bg-info/8 px-4 py-3 text-[12px] text-ink-soft">
+          <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-info" />
+          <p>验证码校验失败按「邮箱 + IP」双维度递进冷却（1–9 次失败冷却 60 秒，10–19 次 5 分钟，≥20 次 30 分钟，登录成功即解除邮箱维度）；连续失败达告警阈值时记录安全日志并邮件通知（同源 1 小时内去重）。</p>
+        </div>
+      </div>
+
+      <!-- 令牌有效期 -->
+      <div class="panel p-6">
+        <h3 class="mb-1 flex items-center gap-1.5 font-display text-base font-semibold text-ink"><ClockIcon class="h-4 w-4 text-gold-deep" />令牌有效期</h3>
+        <p class="mb-4 text-[12px] text-ink-faint">登录令牌的生命周期（仅新签发的令牌生效，存量自然过期）。</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">访问令牌（分钟）</label>
+            <input v-model.number="form.storeAccessTtlMinutes" type="number" min="10" max="1440" class="field w-full" />
+            <p v-if="errors.storeAccessTtlMinutes" class="mt-1 text-[12px] text-danger">{{ errors.storeAccessTtlMinutes }}</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-[13px] font-medium text-ink">刷新令牌（天）</label>
+            <input v-model.number="form.storeRefreshTtlDays" type="number" min="1" max="90" class="field w-full" />
+            <p v-if="errors.storeRefreshTtlDays" class="mt-1 text-[12px] text-danger">{{ errors.storeRefreshTtlDays }}</p>
+          </div>
+          <div class="col-span-2">
+            <label class="mb-1 block text-[13px] font-medium text-ink">管理员令牌（小时）</label>
+            <input v-model.number="form.adminAccessTtlHours" type="number" min="1" max="24" class="field w-full" />
+            <p v-if="errors.adminAccessTtlHours" class="mt-1 text-[12px] text-danger">{{ errors.adminAccessTtlHours }}</p>
+          </div>
+        </div>
+        <div class="mt-3 flex items-start gap-2 rounded-luxe bg-info/8 px-4 py-3 text-[12px] text-ink-soft">
+          <InformationCircleIcon class="mt-0.5 h-4 w-4 shrink-0 text-info" />
+          <p>访问令牌随每个请求出示，调短可缩小被盗窗口（前端无感续期，用户不受影响）；刷新令牌决定「多少天不访问需重新登录」，被盗危害更大，出安全事件时可收紧到 7 天。会话可在「安全中心 → 会话应急下线」随时撤销。</p>
         </div>
       </div>
 

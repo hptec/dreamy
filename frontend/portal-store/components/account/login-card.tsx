@@ -39,7 +39,7 @@ export function LoginCard() {
   const router = useRouter()
   const { t, locale } = useI18n()
   const login = useAuthStore((s) => s.login)
-  const { config, load } = useAuthConfigStore()
+  const { config, loadError, load } = useAuthConfigStore()
 
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
@@ -132,6 +132,11 @@ export function LoginCard() {
 
   const googleEnabled = config?.googleEnabled ?? false
   const appleEnabled = config?.appleEnabled ?? false
+  // email 登录开关（FUNC-006/023）：关闭后不展示邮箱表单；后端 otp/send 同样拒绝（40303）
+  // fail-closed：配置未加载/拉取失败时一律视为关闭，让故障可见而不是静默假装可用
+  const emailEnabled = config?.emailEnabled ?? false
+  // 三种方式全关：登录页无可用的登录入口，展示提示（允许全关是 admin 的合法配置）
+  const allDisabled = !emailEnabled && !googleEnabled && !appleEnabled
 
   return (
     <div className="grid min-h-[80vh] lg:grid-cols-2">
@@ -149,13 +154,21 @@ export function LoginCard() {
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <Link href="/" className="font-display text-2xl font-semibold">{t.brand}</Link>
-          {step === 'email' ? (
+          {allDisabled ? (
+            <div className="mt-8">
+              <h1 className="font-display text-3xl font-medium">{t.login.signInTitle}</h1>
+              <p role="alert" className="mt-4 text-sm text-ink-soft">
+                {loadError && !config ? t.login.configUnavailable : t.login.allMethodsDisabled}
+              </p>
+            </div>
+          ) : step === 'email' ? (
             <EmailStep
               t={t}
               email={email}
               setEmail={setEmail}
               error={error}
               sending={sending}
+              emailEnabled={emailEnabled}
               googleEnabled={googleEnabled}
               appleEnabled={appleEnabled}
               onSubmit={handleSubmitEmail}
@@ -198,6 +211,7 @@ function EmailStep({
   setEmail,
   error,
   sending,
+  emailEnabled,
   googleEnabled,
   appleEnabled,
   onSubmit,
@@ -208,6 +222,7 @@ function EmailStep({
   setEmail: (v: string) => void
   error: string
   sending: boolean
+  emailEnabled: boolean
   googleEnabled: boolean
   appleEnabled: boolean
   onSubmit: (e: React.FormEvent) => void
@@ -224,6 +239,8 @@ function EmailStep({
         onError={onOauthError}
       />
 
+      {emailEnabled ? (
+        <>
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="eyebrow mb-1.5 block">{t.login.emailLabel}</label>
@@ -244,6 +261,10 @@ function EmailStep({
           {sending ? t.common.loading : t.login.emailMeCode}
         </button>
       </form>
+        </>
+      ) : (
+        <p role="alert" className="mt-6 text-sm text-ink-soft">{t.login.emailDisabled}</p>
+      )}
     </>
   )
 }

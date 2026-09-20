@@ -419,7 +419,7 @@ generated_at: "2026-05-31"
 | 列 | 类型 | 约束 | 默认 | 注释 |
 |----|------|------|------|------|
 | id | INT | PK（单例固定=1） | 1 | 单例主键 |
-| email_enabled | TINYINT(1) | NOT NULL | 1 | 邮箱登录（恒开，不可关） |
+| email_enabled | TINYINT(1) | NOT NULL | 1 | 邮箱验证码登录开关（可开闭，允许全关） |
 | google_enabled | TINYINT(1) | NOT NULL | 1 | Google 登录开关 |
 | apple_enabled | TINYINT(1) | NOT NULL | 1 | Apple 登录开关 |
 | otp_length | TINYINT | NOT NULL, CHECK in(4,6,8) | 6 | OTP 长度 |
@@ -435,7 +435,7 @@ generated_at: "2026-05-31"
 - **唯一键**: 主键即唯一；应用层强制只读 id=1 行。
 - **索引**: 无（单行）。
 - **外键策略**: 无。
-- **引用完整性**: email_enabled 恒为 1（应用层 + 默认值保障，R 不变量）；OTP 数值越界由 CHECK + 应用层双重拒绝（EDGE-019，422 CONFIG_OUT_OF_RANGE）。
+- **引用完整性**: email_enabled/google_enabled/apple_enabled 均可开闭，允许全关（无最少保留校验，R 不变量已移除「恒为 1」）；OTP 数值越界由 CHECK + 应用层双重拒绝（EDGE-019，422 CONFIG_OUT_OF_RANGE）。
 - **迁移说明**: 新建表。**必须预置单行 id=1 默认配置**（见 DDL 种子）。保存触发 store:authconfig 缓存失效（FLOW-13，应用层）。
 
 ---

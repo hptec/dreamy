@@ -6,7 +6,7 @@ export function getAuthConfig(): Promise<AuthConfig> {
   return get<AuthConfig>('/api/admin/auth-config')
 }
 
-// 后端 updateAuthConfig 接收 AuthConfigEntity 整体；email_enabled 恒 true 由后端保护，
+// 后端 updateAuthConfig 接收可变配置字段；email/google/apple 登录方式均可开闭（允许全关），
 // 这里提交可编辑字段（camel→snake 由 client 处理）。
 export function updateAuthConfig(payload: AuthConfigUpdatePayload): Promise<AuthConfig> {
   return put<AuthConfig>('/api/admin/auth-config', payload)

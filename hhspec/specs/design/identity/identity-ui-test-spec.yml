@@ -157,8 +157,8 @@ pages:
     prototype: portal-admin/src/views/AuthSettings.vue
     visual_baseline: [auth-settings]
     interactions:
-      - path: 切换 google/apple 开关
-        assert: [email 开关强制 on 不可关]
+      - path: 切换 email/google/apple 开关
+        assert: [三种开关均可切换; 允许全部关闭并保存成功]
       - path: 修改 OTP 数值越界
         assert: [前端区间校验 + 422 40002 字段错误回显]
       - path: 保存配置

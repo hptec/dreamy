@@ -77,7 +77,7 @@
 - COMP-A04 `<CustomerDetailPanel>`（PAGE-A03）：资料 + 凭证 + 会话 + 登录历史 tab；禁用/强制下线操作（二次确认）
 - COMP-A05 `<AdminTable>` + `<AdminFormModal>`（PAGE-A04）：CRUD；超管行禁用删除/禁用按钮（前端预判 EDGE-014）；删自己按钮禁用（EDGE-013）
 - COMP-A06 `<RolePanel>`（PAGE-A05，原型已有结构）：左角色列表 + 右权限矩阵（按 group 分组复选）；is_locked 角色矩阵只读 + 保存禁用（EDGE-019/FUNC-018）；hasUnsavedChanges 提示
-- COMP-A07 `<AuthConfigForm>`（PAGE-A06）：开关 + OTP 数值输入（前端区间预校验，email_enabled 强制只读 on）；OAuth 凭据只读展示
+- COMP-A07 `<AuthConfigForm>`（PAGE-A06）：开关（email/google/apple 均可切换，允许全关）+ OTP 数值输入（前端区间预校验）；OAuth 凭据只读展示
 - COMP-A08 `<OperationLogTable>`（PAGE-A07）：分页 + action/operator/时间筛选 + changes 详情展开 + 导出按钮（只读，无删除）
 
 ### B.5 表单交互（FORM）

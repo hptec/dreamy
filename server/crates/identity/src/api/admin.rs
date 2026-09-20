@@ -879,6 +879,7 @@ async fn update_auth_config(
     let i = |k: &str| v.get(k).and_then(|x| x.as_i64()).map(|x| x as i32);
     let s = |k: &str| v.get(k).and_then(|x| x.as_str()).map(|x| x.to_string());
     let patch = authconfig::AuthConfigUpdate {
+        email_enabled: b("email_enabled"),
         google_enabled: b("google_enabled"),
         apple_enabled: b("apple_enabled"),
         otp_length: i("otp_length").map(|x| x as i8),

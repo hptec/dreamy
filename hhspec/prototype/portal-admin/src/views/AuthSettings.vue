@@ -15,7 +15,6 @@ const oauth = authConfig.oauth
 const toast = ref('')
 
 function toggleMethod(m) {
-  if (m.locked) return
   m.enabled = !m.enabled
 }
 function save() {
@@ -42,14 +41,12 @@ function save() {
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-[13px] font-medium text-ink">{{ m.label }}</span>
-                <span v-if="m.locked" class="inline-flex items-center gap-0.5 rounded-full bg-ink/6 px-1.5 py-0.5 text-[10px] text-ink-soft"><LockClosedIcon class="h-3 w-3" />主登录</span>
               </div>
               <p class="mt-1 text-[12px] text-ink-soft">{{ m.desc }}</p>
             </div>
             <button
-              class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors"
-              :class="[m.enabled ? 'bg-ok' : 'bg-ink-faint', m.locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer']"
-              :title="m.locked ? '主登录方式不可关闭' : ''"
+              class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors cursor-pointer"
+              :class="m.enabled ? 'bg-ok' : 'bg-ink-faint'"
               @click="toggleMethod(m)"
             >
               <span class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform" :class="m.enabled ? 'translate-x-5' : 'translate-x-1'" />

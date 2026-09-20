@@ -249,7 +249,7 @@ CREATE TABLE `operation_log` (
 -- -----------------------------------------------------------------------------
 CREATE TABLE `auth_config` (
   `id`                 INT          NOT NULL                COMMENT '单例主键（固定=1）',
-  `email_enabled`      TINYINT(1)   NOT NULL DEFAULT 1      COMMENT '邮箱登录（恒开不可关）',
+  `email_enabled`      TINYINT(1)   NOT NULL DEFAULT 1      COMMENT '邮箱验证码登录开关（可开闭，允许全关）',
   `google_enabled`     TINYINT(1)   NOT NULL DEFAULT 1      COMMENT 'Google 登录开关',
   `apple_enabled`      TINYINT(1)   NOT NULL DEFAULT 1      COMMENT 'Apple 登录开关',
   `otp_length`         TINYINT      NOT NULL DEFAULT 6      COMMENT 'OTP 长度 4/6/8',

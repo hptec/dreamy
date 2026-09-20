@@ -131,8 +131,12 @@ export interface Session {
   browser: string | null
   ip: string | null
   location: string | null
+  /** 1=email 2=google 3=apple（后端 SessionView.method） */
+  method?: number
   isNewDevice: boolean
   isCurrent: boolean
+  /** 1=ACTIVE 2=REVOKED（SecuritySessions 应急台过滤用；CustomerDetail 旧展示不依赖） */
+  status?: number
   lastActiveAt: string | null
   createdAt: string | null
 }
@@ -167,12 +171,19 @@ export interface AuthConfig {
   minMethods: number
   adminLoginMaxAttempts?: number | null
   adminLoginLockMinutes?: number | null
+  verifyIpRatePerMinute?: number | null
+  attackAlertThreshold?: number | null
+  adminAlertEmail?: string | null
+  storeAccessTtlMinutes?: number | null
+  storeRefreshTtlDays?: number | null
+  adminAccessTtlHours?: number | null
   googleClientId?: string | null
   appleServiceId?: string | null
   updatedAt?: string | null
 }
 
 export interface AuthConfigUpdatePayload {
+  emailEnabled: boolean
   googleEnabled: boolean
   appleEnabled: boolean
   otpLength: number
@@ -182,6 +193,12 @@ export interface AuthConfigUpdatePayload {
   minMethods: number
   adminLoginMaxAttempts?: number | null
   adminLoginLockMinutes?: number | null
+  verifyIpRatePerMinute?: number | null
+  attackAlertThreshold?: number | null
+  adminAlertEmail?: string | null
+  storeAccessTtlMinutes?: number | null
+  storeRefreshTtlDays?: number | null
+  adminAccessTtlHours?: number | null
   googleClientId?: string | null
   appleServiceId?: string | null
 }

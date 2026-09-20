@@ -887,7 +887,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     put:
       summary: 保存认证配置
-      description: FUNC-023。email 主登录恒开不可关；OTP 数值越界保存被拒（EDGE-019）。保存写 action=认证配置变更 日志并失效 store:authconfig 缓存。
+      description: FUNC-023。email/google/apple 登录方式均可开闭（允许全关，不做最少保留校验）；OTP 数值越界保存被拒（EDGE-019）。保存写 action=认证配置变更 日志并失效 store:authconfig 缓存。
       operationId: updateAuthConfig
       tags: [admin-auth-config]
       security:
@@ -1604,7 +1604,7 @@ components:
       properties:
         email_enabled:
           type: boolean
-          description: email 主登录恒开不可关
+          description: 邮箱验证码登录开关（可开闭；关闭后登录页不展示邮箱入口且后端拒绝发码）
         google_enabled:
           type: boolean
         apple_enabled:
@@ -1640,6 +1640,7 @@ components:
     AuthConfigUpdate:
       type: object
       required:
+        - email_enabled
         - google_enabled
         - apple_enabled
         - otp_length
@@ -1648,6 +1649,9 @@ components:
         - otp_max_attempts
         - min_methods
       properties:
+        email_enabled:
+          type: boolean
+          description: 邮箱验证码登录开关（可开闭，允许全关）
         google_enabled:
           type: boolean
         apple_enabled:
