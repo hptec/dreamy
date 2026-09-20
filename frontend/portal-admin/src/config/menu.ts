@@ -10,6 +10,7 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   RocketLaunchIcon,
+  LockClosedIcon,
   ShieldCheckIcon,
 } from '@heroicons/vue/24/outline'
 import type { FunctionalComponent } from 'vue'
@@ -97,12 +98,21 @@ export const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    // 安全中心（2026-09-19 登录安全加固议题 B:登录参数后台化 + 会话应急下线）
+    // 权限沿用原归属页:登录策略=/system/auth,会话应急下线=/customers(复用用户运营权限)
+    label: '安全中心',
+    icon: LockClosedIcon,
+    items: [
+      { title: '登录策略', to: '/security/login-policy', permission: '/system/auth' },
+      { title: '会话应急下线', to: '/security/sessions', permission: '/customers' },
+    ],
+  },
+  {
     label: '系统管理',
     icon: ShieldCheckIcon,
     items: [
       { title: '管理员管理', to: '/system/admins', permission: '/system/admins' },
       { title: '角色权限', to: '/system/roles', permission: '/system/roles' },
-      { title: '登录与认证', to: '/system/auth', permission: '/system/auth' },
       { title: '操作日志', to: '/system/logs', permission: '/system/logs' },
       { title: '缓存管理', to: '/system/cache', permission: '/system/cache' },
       // i18n-complete-with-ai-assist：外部网关配置（AI 翻译代理仍依赖此网关）

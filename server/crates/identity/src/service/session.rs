@@ -83,6 +83,18 @@ pub async fn revoke_store(state: &SharedState, token_id: &str, user_id: i64) {
     mark_revoked(state, token_id).await;
 }
 
+/// 仅撤销 Redis 主存(刷新场景专用):旧 access 即时失效,但**不**标冷备 revoked——
+/// 冷备行将由刷新的乐观锁 UPDATE 原位更新为新链;若在此标 revoked,
+/// 该行对下一次刷新的 status=Active 检查即失配,旋转链断链(第二次刷新必 40102)
+pub async fn revoke_store_soft(state: &SharedState, token_id: &str, user_id: i64) {
+    if let Some(mut conn) = state.redis.clone() {
+        if let Err(e) = conn.del::<_, ()>(session_key(token_id)).await {
+            tracing::warn!(error = %e, "[session] 刷新撤销 DEL 失败(旧 access 残留至 TTL)");
+        }
+        let _: Result<i64, _> = conn.srem(user_sessions_key(user_id), token_id).await;
+    }
+}
+
 /// 撤销某用户全部会话(禁用/强制全下线):遍历集合 DEL + 冷备批量 UPDATE
 pub async fn revoke_all_for_user(state: &SharedState, user_id: i64) {
     if let Some(mut conn) = state.redis.clone() {

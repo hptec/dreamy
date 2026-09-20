@@ -55,10 +55,14 @@ const routes: RouteRecordRaw[] = [
 
   { path: '/shipping', name: 'shipping', component: () => import('@/views/Shipping.vue'), meta: { title: '物流配置', group: '发布与系统', permission: '/shipping' } },
 
+  // 安全中心（登录安全参数 + 会话应急下线；IA 归拢,原 /system/auth 迁移)
+  { path: '/security/login-policy', name: 'security-login-policy', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录策略', group: '安全中心', permission: '/system/auth' } },
+  { path: '/security/sessions', name: 'security-sessions', component: () => import('@/views/SecuritySessions.vue'), meta: { title: '会话应急下线', group: '安全中心', permission: '/customers' } },
+  { path: '/system/auth', redirect: '/security/login-policy' },
+
   // 系统管理（PAGE-A04~A07，本变更核心）
   { path: '/system/admins', name: 'system-admins', component: () => import('@/views/AdminList.vue'), meta: { title: '管理员管理', group: '系统管理', permission: '/system/admins' } },
   { path: '/system/roles', name: 'system-roles', component: () => import('@/views/RoleManagement.vue'), meta: { title: '角色权限', group: '系统管理', permission: '/system/roles' } },
-  { path: '/system/auth', name: 'system-auth', component: () => import('@/views/AuthSettings.vue'), meta: { title: '登录与认证', group: '系统管理', permission: '/system/auth' } },
   { path: '/system/logs', name: 'system-logs', component: () => import('@/views/OperationLogs.vue'), meta: { title: '操作日志', group: '系统管理', permission: '/system/logs' } },
   { path: '/system/cache', name: 'system-cache', component: () => import('@/views/system/CacheManagement.vue'), meta: { title: '缓存管理', group: '系统管理', permission: '/system/cache' } },
 

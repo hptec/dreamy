@@ -378,7 +378,30 @@ pub async fn list_users(
         query = query.order_by_asc(user::Column::Id);
     }
     let paginator = query.paginate(&state.db, q.page_size);
-    let total = paginator.num_items().await?;
+    // 计数缓存:无过滤条件时 total 走 Redis 30s 缓存——千万行量级下每页
+    // COUNT 全索引扫描是分页热路径主瓶颈(压测实证 p99 超时),30s 近似计数
+    // 对运营列表可接受;过滤条件各异的计数无法安全缓存,保持实时
+    let total = if q.conds.is_empty() {
+        match state.redis.as_ref() {
+            Some(conn) => {
+                let mut conn = conn.clone();
+                let cached: Option<String> = conn.get("users:count:total").await.ok().flatten();
+                match cached.and_then(|v| v.parse::<u64>().ok()) {
+                    Some(v) => v,
+                    None => {
+                        let n = paginator.num_items().await?;
+                        let _: Result<(), _> =
+                            conn.set_ex::<_, _, ()>("users:count:total", n.to_string(), 30)
+                                .await;
+                        n
+                    }
+                }
+            }
+            None => paginator.num_items().await?,
+        }
+    } else {
+        paginator.num_items().await?
+    };
     let items = paginator.fetch_page(q.page.saturating_sub(1)).await?;
     Ok((items.iter().map(UserView::from).collect(), total))
 }

@@ -376,10 +376,11 @@ pub async fn refresh(
 
     // V4 旋转链证据:旧 refresh jti → user_id(TTL=新 refresh 有效期)
     session::mark_rotated(state, &claims.jti, row.user_id as i64, refresh_ttl).await;
-    // 旧 access 撤销(并发双刷时双方 DEL 同键,幂等)
+    // 旧 access 主存撤销(软撤销:仅 Redis DEL,冷备行由下方乐观锁 UPDATE 原位续用;
+    // 若走完整 revoke_store 会把行标 revoked,下一次刷新即 40102 断链)
     let old_access_jti = row.token_id.clone();
     if !old_access_jti.is_empty() {
-        session::revoke_store(state, &old_access_jti, row.user_id as i64).await;
+        session::revoke_store_soft(state, &old_access_jti, row.user_id as i64).await;
     }
     // V3 乐观锁:version 条件防并发双活(并发刷同一 token 仅一成功)
     let updated = user_session::Entity::update_many()

@@ -1,6 +1,47 @@
 # 用户模块 Rust 迁移 — 遗留任务清单
 
-> 生成时间:2026-09-15 | 更新:2026-09-18(任务 1 Java 完整删码已完成并 E2E 验证全绿)
+> 生成时间:2026-09-15 | 更新:2026-09-18(任务 1 Java 完整删码已完成并 E2E 验证全绿) | 2026-09-19(登录安全加固 + 安全中心完成,见文末记录)
+
+## 2026-09-19 登录安全加固 + 安全中心(已落码,待重镜像部署验证)
+
+红队审计修复 + 议题 A(防持续破解)+ 议题 B(安全参数后台化)全部落码:
+
+**安全修复**:
+- V1 XFF 伪造堵口:client_ip 改取 X-Real-IP 优先(store_auth/admin 两处);nginx XFF 改覆盖式 $remote_addr
+- V2 OTP 明文日志删除(otp.rs;本地取码走 DB 直插)
+- V3 refresh 并发竞态:UPDATE 加 version 乐观锁,并发双刷仅一成功
+- V4 refresh 重用检测:session:rotated:{jti} 旋转链标记,旧 jti 再现 → 整链撤销 + WARN
+- V5 OIDC 回源收窄:kid 已知验签失败直接拒;回源节流 30s(防伪造洪水放大 DoS)
+- V7 verify IP 频控:otp:verify:ip:{ip}:m 固定窗口,42904(参数 30/min/IP 进 auth_config)
+- L2 双键递进退避:otp:backoff:{email|ip},阶梯 60s→5min→30min,42905,成功清 email 键
+- L5 攻击告警:达阈值 → 结构化 WARN + 邮件通知(双键 SET NX 1h 去重;security_alert 模板四语言种子)
+- is_new_device 加 90 天窗口谓词(月分区裁剪,修全分区扫描)
+
+**配置化 + 前端**:
+- auth_config 新 6 列:verify_ip_rate_per_minute/attack_alert_threshold/admin_alert_email/store_access_ttl_minutes/store_refresh_ttl_days/admin_access_ttl_hours(bootstrap DDL 已入 identity.sql;存量库 ALTER 已于 09-18 执行)
+- token TTL 编译期常量 → 登录/刷新路径从 auth_config 读,仅新签发生效,读取失败回退默认
+- admin 前端「安全中心」组:登录策略页(AuthSettings 扩展防滥用+令牌有效期两组)/ 会话应急下线页(SecuritySessions.vue 新增,复用 users API);旧 /system/auth 重定向
+
+**新增错误码**:42904(验证频控)/42905(退避冷却),四语言 i18n 齐,码表测试覆盖
+
+**测试资产**:identity/tests/concurrency.rs(IDENTITY_CONCURRENCY=1 闸门)——并发 refresh 仅一成功 + 并发 OTP 消费仅一成功;workspace 全测试绿
+
+**任务 4 执行上下文**:场景 1(OTP 并发消费)/场景 3(并发 refresh)已入 concurrency.rs;场景 2(登录 vs 禁用时序)/场景 4(并发归并)待补;真环境跑证据待执行
+
+## 2026-09-19 任务 2/3 执行完成(压测 + soak 全部收口)
+
+**任务 4 并发证据**:IDENTITY_CONCURRENCY=1 双绿——并发 refresh 10 仅 1 成功(V3 乐观锁)、并发 OTP 消费 10 仅 1 成功,冷备行 version 恰 +1。
+
+**任务 2 压测**(报告:docs/login-benchmark-report.md;数据千万级:user 1000 万跨 3 段/identity_email 1000 万 KEY25 区/login_history 5000 万跨 6 月分区/otp_code 100 万):
+- 读路径(config)3000+ QPS p99<300ms@300 并发;refresh 单链串行 476 QPS 零错误 p99 399ms
+- verify 全链 p50 31ms(频控上限内);频控拒绝路径 2000-4000 QPS;千万行分页 COUNT 缓存后超时消失
+- **压测揪出存量 P0:refresh 旋转链二连刷必断链**(revoke_store 误标冷备行 revoked,用户续刷一次即永久掉线)——新增 revoke_store_soft 修复,E2E 补二连刷门禁 15/15 绿
+- **性能修复**:list_users 千万行 COUNT 30s 缓存(深分页 p99 10s 超时 → 157ms~1.9s)
+- 压测资产:tests/load.rs(IDENTITY_LOAD=1)/scripts/bench-seed.sh/bench-soak.sh/diag-refresh-chain.sh/login-security-e2e.sh
+
+**任务 3 soak**(证据:data/soak-evidence.md;曲线图:data/charts/soak-{rss,cpu,db}.svg,完整报告 data/soak-evidence.html):50 并发 × 30 分钟混合流量,60 采样点——**判定 PASS**:server RSS 31→30MB 收敛无单调增长(剔除末尾 3 个 cpu=0 空载点后,负载期 57 点漂移仅 +0.02%),Redis 8MB 稳定,MySQL 水位稳定。注:soak 初版脚本两坑已修(SOAK 目标误指网关 HTTPS 口→改直连 18082;docker stats \t 未转义致解析错乱→改 | 分隔)。证据生成器 scripts/soak-chart.py(纯标准库,CSV→MD+SVG+HTML,判定口径=剔除空载尾段)。
+
+**至此遗留任务 1-4 全部完成**;任务 5(生产发布)等用户下令,任务 6(用户侧前置)待办。
 
 ## ✅ E2E 冒烟结果(2026-09-18,全绿)
 
