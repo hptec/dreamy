@@ -878,6 +878,7 @@ dependencies = [
  "axum",
  "common",
  "identity",
+ "marketing",
  "proto",
  "redis",
  "sea-orm",
@@ -1826,6 +1827,26 @@ dependencies = [
  "nix",
  "serde",
  "winapi",
+]
+
+[[package]]
+name = "marketing"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64",
+ "chrono",
+ "common",
+ "hmac",
+ "infra",
+ "inventory",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

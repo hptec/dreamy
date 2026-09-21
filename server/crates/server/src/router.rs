@@ -25,10 +25,12 @@ pub fn build(state: SharedState) -> Router {
             .layer(tower_http::cors::CorsLayer::permissive()),
     };
 
-    Router::new()
+    let infra = Router::new()
         .route("/healthz", get(common::health::healthz))
         .route("/readyz", get(common::health::readyz))
-        .with_state(state)
+        .with_state(state.clone());
+    infra
+        .merge(marketing::api::router(state))
         .nest("/api/store", store_api)
         .nest("/api/admin", admin_api)
         // 安全响应头三件套(对齐 Java SecurityHeadersFilter;HSTS 由 TLS 网关层负责)

@@ -17,6 +17,8 @@ pub async fn connect_main(cfg: &crate::config::Config) -> Result<DatabaseConnect
 
     let main = Database::connect(cfg.db_main_url()).await?;
     apply_schema(&main, &cfg.schema_path).await?;
+    // 域扩展 DDL(全部 CREATE IF NOT EXISTS,幂等;与 identity.sql 同纪律)
+    apply_schema(&main, "schema/marketing-base.sql").await?;
     Ok(main)
 }
 

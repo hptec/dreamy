@@ -14,7 +14,7 @@
 # ============================================================
 [workspace]
 resolver = "2"
-members = ["crates/server", "crates/common", "crates/proto", "crates/identity", "crates/infra"]
+members = ["crates/server", "crates/common", "crates/proto", "crates/identity", "crates/infra", "crates/marketing"]
 
 [workspace.package]
 version = "0.1.0"
@@ -58,6 +58,7 @@ common = { path = "crates/common" }
 proto = { path = "crates/proto" }
 identity = { path = "crates/identity" }
 infra = { path = "crates/infra" }
+marketing = { path = "crates/marketing" }
 
 [profile.release]
 lto = "thin"

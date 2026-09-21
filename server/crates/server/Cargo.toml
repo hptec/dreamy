@@ -7,6 +7,7 @@ description = "dreamy 服务端本体(bin crate:组装与启动)"
 [dependencies]
 common = { workspace = true }
 identity = { workspace = true }
+marketing = { workspace = true }
 proto = { workspace = true }
 axum = { workspace = true }
 tonic = { workspace = true }
