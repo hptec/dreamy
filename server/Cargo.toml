@@ -6,6 +6,7 @@
 #   crates/common    共享地基:R 包络/错误码全表/分区保障/config/DB 自举/健康端点/CORS 中间件
 #   crates/proto     gRPC 契约生成(源头:仓库顶层 proto/;Java protobuf-maven-plugin 同源消费)
 #   crates/identity  身份域(用户/认证/admin RBAC):api/service/entity/grpc/mail/oidc/ratelimit
+#   crates/infra     横切基础设施:mq(事件总线)/sched(cron+fixedDelay)/cache(两级)/lock(分布式)
 #
 # 新域入驻约定(终局全量替换 Java):新建 crates/<domain>,自带 api/service/entity,
 # 在 server crate 的 router.rs 挂载 + proto/ 增量加 dreamy.<domain>.v1 包。
@@ -13,7 +14,7 @@
 # ============================================================
 [workspace]
 resolver = "2"
-members = ["crates/server", "crates/common", "crates/proto", "crates/identity"]
+members = ["crates/server", "crates/common", "crates/proto", "crates/identity", "crates/infra"]
 
 [workspace.package]
 version = "0.1.0"
@@ -56,6 +57,7 @@ protoc-bin-vendored = "3"
 common = { path = "crates/common" }
 proto = { path = "crates/proto" }
 identity = { path = "crates/identity" }
+infra = { path = "crates/infra" }
 
 [profile.release]
 lto = "thin"

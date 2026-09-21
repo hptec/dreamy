@@ -1,0 +1,29 @@
+# ============================================================
+# infra —— 横切基础设施(全域共享,对齐 Java backend 语义)
+#
+#   mq     : 领域事件总线(stub 同步直调 / real RabbitMQ;信封 event_id+type+occurred_at+payload)
+#   sched  : 6 字段 cron(含秒) + fixedDelay 调度器(多实例 Redis 锁单飞)
+#   cache  : 两级缓存(moka 本地 + redis 远端,null 穿透标记 + 代际失效)
+#   lock   : 分布式锁(SET NX + token 校验释放,对齐 Redisson tryLock/unlock 语义)
+#
+# 约定:infra 不依赖任何业务域 crate;域 crate 依赖 infra。
+# ============================================================
+[package]
+name = "infra"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+redis = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }
+async-trait = "0.1"
+lapin = "2.5"
+moka = { version = "0.12", features = ["sync"] }
+uuid = { workspace = true }
+rand = { workspace = true }
