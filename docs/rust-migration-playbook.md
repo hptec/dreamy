@@ -217,8 +217,27 @@ product/order/checkout 三个高复杂度域,切换前增加 shadow 对账:
 | 3 | tax | 16 | 1d5ceaa |
 | 3 | content(blog/wedding/lookbook/guide) | 13 | 4553d31 |
 | 3 | cart(双模式/合并/截断) | 14 | bf858e6 |
+| 4 | checkout/quote(锁定汇率/行定价/运费/DDP 税) | 12 | a0d3827 |
+| 5 | order(下单事务 CAS/取消回补) | 9 | 4b85358 |
+| 6 | payment/refund(确认/退款审批) | 8 | 430ed74 |
+| 7 | shipment(发货/事件/签收/查单) | 6 | 1c10fec |
+| 8 | review(审核/rating 回写) | 9 | f1c2c07 |
+| 9 | coupon(validate 顺序/redeem CAS) | 2 | efbea69 |
+| 10-13 | showroom 全套(含成员交互/投票) | 13 | 699fec7/8fe0020 |
+| 14 | flashsale + product admin | 7 | c8b5e26/5da0e1f |
+| 15 | site_builder + exchangerate | 9 | 363ba0d/6fa3d1a |
+| 16 | dashboard/cache/gateway | 7 | 43a4c01 |
+| 16 | extras(wishlist/browse/presign) + stripe webhook | 9 | 8330613/5a1a8af |
 
-单测累计:99 全绿;Rust 侧约 24k 行。
+单测累计:112 全绿;Rust 侧约 35k 行。**Java 240 端点全部完成 Rust 对应实现**(stub 模式;stripe real 验签/外部汇率源随外部集成接线)。
+
+### 第 4-16 轮新增沉淀的契约对齐规则(新域必查)
+
+9. `LAST_INSERT_ID()` 与 INSERT 必须同连接(事务包装;连接池下跨连接失效)
+10. NOT NULL 无默认列(i18n_json/content_i18n_json/api_key_encrypted/scheduled_at)INSERT 必须显式给值
+11. axum 静态路径(/sort)会被已注册的动态路径(/{id})拦截 → 子动作路由须独立注册且 handler 名避免与 `get/put/delete` 冲突
+12. 真实 DDL 优先于推断:product_question(asker/question/asked_at)、external_gateway_config(gateway_type/default_model)、product(fabric_care_note) 均与命名直觉不同
+13. decimal 列全部经 `crate::cart::dec()`(f64 try_get 静默失败为 0,坑累计 8 处)
 
 ### 已沉淀的契约对齐规则(新域必查)
 
@@ -231,10 +250,9 @@ product/order/checkout 三个高复杂度域,切换前增加 shadow 对账:
 7. 域段 6/7 的 6 位码 HTTP 映射统一入 cat_err::http_status(404xxx→404、409xxx→409、422xxx→422)
 8. audit 写主库 dreamy_server(operation_log),与 biz_db 事务解耦,commit 后调用
 
-### 下一批(第 4 轮起)
+### 下一批(第 17 轮起)
 
-- 交易域:checkout+quote(240+407) → order(2835:创建/取消/超时/发货/admin) → payment(714) → refund(824)
-- 物流:shipment(1489) → shippingrate(1114) → carrier
-- 营销内容:review(1212) → showroom(1008) → question → coupon(911) → flashsale → member(1040)
-- 收尾:site_builder(2438) → gateway(1075) → dashboard → exchangerate → cache invalidation → wedding/lookbook admin 侧
-- 全部完成后:网关分流切换 → Java 删码 + 镜像清理 → HK 数据同步
+- **Phase A 网关分流切换**:逐域把流量从 Java(8080)切到 Rust(18092),每域双跑对账后切 100%
+- **Phase B 删除 Java**:backend/ 目录、构建文件(pom/build.gradle)、Dockerfile、compose 服务、退役脚本;移除 dreamy-backend Docker 镜像
+- **Phase C HK→本地同步**:全量 mysqldump(--single-transaction)+ R2 图片 rclone 同步(全量/不脱敏/双源)
+- 性能门禁:阶梯 50/100/300/500 并发压测(基于 docs/login-benchmark-report.md 分区设计)
