@@ -43,8 +43,18 @@ async fn main() {
 
     let redis = build_redis_manager(&cfg).await;
 
+    // 业务库(identity;迁移期 catalog/交易域业务表)。缺席不阻塞启动(域功能降级)
+    let biz_db = match sea_orm::Database::connect(&cfg.db_biz_url()).await {
+        Ok(conn) => conn,
+        Err(err) => {
+            tracing::warn!("[boot] 业务库({})连接失败,业务域降级:{err}", cfg.biz_db_name);
+            db.clone()
+        }
+    };
+
     let state: SharedState = std::sync::Arc::new(AppState {
         db: db.clone(),
+        biz_db,
         redis,
         cfg: cfg.clone(),
     });

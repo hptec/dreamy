@@ -8,6 +8,8 @@ pub struct Config {
     pub db_host: String,
     pub db_port: u16,
     pub db_name: String,
+    /// 业务库(Java identity 库;迁移期 catalog/交易域读写的业务表所在;同实例)
+    pub biz_db_name: String,
     pub db_user: String,
     pub db_password: String,
     pub redis_host: String,
@@ -41,6 +43,7 @@ impl Config {
                 .parse()
                 .map_err(|_| "SERVER_DB_PORT 非法")?,
             db_name: var("SERVER_DB_NAME", "dreamy_server"),
+            biz_db_name: var("SERVER_BIZ_DB_NAME", "identity"),
             db_user: var("DB_USERNAME", "root"),
             db_password: env::var("DB_PASSWORD").unwrap_or_default(),
             redis_host: var("REDIS_HOST", "localhost"),
@@ -97,6 +100,11 @@ impl Config {
 
     pub fn db_main_url(&self) -> String {
         format!("{}/{}", self.db_base_url(), self.db_name)
+    }
+
+    /// 业务库 URL(同实例 identity 库)
+    pub fn db_biz_url(&self) -> String {
+        format!("{}/{}", self.db_base_url(), self.biz_db_name)
     }
 
     pub fn redis_url(&self) -> String {

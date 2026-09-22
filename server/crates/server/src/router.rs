@@ -25,8 +25,13 @@ pub fn build(state: SharedState) -> Router {
             .layer(tower_http::cors::CorsLayer::permissive()),
     };
     // trading 底座(store JWT 鉴权域路由;与 identity::api 同款双模挂载)
-    let trading_api = match jwt {
+    let trading_api = match jwt.clone() {
         Some(jwt) => marketing::api_trading::address_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
+    // catalog 域:admin CRUD(JWT + RBAC)+ store 公开树
+    let category_admin_api = match jwt {
+        Some(jwt) => marketing::api_category::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
 
@@ -37,6 +42,8 @@ pub fn build(state: SharedState) -> Router {
     infra
         .merge(marketing::api::router(state.clone()))
         .merge(trading_api)
+        .merge(category_admin_api)
+        .merge(marketing::api_category::store_router().with_state(state.clone()))
         .nest("/api/store", store_api)
         .nest("/api/admin", admin_api)
         // 安全响应头三件套(对齐 Java SecurityHeadersFilter;HSTS 由 TLS 网关层负责)

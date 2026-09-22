@@ -46,6 +46,7 @@ async fn shared_state() -> Option<(SharedState, DatabaseConnection)> {
         db_host: String::new(),
         db_port: 0,
         db_name: String::new(),
+        biz_db_name: String::new(),
         db_user: String::new(),
         db_password: String::new(),
         redis_host: String::new(),
@@ -58,6 +59,7 @@ async fn shared_state() -> Option<(SharedState, DatabaseConnection)> {
     };
     let state: SharedState = Arc::new(AppState {
         db: db.clone(),
+        biz_db: db.clone(),
         redis: None,
         cfg,
     });
