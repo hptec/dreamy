@@ -91,9 +91,9 @@ assert GET  /s3cr3t42/api/admin/users                  UPSTREAM-SERVER
 assert GET  /s3cr3t42/api/admin/users/1                UPSTREAM-SERVER
 assert GET  /s3cr3t42/api/admin/operation-logs         UPSTREAM-SERVER
 assert GET  /s3cr3t42/api/admin/operation-logs/export  UPSTREAM-SERVER
-assert GET  /s3cr3t42/api/admin/orders                 UPSTREAM-BACKEND
-assert GET  /s3cr3t42/api/admin/products               UPSTREAM-BACKEND
-assert GET  /s3cr3t42/api/admin/navigation             UPSTREAM-BACKEND
+assert GET  /s3cr3t42/api/admin/orders                 UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/products               UPSTREAM-SERVER
+assert GET  /s3cr3t42/api/admin/navigation             UPSTREAM-SERVER
 
 echo "[routes] ── 旧裸 admin 路径对外关闭(统一 404)──"
 assert GET  /api/admin/auth/login                      "404 Not Found"
@@ -102,12 +102,13 @@ assert GET  /api/admin/products                        "404 Not Found"
 assert GET  /api/admin                                 "404 Not Found"
 
 echo "[routes] ── 负向样本 → backend(身份域之外不得误吸)──"
-assert GET  /api/store/products               UPSTREAM-BACKEND
-assert GET  /api/store/orders                 UPSTREAM-BACKEND
-assert GET  /api/store/wishlists              UPSTREAM-BACKEND
-assert GET  /api/store/browse-history         UPSTREAM-BACKEND
-assert GET  /api/store/showrooms/1            UPSTREAM-BACKEND
-assert GET  /actuator/health                  UPSTREAM-BACKEND
+assert GET  /api/store/products               UPSTREAM-SERVER
+assert GET  /api/store/orders                 UPSTREAM-SERVER
+assert GET  /api/store/wishlists              UPSTREAM-SERVER
+assert GET  /api/store/browse-history         UPSTREAM-SERVER
+assert GET  /api/store/showrooms/1            UPSTREAM-SERVER
+# actuator/health → 302 /readyz(Phase B 删 Java 后由 server 承担健康检查)
+assert GET  /readyz                            UPSTREAM-SERVER
 
 echo "[routes] ── 页面路由不变 ──"
 assert GET  /                                 UPSTREAM-STORE
@@ -116,7 +117,7 @@ assert GET  /admin/                           UPSTREAM-ADMIN
 echo "[routes] ── OPTIONS 预检与编码路径 ──"
 assert OPTIONS /api/store/auth/otp/send       UPSTREAM-SERVER
 assert OPTIONS /s3cr3t42/api/admin/auth/login UPSTREAM-SERVER
-assert OPTIONS /api/store/products            UPSTREAM-BACKEND
+assert OPTIONS /api/store/products            UPSTREAM-SERVER
 assert GET  "/api/store/auth/%63onfig"        UPSTREAM-SERVER
 assert GET  /api/store/account/profile/       UPSTREAM-SERVER
 

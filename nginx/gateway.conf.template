@@ -72,10 +72,10 @@ server {
         client_max_body_size 20m;
     }
 
-    # 其余 admin 业务 API(secret 段)→ backend
+    # 其余 admin 业务 API(secret 段)→ server(Rust;Phase A 全量切换)
     location ~ ^/${ADMIN_API_SECRET}/api/ {
         rewrite ^/${ADMIN_API_SECRET}(/.*)$ $1 break;
-        proxy_pass ${BACKEND_UPSTREAM};
+        proxy_pass ${SERVER_UPSTREAM};
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $remote_addr;
@@ -106,9 +106,16 @@ server {
         client_max_body_size 20m;
     }
 
-    # backend API 直通(路径原样转发)
+    # 健康检查 → server(Rust /readyz;Phase B 删 Java 后唯一健康口径)
+    location = /readyz {
+        proxy_pass ${SERVER_UPSTREAM};
+        proxy_set_header Host $http_host;
+        proxy_read_timeout 10s;
+    }
+
+    # store API 直通 → server(Rust;Phase A 全量切换,路径原样转发)
     location /api/ {
-        proxy_pass ${BACKEND_UPSTREAM};
+        proxy_pass ${SERVER_UPSTREAM};
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $remote_addr;
@@ -118,6 +125,7 @@ server {
         client_max_body_size 20m;
     }
 
+    location = /actuator/health { return 302 /readyz; }
     location /actuator/ {
         proxy_pass ${BACKEND_UPSTREAM};
         proxy_set_header Host $http_host;

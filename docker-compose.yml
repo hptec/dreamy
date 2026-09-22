@@ -60,6 +60,7 @@ services:
       STORE_UPSTREAM: ${STORE_UPSTREAM:-http://portal-store:3000}
       ADMIN_UPSTREAM: ${ADMIN_UPSTREAM:-http://portal-admin:80}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:18081}
+      # Phase A 全量切换:业务 API 已全部指向 server(Rust);BACKEND_UPSTREAM 仅剩 actuator 兜底(Phase B 删 Java 后移除)
       SERVER_UPSTREAM: ${SERVER_UPSTREAM:-http://server:18082}
     volumes:
       - ./nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
