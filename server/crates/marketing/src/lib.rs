@@ -27,6 +27,8 @@ pub mod api_checkout;
 pub mod api_order;
 pub mod checkout;
 pub mod order;
+pub mod api_payment;
+pub mod payment;
 pub mod content;
 pub mod api_tax;
 pub mod tax;

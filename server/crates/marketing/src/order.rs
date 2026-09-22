@@ -24,6 +24,15 @@ fn field_err(fields: Vec<(&'static str, &'static str)>) -> CatalogError {
     CatalogError::field_validation(&fields)
 }
 
+pub(crate) async fn audit_customer(
+    audit_db: &DatabaseConnection,
+    operator_id: i64,
+    action: &str,
+    target: &str,
+) {
+    audit(audit_db, &operator_id.to_string(), action, target).await;
+}
+
 async fn audit(
     audit_db: &DatabaseConnection,
     operator_id: &str,
@@ -396,14 +405,14 @@ pub async fn order_detail(
         "order_no": row.try_get::<String>("", "order_no").unwrap_or_default(),
         "status": row.try_get::<i64>("", "status").unwrap_or(1),
         "currency": row.try_get::<String>("", "currency").unwrap_or_default(),
-        "exchange_rate": row.try_get::<f64>("", "exchange_rate").unwrap_or(1.0),
+        "exchange_rate": crate::cart::dec(&row, "exchange_rate").unwrap_or(1.0),
         "wedding_date": row.try_get::<String>("", "wedding_date").ok(),
-        "subtotal": row.try_get::<f64>("", "subtotal").unwrap_or(0.0),
-        "shipping_fee": row.try_get::<f64>("", "shipping_fee").unwrap_or(0.0),
+        "subtotal": crate::cart::dec(&row, "subtotal").unwrap_or(0.0),
+        "shipping_fee": crate::cart::dec(&row, "shipping_fee").unwrap_or(0.0),
         "gift_wrap": row.try_get::<bool>("", "gift_wrap").unwrap_or(false),
-        "gift_wrap_fee": row.try_get::<f64>("", "gift_wrap_fee").unwrap_or(0.0),
-        "discount_amount": row.try_get::<f64>("", "discount_amount").unwrap_or(0.0),
-        "total_amount": row.try_get::<f64>("", "total_amount").unwrap_or(0.0),
+        "gift_wrap_fee": crate::cart::dec(&row, "gift_wrap_fee").unwrap_or(0.0),
+        "discount_amount": crate::cart::dec(&row, "discount_amount").unwrap_or(0.0),
+        "total_amount": crate::cart::dec(&row, "total_amount").unwrap_or(0.0),
         "payment_method": row.try_get::<String>("", "payment_method").ok(),
         "carrier": row.try_get::<String>("", "carrier").ok(),
         "tracking_no": row.try_get::<String>("", "tracking_no").ok(),
@@ -412,8 +421,8 @@ pub async fn order_detail(
         "shipped_at": row.try_get::<String>("", "shipped_at").ok(),
         "completed_at": row.try_get::<String>("", "completed_at").ok(),
         "created_at": row.try_get::<String>("", "created_at").ok(),
-        "tax_amount": row.try_get::<f64>("", "tax_amount").unwrap_or(0.0),
-        "refunded_amount": row.try_get::<f64>("", "refunded_amount").unwrap_or(0.0),
+        "tax_amount": crate::cart::dec(&row, "tax_amount").unwrap_or(0.0),
+        "refunded_amount": crate::cart::dec(&row, "refunded_amount").unwrap_or(0.0),
         "amount_version": row.try_get::<i64>("", "amount_version").unwrap_or(2),
         "lines": lines.iter().map(|l| serde_json::json!({
             "product_id": l.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0),
@@ -423,7 +432,7 @@ pub async fn order_detail(
             "color": l.try_get::<String>("", "color").ok(),
             "size": l.try_get::<String>("", "size").ok(),
             "qty": l.try_get::<i64>("", "qty").unwrap_or(0),
-            "unit_price": l.try_get::<f64>("", "unit_price").unwrap_or(0.0),
+            "unit_price": crate::cart::dec(l, "unit_price").unwrap_or(0.0),
             "img": l.try_get::<String>("", "img").ok(),
             "custom_size_data": l.try_get::<Value>("", "custom_size_data").ok(),
         })).collect::<Vec<_>>(),
