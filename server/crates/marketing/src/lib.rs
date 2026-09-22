@@ -40,6 +40,8 @@ pub mod api_product_admin;
 pub mod api_showroom;
 pub mod api_site_builder;
 pub mod showroom;
+pub mod api_exchange_rate;
+pub mod exchange_rate;
 pub mod site_builder;
 pub mod shipping_admin;
 pub mod content;
