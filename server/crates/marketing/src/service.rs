@@ -94,9 +94,16 @@ pub async fn subscribe(
     }
     // STEP-MKT-02 单语句 upsert(ON DUPLICATE KEY UPDATE 条件赋值全在前、status 最后;
     // 对齐 NewsletterSubscriberMapper.upsertReactivating,AS new 别名 + 表名限定旧行引用)
-    let now = chrono::Utc::now().naive_utc();
+    // Java LocalDateTime.now() = 服务器本地时区裸值;同口径用 Local(对齐 admin_ops 既有约定)
+    let now = chrono::Local::now().naive_local();
     let email_v = normalized.unwrap();
-    let source_v = source_enum.unwrap() as i8;
+    // 注意:Rust 枚举 discriminant 从 0 起,与 sea_orm num_value(1 起)不同——必须显式映射
+    let source_v = match source_enum.unwrap() {
+        crate::entity::newsletter_subscriber::NewsletterSource::Footer => 1i64,
+        crate::entity::newsletter_subscriber::NewsletterSource::Modal => 2,
+        crate::entity::newsletter_subscriber::NewsletterSource::ExitIntent => 3,
+        crate::entity::newsletter_subscriber::NewsletterSource::HomeBlock => 4,
+    };
     let sql = r#"INSERT INTO newsletter_subscriber(email, source, locale, status, subscribed_at, created_at, updated_at)
 VALUES(?, ?, ?, 1, ?, NOW(3), NOW(3)) AS new
 ON DUPLICATE KEY UPDATE
@@ -252,7 +259,8 @@ pub async fn submit_contact(
     if errors.has() {
         return Err(errors);
     }
-    let now = chrono::Utc::now().naive_utc();
+    // Java LocalDateTime.now() = 本地时区裸值(对齐)
+    let now = chrono::Local::now().naive_local();
     let row = contact_message::ActiveModel {
         name: Set(parsed_name.unwrap().to_string()),
         email: Set(parsed_email.unwrap().to_string()),
