@@ -170,6 +170,7 @@ pub fn build(state: SharedState) -> Router {
         .merge(flash_admin_api)
         .merge(shipment_admin_api)
         .merge(marketing::api_shipping_admin::countries_router().with_state(state.clone()))
+        .merge(marketing::api_payment::webhook_router().with_state(state.clone()))
         .merge(marketing::api_shipment::track_router().with_state(state.clone()))
         .merge(content_store_api)
         .merge(content_admin_api)

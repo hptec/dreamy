@@ -158,3 +158,39 @@ impl axum::extract::FromRef<PayState> for identity::security::JwtProvider {
         s.jwt.clone()
     }
 }
+
+/// POST /api/store/payments/stripe/webhook(stub 模式:无验签;real 模式随 Stripe client 接线验签)
+pub async fn stripe_webhook(State(state): State<SharedState>, Json(event): Json<Value>) -> Response {
+    let event_id = event["id"].as_str().unwrap_or("").to_string();
+    let event_type = event["type"].as_str().unwrap_or("").to_string();
+    if event_id.is_empty() || event_type.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({"code": 401601, "message": null, "service_id": null, "data": null}))).into_response();
+    }
+    // 幂等闸
+    let gate = state.biz_db
+        .execute(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            "INSERT IGNORE INTO processed_event(event_id, event_type, received_at) VALUES (?,?,NOW(3))",
+            [event_id.clone().into(), event_type.clone().into()],
+        ))
+        .await;
+    match gate {
+        Ok(res) if res.rows_affected() == 0 => {
+            // 幂等空操作
+            (StatusCode::OK, Json(json!({"received": true}))).into_response()
+        }
+        Err(e) => {
+            tracing::error!("[webhook] db error:{e}");
+            (StatusCode::OK, Json(json!({"received": true}))).into_response()
+        }
+        Ok(_) => {
+            // 未识别类型仅落 processed_event(stub 模式不实现 full webhook 链——stub 确认走 /payment/confirm)
+            tracing::info!("[webhook] type={} event_id={} accepted", event_type, event_id);
+            (StatusCode::OK, Json(json!({"received": true}))).into_response()
+        }
+    }
+}
+
+pub fn webhook_router() -> axum::Router<SharedState> {
+    axum::Router::new().route("/api/store/payments/stripe/webhook", axum::routing::post(stripe_webhook))
+}
