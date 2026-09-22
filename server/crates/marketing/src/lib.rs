@@ -18,6 +18,8 @@ pub mod api_category;
 pub mod api_collection;
 pub mod api_product;
 pub mod api_trading;
+pub mod api_banner;
+pub mod banner;
 pub mod config;
 pub mod entity;
 pub mod entity_trading;

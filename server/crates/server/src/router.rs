@@ -35,6 +35,10 @@ pub fn build(state: SharedState) -> Router {
         None => axum::Router::new(),
     };
     // collection 域:admin 分组/集合/商品挂载 + store 导航(E-CAT-07 真实现覆盖占位)
+    let banner_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_banner::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
     let attribute_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_attribute::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
@@ -54,6 +58,7 @@ pub fn build(state: SharedState) -> Router {
         .merge(category_admin_api)
         .merge(collection_admin_api)
         .merge(attribute_admin_api)
+        .merge(banner_admin_api)
         .merge(marketing::api_category::store_router().with_state(state.clone()))
         .merge(marketing::api_product::store_router().with_state(state.clone()))
         .merge(marketing::api_collection::store_router().with_state(state))
