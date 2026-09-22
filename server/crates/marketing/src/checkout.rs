@@ -54,6 +54,9 @@ pub struct QuoteRequest {
 #[serde(rename_all = "snake_case")]
 pub struct QuoteResponse {
     pub currency: String,
+    /// 下单快照源(createOrder 用;quote 契约不输出)
+    #[serde(skip_serializing)]
+    pub lines_snapshot: Vec<LineSnapshot>,
     pub exchange_rate: f64,
     pub subtotal: f64,
     pub shipping_options: Vec<Value>,
@@ -79,6 +82,22 @@ pub struct QuoteResponse {
     pub production_days: i64,
     pub country_code: Option<String>,
     pub region_code: Option<String>,
+}
+
+/// 下单行快照(quote 内部产出;createOrder 消费)
+#[derive(Debug, Clone)]
+pub struct LineSnapshot {
+    pub product_id: i64,
+    pub sku_id: Option<i64>,
+    pub sku_version: Option<i64>,
+    pub product_name: String,
+    pub sku_code: Option<String>,
+    pub color: Option<String>,
+    pub size: Option<String>,
+    pub qty: i64,
+    pub unit_price: f64,
+    pub img: Option<String>,
+    pub custom_size_data: Option<Value>,
 }
 
 // ══════════════════ shipping quote(shippingrate 域核心)══════════════════
@@ -552,9 +571,12 @@ pub async fn quote(
     let mut subtotal_usd = 0.0f64;
     let mut lines: Vec<(Option<i64>, i64)> = vec![]; // (lead_time, qty)
     let mut priced_lines: Vec<Value> = vec![];
+    let mut lines_snapshot: Vec<LineSnapshot> = vec![];
     for r in &cart_rows {
         let pid = r.try_get::<i64>("", "product_id").unwrap_or(0);
         let qty = r.try_get::<i64>("", "qty").unwrap_or(0);
+        let sku_id = r.try_get::<i64>("", "sku_id").ok();
+        let custom_data = r.try_get::<Value>("", "custom_size_data").ok();
         let Some(product) = get_product_brief_pub(db, pid).await? else {
             continue; // quote 口径:下架/缺失行剔除
         };
@@ -576,6 +598,29 @@ pub async fn quote(
         priced_lines.push(serde_json::json!({
             "product_id": pid, "qty": qty, "unit_price": money(unit_price),
         }));
+        // 快照行(sku 信息取快照)
+        let (sku_code, color, size, sku_version) = if let Some(sid) = sku_id {
+            match crate::cart::get_sku(db, sid).await? {
+                Some(s) => (Some(s.sku_code.clone()), s.color.clone(), s.size.clone(), Some(s.version)),
+                None => (None, None, None, None),
+            }
+        } else {
+            (None, None, None, None)
+        };
+        let img = product_image_url(db, pid).await?;
+        lines_snapshot.push(LineSnapshot {
+            product_id: pid,
+            sku_id,
+            sku_version,
+            product_name: product.name.clone(),
+            sku_code,
+            color,
+            size,
+            qty,
+            unit_price,
+            img,
+            custom_size_data: custom_data.filter(|v| !v.is_null()),
+        });
     }
     let subtotal = round2(subtotal);
     let subtotal_usd = round2(subtotal_usd);
@@ -669,6 +714,7 @@ pub async fn quote(
     });
     Ok(QuoteResponse {
         currency: currency_out,
+        lines_snapshot,
         exchange_rate: rate,
         subtotal,
         shipping_options,
@@ -700,6 +746,21 @@ pub async fn quote(
 /// product brief 公共重导(cart 模块已有;此为 quote 用的直查)
 async fn get_product_brief_pub(db: &DatabaseConnection, id: i64) -> Result<Option<crate::cart::ProductBrief>, CatalogError> {
     crate::cart::get_product_brief(db, id).await
+}
+
+/// 商品主图(gallery sort=0 兜底 gallery 首张)
+async fn product_image_url(db: &DatabaseConnection, product_id: i64) -> Result<Option<String>, CatalogError> {
+    let row = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT url FROM product_image WHERE product_id = {} AND kind = 1 ORDER BY (sort = 0) DESC, sort ASC, id ASC LIMIT 1",
+                product_id
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(row.and_then(|r| r.try_get::<String>("", "url").ok()))
 }
 
 #[cfg(test)]

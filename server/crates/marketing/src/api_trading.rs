@@ -48,7 +48,7 @@ pub async fn list_addresses(
     user: AuthedUser,
 ) -> Response {
     let customer_id: i64 = user.claims.sub.parse().unwrap_or(0);
-    match service_address::list(&state.db, customer_id).await {
+    match service_address::list(&state.biz_db, customer_id).await {
         Ok(items) => ok_json(json!({ "items": items })),
         Err(e) => {
             if crate::trading_error::http_status(e.code) >= 500 {
@@ -65,7 +65,7 @@ pub async fn create_address(
     Json(req): Json<AddressUpsert>,
 ) -> Response {
     let customer_id: i64 = user.claims.sub.parse().unwrap_or(0);
-    match service_address::create(&state.db, customer_id, req).await {
+    match service_address::create(&state.biz_db, customer_id, req).await {
         Ok(dto) => {
             let body = json!({"code": 0, "message": null, "service_id": null, "data": dto});
             (StatusCode::CREATED, Json(body)).into_response()
@@ -86,7 +86,7 @@ pub async fn update_address(
     Json(req): Json<AddressUpsert>,
 ) -> Response {
     let customer_id: i64 = user.claims.sub.parse().unwrap_or(0);
-    match service_address::update(&state.db, customer_id, id, req).await {
+    match service_address::update(&state.biz_db, customer_id, id, req).await {
         Ok(dto) => ok_json(json!(dto)),
         Err(e) => {
             if crate::trading_error::http_status(e.code) >= 500 {
@@ -103,7 +103,7 @@ pub async fn delete_address(
     Path(id): Path<u64>,
 ) -> Response {
     let customer_id: i64 = user.claims.sub.parse().unwrap_or(0);
-    match service_address::delete(&state.db, customer_id, id).await {
+    match service_address::delete(&state.biz_db, customer_id, id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             if crate::trading_error::http_status(e.code) >= 500 {

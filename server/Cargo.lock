@@ -1841,6 +1841,7 @@ dependencies = [
  "identity",
  "infra",
  "inventory",
+ "rand 0.9.5",
  "redis",
  "rust_decimal",
  "sea-orm",

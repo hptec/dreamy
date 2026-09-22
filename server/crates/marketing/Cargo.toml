@@ -20,5 +20,6 @@ redis = { workspace = true }
 uuid = { workspace = true }
 inventory = "0.3"
 sha2 = "0.10"
+rand = { workspace = true }
 base64 = "0.22"
 rust_decimal = "1.43.0"
