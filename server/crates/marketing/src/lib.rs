@@ -13,6 +13,7 @@
 
 pub mod api;
 pub mod trading_error;
+pub mod api_attribute;
 pub mod api_category;
 pub mod api_collection;
 pub mod api_product;
