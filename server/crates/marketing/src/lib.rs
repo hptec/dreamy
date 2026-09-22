@@ -21,6 +21,8 @@ pub mod api_trading;
 pub mod api_banner;
 pub mod banner;
 pub mod api_content;
+pub mod api_cart;
+pub mod cart;
 pub mod content;
 pub mod api_tax;
 pub mod tax;
