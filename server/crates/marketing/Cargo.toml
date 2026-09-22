@@ -16,6 +16,8 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 hmac = "0.12"
 thiserror = { workspace = true }
+redis = { workspace = true }
+uuid = { workspace = true }
 inventory = "0.3"
 sha2 = "0.10"
 base64 = "0.22"

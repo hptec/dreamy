@@ -2,7 +2,7 @@
 //! 对齐 AdminBannerService + ContentStateGuards;错误码 404701/409703/422704。
 //! 缓存失效任务与窗口调度随 cache 域迁移接线(本批先落核心契约)。
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement, TransactionTrait};
 use serde::{Deserialize, Serialize};
@@ -579,4 +579,97 @@ mod tests {
         let f = err.details.unwrap()["fields"].clone();
         assert_eq!(f["end_time"], "before_start");
     }
+}
+
+
+// ══════════════════ store 侧(E-MKT-01)══════════════════
+
+/// MAP-MKT-001:published + 投放窗口谓词 + locale 翻译覆盖;不暴露 status/窗口字段
+pub async fn store_list(
+    db: &DatabaseConnection,
+    position: Option<i64>,
+    locale: &str,
+) -> Result<Vec<Value>, CatalogError> {
+    if let Some(p) = position {
+        if !(1..=3).contains(&p) {
+            return Err(field_err(vec![("position", "invalid_enum")]));
+        }
+    }
+    let pos_filter = position.map(|p| format!(" AND position = {}", p)).unwrap_or_default();
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT {} FROM banner WHERE status = 2 AND (start_time IS NULL OR start_time <= NOW(3)) AND (end_time IS NULL OR end_time > NOW(3)){} ORDER BY sort ASC, id ASC",
+                COLS, pos_filter
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    let ids: Vec<i64> = rows.iter().filter_map(|r| r.try_get::<u64>("", "id").ok().map(|v| v as i64)).collect();
+    let mut trs: HashMap<i64, Value> = HashMap::new();
+    if (locale == "es" || locale == "fr") && !ids.is_empty() {
+        let id_list = ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+        let trows = db
+            .query_all(Statement::from_string(
+                DbBackend::MySql,
+                format!(
+                    "SELECT banner_id, image_url, title, subtitle, cta_text, cta_text_secondary FROM banner_translation WHERE locale = '{}' AND banner_id IN ({})",
+                    locale, id_list
+                ),
+            ))
+            .await
+            .map_err(db_err)?;
+        for t in trows {
+            if let Some(bid) = t.try_get::<u64>("", "banner_id").ok().map(|v| v as i64) {
+                trs.insert(
+                    bid,
+                    serde_json::json!({
+                        "image_url": t.try_get::<String>("", "image_url").ok(),
+                        "title": t.try_get::<String>("", "title").ok(),
+                        "subtitle": t.try_get::<String>("", "subtitle").ok(),
+                        "cta_text": t.try_get::<String>("", "cta_text").ok(),
+                        "cta_text_secondary": t.try_get::<String>("", "cta_text_secondary").ok(),
+                    }),
+                );
+            }
+        }
+    }
+    let items = rows
+        .iter()
+        .map(|r| {
+            let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+            let pos: i64 = r.try_get("", "position").unwrap_or(1);
+            let tr = trs.get(&id);
+            let coalesce = |tr_v: Option<&Value>, db_v: &Option<String>| -> Value {
+                match tr_v.and_then(|v| v.as_str()) {
+                    Some(s) if !s.trim().is_empty() => Value::String(s.to_string()),
+                    _ => db_v.clone().map(Value::String).unwrap_or(Value::Null),
+                }
+            };
+            let image_url_db: Option<String> = r.try_get("", "image_url").ok();
+            let title_db: Option<String> = r.try_get("", "title").ok();
+            let subtitle_db: Option<String> = r.try_get("", "subtitle").ok();
+            let cta_text_db: Option<String> = r.try_get("", "cta_text").ok();
+            let cta_link_db: Option<String> = r.try_get("", "cta_link").ok();
+            let cta_ts_db: Option<String> = r.try_get("", "cta_text_secondary").ok();
+            let cta_ls_db: Option<String> = r.try_get("", "cta_link_secondary").ok();
+            let supports_secondary = pos != 2;
+            let name_db: Option<String> = r.try_get("", "name").ok();
+            serde_json::json!({
+                "id": id,
+                "name": name_db,
+                "image_url": coalesce(tr.map(|t| t.get("image_url")).unwrap_or(None), &image_url_db),
+                "position": pos,
+                "sort": r.try_get::<i64>("", "sort").unwrap_or(0),
+                "title": coalesce(tr.map(|t| t.get("title")).unwrap_or(None), &title_db),
+                "subtitle": coalesce(tr.map(|t| t.get("subtitle")).unwrap_or(None), &subtitle_db),
+                "cta_text": coalesce(tr.map(|t| t.get("cta_text")).unwrap_or(None), &cta_text_db),
+                "cta_link": cta_link_db,
+                "cta_text_secondary": if supports_secondary { coalesce(tr.map(|t| t.get("cta_text_secondary")).unwrap_or(None), &cta_ts_db) } else { Value::Null },
+                "cta_link_secondary": if supports_secondary { cta_ls_db.map(Value::String).unwrap_or(Value::Null) } else { Value::Null },
+            })
+        })
+        .collect();
+    Ok(items)
 }

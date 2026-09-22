@@ -20,6 +20,8 @@ pub mod api_product;
 pub mod api_trading;
 pub mod api_banner;
 pub mod banner;
+pub mod api_content;
+pub mod content;
 pub mod api_tax;
 pub mod tax;
 pub mod config;

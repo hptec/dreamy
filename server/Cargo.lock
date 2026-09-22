@@ -1841,6 +1841,7 @@ dependencies = [
  "identity",
  "infra",
  "inventory",
+ "redis",
  "sea-orm",
  "serde",
  "serde_json",
@@ -1848,6 +1849,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
