@@ -292,6 +292,194 @@ pub async fn reset_invite(db: &DatabaseConnection, owner_id: i64, id: i64) -> Re
     Ok(serde_json::json!({"invite_token": token}))
 }
 
+/// 添加成员(邀请)
+pub async fn add_member(
+    db: &DatabaseConnection,
+    owner_id: i64,
+    showroom_id: i64,
+    nickname: &str,
+    email: &str,
+) -> Result<Value, CatalogError> {
+    let exists = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT id FROM showroom WHERE id = ? AND owner_id = ?",
+            [showroom_id.into(), owner_id.into()],
+        ))
+        .await
+        .map_err(db_err)?
+        .is_some();
+    if !exists {
+        return Err(not_found());
+    }
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO showroom_member(showroom_id, nickname, email, created_at, updated_at) VALUES (?,?,?,NOW(3),NOW(3))",
+        [showroom_id.into(), nickname.into(), email.to_lowercase().into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    let id = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            "SELECT LAST_INSERT_ID() AS id".to_string(),
+        ))
+        .await
+        .map_err(db_err)?
+        .and_then(|r| r.try_get::<u64>("", "id").ok())
+        .unwrap_or(0);
+    Ok(serde_json::json!({"id": id as i64, "nickname": nickname, "email": email}))
+}
+
+/// 添加商品项
+pub async fn add_item(
+    db: &DatabaseConnection,
+    owner_id: i64,
+    showroom_id: i64,
+    product_id: i64,
+    color: Option<String>,
+) -> Result<Value, CatalogError> {
+    let exists = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT id FROM showroom WHERE id = ? AND owner_id = ?",
+            [showroom_id.into(), owner_id.into()],
+        ))
+        .await
+        .map_err(db_err)?
+        .is_some();
+    if !exists {
+        return Err(not_found());
+    }
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO showroom_item(showroom_id, product_id, color, created_at, updated_at) VALUES (?,?,?,NOW(3),NOW(3))",
+        [showroom_id.into(), product_id.into(), color.clone().into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    let id = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            "SELECT LAST_INSERT_ID() AS id".to_string(),
+        ))
+        .await
+        .map_err(db_err)?
+        .and_then(|r| r.try_get::<u64>("", "id").ok())
+        .unwrap_or(0);
+    Ok(serde_json::json!({"id": id as i64, "product_id": product_id, "color": color}))
+}
+
+/// 投票(成员对商品项;1=喜欢 -1=不喜欢;uk 幂等 upsert)
+pub async fn vote(
+    db: &DatabaseConnection,
+    member_id: i64,
+    item_id: i64,
+    vote: i64,
+) -> Result<(), CatalogError> {
+    if !matches!(vote, 1 | -1) {
+        return Err(field_err(vec![("vote", "invalid")]));
+    }
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO showroom_vote(showroom_item_id, member_id, vote, created_at, updated_at) VALUES (?,?,?,NOW(3),NOW(3))          ON DUPLICATE KEY UPDATE vote = VALUES(vote), updated_at = NOW(3)",
+        [item_id.into(), member_id.into(), vote.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+/// 评论
+pub async fn comment(
+    db: &DatabaseConnection,
+    member_id: i64,
+    item_id: i64,
+    content: &str,
+) -> Result<Value, CatalogError> {
+    let content = content.trim();
+    if content.is_empty() || content.len() > 500 {
+        return Err(field_err(vec![("content", "length")]));
+    }
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO showroom_comment(showroom_item_id, member_id, content, created_at, updated_at) VALUES (?,?,?,NOW(3),NOW(3))",
+        [item_id.into(), member_id.into(), content.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    Ok(serde_json::json!({"content": content}))
+}
+
+/// 分配商品给成员
+pub async fn assign(
+    db: &DatabaseConnection,
+    owner_id: i64,
+    showroom_id: i64,
+    member_id: i64,
+    item_id: i64,
+) -> Result<Value, CatalogError> {
+    let exists = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT id FROM showroom WHERE id = ? AND owner_id = ?",
+            [showroom_id.into(), owner_id.into()],
+        ))
+        .await
+        .map_err(db_err)?
+        .is_some();
+    if !exists {
+        return Err(not_found());
+    }
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE showroom_member SET assigned_item_id = ?, updated_at = NOW(3) WHERE id = ? AND showroom_id = ?",
+        [item_id.into(), member_id.into(), showroom_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    Ok(serde_json::json!({"assigned": true}))
+}
+
+/// 删除成员/商品项
+pub async fn delete_member(db: &DatabaseConnection, owner_id: i64, showroom_id: i64, member_id: i64) -> Result<(), CatalogError> {
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE m FROM showroom_member m JOIN showroom s ON s.id = m.showroom_id WHERE m.id = ? AND m.showroom_id = ? AND s.owner_id = ?",
+        [member_id.into(), showroom_id.into(), owner_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+pub async fn delete_item(db: &DatabaseConnection, owner_id: i64, showroom_id: i64, item_id: i64) -> Result<(), CatalogError> {
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE v FROM showroom_vote v JOIN showroom_item si ON si.id = v.showroom_item_id JOIN showroom s ON s.id = si.showroom_id WHERE v.showroom_item_id = ? AND si.showroom_id = ? AND s.owner_id = ?",
+        [item_id.into(), showroom_id.into(), owner_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE c FROM showroom_comment c JOIN showroom_item si ON si.id = c.showroom_item_id JOIN showroom s ON s.id = si.showroom_id WHERE c.showroom_item_id = ? AND si.showroom_id = ? AND s.owner_id = ?",
+        [item_id.into(), showroom_id.into(), owner_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE si FROM showroom_item si JOIN showroom s ON s.id = si.showroom_id WHERE si.id = ? AND si.showroom_id = ? AND s.owner_id = ?",
+        [item_id.into(), showroom_id.into(), owner_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.commit().await.map_err(db_err)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
