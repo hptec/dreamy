@@ -20,13 +20,14 @@ pub mod cat_err {
     pub const CATEGORY_NOT_FOUND: i32 = 404502;
     pub const ATTRIBUTE_SET_NOT_FOUND: i32 = 404503;
     pub const CATEGORY_HAS_PRODUCTS: i32 = 409502;
+    pub const COLLECTION_GROUP_IN_USE: i32 = 409506;
     pub const CATEGORY_LEVEL_EXCEEDED: i32 = 409505;
     pub const FIELD_VALIDATION: i32 = 422501;
 
     pub fn http_status(code: i32) -> u16 {
         match code {
             404501 | 404502 | 404503 => 404,
-            409502 | 409505 => 409,
+            409502 | 409505 | 409506 | 409507 => 409,
             422501 => 422,
             _ => 500,
         }
@@ -536,22 +537,29 @@ pub async fn admin_create(
         req.attr_overrides.clone()
     };
     let tx = db.begin().await.map_err(db_err)?;
-    let res = tx
-        .execute(Statement::from_sql_and_values(
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO category(name, parent_id, level, attribute_set_id, attr_overrides, sort, created_at, updated_at) VALUES (?,?,?,?,?,?,NOW(3),NOW(3))",
+        [
+            name.clone().into(),
+            req.parent_id.into(),
+            level.into(),
+            req.attribute_set_id.into(),
+            overrides.clone().map(|v| v.to_string()).into(),
+            sort.into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    let new_id = tx
+        .query_one(Statement::from_string(
             DbBackend::MySql,
-            "INSERT INTO category(name, parent_id, level, attribute_set_id, attr_overrides, sort, created_at, updated_at) VALUES (?,?,?,?,?,?,NOW(3),NOW(3))",
-            [
-                name.clone().into(),
-                req.parent_id.into(),
-                level.into(),
-                req.attribute_set_id.into(),
-                overrides.clone().map(|v| v.to_string()).into(),
-                sort.into(),
-            ],
+            "SELECT LAST_INSERT_ID() AS id".to_string(),
         ))
         .await
-        .map_err(db_err)?;
-    let new_id = res.last_insert_id();
+        .map_err(db_err)?
+        .and_then(|r| r.try_get::<u64>("", "id").ok())
+        .unwrap_or(0);
     replace_translations_tx(&tx, new_id, req.translations.as_deref()).await?;
     audit_record(&tx, operator, "创建分类", &name).await?;
     tx.commit().await.map_err(db_err)?;

@@ -157,7 +157,6 @@ pub fn store_router() -> axum::Router<SharedState> {
     use axum::routing::get;
     axum::Router::new()
         .route("/api/store/categories", get(store_categories))
-        .route("/api/store/collections", get(store_collections))
 }
 
 #[derive(Clone)]

@@ -30,8 +30,13 @@ pub fn build(state: SharedState) -> Router {
         None => axum::Router::new(),
     };
     // catalog 域:admin CRUD(JWT + RBAC)+ store 公开树
-    let category_admin_api = match jwt {
+    let category_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_category::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
+    // collection 域:admin 分组/集合/商品挂载 + store 导航(E-CAT-07 真实现覆盖占位)
+    let collection_admin_api = match jwt {
+        Some(jwt) => marketing::api_collection::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
 
@@ -43,8 +48,10 @@ pub fn build(state: SharedState) -> Router {
         .merge(marketing::api::router(state.clone()))
         .merge(trading_api)
         .merge(category_admin_api)
+        .merge(collection_admin_api)
         .merge(marketing::api_category::store_router().with_state(state.clone()))
-        .merge(marketing::api_product::store_router().with_state(state))
+        .merge(marketing::api_product::store_router().with_state(state.clone()))
+        .merge(marketing::api_collection::store_router().with_state(state))
         .nest("/api/store", store_api)
         .nest("/api/admin", admin_api)
         // 安全响应头三件套(对齐 Java SecurityHeadersFilter;HSTS 由 TLS 网关层负责)
