@@ -43,6 +43,14 @@ pub fn build(state: SharedState) -> Router {
         Some(jwt) => marketing::api_payment::store_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
+    let review_store_api = match jwt.clone() {
+        Some(jwt) => marketing::api_review::store_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
+    let review_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_review::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
     let shipment_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_shipment::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
@@ -97,6 +105,8 @@ pub fn build(state: SharedState) -> Router {
         .merge(order_api)
         .merge(payment_api)
         .merge(refund_admin_api)
+        .merge(review_store_api)
+        .merge(review_admin_api)
         .merge(shipment_admin_api)
         .merge(marketing::api_shipment::track_router().with_state(state.clone()))
         .merge(content_store_api)

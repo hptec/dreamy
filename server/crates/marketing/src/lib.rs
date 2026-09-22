@@ -30,6 +30,8 @@ pub mod order;
 pub mod api_payment;
 pub mod payment;
 pub mod api_shipment;
+pub mod api_review;
+pub mod review;
 pub mod shipment;
 pub mod content;
 pub mod api_tax;
