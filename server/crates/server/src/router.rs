@@ -43,12 +43,24 @@ pub fn build(state: SharedState) -> Router {
         Some(jwt) => marketing::api_payment::store_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
+    let question_store_api = match jwt.clone() {
+        Some(jwt) => marketing::api_question::store_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
+    let question_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_question::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
     let review_store_api = match jwt.clone() {
         Some(jwt) => marketing::api_review::store_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
     let review_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_review::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
+    let ship_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_shipping_admin::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
     let shipment_admin_api = match jwt.clone() {
@@ -105,9 +117,13 @@ pub fn build(state: SharedState) -> Router {
         .merge(order_api)
         .merge(payment_api)
         .merge(refund_admin_api)
+        .merge(question_store_api)
+        .merge(question_admin_api)
         .merge(review_store_api)
         .merge(review_admin_api)
+        .merge(ship_admin_api)
         .merge(shipment_admin_api)
+        .merge(marketing::api_shipping_admin::countries_router().with_state(state.clone()))
         .merge(marketing::api_shipment::track_router().with_state(state.clone()))
         .merge(content_store_api)
         .merge(content_admin_api)
