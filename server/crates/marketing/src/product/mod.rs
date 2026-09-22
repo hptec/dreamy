@@ -2,4 +2,5 @@
 //! 契约锚点:StoreProductCard 14 字段 / StoreProductDetail 30 字段 / Paginated 6 字段 snake_case。
 pub mod attribute;
 pub mod collection;
+pub mod admin;
 pub mod store;

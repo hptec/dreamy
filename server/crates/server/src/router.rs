@@ -63,6 +63,10 @@ pub fn build(state: SharedState) -> Router {
         Some(jwt) => marketing::api_review::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
+    let product_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_product_admin::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
     let flash_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_flashsale::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
@@ -136,6 +140,7 @@ pub fn build(state: SharedState) -> Router {
         .merge(review_admin_api)
         .merge(ship_admin_api)
         .merge(coupon_admin_api)
+        .merge(product_admin_api)
         .merge(flash_admin_api)
         .merge(shipment_admin_api)
         .merge(marketing::api_shipping_admin::countries_router().with_state(state.clone()))

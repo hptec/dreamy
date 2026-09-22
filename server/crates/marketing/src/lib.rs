@@ -36,6 +36,7 @@ pub mod question;
 pub mod review;
 pub mod api_shipping_admin;
 pub mod shipment;
+pub mod api_product_admin;
 pub mod api_showroom;
 pub mod showroom;
 pub mod shipping_admin;
