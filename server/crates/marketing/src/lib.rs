@@ -42,6 +42,8 @@ pub mod shipping_admin;
 pub mod content;
 pub mod api_coupon;
 pub mod coupon;
+pub mod flashsale;
+pub mod api_flashsale;
 pub mod api_tax;
 pub mod tax;
 pub mod config;
