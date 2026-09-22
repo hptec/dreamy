@@ -16,6 +16,7 @@ use crate::trading_error::TradingError; // 复用字段级 details 形状(码表
 
 /// catalog 域 6 位错误码(域段 5;对齐 CatalogErrorCode 本域用到的码)
 pub mod cat_err {
+    pub const PRODUCT_NOT_FOUND: i32 = 404501;
     pub const CATEGORY_NOT_FOUND: i32 = 404502;
     pub const ATTRIBUTE_SET_NOT_FOUND: i32 = 404503;
     pub const CATEGORY_HAS_PRODUCTS: i32 = 409502;
@@ -24,7 +25,7 @@ pub mod cat_err {
 
     pub fn http_status(code: i32) -> u16 {
         match code {
-            404502 | 404503 => 404,
+            404501 | 404502 | 404503 => 404,
             409502 | 409505 => 409,
             422501 => 422,
             _ => 500,

@@ -44,6 +44,7 @@ pub fn build(state: SharedState) -> Router {
         .merge(trading_api)
         .merge(category_admin_api)
         .merge(marketing::api_category::store_router().with_state(state.clone()))
+        .merge(marketing::api_product::store_router().with_state(state))
         .nest("/api/store", store_api)
         .nest("/api/admin", admin_api)
         // 安全响应头三件套(对齐 Java SecurityHeadersFilter;HSTS 由 TLS 网关层负责)

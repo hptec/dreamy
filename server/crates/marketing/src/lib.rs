@@ -14,10 +14,12 @@
 pub mod api;
 pub mod trading_error;
 pub mod api_category;
+pub mod api_product;
 pub mod api_trading;
 pub mod config;
 pub mod entity;
 pub mod entity_trading;
+pub mod product;
 pub mod service;
 pub mod service_address;
 pub mod service_category;
