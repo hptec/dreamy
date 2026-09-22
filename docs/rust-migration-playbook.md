@@ -250,9 +250,12 @@ product/order/checkout 三个高复杂度域,切换前增加 shadow 对账:
 7. 域段 6/7 的 6 位码 HTTP 映射统一入 cat_err::http_status(404xxx→404、409xxx→409、422xxx→422)
 8. audit 写主库 dreamy_server(operation_log),与 biz_db 事务解耦,commit 后调用
 
-### 下一批(第 17 轮起)
+### Phase A/B 完成(第 17-18 轮)
 
-- **Phase A 网关分流切换**:逐域把流量从 Java(8080)切到 Rust(18092),每域双跑对账后切 100%
-- **Phase B 删除 Java**:backend/ 目录、构建文件(pom/build.gradle)、Dockerfile、compose 服务、退役脚本;移除 dreamy-backend Docker 镜像
-- **Phase C HK→本地同步**:全量 mysqldump(--single-transaction)+ R2 图片 rclone 同步(全量/不脱敏/双源)
+- **Phase A(8d1e29a)**:网关分流全量切换——/api/ 全部 + admin secret 段 + /readyz → server(Rust:18082);路由矩阵门禁 37/37 全绿
+- **Phase B(812c119)**:删除全部 Java——backend/(995 java/225M)+ build.gradle/Dockerfile/gradle wrapper;compose 移除 backend 服务、portal 双端 API 反代切 server;nginx 删 actuator/BACKEND_UPSTREAM;dreamy-backend 镜像(4 tag)与容器全部移除。**纯 Rust 后端达成**
+
+### 下一批(第 19 轮起)
+
+- **Phase C HK→本地同步**:HK 生产 mysqldump --single-transaction 全量(identity + dreamy_server)+ R2 图片 rclone 同步(全量/不脱敏/双源);导入前 TRUNCATE 本地开发膨胀表(login_history 7G/identity_email 1.5G/user 1.4G)
 - 性能门禁:阶梯 50/100/300/500 并发压测(基于 docs/login-benchmark-report.md 分区设计)
