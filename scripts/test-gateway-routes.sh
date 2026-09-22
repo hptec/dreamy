@@ -38,7 +38,7 @@ run_stub() { # name port text
 }
 run_stub store 3000 "UPSTREAM-STORE"
 run_stub admin 80 "UPSTREAM-ADMIN"
-run_stub backend 18081 "UPSTREAM-BACKEND"
+run_stub backend 18081 "UPSTREAM-BACKEND"  # Phase B:Java 已删;stub 留作矩阵对照(无路由指向)
 run_stub server 18082 "UPSTREAM-SERVER"
 
 # 真实网关模板渲染(与 compose 同机制:nginx 官方镜像 envsubst-on-templates)

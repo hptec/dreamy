@@ -3,7 +3,7 @@
 #   /admin/     → portal-admin(网关剥离 /admin 前缀,admin 容器按根路径服务,其 nginx 零感知)
 #   /${ADMIN_API_SECRET}/api/ → 剥壳后分流(身份域→server,其余→backend);admin API 唯一对外入口
 #   /api/       → backend(浏览器同源 API:store OIDC 回调 / newsletter 退订 / webhook;/api/admin/* 404)
-#   /actuator/  → backend(健康检查与调试)
+#   /readyz     → server(Rust 健康检查;Phase B 已删 Java/actuator)
 # HTTPS 为硬要求:Google OIDC 等外部回调的公网 redirect_uri 仅认 https(localhost 除外)。
 # 证书由 compose 挂载 ./nginx/certs/(fullchain.pem+privkey.pem);生产=阿里云免费证书,
 # 本地验证=scripts/gen-dev-cert.sh 自签;目录缺失或为空时本网关启动即失败。
@@ -125,13 +125,4 @@ server {
         client_max_body_size 20m;
     }
 
-    location = /actuator/health { return 302 /readyz; }
-    location /actuator/ {
-        proxy_pass ${BACKEND_UPSTREAM};
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
 }

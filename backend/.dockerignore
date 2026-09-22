@@ -1,7 +1,0 @@
-# 构建上下文仅保留本地已编译的 bootJar(其余全部排除,上下文只有一个 JAR 的大小)
-*
-!build
-build/*
-!build/libs
-build/libs/*
-!build/libs/identity-app.jar

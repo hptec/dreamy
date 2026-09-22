@@ -1,1 +1,0 @@
-ALTER TABLE guide ADD COLUMN sort_order INT NOT NULL DEFAULT 0 COMMENT '排序（升序）' AFTER body;

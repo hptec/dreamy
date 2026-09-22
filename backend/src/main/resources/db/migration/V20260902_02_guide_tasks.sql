@@ -1,1 +1,0 @@
-ALTER TABLE guide ADD COLUMN tasks TEXT NULL COMMENT '待办任务 JSON 数组';

@@ -48,8 +48,8 @@ services:
       retries: 12
 
   # ── 边缘网关:唯一对外入口(单端口路径分流,TLS 终结)──
-  # / → store、/admin/ → admin、/api/ 与 /actuator/ → backend;
-  # admin/backend 不映射宿主端口;证书放 ./nginx/certs/(生产=阿里云,本地=gen-dev-cert.sh 自签)
+  # / → store、/admin/ → admin、/api/ 与 /readyz → server(Rust;Phase B 已删 Java)
+  # server 不映射宿主端口;证书放 ./nginx/certs/(生产=阿里云,本地=gen-dev-cert.sh 自签)
   gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -59,8 +59,6 @@ services:
       ADMIN_API_SECRET: ${ADMIN_API_SECRET:?请在 .env.deploy 配置 ADMIN_API_SECRET(openssl rand -hex 12 生成)}
       STORE_UPSTREAM: ${STORE_UPSTREAM:-http://portal-store:3000}
       ADMIN_UPSTREAM: ${ADMIN_UPSTREAM:-http://portal-admin:80}
-      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:18081}
-      # Phase A 全量切换:业务 API 已全部指向 server(Rust);BACKEND_UPSTREAM 仅剩 actuator 兜底(Phase B 删 Java 后移除)
       SERVER_UPSTREAM: ${SERVER_UPSTREAM:-http://server:18082}
     volumes:
       - ./nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -75,47 +73,11 @@ services:
       start_period: 10s
       retries: 5
     depends_on:
-      - backend
       - server
       - portal-store
       - portal-admin
 
-  backend:
-    # 本地镜像:由 scripts/remote-build.sh 在本机构建(不走镜像仓库),tag 历史留在本机 docker daemon
-    image: dreamy-backend:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    # 整份 .env.deploy(secrets/模式开关等)注入后端容器
-    env_file: .env.deploy
-    environment:
-      TZ: ${TZ:-Asia/Hong_Kong}
-      # 服务间地址:默认 compose 内网互通;外置 MySQL/Redis 时在 .env.deploy 覆盖
-      DB_URL: "${DB_URL:-jdbc:mysql://mysql:3306/identity?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}"
-      DB_USERNAME: ${DB_USERNAME:-root}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      LOGGING_FILE_NAME: /app/logs/identity.log
-      # Rust server(身份域)gRPC 通道(P4 切换版接线后启用)
-      IDENTITY_GRPC_ADDR: ${IDENTITY_GRPC_ADDR:-http://server:18083}
-      # 派生地址:默认取公网入口变量,避免同一 URL 重复填写(如需偏离再显式覆盖)
-      SITE_BASE_URL: ${SITE_BASE_URL:-${PUBLIC_STORE_URL:-http://localhost:5173}}
-      STORE_CORS_ORIGIN: ${STORE_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
-      # 单端口同源部署:admin 与 store 共用网关入口,Origin 一致(PUBLIC_ADMIN_URL 含 /admin 路径不可作 Origin)
-      ADMIN_CORS_ORIGIN: ${ADMIN_CORS_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
-    volumes:
-      - ./data/logs/backend:/app/logs
-    # 仅绑本机回环:deploy.sh 健康检查/调试用,不对公网暴露(webhook 走网关 /api)
-    ports:
-      - "127.0.0.1:${BACKEND_PORT:-18081}:18081"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
-  # ── Rust server(dreamy-server):身份域(用户/认证/admin RBAC)首个入驻域;
-  #     主库 dreamy_server(operation_log/email_template 已收编;Java 业务侧经
-  #     gRPC 18083 AuditGate/TemplateGate 写读);
-  #     REST 18082(经网关分流) + gRPC 18083(backend 内部通道)──
   server:
     image: dreamy-server:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -160,25 +122,25 @@ services:
       # standalone server.js 绑定 0.0.0.0(默认 localhost 在容器内不可达)
       HOSTNAME: 0.0.0.0
       PORT: 3000
-      # 同源 API 反代(middleware)与 RSC 服务端取数共用后端内网地址
-      BACKEND_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
-      API_ORIGIN: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+      # 同源 API 反代(middleware)与 RSC 服务端取数 → server(Rust;Phase B 删 Java)
+      BACKEND_ORIGIN: ${SERVER_INTERNAL_URL:-http://server:18082}
+      API_ORIGIN: ${SERVER_INTERNAL_URL:-http://server:18082}
       # middleware 身份域分流(与网关 gateway.conf.template 口径一致):auth/account → Rust server
       SERVER_ORIGIN: ${SERVER_INTERNAL_URL:-http://server:18082}
       # CSP frame-ancestors 的管理端来源(headers() 在 build 时固化):同源部署与 store 入口一致
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:-${PUBLIC_STORE_URL:-http://localhost:5173}}
     depends_on:
-      - backend
+      - server
 
   portal-admin:
     image: dreamy-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Hong_Kong}
-      # nginx envsubst 模板渲染 /api 反代地址
-      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:18081}
+      # nginx envsubst 模板渲染 /api 反代地址 → server(Rust;Phase B 删 Java)
+      BACKEND_INTERNAL_URL: ${SERVER_INTERNAL_URL:-http://server:18082}
     depends_on:
-      - backend
+      - server
 
 volumes:
   mysql-data:
