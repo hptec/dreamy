@@ -196,3 +196,45 @@ product/order/checkout 三个高复杂度域,切换前增加 shadow 对账:
 收尾(§5 逐项销账)
   └→ 备份机制/快照保管/脚本退役
 ```
+
+
+---
+
+## 7. 迁移进度追踪(每轮更新)
+
+### 已完成(真库 E2E 全绿 + 已推送)
+
+| 批次 | 域 | E2E 项数 | 提交 |
+|---|---|---|---|
+| 地基 | crates/infra(MQ/cron/缓存/锁) | 15 单测 | 5c946fe |
+| 1 | marketing 底座(newsletter/contact) | 13 | d3422f4/027ac69 |
+| 1 | address + CountryCatalog | 16 | 50769eb |
+| 2 | category(树/CRUD/biz_db 跨库) | 15 | 45bdafd |
+| 2 | product store 侧 | 15 | 92d513f |
+| 2 | collection | 8 | 2bdbd1e |
+| 2 | attribute | 12 | 55d9f9a |
+| 3 | banner | 12 | 10dd176 |
+| 3 | tax | 16 | 1d5ceaa |
+| 3 | content(blog/wedding/lookbook/guide) | 13 | 4553d31 |
+| 3 | cart(双模式/合并/截断) | 14 | bf858e6 |
+
+单测累计:99 全绿;Rust 侧约 24k 行。
+
+### 已沉淀的契约对齐规则(新域必查)
+
+1. 时间裸值 = `chrono::Local::now().naive_local()`(Java LocalDateTime.now 语义)
+2. Rust 枚举 discriminant 0 基 ≠ sea_orm num_value 1 基 → 显式映射
+3. MySQL 列类型决定 try_get:BIGINT→i64、BIGINT UNSIGNED→u64(错读静默失败!)
+4. 事务内取自增 id:显式 `SELECT LAST_INSERT_ID()`,ExecResult.last_insert_id 不可靠
+5. serde_json preserve_order(422704 fields 插入序)
+6. INSERT 占位符数 = 参数数组数(逐列核对,1136 错误=计数错)
+7. 域段 6/7 的 6 位码 HTTP 映射统一入 cat_err::http_status(404xxx→404、409xxx→409、422xxx→422)
+8. audit 写主库 dreamy_server(operation_log),与 biz_db 事务解耦,commit 后调用
+
+### 下一批(第 4 轮起)
+
+- 交易域:checkout+quote(240+407) → order(2835:创建/取消/超时/发货/admin) → payment(714) → refund(824)
+- 物流:shipment(1489) → shippingrate(1114) → carrier
+- 营销内容:review(1212) → showroom(1008) → question → coupon(911) → flashsale → member(1040)
+- 收尾:site_builder(2438) → gateway(1075) → dashboard → exchangerate → cache invalidation → wedding/lookbook admin 侧
+- 全部完成后:网关分流切换 → Java 删码 + 镜像清理 → HK 数据同步
