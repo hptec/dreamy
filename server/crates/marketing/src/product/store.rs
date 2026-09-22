@@ -434,7 +434,7 @@ fn map_product_row(r: &sea_orm::QueryResult) -> ProductRow {
         installment: r.try_get::<bool>("", "installment").unwrap_or(false),
         is_new: r.try_get::<bool>("", "is_new").unwrap_or(false),
         is_best: r.try_get::<bool>("", "is_best").unwrap_or(false),
-        rating_avg: r.try_get::<f64>("", "rating_avg").ok(),
+        rating_avg: crate::cart::dec(r, "rating_avg"),
         rating_count: r.try_get::<i64>("", "rating_count").ok(),
         lead_time_days: r.try_get::<i64>("", "lead_time_days").ok(),
         rush_available: r.try_get::<bool>("", "rush_available").unwrap_or(false),
