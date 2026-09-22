@@ -14,6 +14,13 @@ fn db_err(e: sea_orm::DbErr) -> CatalogError {
     CatalogError::new(500601)
 }
 
+/// decimal(12,2)/(12,6) 列 → f64(Decimal 中转;直接 f64 try_get 恒失败)
+pub fn dec(r: &sea_orm::QueryResult, col: &str) -> Option<f64> {
+    r.try_get::<rust_decimal::Decimal>("", col)
+        .ok()
+        .and_then(|d| d.to_string().parse::<f64>().ok())
+}
+
 fn trading(code: i32) -> CatalogError {
     CatalogError::new(code)
 }
@@ -73,8 +80,8 @@ pub async fn get_product_brief(db: &DatabaseConnection, id: i64) -> Result<Optio
             id: pid,
             slug: r.try_get::<String>("", "slug").unwrap_or_default(),
             name: r.try_get::<String>("", "name").unwrap_or_default(),
-            price: r.try_get::<f64>("", "price").unwrap_or(0.0),
-            compare_at: r.try_get::<f64>("", "compare_at").ok(),
+            price: dec(&r, "price").unwrap_or(0.0),
+            compare_at: dec(&r, "compare_at"),
             multi_currency_prices: r.try_get::<Value>("", "multi_currency_prices").ok(),
             image_url: None, // 主图由 assemble 批查填充
             lead_time_days: r.try_get::<i64>("", "lead_time_days").ok(),
@@ -333,8 +340,8 @@ async fn assemble_cart(
                     "id": pid,
                     "slug": r.try_get::<String>("", "slug").unwrap_or_default(),
                     "name": r.try_get::<String>("", "name").unwrap_or_default(),
-                    "price": r.try_get::<f64>("", "price").unwrap_or(0.0),
-                    "compare_at": r.try_get::<f64>("", "compare_at").ok(),
+                    "price": crate::cart::dec(&r, "price").unwrap_or(0.0),
+                    "compare_at": crate::cart::dec(&r, "compare_at"),
                     "multi_currency_prices": r.try_get::<Value>("", "multi_currency_prices").ok(),
                     "image_url": r.try_get::<String>("", "image_url").ok(),
                     "lead_time_days": r.try_get::<i64>("", "lead_time_days").ok(),

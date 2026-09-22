@@ -21,3 +21,4 @@ uuid = { workspace = true }
 inventory = "0.3"
 sha2 = "0.10"
 base64 = "0.22"
+rust_decimal = "1.43.0"

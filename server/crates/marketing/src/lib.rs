@@ -23,6 +23,8 @@ pub mod banner;
 pub mod api_content;
 pub mod api_cart;
 pub mod cart;
+pub mod api_checkout;
+pub mod checkout;
 pub mod content;
 pub mod api_tax;
 pub mod tax;
