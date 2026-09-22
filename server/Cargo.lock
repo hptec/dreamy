@@ -1838,6 +1838,7 @@ dependencies = [
  "chrono",
  "common",
  "hmac",
+ "identity",
  "infra",
  "inventory",
  "sea-orm",

@@ -11,6 +11,7 @@
 //! - [`middleware`]:CORS / R 包络 404 兜底
 
 pub mod bootstrap;
+pub mod country_catalog;
 pub mod config;
 pub mod error;
 pub mod health;
