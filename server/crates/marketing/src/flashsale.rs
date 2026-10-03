@@ -168,8 +168,8 @@ pub async fn store_list(db: &DatabaseConnection) -> Result<Vec<Value>, CatalogEr
     let mut seen: HashSet<i64> = HashSet::new();
     let mut pid_order: Vec<i64> = vec![];
     for m in &mounts_rows {
-        let sid = m.try_get::<u64>("", "flash_sale_id").map(|v| v as i64).unwrap_or(0);
-        let pid = m.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0);
+        let sid = m.try_get::<i64>("", "flash_sale_id").map(|v| v as i64).unwrap_or(0);
+        let pid = m.try_get::<i64>("", "product_id").map(|v| v as i64).unwrap_or(0);
         if seen.insert(pid) {
             pid_order.push(pid);
         }

@@ -350,7 +350,7 @@ pub async fn footer_get(db: &DatabaseConnection) -> Result<Value, CatalogError> 
             .await
             .map_err(db_err)?;
         for l in links.iter() {
-            let cid = l.try_get::<u64>("", "column_id").ok().map(|v| v as i64).unwrap_or(0);
+            let cid = l.try_get::<i64>("", "column_id").ok().map(|v| v as i64).unwrap_or(0);
             links_by.entry(cid).or_default().push(json!({
                 "id": l.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
                 "label": l.try_get::<String>("", "label").unwrap_or_default(),
@@ -667,8 +667,8 @@ async fn derive_theme_cards(db: &DatabaseConnection, cfg: &Value, i18n_json: Opt
                 .unwrap_or_default();
             for r in count_rows.iter() {
                 if let (Some(cid), Some(n)) = (
-                    r.try_get::<u64>("", "cid").ok().map(|v| v as i64),
-                    r.try_get::<u64>("", "n").ok().map(|v| v as i64),
+                    r.try_get::<i64>("", "cid").ok().map(|v| v as i64),
+                    r.try_get::<i64>("", "n").ok().map(|v| v as i64),
                 ) {
                     counts.insert(cid, n);
                 }
@@ -684,7 +684,7 @@ async fn derive_theme_cards(db: &DatabaseConnection, cfg: &Value, i18n_json: Opt
                 .unwrap_or_default();
             for r in cover_rows.iter() {
                 if let (Some(cid), Some(url)) = (
-                    r.try_get::<u64>("", "collection_id").ok().map(|v| v as i64),
+                    r.try_get::<i64>("", "collection_id").ok().map(|v| v as i64),
                     r.try_get::<String>("", "url").ok(),
                 ) {
                     covers.insert(cid, url);

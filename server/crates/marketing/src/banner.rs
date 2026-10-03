@@ -621,7 +621,7 @@ pub async fn store_list(
             .await
             .map_err(db_err)?;
         for t in trows {
-            if let Some(bid) = t.try_get::<u64>("", "banner_id").ok().map(|v| v as i64) {
+            if let Some(bid) = t.try_get::<i64>("", "banner_id").ok().map(|v| v as i64) {
                 trs.insert(
                     bid,
                     serde_json::json!({

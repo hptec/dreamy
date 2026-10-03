@@ -500,7 +500,7 @@ async fn build_upsert_ctx(
                 .await
                 .map_err(db_err)?;
             for r in rows {
-                let aid = r.try_get::<u64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
+                let aid = r.try_get::<i64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
                 let vis = r.try_get::<i64>("", "visibility").unwrap_or(0);
                 if let Some((k, _)) = defs_by_key.iter().find(|(_, d)| d.id == aid) {
                     vis_by_key.insert(k.clone(), vis);
@@ -537,7 +537,7 @@ async fn build_upsert_ctx(
                 .await
                 .map_err(db_err)?;
             for r in rows {
-                let aid = r.try_get::<u64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
+                let aid = r.try_get::<i64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
                 if let Some((k, _)) = defs_by_key.iter().find(|(_, d)| d.id == aid) {
                     allowed.insert(k.clone());
                 }
@@ -1433,7 +1433,7 @@ async fn load_detail(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogE
         .map_err(db_err)?;
     let collection_ids: Vec<i64> = pc_rows
         .iter()
-        .filter_map(|r| r.try_get::<u64>("", "collection_id").ok().map(|v| v as i64))
+        .filter_map(|r| r.try_get::<i64>("", "collection_id").ok().map(|v| v as i64))
         .collect();
     let tr_rows = db
         .query_all(Statement::from_sql_and_values(
@@ -1605,8 +1605,8 @@ pub async fn export(
             .iter()
         {
             if let (Some(pid), Some(n)) = (
-                r.try_get::<u64>("", "product_id").ok().map(|v| v as i64),
-                r.try_get::<u64>("", "n").ok().map(|v| v as i64),
+                r.try_get::<i64>("", "product_id").ok().map(|v| v as i64),
+                crate::cart::dec(r, "n").map(|v| v as i64),
             ) {
                 stock.insert(pid, n);
             }
@@ -1622,8 +1622,8 @@ pub async fn export(
             .iter()
         {
             if let (Some(pid), Some(n)) = (
-                r.try_get::<u64>("", "product_id").ok().map(|v| v as i64),
-                r.try_get::<u64>("", "n").ok().map(|v| v as i64),
+                r.try_get::<i64>("", "product_id").ok().map(|v| v as i64),
+                crate::cart::dec(r, "n").map(|v| v as i64),
             ) {
                 sales.insert(pid, n);
             }

@@ -396,7 +396,7 @@ pub async fn deliver(
         .map_err(db_err)?
         .ok_or_else(not_found)?;
     let cur: i64 = row.try_get("", "status").unwrap_or(1);
-    let order_id = row.try_get::<u64>("", "order_id").map(|v| v as i64).unwrap_or(0);
+    let order_id = row.try_get::<i64>("", "order_id").map(|v| v as i64).unwrap_or(0);
     let shipment_no: String = row.try_get("", "shipment_no").unwrap_or_default();
     if cur == 4 {
         // 幂等:已签收直接返回

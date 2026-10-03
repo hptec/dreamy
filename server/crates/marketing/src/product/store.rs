@@ -468,7 +468,7 @@ async fn translations_for(
         .await
         .map_err(db_err)?;
     for r in rows {
-        let pid = r.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0);
+        let pid = r.try_get::<i64>("", "product_id").map(|v| v as i64).unwrap_or(0);
         out.insert(pid, TranslationRow {
             product_id: pid,
             name: r.try_get::<String>("", "name").ok(),
@@ -498,7 +498,7 @@ async fn images_for(db: &sea_orm::DatabaseConnection, ids: &[i64]) -> Result<Has
     for r in rows {
         let row = ImageRow {
             id: r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
-            product_id: r.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0),
+            product_id: r.try_get::<i64>("", "product_id").map(|v| v as i64).unwrap_or(0),
             url: r.try_get::<String>("", "url").unwrap_or_default(),
             kind: r.try_get::<i8>("", "kind").unwrap_or(1),
             color_name: r.try_get::<String>("", "color_name").ok(),
@@ -622,7 +622,7 @@ pub async fn search(
             .await
         {
             for r in rows {
-                if let Ok(id) = r.try_get::<u64>("", "product_id") {
+                if let Ok(id) = r.try_get::<i64>("", "product_id") {
                     let id = id as i64;
                     if seen.insert(id) {
                         merged.push(id);
@@ -654,7 +654,7 @@ pub async fn search(
                 .await
             {
                 for pr in prows {
-                    if let Ok(id) = pr.try_get::<u64>("", "product_id") {
+                    if let Ok(id) = pr.try_get::<i64>("", "product_id") {
                         let id = id as i64;
                         if seen.insert(id) {
                             merged.push(id);
@@ -810,7 +810,7 @@ pub async fn get_product(
             {
                 for t in trows {
                     if let (Ok(cid), Ok(label)) = (
-                        t.try_get::<u64>("", "collection_id").map(|v| v as i64),
+                        t.try_get::<i64>("", "collection_id").map(|v| v as i64),
                         t.try_get::<String>("", "label"),
                     ) {
                         coll_names.insert(cid, label);
@@ -826,7 +826,7 @@ pub async fn get_product(
             let name: String = r.try_get::<String>("", "name").unwrap_or_default();
             serde_json::json!({
                 "id": id,
-                "collection_group_id": r.try_get::<u64>("", "collection_group_id").map(|v| v as i64).ok(),
+                "collection_group_id": r.try_get::<i64>("", "collection_group_id").map(|v| v as i64).ok(),
                 "name": coll_names.get(&id).cloned().unwrap_or(name),
             })
         })
@@ -1002,7 +1002,7 @@ async fn build_store_attributes(
     }
     let mut values_by_attr: BTreeMap<i64, Vec<String>> = BTreeMap::new();
     for r in &rows {
-        let aid = r.try_get::<u64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
+        let aid = r.try_get::<i64>("", "attribute_id").map(|v| v as i64).unwrap_or(0);
         let v: String = r.try_get("", "value").unwrap_or_default();
         values_by_attr.entry(aid).or_default().push(v);
     }
@@ -1024,7 +1024,7 @@ async fn build_store_attributes(
             .await
         {
             for t in trows {
-                if let Ok(did) = t.try_get::<u64>("", "attribute_def_id") {
+                if let Ok(did) = t.try_get::<i64>("", "attribute_def_id") {
                     translations.insert(
                         did as i64,
                         (
@@ -1123,7 +1123,7 @@ pub async fn list_filters(
             .await
         {
             for t in trows {
-                if let Ok(did) = t.try_get::<u64>("", "attribute_def_id") {
+                if let Ok(did) = t.try_get::<i64>("", "attribute_def_id") {
                     translations.insert(
                         did as i64,
                         (
