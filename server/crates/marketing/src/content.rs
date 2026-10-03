@@ -2055,3 +2055,60 @@ pub async fn guide_admin_reorder(
     }
     Ok(items)
 }
+
+// ══════════ 内容家族 Redis TTL 缓存(对齐 Java CACHE-MKT:60s + admin 写失效)══════════
+
+pub fn cache_key(section: &str, locale: &str) -> String {
+    format!("mkt:content:{}:{}", section, locale)
+}
+
+pub fn cache_key_id(section: &str, id: i64, locale: &str) -> String {
+    format!("mkt:content:{}:{}:{}", section, id, locale)
+}
+
+pub async fn cache_get_json(
+    redis: Option<&redis::aio::ConnectionManager>,
+    key: &str,
+) -> Option<Value> {
+    let conn = redis?.clone();
+    let mut conn = conn;
+    let raw: Option<String> = redis::cmd("GET")
+        .arg(key)
+        .query_async(&mut conn)
+        .await
+        .ok()?;
+    serde_json::from_str(&raw?).ok()
+}
+
+pub async fn cache_set_json(
+    redis: Option<&redis::aio::ConnectionManager>,
+    key: &str,
+    v: &Value,
+    ttl_secs: u64,
+) {
+    if let Some(conn) = redis {
+        let mut conn = conn.clone();
+        let _: Result<(), _> = redis::cmd("SETEX")
+            .arg(key)
+            .arg(ttl_secs)
+            .arg(v.to_string())
+            .query_async::<()>(&mut conn)
+            .await;
+    }
+}
+
+/// admin 内容写操作后失效整个家族前缀
+pub async fn cache_invalidate_content(redis: Option<&redis::aio::ConnectionManager>) {
+    if let Some(conn) = redis {
+        let mut conn = conn.clone();
+        let keys: Result<Vec<String>, _> = redis::cmd("KEYS")
+            .arg("mkt:content:*")
+            .query_async(&mut conn)
+            .await;
+        if let Ok(ks) = keys {
+            for k in ks {
+                let _: Result<(), _> = redis::cmd("DEL").arg(&k).query_async(&mut conn).await;
+            }
+        }
+    }
+}

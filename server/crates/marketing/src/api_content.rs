@@ -146,8 +146,16 @@ pub async fn store_weddings(State(state): State<SharedState>, Query(q): Query<Bl
         Some(p) if (1..=100).contains(&p) => p,
         _ => 20,
     };
+    let ck = crate::content::cache_key("weddings", &format!("{}:{}:{}", locale, page, page_size));
+    if let Some(hit) = crate::content::cache_get_json(state.redis.as_ref(), &ck).await {
+        return no_store(ok_json(hit));
+    }
     match svc::wedding_page(&state.biz_db, page, page_size, &locale).await {
-        Ok((items, total)) => no_store(ok_json(paginated(items, total, page, page_size))),
+        Ok((items, total)) => {
+            let payload = paginated(items, total, page, page_size);
+            crate::content::cache_set_json(state.redis.as_ref(), &ck, &payload, 60).await;
+            no_store(ok_json(payload))
+        }
         Err(e) => no_store(err_resp(e)),
     }
 }
@@ -156,8 +164,16 @@ pub async fn store_lookbooks(State(state): State<SharedState>, Query(q): Query<L
     let Ok(locale) = parse_locale_q(q.locale.as_deref()) else {
         return err_resp(CatalogError::field_validation(&[("locale", "invalid_enum")]));
     };
+    let ck = crate::content::cache_key("lookbooks", &locale);
+    if let Some(hit) = crate::content::cache_get_json(state.redis.as_ref(), &ck).await {
+        return no_store(ok_json(hit));
+    }
     match svc::lookbook_list(&state.biz_db, &locale).await {
-        Ok(items) => no_store(ok_json(json!({ "items": items }))),
+        Ok(items) => {
+            let payload = json!({ "items": items });
+            crate::content::cache_set_json(state.redis.as_ref(), &ck, &payload, 60).await;
+            no_store(ok_json(payload))
+        }
         Err(e) => no_store(err_resp(e)),
     }
 }
@@ -166,8 +182,16 @@ pub async fn store_guides(State(state): State<SharedState>, Query(q): Query<Loca
     let Ok(locale) = parse_locale_q(q.locale.as_deref()) else {
         return err_resp(CatalogError::field_validation(&[("locale", "invalid_enum")]));
     };
+    let ck = crate::content::cache_key("guides", &locale);
+    if let Some(hit) = crate::content::cache_get_json(state.redis.as_ref(), &ck).await {
+        return no_store(ok_json(hit));
+    }
     match svc::guide_list(&state.biz_db, &locale).await {
-        Ok(items) => no_store(ok_json(json!({ "items": items }))),
+        Ok(items) => {
+            let payload = json!({ "items": items });
+            crate::content::cache_set_json(state.redis.as_ref(), &ck, &payload, 60).await;
+            no_store(ok_json(payload))
+        }
         Err(e) => no_store(err_resp(e)),
     }
 }
