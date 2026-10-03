@@ -6,6 +6,7 @@
 
 mod router;
 
+use common::bootstrap::pool_opts;
 use common::state::{AppState, SharedState};
 
 #[tokio::main]
@@ -43,14 +44,12 @@ async fn main() {
 
     let redis = build_redis_manager(&cfg).await;
 
-    // 业务库(identity;迁移期 catalog/交易域业务表)。缺席不阻塞启动(域功能降级)
-    let biz_db = match sea_orm::Database::connect(&cfg.db_biz_url()).await {
-        Ok(conn) => conn,
-        Err(err) => {
-            tracing::warn!("[boot] 业务库({})连接失败,业务域降级:{err}", cfg.biz_db_name);
-            db.clone()
-        }
-    };
+    // 业务库(identity;迁移期 catalog/交易域业务表)。缺席即终止:降级到主库会把业务查询
+    // 打到错误库上(静默 500),比快速失败更糟(perf-review #8)
+    let biz_db = sea_orm::Database::connect(pool_opts(&cfg.db_biz_url())).await.unwrap_or_else(|err| {
+        tracing::error!("[boot] 业务库({})连接失败,终止启动:{err}", cfg.biz_db_name);
+        std::process::exit(1);
+    });
 
     let state: SharedState = std::sync::Arc::new(AppState {
         db: db.clone(),

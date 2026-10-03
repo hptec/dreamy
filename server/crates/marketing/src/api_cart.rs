@@ -30,7 +30,8 @@ fn ok_json(v: Value) -> Response {
 }
 
 fn customer_id(user: &AuthedUser) -> i64 {
-    user.claims.sub.parse().unwrap_or(0)
+    // extractor(AuthedUser)已保证 sub 为数字 customer_id 且会话有效;此处仅是便捷访问
+    user.customer_id().unwrap_or(0)
 }
 
 pub async fn get_cart(State(state): State<SharedState>, user: AuthedUser) -> Response {

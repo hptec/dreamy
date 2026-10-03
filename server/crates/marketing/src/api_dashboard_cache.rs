@@ -26,12 +26,18 @@ pub async fn dashboard(State(state): State<SharedState>, _a: AuthedAdmin) -> Res
     match dash::dashboard(&state.biz_db).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
 }
 
-pub async fn overview(State(state): State<SharedState>, _a: AuthedAdmin) -> Response {
-    match dash::overview(&state.biz_db).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
+/// E-ANA-02/03 range 查询参数(∈ {7d,30d,90d},缺省 30d;校验在 svc 层 parse_range)
+#[derive(Deserialize)]
+pub struct RangeQuery {
+    pub range: Option<String>,
 }
 
-pub async fn traffic(State(state): State<SharedState>, _a: AuthedAdmin) -> Response {
-    match dash::traffic(&state.biz_db).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
+pub async fn overview(State(state): State<SharedState>, _a: AuthedAdmin, Query(q): Query<RangeQuery>) -> Response {
+    match dash::overview(&state.biz_db, q.range.as_deref()).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
+}
+
+pub async fn traffic(State(state): State<SharedState>, _a: AuthedAdmin, Query(q): Query<RangeQuery>) -> Response {
+    match dash::traffic(&state.biz_db, q.range.as_deref()).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
 }
 
 #[derive(Deserialize)]

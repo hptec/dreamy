@@ -3,7 +3,7 @@
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde_json::{json, Value};
 
-use crate::service_category::CatalogError;
+use crate::service_category::{cat_err, CatalogError};
 
 fn db_err(e: sea_orm::DbErr) -> CatalogError {
     tracing::error!("[extras] db error:{e}");
@@ -39,15 +39,29 @@ pub async fn wishlist_list(db: &DatabaseConnection, customer_id: i64) -> Result<
 }
 
 /// 加入收藏(幂等 INSERT IGNORE)
-pub async fn wishlist_add(db: &DatabaseConnection, customer_id: i64, product_id: i64) -> Result<(), CatalogError> {
-    db.execute(Statement::from_sql_and_values(
-        DbBackend::MySql,
-        "INSERT IGNORE INTO wishlist_item(customer_id, product_id, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3))",
-        [customer_id.into(), product_id.into()],
-    ))
-    .await
-    .map_err(db_err)?;
-    Ok(())
+/// 返回 true=新建;false=已存在(幂等)。商品必须存在(Java 口径 404501)。
+pub async fn wishlist_add(db: &DatabaseConnection, customer_id: i64, product_id: i64) -> Result<bool, CatalogError> {
+    let exists: Option<i64> = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT id FROM product WHERE id = ?",
+            [product_id.into()],
+        ))
+        .await
+        .map_err(db_err)?
+        .and_then(|r| r.try_get::<u64>("", "id").ok().map(|v| v as i64));
+    if exists.is_none() {
+        return Err(CatalogError::new(cat_err::PRODUCT_NOT_FOUND));
+    }
+    let res = db
+        .execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "INSERT IGNORE INTO wishlist_item(customer_id, product_id, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3))",
+            [customer_id.into(), product_id.into()],
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(res.rows_affected() > 0)
 }
 
 /// 移除收藏
@@ -67,8 +81,18 @@ pub async fn wishlist_remove(db: &DatabaseConnection, customer_id: i64, product_
 pub async fn browse_record(db: &DatabaseConnection, customer_id: i64, product_id: i64) -> Result<(), CatalogError> {
     db.execute(Statement::from_sql_and_values(
         DbBackend::MySql,
-        "INSERT INTO browse_history(customer_id, product_id, viewed_at, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3),NOW(3))",
+        "INSERT INTO browse_history(customer_id, product_id, viewed_at, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3),NOW(3)) \
+         ON DUPLICATE KEY UPDATE viewed_at = NOW(3), updated_at = NOW(3)",
         [customer_id.into(), product_id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    // Java 语义:每人仅保留最近 50 条,超出滚动删除
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "DELETE FROM browse_history WHERE customer_id = ? AND id NOT IN \
+         (SELECT id FROM (SELECT id FROM browse_history WHERE customer_id = ? ORDER BY viewed_at DESC, id DESC LIMIT 50) t)",
+        [customer_id.into(), customer_id.into()],
     ))
     .await
     .map_err(db_err)?;

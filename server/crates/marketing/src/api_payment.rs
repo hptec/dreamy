@@ -44,6 +44,22 @@ pub async fn confirm_payment(
     }
 }
 
+/// POST /api/store/orders/{id}/payment-intent(E-retryOrderPayment;svc 见 order.rs:
+/// 未支付订单复用/重建 stub PI;非法态 409602;超时取消 410601)
+pub async fn payment_intent(
+    State(state): State<SharedState>,
+    user: AuthedUser,
+    Path(id): Path<String>,
+) -> Response {
+    let Ok(id) = id.parse::<i64>() else {
+        return err_resp(CatalogError::new(404601));
+    };
+    match crate::order::payment_intent(&state.biz_db, user.claims.sub.parse().unwrap_or(0), id).await {
+        Ok(v) => ok_json(v),
+        Err(e) => err_resp(e),
+    }
+}
+
 #[derive(Deserialize)]
 pub struct RefundQuery {
     pub status: Option<i64>,
@@ -60,17 +76,65 @@ pub async fn admin_refund_list(
     }
 }
 
+/// Java 契约:approve 可携带 returnTrackingNo(决策31,登记退货物流单号)
+#[derive(Deserialize)]
+pub struct RefundApproveBody {
+    #[serde(default, alias = "returnTrackingNo")]
+    pub return_tracking_no: Option<String>,
+}
+
 pub async fn admin_approve(
     State(state): State<SharedState>,
     a: AuthedAdmin,
     Path(id): Path<String>,
+    body: Option<Json<RefundApproveBody>>,
 ) -> Response {
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404906));
     };
+    if let Some(Json(b)) = &body {
+        if let Some(t) = b.return_tracking_no.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            let _ = state
+                .biz_db
+                .execute(sea_orm::Statement::from_sql_and_values(
+                    sea_orm::DatabaseBackend::MySql,
+                    "UPDATE refund SET return_tracking_no = ?, updated_at = NOW(3) WHERE id = ?",
+                    [t.into(), id.into()],
+                ))
+                .await;
+        }
+    }
     match svc::admin_approve_refund(&state.biz_db, &state.db, id, &a.claims.sub).await {
         Ok(v) => ok_json(v),
         Err(e) => err_resp(e),
+    }
+}
+
+/// Java PATCH /api/admin/refunds/{id}:登记/更新退货单号
+pub async fn admin_refund_register(
+    State(state): State<SharedState>,
+    _a: AuthedAdmin,
+    Path(id): Path<String>,
+    Json(body): Json<RefundApproveBody>,
+) -> Response {
+    let Ok(id) = id.parse::<i64>() else {
+        return err_resp(CatalogError::new(404906));
+    };
+    let Some(t) = body.return_tracking_no.as_deref().map(str::trim).filter(|s| !s.is_empty()) else {
+        return err_resp(CatalogError::field_validation(&[("returnTrackingNo", "required")]));
+    };
+    match state
+        .biz_db
+        .execute(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            "UPDATE refund SET return_tracking_no = ?, updated_at = NOW(3) WHERE id = ?",
+            [t.into(), id.into()],
+        ))
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => ok_json(json!({"updated": true})),
+        Ok(_) => err_resp(CatalogError::new(404906)),
+        Err(_) => err_resp(CatalogError::new(500601)),
     }
 }
 
@@ -138,6 +202,7 @@ pub fn admin_router(state: SharedState, jwt: identity::security::JwtProvider) ->
         .route("/api/admin/refunds", get(admin_refund_list))
         .route("/api/admin/refunds/{id}/approve", post(admin_approve))
         .route("/api/admin/refunds/{id}/reject", post(admin_reject))
+        .route("/api/admin/refunds/{id}", axum::routing::patch(admin_refund_register))
         .with_state(PayState { shared: state, jwt })
 }
 

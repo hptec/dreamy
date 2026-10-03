@@ -22,7 +22,8 @@ function resolveApiBase(): string {
     }
     return ''
   }
-  return 'http://localhost:18081'
+  // Java backend 18081 已于 Phase B 退役:dev 兜底直连 Rust server(18082)
+  return 'http://localhost:18082'
 }
 
 export const API_BASE = resolveApiBase()

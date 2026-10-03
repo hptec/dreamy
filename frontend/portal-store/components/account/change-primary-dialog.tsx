@@ -98,10 +98,11 @@ export function ChangePrimaryDialog({ open, identities, onClose, onChanged }: Pr
     await doSendCode(normalized)
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(explicit?: string) {
     if (busy) return
-    const joined = code.join('')
-    if (joined.length !== otpLength || code.some((d) => !d)) {
+    // explicit:OtpInput 满位回调携带的完整 code(绕过 setState 未生效的闭包旧值)
+    const joined = explicit ?? code.join('')
+    if (joined.length !== otpLength || (!explicit && code.some((d) => !d))) {
       setError(t.login.enterAllDigits)
       return
     }
@@ -194,7 +195,7 @@ export function ChangePrimaryDialog({ open, identities, onClose, onChanged }: Pr
               length={otpLength}
               value={code}
               onChange={setCode}
-              onComplete={() => void handleSubmit()}
+              onComplete={(c) => void handleSubmit(c)}
               ariaLabelPrefix={t.security.codeLabel}
             />
           </div>

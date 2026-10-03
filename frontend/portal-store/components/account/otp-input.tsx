@@ -12,7 +12,8 @@ interface OtpInputProps {
   length: number
   value: string[]
   onChange: (next: string[]) => void
-  onComplete: () => void
+  /** 满位触发;携带已完成的完整 code(修复:同步调用时父组件 state 尚未更新,闭包读到旧值) */
+  onComplete: (code: string) => void
   autoFocus?: boolean
   ariaLabelPrefix?: string
 }
@@ -41,8 +42,8 @@ export function OtpInput({
     onChange(next)
     if (v && i < length - 1) inputs.current[i + 1]?.focus()
     if (next.every((d) => d) && next.length === length) {
-      // 满位触发提交
-      onComplete()
+      // 满位触发提交(带完整 code,避免父组件 setState 未生效的闭包旧值)
+      onComplete(next.join(''))
     }
   }
 
@@ -58,7 +59,7 @@ export function OtpInput({
     while (next.length < length) next.push('')
     onChange(next)
     inputs.current[Math.min(text.length, length - 1)]?.focus()
-    if (text.length === length) onComplete()
+    if (text.length === length) onComplete(next.join(''))
   }
 
   return (

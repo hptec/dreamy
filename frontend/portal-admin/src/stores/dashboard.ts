@@ -50,7 +50,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
   /** DEC-ANA-FE-5：14 天=30 桶尾 14 切片，无二次请求 */
   const trendSlice = computed(() => {
     const trend = dashboard.value?.gmvTrend
-    if (!trend) return { labels: [] as string[], values: [] as number[] }
+    if (!trend || !Array.isArray(trend.labels) || !Array.isArray(trend.values)) {
+      return { labels: [] as string[], values: [] as number[] }
+    }
     if (trendWindow.value === 30) return { labels: trend.labels, values: trend.values }
     return { labels: trend.labels.slice(-14), values: trend.values.slice(-14) }
   })

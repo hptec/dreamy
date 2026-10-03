@@ -572,13 +572,27 @@ pub async fn quote(
     let mut lines: Vec<(Option<i64>, i64)> = vec![]; // (lead_time, qty)
     let mut priced_lines: Vec<Value> = vec![];
     let mut lines_snapshot: Vec<LineSnapshot> = vec![];
+    // perf-review #4:行级 3N 查 → 3 条批查(商品 brief/sku/主图)
+    let pids: Vec<i64> = cart_rows
+        .iter()
+        .filter_map(|r| r.try_get::<i64>("", "product_id").ok())
+        .filter(|v| *v > 0)
+        .collect();
+    let sku_ids: Vec<i64> = cart_rows
+        .iter()
+        .filter_map(|r| r.try_get::<i64>("", "sku_id").ok())
+        .filter(|v| *v > 0)
+        .collect();
+    let briefs = product_briefs_batch(db, &pids).await?;
+    let skus = skus_batch(db, &sku_ids).await?;
+    let images = product_images_batch(db, &pids).await?;
     for r in &cart_rows {
         let pid = r.try_get::<i64>("", "product_id").unwrap_or(0);
         let qty = r.try_get::<i64>("", "qty").unwrap_or(0);
         let sku_id = r.try_get::<i64>("", "sku_id").ok();
         let custom_data = r.try_get::<Value>("", "custom_size_data").ok();
-        let Some(product) = get_product_brief_pub(db, pid).await? else {
-            continue; // quote 口径:下架/缺失行剔除
+        let Some(product) = briefs.get(&pid) else {
+            continue; // quote 口径:下架/缺失行剔除(SQL 已过滤 status=2,此处兜底缺失)
         };
         if !product.published() {
             continue;
@@ -599,15 +613,11 @@ pub async fn quote(
             "product_id": pid, "qty": qty, "unit_price": money(unit_price),
         }));
         // 快照行(sku 信息取快照)
-        let (sku_code, color, size, sku_version) = if let Some(sid) = sku_id {
-            match crate::cart::get_sku(db, sid).await? {
-                Some(s) => (Some(s.sku_code.clone()), s.color.clone(), s.size.clone(), Some(s.version)),
-                None => (None, None, None, None),
-            }
-        } else {
-            (None, None, None, None)
+        let (sku_code, color, size, sku_version) = match sku_id.and_then(|sid| skus.get(&sid)) {
+            Some((code, c, s, ver)) => (Some(code.clone()), c.clone(), s.clone(), Some(*ver)),
+            None => (None, None, None, None),
         };
-        let img = product_image_url(db, pid).await?;
+        let img = images.get(&pid).cloned();
         lines_snapshot.push(LineSnapshot {
             product_id: pid,
             sku_id,
@@ -798,4 +808,111 @@ mod tests {
         assert_eq!(round2(10.006), 10.01);
         assert_eq!(money(27.0), Value::from(27.0));
     }
+}
+
+/// perf-review #4:quote 行级 N+1 → 批查 helpers(商品 brief/sku/主图)
+async fn product_briefs_batch(
+    db: &DatabaseConnection,
+    ids: &[i64],
+) -> Result<std::collections::HashMap<i64, crate::cart::ProductBrief>, CatalogError> {
+    let mut map = std::collections::HashMap::new();
+    if ids.is_empty() {
+        return Ok(map);
+    }
+    let list = ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT id, slug, name, price, compare_at, multi_currency_prices, lead_time_days, rush_available, custom_size_available, status                  FROM product WHERE id IN ({}) AND status = 2",
+                list
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    for r in rows.iter() {
+        let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+        map.insert(
+            id,
+            crate::cart::ProductBrief {
+                id,
+                slug: r.try_get::<String>("", "slug").unwrap_or_default(),
+                name: r.try_get::<String>("", "name").unwrap_or_default(),
+                price: crate::cart::dec(r, "price").unwrap_or(0.0),
+                compare_at: crate::cart::dec(r, "compare_at"),
+                multi_currency_prices: r.try_get::<Value>("", "multi_currency_prices").ok(),
+                image_url: None,
+                lead_time_days: r.try_get::<i64>("", "lead_time_days").ok(),
+                rush_available: r.try_get::<bool>("", "rush_available").unwrap_or(false),
+                custom_size_available: r.try_get::<bool>("", "custom_size_available").unwrap_or(false),
+                status: r.try_get::<i64>("", "status").unwrap_or(1),
+            },
+        );
+    }
+    Ok(map)
+}
+
+async fn skus_batch(
+    db: &DatabaseConnection,
+    ids: &[i64],
+) -> Result<std::collections::HashMap<i64, (String, Option<String>, Option<String>, i64)>, CatalogError> {
+    let mut map = std::collections::HashMap::new();
+    if ids.is_empty() {
+        return Ok(map);
+    }
+    let list = ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT id, sku_code, color, size, version FROM sku WHERE id IN ({})",
+                list
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    for r in rows.iter() {
+        let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+        map.insert(
+            id,
+            (
+                r.try_get::<String>("", "sku_code").unwrap_or_default(),
+                r.try_get::<String>("", "color").ok(),
+                r.try_get::<String>("", "size").ok(),
+                r.try_get::<i64>("", "version").unwrap_or(0),
+            ),
+        );
+    }
+    Ok(map)
+}
+
+/// 主图:gallery sort=0 兜底 gallery 首张(与 product_image_url 单查同口径)
+async fn product_images_batch(
+    db: &DatabaseConnection,
+    ids: &[i64],
+) -> Result<std::collections::HashMap<i64, String>, CatalogError> {
+    let mut map = std::collections::HashMap::new();
+    if ids.is_empty() {
+        return Ok(map);
+    }
+    let list = ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT product_id, url FROM (                    SELECT i.product_id AS product_id, i.url AS url,                            ROW_NUMBER() OVER (PARTITION BY i.product_id ORDER BY (i.sort = 0) DESC, i.sort ASC, i.id ASC) AS rn                     FROM product_image i WHERE i.kind = 1 AND i.product_id IN ({})                  ) t WHERE rn = 1",
+                list
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    for r in rows.iter() {
+        if let (Some(pid), Some(url)) = (
+            r.try_get::<i64>("", "product_id").ok(),
+            r.try_get::<String>("", "url").ok(),
+        ) {
+            map.insert(pid, url);
+        }
+    }
+    Ok(map)
 }

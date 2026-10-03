@@ -103,10 +103,11 @@ export function LoginCard() {
     void doSend(normalized)
   }
 
-  const doVerify = useCallback(async () => {
+  const doVerify = useCallback(async (explicit?: string) => {
     if (verifying) return
-    const joined = code.join('')
-    if (joined.length !== otpLength || code.some((d) => !d)) {
+    // explicit:OtpInput 满位回调携带的完整 code(绕过 setState 未生效的闭包旧值)
+    const joined = explicit ?? code.join('')
+    if (joined.length !== otpLength || (!explicit && code.some((d) => !d))) {
       setError(t.login.enterAllDigits)
       return
     }
@@ -184,7 +185,7 @@ export function LoginCard() {
               verifying={verifying}
               resendIn={resendIn}
               onChange={setCode}
-              onComplete={doVerify}
+              onComplete={(c) => void doVerify(c)}
               onResend={handleResend}
               onChangeEmail={() => {
                 setStep('email')

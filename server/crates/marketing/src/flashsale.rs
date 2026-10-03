@@ -1,4 +1,6 @@
-//! flashsale 域:限时特卖 admin CRUD(name/discount/窗口/status)。
+//! flashsale 域:限时特卖 admin CRUD(name/discount/窗口/status)+ store 活动列表(E-MKT-09)。
+
+use std::collections::{HashMap, HashSet};
 
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use serde::{Deserialize, Serialize};
@@ -127,6 +129,99 @@ pub async fn delete(db: &DatabaseConnection, id: i64) -> Result<(), CatalogError
         return Err(not_found());
     }
     Ok(())
+}
+
+/// E-MKT-09 store 活动列表(Java listStoreActive:status=ACTIVE(3) ORDER BY end_at ASC,DEC-MKT-3)。
+/// Rust 无 SCHED-MKT-01 翻转任务(admin create 落 status=2),叠加窗口实时判定(CV-MKT-011):
+/// SCHEDULED(2) 且窗口进行中一并返回;已结束(4)/草稿(1)/未开始不出现。
+/// 商品卡片对齐 CatalogQueryPort.listProductRefs(MAP-MKT-012/CV-MKT-006):仅 published(status=2),
+/// 缺失/下架静默剔除,主图=gallery 首图,保持挂载顺序;批查防 N+1(NP-MKT-002)。
+pub async fn store_list(db: &DatabaseConnection) -> Result<Vec<Value>, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            "SELECT id, name, discount, start_at, end_at, status FROM flash_sale \
+             WHERE status = 3 OR (status = 2 AND start_at <= NOW(3) AND end_at > NOW(3)) \
+             ORDER BY end_at ASC",
+        ))
+        .await
+        .map_err(db_err)?;
+    if rows.is_empty() {
+        return Ok(vec![]);
+    }
+    let sale_ids: Vec<i64> = rows
+        .iter()
+        .map(|r| r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0))
+        .collect();
+    let id_list = sale_ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    // flash_sale_product.id ASC 即挂载顺序(RM-MKT-131)
+    let mounts_rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT flash_sale_id, product_id FROM flash_sale_product WHERE flash_sale_id IN ({id_list}) ORDER BY id ASC"
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    let mut mounts: HashMap<i64, Vec<i64>> = HashMap::new();
+    let mut seen: HashSet<i64> = HashSet::new();
+    let mut pid_order: Vec<i64> = vec![];
+    for m in &mounts_rows {
+        let sid = m.try_get::<u64>("", "flash_sale_id").map(|v| v as i64).unwrap_or(0);
+        let pid = m.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0);
+        if seen.insert(pid) {
+            pid_order.push(pid);
+        }
+        mounts.entry(sid).or_default().push(pid);
+    }
+    // 商品卡片一次批查(主图子查询口径与 cart::assemble_cart 一致)
+    let mut cards: HashMap<i64, Value> = HashMap::new();
+    if !pid_order.is_empty() {
+        let pid_list = pid_order.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+        let prows = db
+            .query_all(Statement::from_string(
+                DbBackend::MySql,
+                format!(
+                    "SELECT p.id, p.slug, p.name, p.price, \
+                     (SELECT url FROM product_image i WHERE i.product_id = p.id AND i.kind = 1 ORDER BY i.sort ASC, i.id ASC LIMIT 1) AS image_url \
+                     FROM product p WHERE p.id IN ({pid_list}) AND p.status = 2"
+                ),
+            ))
+            .await
+            .map_err(db_err)?;
+        for r in prows {
+            let pid = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+            cards.insert(
+                pid,
+                serde_json::json!({
+                    "id": pid,
+                    "slug": r.try_get::<String>("", "slug").unwrap_or_default(),
+                    "name": r.try_get::<String>("", "name").unwrap_or_default(),
+                    "price": crate::cart::dec(&r, "price").unwrap_or(0.0),
+                    "image_url": r.try_get::<String>("", "image_url").ok(),
+                }),
+            );
+        }
+    }
+    Ok(rows
+        .iter()
+        .map(|r| {
+            let sid = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+            let products = mounts
+                .get(&sid)
+                .map(|ids| ids.iter().filter_map(|p| cards.get(p).cloned()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            serde_json::json!({
+                "id": sid,
+                "name": r.try_get::<String>("", "name").unwrap_or_default(),
+                "discount": r.try_get::<String>("", "discount").unwrap_or_default(),
+                "start_at": r.try_get::<String>("", "start_at").ok(),
+                "end_at": r.try_get::<String>("", "end_at").ok(),
+                "products": products,
+            })
+        })
+        .collect())
 }
 
 #[cfg(test)]

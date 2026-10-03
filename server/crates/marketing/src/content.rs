@@ -790,19 +790,20 @@ async fn wedding_translations_map(
         .query_all(Statement::from_string(
             DbBackend::MySql,
             format!(
-                "SELECT real_wedding_id, title, story FROM real_wedding_translation WHERE locale = '{}' AND real_wedding_id IN ({})",
+                "SELECT real_wedding_id, title, story, theme FROM real_wedding_translation WHERE locale = '{}' AND real_wedding_id IN ({})",
                 locale, id_list
             ),
         ))
         .await
         .map_err(db_err)?;
     for r in rows {
-        if let Some(wid) = r.try_get::<u64>("", "real_wedding_id").ok().map(|v| v as i64) {
+        if let Some(wid) = r.try_get::<i64>("", "real_wedding_id").ok() {
             out.insert(
                 wid,
                 serde_json::json!({
                     "title": r.try_get::<String>("", "title").ok(),
                     "story": r.try_get::<String>("", "story").ok(),
+                    "theme": r.try_get::<String>("", "theme").ok(),
                 }),
             );
         }
@@ -817,7 +818,7 @@ pub async fn lookbook_list(db: &DatabaseConnection, locale: &str) -> Result<Vec<
     let rows = db
         .query_all(Statement::from_string(
             DbBackend::MySql,
-            "SELECT id, title, theme, description, cover FROM lookbook WHERE status = 1 ORDER BY id ASC",
+            "SELECT id, title, theme, description, cover FROM lookbook WHERE status = 2 ORDER BY id ASC",
         ))
         .await
         .map_err(db_err)?;
@@ -869,7 +870,7 @@ async fn lookbook_products(db: &DatabaseConnection, lookbook_id: i64) -> Result<
             .await
             .map_err(db_err)?;
         for r in img_rows {
-            if let (Some(pid), Ok(url)) = (r.try_get::<u64>("", "pid").ok().map(|v| v as i64), r.try_get::<String>("", "url")) {
+            if let (Some(pid), Ok(url)) = (r.try_get::<i64>("", "pid").ok(), r.try_get::<String>("", "url")) {
                 primary.entry(pid).or_insert(url);
             }
         }
@@ -1022,4 +1023,1035 @@ mod tests {
         let err = validate_blog(&req, true).unwrap_err();
         assert_eq!(err.code, 422706);
     }
+}
+
+/// store 婚礼详情(E-MKT-05 getStoreWedding;V-MKT-006 非法 id → 404701;形状=列表项)
+pub async fn wedding_detail(db: &DatabaseConnection, id: i64, locale: &str) -> Result<Value, CatalogError> {
+    let row = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT id, couple, location, theme, wedding_date, cover, status, title, story FROM real_wedding WHERE id = {} AND status = 2",
+                id
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    let Some(r) = row else {
+        return Err(CatalogError::new(404701));
+    };
+    let wid = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+    let trs = wedding_translations_map(db, &[wid], locale).await?;
+    let tr = trs.get(&wid);
+    Ok(serde_json::json!({
+        "id": wid,
+        "couple": r.try_get::<String>("", "couple").unwrap_or_default(),
+        "location": r.try_get::<String>("", "location").ok(),
+        "theme": r.try_get::<String>("", "theme").ok(),
+        "wedding_date": r.try_get::<String>("", "wedding_date").ok(),
+        "cover": r.try_get::<String>("", "cover").ok(),
+        "status": 2,
+        "title": pick(
+            &tr.and_then(|t| t.get("title")).and_then(|v| v.as_str()).map(String::from),
+            &r.try_get::<String>("", "title").ok(),
+        ),
+        "story": pick(
+            &tr.and_then(|t| t.get("story")).and_then(|v| v.as_str()).map(String::from),
+            &r.try_get::<String>("", "story").ok(),
+        ),
+        "products": [],
+    }))
+}
+
+// 画册详情复用 lookbook_get(894 行,经 lookbook_list 形状;status 口径已修为 2)
+
+// ══════════ admin 婚礼案例 CRUD(E-MKT-32~36;RBAC /content/weddings)══════════
+
+#[derive(Deserialize)]
+pub struct WeddingUpsert {
+    pub couple: String,
+    pub location: Option<String>,
+    pub theme: Option<String>,
+    pub wedding_date: Option<String>,
+    pub cover: Option<String>,
+    pub status: i64,
+    pub title: Option<String>,
+    pub story: Option<String>,
+    pub product_ids: Option<Vec<i64>>,
+    pub translations: Option<Vec<WeddingTranslationIn>>,
+}
+
+#[derive(Deserialize)]
+pub struct WeddingTranslationIn {
+    pub locale: String,
+    pub title: Option<String>,
+    pub story: Option<String>,
+    pub theme: Option<String>,
+}
+
+fn validate_wedding(req: &WeddingUpsert) -> Result<(), CatalogError> {
+    let mut fields: Vec<(&str, &str)> = vec![];
+    if req.couple.trim().is_empty() {
+        fields.push(("couple", "required"));
+    } else if req.couple.chars().count() > 64 {
+        fields.push(("couple", "too_long"));
+    }
+    if !(1..=3).contains(&req.status) {
+        fields.push(("status", "invalid_enum"));
+    }
+    if req.location.as_deref().map(|s| s.chars().count() > 128).unwrap_or(false) {
+        fields.push(("location", "too_long"));
+    }
+    if req.theme.as_deref().map(|s| s.chars().count() > 32).unwrap_or(false) {
+        fields.push(("theme", "too_long"));
+    }
+    if req.wedding_date.as_deref().map(|s| s.chars().count() > 16).unwrap_or(false) {
+        fields.push(("wedding_date", "too_long"));
+    }
+    if req.cover.as_deref().map(|s| s.chars().count() > 512).unwrap_or(false) {
+        fields.push(("cover", "too_long"));
+    }
+    if req.title.as_deref().map(|s| s.chars().count() > 200).unwrap_or(false) {
+        fields.push(("title", "too_long"));
+    }
+    if let Some(trs) = &req.translations {
+        for t in trs {
+            if !matches!(t.locale.as_str(), "en" | "es" | "fr") {
+                fields.push(("translations.locale", "invalid_enum"));
+                break;
+            }
+        }
+    }
+    if fields.is_empty() {
+        Ok(())
+    } else {
+        Err(CatalogError::field_validation(&fields))
+    }
+}
+
+fn wedding_to_dto(
+    r: &sea_orm::QueryResult,
+    product_ids: Vec<i64>,
+    translations: Value,
+) -> Value {
+    serde_json::json!({
+        "id": r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
+        "couple": r.try_get::<String>("", "couple").unwrap_or_default(),
+        "location": r.try_get::<String>("", "location").ok(),
+        "theme": r.try_get::<String>("", "theme").ok(),
+        "wedding_date": r.try_get::<String>("", "wedding_date").ok(),
+        "cover": r.try_get::<String>("", "cover").ok(),
+        "status": r.try_get::<i64>("", "status").unwrap_or(1),
+        "title": r.try_get::<String>("", "title").ok(),
+        "story": r.try_get::<String>("", "story").ok(),
+        "product_ids": product_ids,
+        "translations": translations,
+    })
+}
+
+async fn wedding_product_ids(db: &DatabaseConnection, id: i64) -> Result<Vec<i64>, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT product_id FROM real_wedding_product WHERE real_wedding_id = {} ORDER BY id ASC", id),
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(rows.iter().filter_map(|r| r.try_get::<i64>("", "product_id").ok()).collect())
+}
+
+async fn wedding_translations_raw(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT locale, title, story, theme FROM real_wedding_translation WHERE real_wedding_id = {} ORDER BY id ASC", id),
+        ))
+        .await
+        .map_err(db_err)?;
+    let list: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "locale": r.try_get::<String>("", "locale").unwrap_or_default(),
+                "title": r.try_get::<String>("", "title").ok(),
+                "story": r.try_get::<String>("", "story").ok(),
+                "theme": r.try_get::<String>("", "theme").ok(),
+            })
+        })
+        .collect();
+    Ok(serde_json::json!(list))
+}
+
+async fn replace_wedding_children(
+    tx: &sea_orm::DatabaseTransaction,
+    _db: &DatabaseConnection,
+    id: i64,
+    req: &WeddingUpsert,
+) -> Result<(), CatalogError> {
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM real_wedding_product WHERE real_wedding_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    if let Some(pids) = &req.product_ids {
+        let mut seen = std::collections::HashSet::new();
+        for pid in pids {
+            if seen.insert(*pid) {
+                tx.execute(Statement::from_sql_and_values(
+                    DbBackend::MySql,
+                    "INSERT INTO real_wedding_product(real_wedding_id, product_id, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3))",
+                    [id.into(), (*pid).into()],
+                ))
+                .await
+                .map_err(db_err)?;
+            }
+        }
+    }
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM real_wedding_translation WHERE real_wedding_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    if let Some(trs) = &req.translations {
+        let mut seen = std::collections::HashSet::new();
+        for t in trs {
+            if seen.insert(t.locale.clone()) {
+                tx.execute(Statement::from_sql_and_values(
+                    DbBackend::MySql,
+                    "INSERT INTO real_wedding_translation(real_wedding_id, locale, title, story, theme, created_at, updated_at) VALUES (?,?,?,?,?,NOW(3),NOW(3))",
+                    [
+                        id.into(),
+                        t.locale.clone().into(),
+                        t.title.clone().into(),
+                        t.story.clone().into(),
+                        t.theme.clone().into(),
+                    ],
+                ))
+                .await
+                .map_err(db_err)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn wedding_admin_page(
+    db: &DatabaseConnection,
+    page: i64,
+    page_size: i64,
+    status: Option<i64>,
+) -> Result<(Vec<Value>, i64), CatalogError> {
+    let where_clause = match status {
+        Some(s) => format!(" WHERE status = {}", s),
+        None => String::new(),
+    };
+    let total = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT COUNT(*) AS n FROM real_wedding{}", where_clause),
+        ))
+        .await
+        .map_err(db_err)?
+        .and_then(|r| r.try_get::<i64>("", "n").ok())
+        .unwrap_or(0);
+    let offset = (page - 1) * page_size;
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT id, couple, location, theme, wedding_date, cover, status, title, story FROM real_wedding{} ORDER BY id DESC LIMIT {} OFFSET {}",
+                where_clause, page_size, offset
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    let mut items = vec![];
+    for r in &rows {
+        let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+        let pids = wedding_product_ids(db, id).await?;
+        let trs = wedding_translations_raw(db, id).await?;
+        items.push(wedding_to_dto(r, pids, trs));
+    }
+    Ok((items, total))
+}
+
+pub async fn wedding_admin_get(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let r = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id, couple, location, theme, wedding_date, cover, status, title, story FROM real_wedding WHERE id = {}", id),
+        ))
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| CatalogError::new(404701))?;
+    let pids = wedding_product_ids(db, id).await?;
+    let trs = wedding_translations_raw(db, id).await?;
+    Ok(wedding_to_dto(&r, pids, trs))
+}
+
+pub async fn wedding_admin_create(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    req: WeddingUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    validate_wedding(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO real_wedding(couple, location, theme, wedding_date, cover, status, title, story, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,NOW(3),NOW(3))",
+        [
+            req.couple.clone().into(),
+            req.location.clone().into(),
+            req.theme.clone().into(),
+            req.wedding_date.clone().into(),
+            req.cover.clone().into(),
+            req.status.into(),
+            req.title.clone().into(),
+            req.story.clone().into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    let id = inserted_id(&tx).await? as i64;
+    replace_wedding_children(&tx, db, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "创建婚礼案例", &req.couple).await;
+    wedding_admin_get(db, id).await
+}
+
+pub async fn wedding_admin_update(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    req: WeddingUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM real_wedding WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    validate_wedding(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE real_wedding SET couple=?, location=?, theme=?, wedding_date=?, cover=?, status=?, title=?, story=?, updated_at=NOW(3) WHERE id=?",
+        [
+            req.couple.clone().into(),
+            req.location.clone().into(),
+            req.theme.clone().into(),
+            req.wedding_date.clone().into(),
+            req.cover.clone().into(),
+            req.status.into(),
+            req.title.clone().into(),
+            req.story.clone().into(),
+            id.into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    replace_wedding_children(&tx, db, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "编辑婚礼案例", &req.couple).await;
+    wedding_admin_get(db, id).await
+}
+
+pub async fn wedding_admin_delete(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    operator: &str,
+) -> Result<(), CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM real_wedding WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM real_wedding_product WHERE real_wedding_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM real_wedding_translation WHERE real_wedding_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM real_wedding WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "删除婚礼案例", &format!("id={}", id)).await;
+    Ok(())
+}
+
+pub async fn wedding_admin_toggle_status(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    status: i64,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    if !(1..=3).contains(&status) {
+        return Err(CatalogError::field_validation(&[("status", "invalid_enum")]));
+    }
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM real_wedding WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE real_wedding SET status=?, updated_at=NOW(3) WHERE id=?",
+        [status.into(), id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    audit(audit_db, operator, "变更婚礼案例状态", &format!("id={} status={}", id, status)).await;
+    wedding_admin_get(db, id).await
+}
+
+// ══════════ admin 画册 CRUD(E-MKT-37~41;RBAC /content/lookbooks)══════════
+
+#[derive(Deserialize)]
+pub struct LookbookUpsert {
+    pub title: String,
+    pub theme: Option<String>,
+    pub status: i64,
+    pub description: Option<String>,
+    pub cover: Option<String>,
+    pub product_ids: Option<Vec<i64>>,
+    pub translations: Option<Vec<LookbookTranslationIn>>,
+}
+
+#[derive(Deserialize)]
+pub struct LookbookTranslationIn {
+    pub locale: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+}
+
+fn validate_lookbook(req: &LookbookUpsert) -> Result<(), CatalogError> {
+    let mut fields: Vec<(&str, &str)> = vec![];
+    if req.title.trim().is_empty() {
+        fields.push(("title", "required"));
+    } else if req.title.chars().count() > 128 {
+        fields.push(("title", "too_long"));
+    }
+    if !(1..=3).contains(&req.status) {
+        fields.push(("status", "invalid_enum"));
+    }
+    if req.theme.as_deref().map(|s| s.chars().count() > 32).unwrap_or(false) {
+        fields.push(("theme", "too_long"));
+    }
+    if req.description.as_deref().map(|s| s.chars().count() > 500).unwrap_or(false) {
+        fields.push(("description", "too_long"));
+    }
+    if req.cover.as_deref().map(|s| s.chars().count() > 512).unwrap_or(false) {
+        fields.push(("cover", "too_long"));
+    }
+    if let Some(trs) = &req.translations {
+        for t in trs {
+            if !matches!(t.locale.as_str(), "en" | "es" | "fr") {
+                fields.push(("translations.locale", "invalid_enum"));
+                break;
+            }
+        }
+    }
+    if fields.is_empty() {
+        Ok(())
+    } else {
+        Err(CatalogError::field_validation(&fields))
+    }
+}
+
+fn lookbook_to_dto(
+    r: &sea_orm::QueryResult,
+    product_ids: Vec<i64>,
+    fallback_cover: Option<String>,
+    translations: Value,
+) -> Value {
+    serde_json::json!({
+        "id": r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
+        "title": r.try_get::<String>("", "title").unwrap_or_default(),
+        "theme": r.try_get::<String>("", "theme").ok(),
+        "status": r.try_get::<i64>("", "status").unwrap_or(1),
+        "description": r.try_get::<String>("", "description").ok(),
+        "cover": r.try_get::<String>("", "cover").ok(),
+        "fallback_cover": fallback_cover,
+        "product_ids": product_ids,
+        "translations": translations,
+    })
+}
+
+async fn lookbook_product_ids(db: &DatabaseConnection, id: i64) -> Result<Vec<i64>, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT product_id FROM lookbook_product WHERE lookbook_id = {} ORDER BY id ASC", id),
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(rows.iter().filter_map(|r| r.try_get::<i64>("", "product_id").ok()).collect())
+}
+
+async fn lookbook_fallback(db: &DatabaseConnection, id: i64) -> Result<Option<String>, CatalogError> {
+    let row = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!(
+                "SELECT pi.url FROM lookbook_product lp JOIN product_image pi ON pi.product_id = lp.product_id AND pi.kind = 1 WHERE lp.lookbook_id = {} ORDER BY lp.id ASC, pi.sort ASC, pi.id ASC LIMIT 1",
+                id
+            ),
+        ))
+        .await
+        .map_err(db_err)?;
+    Ok(row.and_then(|r| r.try_get::<String>("", "url").ok()).filter(|s| !s.is_empty()))
+}
+
+async fn lookbook_translations_raw(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT locale, title, description FROM lookbook_translation WHERE lookbook_id = {} ORDER BY id ASC", id),
+        ))
+        .await
+        .map_err(db_err)?;
+    let list: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "locale": r.try_get::<String>("", "locale").unwrap_or_default(),
+                "title": r.try_get::<String>("", "title").ok(),
+                "description": r.try_get::<String>("", "description").ok(),
+            })
+        })
+        .collect();
+    Ok(serde_json::json!(list))
+}
+
+async fn replace_lookbook_children(
+    tx: &sea_orm::DatabaseTransaction,
+    id: i64,
+    req: &LookbookUpsert,
+) -> Result<(), CatalogError> {
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM lookbook_product WHERE lookbook_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    if let Some(pids) = &req.product_ids {
+        let mut seen = std::collections::HashSet::new();
+        for pid in pids {
+            if seen.insert(*pid) {
+                tx.execute(Statement::from_sql_and_values(
+                    DbBackend::MySql,
+                    "INSERT INTO lookbook_product(lookbook_id, product_id, created_at, updated_at) VALUES (?,?,NOW(3),NOW(3))",
+                    [id.into(), (*pid).into()],
+                ))
+                .await
+                .map_err(db_err)?;
+            }
+        }
+    }
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM lookbook_translation WHERE lookbook_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    if let Some(trs) = &req.translations {
+        let mut seen = std::collections::HashSet::new();
+        for t in trs {
+            if seen.insert(t.locale.clone()) {
+                tx.execute(Statement::from_sql_and_values(
+                    DbBackend::MySql,
+                    "INSERT INTO lookbook_translation(lookbook_id, locale, title, description, created_at, updated_at) VALUES (?,?,?,?,NOW(3),NOW(3))",
+                    [
+                        id.into(),
+                        t.locale.clone().into(),
+                        t.title.clone().into(),
+                        t.description.clone().into(),
+                    ],
+                ))
+                .await
+                .map_err(db_err)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn lookbook_admin_get(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let r = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id, title, theme, description, cover, status FROM lookbook WHERE id = {}", id),
+        ))
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| CatalogError::new(404701))?;
+    let pids = lookbook_product_ids(db, id).await?;
+    let fb = lookbook_fallback(db, id).await?;
+    let trs = lookbook_translations_raw(db, id).await?;
+    Ok(lookbook_to_dto(&r, pids, fb, trs))
+}
+
+pub async fn lookbook_admin_list(
+    db: &DatabaseConnection,
+    status: Option<i64>,
+) -> Result<Vec<Value>, CatalogError> {
+    let where_clause = match status {
+        Some(s) => format!(" WHERE status = {}", s),
+        None => String::new(),
+    };
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id, title, theme, description, cover, status FROM lookbook{} ORDER BY id ASC", where_clause),
+        ))
+        .await
+        .map_err(db_err)?;
+    let mut items = vec![];
+    for r in &rows {
+        let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+        let pids = lookbook_product_ids(db, id).await?;
+        let fb = lookbook_fallback(db, id).await?;
+        let trs = lookbook_translations_raw(db, id).await?;
+        items.push(lookbook_to_dto(r, pids, fb, trs));
+    }
+    Ok(items)
+}
+
+pub async fn lookbook_admin_create(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    req: LookbookUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    validate_lookbook(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO lookbook(title, theme, cover, status, description, created_at, updated_at) VALUES (?,?,?,?,?,NOW(3),NOW(3))",
+        [
+            req.title.clone().into(),
+            req.theme.clone().into(),
+            req.cover.clone().into(),
+            req.status.into(),
+            req.description.clone().into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    let id = inserted_id(&tx).await? as i64;
+    replace_lookbook_children(&tx, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "创建画册", &req.title).await;
+    lookbook_admin_get(db, id).await
+}
+
+pub async fn lookbook_admin_update(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    req: LookbookUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM lookbook WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    validate_lookbook(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE lookbook SET title=?, theme=?, cover=?, status=?, description=?, updated_at=NOW(3) WHERE id=?",
+        [
+            req.title.clone().into(),
+            req.theme.clone().into(),
+            req.cover.clone().into(),
+            req.status.into(),
+            req.description.clone().into(),
+            id.into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    replace_lookbook_children(&tx, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "编辑画册", &req.title).await;
+    lookbook_admin_get(db, id).await
+}
+
+pub async fn lookbook_admin_delete(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    operator: &str,
+) -> Result<(), CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM lookbook WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM lookbook_product WHERE lookbook_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM lookbook_translation WHERE lookbook_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM lookbook WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "删除画册", &format!("id={}", id)).await;
+    Ok(())
+}
+
+pub async fn lookbook_admin_toggle_status(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    status: i64,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    if !(1..=3).contains(&status) {
+        return Err(CatalogError::field_validation(&[("status", "invalid_enum")]));
+    }
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM lookbook WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE lookbook SET status=?, updated_at=NOW(3) WHERE id=?",
+        [status.into(), id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    audit(audit_db, operator, "变更画册状态", &format!("id={} status={}", id, status)).await;
+    lookbook_admin_get(db, id).await
+}
+
+// ══════════ admin 备婚指南 CRUD(E-MKT-42~46+reorder;RBAC /content/guides)══════════
+
+#[derive(Deserialize)]
+pub struct GuideUpsert {
+    pub phase: Option<String>,
+    pub timeframe: Option<String>,
+    pub title: String,
+    pub body: Option<String>,
+    pub status: i64,
+    pub tasks: Option<Vec<GuideTaskIn>>,
+}
+
+#[derive(Deserialize)]
+pub struct GuideTaskIn {
+    pub label: String,
+}
+
+fn validate_guide(req: &GuideUpsert) -> Result<(), CatalogError> {
+    let mut fields: Vec<(&str, &str)> = vec![];
+    if req.title.trim().is_empty() {
+        fields.push(("title", "required"));
+    } else if req.title.chars().count() > 128 {
+        fields.push(("title", "too_long"));
+    }
+    if !(1..=3).contains(&req.status) {
+        fields.push(("status", "invalid_enum"));
+    }
+    if req.phase.as_deref().map(|s| s.chars().count() > 32).unwrap_or(false) {
+        fields.push(("phase", "too_long"));
+    }
+    if req.timeframe.as_deref().map(|s| s.chars().count() > 64).unwrap_or(false) {
+        fields.push(("timeframe", "too_long"));
+    }
+    if fields.is_empty() {
+        Ok(())
+    } else {
+        Err(CatalogError::field_validation(&fields))
+    }
+}
+
+async fn guide_tasks_raw(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id, label FROM guide_task WHERE guide_id = {} ORDER BY sort_order ASC, id ASC", id),
+        ))
+        .await
+        .map_err(db_err)?;
+    let list: Vec<Value> = rows
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "taskId": t.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
+                "label": t.try_get::<String>("", "label").unwrap_or_default(),
+            })
+        })
+        .collect();
+    Ok(serde_json::json!(list))
+}
+
+async fn replace_guide_tasks(
+    tx: &sea_orm::DatabaseTransaction,
+    guide_id: i64,
+    req: &GuideUpsert,
+) -> Result<(), CatalogError> {
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM guide_task WHERE guide_id = {}", guide_id),
+    ))
+    .await
+    .map_err(db_err)?;
+    if let Some(tasks) = &req.tasks {
+        for (i, t) in tasks.iter().enumerate() {
+            tx.execute(Statement::from_sql_and_values(
+                DbBackend::MySql,
+                "INSERT INTO guide_task(guide_id, label, sort_order, created_at, updated_at) VALUES (?,?,?,NOW(3),NOW(3))",
+                [guide_id.into(), t.label.clone().into(), (i as i64).into()],
+            ))
+            .await
+            .map_err(db_err)?;
+        }
+    }
+    Ok(())
+}
+
+pub async fn guide_admin_get(db: &DatabaseConnection, id: i64) -> Result<Value, CatalogError> {
+    let r = db
+        .query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id, phase, timeframe, title, body, status, sort_order FROM guide WHERE id = {}", id),
+        ))
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| CatalogError::new(404701))?;
+    let tasks = guide_tasks_raw(db, id).await?;
+    Ok(serde_json::json!({
+        "id": r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
+        "phase": r.try_get::<String>("", "phase").ok(),
+        "timeframe": r.try_get::<String>("", "timeframe").ok(),
+        "title": r.try_get::<String>("", "title").unwrap_or_default(),
+        "body": r.try_get::<String>("", "body").ok(),
+        "status": r.try_get::<i64>("", "status").unwrap_or(1),
+        "sort_order": r.try_get::<i64>("", "sort_order").unwrap_or(0),
+        "tasks": tasks,
+    }))
+}
+
+pub async fn guide_admin_list(db: &DatabaseConnection, status: Option<i64>) -> Result<Vec<Value>, CatalogError> {
+    let where_clause = match status {
+        Some(s) => format!(" WHERE status = {}", s),
+        None => String::new(),
+    };
+    let rows = db
+        .query_all(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id FROM guide{} ORDER BY sort_order ASC, id ASC", where_clause),
+        ))
+        .await
+        .map_err(db_err)?;
+    let mut items = vec![];
+    for r in &rows {
+        let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
+        items.push(guide_admin_get(db, id).await?);
+    }
+    Ok(items)
+}
+
+pub async fn guide_admin_create(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    req: GuideUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    validate_guide(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "INSERT INTO guide(phase, timeframe, title, body, status, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,9999,NOW(3),NOW(3))",
+        [
+            req.phase.clone().into(),
+            req.timeframe.clone().into(),
+            req.title.clone().into(),
+            req.body.clone().into(),
+            req.status.into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    let id = inserted_id(&tx).await? as i64;
+    replace_guide_tasks(&tx, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "创建备婚指南", &req.title).await;
+    guide_admin_get(db, id).await
+}
+
+pub async fn guide_admin_update(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    req: GuideUpsert,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM guide WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    validate_guide(&req)?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE guide SET phase=?, timeframe=?, title=?, body=?, status=?, updated_at=NOW(3) WHERE id=?",
+        [
+            req.phase.clone().into(),
+            req.timeframe.clone().into(),
+            req.title.clone().into(),
+            req.body.clone().into(),
+            req.status.into(),
+            id.into(),
+        ],
+    ))
+    .await
+    .map_err(db_err)?;
+    replace_guide_tasks(&tx, id, &req).await?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "编辑备婚指南", &req.title).await;
+    guide_admin_get(db, id).await
+}
+
+pub async fn guide_admin_delete(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    operator: &str,
+) -> Result<(), CatalogError> {
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM guide WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    let tx = db.begin().await.map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM guide_task WHERE guide_id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.execute(Statement::from_string(
+        DbBackend::MySql,
+        format!("DELETE FROM guide WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?;
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "删除备婚指南", &format!("id={}", id)).await;
+    Ok(())
+}
+
+pub async fn guide_admin_toggle_status(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    id: i64,
+    status: i64,
+    operator: &str,
+) -> Result<Value, CatalogError> {
+    if !(1..=3).contains(&status) {
+        return Err(CatalogError::field_validation(&[("status", "invalid_enum")]));
+    }
+    db.query_one(Statement::from_string(
+        DbBackend::MySql,
+        format!("SELECT id FROM guide WHERE id = {}", id),
+    ))
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| CatalogError::new(404701))?;
+    db.execute(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "UPDATE guide SET status=?, updated_at=NOW(3) WHERE id=?",
+        [status.into(), id.into()],
+    ))
+    .await
+    .map_err(db_err)?;
+    audit(audit_db, operator, "变更备婚指南状态", &format!("id={} status={}", id, status)).await;
+    guide_admin_get(db, id).await
+}
+
+pub async fn guide_admin_reorder(
+    db: &DatabaseConnection,
+    audit_db: &DatabaseConnection,
+    ids: Vec<i64>,
+    operator: &str,
+) -> Result<Vec<Value>, CatalogError> {
+    if ids.is_empty() || ids.len() > 100 {
+        return Err(CatalogError::field_validation(&[("ids", "1..=100 required")]));
+    }
+    // 全部 id 必须存在(Java reorder 语义;避免部分提交)
+    for gid in &ids {
+        db.query_one(Statement::from_string(
+            DbBackend::MySql,
+            format!("SELECT id FROM guide WHERE id = {}", gid),
+        ))
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| CatalogError::new(404701))?;
+    }
+    let tx = db.begin().await.map_err(db_err)?;
+    for (i, gid) in ids.iter().enumerate() {
+        tx.execute(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "UPDATE guide SET sort_order=?, updated_at=NOW(3) WHERE id=?",
+            [(i as i64).into(), (*gid).into()],
+        ))
+        .await
+        .map_err(db_err)?;
+    }
+    tx.commit().await.map_err(db_err)?;
+    audit(audit_db, operator, "排序备婚指南", &format!("ids={:?}", ids)).await;
+    let mut items = vec![];
+    for gid in &ids {
+        items.push(guide_admin_get(db, *gid).await?);
+    }
+    Ok(items)
 }

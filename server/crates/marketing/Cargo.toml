@@ -9,6 +9,7 @@ identity = { workspace = true }
 infra = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+urlencoding.workspace = true
 sea-orm = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }

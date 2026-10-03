@@ -1,24 +1,39 @@
 //! 空库自举:CREATE DATABASE / TABLE IF NOT EXISTS,幂等且绝不破坏存量。
 //! (一次性数据迁移是独立操作,见 scripts/migrate-identity.sh —— 与本模块无交集)
 
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbErr, Statement};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbErr, Statement};
+
+/// 显式连接池:默认值(max 10/min 0/acquire 30s)在过载时会长时间挂起,这里收紧
+pub fn pool_opts(url: &str) -> ConnectOptions {
+    let mut opts = ConnectOptions::new(url.to_owned());
+    opts.max_connections(50)
+        .min_connections(5)
+        .acquire_timeout(std::time::Duration::from_secs(3));
+    opts
+}
 
 /// 连接主库(不存在则先建库),并应用 schema/identity.sql(全部为 CREATE ... IF NOT EXISTS)
 pub async fn connect_main(cfg: &crate::config::Config) -> Result<DatabaseConnection, DbErr> {
-    let base = Database::connect(cfg.db_base_url()).await?;
-    base.execute(Statement::from_string(
-        sea_orm::DatabaseBackend::MySql,
-        format!(
-            "CREATE DATABASE IF NOT EXISTS `{}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
-            cfg.db_name
-        ),
-    ))
-    .await?;
+    let base = Database::connect(pool_opts(&cfg.db_base_url())).await?;
+    for db_name in [&cfg.db_name, &cfg.biz_db_name] {
+        base.execute(Statement::from_string(
+            sea_orm::DatabaseBackend::MySql,
+            format!(
+                "CREATE DATABASE IF NOT EXISTS `{}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+                db_name
+            ),
+        ))
+        .await?;
+    }
 
-    let main = Database::connect(cfg.db_main_url()).await?;
+    let main = Database::connect(pool_opts(&cfg.db_main_url())).await?;
     apply_schema(&main, &cfg.schema_path).await?;
-    // 域扩展 DDL(全部 CREATE IF NOT EXISTS,幂等;与 identity.sql 同纪律)
-    apply_schema(&main, "schema/marketing-base.sql").await?;
+    // 业务库(identity):业务表结构快照(源自 20260918 整库备份;Java 删除后 catalog/trading/content
+    // 等业务 DDL 的唯一载体) + 域扩展 DDL。全部 CREATE TABLE IF NOT EXISTS,幂等;详见文件头注。
+    // 注意:业务表必须建在 biz_db(marting 域 svc 全部经 state.biz_db 访问),不能落主库。
+    let biz = Database::connect(pool_opts(&cfg.db_biz_url())).await?;
+    apply_schema(&biz, "schema/business-legacy.sql").await?;
+    apply_schema(&biz, "schema/marketing-base.sql").await?;
     Ok(main)
 }
 

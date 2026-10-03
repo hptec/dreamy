@@ -111,6 +111,10 @@ pub fn build(state: SharedState) -> Router {
         Some(jwt) => marketing::api_order::router(state.clone(), jwt),
         None => axum::Router::new(),
     };
+    let order_admin_api = match jwt.clone() {
+        Some(jwt) => marketing::api_order::admin_router(state.clone(), jwt),
+        None => axum::Router::new(),
+    };
     let checkout_api = match jwt.clone() {
         Some(jwt) => marketing::api_checkout::router(state.clone(), jwt),
         None => axum::Router::new(),
@@ -132,7 +136,7 @@ pub fn build(state: SharedState) -> Router {
         Some(jwt) => marketing::api_attribute::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
-    let collection_admin_api = match jwt {
+    let collection_admin_api = match jwt.clone() {
         Some(jwt) => marketing::api_collection::admin_router(state.clone(), jwt),
         None => axum::Router::new(),
     };
@@ -164,9 +168,13 @@ pub fn build(state: SharedState) -> Router {
         .merge(product_admin_api)
         .merge(sb_admin_api)
         .merge(fx_admin_api)
+        .merge(order_admin_api)
+        .merge(marketing::api_exchange_rate::store_router(state.clone()))
         .merge(dc_admin_api)
         .merge(gw_admin_api)
         .merge(marketing::api_site_builder::store_router().with_state(state.clone()))
+        .merge(marketing::api_flashsale::store_router(state.clone()))
+        .merge(match jwt.clone() { Some(j) => marketing::api_coupon::store_router(state.clone(), j), None => axum::Router::new() })
         .merge(flash_admin_api)
         .merge(shipment_admin_api)
         .merge(marketing::api_shipping_admin::countries_router().with_state(state.clone()))

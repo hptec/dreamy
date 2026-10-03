@@ -1,6 +1,6 @@
 //! site_builder REST 层:admin CRUD + store 公开 layout。
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -20,6 +20,16 @@ fn err_resp(e: CatalogError) -> Response {
 
 fn ok_json(v: Value) -> Response {
     Json(json!({"code": 0, "message": null, "service_id": null, "data": v})).into_response()
+}
+
+/// store content 端点可短缓存(perf-review #3 底线方案;admin 端不缓存)
+fn ok_json_cached(v: Value) -> Response {
+    let mut resp = ok_json(v);
+    resp.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("public, max-age=30"),
+    );
+    resp
 }
 
 // announcements
@@ -169,9 +179,69 @@ pub async fn nav_put(State(state): State<SharedState>, _a: AuthedAdmin, Json(req
     }
 }
 
-// store 公开 layout
+/// 导航引用目标下拉(Java AdminNavigationController.linkOptions;type=LinkType.key)。
+#[derive(Deserialize)]
+pub struct LinkOptionsQuery {
+    #[serde(rename = "type")]
+    pub link_type: Option<i64>,
+    pub keyword: Option<String>,
+}
+
+pub async fn nav_link_options(
+    State(state): State<SharedState>,
+    _a: AuthedAdmin,
+    Query(q): Query<LinkOptionsQuery>,
+) -> Response {
+    match svc::link_options(&state.biz_db, q.link_type.unwrap_or(0), q.keyword.as_deref().unwrap_or("")).await {
+        Ok(items) => ok_json(json!({ "options": items })),
+        Err(e) => err_resp(e),
+    }
+}
+
+// store 公开 layout + content 四件套(Java StoreContentService 契约)
 pub async fn store_layout(State(state): State<SharedState>) -> Response {
     match svc::store_layout(&state.biz_db).await { Ok(v) => ok_json(v), Err(e) => err_resp(e) }
+}
+
+#[derive(Deserialize)]
+pub struct StoreLocaleQuery {
+    pub locale: Option<String>,
+}
+
+fn store_locale(q: &StoreLocaleQuery) -> String {
+    match q.locale.as_deref() {
+        Some("es") => "es".to_string(),
+        Some("fr") => "fr".to_string(),
+        _ => "en".to_string(),
+    }
+}
+
+pub async fn store_content_home(State(state): State<SharedState>, Query(q): Query<StoreLocaleQuery>) -> Response {
+    match svc::store_home(&state.biz_db, &store_locale(&q)).await {
+        Ok(v) => ok_json_cached(v),
+        Err(e) => err_resp(e),
+    }
+}
+
+pub async fn store_content_navigation(State(state): State<SharedState>, Query(q): Query<StoreLocaleQuery>) -> Response {
+    match svc::store_navigation(&state.biz_db, &store_locale(&q)).await {
+        Ok(v) => ok_json_cached(v),
+        Err(e) => err_resp(e),
+    }
+}
+
+pub async fn store_content_footer(State(state): State<SharedState>, Query(q): Query<StoreLocaleQuery>) -> Response {
+    match svc::store_footer(&state.biz_db, &store_locale(&q)).await {
+        Ok(v) => ok_json_cached(v),
+        Err(e) => err_resp(e),
+    }
+}
+
+pub async fn store_content_announcements(State(state): State<SharedState>, Query(q): Query<StoreLocaleQuery>) -> Response {
+    match svc::store_announcements(&state.biz_db, &store_locale(&q)).await {
+        Ok(v) => ok_json_cached(v),
+        Err(e) => err_resp(e),
+    }
 }
 
 pub fn admin_router(state: SharedState, jwt: identity::security::JwtProvider) -> axum::Router {
@@ -186,11 +256,17 @@ pub fn admin_router(state: SharedState, jwt: identity::security::JwtProvider) ->
         .route("/api/admin/site-builder/home-sections/{id}/toggle", axum::routing::patch(sec_toggle))
         .route("/api/admin/site-builder/footer", get(footer_get).put(footer_put))
         .route("/api/admin/site-builder/navigation", get(nav_get).put(nav_put))
+        .route("/api/admin/site-builder/navigation/link-options", get(nav_link_options))
         .with_state(SbState { shared: state, jwt })
 }
 
 pub fn store_router() -> axum::Router<SharedState> {
-    axum::Router::new().route("/api/store/layout", axum::routing::get(store_layout))
+    axum::Router::new()
+        .route("/api/store/layout", axum::routing::get(store_layout))
+        .route("/api/store/content/home", axum::routing::get(store_content_home))
+        .route("/api/store/content/navigation", axum::routing::get(store_content_navigation))
+        .route("/api/store/content/footer", axum::routing::get(store_content_footer))
+        .route("/api/store/content/announcements", axum::routing::get(store_content_announcements))
 }
 
 #[derive(Clone)]

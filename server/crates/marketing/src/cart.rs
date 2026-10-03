@@ -75,7 +75,7 @@ pub async fn get_product_brief(db: &DatabaseConnection, id: i64) -> Result<Optio
         .await
         .map_err(db_err)?;
     Ok(row.map(|r| {
-        let pid = r.try_get::<i64>("", "id").unwrap_or(0);
+        let pid = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
         ProductBrief {
             id: pid,
             slug: r.try_get::<String>("", "slug").unwrap_or_default(),
@@ -103,7 +103,7 @@ pub async fn get_sku(db: &DatabaseConnection, sku_id: i64) -> Result<Option<SkuB
         .map_err(db_err)?;
     Ok(row.map(|r| SkuBrief {
         id: r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
-        product_id: r.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0),
+        product_id: r.try_get::<i64>("", "product_id").unwrap_or(0),
         sku_code: r.try_get::<String>("", "sku_code").unwrap_or_default(),
         color: r.try_get::<String>("", "color").ok(),
         size: r.try_get::<String>("", "size").ok(),
@@ -312,7 +312,7 @@ async fn assemble_cart(
         .map_err(db_err)?;
     let product_ids: Vec<i64> = items
         .iter()
-        .filter_map(|r| r.try_get::<u64>("", "product_id").ok().map(|v| v as i64))
+        .filter_map(|r| r.try_get::<i64>("", "product_id").ok())
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
@@ -354,7 +354,7 @@ async fn assemble_cart(
     // SKU 快照批查
     let sku_ids: Vec<i64> = items
         .iter()
-        .filter_map(|r| r.try_get::<u64>("", "sku_id").ok().map(|v| v as i64))
+        .filter_map(|r| r.try_get::<i64>("", "sku_id").ok())
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
@@ -389,8 +389,8 @@ async fn assemble_cart(
         .iter()
         .map(|r| {
             let id = r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0);
-            let pid = r.try_get::<u64>("", "product_id").map(|v| v as i64).unwrap_or(0);
-            let sid = r.try_get::<u64>("", "sku_id").ok().map(|v| v as i64);
+            let pid = r.try_get::<i64>("", "product_id").unwrap_or(0);
+            let sid = r.try_get::<i64>("", "sku_id").ok();
             CartItemDto {
                 id,
                 product_id: pid,
@@ -464,7 +464,7 @@ pub async fn update_item(
         .await
         .map_err(db_err)?
         .ok_or(trading(404603))?;
-    if let Some(sku_id) = item.try_get::<u64>("", "sku_id").ok().map(|v| v as i64) {
+    if let Some(sku_id) = item.try_get::<i64>("", "sku_id").ok() {
         let stock = get_sku(db, sku_id).await?.and_then(|s| s.stock).unwrap_or(0);
         if qty > stock {
             let mut e = trading(409601);

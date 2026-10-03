@@ -83,3 +83,18 @@ impl axum::extract::FromRef<FxState> for identity::security::JwtProvider {
         s.jwt.clone()
     }
 }
+
+/// store 侧公开只读:Java 契约 GET /api/store/exchange-rates(下单锁汇取服务端汇率,无鉴权)。
+pub async fn store_list(State(state): State<SharedState>) -> Response {
+    match svc::list(&state.biz_db).await {
+        Ok(items) => ok_json(json!({ "items": items })),
+        Err(e) => err_resp(e),
+    }
+}
+
+pub fn store_router(state: SharedState) -> axum::Router {
+    use axum::routing::get;
+    axum::Router::new()
+        .route("/api/store/exchange-rates", get(store_list))
+        .with_state(state)
+}

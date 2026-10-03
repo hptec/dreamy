@@ -107,11 +107,12 @@ fn unauthorized_zh() -> Response {
 }
 
 /// 权限校验(对齐 Java @RequirePermission:实时查,变更下一请求生效)
-async fn require_permission(
+pub async fn require_permission(
     st: &SharedState,
-    admin_id: i64,
+    admin: &AuthedAdmin,
     perm: &str,
 ) -> Result<(), Box<Response>> {
+    let admin_id = admin_id_of(admin);
     let keys = permissions::resolve(st, admin_id)
         .await
         .map_err(|e| Box::new(svc_err_resp("identity/admin/permission_check", e)))?;
@@ -259,7 +260,7 @@ async fn list_admins(
     State(st): State<AdminState>,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     let page: u64 = q.get("page").and_then(|v| v.parse().ok()).unwrap_or(1);
@@ -296,7 +297,7 @@ async fn create_admin(
     headers: HeaderMap,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -349,7 +350,7 @@ async fn update_admin(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -391,7 +392,7 @@ async fn delete_admin(
     headers: HeaderMap,
     Path(id): Path<i64>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     match admin_ops::delete_admin(&st.shared, id, admin_id_of(&authed)).await {
@@ -419,7 +420,7 @@ async fn toggle_admin_status(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -467,7 +468,7 @@ async fn reset_password(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/admins").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/admins").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -502,7 +503,7 @@ async fn reset_password(
 // ══════════ roles ══════════
 
 async fn list_roles(authed: AuthedAdmin, State(st): State<AdminState>) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/roles").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/roles").await {
         return *r;
     }
     match admin_ops::list_roles(&st.shared).await {
@@ -524,7 +525,7 @@ async fn create_role(
     headers: HeaderMap,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/roles").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/roles").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -569,7 +570,7 @@ async fn update_role(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/roles").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/roles").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -610,7 +611,7 @@ async fn delete_role(
     headers: HeaderMap,
     Path(id): Path<i64>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/roles").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/roles").await {
         return *r;
     }
     match admin_ops::delete_role(&st.shared, id).await {
@@ -653,7 +654,7 @@ async fn list_users(
     State(st): State<AdminState>,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/customers").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/customers").await {
         return *r;
     }
     let page: u64 = q.get("page").and_then(|v| v.parse().ok()).unwrap_or(1);
@@ -711,7 +712,7 @@ async fn get_user_detail(
     State(st): State<AdminState>,
     Path(id): Path<i64>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/customers").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/customers").await {
         return *r;
     }
     match admin_ops::user_detail(&st.shared, id, 20).await {
@@ -746,7 +747,7 @@ async fn toggle_user_status(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/customers").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/customers").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -795,7 +796,7 @@ async fn force_logout(
     Path(id): Path<i64>,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/customers").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/customers").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -834,7 +835,7 @@ async fn force_logout(
 // ══════════ auth-config ══════════
 
 async fn get_auth_config(authed: AuthedAdmin, State(st): State<AdminState>) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/auth").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/auth").await {
         return *r;
     }
     match authconfig::get(&st.shared).await {
@@ -864,7 +865,7 @@ async fn update_auth_config(
     headers: HeaderMap,
     body: Option<Json<serde_json::Value>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/auth").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/auth").await {
         return *r;
     }
     let Some(Json(v)) = body else {
@@ -938,7 +939,7 @@ async fn list_operation_logs(
     State(st): State<AdminState>,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/logs").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/logs").await {
         return *r;
     }
     let page: u64 = q.get("page").and_then(|v| v.parse().ok()).unwrap_or(1);
@@ -984,7 +985,7 @@ async fn export_operation_logs(
     State(st): State<AdminState>,
     axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    if let Err(r) = require_permission(&st.shared, admin_id_of(&authed), "/system/logs").await {
+    if let Err(r) = require_permission(&st.shared, &authed, "/system/logs").await {
         return *r;
     }
     // from/to 必传且跨度 ≤92 天(对齐 Java AuditService)

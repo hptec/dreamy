@@ -132,7 +132,7 @@ pub async fn confirm_stub_payment(
 }
 
 /// 序号源(Redis 不可用降级随机 4 位;uk_refund_no 兜底)
-fn next_seq(db: &DatabaseConnection, date: &str) -> i64 {
+pub(crate) fn next_seq(db: &DatabaseConnection, date: &str) -> i64 {
     // 简化:迁移期直接用 MAX+1 语义不可靠,此处用随机(uk 兜底重试由调用方)
     // 真实 INCR 接线在 Redis helper 迁移时统一
     use rand::Rng;

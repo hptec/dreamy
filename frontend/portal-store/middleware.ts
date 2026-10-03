@@ -45,7 +45,7 @@ export function middleware(request: NextRequest) {
       pathname.startsWith('/api/store/auth/') || pathname.startsWith('/api/store/account/')
     const base = isIdentity
       ? process.env.SERVER_ORIGIN || 'http://localhost:18082'
-      : process.env.BACKEND_ORIGIN || 'http://localhost:18081'
+      : process.env.BACKEND_ORIGIN || 'http://localhost:18082'
     const target = new URL(pathname + search, base)
     return NextResponse.rewrite(target)
   }

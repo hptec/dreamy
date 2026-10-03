@@ -50,22 +50,26 @@ pub async fn find_user_id_by_provider(
     Ok(user_id)
 }
 
-/// 同邮箱既有主账号(路由表两跳;排除匿名化——其 email 已 NULL 天然排除)
+/// 同邮箱既有主账号(路由表两跳;排除匿名化——其 email 已 NULL 天然排除)。
+/// 兜底:主档 user.email 直查——OIDC 建号用户无 identity_email 路由行,
+/// 缺此兜底会让邮箱 OTP 登录为既有用户创建重复账号(P0,2026-10-02 实测)。
 pub async fn find_user_by_email(
     state: &SharedState,
     email: &str,
 ) -> Result<Option<user::Model>, SvcError> {
-    use sea_orm::EntityTrait as _;
-    let Ok(route) = crate::entity::identity_email::Entity::find_by_id(normalize(email))
+    use sea_orm::{ColumnTrait as _, EntityTrait as _, QueryFilter as _};
+    let normalized = normalize(email);
+    if let Some(route) = crate::entity::identity_email::Entity::find_by_id(&normalized)
         .one(&state.db)
-        .await
-    else {
-        return Ok(None);
-    };
-    let Some(route) = route else { return Ok(None) };
-    Ok(user::Entity::find_by_id(route.user_id)
+        .await?
+    {
+        return Ok(user::Entity::find_by_id(route.user_id).one(&state.db).await?);
+    }
+    let found = user::Entity::find()
+        .filter(user::Column::Email.eq(normalized))
         .one(&state.db)
-        .await?)
+        .await?;
+    Ok(found)
 }
 
 /// FLOW 登录归并主入口(v2.2:路由表 + 主档 + 档案三写同事务)

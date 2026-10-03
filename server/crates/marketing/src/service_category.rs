@@ -19,6 +19,11 @@ pub mod cat_err {
     pub const PRODUCT_NOT_FOUND: i32 = 404501;
     pub const CATEGORY_NOT_FOUND: i32 = 404502;
     pub const ATTRIBUTE_SET_NOT_FOUND: i32 = 404503;
+    // 商品写侧(E-CAT-09/11/12 + API-CAT-01):对齐 CatalogErrorCode 码表
+    pub const SLUG_EXISTS: i32 = 409501;
+    pub const SKU_CODE_EXISTS: i32 = 409504;
+    pub const PRODUCT_VERSION_CONFLICT: i32 = 409508;
+    pub const PRODUCT_NOT_DELETABLE: i32 = 409509;
     pub const CATEGORY_HAS_PRODUCTS: i32 = 409502;
     pub const COLLECTION_GROUP_IN_USE: i32 = 409506;
     pub const CATEGORY_LEVEL_EXCEEDED: i32 = 409505;
@@ -28,6 +33,7 @@ pub mod cat_err {
         match code {
             404501 | 404502 | 404503 | 404906 | 404601 | 404602 | 404603 | 404604 | 404605 | 404907 => 404,
             404701 => 404,
+            409501 | 409504 | 409508 | 409509 => 409,
             409502 | 409505 | 409506 | 409507 => 409,
             409601 | 409602 | 409603 | 409604 | 409605 => 409,
             409905 | 409906 | 409907 | 409908 | 409909 => 409,

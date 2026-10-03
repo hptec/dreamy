@@ -1,4 +1,4 @@
-//! flashsale REST 层:admin CRUD。
+//! flashsale REST 层:admin CRUD + store 活动列表(E-MKT-09 匿名公开)。
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -60,6 +60,29 @@ pub async fn remove(State(state): State<SharedState>, _a: AuthedAdmin, Path(id):
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => err_resp(e),
     }
+}
+
+/// GET /api/store/promotions/flash-sales(E-MKT-09 匿名公开白名单;响应 no-store)
+pub async fn store_list(State(state): State<SharedState>) -> Response {
+    match svc::store_list(&state.biz_db).await {
+        Ok(items) => (
+            StatusCode::OK,
+            [(axum::http::header::CACHE_CONTROL, "no-store")],
+            Json(json!({"code": 0, "message": null, "service_id": null, "data": { "items": items }})),
+        )
+            .into_response(),
+        Err(e) => err_resp(e),
+    }
+}
+
+/// store 路由(匿名公开,无 JWT 消费;对齐 Java 白名单精确路径)
+pub fn store_router(state: SharedState) -> axum::Router {
+    axum::Router::new()
+        .route(
+            "/api/store/promotions/flash-sales",
+            axum::routing::get(store_list),
+        )
+        .with_state(state)
 }
 
 pub fn admin_router(state: SharedState, jwt: identity::security::JwtProvider) -> axum::Router {

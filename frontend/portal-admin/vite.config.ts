@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
-// portal-admin（端口 5174，中文）。dev 代理 /api → backend:18081，避免本地 CORS 摩擦；
+// portal-admin（端口 5174，中文）。dev 代理 /api → Rust server:18082，避免本地 CORS 摩擦；
+// （Java backend 18081 已于 Phase B 退役，全部 /api 由 Rust 承载）
 // 生产构建仍走 VITE_API_BASE_URL（默认相对路径，由反代统一前缀 /api）。
 // MF-L4S-002：dev/preview 本地下发安全响应头；生产托管层（反代/CDN）需同步配置同等响应头。
 const securityHeaders = {
@@ -35,8 +36,8 @@ export default defineConfig({
       host: 'localhost'
     },
     headers: securityHeaders,
-    // dev 代理分流(与 nginx/gateway.conf.template 口径一致):
-    // admin 身份域端点 → Rust server(18082),其余 /api → backend(18081)。
+    // dev 代理分流:全部 /api → Rust server(18082)。
+    // 身份域六条显式规则保留(历史可读性),其余 /api 兜底同指 18082——18081 已随 Java 退役失效。
     // 对象键按序匹配,长前缀在前,兜底 '/api' 殿后。
     proxy: {
       '/api/admin/auth': {
@@ -64,7 +65,7 @@ export default defineConfig({
         changeOrigin: true
       },
       '/api': {
-        target: 'http://localhost:18081',
+        target: 'http://localhost:18082',
         changeOrigin: true
       }
     }

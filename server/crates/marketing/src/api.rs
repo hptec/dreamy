@@ -38,7 +38,7 @@ pub async fn subscribe(
     Json(req): Json<NewsletterRequest>,
 ) -> Response {
     let cfg = marketing_config(&state);
-    match service::subscribe(&state.db, req.email.as_deref(), req.source, req.locale.as_deref()).await {
+    match service::subscribe(&state.biz_db, req.email.as_deref(), req.source, req.locale.as_deref()).await {
         Ok(()) => (StatusCode::OK, Json(json!({"code": 0, "message": null, "service_id": null, "data": {"subscribed": true}}))).into_response(),
         Err(errors) => field_validation_422(errors, SITE_NEWSLETTER_SUBSCRIBE, cfg),
     }
@@ -55,7 +55,7 @@ pub async fn unsubscribe(
     Json(req): Json<UnsubscribeRequest>,
 ) -> Response {
     let cfg = marketing_config(&state);
-    match service::unsubscribe(&state.db, &cfg.unsubscribe_secret, req.token.as_deref()).await {
+    match service::unsubscribe(&state.biz_db, &cfg.unsubscribe_secret, req.token.as_deref()).await {
         Ok(()) => (StatusCode::OK, Json(json!({"code": 0, "message": null, "service_id": null, "data": {"unsubscribed": true}}))).into_response(),
         Err(UnsubscribeError::InvalidToken) => {
             let mut fe = FieldErrors::default();
@@ -80,7 +80,7 @@ pub async fn submit_contact(
     Json(req): Json<ContactRequest>,
 ) -> Response {
     match service::submit_contact(
-        &state.db,
+        &state.biz_db,
         req.name.as_deref(),
         req.email.as_deref(),
         req.subject.as_deref(),

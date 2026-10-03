@@ -71,15 +71,19 @@ fn availability_reason(
     None
 }
 
-/// 减免计算:DISCOUNT(百分比)/FIXED_AMOUNT(金额取小)/FREE_SHIPPING(0+标记)
+/// 减免计算:DISCOUNT(百分比)/FIXED_AMOUNT(金额取小)/FREE_SHIPPING(0+标记)。
+/// value 格式对齐 Java CouponValueParser(DEC-MKT-4):`^\\d{1,3}% OFF$` /`^\\$\\d+(\\.\\d{1,2})? OFF$`;
+/// 兼容存量裸格式("10%"/"50.00");不可解析 → None(CV-MKT-009 脏数据防御)
 fn compute_discount(c_type: i64, value: &str, subtotal_usd: f64) -> Option<(f64, bool)> {
     match c_type {
         1 => {
-            let pct: f64 = value.trim().trim_end_matches('%').parse().ok()?;
+            let v = value.trim().strip_suffix(" OFF").unwrap_or(value.trim());
+            let pct: f64 = v.trim().trim_end_matches('%').parse().ok()?;
             Some((round2(subtotal_usd * pct / 100.0), false))
         }
         2 => {
-            let amt: f64 = value.parse().ok()?;
+            let v = value.trim().strip_suffix(" OFF").unwrap_or(value.trim());
+            let amt: f64 = v.trim().trim_start_matches('$').parse().ok()?;
             Some((round2(amt.min(subtotal_usd)), false))
         }
         3 => Some((0.0, true)),
@@ -154,6 +158,70 @@ pub async fn validate(
         free_shipping,
         reason_code: None,
     })
+}
+
+/// E-MKT-10 store validate(200 + quote 形态;仅请求格式错误由 api 层抛 422704)。
+/// wire 对齐 Java CouponValidateResponse{valid,reason_code,discount_amount,free_shipping,coupon}:
+/// 券不存在 → coupon=null(不泄露码表,STEP-MKT-05);存在则即使不可用也回显 brief(MAP-MKT-010,
+/// 不暴露 used_count/total_limit/状态)。name 取 EN 基准(coupon_translation 随多语言批接入)。
+pub async fn store_validate(
+    db: &DatabaseConnection,
+    code: &str,
+    subtotal_usd: f64,
+) -> Result<Value, CatalogError> {
+    let normalized = code.trim().to_uppercase();
+    let row = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::MySql,
+            "SELECT id, code, name, type, value, min_amount, total_limit, used_count, start_at, end_at, status FROM coupon WHERE code = ?",
+            [normalized.into()],
+        ))
+        .await
+        .map_err(db_err)?;
+    let Some(r) = row else {
+        return Ok(serde_json::json!({
+            "valid": false, "reason_code": COUPON_INVALID,
+            "discount_amount": null, "free_shipping": false, "coupon": null,
+        }));
+    };
+    let coupon = serde_json::json!({
+        "id": r.try_get::<u64>("", "id").map(|v| v as i64).unwrap_or(0),
+        "type": r.try_get::<i64>("", "type").unwrap_or(1),
+        "value": r.try_get::<String>("", "value").unwrap_or_default(),
+        "min_amount": crate::cart::dec(&r, "min_amount").unwrap_or(0.0),
+        "total_limit": r.try_get::<i64>("", "total_limit").unwrap_or(0),
+        "used_count": r.try_get::<i64>("", "used_count").unwrap_or(0),
+        "start_at": r.try_get::<String>("", "start_at").ok(),
+        "end_at": r.try_get::<String>("", "end_at").ok(),
+        "status": r.try_get::<i64>("", "status").unwrap_or(1),
+    });
+    let brief = serde_json::json!({
+        "code": r.try_get::<String>("", "code").unwrap_or_default(),
+        "name": r.try_get::<String>("", "name").unwrap_or_default(),
+        "type": r.try_get::<i64>("", "type").unwrap_or(1),
+        "value": r.try_get::<String>("", "value").ok(),
+        "min_amount": crate::cart::dec(&r, "min_amount").unwrap_or(0.0),
+    });
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    if let Some(reason) = availability_reason(Some(&coupon), subtotal_usd, &now) {
+        return Ok(serde_json::json!({
+            "valid": false, "reason_code": reason,
+            "discount_amount": null, "free_shipping": false, "coupon": brief,
+        }));
+    }
+    let c_type = coupon["type"].as_i64().unwrap_or(1);
+    let value = coupon["value"].as_str().unwrap_or_default();
+    let Some((discount, free_shipping)) = compute_discount(c_type, value, subtotal_usd) else {
+        // CV-MKT-009 存量脏数据防御:解析失败按 422701 处置
+        return Ok(serde_json::json!({
+            "valid": false, "reason_code": COUPON_INVALID,
+            "discount_amount": null, "free_shipping": false, "coupon": brief,
+        }));
+    };
+    Ok(serde_json::json!({
+        "valid": true, "reason_code": null,
+        "discount_amount": discount, "free_shipping": free_shipping, "coupon": brief,
+    }))
 }
 
 /// redeem(下单事务内 CAS;防 TOCTOU 复跑判定)
@@ -276,8 +344,12 @@ mod tests {
     #[test]
     fn discount_calculation_by_type() {
         assert_eq!(compute_discount(1, "10%", 1280.0), Some((128.0, false)));
+        assert_eq!(compute_discount(1, "10% OFF", 1280.0), Some((128.0, false)), "DEC-MKT-4 Java 格式");
         assert_eq!(compute_discount(2, "50.00", 100.0), Some((50.0, false)), "FIXED 取小");
+        assert_eq!(compute_discount(2, "$50 OFF", 100.0), Some((50.0, false)), "DEC-MKT-4 Java 格式");
         assert_eq!(compute_discount(2, "50.00", 30.0), Some((30.0, false)));
         assert_eq!(compute_discount(3, "", 100.0), Some((0.0, true)));
+        assert_eq!(compute_discount(3, "Free Shipping", 100.0), Some((0.0, true)));
+        assert_eq!(compute_discount(1, "Free Shipping", 100.0), None, "脏数据防御");
     }
 }

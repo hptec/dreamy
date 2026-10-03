@@ -4,12 +4,13 @@
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use common::error::{BizError, ErrorCode, R};
 use common::i18n::Locale;
 use common::state::SharedState;
-use serde_json::json;
+use serde_json::{json, Value};
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 use super::StoreState;
 use crate::security::{JwtProvider, StoreClaims};
@@ -23,6 +24,8 @@ pub fn router(state: SharedState, jwt: JwtProvider) -> Router {
         .route("/identities/bind", post(bind_identity))
         .route("/identities/{identity_id}", delete(unbind_identity))
         .route("/email/change-primary", post(change_primary_email))
+        .route("/guide-progress", get(guide_progress_list))
+        .route("/guide-progress/{guide_id}", put(guide_progress_replace))
         .route("/delete", post(delete_account))
         .with_state(StoreState { shared: state, jwt })
 }
@@ -30,6 +33,13 @@ pub fn router(state: SharedState, jwt: JwtProvider) -> Router {
 /// 鉴权 extractor:Bearer JWT 本地验签 + Redis 主存会话校验(40100 短路体对齐 Java 过滤器)
 pub struct AuthedUser {
     pub claims: StoreClaims,
+}
+
+impl AuthedUser {
+    /// subject 即 customer_id;非数字视为非法令牌(调用方应回 401,而非静默置 0)
+    pub fn customer_id(&self) -> Option<i64> {
+        self.claims.sub.parse().ok()
+    }
 }
 
 impl<S> FromRequestParts<S> for AuthedUser
@@ -64,6 +74,11 @@ where
         if claims.refresh {
             return Err(unauthorized_body());
         }
+        // subject 不变量:必须是数字 customer_id。非法令牌在此短路,
+        // 防止下游 handlers 静默挂到 customer 0(Java StoreAuth 语义对齐)
+        if claims.sub.parse::<i64>().is_err() {
+            return Err(unauthorized_body());
+        }
         match session::validate_store(&st, &claims.jti).await {
             Ok(true) => Ok(AuthedUser { claims }),
             _ => Err(unauthorized_body()),
@@ -72,7 +87,7 @@ where
 }
 
 /// 过滤器级 401 短路体(硬编码英文 message,无 data 字段——Java 契约原样)
-fn unauthorized_body() -> Response {
+pub fn unauthorized_body() -> Response {
     let body = json!({"code": 40100, "message": "Authentication required"});
     let mut resp = Json(body).into_response();
     *resp.status_mut() = axum::http::StatusCode::UNAUTHORIZED;
@@ -337,5 +352,157 @@ async fn delete_account(
     match crate::service::account::delete_account(&st.shared, user_id(&authed.claims)).await {
         Ok(()) => Json(R::<serde_json::Value>::ok(None)).into_response(),
         Err(e) => to_resp("identity/account/delete", locale, e),
+    }
+}
+
+// ══════════ guide-progress(Java StoreGuideProgressController + UserGuideTaskService 移植) ══════════
+
+fn validation_body(field: &str, reason: &str) -> Response {
+    let body = json!({
+        "code": 422501,
+        "message": null,
+        "service_id": null,
+        "data": {"fields": {field: reason}}
+    });
+    let mut resp = Json(body).into_response();
+    *resp.status_mut() = axum::http::StatusCode::UNPROCESSABLE_ENTITY;
+    resp
+}
+
+fn db_error_body() -> Response {
+    let body = json!({"code": 50000, "message": "Something went wrong, please try again"});
+    Json(body).into_response()
+}
+
+async fn guide_progress_map(biz_db: &sea_orm::DatabaseConnection, uid: i64) -> Result<serde_json::Map<String, Value>, sea_orm::DbErr> {
+    let rows = biz_db
+        .query_all(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::MySql,
+            "SELECT guide_id, task_id FROM user_guide_task WHERE user_id = ? ORDER BY guide_id, task_id",
+            [uid.into()],
+        ))
+        .await?;
+    let mut map = serde_json::Map::new();
+    for r in rows.iter() {
+        let gid = r.try_get::<u64>("", "guide_id").map(|v| v as i64).unwrap_or(0);
+        let tid = r.try_get::<u64>("", "task_id").map(|v| v as i64).unwrap_or(0);
+        let entry = map.entry(gid.to_string()).or_insert_with(|| Value::Array(Vec::new()));
+        if let Some(arr) = entry.as_array_mut() {
+            arr.push(json!(tid));
+        }
+    }
+    Ok(map)
+}
+
+/// GET /api/store/account/guide-progress → Map<guideId, [taskId]>
+async fn guide_progress_list(authed: AuthedUser, State(st): State<StoreState>) -> Response {
+    let uid = user_id(&authed.claims);
+    match guide_progress_map(&st.shared.biz_db, uid).await {
+        Ok(map) => Json(R::ok(Some(Value::Object(map)))).into_response(),
+        Err(e) => {
+            tracing::error!("[account] guide progress list failed:{e}");
+            db_error_body()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct ProgressBody {
+    #[serde(default, alias = "taskIds")]
+    pub task_ids: Option<Vec<i64>>,
+}
+
+/// PUT /api/store/account/guide-progress/{guideId}(整体替换该指南的勾选;task 须为已发布指南任务)
+async fn guide_progress_replace(
+    authed: AuthedUser,
+    State(st): State<StoreState>,
+    Path(guide_id): Path<i64>,
+    Json(req): Json<ProgressBody>,
+) -> Response {
+    use std::collections::BTreeSet;
+    let uid = user_id(&authed.claims);
+    // Java:distinct + limit 50(静默截断)
+    let tasks: Vec<i64> = req
+        .task_ids
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|v| *v > 0)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .take(50)
+        .collect();
+    // 校验:全部 task 必须属于该已发布指南的 guide_task 集合
+    let id_list = tasks.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(",");
+    let valid = if tasks.is_empty() {
+        Some(true)
+    } else {
+        let expected = tasks.len() as u64;
+        st.shared
+            .biz_db
+            .query_one(sea_orm::Statement::from_string(
+                sea_orm::DatabaseBackend::MySql,
+                format!(
+                    "SELECT COUNT(*) AS n FROM guide_task WHERE guide_id = {guide_id} AND id IN ({id_list})"
+                ),
+            ))
+            .await
+            .ok()
+            .flatten()
+            .and_then(|r| r.try_get::<u64>("", "n").ok())
+            .map(|n| n == expected)
+    };
+    match valid {
+        None => {
+            tracing::error!("[account] guide task validate failed:db error");
+            db_error_body()
+        }
+        Some(false) => validation_body("task_ids", "invalid_task_id"),
+        Some(true) => {
+            let tx = match st.shared.biz_db.begin().await {
+                Ok(tx) => tx,
+                Err(e) => {
+                    tracing::error!("[account] guide replace tx failed:{e}");
+                    return db_error_body();
+                }
+            };
+            if let Err(e) = tx
+                .execute(sea_orm::Statement::from_sql_and_values(
+                    sea_orm::DatabaseBackend::MySql,
+                    "DELETE FROM user_guide_task WHERE user_id = ? AND guide_id = ?",
+                    [uid.into(), guide_id.into()],
+                ))
+                .await
+            {
+                tracing::error!("[account] guide replace delete failed:{e}");
+                return db_error_body();
+            }
+            for (idx, tid) in tasks.iter().enumerate() {
+                if let Err(e) = tx
+                    .execute(sea_orm::Statement::from_sql_and_values(
+                        sea_orm::DatabaseBackend::MySql,
+                        "INSERT INTO user_guide_task(user_id, guide_id, task_id) VALUES (?,?,?)",
+                        [uid.into(), guide_id.into(), (*tid).into()],
+                    ))
+                    .await
+                {
+                    tracing::error!("[account] guide replace insert failed idx={idx}:{e}");
+                    return db_error_body();
+                }
+            }
+            match tx.commit().await {
+                Ok(()) => {}
+                Err(e) => {
+                    tracing::error!("[account] guide replace commit failed:{e}");
+                    return db_error_body();
+                }
+            }
+            match guide_progress_map(&st.shared.biz_db, uid).await {
+                Ok(map) => Json(R::ok(Some(Value::Object(map)))).into_response(),
+                Err(e) => {
+                    tracing::error!("[account] guide progress reload failed:{e}");
+                    db_error_body()
+                }
+            }
+        }
     }
 }
