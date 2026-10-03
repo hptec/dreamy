@@ -15,7 +15,9 @@ use crate::dashboard as dash;
 use crate::service_category::CatalogError;
 
 fn err_resp(e: CatalogError) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {

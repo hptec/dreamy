@@ -14,7 +14,8 @@ use crate::flashsale as svc;
 use crate::service_category::CatalogError;
 
 fn err_resp(e: CatalogError) -> Response {
-    let status = if e.code == 404702 { StatusCode::NOT_FOUND } else { StatusCode::INTERNAL_SERVER_ERROR };
+    let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
 }
 
