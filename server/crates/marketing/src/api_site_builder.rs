@@ -15,7 +15,7 @@ use crate::site_builder as svc;
 
 fn err_resp(e: CatalogError) -> Response {
     let status = if e.code == 404501 { StatusCode::NOT_FOUND } else { StatusCode::INTERNAL_SERVER_ERROR };
-    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {

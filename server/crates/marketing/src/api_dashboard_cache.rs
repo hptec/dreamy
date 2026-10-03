@@ -17,7 +17,7 @@ use crate::service_category::CatalogError;
 fn err_resp(e: CatalogError) -> Response {
     let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {

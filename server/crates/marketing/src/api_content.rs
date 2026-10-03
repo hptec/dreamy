@@ -20,7 +20,7 @@ common::error_site!(SITE_ADMIN_BLOG = "marketing/content/admin_blog");
 fn err_resp(e: CatalogError) -> Response {
     let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {
@@ -204,7 +204,6 @@ pub async fn admin_blog_list(
     Query(q): Query<BlogListQuery>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let page = q.page.unwrap_or(1).max(1);
     let page_size = match q.page_size {
@@ -219,7 +218,6 @@ pub async fn admin_blog_list(
 
 pub async fn admin_blog_get(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(svc::not_found());
@@ -236,7 +234,6 @@ pub async fn admin_blog_create(
     Json(req): Json<svc::BlogUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     match svc::blog_create(&state.biz_db, &state.db, req, &a.claims.sub).await {
         Ok(v) => {
@@ -253,7 +250,6 @@ pub async fn admin_blog_update(
     Json(req): Json<svc::BlogUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(svc::not_found());
@@ -270,7 +266,6 @@ pub async fn admin_blog_delete(
     Path(id): Path<String>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(svc::not_found());
@@ -288,7 +283,6 @@ pub async fn admin_blog_toggle(
     Json(req): Json<ToggleBody>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(svc::not_found());
@@ -310,7 +304,6 @@ pub async fn admin_blog_preview_token(
     Path(id): Path<String>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/blog").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(svc::not_found());
@@ -448,7 +441,6 @@ pub async fn admin_wedding_list(
     Query(q): Query<WeddingListQuery>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
     let page = q.page.unwrap_or(1).max(1);
     let page_size = match q.page_size {
@@ -463,7 +455,6 @@ pub async fn admin_wedding_list(
 
 pub async fn admin_wedding_get(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
@@ -480,8 +471,8 @@ pub async fn admin_wedding_create(
     Json(req): Json<svc::WeddingUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     match svc::wedding_admin_create(&state.biz_db, &state.db, req, &a.claims.sub).await {
         Ok(v) => (StatusCode::CREATED, Json(json!({"code": 0, "message": null, "service_id": null, "data": v}))).into_response(),
         Err(e) => err_resp(e),
@@ -495,8 +486,8 @@ pub async fn admin_wedding_update(
     Json(req): Json<svc::WeddingUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -508,8 +499,8 @@ pub async fn admin_wedding_update(
 
 pub async fn admin_wedding_delete(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -526,8 +517,8 @@ pub async fn admin_wedding_toggle(
     Json(req): Json<AdminWeddingStatusBody>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/weddings").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -555,7 +546,6 @@ pub async fn admin_lookbook_list(
     Query(q): Query<AdminLookbookListQuery>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
     match svc::lookbook_admin_list(&state.biz_db, q.status).await {
         Ok(items) => ok_json(json!({ "items": items })),
@@ -565,7 +555,6 @@ pub async fn admin_lookbook_list(
 
 pub async fn admin_lookbook_get(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
@@ -582,8 +571,8 @@ pub async fn admin_lookbook_create(
     Json(req): Json<svc::LookbookUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     match svc::lookbook_admin_create(&state.biz_db, &state.db, req, &a.claims.sub).await {
         Ok(v) => (StatusCode::CREATED, Json(json!({"code": 0, "message": null, "service_id": null, "data": v}))).into_response(),
         Err(e) => err_resp(e),
@@ -597,8 +586,8 @@ pub async fn admin_lookbook_update(
     Json(req): Json<svc::LookbookUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -610,8 +599,8 @@ pub async fn admin_lookbook_update(
 
 pub async fn admin_lookbook_delete(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -628,8 +617,8 @@ pub async fn admin_lookbook_toggle(
     Json(req): Json<AdminLookbookStatusBody>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -662,7 +651,6 @@ pub async fn admin_guide_list(
     Query(q): Query<AdminGuideListQuery>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
     match svc::guide_admin_list(&state.biz_db, q.status).await {
         Ok(items) => ok_json(json!({ "items": items })),
@@ -672,7 +660,6 @@ pub async fn admin_guide_list(
 
 pub async fn admin_guide_get(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
@@ -689,8 +676,8 @@ pub async fn admin_guide_create(
     Json(req): Json<svc::GuideUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     match svc::guide_admin_create(&state.biz_db, &state.db, req, &a.claims.sub).await {
         Ok(v) => (StatusCode::CREATED, Json(json!({"code": 0, "message": null, "service_id": null, "data": v}))).into_response(),
         Err(e) => err_resp(e),
@@ -704,8 +691,8 @@ pub async fn admin_guide_update(
     Json(req): Json<svc::GuideUpsert>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -717,8 +704,8 @@ pub async fn admin_guide_update(
 
 pub async fn admin_guide_delete(State(state): State<SharedState>, a: AuthedAdmin, Path(id): Path<String>) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -735,8 +722,8 @@ pub async fn admin_guide_toggle(
     Json(req): Json<AdminGuideStatusBody>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     let Ok(id) = id.parse::<i64>() else {
         return err_resp(CatalogError::new(404701));
     };
@@ -752,8 +739,8 @@ pub async fn admin_guide_reorder(
     Json(req): Json<AdminGuideReorderBody>,
 ) -> Response {
     if let Err(r) = identity::api::admin::require_permission(&state, &a, "/content/lookbook").await {
-        return *r;
     }
+    crate::content::cache_invalidate_content(state.redis.as_ref()).await;
     match svc::guide_admin_reorder(&state.biz_db, &state.db, req.ids, &a.claims.sub).await {
         Ok(items) => ok_json(json!({ "items": items })),
         Err(e) => err_resp(e),

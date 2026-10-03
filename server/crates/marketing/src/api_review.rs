@@ -28,7 +28,7 @@ fn err_resp(e: CatalogError) -> Response {
         else if e.code == 409801 { StatusCode::CONFLICT }
         else if e.code == 422801 { StatusCode::UNPROCESSABLE_ENTITY }
         else { status };
-    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {

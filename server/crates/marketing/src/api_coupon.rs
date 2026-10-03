@@ -20,7 +20,7 @@ fn ok_json(v: Value) -> Response {
 fn err_resp(e: CatalogError) -> Response {
     let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
         .unwrap_or(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-    (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 /// E-MKT-10 请求体(V-MKT-007/008;前端 body {code, subtotal},subtotal USD 基准)
@@ -82,7 +82,7 @@ pub async fn admin_list(State(state): State<SharedState>, _a: AuthedAdmin) -> Re
         Err(e) => {
             let status = axum::http::StatusCode::from_u16(svc::http_status_coupon(e.code))
                 .unwrap_or(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
-            (status, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+            (status, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
         }
     }
 }

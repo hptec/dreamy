@@ -2101,13 +2101,28 @@ pub async fn cache_set_json(
 pub async fn cache_invalidate_content(redis: Option<&redis::aio::ConnectionManager>) {
     if let Some(conn) = redis {
         let mut conn = conn.clone();
-        let keys: Result<Vec<String>, _> = redis::cmd("KEYS")
-            .arg("mkt:content:*")
-            .query_async(&mut conn)
-            .await;
-        if let Ok(ks) = keys {
-            for k in ks {
-                let _: Result<(), _> = redis::cmd("DEL").arg(&k).query_async(&mut conn).await;
+        // SCAN(迭代式,不阻塞 Redis)+ UNLINK(异步删除)——禁用 KEYS/DEL(O(N) 阻塞单线程)
+        let mut cursor: u64 = 0;
+        loop {
+            let scan: Result<(u64, Vec<String>), _> = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg("mkt:content:*")
+                .arg("COUNT")
+                .arg(200)
+                .query_async(&mut conn)
+                .await;
+            match scan {
+                Ok((next, keys)) => {
+                    if !keys.is_empty() {
+                        let _: Result<(), _> = redis::cmd("UNLINK").arg(&keys).query_async(&mut conn).await;
+                    }
+                    cursor = next;
+                    if cursor == 0 {
+                        break;
+                    }
+                }
+                Err(_) => break,
             }
         }
     }

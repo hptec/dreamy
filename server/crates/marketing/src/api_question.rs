@@ -17,7 +17,7 @@ use crate::question as svc;
 use crate::service_category::CatalogError;
 
 fn err_resp(e: CatalogError) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"code": e.code, "message": null, "service_id": null, "data": e.details}))).into_response()
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details}))).into_response()
 }
 
 fn ok_json(v: Value) -> Response {

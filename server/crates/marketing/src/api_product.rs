@@ -22,7 +22,7 @@ common::error_site!(SITE_STORE_RECOMMENDATIONS = "catalog/product/store_recommen
 fn err_resp(e: CatalogError) -> Response {
     let status = axum::http::StatusCode::from_u16(crate::service_category::cat_err::http_status(e.code))
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    let body = json!({"code": e.code, "message": null, "service_id": null, "data": e.details});
+    let body = json!({"code": e.code, "message": common::i18n::message(e.code, common::i18n::Locale::Zh), "service_id": null, "data": e.details});
     (status, Json(body)).into_response()
 }
 
